@@ -2,6 +2,9 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.25  1996/05/24 18:57:40  dstotler
+% Add calls to define sector_solid material and temperature.
+%
 % Revision 1.24  1996/03/01 20:33:39  dstotler
 % Assign sector_solid material and temperature.
 %
@@ -312,9 +315,9 @@ end
 
       character*LINELEN line,keyword
       logical complete,vacuum
-      real x[2,0:5000],xmin,xmax,zmin,zmax,vol,vola
+      real xmin,xmax,zmin,zmax,vol,vola,vol_test
       real mindensity,minx,minz
-      real rm[mx,my,0:4],zm[mx,my,0:4]
+      real rm[mx,my,0:4],zm[mx,my,0:4],x_test[2,0:4]
       real min_corner[3],max_corner[3]
       ptr_decl(polygon_x)
       real polygon_x[xz_index,0:num_points-1,*]
@@ -481,6 +484,11 @@ loop2: continue
          polygon_stratum[num_polygon]=current_stratum
          polygon_material[num_polygon]=current_material
          call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+         if (zn_volume(zone) == zero) then
+            call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+         else
+            call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
+         end if
          zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
       elseif (keyword == 'wall') then
          assert(next_token(line,b,e,p))
@@ -585,6 +593,31 @@ loop3:   continue
                   plot(j1:j1)='z'
                   goto skip
                endif
+               if (grid_sense == 1) then
+                  x_test[1,0]=gridx(j1,j2,1)
+                  x_test[2,0]=gridz(j1,j2,1)
+                  x_test[1,1]=gridx(j1+1,j2,1)
+                  x_test[2,1]=gridz(j1+1,j2,1)
+                  x_test[1,2]=gridx(j1+1,j2+1,1)
+                  x_test[2,2]=gridz(j1+1,j2+1,1)
+                  x_test[1,3]=gridx(j1,j2+1,1) 
+                  x_test[2,3]=gridz(j1,j2+1,1)
+               else if (grid_sense == 2) then
+                  x_test[1,0]=gridx(j1,j2,1) 
+                  x_test[2,0]=gridz(j1,j2,1)
+                  x_test[1,1]=gridx(j1,j2+1,1) 
+                  x_test[2,1]=gridz(j1,j2+1,1)
+                  x_test[1,2]=gridx(j1+1,j2+1,1) 
+                  x_test[2,2]=gridz(j1+1,j2+1,1)
+                  x_test[1,3]=gridx(j1+1,j2,1) 
+                  x_test[2,3]=gridz(j1+1,j2,1)
+               else 
+                  assert('Unexpected value of grid sense' == ' ')
+               end if
+               x_test[1,4]=x_test[1,0]
+               x_test[2,4]=x_test[2,0]
+               vol_test=polygon_volume(4,x_test)
+               if (vol_test <= epsilon) goto skip
 /*
                write(stdout,'(5f10.4)') gridx(j1,j2,1),gridx(j1,j2+1,1),
      $              gridx(j1+1,j2+1,1),gridx(j1+1,j2,1),gridx(j1,j2,1)
@@ -592,42 +625,23 @@ loop3:   continue
      $              gridz(j1+1,j2+1,1),gridz(j1+1,j2,1),gridz(j1,j2,1)
 */
                zone++
-               n=0
                increment_num_polygon
-               if (grid_sense == 1) then
-                  polygon_x[1,n,num_polygon]=gridx(j1,j2,1)
-                  polygon_x[2,n,num_polygon]=gridz(j1,j2,1); n++
-                  polygon_x[1,n,num_polygon]=gridx(j1+1,j2,1)
-                  polygon_x[2,n,num_polygon]=gridz(j1+1,j2,1); n++
-                  polygon_x[1,n,num_polygon]=gridx(j1+1,j2+1,1)
-                  polygon_x[2,n,num_polygon]=gridz(j1+1,j2+1,1); n++
-                  polygon_x[1,n,num_polygon]=gridx(j1,j2+1,1) 
-                  polygon_x[2,n,num_polygon]=gridz(j1,j2+1,1); n++ 
-               else if (grid_sense == 2) then
-                  polygon_x[1,n,num_polygon]=gridx(j1,j2,1) 
-                  polygon_x[2,n,num_polygon]=gridz(j1,j2,1); n++
-                  polygon_x[1,n,num_polygon]=gridx(j1,j2+1,1) 
-                  polygon_x[2,n,num_polygon]=gridz(j1,j2+1,1); n++
-                  polygon_x[1,n,num_polygon]=gridx(j1+1,j2+1,1) 
-                  polygon_x[2,n,num_polygon]=gridz(j1+1,j2+1,1); n++
-                  polygon_x[1,n,num_polygon]=gridx(j1+1,j2,1) 
-                  polygon_x[2,n,num_polygon]=gridz(j1+1,j2,1); n++ 
-               else 
-                  assert('Unexpected value of grid sense' == ' ')
-               end if
-               polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
-               polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]
-               polygon_points[num_polygon]=n
+               do n=0,4
+                  polygon_x[1,n,num_polygon]=x_test[1,n]
+                  polygon_x[2,n,num_polygon]=x_test[2,n]
+               end do
+               polygon_points[num_polygon]=4
                polygon_zone[num_polygon]=zone
                polygon_stratum[num_polygon]=current_stratum
                polygon_material[num_polygon]=current_material
-               call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+               call decompose_polygon(4,polygon_x[1,0,num_polygon],zone)
                zn_type_set(zone,zn_plasma)
-               zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+               zn_volume(zone)=vol_test
                zn_index(zone,1)=j1
                zn_index(zone,2)=j2
  /* This is only an approximation and assumes that the zone is convex */
-               vc_set(zone_center[zone],half*(x[1,0]+x[1,2]),zero,half*(x[2,0]+x[2,2]))
+               vc_set(zone_center[zone],half*(polygon_x[1,0,num_polygon]+polygon_x[1,2,num_polygon]),zero,half*(polygon_x[2,0,num_polygon]+polygon_x[2,2,num_polygon]))
+               call set_zn_min_max(4,polygon_x[1,0,num_polygon],zone,.true.)
 skip:          continue
               end do
               write(stderr,*) j2,' ',plot(grid_startv:grid_stopv)
@@ -753,6 +767,7 @@ skip:          continue
                zn_index(zone,1)=j1
                zn_index(zone,2)=j2
                vc_set(zone_center[zone],rm[j1,j2,0],zero,zm[j1,j2,0])
+               call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
             enddo
          enddo
 
@@ -889,6 +904,7 @@ skip:          continue
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_type_set(zone,zn_solid)
            zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 /*
    Start from left lower corner of box and to upper left bottom of SOL to 
    lower left bottom of SOL. Cut down from there to bottom of box and then
@@ -918,6 +934,7 @@ skip:          continue
            polygon_material[num_polygon]=current_material
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /*
    Start again at bottom of box and proceed straight up to lower left bottom;
    proceed along PFR to lower right bottom of SOL; go again straight
@@ -949,6 +966,7 @@ skip:          continue
            polygon_material[num_polygon]=current_material
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /*
    Pick up at the bottom of the box and go back up to the lower right bottom
    of the SOL, then go across to the upper right bottom of the SOL, to the
@@ -977,6 +995,7 @@ skip:          continue
            polygon_material[num_polygon]=current_material
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
          
         else
 /* 
@@ -1013,6 +1032,7 @@ skip:          continue
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_type_set(zone,zn_vacuum)
            zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 /* 
    Do top wall //
    Start from left lower corner of box and go clockwise along box till 
@@ -1046,6 +1066,7 @@ skip:          continue
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_type_set(zone,zn_solid)
            zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 /* 
    Bottom wall //
    Start from left lower corner of box, touch the upper wall, go to upper 
@@ -1083,6 +1104,7 @@ skip:          continue
            polygon_material[num_polygon]=current_material
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /*
    Go straight up again to the lower left bottom SOL and proceed to the
    first wall; follow it and then touch the lower right bottom of the
@@ -1114,6 +1136,7 @@ skip:          continue
            polygon_material[num_polygon]=current_material
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /*
    Pick up again at the bottom and return to the lower right bottom of the
    SOL. Follow along the right SOL; at the end, touch the second wall
@@ -1148,6 +1171,7 @@ skip:          continue
            polygon_material[num_polygon]=current_material
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /* 
    Private vacuum region 
 */
@@ -1180,6 +1204,7 @@ skip:          continue
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
            zn_type_set(zone,zn_vacuum)
            zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 
         endif     // Of |vacuum| or |!vacuum|
 
@@ -1233,6 +1258,7 @@ skip:          continue
          endif
 
          zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+         call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 /*
    END OF ``MESH'' KEYWORD SECTION
 */
@@ -1404,7 +1430,7 @@ next_surface continue
 
       return
       end
-         
+
 @ subroutine to read inputs from sonnet file.
 @<Functions ...@>=
       subroutine inpt_sonnet(nu,xmin,xmax,
