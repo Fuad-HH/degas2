@@ -2,6 +2,9 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.27  1998/06/01 15:56:33  karney
+% MPI enabled version.
+%
 % Revision 1.26  1998/05/08 13:50:53  dstotler
 % Update arguments to extract_output_datum. Add "abs" to rel. std. dev.
 % calculation for output_grp as well.
@@ -118,6 +121,7 @@
 @I sources.hweb
 @I tally.hweb
 @I output.hweb
+@I detector.hweb
 @I stat.hweb
 @I netcdf.hweb
 @I readfilenames.hweb
@@ -133,34 +137,15 @@
       mp_common
       implicit_none_f90
       mp_decls
-      integer nflights,nfrag,i
-      character*LINELEN arg
       sy_decls
       st_decls
 
       mpi_init
 
-/* NOTE: nflights now coming in through source class! */
-
-      nflights=100000
-      nfrag=-1
-      
-@#if 0
-      if (mpi_master) then
-      do i=1,min(2,arg_count())
-         call command_arg(i,arg)
-         if (i == 1) nflights=read_integer(arg)
-         if (i == 2) nfrag=read_integer(arg)
-      end do
-      end if
-@#endif
-      
-      if (nfrag <= 0) nfrag=nflights
-
       if (mpi_master) call readfilenames
       call degas_init
       if (mpi_master) then
-         call do_flights_master(nflights,nfrag)
+         call do_flights_master
       else
          call do_flights_slave
       end if
@@ -170,18 +155,14 @@
 
       @<Functions and Subroutines@>
 
-@ The master controller.  This breaks the calculation of |nflights|
-flights into chunks of size |nfrag|.  This is to make the conversion to
-PVM more straightforward.
+@ The master controller.  Contains the outermost loop over source groups.
+For each group, this routine breaks up the requested number of flights into
+smaller chunks (of size |nfrag|) to be handled by the slave processors
+(if any).
 
 @<Functions...@>=
-      subroutine do_flights_master(nflights,nfrag)
+      subroutine do_flights_master
 
-@#if 0
-      define_varp(output_frag,FLOAT,output_moments_ind,output_tab_ind)
-      define_varp(output_flt,FLOAT,output_moments_ind,output_tab_ind)
-      define_varp(estimator_factors,FLOAT,output_tab_ind)   // WHY??
-@#endif
       define_varp(estimator_factors,FLOAT,tally_ind)
       define_varp(weight_grp,FLOAT,output_grps_ind)
 
@@ -189,19 +170,21 @@ PVM more straightforward.
       zn_common                                             // Common
       so_common
       pr_common
+      de_common
       tl_common
       ou_common
       sa_common
       mp_common
       implicit_none_f90
 
-      integer nflights,nfrag                                // Input
-      integer i,j,is,zone,test,new_dim,pr_reac,jscore       // Local
+      integer i,j,is,zone,test,new_dim,pr_reac,jscore,      // Local
+     $        iview,det,ibin,iauth
       integer index_parameters[tl_index_max]
       real mult,tot_scale_curr,prob,density,dummy,
-     $     dens_rsd,pressure,pres_rsd
+     $     dens_rsd,pressure,pres_rsd,signal,wavelength
+      real sig_det[20]
       logical init,need_scores,have_pressure
-      integer nparcel,num,nstart,nslaves,slave
+      integer nflights,nfrag,nparcel,num,nstart,nslaves,slave
       rn_seed_decl(seed)
 
       @<Memory allocation interface@>
@@ -211,17 +194,9 @@ PVM more straightforward.
       real find_rate,extract_output_datum                   // External
       external find_rate,extract_output_datum
 
-@#if 0
-      declare_varp(output_frag)
-      declare_varp(output_flt)
-@#endif
       declare_varp(estimator_factors)
       declare_varp(weight_grp)
 
-@#if 0
-      var_alloc(output_frag)
-      var_alloc(output_flt)
-@#endif
       var_alloc(estimator_factors)
       var_alloc(weight_grp)
 
@@ -254,8 +229,7 @@ PVM more straightforward.
      
       do is=1,so_grps
          nflights=so_nflights(is)
-         nfrag=nflights                      // Temporary fudge!
-         nfrag=nflights/100
+         nfrag=max(nflights/100,1)        // The size of each chunk
 
          weight_grp[is]=zero
 
@@ -318,6 +292,7 @@ PVM more straightforward.
      $                       tally_size,output_grp[is][0][o_mean])
 
          weight_grp[is]=stat_wt_tot_fin    // Use instead of |stat_wt_tot_fin|?
+         stat_wt_tot_fin=zero              // Re-initialize for next group
          tot_scale_curr+=so_scale(is)*so_tot_curr(is)
            
       end do           // Over |is|
@@ -339,7 +314,11 @@ PVM more straightforward.
             output_grp[is][i][o_mean]*=prob
             output_all[i][o_mean]+=output_grp[is][i][o_mean]
             assert(weight_grp[is] > zero)
+@#if 0
+// Moved ``-1'' factor from |stat_acc| to here
             output_grp[is][i][o_var]*=prob**2/weight_grp[is]
+@#endif
+            output_grp[is][i][o_var]*=prob**2/(weight_grp[is]-one)
             output_all[i][o_var]+=output_grp[is][i][o_var]
          end do
       end do
@@ -487,15 +466,56 @@ PVM more straightforward.
       end do
       close(unit=diskout)
 
+      jscore=string_lookup('Dalpha chord integrals',tally_name,tl_num)
+      if (jscore > 0) then
+         open(unit=diskout,file='chords.out',status='unknown')
+         assert(tally_rank[jscore] == 1)
+         do iview=1,tally_tab_index[jscore][1]
+            index_parameters[tl_index_detector]=iview
+            signal=extract_output_datum(index_parameters,1,
+     $           out_post_all,o_mean,'Dalpha chord integrals')
+            write(diskout,'(2x,i3,6x,1pe13.4)') iview,signal
+         end do
+         close(unit=diskout)
+      end if
+
+      jscore=string_lookup('Dalpha spectrum detail',tally_name,tl_num)
+      if (jscore > 0) then
+         open(unit=diskout,file='spectrum.out',status='unknown')
+         assert(tally_indep_var[jscore][3] == tl_index_wavelength_bin)
+         assert(tally_indep_var[jscore][2] == tl_index_test_author)
+         assert(tally_tab_index[jscore][1] >= 1)
+         det=de_lookup('Halpha spectrum')
+         assert(detector_spacing[det] == de_spacing_linear)
+         assert(detector_tab_index[det] == tally_tab_index[jscore][3])
+         assert(tally_tab_index[jscore][2] <= 20)   // |sig_det| dimension
+         do iview=1,tally_tab_index[jscore][1]
+            index_parameters[tl_index_detector]=iview
+            write(diskout,*) 'Spectrum view number ',iview
+            do ibin=1,tally_tab_index[jscore][3]
+               index_parameters[tl_index_wavelength_bin]=ibin
+               do iauth=1,tally_tab_index[jscore][2]
+                  index_parameters[tl_index_test_author]=iauth
+                  signal=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,'Dalpha spectrum detail')
+                  sig_det[iauth]=signal
+                  assert(sig_det[iauth] == signal)
+               end do
+               signal=extract_output_datum(index_parameters,1,
+     $              out_post_all,o_mean,'Dalpha spectrum')
+               wavelength=detector_min[det]+(areal(ibin)-0.5)*detector_delta[det]
+               write(diskout,'(1pe16.6,21e13.4)') wavelength,signal,(sig_det[iauth],iauth=1,tally_tab_index[jscore][2])
+            end do
+            write(diskout,*) '-----------------------------------------------------'
+         end do
+         close(unit=diskout)
+      end if
+
       call nc_write_output
       call clear_output
 
       call clear_stat
 
-@#if 0
-      var_free(output_frag)
-      var_free(output_flt)
-@#endif
       var_free(estimator_factors)
       var_free(weight_grp)
 
@@ -505,12 +525,6 @@ PVM more straightforward.
 @ Merge results from a fragment.
 
 @<Merge results@>=
-@#if 0
-  // Not really useful if we zero out stat_wt_frag in stat_wt_balance
-            assert(stat_comp_frag == FALSE ||       // In lieu of checking all
-     $         (stat_wt_frag[0]==stat_wt_tot_frag 
-     $           && stat_wt_frag[stat_size_frag-1]==stat_wt_tot_frag))
-@#endif
 
             if (min(stat_size_fin+stat_size_frag,tally_size)>stat_dim_fin) then
                assert(stat_comp_fin == TRUE) 
@@ -723,6 +737,11 @@ loop: continue
 break:  continue
       call clear_stat
       var_free(estimator_factors)
+      return
+      end
+@#else
+      subroutine do_flights_slave
+// dummy
       return
       end
 @#endif
