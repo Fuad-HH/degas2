@@ -2,6 +2,9 @@
 \def\Wtitle{pvmmaster}
 
 % $Log$
+% Revision 1.3  1993/11/15  21:49:15  karney
+% Pre APS checkin.
+%
 % Revision 1.2  1993/10/26  22:21:42  karney
 % A working version.
 %
@@ -26,8 +29,9 @@
       program pvm_master
       implicit_none
       integer nflights,nfrag,nslaves,i
-      character*80 arg
+      character*LINELEN arg
       sy_common
+      st_common
       
       nflights=100000
       nslaves=13
@@ -35,9 +39,9 @@
 
       do i=1,max(2,arg_count())
          call command_arg(i,arg)
-         if (i == 1) read(arg,'(i)') nflights
-         if (i == 2) read(arg,'(i)') nfrag
-         if (i == 3) read(arg,'(i)') nslaves
+         if (i == 1) nflights=read_integer(arg)
+         if (i == 2) nfrag=read_integer(arg)
+         if (i == 3) nslaves=read_integer(arg)
       end do
 
 

@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.6  1993/11/15  21:44:02  karney
+% Pre APS checkin.
+%
 % Revision 1.5  1993/10/26  22:20:49  karney
 % Split do_flights up to make it easier to convert to PVM.
 %
@@ -36,16 +39,17 @@
       program flight_test
       implicit_none
       integer nflights,nfrag,i
-      character*80 arg
+      character*LINELEN arg
       sy_common
+      st_common
 
       nflights=100000
       nfrag=-1
       
       do i=1,max(2,arg_count())
          call command_arg(i,arg)
-         if (i == 1) read(arg,'(i)') nflights
-         if (i == 2) read(arg,'(i)') nfrag
+         if (i == 1) nflights=read_integer(arg)
+         if (i == 2) nfrag=read_integer(arg)
       end do
       
       if (nfrag <= 0) nfrag=nflights
