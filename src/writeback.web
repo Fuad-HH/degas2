@@ -1,0 +1,271 @@
+% $Id$
+\Title{writeback}
+
+% $Log$
+
+@* Introduction.
+
+\ID{$Id$}
+
+Introduction\ldots
+
+@m FILE 'writeback.web'
+
+@I macros.hweb
+@I readfilenames.hweb
+@I netcdf.hweb
+@I species.hweb
+@I sysdep.hweb
+@I string.hweb
+@I vector.hweb
+@I background.hweb
+@I sources.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+
+@ Write out background information.
+
+@<Functions...@>=
+      subroutine write_background
+      implicit_none
+      integer fileid
+      character *FILELEN tempfile
+      zn_common
+      bk_common
+      bk_ncdecl
+      vc_ncdecl
+      nc_common
+      so_common
+      so_ncdecl
+      rf_common
+
+      tempfile = filenames_array[backgroundfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
+      vc_ncdef(fileid)
+      bk_ncdef(fileid)
+      so_ncdef(fileid)
+      call ncendef(fileid,nc_stat);
+      vc_ncwrite(fileid)
+      bk_ncwrite(fileid)
+      so_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Set Probability Aliases Used for Sampling. This implementation follows
+the description of the sampling algorithm described in Sec. 3.4.1 (and
+Exercise 7) of Knuth. He refers to the originator, A. J. Walker,
+[{\em Electronics Letters} {\bf 10}, 8 (1974), 127-128; {\em ACM Trans.
+Math. Software} {\bf 3} (1976), 253-256].
+
+@<Functions...@>=
+      subroutine set_prob_alias(n,so,wt,x_ptr,pa,ya,wtnorm)
+      implicit_none
+
+      integer n                      // Input
+      real so[n],wt[n]
+      integer x_ptr[n]
+
+      real pa[n]                     // Output
+      real wtnorm
+      integer ya[n]
+
+      integer i,j,inew               // Local
+      real sum,sum1,probnew
+
+      sy_common       
+
+      ptr_decl(prob)
+      ptr_decl(ia)
+      real prob(n)
+      integer ia(n)
+      
+      real_alloc(prob,n)
+      int_alloc(ia,n)
+
+      sum=zero
+      sum1=zero
+      do i=1,n
+         if (wt[i] > zero) then
+            sum=sum+so[i]/wt[i]
+            sum1=sum1+so[i]
+         end if
+      end do
+
+      wtnorm=sum/sum1
+
+      do i=1,n
+         if (wt[i] > zero) then
+            prob[i]=so[i]/(sum*wt[i])
+         else
+            prob[i]=zero
+         end if
+         ia[i]=i
+      end do
+/*  
+   The sort routine should place the entries in |prob| in order
+   of increasing magnitude. The entries in |ia| should follow suit.
+   Note: we've added 1 to the indices of the |pa| and |ya| arrays
+   so that they range from 1 to |n|, rather than 0 to |n-1| as in
+   Knuth. There is a corresponding shift used in the sampling.
+ */
+      call sort2(n,prob,ia)
+      do i=n,1,-1
+         pa[ia[1]]=areal(n)*prob[1]
+         ya[ia[1]]=x_ptr[ia[i]]
+         probnew=prob[i]-(one/areal(n) - prob[1])
+         inew=ia[i]
+         if (i > 2) then
+            do j=1,i-2
+               if (probnew < prob[j+1]) then
+                  prob[j]=probnew
+                  ia[j]=inew
+                  goto 10
+               end if
+               prob[j]=prob[j+1]
+               ia[j]=ia[j+1]
+            end do
+            prob[i-1]=probnew
+            ia[i-1]=inew
+   10       continue
+         else if (i == 2) then
+            prob[1]=probnew
+            ia[1]=inew
+         end if
+      end do
+
+      real_free(prob,n)
+      int_free(ia,n)
+
+      return
+      end
+@ Sorting Routine. Sorts an |array(1:n)| into ascending order using 
+Quicksort, while making the corresponding rearrangement of the array 
+|brr(1:n)|. This implementation is taken directly out of {\em Numerical
+Recipes} by Press et al. and should be consistent with their version 2.06.
+
+@<Functions...@>=
+      subroutine sort2(n,arr,brr)
+      integer n,m,nstack
+      real arr(n)
+      integer brr(n)
+      parameter (m=7,nstack=50)
+      integer i,ir,j,jstack,k,l,istack(nstack)
+      real a,b,temp
+      jstack=0
+      l=1
+      ir=n
+c Insertion sort when subarray small enough
+    1 if (ir-l.lt.m) then
+         do j=l+1,ir
+            a=arr(j)
+            b=brr(j)
+            do i=j-1,l,-1
+               if (arr(i).le.a) goto 2
+               arr(i+1)=arr(i)
+               brr(i+1)=brr(i)
+            end do
+            i=l-1
+    2       arr(i+1)=a
+            brr(i+1)=b
+         end do
+         if (jstack.eq.0) return
+c Pop stack and begin new round of partitioning
+         ir=istack(jstack)
+         l=istack(jstack-1)
+         jstack=jstack-2
+      else
+c Choose median of left, center and right elements as partitioning
+c element a. Also, arrange so that a(l) <= a(l+1) <= a(ir).
+         k=(l+ir)/2
+         temp=arr(k)
+         arr(k)=arr(l+1)
+         arr(l+1)=temp
+         temp=brr(k)
+         brr(k)=brr(l+1)
+         brr(l+1)=temp
+         if (arr(l).gt.arr(ir)) then
+            temp=arr(l)
+            arr(l)=arr(ir)
+            arr(ir)=temp
+            temp=brr(l)
+            brr(l)=brr(ir)
+            brr(ir)=temp
+         end if
+         if (arr(l+1).gt.arr(ir)) then
+            temp=arr(l+1)
+            arr(l+1)=arr(ir)
+            arr(ir)=temp
+            temp=brr(l+1)
+            brr(l+1)=brr(ir)
+            brr(ir)=temp
+         end if
+         if (arr(l).gt.arr(l+1)) then
+            temp=arr(l)
+            arr(l)=arr(l+1)
+            arr(l+1)=temp
+            temp=brr(l)
+            brr(l)=brr(l+1)
+            brr(l+1)=temp
+         end if
+c Initialize pointers for partitioning
+         i=l+1
+         j=ir
+c Partitioning element
+         a=arr(l+1)
+         b=brr(l+1)
+c Innermost loop
+    3    continue
+c Scan up to find element > a.
+            i=i+1
+         if (arr(i).lt.a) goto 3
+c Scan down to find element < a.
+    4    continue
+            j=j-1
+         if (arr(j).gt.a) goto 4
+c Pointers crossed. Exit with partitioning complete.
+         if (j.lt.i) goto 5
+c Exchange elements of both arrays.
+         temp=arr(i)
+         arr(i)=arr(j)
+         arr(j)=temp
+         temp=brr(i)
+         brr(i)=brr(j)
+         brr(j)=temp
+c End of innermost loop
+         goto 3
+c Insert partitioning element in both arrays.
+    5    arr(l+1)=arr(j)
+         arr(j)=a
+         brr(l+1)=brr(j)
+         brr(j)=b
+         jstack=jstack+2
+c Push pointers to larger subarray on stack, process smaller
+c subarray immediately.
+         assert(jstack <= nstack)
+//       if (jstack.gt.nstack) pause 'nstack too small in sort2'
+         if (ir-i+1.ge.j-l) then
+            istack(jstack)=ir
+            istack(jstack-1)=i
+            ir=j-1
+         else
+            istack(jstack)=j-1
+            istack(jstack-1)=l
+            l=i
+         end if
+      end if
+      goto 1
+      end
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* INDEX.
+
