@@ -2,6 +2,10 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.26  1998/01/14 20:36:18  dstotler
+% Remove commented out call to source_test. Move call of score_sources
+% from sample_sources to here.
+%
 % Revision 1.25  1997/09/02 21:14:27  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -219,7 +223,8 @@ loop: continue                  // Still in same zone
 
       ionize_rate=zero
       other_rate=zero
-      if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
+      if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma 
+     $     && pr_rc_num(pt_test(fl_current(x))) > 0) then
          do i=1,pr_rc_num(pt_test(fl_current(x)))
             rate[i]=find_rate(pt_args(fl_current(x)),pr_background_args(pr_ts_bk(pt_test(fl_current(x)),i)),pr_reaction_args(pr_ts_rc(pt_test(fl_current(x)),i)),rn_args(fl_rand(x)))
             rate_all[i]=rate[i]
@@ -232,7 +237,8 @@ loop: continue                  // Still in same zone
          end do
       end if         
 
-      if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
+      if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma 
+     $     && other_rate > zero) then
          tmax=-log(random(rn_args(fl_rand(x))))/other_rate
       else
          tmax=geom_infinity
@@ -260,13 +266,15 @@ loop: continue                  // Still in same zone
       call score_test(tl_est_track,t_fac,pt_args(fl_current(x)),scores,estimator_factors)
 
       pt_copy(fl_current(x),prod[0])
-      do i=1,pr_rc_num(pt_test(fl_current(x)))
-         call score_reaction(tl_est_track,t_fac,
-     $        pr_reaction_args(i),rate_all[i],
-     $        nprod,pt_args(prod[0]),scores,estimator_factors,
-     $        rn_args(fl_rand(x)))
-         assert(nprod == 0)
-      end do
+      if (pr_rc_num(pt_test(fl_current(x))) > 0) then
+         do i=1,pr_rc_num(pt_test(fl_current(x)))
+            call score_reaction(tl_est_track,t_fac,
+     $           pr_reaction_args(i),rate_all[i],
+     $           nprod,pt_args(prod[0]),scores,estimator_factors,
+     $           rn_args(fl_rand(x)))
+            assert(nprod == 0)
+         end do
+      end if
 
       pt_w(fl_current(x))=exp(-ionize_rate*t)*pt_w(fl_current(x))
       
@@ -276,6 +284,7 @@ loop: continue                  // Still in same zone
          rn_next(rnd,fl_rand(x))
          rnd=rnd*other_rate
          sum=zero
+         assert(pr_rc_num(pt_test(fl_current(x))) > 0)
          do i=1,pr_rc_num(pt_test(fl_current(x)))
             sum=sum+rate[i]
             if (sum >= rnd) then
@@ -362,8 +371,10 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
          type_ptr_1=sector_type_pointer[sector1][type]
          type_ptr_2=sector_type_pointer[sector2][type]
          if (type_ptr_1 != 0) then
-            assert(type_ptr_2 == 0)
-            type_ptr=type_ptr_1
+/*
+   If both sectors are of this type, just process the first one.
+*/
+            type_ptr=type_ptr_1   
          else if (type_ptr_2 != 0) then
             assert(type_ptr_1 == 0)
             type_ptr=type_ptr_2
@@ -430,6 +441,7 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       independent_parameters[pf_var_vel_3_in]=pt_v(fl_current(x))[3]
       cos_angle=intersection_direction(lc_face(pt_loc(fl_current(x))),
      $     lc_x(pt_loc(fl_current(x)))[1],pt_v(fl_current(x))[1])
+      independent_parameters[pf_var_cos_polar_angle_in]=cos_angle
       independent_parameters[pf_var_polar_angle_in]=acos(cos_angle)
       independent_parameters[pf_var_t_wall]=mat_temp
                
