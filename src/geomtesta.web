@@ -2,6 +2,11 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.19  1998/03/11 15:01:41  dstotler
+% Add writes of background velocities when they are nonzero. Add routine
+% to generate HDF files for EIRENE data when the appropriate data files
+% are found.
+%
 % Revision 1.18  1998/01/14 20:44:09  dstotler
 % Update to utilize "converted" scores. Add usage of component (i.e.,
 % scalar or choice of vector component) to extract_output_datum.
@@ -216,8 +221,8 @@
          do i=1,zn_num
             if (zn_type(i) == zn_plasma) then
                index_parameters[tl_index_zone]=i
-               density=extract_output_datum(index_parameters,0,
-     $              out_post_all[0][o_mean],'neutral density')
+               density=extract_output_datum(index_parameters,1,
+     $              out_post_all,o_mean,'neutral density')
                hdf_data[i]=density           // NEUTRAL DENSITY
                ha_temp+=density*zn_volume(i)
 @#if CMOD
@@ -243,16 +248,33 @@
          do i=1,zn_num
             if (zn_type(i) == zn_plasma) then
                index_parameters[tl_index_zone]=i
-               pressure=extract_output_datum(index_parameters,0,
-     $              out_post_all[0][o_mean],'neutral pressure')
-               hdf_data[i]=pressure/const(1.3332,-1)  // NEUTRAL PRESSURE
+               density=extract_output_datum(index_parameters,1,
+     $              output_all,o_var,'neutral density')
+               hdf_data[i]=density           // NEUTRAL DENSITY REL. STD. DEV.
             else
                hdf_data[i]=zero
             end if
          end do
-         call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'prs.hdf',hdf_data,
-     $        'sp'\/trim(sp_sy(pr_test(j)))\/' pressure','mTorr','E11.3',
+
+         call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'den_rsd.hdf',hdf_data,
+     $        'sp'\/trim(sp_sy(pr_test(j)))\/' density rsd',' ','E11.3',
      $        x,a,b,alen,blen)
+
+         if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
+            do i=1,zn_num
+               if (zn_type(i) == zn_plasma) then
+                  index_parameters[tl_index_zone]=i
+                  pressure=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,'neutral pressure')
+                  hdf_data[i]=pressure/const(1.3332,-1)  // NEUTRAL PRESSURE
+               else
+                  hdf_data[i]=zero
+               end if
+            end do
+            call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'prs.hdf',hdf_data,
+     $           'sp'\/trim(sp_sy(pr_test(j)))\/' pressure','mTorr','E11.3',
+     $           x,a,b,alen,blen)
+         end if
 
       end do
 @#endif
@@ -269,8 +291,8 @@
             do zone=1,zn_num
                if (zn_type(zone) == zn_plasma) then
                   index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,0,
-     $                 out_post_all[0][o_mean],
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
      $                 trim(sp_sy(pr_test(test)))\/'alpha emission rate')
      $                 /(const(1.8881944)*electron_charge)
                   hdf_data[zone]+=ha_rate
@@ -303,8 +325,8 @@
                do zone=1,zn_num
                   if (zn_type(zone) == zn_plasma) then
                      index_parameters[tl_index_zone]=zone
-                     ha_rate=extract_output_datum(index_parameters,0,
-     $                    out_post_all[0][o_mean],'ion source rate')
+                     ha_rate=extract_output_datum(index_parameters,1,
+     $                    out_post_all,o_mean,'ion source rate')
                      hdf_data[zone]=ha_rate
                      ha_temp+=ha_rate
                   else
@@ -316,6 +338,20 @@
      $              hdf_data,trim(sp_sy(pr_background(back)))\/'_Ion_Source_rate',
      $              's**-1','E11.3',
      $              x,a,b,alen,blen)
+
+               do zone=1,zn_num
+                  if (zn_type(zone) == zn_plasma) then
+                     index_parameters[tl_index_zone]=zone
+                     ha_rate=extract_output_datum(index_parameters,1,
+     $                    output_all,o_var,'ion source rate')
+                     hdf_data[zone]=ha_rate
+                  else
+                     hdf_data[zone]=zero
+                  end if
+               end do
+               call data_slice(trim(sp_sy(pr_background(back)))\/'ionize_rsd.hdf',
+     $              hdf_data,trim(sp_sy(pr_background(back)))\/'_Ion Source rate rsd',
+     $              ' ','E11.3',x,a,b,alen,blen)
 
             end if
          end do
@@ -329,7 +365,7 @@
                      if (zn_type(zone) == zn_plasma) then
                         index_parameters[tl_index_zone]=zone
                         ha_rate=extract_output_datum(index_parameters,i,
-     $                       out_post_all[0][o_mean],'ion momentum source vector')
+     $                       out_post_all,o_mean,'ion momentum source vector')
                         hdf_data[zone]=ha_rate
                         ha_temp+=ha_rate
                      else
@@ -354,8 +390,8 @@
             do zone=1,zn_num
                if (zn_type(zone) == zn_plasma) then
                   index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,0,
-     $                 out_post_all[0][o_mean],'ion energy source')
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,'ion energy source')
                   hdf_data[zone]=ha_rate
                   ha_temp+=ha_rate
                else
@@ -409,35 +445,6 @@ set up for Alcator C-Mod single null runs.
 
       return
       end     
-
-@ Read in data from netcdf file \verb+output.nc+ 
-
-@<Functions...@>=
-      subroutine nc_read_output
-      implicit_none_f77
-      tl_common                  // Common
-      ou_common
-      rf_common
-      so_common
-      pr_common
-      implicit_none_f90
-      nc_decls
-      st_decls
-      tl_decls
-      @<Memory allocation interface@>
-      integer fileid             // Local
-      ou_ncdecl
-      character*FILELEN tempfile
-
-      tempfile=filenames_array[outputfile]
-      fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
-
-      ou_ncread(fileid)
-
-      call ncclose(fileid,nc_stat)
-
-      return
-      end
 
 @ Exercise the locate function
 
