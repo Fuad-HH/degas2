@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.57  1997/09/29 18:39:46  karney
+# Typo in Makefile
+# SGI fix in sysdep.web
+#
 # Revision 1.56  1997/09/29 17:17:33  karney
 # Implement mem_check.
 #
@@ -165,12 +169,30 @@
 # Revision 1.11  1994/06/28 19:44:21  karney
 # Get Makefiles working to update fixit, idtof when needed.
 
+#######################################################
 # The following may be overridden by Makefile.local
+
+# These are all yes/no flags
+
+# Activate debugging source and compilation?
 DEBUG=yes
+
+# Build directly from web files (needs ftangle)?
 STANDALONE=yes
+
+# Use Fortran 90?
 FORTRAN90=no
+
+# Using old (2.x) version of NETCDF?
 NETCDFV2=no
+
+# The "root" of the degas2 tree, by default this is $HOME, so the .f files
+# are in ~/degas2/MACHINE.
+
 #DEGASROOT
+
+# End of variables to be overridden
+#######################################################
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -347,7 +369,11 @@ ifeq ($(FORTRAN90),yes)
     ifeq ($(DEBUG),yes)
       FFLAGS=-c -g
     else
-      FFLAGS=-c -O -fast
+      ifeq ($(MACHINE),CRAY)
+        FFLAGS=-c -O3
+      else
+        FFLAGS=-c -O -fast
+      endif
     endif
 ifeq ($(MACHINE),SUN)
     F90MODS=-M.

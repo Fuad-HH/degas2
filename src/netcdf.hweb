@@ -2,6 +2,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1997/08/19 14:36:46  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.8  1997/08/07 19:51:48  dstotler
 % Changed NC_CLOBBER AND NC_NOCLOBBER for new version of netcdf. Change
 % a comment to work with FWEB 1.60.
@@ -77,8 +82,13 @@ Convert to LaTeX/NFSS
 @m NC_LONG 4
 @m NC_FLOAT 5
 @m NC_DOUBLE 6
+@#if defined(NETCDFV2)
+@m NC_CLOBBER 11
+@m NC_NOCLOBBER 15
+@#else
 @m NC_CLOBBER 0
 @m NC_NOCLOBBER 4
+@#endif
 @m NC_WRITE 1
 @m NC_NOWRITE 0
 @m NC_GLOBAL 0
