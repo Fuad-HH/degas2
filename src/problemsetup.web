@@ -2,6 +2,9 @@
 \def\Wtitle{problemsetup}
 
 % $Log$
+% Revision 1.6  1995/06/21 20:05:39  jshankar
+% updated to include readfilenames
+%
 % Revision 1.5  1995/05/26 04:01:14  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -223,6 +226,7 @@ eof:  return
       subroutine check_problem
       implicit_none
       integer i,j,test,target                 // Local
+      integer temp_test[rc_reagent_max],temp_target[rc_reagent_max]
       pr_common
       sp_common
       rc_common
@@ -255,9 +259,46 @@ eof:  return
       end do
 
       do j=1,pr_reaction_num
-         test=problem_species_test(rc_reagent(pr_reaction(j),1))
-         target=problem_species_target(rc_reagent(pr_reaction(j),2))
+
+/* Allow for arbitrary ordering of |test| and |target| in reagent 
+   specification. Despite a general appearance, this still assumes 
+   binary collisions. NOTE: this is also where isotopic variations of
+   reactions should be dealt with. */
+         test=0
+         target=0
+         do i=1,rc_reagent_num(pr_reaction(j))
+            temp_test[i]=problem_species_test(rc_reagent(pr_reaction(j),i))
+            temp_target[i]=problem_species_target(rc_reagent(pr_reaction(j),i))
+            if (temp_test[i] == 0) then              
+
+/* If not a test, then it must be a target */
+               assert(temp_target[i]!=0 && target==0)
+               target=temp_target[i]
+
+/* Check for the converse, as well */
+            else if (temp_target[i] == 0) then
+               assert(temp_test[i]!=0 && test==0)
+               test=temp_test[i]
+            end if
+         end do
+
+/* If one of |test| or |target| remains unset, it is because one species is 
+   on both test and target lists. Loop through reagents again to find it and
+   assignment to either |test| or |target|, whichever is unset. */
+         if (test==0 || target==0) then
+            do i=1,rc_reagent_num(pr_reaction(j))
+               if (temp_test[i]!=0 && temp_target[i]!=0) then
+                  if (target == 0) then
+                     target=temp_target[i]
+                  else if (test == 0) then
+                     test=temp_test[i]
+                  end if
+               end if
+            end do
+         end if
          assert( pr_test_check(test) && pr_target_check(target) )
+
+/* Done setting |test| and |target|; use to assign remaining |pr| arrays */
          pr_rc_num(test)=pr_rc_num(test)+1
          assert(pr_rc_num(test) <= pr_reaction_max)
          pr_ts_rc(test,pr_rc_num(test))=j
