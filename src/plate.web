@@ -2,6 +2,9 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.7  1998/09/04 17:15:09  dstotler
+% Minor changes to satisfy FWEAVE and TeX.
+%
 % Revision 1.6  1998/03/11 15:02:19  dstotler
 % Add pf_var_cos_polar_angle_in. Added asserts to pd_eval_v_product.
 %
@@ -113,8 +116,8 @@ PMI. The number of products, |nprod| and their particle objects |prod| are
 returned. The random number thread |x| is included in case it's needed.
 
 @<Functions...@>=
-      subroutine pick_pmi(pt_dummy(p),pr_pmi_dummy(ts_pmi),
-     $   independent_parameters,nprod,pt_dummy(prod),rn_dummy(x))
+      subroutine pick_pmi(pr_pmi_dummy(ts_pmi),independent_parameters,
+     $           nprod,pt_dummy(prod),rn_dummy(x))
       implicit_none_f77
       pr_common                        // Common
       pd_common
@@ -123,11 +126,10 @@ returned. The random number thread |x| is included in case it's needed.
 
       implicit_none_f90
 
-      pt_decl(p)                       // Input
-      pr_pmi_decl(ts_pmi)
+      pr_pmi_decl(ts_pmi)              // Input
       real independent_parameters[pf_max_indep_params]
       integer nprod                    // Output
-      pt_decl(prod[pm_product_max])
+      pt_decl(prod[0:pm_product_max])
       rn_decl(x)                       // Input/output
 
       integer i                        // Local
@@ -138,7 +140,7 @@ returned. The random number thread |x| is included in case it's needed.
       external intersection_direction  // External
       real intersection_direction
 
-      pmi_sub=pr_pm_cases(pt_test(p),ts_pmi)
+      pmi_sub=pr_pm_cases(pt_test(prod[0]),ts_pmi)
 
 /* This is where we really need to stow these random numbers ahead of
    time. In particular, for the Bateman format the {\em same} random
@@ -156,19 +158,19 @@ returned. The random number thread |x| is included in case it's needed.
 /* Loop over various PMI types
 */
       if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'reflection') then
-         call reflection(pr_test_args(pt_test(p)),pr_pmi_args(ts_pmi),
+         call reflection(pr_test_args(pt_test(prod[0])),pr_pmi_args(ts_pmi),
      $        independent_parameters,
      $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $        pt_w(prod[1]),rn_args(x))
 
       else if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'desorption') then
-         call desorption(pr_test_args(pt_test(p)),pr_pmi_args(ts_pmi),
+         call desorption(pr_test_args(pt_test(prod[0])),pr_pmi_args(ts_pmi),
      $        independent_parameters,
      $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $        pt_w(prod[1]),rn_args(x))
 
       else if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'adsorption') then
-         call adsorption(pr_test_args(pt_test(p)),pr_pmi_args(ts_pmi),
+         call adsorption(pr_test_args(pt_test(prod[0])),pr_pmi_args(ts_pmi),
      $        independent_parameters,
      $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $        pt_w(prod[1]),rn_args(x))
@@ -181,22 +183,29 @@ returned. The random number thread |x| is included in case it's needed.
    flight. The call to |surface_reflect| returns them to the global 
    coordinate system (I hope).
 */
-      do i=1,nprod
-         call surface_reflect(lc_face(pt_loc(p)),lc_x(pt_loc(p))[1],pt_v(p)[1],
-     $        pt_v(prod[i])[1],v_temp[1])
-         vc_copy(v_temp,pt_v(prod[i]))
-// Do |pt_thru_face(prod[i])| here instead of in calling routine? !!!
-         pt_test(prod[i])=pr_test_lookup(pt_sp(prod[i]))
-         lc_copy(pt_loc(p),pt_loc(prod[i]))
-         pt_t(prod[i])=pt_t(p)
-         pt_w(prod[i])=pt_w(p)*pt_w(prod[i])
-         pt_author_pm(prod[i],pmi_sub)
-         if (sp_z(pt_sp(prod[i])) == 0) then
-            pt_type(prod[i])=pt_neutral
-         else
-            pt_type(prod[i])=pt_ion
-         end if
-      end do
+      if (nprod > 0) then
+         do i=1,nprod
+            call surface_reflect(lc_face(pt_loc(prod[0])),
+     $           lc_x(pt_loc(prod[0]))[1],pt_v(prod[0])[1],
+     $           pt_v(prod[i])[1],v_temp[1])
+            vc_copy(v_temp,pt_v(prod[i]))
+            pt_test(prod[i])=pr_test_lookup(pt_sp(prod[i]))
+            lc_copy(pt_loc(prod[0]),pt_loc(prod[i]))
+/*
+   Swap sectors to get incoming / outgoing directions right for products.
+*/
+            lc_sector(pt_loc(prod[i]))=lc_sector_next(pt_loc(prod[0]))
+            lc_sector_next(pt_loc(prod[i]))=lc_sector(pt_loc(prod[0]))
+            pt_t(prod[i])=pt_t(prod[0])
+            pt_w(prod[i])=pt_w(prod[0])*pt_w(prod[i])
+            pt_author_pm(prod[i],pmi_sub)
+            if (sp_z(pt_sp(prod[i])) == 0) then
+               pt_type(prod[i])=pt_neutral
+            else
+               pt_type(prod[i])=pt_ion
+            end if
+         end do
+      end if
 
       return
       end
