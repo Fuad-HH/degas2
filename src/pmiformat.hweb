@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1995/06/16 18:20:49  dstotler
+% Extend to treat Bateman-format reflection data (tables up to rank 5).
+%
 % Revision 1.1  1995/05/31 19:30:00  dstotler
 % Initial revision; initially similar to xsection.hweb but testing
 % facilities for dealing with ragged arrays.
@@ -11,6 +14,9 @@
 \ID{$Id$}
 
 Information about data used to define plasma-material interactions
+
+@I pmi.hweb
+
 @ Constant definitions.
 
 @m pf_organization_unknown 0    // Types of data organization
@@ -25,7 +31,7 @@ Information about data used to define plasma-material interactions
 @m pf_var_unknown 0             // Indices for the independent variables
 @m pf_var_energy_in 1
 @m pf_var_polar_angle_in 2
-@m pf_var_reflection_coef 3     // Indices for dependent variables
+@m pf_var_yield 3               // Indices for dependent variables
 @m pf_var_energy_out 4
 
 @m pf_unit_string_length 12     // The length of the unit specifications
@@ -54,6 +60,7 @@ Information about data used to define plasma-material interactions
       define_dimen_pk(pf,pf_symbol_string,pm_sy_len)
       define_dimen_pk(pf,pf_eval_string,pf_eval_string_length)
 
+/* The ``size'' variables get used in the table allocation macros. */
       define_var_pk(pf,pf_indep_var_size,INT)
       define_dimen_pk(pf,pf_indep_var_ind,0,pf_indep_var_size-1)
 
