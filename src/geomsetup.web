@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.22  1995/12/13 19:41:21  karney
+% Implement walls and symmetry selection in readgeometry.
+%
 % Revision 1.21  1995/11/03 15:06:23  karney
 % Clean up for release.
 %
@@ -95,7 +98,7 @@ Geometry setup routines for degas.
 
 @* Initialize data structures for geometry.  |nboundaries|,
 |ptr_boundaries|, |nneighbors|, and |ptr_neighbors| are left
-uninitialized; these are set in |end_geometry|.
+uninitialized; these are set in |boundaries_neighbors|.
 
 The ugliness with |geomsetup_common| is a temporary expedient to deal
 with 8-byte address with integers are 4 bytes.  The basic assumption is
@@ -246,29 +249,27 @@ should.
       return
       end
 
-@ End geometry definitions.
+@ Set up arrays describing cell boundaries and surface neighbors
 
 @<Functions...@>=
-      subroutine end_geometry
+      subroutine boundaries_neighbors
       implicit_none
       gi_common                 // Input/Output
       integer j,k,i,base,sigma  // Local
-      integer surf_list[*],cell_list[*],sector_list[*] // Pointee
+      integer surf_list[*],cell_list[*]  // Pointee
       ptr_decl(surf_list)
       ptr_decl(cell_list)
-      ptr_decl(sector_list)
       sy_common
       zn_common
-      sr_common
       setup_common
 
       /* Pack |cells| and |surfaces| */
 
       var_reallocb(cells)
       var_reallocb(surfaces)
+      var_reallocb(surface_sectors)
       var_reallocb(surface_coeffs)
       var_reallocb(surface_points)
-      var_realloca(surface_sectors)
 
       var_reallocb(zone_type)
       var_reallocb(zone_index)
@@ -276,14 +277,6 @@ should.
       var_reallocb(zone_pointer)
       var_reallocb(zone_volume)
 
-      var_reallocb(strata)
-      var_realloca(sectors)
-      var_reallocb(sector_surface)
-      var_reallocb(sector_points)
-
-      var_reallocb(strata_type)
-      var_reallocb(strata_pointer)
-      
       var_reallocb(surfaces_tx_ind)
       var_reallocb(surfaces_tx_mx)
 
@@ -292,6 +285,7 @@ should.
          nboundaries=nboundaries+cells[c_surfaces,j]
       end do
       var_alloc(boundaries)
+
 
       base=0
       do j=0,ncells
@@ -338,7 +332,33 @@ should.
 
       check(base == nneighbors)
       
-      var_alloc(sectors)
+      return
+      end
+
+@* Set up arrays mapping surfaces into sectors
+
+@<Functions...@>=
+      subroutine end_sectors
+      implicit_none
+      gi_common                 // Input/Output
+      integer k,i,base,sigma    // Local
+      integer sector_list[*]    // Pointee
+      ptr_decl(sector_list)
+      sy_common
+      sr_common
+      setup_common
+
+      /* Pack |strata| and sector-related arrays */
+
+      var_reallocb(strata)
+      var_reallocb(sector_zone)
+      var_reallocb(sector_surface)
+      var_reallocb(sector_points)
+
+      var_reallocb(strata_type)     // Neither of these two have been used yet
+      var_reallocb(strata_pointer)
+      
+      var_alloc(sectors)   // |surface_sectors| allocated with |surfaces|
       base=0
       do k=1,nsurfaces
          do sigma=s_neg,s_pos
@@ -556,10 +576,9 @@ these values match.
       integer define_sector // Function
       integer stratum,surface,zone // Input
       gi_common                 // Input/Output
-      integer i,sector_count // Local
-      integer sector_list[*],cell_list[*] // Pointee
+      integer i,sector_count,base // Local
+      integer sector_list[*]  // Pointee
       ptr_decl(sector_list)
-      ptr_decl(cell_list)
       sy_common
       sr_common
       zn_common
@@ -572,7 +591,7 @@ these values match.
       nsectors++
 
       var_realloca(strata)
-      var_realloca(sectors)
+      var_realloca(sector_zone)
       var_realloca(sector_surface)
       var_realloca(sector_points)
 
@@ -584,8 +603,8 @@ these values match.
          vc_copy(surface_points[0,surface],sector_points[0,nsectors])
          vc_copy(surface_points[1,surface],sector_points[1,nsectors])
       else
-         vc_copy(surface_points[0,surface],sector_points[1,nsectors])
-         vc_copy(surface_points[1,surface],sector_points[0,nsectors])
+         vc_copy(surface_points[0,-surface],sector_points[1,nsectors])
+         vc_copy(surface_points[1,-surface],sector_points[0,nsectors])
       end if
 
       ptr_sector_list=surface_sectors[s_sign(surface),s_start,abs(surface)]+pointer_offset
@@ -601,16 +620,21 @@ these values match.
       surface_sectors[s_sign(surface),s_start,abs(surface)]=ptr_sector_list-pointer_offset
       surface_sectors[s_sign(surface),s_count,abs(surface)]=sector_count
 
-      ptr_cell_list=surfaces[s_sign(surface),s_start,abs(surface)]+pointer_offset
+      base=surfaces[s_sign(surface),s_start,abs(surface)]-1
       do i=1,surfaces[s_sign(surface),s_count,abs(surface)]
-         if (cells[c_zone,ncells]==zone) goto break
+         if (cells[c_zone,neighbors[base+i]]==zone) goto break
       end do
       assert(.false.)
 break: continue
 
-      var_reallocc(strata_type,sr_num,max(sr_num,stratum))
-      var_reallocc(strata_pointer,sr_num,max(sr_num,stratum))
-      sr_num=max(sr_num,stratum)
+      if (stratum > sr_num) then
+         var_reallocc(strata_type,sr_num,stratum)
+         var_reallocc(strata_pointer,sr_num,stratum)
+         do i=sr_num+1,stratum
+            sr_type(i)=sr_undefined
+         end do
+         sr_num=stratum
+      end if
       
       define_sector=nsectors
       
@@ -657,8 +681,15 @@ break: continue
       subroutine check_geometry
       implicit_none
       gi_common             // Input
+      sy_common
       integer n,j,k,sigma       // Local
       logical outer
+      ptr_decl(outer_surfaces)
+      integer outer_surfaces[*]
+      integer num_outer_surfaces,orientation
+      external surface_equal
+      logical surface_equal
+      
 
       assert(ncells>0)
       assert(nboundaries>0)
@@ -680,6 +711,7 @@ break: continue
          assert(neighbors[j]>=0 && neighbors[j]<=ncells) // Also check |neighbors|
       end do
 
+      num_outer_surfaces=0
       do k=1,nsurfaces
          outer=.false.
          do sigma=s_neg,s_pos
@@ -696,14 +728,32 @@ break:      continue
          end do
          if (outer) then
  /* If the surface is face of the universal cell, then there's nothing on
-    the other side and some other cell must be on the same side */
+    the other side and some other cell must be on the same side.
+    Keep track of these original outer surfaces.
+ */
             assert(surfaces[s_neg,s_count,k]==0 || surfaces[s_pos,s_count,k]==0)
             assert(surfaces[s_neg,s_count,k]>0 || surfaces[s_pos,s_count,k]>0)
+            if (mod(num_outer_surfaces,mem_delta) == 0)
+     $           int_realloc(outer_surfaces,num_outer_surfaces,num_outer_surfaces+mem_delta)
+            num_outer_surfaces++
+            outer_surfaces[num_outer_surfaces]=k
+
          else                   /* |!outer| */
+
  /* Either the surface is a cut surface with nothing on either side or else
     there is at least one cell on each side */
             if (surfaces[s_neg,s_count,k]==0) then
+                     
                if (surfaces[s_pos,s_count,k]!=0) then
+/*
+   The surface may be degenerate with one of the original outer surfaces, but
+   does not have the universal cell explicitly listed as a neighbor (because
+   |k| is {\em not} one of the originals0. If so, break out of here.
+*/
+                  do j=1,num_outer_surfaces
+                     if (surface_equal(surface_coeffs[1,k],   // Not original, but still outer
+     $                    surface_coeffs[1,outer_surfaces[j]],orientation)) goto break1
+                  end do
                   write(stderr,*) 'This surface isn''t an outer surface, but there''s something on one side and not on the other'
                   write(stderr,*) k
                   write(stderr,*) vc_expand(surface_points[0,k])
