@@ -2,6 +2,9 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.18  1995/11/03 15:06:48  karney
+% Clean up for release.
+%
 % Revision 1.17  1995/10/04 18:33:35  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -202,10 +205,22 @@ end
 @a
       @<Functions and Subroutines@>
 
-@ The main program
+@ The main program.
 
 @<Functions...@>=
       program readgeometry
+      implicit_none
+      character*FILELEN filename
+      
+      call command_arg(1,filename)
+      
+      stop
+      end
+
+@ The main routine.
+
+@<Functions...@>=
+      subroutine readgeomfile(filename)
       implicit_none
       integer mx,my
       parameter (mx=120,my=50)
@@ -245,7 +260,6 @@ end
       @<comstat.h@>
       @<compar.h@>
 
-      call command_arg(1,filename)
       call readfilenames
 
       datafile_diskin=diskin+1
@@ -743,7 +757,7 @@ eof:  continue
       write(stdout,*) 'vol and vola =', vol,vola
 
       call erase_geometry
-      stop
+      return
       end
 
 @ subroutine to read inputs from sonnet file.

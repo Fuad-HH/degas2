@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.42  1995/11/03 15:06:08  karney
+# Clean up for release.
+#
 # Revision 1.41  1995/10/12 21:42:34  karney
 # Finish the implementation of sectors.  Now track exits when encountering a
 # sector (on either side).  Sector and strata information is now part of the
@@ -109,6 +112,7 @@
 # Get Makefiles working to update fixit, idtof when needed.
 
 DEBUG=yes
+STANDALONE=yes
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -153,6 +157,11 @@ ifndef DEGASROOT
     DEGASROOT=$(HOME)
 endif
 
+ifeq ($(STANDALONE),yes)
+  SOURCEDIR=$(DEGASROOT)/degas2/src
+  vpath %.web $(SOURCEDIR)
+  vpath %.hweb $(SOURCEDIR)
+else
 ifeq ($(MACHINE),CRAY)
   SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
   %.f: $(SOURCEDIR)/%.f
@@ -166,6 +175,7 @@ else
   SOURCEDIR=$(DEGASROOT)/degas2/src
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
+endif
 endif
 endif
 
@@ -207,7 +217,11 @@ ifeq ($(PRINTER),)
 else
  LPRFLAGS=-h -P$(PRINTER)
 endif
-FTANGLE=ftangle
+ifeq ($(MACHINE),CRAY)
+ FTANGLE=/afs/pppl.gov/@sys/usr/local/bin/ftangle
+else
+ FTANGLE=ftangle
+endif
 FWEAVE=fweave
 LATEX=latex
 ifeq ($(DEBUG),yes)
@@ -278,10 +292,12 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
 	$(IDENTAPPEND)
 
+ifeq ($(STANDALONE),yes)
 # include files
 geomfaces.f geomfront.f geomtest.f geomtesta.f geomutils.f plotgoem.f composite.f geometry.f geomsetup.f: geomint.hweb
 
 degasgeom.f: degas.hweb geomint.hweb
+endif
 
 ifeq ($(TARGET),IBM)
   sysdep.f sysdepc.c: sysdep.web macros.hweb
