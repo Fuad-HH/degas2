@@ -1,37 +1,39 @@
 
 @* a program to read filenames for various inputs and outputs from an
-external file. The syntax for the file is \\
-{\bf symbolic-filename} [actual filename] \\
+external file. The syntax for the file is 
+{\bf symbolic-filename} [actual filename] 
 The symbolic name is assigned the filename. symbolic filenames are self 
 explanatory as to what the files may contain.
 To add more symbolic filenames simply change the assert stmt that checks 
 whether the symbolic name is a valid one, and add another 'elseif' block. The
-new symbolic file name has to be included in the common block.
-A sample input file for this is as follows : \\
+new index in the file name  array has to be included in the header file.
 
-# file names for degas2
-#the name of this file is passed as argument to readfilenames
-# syntax is : symbolic filename  [actual filename]
-#the filenames can be in any order, comments (starting with #) and blank lines
-# will be ignored.
+A sample input file for this is as follows : 
 
-elementsfile  elements.nc
-backgroundfile background.nc
-testfile  test.nc
-geometryfile geometry.nc
-problemfile problem.nc
-reactionfile reactions.nc
-speciesfile species.nc
-aladinfile aladinput.nc
-aladoutfile aladoutput.nc
+\begin{verbatim}
+\# file names for degas2 
+\# the name of this file is passed as argument to readfilenames 
+\# syntax is : symbolic filename \em {actual filename} 
+\# the filenames can be in any order, comments (starting with \#) and blank 
+\# lines will be ignored. 
 
+elementsfile  ../data/elements.nc 
+backgroundfile background.nc 
+testfile  test.nc 
+geometryfile geometry.nc 
+problemfile ../data/problem.nc 
+reactionfile ../data/reactions.nc 
+speciesfile ../data/species.nc 
+aladinfile ../data/aladinput.nc
+aladoutfile ../data/aladoutput.nc 
+\end{verbatim}
 
 
 \ID{$Id$}
 
 @m FILE 'readfilenames.web'
 @I macros.hweb
-
+@I readfilenames.hweb
 @f namelist integer
 @ The unnamed module.
 
@@ -41,23 +43,22 @@ aladoutfile aladoutput.nc
 
 @<Functions...@>=
 
-      program 	readfilenames
+      subroutine readfilenames
       implicit none
       
-      character*FILELEN filename	
-      character*LINELEN line,symbolic_fname
-      character*FILELEN  elementsfile,backgroundfile,testfile,
-     $     geometryfile,problemfile,reactionfile,speciesfile,
-     $     aladinfile,aladoutfile
+      character*FILELEN filename ,symbolic_fname	
+      character*LINELEN line
       integer length,p,b,e // Local
       sy_common
       st_common
+      rf_common
 
-      call command_arg(1,filename)
-
+/* this is hard coded for now, for want of a better means */
+      filename ='degas2.in'
       open(unit=diskin,file=filename,status='old',form='formatted')
 
 /* read the file containing filenames */
+      filenames_max =0
 loop:      if (! read_string(diskin,line,length) ) goto eof 
       assert(length<=len(line))
 
@@ -72,31 +73,36 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     'problemfile' || symbolic_fname == 'reactionfile' ||
      $     symbolic_fname == 'speciesfile' || symbolic_fname ==
      $     'aladinfile' || symbolic_fname == 'aladoutfile' )
-
+      
+      filenames_max = filenames_max +1
+      var_realloca(filenames_array)
       if ( symbolic_fname == 'elementsfile') then
-         elementsfile = line(b:e)
+         filenames_array[elementsfile]  = line(b:e)
       elseif ( symbolic_fname == 'backgroundfile') then
-         backgroundfile = line(b:e)
+         filenames_array[backgroundfile] = line(b:e)
       elseif ( symbolic_fname == 'testfile') then 
-         testfile = line(b:e)
+         filenames_array[testfile] = line(b:e)
       elseif ( symbolic_fname == 'geometryfile') then
-         geometryfile = line(b:e)
+         filenames_array[geometryfile] = line(b:e)
       elseif ( symbolic_fname == 'problemfile')  then
-         problemfile =line(b:e)
+         filenames_array[problemfile] =line(b:e)
       elseif ( symbolic_fname == 'reactionfile') then
-         reactionfile = line(b:e)
+         filenames_array[reactionfile] = line(b:e)
       elseif ( symbolic_fname == 'speciesfile')  then
-         speciesfile = line(b:e)
+         filenames_array[speciesfile] = line(b:e)
       elseif ( symbolic_fname == 'aladinfile')  then
-         aladinfile = line(b:e)
+         filenames_array[aladinfile] = line(b:e)
       elseif ( symbolic_fname == 'aladoutfile')  then
-         aladoutfile = line(b:e)
+         filenames_array[aladoutfile] = line(b:e)
       endif
-      print *, symbolic_fname
+
       goto loop
 eof:  continue
-      stop
+      close(diskin)
+      var_reallocb(filenames_array)
+      return
       end
 
+@* INDEX
 
 
