@@ -2,6 +2,10 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.26  1996/10/30 18:26:12  dstotler
+% Under "grid" keyword, test for & skip 0 volume plasma zones. Use
+% |polygon_x| in setting |zone_center|. Set zone_min and zone_max.
+%
 % Revision 1.25  1996/05/24 18:57:40  dstotler
 % Add calls to define sector_solid material and temperature.
 %
@@ -114,11 +118,9 @@ are essentially used only by the code itself. Zones are used primarily for the
 specification of input and output data.
 
 The interfaces between the plasma (or vacuum)  and a solid surface (or exit)
-are represented by strata, which are established for diagnostic purposes.
- In general, a stratum is made up of one or more sectors (defined by a 
-surface and a zone). This code makes an attempt to identify and label these
-sectors and strata automatically. 
-
+are represented by sectors, which are established for diagnostic purposes.
+In general, a sector is defined by a surface and a zone. This code makes 
+an attempt to identify and label these sectors automatically. 
 
 The command line for the execution of this code must specify a file name.
 The syntax for each line in that file is:
@@ -254,9 +256,9 @@ end
 @I sector.hweb
 @I sysdep.hweb
 @I string.hweb
-@I strata.hweb
 @I zone.hweb
 @I materials.hweb
+@I detector.hweb
 
 @f namelist integer
 @ The unnamed module.
@@ -267,7 +269,7 @@ end
 @ The main program
 @m mem_delta 10
 @m xz_index 2
-@m num_points 101
+@m num_points 120
 
 @m next_surface #:0     // Statement label
 
@@ -277,6 +279,7 @@ end
       int_realloc(polygon_zone,num_polygon,num_polygon+mem_delta);
       int_realloc(polygon_material,num_polygon,num_polygon+mem_delta);
       int_realloc(polygon_stratum,num_polygon,num_polygon+mem_delta);
+      int_realloc(polygon_segment,num_points*num_polygon,num_points*(num_polygon+mem_delta));
       end if;
       num_polygon++ @;
 @f setup_common integer
@@ -329,8 +332,10 @@ end
       integer polygon_stratum[*]
       ptr_decl(polygon_material)
       integer polygon_material[*] 
+      ptr_decl(polygon_segment)
+      integer polygon_segment[num_points-1,*]
       integer num_polygon,current_material,current_stratum,temp_material
-      integer face1,zone1,zone2,stratum,sector1,sector2,temp_type
+      integer face1,zone1,zone2,stratum,sector1,sector2
       external define_sector
       integer define_sector
       integer xcorner1,xcorner2,xcorner3,xcorner4, zcorner1,zcorner2
@@ -341,7 +346,6 @@ end
       gi_common
       gi_ext
       sc_common
-      sr_common
       zn_common
       ma_common
       setup_common
@@ -491,6 +495,174 @@ loop2: continue
          end if
          zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
       elseif (keyword == 'wall') then
+
+         @<Wall Keyword@>
+
+      elseif (keyword == 'outer') then
+loop3:   continue
+         if (next_token(line,b,e,p)) then
+            i=read_integer(line(b:e))
+            if (i==0 || i==4) then
+               polygon_x[1,n,num_polygon]=xmin;polygon_x[2,n,num_polygon]=zmin
+            else if (i==1) then
+               polygon_x[1,n,num_polygon]=xmin;polygon_x[2,n,num_polygon]=zmax
+            else if (i==2) then
+               polygon_x[1,n,num_polygon]=xmax;polygon_x[2,n,num_polygon]=zmax
+            else if (i==3) then
+               polygon_x[1,n,num_polygon]=xmax;polygon_x[2,n,num_polygon]=zmin
+            end if
+            n++
+            polygon_segment[n,num_polygon]=0  // i.e., not used
+            assert(n<=num_points-1)
+            goto loop3
+         end if
+      elseif (keyword=='grid') then
+
+         @<Grid Keyword@>
+
+      elseif (keyword == 'edge') then
+
+         @<Edge Keyword@>
+
+      elseif (keyword == 'mindensity') then
+         assert(next_token(line,b,e,p))
+         mindensity=read_real(line(b:e))
+      elseif (keyword == 'minz') then
+         assert(next_token(line,b,e,p))
+         minz=read_real(line(b:e))
+      elseif (keyword == 'minx') then
+         assert(next_token(line,b,e,p))
+         minx=read_real(line(b:e))
+
+      elseif (keyword == 'wallfile') then
+         assert(next_token(line,b,e,p))
+         wallfilename= line(b:e)
+         open(unit=wallfile_diskin,name=wallfilename,status='old',
+     $        form='formatted')
+         read(wallfile_diskin,*) nowals
+         read(wallfile_diskin,*)SP(nosegsxz[i],i=1,nowals)
+         do i=1,nowals
+            do j=1,nosegsxz[i]
+               read(wallfile_diskin,*) xwall[j,i],zwall[j,i]
+            enddo
+         enddo
+         vacuum=.true.
+      elseif (keyword == 'mesh') then
+
+         @<Mesh Keyword@>
+
+      elseif (keyword == 'stratum') then
+         assert(next_token(line,b,e,p))
+         current_stratum=read_integer(line(b:e))
+
+      elseif (keyword == 'material') then
+         assert(next_token(line,b,e,p))
+         current_material=ma_lookup(line(b:e))
+
+/* insert additional keywords below this */            
+
+      elseif (keyword == 'end') then
+           
+         goto eof
+      else
+         write(stderr,*) 'Unknown keyword ',trim(keyword)
+         assert(.false.)
+      end if
+      goto loop2
+eof:  continue
+      close(unit=diskin)
+
+      call boundaries_neighbors
+
+/*
+   Set up default sectors. These are taken to be at the interface between
+   plasma / vacuum and solid / exit zones. The procedure consists of first
+   cycling through all of the polygons of zone type solid or exit and 
+   checking each surface to see if there is a plasma or vacuum zone on the
+   other side. The filter used here is that |find_poly_zone| arranges for
+   the type of |zone1| to match that of polygon |i|; then, the lines setting
+   sector subclass type bypass plasma / vacuum polygons.
+   Temporarily hardwire temperature to 300.;
+   should eventually be |polygon_temperature| or something.
+*/
+      do i=1,num_polygon
+         do j=0,polygon_points[i]-1
+            if (polygon_x[1,j,i] != polygon_x[1,j+1,i] 
+     $           || polygon_x[2,j,i] != polygon_x[2,j+1,i]) then
+               call find_poly_zone(polygon_x[1,j,i],polygon_x[1,j+1,i],
+     $              zn_type(polygon_zone[i]),zone1,face1,zone2)
+               if (zone1 > 0 && zone2 > 0) then
+                  stratum=polygon_stratum[i]
+                  if ((zn_type(zone1) == zn_solid) && (zn_type(zone2) == zn_plasma)) then
+                     sector1=define_sector(stratum,polygon_segment[j+1,i],
+     $                    face1,zone1)
+                     assert(ma_check(polygon_material[i]))
+                     define_sector_target(sector1,polygon_material[i],
+     $                    const(3.,2)*boltzmanns_const)
+                     sector2=define_sector(stratum,polygon_segment[j+1,i],
+     $                    -face1,zone2)
+                     define_sector_plasma(sector2)
+
+                  else if ((zn_type(zone1) == zn_solid) && (zn_type(zone2) == zn_vacuum)) then 
+                     sector1=define_sector(stratum,polygon_segment[j+1,i],
+     $                    face1,zone1)
+                     assert(ma_check(polygon_material[i]))
+                     define_sector_wall(sector1,polygon_material[i],
+     $                    const(3.,2)*boltzmanns_const)
+                     sector2=define_sector(stratum,polygon_segment[j+1,i],
+     $                    -face1,zone2)
+                     define_sector_vacuum(sector2)
+
+                  else if ((zn_type(zone1) == zn_exit) && ((zn_type(zone2) == zn_plasma) )) then
+                     sector1=define_sector(stratum,polygon_segment[j+1,i],
+     $                    face1,zone1)
+                     define_sector_exit(sector1,zero)    // assume transparent
+                     sector2=define_sector(stratum,polygon_segment[j+1,i],
+     $                    -face1,zone2)
+                     define_sector_plasma(sector2)
+
+                  else if ((zn_type(zone1) == zn_exit) && ((zn_type(zone2) == zn_vacuum) )) then
+                     sector1=define_sector(stratum,polygon_segment[j+1,i],
+     $                    face1,zone1)
+                     define_sector_exit(sector1,zero)    // assume transparent
+                     sector2=define_sector(stratum,polygon_segment[j+1,i],
+     $                    -face1,zone2)
+                     define_sector_vacuum(sector2)
+
+                  else
+                     goto next_surface
+                  end if
+
+                end if
+             end if
+next_surface continue
+         end do
+      end do
+      
+      call diag_sector_setup
+
+      call end_sectors
+
+      call rg_detector_setup
+
+      call end_detectors
+
+      call check_geometry
+      call write_geometry
+      vola=zero
+      do i=1,zn_num
+         assert(zn_volume(i)>0)
+         vola=vola+zn_volume(i)
+      end do
+      write(stdout,*) 'vol and vola =', vol,vola
+
+      call erase_geometry
+
+      return
+      end
+
+@ Wall keyword section
+@<Wall Keyword@>=
          assert(next_token(line,b,e,p))
          wall_no=read_integer(line(b:e))
          assert(next_token(line,b,e,p))
@@ -532,36 +704,22 @@ loop2: continue
             polygon_x[1,n,num_polygon]=xwall[mod(i-1,nosegsxz[wall_no]+1)+1,wall_no]
             polygon_x[2,n,num_polygon]=zwall[mod(i-1,nosegsxz[wall_no]+1)+1,wall_no]
             n++
+            polygon_segment[n,num_polygon]=mod(i-1,nosegsxz[wall_no]+1)+1
             assert(n<=num_points-1)
 /*
    Check to see that other values of |kwmat| for this polygon are consistent
    with the one set at |wall_start|. If not, set |current_material| to a
    special value which can either be trapped downstream, or superseded
-   by use of the ``current_material'' keyword.
+   by use of the ``|current_material|'' keyword.
 */
             if (i != nosegsxz[wall_no]+1) then
                temp_material=ma_lookup(kwmat[wall_start,wall_no])
                if (current_material != temp_material) current_material=-1
             end if
          end do
-      elseif (keyword == 'outer') then
-loop3:   continue
-         if (next_token(line,b,e,p)) then
-            i=read_integer(line(b:e))
-            if (i==0 || i==4) then
-               polygon_x[1,n,num_polygon]=xmin;polygon_x[2,n,num_polygon]=zmin
-            else if (i==1) then
-               polygon_x[1,n,num_polygon]=xmin;polygon_x[2,n,num_polygon]=zmax
-            else if (i==2) then
-               polygon_x[1,n,num_polygon]=xmax;polygon_x[2,n,num_polygon]=zmax
-            else if (i==3) then
-               polygon_x[1,n,num_polygon]=xmax;polygon_x[2,n,num_polygon]=zmin
-            end if
-            n++
-            assert(n<=num_points-1)
-            goto loop3
-         end if
-      elseif (keyword=='grid') then
+
+@ Grid keyword section
+@<Grid Keyword@>=
          assert(next_token(line,b,e,p))
          grid_startv=read_integer(line(b:e))
          assert(next_token(line,b,e,p))
@@ -617,7 +775,11 @@ loop3:   continue
                x_test[1,4]=x_test[1,0]
                x_test[2,4]=x_test[2,0]
                vol_test=polygon_volume(4,x_test)
-               if (vol_test <= epsilon) goto skip
+               if (vol_test <= epsilon) then
+                  if (vol_test < -epsilon) write(stdout,*) 
+     $                 'Ignoring negative volume zone at j1, j2 = ',j1,j2
+                  goto skip
+               end if
 /*
                write(stdout,'(5f10.4)') gridx(j1,j2,1),gridx(j1,j2+1,1),
      $              gridx(j1+1,j2+1,1),gridx(j1+1,j2,1),gridx(j1,j2,1)
@@ -640,14 +802,24 @@ loop3:   continue
                zn_index(zone,1)=j1
                zn_index(zone,2)=j2
  /* This is only an approximation and assumes that the zone is convex */
-               vc_set(zone_center[zone],half*(polygon_x[1,0,num_polygon]+polygon_x[1,2,num_polygon]),zero,half*(polygon_x[2,0,num_polygon]+polygon_x[2,2,num_polygon]))
+               vc_set(zone_center[zone],
+     $            const(0.25)*(polygon_x[1,0,num_polygon]
+     $                          +polygon_x[1,1,num_polygon]
+     $                          +polygon_x[1,2,num_polygon]
+     $                          +polygon_x[1,3,num_polygon]),
+     $            zero,const(0.25)*(polygon_x[2,0,num_polygon]
+     $                               +polygon_x[2,1,num_polygon]
+     $                               +polygon_x[2,2,num_polygon]
+     $                               +polygon_x[2,3,num_polygon]))
                call set_zn_min_max(4,polygon_x[1,0,num_polygon],zone,.true.)
 skip:          continue
               end do
               write(stderr,*) j2,' ',plot(grid_startv:grid_stopv)
            enddo
-        elseif (keyword == 'edge') then
-           assert(next_token(line,b,e,p))
+
+@ Edge keyword section
+@<Edge Keyword@>=
+         assert(next_token(line,b,e,p))
            grid_startv=read_integer(line(b:e))
            assert(next_token(line,b,e,p))
            grid_stopv=read_integer(line(b:e))
@@ -683,30 +855,9 @@ skip:          continue
               h=h+steph
               v=v+stepv
            enddo
-        elseif (keyword == 'mindensity') then
-           assert(next_token(line,b,e,p))
-           mindensity=read_real(line(b:e))
-        elseif (keyword == 'minz') then
-           assert(next_token(line,b,e,p))
-           minz=read_real(line(b:e))
-        elseif (keyword == 'minx') then
-           assert(next_token(line,b,e,p))
-           minx=read_real(line(b:e))
 
-        elseif (keyword == 'wallfile') then
-           assert(next_token(line,b,e,p))
-           wallfilename= line(b:e)
-           open(unit=wallfile_diskin,name=wallfilename,status='old',
-     $          form='formatted')
-           read(wallfile_diskin,*) nowals
-           read(wallfile_diskin,*)SP(nosegsxz[i],i=1,nowals)
-           do i=1,nowals
-              do j=1,nosegsxz[i]
-                 read(wallfile_diskin,*) xwall[j,i],zwall[j,i]
-              enddo
-           enddo
-           vacuum=.true.
-        elseif (keyword == 'mesh') then
+@ Mesh keyword section
+@<Mesh Keyword@>=
            assert(uedge)
            assert(next_token(line,b,e,p))
            xmin=read_real(line(b:e))
@@ -771,48 +922,6 @@ skip:          continue
             enddo
          enddo
 
-@#if 0
-/* 
-   NOTE: The strata and sector definitions have now been implemented 
-   throughout this file, superseding the code suggested below. 
-   Source values should be set in readbackground.web or equivalent.
-*/
- /* Pending work */
- /* Define strata */
-
-         so_num=2*ny
-         var_alloc(source_type)
-         var_alloc(source_current)
-         var_alloc(source_element)
-         var_alloc(source_pos)
-         source_total=zero
-         i=0
-         j1=1
-         stratum=1
-         do j2=ny,1,-1
-            i++
-            vc_set(xx1,x[1,2],zero,x[2,2])
-            vc_set(xx2,x[1,3],zero,x[2,3])
-            sector=define_sector(stratum,lookup_surface(xx1,xx2),zone)
-
-            source_type[i]=so_surface
-            source_current[i]=flux1[j2]
-            source_total=source_total+source_current[i]
-            vc_set(source_pos[i][0],rm[j1,j2,3],zero,zm[j1,j2,3])
-            vc_set(source_pos[i][1],rm[j1,j2,1],zero,zm[j1,j2,1])
-         end do
-         j1=nx
-         stratum=2
-         do j2=1,ny
-            i++
-            source_type[i]=so_surface
-            source_current[i]=flux2[j2]
-            source_total=source_total+source_current[i]
-            vc_set(source_pos[i][0],rm[j1,j2,2],zero,zm[j1,j2,2])
-            vc_set(source_pos[i][1],rm[j1,j2,4],zero,zm[j1,j2,4])
-         end do
-
-@#endif
 /*
    Two cases: |vacuum| and |!vacuum|; for the former, |wallfile| data
    must be specified. In both cases, we use assumed values for the
@@ -830,15 +939,15 @@ skip:          continue
    for each sector is defined by the solid / exit stratum. The value
    of |current_material| is used everywhere (and is, hence, constant).
 */
-        if (! vacuum) then
+        if (! vacuum) then                         // {\bf not VACUUM}
            zone++
 /*
    Start from left lower corner of box and go clockwise along box till 
    right lower corner. Return along outer edge of SOL to starting pt.
 */
            n=0
-           increment_num_polygon
-           if (single_null) then
+           increment_num_polygon            // {\bf SINGLE NULL}
+           if (single_null) then       
               polygon_x[1,n,num_polygon]=xmin
               polygon_x[2,n,num_polygon]=zmin; n++
               polygon_x[1,n,num_polygon]=xmin
@@ -854,7 +963,7 @@ skip:          continue
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
               end do
-
+                                              // {\bf DOUBLE NULL}
            elseif (double_null .and. uedge) then  // Why |uedge| ???
               polygon_x[1,n,num_polygon]=xmin
               polygon_x[2,n,num_polygon]=zmin; n++
@@ -906,14 +1015,14 @@ skip:          continue
            zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
            call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 /*
-   Start from left lower corner of box and to upper left bottom of SOL to 
-   lower left bottom of SOL. Cut down from there to bottom of box and then
+   Start from left lower corner of box and to left top of SOL to 
+   right top of SOL. Cut down from there to bottom of box and then
    close the polygon. Note
    that in a strange configuration, this ``cut'' could slice back across
    previous polygon points, ruining its connectedness.
 */
-           n=0
-           increment_num_polygon
+           n=0                            
+           increment_num_polygon              // {\bf SINGLE and DOUBLE NULL}
            polygon_x[1,n,num_polygon]=xmin
            polygon_x[2,n,num_polygon]=zmin; n++
            j1=1
@@ -936,8 +1045,8 @@ skip:          continue
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
            call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /*
-   Start again at bottom of box and proceed straight up to lower left bottom;
-   proceed along PFR to lower right bottom of SOL; go again straight
+   Start again at bottom of box and proceed straight up to right top;
+   proceed along PFR to left bottom of SOL; go again straight
    down to bottom of box and then close the polygon.
 */
            n=0
@@ -968,8 +1077,8 @@ skip:          continue
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
            call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /*
-   Pick up at the bottom of the box and go back up to the lower right bottom
-   of the SOL, then go across to the upper right bottom of the SOL, to the
+   Pick up at the bottom of the box and go back up to the left bottom
+   of the SOL, then go across to the right bottom of the SOL, to the
    lower right bottom of the box and then close the polygon.
 */
            n=0
@@ -997,94 +1106,379 @@ skip:          continue
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
            call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
          
-        else
+/*
+   {\bf VACUUM}
+*/
+
+        else                                               
 /* 
    Specify a vacuum region //
    Start with top vacuum region
-   {\bf NOTE: This has not been tested with the new default strata feature.}
 */
-           assert(single_null)   // |double_null| apparently not treated here
-           zone++
+	   if (single_null) then       // {\bf SINGLE NULL}
+              zone++
 
-           n=0
-           increment_num_polygon
-           i=2
-           do j=nosegsxz[i],1,-1
-              polygon_x[1,n,num_polygon]=xwall[j,i]
-              polygon_x[2,n,num_polygon]=zwall[j,i]; n++
-           end do
-           j1=nx; j2=ny
-           polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
-           polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+              n=0
+              increment_num_polygon
+              i=2
+              do j=nosegsxz[i],1,-1
+                 polygon_x[1,n,num_polygon]=xwall[j,i]
+                 polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              end do
+              j1=nx; j2=ny
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
 
-           do j1=nx,1,-1
-              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
-              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
-           end do
+              do j1=nx,1,-1
+                 polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
+                 polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
+              end do
 
-           polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
-           polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]               
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
 
-           polygon_points[num_polygon]=n
-           polygon_zone[num_polygon]=zone
-           polygon_stratum[num_polygon]=current_stratum
-           polygon_material[num_polygon]=current_material
-           call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
-           zn_type_set(zone,zn_vacuum)
-           zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
-           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=current_stratum
+              polygon_material[num_polygon]=current_material
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_type_set(zone,zn_vacuum)
+              zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 /* 
    Do top wall //
    Start from left lower corner of box and go clockwise along box till 
-   right lower corner. Return along top wall.
+   right lower corner. Return along top wall, touching the plasma corners
+   (to complete the wall) at either end.
 */
-           zone++
+              zone++
 
-           n=0
-           increment_num_polygon
-           polygon_x[1,n,num_polygon]=xmin
-           polygon_x[2,n,num_polygon]=zmin; n++
-           polygon_x[1,n,num_polygon]=xmin
-           polygon_x[2,n,num_polygon]=zmax; n++
-           polygon_x[1,n,num_polygon]=xmax
-           polygon_x[2,n,num_polygon]=zmax; n++
-           polygon_x[1,n,num_polygon]=xmax
-           polygon_x[2,n,num_polygon]=zmin; n++
-           i=2
-           do j=1,nosegsxz[i]
+              n=0
+              increment_num_polygon
+              polygon_x[1,n,num_polygon]=xmin
+              polygon_x[2,n,num_polygon]=zmin; n++
+              polygon_x[1,n,num_polygon]=xmin
+              polygon_x[2,n,num_polygon]=zmax; n++
+              polygon_x[1,n,num_polygon]=xmax
+              polygon_x[2,n,num_polygon]=zmax; n++
+              polygon_x[1,n,num_polygon]=xmax
+              polygon_x[2,n,num_polygon]=zmin; n++
+
+              j1=nx
+              j2=ny
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+
+              i=2
+              do j=1,nosegsxz[i]
+                 polygon_x[1,n,num_polygon]=xwall[j,i]
+                 polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              end do
+
+              j1=1
+              j2=ny
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=3
+              polygon_material[num_polygon]=current_material
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_type_set(zone,zn_solid)
+              zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+
+           else if (double_null && uedge) then          // {\bf DOUBLE NULL}
+
+/*
+    Outer vacuum region. //
+    Start at top (end) of outer wall segment (wall 2),
+    go down to its beginning point, jump to right bottom of SOL. 
+    Go up along right side of mesh to mirror point and finish at end of wall 2.
+*/
+              zone++
+
+              n=0
+              increment_num_polygon
+              i=2
+              do j=nosegsxz[i],1,-1
+                 polygon_x[1,n,num_polygon]=xwall[j,i]
+                 polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              end do
+              j1=nx; j2=ny
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+
+              do j1=nx,ix_mirror+1,-1
+                 polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
+                 polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
+              end do
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=current_stratum
+              polygon_material[num_polygon]=current_material
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_type_set(zone,zn_vacuum)
+              zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+/*
+  Inner vacuum region. //
+  Start at bottom (end) of inner wall segment, go up
+  to its beginning point, jump to inner mirror point of mesh, follow the mesh
+  down to the left top. 
+*/
+              zone++
+
+              n=0
+              increment_num_polygon
+              i=3
+              do j=nosegsxz[i],1,-1
+                 polygon_x[1,n,num_polygon]=xwall[j,i]
+                 polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              end do
+              j1=ix_mirror; j2=ny
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+
+              do j1=ix_mirror,1,-1
+                 polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
+                 polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
+              end do
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=current_stratum
+              polygon_material[num_polygon]=current_material
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_type_set(zone,zn_vacuum)
+              zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+
+/*
+   Outer solid. //
+   Start at top right of box, go to bottom right. Then, jump
+   to right bottom of SOL. Connect to wall 2 and follow it from beginning
+   to end.
+*/
+
+              zone++
+
+              n=0
+              increment_num_polygon
+              polygon_x[1,n,num_polygon]=xmax
+              polygon_x[2,n,num_polygon]=zmax; n++
+              polygon_x[1,n,num_polygon]=xmax
+              polygon_x[2,n,num_polygon]=zmin; n++
+
+              j1=nx
+              j2=ny
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+
+              i=2
+              do j=1,nosegsxz[i]
+                 polygon_x[1,n,num_polygon]=xwall[j,i]
+                 polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              end do
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=3
+              polygon_material[num_polygon]=current_material
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_type_set(zone,zn_solid)
+              zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+
+/*
+   Inner solid. //
+   Start at bottom left of box. Go to top left. Jump to 
+   start of wall 3 and follow along its length. Step to left top of
+   SOL and then finish polygon.
+*/
+
+              zone++
+
+              n=0
+              increment_num_polygon
+              polygon_x[1,n,num_polygon]=xmin
+              polygon_x[2,n,num_polygon]=zmin; n++
+              polygon_x[1,n,num_polygon]=xmin
+              polygon_x[2,n,num_polygon]=zmax; n++
+
+              i=3
+              do j=1,nosegsxz[i]
+                 polygon_x[1,n,num_polygon]=xwall[j,i]
+                 polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              end do
+
+              j1=1
+              j2=ny
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=3
+              polygon_material[num_polygon]=current_material
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_type_set(zone,zn_solid)
+              zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+
+/*
+   Mirror boundary. //
+   Start at top left of box and go to the top right. 
+   Pick up the last point of wall 2 and proceed to the outer
+   edge of the mirror cut on the mesh. Work along the mirror cut (going
+   across the core, too). Pick up the first point of wall 3 and finish
+   the polygon. To avoid having |decompose_polygon| trying to work with
+   very oddly shaped polygons with segments from the inner and outer
+   leg, split this up into three pieces with connections to the universal
+   cell, just as is done below for the bottom wall. There shouldn't be
+   nearly as much problem with it here. \\    
+
+   Right piece
+*/
+
+              zone++
+              
+              n=0
+              increment_num_polygon
+
+              polygon_x[1,n,num_polygon]=xmax
+              polygon_x[2,n,num_polygon]=zmax; n++
+
+              i=2
+              j=nosegsxz[i]
               polygon_x[1,n,num_polygon]=xwall[j,i]
               polygon_x[2,n,num_polygon]=zwall[j,i]; n++
-           end do
 
-           polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
-           polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]               
+              j2=ny
+              j1=ix_mirror+1
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
 
-           polygon_points[num_polygon]=n
-           polygon_zone[num_polygon]=zone
-           polygon_stratum[num_polygon]=3
-           polygon_material[num_polygon]=current_material
-           call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
-           zn_type_set(zone,zn_solid)
-           zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
-           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+              j1=ix_mirror+1
+              do j2=ny,1,-1
+                 polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
+                 polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+              enddo
+              j2=1
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
+              polygon_x[2,n,num_polygon]=zmax; n++
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=6
+              polygon_material[num_polygon]=ma_lookup('mirror')
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_type_set(zone,zn_solid)
+              zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
+
+/* Middle piece */
+              n=0
+              increment_num_polygon
+
+              j1=ix_mirror+1; j2=1
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
+              polygon_x[2,n,num_polygon]=zmax; n++
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+
+              j1=ix_mirror; j2=1
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
+
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
+              polygon_x[2,n,num_polygon]=zmax; n++
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=6
+              polygon_material[num_polygon]=ma_lookup('mirror')
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
+
+/* Left piece */
+              n=0
+              increment_num_polygon
+
+              j1=ix_mirror; j2=1
+
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
+              polygon_x[2,n,num_polygon]=zmax; n++
+
+              polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
+              polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
+              j1=ix_mirror
+              do j2=1,ny
+                 polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
+                 polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+              enddo
+
+              i=3
+              j=1
+              polygon_x[1,n,num_polygon]=xwall[j,i]
+              polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+
+              polygon_x[1,n,num_polygon]=xmin;
+              polygon_x[2,n,num_polygon]=zmax; n++
+
+              polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
+              polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]            
+
+              polygon_points[num_polygon]=n
+              polygon_zone[num_polygon]=zone
+              polygon_stratum[num_polygon]=6
+              polygon_material[num_polygon]=ma_lookup('mirror')
+              call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
+              zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
+              call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
+
+           else 
+              assert('neither single nor double null' == ' ')
+           end if
 /* 
-   Bottom wall //
-   Start from left lower corner of box, touch the upper wall, go to upper 
-   left bottom of SOL, then to lower left bottom of SOL.  At this point,
-   we cut straight down to the bottom of the box. Note first that in this
-   way no part of wall number contributes to this stratum. Secondly, this
+   Bottom wall //                          
+   Start from left lower corner of box, go to
+   left top of SOL, then to right top of SOL.  At this point,
+   we cut straight down to the bottom of the box. Note that this
    arbitrary cut between the strata makes some assumptions about the mesh
    shapes; a bizarre geometry could end up with this polygon cutting across
    itself.
 */
-           n=0
-           increment_num_polygon
+           zone++ 
+
+           n=0                         
+           increment_num_polygon        //  {\bf SINGLE and DOUBLE NULL}
            polygon_x[1,n,num_polygon]=xmin
            polygon_x[2,n,num_polygon]=zmin; n++
-
-           i=2; j=nosegsxz[i]
-           polygon_x[1,n,num_polygon]=xwall[j,i]
-           polygon_x[2,n,num_polygon]=zwall[j,i]; n++
 
            j1=1
            do j2=ny,1,-1
@@ -1103,11 +1497,12 @@ skip:          continue
            polygon_stratum[num_polygon]=1
            polygon_material[num_polygon]=current_material
            call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
-           zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
-           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
+           zn_type_set(zone,zn_solid)
+           zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
+           call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
 /*
-   Go straight up again to the lower left bottom SOL and proceed to the
-   first wall; follow it and then touch the lower right bottom of the
+   Go straight up again to the right top SOL and proceed to the
+   first wall; follow it and then touch the left bottom of the
    SOL. Here again we go straight down to the bottom of the box before
    completing the polygon.
 */
@@ -1138,10 +1533,9 @@ skip:          continue
            zn_volume(zone)=zn_volume(zone)+polygon_volume(n,polygon_x[1,0,num_polygon])
            call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
 /*
-   Pick up again at the bottom and return to the lower right bottom of the
-   SOL. Follow along the right SOL; at the end, touch the second wall
-   before going to the lower right bottom of the box and then closing the
-   polygon.
+   Pick up again at the bottom and return to the left bottom of the
+   SOL. Follow along the bottom SOL; go to the bottom of the box and 
+   then close the polygon.
 */
            n=0
            increment_num_polygon
@@ -1157,10 +1551,6 @@ skip:          continue
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
            polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
            
-           i=2; j=1
-           polygon_x[1,n,num_polygon]=xwall[j,i]
-           polygon_x[2,n,num_polygon]=zwall[j,i]; n++
-
            polygon_x[1,n,num_polygon]=xmax
            polygon_x[2,n,num_polygon]=zmin; n++
            polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
@@ -1262,99 +1652,76 @@ skip:          continue
 /*
    END OF ``MESH'' KEYWORD SECTION
 */
-      elseif (keyword == 'stratum') then
-         assert(next_token(line,b,e,p))
-         current_stratum=read_integer(line(b:e))
 
-      elseif (keyword == 'material') then
-         assert(next_token(line,b,e,p))
-         current_material=ma_lookup(line(b:e))
 
-/* insert additional keywords below this */            
 
-      elseif (keyword == 'end') then
-           
-         goto eof
-      else
-         write(stderr,*) 'Unknown keyword ',trim(keyword)
-         assert(.false.)
-      end if
-      goto loop2
-eof:  continue
-      close(unit=diskin)
+@ Set up detectors for this geometry. {\em Note: this routine is
+geometry-specific!}
 
-      call boundaries_neighbors
+@m total_views 10   // To be used as a local dimension
+@<Functions...@>=
+      subroutine rg_detector_setup
 
-/*
-   Set up default strata. These are taken to be at the interface between
-   plasma / vacuum and solid / exit zones. The procedure consists of first
-   cycling through all of the polygons of zone type solid or exit and 
-   checking each surface to see if there is a plasma or vacuum zone on the
-   other side. The filter used here is that |find_poly_zone| arranges for
-   the type of |zone1| to match that of polygon |i|; then, the lines setting
-   |sr_type| bypass plasma / vacuum polygons.
-*/
-      do i=1,num_polygon
-         do j=0,polygon_points[i]-1
-            if (polygon_x[1,j,i] != polygon_x[1,j+1,i] 
-     $           || polygon_x[2,j,i] != polygon_x[2,j+1,i]) then
-               call find_poly_zone(polygon_x[1,j,i],polygon_x[1,j+1,i],
-     $              zn_type(polygon_zone[i]),zone1,face1,zone2)
-               if (zone1 > 0 && zone2 > 0) then
-                  stratum=polygon_stratum[i]
-                  if ((zn_type(zone1) == zn_solid) && (zn_type(zone2) == zn_plasma)) then
-                     temp_type=sr_target
+      implicit_none
 
-                  else if ((zn_type(zone1) == zn_solid) && (zn_type(zone2) == zn_vacuum)) then 
-                     temp_type=sr_wall
+      integer view,num,var,tab_index,spacing,i
+      integer grp_views[total_views]
+      real var_min,var_max,mult
 
-                  else if ((zn_type(zone1) == zn_exit) && ((zn_type(zone2) == zn_plasma) || (zn_type(zone2) == zn_vacuum))) then
-                     temp_type=sr_exit
-                  else
-                     goto next_surface
-                  end if
-                  sector1=define_sector(stratum,-face1,zone1)
-                  sector2=define_sector(stratum,face1,zone2)
-/*
-   Have to set strata_type down here since the allocation is done in
-   define sector. 
-*/
-                  if (sr_type(stratum) == sr_undefined) then
-                     sr_type_set(stratum,temp_type)
-                  else
-                     assert(sr_type(stratum)==temp_type)
-                  end if
-/*
-   Assign sector material (and other properties) here from 
-   polygon_material[i]. Check validity to trap errors, e.g., from improper
-   usage of materials obtained from ``wall'' keyword.
-   Temporarily hardwire temperature too 300.;
-   should eventually be |polygon_temperature| or something.
-*/
-                   if (zn_type(zone1) == zn_solid) then
-                      assert(ma_check(polygon_material[i]))
-                      define_sector_solid(sector1,polygon_material[i],const(3.,2)*boltzmanns_const)
-                   end if
+      de_common
+      sy_common
+      zn_common
 
-                end if
-             end if
-next_surface continue
+      detector_total_views=0       // test
+      var_alloc(de_view_points)
+      var_alloc(de_view_algorithm)
+      var_alloc(de_view_halfwidth)
+      var_alloc(de_zone_frags)
+      
+      de_grps=0
+      de_view_size=0
+      var_alloc(de_view_tab)
+
+      if (detector_total_views > 0) then
+         do view=1,detector_total_views
+            de_view_algorithm[view]=de_algorithm_uniform
+            de_view_halfwidth[view]=const(3.)*PI/const(1.8,2)  // arbitary
+            vc_set(de_view_points[view][de_view_start],one,zero,half)
          end do
-      end do
+      
+         vc_set(de_view_points[1][de_view_end],half,zero,zero)
+         vc_set(de_view_points[2][de_view_end],zero,zero,const(0.25))
+         vc_set(de_view_points[3][de_view_end],zero,zero,half)
+         vc_set(de_view_points[4][de_view_end],zero,zero,const(0.75))
+         vc_set(de_view_points[5][de_view_end],half,zero,one)
 
-      call end_sectors
+         call detector_view_setup
 
-      call check_geometry
-      call write_geometry
-      vola=zero
-      do i=1,zn_num
-         assert(zn_volume(i)>0)
-         vola=vola+zn_volume(i)
-      end do
-      write(stdout,*) 'vol and vola =', vol,vola
+         num=detector_total_views
+         var=de_var_unknown
+         tab_index=zero
+         var_min=zero
+         var_max=zero
+         mult=zero
+         spacing=de_spacing_unknown
+         do i=1,num
+            grp_views[i]=i
+         end do
+         call de_grp_init('Chord integrals',num,var,tab_index,var_min,var_max,
+     $        mult,spacing,grp_views)
 
-      call erase_geometry
-
+         num=1
+         var=de_var_wavelength
+         tab_index=200
+         var_min=const(6558.)
+         var_max=const(6564.)
+         mult=const(1.,-10)
+         spacing=de_spacing_linear
+         grp_views[1]=3
+         call de_grp_init('Halpha spectrum',num,var,tab_index,var_min,var_max,
+     $        mult,spacing,grp_views)
+      end if
+      
       return
       end
 
@@ -1378,6 +1745,7 @@ next_surface continue
       vc_set(x1,xa[1],zero,xa[2])  // Use |zero| to match |process_polygon|
       vc_set(x2,xb[1],zero,xb[2])
       face1=lookup_surface(x1,x2)
+      assert(face1 != 0)           // I guess this should always be true!
 
       count_pos=surfaces[s_pos,s_count,abs(face1)]
       count_neg=surfaces[s_neg,s_count,abs(face1)]
@@ -1404,6 +1772,7 @@ next_surface continue
             end if
          end do
       end if
+      face1=abs(face1)  
 
       if (count_neg > 0) then
          do i=1,count_neg
