@@ -6043,6 +6043,184 @@ C
       RETURN
 C
       END
+C##############################################################################
+C
+      SUBROUTINE REFL1(PE, PCF, KNCF, REFL, KERMSG)
+C
+C     THIS IS A SUBROUTINE TO CALCULATE THE GENERAL FORM OF THE
+C     PARTICLE OR ENERGY REFLECTION COEFFICIENT FOR PROJECTILE
+C     ENERGIES IN KEV.
+C
+C     PE = COLLISION ENERGY IN KEV
+C
+C     PCF(1-6) = FITTING COEFFICIENTS A1 THROUGH A6
+C
+C     KERMSG = BLANK IF NO ERRORS
+C
+C     REFL = REFLECTION COEFFICIENT
+C
+C------------------------------------------------------------------------
+C
+      DOUBLE PRECISION PE, PCF, REFL
+      DOUBLE PRECISION E
+C
+      DIMENSION PCF(6)
+      CHARACTER*(*) KERMSG
+C
+      DATA E/2.7182818D0/
+C
+      REFL = PCF(1) * DLOG(PCF(2)*PE+E)/(1.0D0 + PCF(3)*(PE**PCF(4)) +
+     1     PCF(5)*(PE**PCF(6))  )
+C
+      RETURN
+      END
+C
+C##############################################################################
+
+
+C##############################################################################
+C
+      SUBROUTINE REFL2(PE, PCF, KNCF, REFL, KERMSG)
+C
+C
+C     THIS IS A SUBROUTINE TO CALCULATE THE EXTENDED HHIGH ENERGY FORM
+C     OF THE PARTICLE OR ENERGY REFLECTION COEFFICIENT FOR PROJECTILE
+C     ENERGIES IN KEV.
+C
+C     PE = COLLISION ENERGY IN KEV
+C
+C     PCF(1-8) = FITTING COEFFICIENTS A1 THROUGH A8
+C
+C     KERMSG = BLANK IF NO ERRORS
+C
+C     REFL = REFLECTION COEFFICIENT
+C
+C------------------------------------------------------------------------
+C
+      DOUBLE PRECISION PE, PCF, REFL
+      DOUBLE PRECISION E
+C
+      DIMENSION PCF(8)
+      CHARACTER*(*) KERMSG
+C
+      DATA E/2.7182818D0/
+C
+      REFL = PCF(1) * DLOG(PCF(2)*PE+E)/(1.0D0 + PCF(3)*(PE**PCF(4)) +
+     1     PCF(5)*(PE**PCF(6))  )
+      REFL = REFL +  PCF(7)*DLOG(PCF(8)/PE+E)
+C
+      RETURN
+      END
+C
+C###################################################################
+
+
+C###################################################################
+C
+      SUBROUTINE REFL3(PE, PCF, KNCF, REFL, KERMSG)
+C------------------------------------------------------------------------
+C
+      DOUBLE PRECISION PE, PCF, REFL
+      DOUBLE PRECISION E
+C
+      DIMENSION PCF(9)
+      CHARACTER*(*) KERMSG
+C
+      DATA E/2.7182818D0/
+C
+      REFL = PCF(1) * DLOG(PCF(2)*PE+E)/(1.0D0 + PCF(3)*(PE**PCF(4)) +
+     1     PCF(5)*(PE**PCF(6))  )
+      REFL = REFL * ( ( 1.0D0 -( ( PCF(7)/PE )**PCF(8)) )**PCF(9) )
+C
+      RETURN
+      END
+CC
+        SUBROUTINE SPTEK(E, PCF, KNCF, SPUT, KERMSG)
+CC
+C##################################################################
+C   THIS IS AN IAEA SUBROUTINE TO CLACULATE THE SPUTTERING YIELD
+C    AS A FUNCTION OF ENERGY (eV) USING THE REVISED BOHDANSKI
+C    FORMULA GIVEN BY "SPUTTERING DATA" BY W. ECKSTEIN, C. GARCIA-
+C    ROSALES, J. ROTH AND W. OTTENBERGER, MAX-PLANK-INSTITUTE FUR
+C    PLASMA PHYSIK, IPP9/82, FEB. 1993
+C##################################################################
+C
+C
+C    PCF(1) = AM1: ATOMIC MASS NUMBER OF THE PROJECTILE
+C    PCF(2) = AM2: ATOMIC MASS NUMBER OF THE TARGET
+C    PCF(3) = AZ1: NUCLEAR CHARGE OF THE PROJECTILE
+C    PCF(4) = AZ2: NUCLEAR CHARGE OF THE TARGET
+C    PCF(5) = ETH: THRESHOLD ENERGY IN eV
+C    PCF(6) = QAPI: Q PARAMETER (ATOMS/ION)
+C
+        DOUBLE PRECISION E,RE,SN,SPUT,ETF,PCF
+        DOUBLE PRECISION AM1,AM2,AZ1,AZ2,ETH,QAPI
+        DIMENSION PCF(6)
+        CHARACTER*(*) KERMSG
+        AM1 = PCF(1)
+        AM2 = PCF(2)
+        AZ1 = PCF(3)
+        AZ2 = PCF(4)
+        ETH = PCF(5)
+        QAPI = PCF(6)
+C CALCULATE E(THOMAS-FERMI)
+        ETF = 30.74 * (AM1+AM2)/AM2 * AZ1*AZ2 *
+     *        DSQRT(AZ1**(2.0/3.0) + AZ2**(2.0/3.0))
+C CALCULATE REDUCED ENERGY
+        RE = E / ETF
+C CALCULATE STOPPING POWER
+        SN = 0.5 * DLOG(1.0 + 1.2288 * RE)/(RE+0.1728*DSQRT(RE)
+     *         + 0.008 * RE**0.1504)
+C CALCULATE SPUTTERING YIELD
+        SPUT = QAPI * SN * (1-(ETH/E)**(2.0/3.0))*(1-ETH/E)**2
+        RETURN
+        END
+CCCCCCCCCCCCCC
+CCCCCCCCCCCCCC
+        SUBROUTINE SPTTH(E, PCF, KNCF, SPUT, KERMSG)
+CC
+C##################################################################
+C   THIS IS AN IAEA SUBROUTINE TO CLACULATE THE SPUTTERING YIELD
+C    AS A FUNCTION OF ENERGY (eV) USING THE REVISED BOHDANSKI
+C    FORMULA GIVEN BY "EVALUATED DATABASE FOR SPUTTERING", BY
+C    E.W. THOMAS, R.K. JANEV, J. BOTERO, J.J. SMITH AND y. QIU
+C    IAEA REPORT INDC(NDS)-287, 1993
+C##################################################################
+C
+C
+C    PCF(1) = AM1: ATOMIC MASS NUMBER OF THE PROJECTILE
+C    PCF(2) = AM2: ATOMIC MASS NUMBER OF THE TARGET
+C    PCF(3) = AZ1: NUCLEAR CHARGE OF THE PROJECTILE
+C    PCF(4) = AZ2: NUCLEAR CHARGE OF THE TARGET
+C    PCF(5) = U0: BINDING ENERGY IN eV
+C    PCF(6) = ALPH: ALPHA PARAMETER
+C
+        DOUBLE PRECISION E,ER,SN,SPUT,ETF,PCF
+        DOUBLE PRECISION AM1,AM2,AZ1,AZ2,ETH,ALPH,U0,GAMM
+        DIMENSION PCF(6)
+        CHARACTER*(*) KERMSG
+        AM1 = PCF(1)
+        AM2 = PCF(2)
+        AZ1 = PCF(3)
+        AZ2 = PCF(4)
+        U0 = PCF(5)
+        ALPH = PCF(6)
+        GAMM = 4.0 * AM1 * AM2/(AM1 + AM2)**2
+C CALCULATE ETHRESHOLD
+        ETH = U0/GAMM/(1.0-GAMM)
+C CALCULATE REDUCED ENERGY
+        ER = E *0.03255 * AM2 /(AM1+AM2) /AZ1/AZ2/
+     *       DSQRT(AZ1**(2.0/3.0) + AZ2**(2.0/3.0))
+C CALCULATE STOPPING POWER
+        SN = DSQRT(ER)*DLOG(ER+2.7182818)/(1.0+2.0596*DSQRT(ER)+
+     *       1.5667*ER + 8.3248*ER*DSQRT(ER))
+C CALCULATE SPUTTERING YIELD
+        SPUT = 14.81*ALPH * AZ1 * AZ2 * AM1/(AM1+AM2)/ U0/
+     *         DSQRT(AZ1**(2.0/3.0) + AZ2**(2.0/3.0)) *
+     *         SN * (1-(ETH/E)**(2.0/3.0))*(1-ETH/E)**2
+        RETURN
+        END
+
 C
 C              **************************************************
 C              *                 A L P A C K                    *
