@@ -1,0 +1,63 @@
+@* Crosssection tables
+
+% $Id$
+
+% $Log$
+%
+
+\ID{$Id$}
+
+Information about crosssections.
+@ Constant definitions.
+
+@m xs_organization_unknown 0    // Types of data organization
+@m xs_organization_table 1
+
+@m xs_spacing_unknown 0          // Types of spacing in tables
+@m xs_spacing_linear 1
+@m xs_spacing_log 2
+
+@m xs_var_unknown 0             // Indices for the independent variables
+@m xs_var_density 1             // Indices for the independent variables
+@m xs_var_energy 2
+@m xs_var_temperature 3
+@m xs_var_rate 4
+
+@m xs_unit_string_length 12     // The length of the unit specifications
+
+@m xs_table_rank_max 3          // The biggest rank table
+
+@ variable definitions.
+
+@a
+      package_init(xs)
+      define_dimen_pk(xs,rank_ind,xs_table_rank_max)
+      define_dimen_pk(xs,rank_ind0,0,xs_table_rank_max)
+      define_var_pk(xs,xs_tab_index,INT,rank_ind)
+      define_dimen_pk(xs,index1_ind,0,xs_tab_index[1]-1)
+      define_dimen_pk(xs,index2_ind,0,xs_tab_index[2]-1)
+      define_dimen_pk(xs,index3_ind,0,xs_tab_index[3]-1)
+      define_dimen_pk(xs,unit_string,xs_unit_string_length)
+      define_dimen_pk(xs,xs_symbol_string,rc_sy_len)
+      define_var_pk(xs,xs_name,CHAR,xs_symbol_string)
+      define_var_pk(xs,xs_organization,INT)
+      define_var_pk(xs,xs_min,FLOAT,rank_ind)
+      define_var_pk(xs,xs_max,FLOAT,rank_ind)
+      define_var_pk(xs,xs_mult,FLOAT,rank_ind0)
+      define_var_pk(xs,xs_rank,INT)
+      define_var_pk(xs,xs_spacing,INT,rank_ind0)
+      define_var_pk(xs,xs_var,INT,rank_ind0)
+      define_var_pk(xs,xs_units,CHAR,unit_string,rank_ind0)
+      define_varp_pk(xs,xs_table,FLOAT,index1_ind,index2_ind,index3_ind)
+
+@ Common blocks definitions.
+
+@f xs_common integer
+@m xs_common
+      xs_common_a;
+      xs_common_b @;
+
+@m xs_ncread(fileid)
+      xs_ncreada(fileid);
+      xs_ncreadb(fileid);
+      xs_ncreadc(fileid) @;

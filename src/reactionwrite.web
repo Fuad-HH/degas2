@@ -1,0 +1,157 @@
+% $Id$
+\def\Wtitle{reactionwrite}
+
+% $Log$
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Reads in a text file of reaction data and writes out a file in NETCDF
+format with a complete specification of the reaction.
+
+@m FILE 'teststring.web'
+
+@I macros.hweb
+
+@ The unnamed module.
+
+
+
+@a
+      program reactionwrite
+      implicit_none
+      call reaction_write('hionize')
+      call reaction_write('hchex')
+      stop
+      end
+      
+      @<Functions and subroutines@>
+      
+@ Set up array sizes to read in data for a particular reaction.
+
+@<Functions...@>=
+      subroutine reaction_write(name)
+      implicit_none
+      character*(*) name        // length at most |rc_sy_len|
+      integer i,fileid          // Local
+      real delta
+      character*FILELEN filein,fileout
+      character*LINELEN tag
+      xs_common                 // Common
+      nc_common
+      xs_ncdecl
+      sy_common
+      st_common 
+      
+      xs_name=name
+      if (name == 'hionize' || name == 'hchex') then
+
+         xs_organization=xs_organization_table
+         xs_rank=2
+
+         xs_var[0]=xs_var_rate
+         xs_spacing[0]=xs_spacing_linear
+         xs_units[0]='cm^3 s^-1'
+         xs_mult[0]=const(1.0,-6)
+
+         xs_var[1]=xs_var_temperature
+         xs_spacing[1]=xs_spacing_log
+         xs_units[1]='eV'
+         xs_mult[1]=electron_charge
+         xs_tab_index[1]=48
+         delta=const(10.0)**const(0.1)
+         xs_min[1]=const(1.0)
+         xs_max[1]=xs_min[1]*delta**(xs_tab_index[1]-1)
+
+      end if
+
+      if (name == 'hionize') then
+
+         xs_var[2]=xs_var_density
+         xs_spacing[2]=xs_spacing_log
+         xs_units[2]='cm^-3'
+         xs_mult[2]=const(1.0,6)
+         xs_tab_index[2]=11
+         delta=const(10.0)**const(0.5)
+         xs_min[2]=const(1.0,10)
+         xs_max[2]=xs_min[2]*delta**(xs_tab_index[2]-1)
+
+         filein='../data/eh.dat'
+         tag=' '
+         
+      else if (name == 'hchex') then
+
+         xs_var[2]=xs_var_energy
+         xs_spacing[2]=xs_spacing_log
+         xs_units[2]='eV'
+         xs_mult[2]=electron_charge
+         xs_tab_index[2]=48
+         delta=const(10.0)**const(0.1)
+         xs_min[2]=const(1.0)
+         xs_max[2]=xs_min[2]*delta**(xs_tab_index[2]-1)
+
+         filein='../data/atmc.dat'
+         tag='h0 + h+ -> h+ + h0'
+         
+
+      end if
+
+      do i=xs_rank+1,xs_table_rank_max
+
+         xs_var[i]=xs_var_unknown
+         xs_spacing[i]=xs_spacing_unknown
+         xs_units[i]='unknown'
+         xs_mult[i]=zero
+         xs_tab_index[i]=1
+         xs_min[i]=zero
+         xs_max[i]=zero
+
+      end do
+
+      var_alloc(xs_table)
+      call file_read(filein,tag)
+      fileout='../data/'\/trim(name)\/'.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+      xs_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      xs_ncwrite(fileid)
+      var_free(xs_table)
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Read in the data from the file.
+
+@<Functions...@>=
+      subroutine file_read(filename,tag)
+      implicit_none
+      character*(*) filename,tag // Input
+      integer i,j,k             // Local
+      character*80 line
+      xs_common                 // Common
+      
+      open(unit=diskin,file=filename,status='old',form='formatted')
+      if (tag != ' ')then
+loop:    continue
+         read(diskin,'(a)') line
+         if (line != tag) goto loop
+      end if
+      read(diskin,*) SP (((xs_table(i,j,k),i=0,xs_tab_index[1]-1),
+     $     j=0,xs_tab_index[2]-1),
+     $     k=0,xs_tab_index[3]-1)
+      close(unit=diskin)
+      return
+      end
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* Index.
+
