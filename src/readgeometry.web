@@ -2,6 +2,10 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.15  1995/08/23 14:49:54  dstotler
+% Allow grid cells to be mapped out in cw or ccw direction via
+% grid_sense variable.
+%
 % Revision 1.14  1995/08/16 22:13:56  jshankar
 % modified to handle double null files as produced by uedge. Also rearranged
 % the order for reading some keywords. added new routine to check data.
@@ -308,7 +312,7 @@ loop2: continue
             print*, 'unknown null type'
             assert(.false.)
          endif
-         if (uedge) then
+         if (uedge .and. .not. sonnet) then
             call inpt_uedge(nu,nx,ny,ixpt1,ixpt2,iysptrx,
      $           rm,zm,mx,my,null_type,ix_mirror )
          elseif (sonnet) then
