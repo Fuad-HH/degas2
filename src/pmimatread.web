@@ -2,6 +2,10 @@
 \Title{pmimattread}
 
 % $Log$
+% Revision 1.2  1996/10/30 18:04:59  dstotler
+% Continue adding routines which need to be callable by more than one
+% program.
+%
 % Revision 1.1  1996/05/24 18:52:08  dstotler
 % Split off from elementread.web. Getting too many complaints from
 % FTANGLE about too many tokens.
@@ -27,6 +31,7 @@ Introduction\ldots
 @I pmidata.hweb
 @I string.hweb
 @I vector.hweb
+@I tally.hweb
 
 @ The unnamed module.
 
@@ -117,13 +122,40 @@ Introduction\ldots
       return
       end
 
+@ Read data from netcdf file \verb+tally.nc+ 
+
+@<Functions...@>=
+      subroutine nc_read_tally
+      implicit_none
+      tl_common                  // Common
+      nc_common
+      st_common
+      rf_common
+      pr_common
+      sy_common
+      integer fileid             // Local
+      tl_ncdecl
+      character*FILELEN tempfile
+
+      tempfile=filenames_array[tallyfile]
+      fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'tally_version',
+     $     tally_version,len(tally_version),nc_stat)
+
+      tl_ncread(fileid)
+
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
 @ Read in CRAMD data into problem / reactiondata commons, if needed.
 
 @<Functions...@>=
       subroutine read_cramd_data
       implicit_none
 
-      integer pr_reac,jdep
+      integer pr_reac
       logical have_cramd_data
       character*FILELEN tempfile
 
@@ -133,10 +165,8 @@ Introduction\ldots
 
       have_cramd_data=.false.
       do pr_reac=1,pr_reaction_num
-         do jdep=1,xs_dep_var_max
-            if (reaction_organization[pr_reac][jdep] == xs_organization_cramd)
-     $           have_cramd_data=.true.
-         end do
+         if (reaction_rate_eval_name[pr_reac] == 'cramd')
+     $        have_cramd_data=.true.
       end do
       if (!have_cramd_data) return
 
