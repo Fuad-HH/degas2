@@ -2,6 +2,9 @@
 \def\Wtitle{system dependent routines}
 
 % $Log$
+% Revision 1.2  1993/09/30  18:43:22  karney
+% Pre PET checkin
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -260,6 +263,29 @@ match, if found; else 0.
       end do
       
       string_lookup=0
+      
+      return
+      end
+
+@ Look up an integer in an array of strings.  Returns index of first
+match, if found; else 0.
+
+@<Functions...@>=
+      function int_lookup(n,array,num)
+      implicit_none
+      integer int_lookup     // Function
+      integer n,array[num] // Input
+      integer num
+      integer i
+
+      do i=1,num
+         if (array[i] == n) then
+            int_lookup=i
+            return
+         end if
+      end do
+      
+      int_lookup=0
       
       return
       end
