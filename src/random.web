@@ -2,6 +2,11 @@
 \Title{random numbers}
 
 % $Log$
+% Revision 1.4  1995/07/14 13:20:35  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.3  1995/05/26 04:01:22  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -92,7 +97,7 @@ This is {\it not} optimized for speed.  However, it lets the user
 conveniently initialize many independent random number sequences.
 
 This has been replaced by a initialization using the high 47 bits of a
-84-bit linear congruential random number generator.
+70-bit linear congruential random number generator.
 
 @m FILE 'random.web'
 
@@ -583,20 +588,22 @@ loop: continue
 
 This initializes the random number array using the high 47 bits of
 successive numbers from the |drand48| linear congruential converted to
-84 bits.  Define
-$$T(x)\equiv (a_1x+c_1) \bmod 2^{84},$$
+56 bits.  Define
+$$T(x)\equiv (a_1x+c_1) \bmod 2^{56},$$
 and
-$$T^n(x)\equiv (a_nx+c_n) \bmod 2^{84}.$$
+$$T^n(x)\equiv (a_nx+c_n) \bmod 2^{56}.$$
 Then we have
-$a_1=\mathrm{5DEECE66D}_{16}$, $c_1=\mathrm{B}_{16}$;
-$a_{63}=\mathrm{450B134BE89A36E758065}_{16}$,
-$c_{63}=\mathrm{95CE8A3860D75D8F3C9E9}_{16}$;
-$a_{-63}=\mathrm{4EF9EBF8B37677201316D}_{16}$,
-$c_{-63}=\mathrm{703490C4C01AF6AA46ECB}_{16}$;
+$a_1=25214903917$, $c_1=11$;
+$a_{63}=53631580600893541$,
+$c_{63}=37732446681418217$;
+$a_{-63}=39185939196621165$,
+$c_{-63}=21393951150075595$.
 
-The 84-bit numbers can be represented as an array of 6 14-bit integers
+The 56-bit numbers can be represented as an array of 4 14-bit integers
 which allows the multiplications and additions necessary to perform
-84-bit multiplies to be carried out on 32-bit machines.
+56-bit multiplies to be carried out on 32-bit machines.  (We don't use
+15-bit integers since it is then necessary to do the multiplies more
+carefully.)
 
 To generate the seeds for subsequent random number thread we jump the
 generator ahead multiples of 63 using $T^{63}$.
@@ -611,21 +618,26 @@ up by coimputing 10 batches of numbers.
       implicit_none
       real ran_delta,ran_epsilon,base
       parameter (ran_delta=const(0.5)^14,ran_epsilon=const(0.5)^48,base=2^14)
-      integer seed[0:5]         // Input
+      integer seed[0:3]         // Input
       rn_decl(x)                // Output
-      integer i,j,s[0:5],z[0:5]          // Local
+      integer i,j,s[0:3],z[0:3]          // Local
       integer a0,a1,a2,c0,t
-      data a0,a1,a2,c0/0x266D,0x3BB3,0x5D,0xB/ // The base $2^{14}$ representation of $a_1$ and $c_1$
+      data a0,a1,a2,c0/9837,15283,93,11/ // The base $2^{14}$ representation of $a_1$ and $c_1$
 
-      do i=0,5
+      do i=0,3
          assert(0<=seed[i] && seed[i]<base)
          s[i]=seed[i]
       end do
 
-/* See |rn_array(x)| from 47 most significant bits of |s|. */
+/* Set |rn_array(x)| from 47 most significant bits of |s|.  We place the
+most significant (i.e., the most random) byte of |s| in the least
+significant position in |rn_array(x)| where it can do the most good; and
+so on with the other bytes; finally we place the five most significant
+bits from the least significant byte in the five most significant bit
+positions in |rn_array(x)|. */
 
-      rn_array(x)[0]=(((((int(s[2]/512)*512)*ran_delta+s[3]))*ran_delta+
-     $     s[4])*ran_delta+s[5])*ran_delta+ran_epsilon
+      rn_array(x)[0]=((((s[3]*ran_delta+s[2]))*ran_delta+
+     $      s[1])*ran_delta+int(s[0]/512))*const(512.0)*ran_delta+ran_epsilon
 
       do j=1,ran_k-1
          t=c0+a0*s[0]
@@ -636,17 +648,13 @@ up by coimputing 10 batches of numbers.
          z[2]=mod(t,base)
          t=int(t/base)+a0*s[3]+a1*s[2]+a2*s[1]
          z[3]=mod(t,base)
-         t=int(t/base)+a0*s[4]+a1*s[3]+a2*s[2]
-         z[4]=mod(t,base)
-         t=int(t/base)+a0*s[5]+a1*s[4]+a2*s[3]
-         z[5]=mod(t,base)
 
-         do i=0,5
+         do i=0,3
             s[i]=z[i]
          end do
 
-         rn_array(x)[j]=(((((int(s[2]/512)*512)*ran_delta+s[3]))*ran_delta+
-     $        s[4])*ran_delta+s[5])*ran_delta+ran_epsilon
+         rn_array(x)[j]=((((s[3]*ran_delta+s[2]))*ran_delta+
+     $      s[1])*ran_delta+int(s[0]/512))*const(512.0)*ran_delta+ran_epsilon
 
       end do
 
@@ -667,28 +675,28 @@ up by coimputing 10 batches of numbers.
 
 @* Set the seed from a decimal integer.  |decimal| is a positive decimal
 number of arbitrary length (as a character string).  |seed| is set by
-taking the low 84 bits of |decimal|.
+taking the low 56 bits of |decimal|.
 
 @<Functions...@>=
       subroutine decimal_to_seed(decimal,seed)
       implicit_none
       integer pow,decbase
-      parameter (pow=3,decbase=10^pow)
+      parameter (pow=4,decbase=10^pow)
       character*(*) decimal
-      integer seed[0:5]
-      integer l,i,a[0:5],c[0:5],o
-      data a/decbase,5*0/
+      integer seed[0:3]
+      integer l,i,a[0:3],c[0:3],o
+      data a/decbase,3*0/
       
       l=int((len(decimal)+pow-1)/pow)
       o=1-(pow*l-len(decimal))
       
-      do i=0,5
+      do i=0,3
          seed[i]=0
          c[i]=0
       end do
       
       do i=0,l-1
-         read(decimal(max(1,o+pow*i):o+pow*(i+1)-1),'(i3)') c[0]
+         read(decimal(max(1,o+pow*i):o+pow*(i+1)-1),'(i4)') c[0]
          call rand_axc(a,seed,c)
       end do
          
@@ -702,39 +710,39 @@ least 26 characters long; otherwise the high digits are lost.
       subroutine seed_to_decimal(seed,decimal)
       implicit none
       integer pow,decbase,base
-      parameter (pow=3,decbase=10^pow,base=2^14)
+      parameter (pow=4,decbase=10^pow,base=2^14)
       character*(*) decimal
-      integer seed[0:5]
-      integer z[0:5],i,t,j,k
-      character*27 b
+      integer seed[0:3]
+      integer z[0:3],i,t,j,k
+      character*20 b
       
       k=-1
-      do i=0,5
+      do i=0,3
          z[i]=seed[i]
          if (z[i]>0) k=i
       end do
       
       b=' '
 
- /* $2^{84} < 10^{27}$ */
+ /* $2^{56} < 10^{20}$ */
       
-      do i=8,0,-1
-         t=0
-         do j=k,0,-1
-            z[j]=z[j]+t*base
-            t=mod(z[j],decbase)
-            z[j]=int(z[j]/decbase)
-         end do
-         if (z[max(0,k)]==0) k=k-1
-         if (k>=0) then
-            write(b(pow*i+1:pow*(i+1)),'(i3.3)') t
-         else
-            write(b(pow*i+1:pow*(i+1)),'(i3)') t
-         end if
-         if (k<0) goto break
+      i=5
+loop: continue
+      i--
+      t=0
+      do j=k,0,-1
+         z[j]=z[j]+t*base
+         t=mod(z[j],decbase)
+         z[j]=int(z[j]/decbase)
       end do
-      
-break: continue
+      if (z[max(0,k)]==0) k=k-1
+      if (k>=0) then
+         write(b(pow*i+1:pow*(i+1)),'(i4.4)') t
+      else
+         write(b(pow*i+1:pow*(i+1)),'(i4)') t
+      end if
+      if (k>=0) goto loop
+
       if (len(decimal)>len(b)) then
          decimal(:len(decimal)-len(b)) = ' '
          decimal(len(decimal)-len(b)+1:) = b
@@ -752,7 +760,7 @@ etc. and |pp| is the procoss id (mod 100).
 @<Functions...@>=
       subroutine random_seed_1(seed)
       implicit_none
-      integer seed[0:5]         // Output
+      integer seed[0:3]         // Output
       integer temp[7]           // Local
       character*16 c
       external date_time,get_pid // External
@@ -779,16 +787,16 @@ proportional to $\log n$.  Input and output can overlap.
 @<Functions...@>=
       subroutine next_seed_1(n,x,y)
       implicit none
-      integer n,x[0:5]          // Input
-      integer y[0:5]            // Output
-      integer af[0:5],cf[0:5],ab[0:5],cb[0:5],a[0:5],c[0:5],z[0:5],m,i
-      data af/0x65,0x39D6,0x1A36,0x2FA2,0x3134,0x1142/ // $a_{63}$
-      data cf/0x9E9,0x23CF,0x175D,0x2183,0x28A3,0x2573/ // $c_{63}$
-      data ab/0x316D,0x804,0x3677,0x22CD,0x1EBF,0x13BE/ // $a_{-63}$
-      data cb/0x2ECB,0x2A91,0x1AF6,0x1300,0x90C,0x1C0D/ // $c_{-63}$
-      data z/6*0/
+      integer n,x[0:3]          // Input
+      integer y[0:3]            // Output
+      integer af[0:3],cf[0:3],ab[0:3],cb[0:3],a[0:3],c[0:3],z[0:3],m,i
+      data af/  101,14806, 6710,12194/ // $a_{63}$
+      data cf/ 2537, 9167, 5981, 8579/ // $c_{63}$
+      data ab/12653, 2052,13943, 8909/ // $a_{-63}$
+      data cb/11979,10897, 6902, 4864/ // $c_{-63}$
+      data z/4*0/
 
-      do i=0,5
+      do i=0,3
          y[i]=x[i]
       end do
 
@@ -796,13 +804,13 @@ proportional to $\log n$.  Input and output can overlap.
 
       if (n > 0) then
          m = n
-         do i=0,5
+         do i=0,3
             a[i]=af[i]
             c[i]=cf[i]
          end do
       else
          m = -n
-         do i=0,5
+         do i=0,3
             a[i]=ab[i]
             c[i]=cb[i]
          end do
@@ -828,12 +836,12 @@ loop: continue
       implicit none
       integer base
       parameter (base=2^14)
-      integer a[0:5],c[0:5]     // Input
-      integer x[0:5]            // Input/output
-      integer z[0:5],i,j,t      // Local
+      integer a[0:3],c[0:3]     // Input
+      integer x[0:3]            // Input/output
+      integer z[0:3],i,j,t      // Local
       
       t=0
-      do i=0,5
+      do i=0,3
          t=c[i]+t
          do j=0,i
             t=t+a[j]*x[i-j]
@@ -842,7 +850,7 @@ loop: continue
          t=int(t/base)
       end do
       
-      do i=0,5
+      do i=0,3
          x[i]=z[i]
       end do
       

@@ -2,6 +2,11 @@
 \Title{randomtest}
 
 % $Log$
+% Revision 1.6  1995/07/14 13:20:36  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.5  1995/06/16 18:21:45  dstotler
 % Add section to perform timings of random number generators, comparing
 % with math functions.
@@ -195,17 +200,17 @@ numerical operations.
       write(stdout,*) 'Time for addition: ',end-start
 
       write(stdout,*) 'Test of new initializer'
-      call decimal_to_seed('17724538509055160272981674',seed) // $\lfloor 10^{25} \sqrt{\pi} \rfloor$
+      call decimal_to_seed('31415926535897932',seed) // $\lfloor 10^{16} \pi \rfloor$
       call seed_to_decimal(seed,dec)
-      write(stdout,*) 'Seed (17724538509055160272981674) = ',dec
-      call next_seed_1(23,seed,seed) // Should be 19208440725180571461879413
+      write(stdout,*) 'Seed (31415926535897932) = ',dec
+      call next_seed_1(23,seed,seed) // Should be 12169046133858735
       call seed_to_decimal(seed,dec)
-      write(stdout,*) 'Seed (19208440725180571461879413) = ',dec
+      write(stdout,*) 'Seed (12169046133858735) = ',dec
       call random_init_1(seed,rn_args(tag))
 
 /* Write out the zeroth random number */
-      rn_next(x,tag)            // $34643336278611/2^{48} \approx 0.1230778546763069$
-      write(stdout,*) 'Zeroth number (0.1230778546763069) = ',x
+      rn_next(x,tag)            // $215019793392575/2^{48} \approx 0.7639037611986588$
+      write(stdout,*) 'Zeroth number (0.7639037611986588) = ',x
 
 /* Here's how to use |fast_random| */
       do i=1,10*RAN_K,RAN_K
@@ -221,12 +226,12 @@ numerical operations.
       end do
 
 /* Write out the thousandth random number */
-      rn_next(x,tag)            // $17848469982607/2^{48} \approx 0.0634105034528680$
-      write(stdout,*) '1000th number (0.0634105034528680) = ',x
+      rn_next(x,tag)            // $259243462334031/2^{48} \approx 0.9210177947737144$
+      write(stdout,*) '1000th number (0.9210177947737144) = ',x
       
       call next_seed_1(-23,seed,seed) // Backtrack seed
       call seed_to_decimal(seed,dec)
-      write(stdout,*) 'Seed (17724538509055160272981674) = ',dec
+      write(stdout,*) 'Seed (31415926535897932) = ',dec
 
       stop
       end
