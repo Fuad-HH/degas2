@@ -2,6 +2,9 @@
 \Title{classes}
 
 % $Log$
+% Revision 1.20  1998/01/14 20:07:16  dstotler
+% Considerable update of text, variable descriptions, and formatting.
+%
 % Revision 1.19  1997/09/02 21:14:23  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -1069,6 +1072,10 @@ the tallies of each type are assumed to be consecutive in that array.
   \item[|tally_rank[tally_ind]|] Number of indepenedent variables
 (dimensionality) of tally |tally_ind|.
 
+  \item[|tally_dep_var_dim[tally_ind]|] Dimensionality of dependent variables
+of tally |tally_ind|; presently either 1 (|tl_dep_var_scalar|) or 3
+(|tl_dep_var_vector|).
+
   \item[|tally_indep_var[rank_ind,tally_ind]|] Integer index corresponding
 to the |rank_ind|th independent variable for tally |tally_ind|. The list
 of possible values is lengthy and probably will be subject to considerable
@@ -1081,23 +1088,25 @@ change; refer to |tally.hweb| for the current list.
 if the tally is for a vector quantity, the name {\em must} contain the
 word ``vector''.
 
-  \item[|tally_dep_var[tally_ind]|] String identifying the physical 
-quantity being accumulated for tally |tally_ind|. This must match either
-one of the standard dependent variables:
+  \item[|tally_dep_var[tally_ind]|] Integer identifying the physical 
+quantity being accumulated for tally |tally_ind|. This is set using
+a string specified in the argument list to |define_tally| in |tallysetup|.
+This string is searched for in the global list of dependent variables,
+|pr_var0_list|. The familiar examples are:
 
   \begin{enumerate}
-    \item |back mass| source of mass for the background species due to
+    \item |back_mass| source of mass for the background species due to
 the current test species,
 
-    \item |back momentum vector| source of vector momentum 
+    \item |back_momentum_vector| source of vector momentum 
 for the background species due to the current test species,
 
-    \item |back energy| source of energy for the background species
+    \item |back_energy| source of energy for the background species
 due to the current test species,
 
     \item |mass| mass of test species,
 
-    \item |momentum vector| momentum vector of the
+    \item |momentum_vector| momentum vector of the
 test species,
 
     \item |energy| energy of the test species.
@@ -1143,6 +1152,16 @@ in the list of partners for conversion |cv_ind|. The first partner
 is always the tally being operated on by the conversion. Additional
 (unmodified) tallies which are required to effect the conversion are
 included as other ``partners''.
+\end{description}
+
+@ Routines for use with tallies.
+
+\begin{description}
+  \item[|tl_scoring_index(t,j,ip)|] Provides the integer index of the 
+globally used compiled list of dependent variables, |scoring_data|, for
+dimension |j| (|j| $<$ |tally_dep_var_dim[t]|) of tally |t|. |ip| is
+intended to be the up-to-date |index_parameters| array which is 
+currently used to access the background species index.
 \end{description}
 
 @ {\bf Output class.} Prefix is |ou|. 
@@ -1197,21 +1216,96 @@ background particle |back_ind| in zone |(ix,iy)|, as specified by
 @ Routines using output.
 
 Successive attempts have been made at providing a succinct accessor method
-to the output arrays. The present approach involves the following macros to
+to the output arrays. The present approach involves the following macro to
 specify the single array index into which all of the tallies and their
 dependencies have been compiled:
 
 \begin{description}
-  \item[|out_array_index(ind,t)|] Index for a scalar tally.
-
-  \item[|out_array_vc_index(ind,t)|] Index for the |i|th component of a
-vector tally.
-\end{description}
-
-The other arguments of these macros are |t|, the tally number, and |ind|,
+  \item[|out_array_index(i,ind,t)|] Index for the |i|th component,
+|i| $<$ |tally_dep_var_dim[t]|, of the tally |t| and |ind|,
 an array of length |tl_rank_max| containing the indices corresponding
 to a particular set of independent variable values (between 0 and 
 |tally_tab_index[r,t]|-1 with 1 $\leq$ |r| $\leq$ |tally_rank[t]|).
+\end{description}
+
+@ {\bf Stat class.} Prefix is |sa|.
+
+This class contains the local arrays which carry the scoring data into
+the output class arrays. A separate class is used to permit these
+arrays to be compressed (removing entries which are 0), so that operations
+on the entire arrays are much quicker than those on the full-sized
+output arrays. At least at the single-flight level, the latter are filled
+with zeroes apart from the relatively small section of the problem space
+covered by that flight.
+
+Much of this class deals with the bookkeeping required for managing the
+compression and decompression process. Furthermore, almost every
+variable or array appears three times. There are separate ``objects''
+for each level of the code: |flt|, each flight; |frag|, the ``fragment''
+of the total number of flights assigned to each processor; and |fin|, the
+final set of scores which will be decompressed into the output arrays.
+The descriptions below will have an appended |fff|, which is intended to
+stand for these three strings.
+
+Every array below has a corresponding dimension in order to permit
+full flexibility in enabling and disabling compression at each level.
+If the data at each level were always compressed,  fewer dimension
+variables would be required. In practice, it is expected that the |flt|
+data will always be compressed. Since the output class already contains
+an uncompressed version of the final data, do not expect to want to
+compress the |fin| data. Hence, |stat_fin| is not allocated and is
+replaced in the code explicitly by corresponding output class arrays.
+However, the code required for compression is in place and commented
+out just in case; e.g., if it is decided that the output arrays should
+be compressed as well. Whether or not it is best to compress the
+|frag| data remains to be determined. The optimum choice may depend upon
+the number of processors.
+
+\begin{description}
+  \item[|stat_comp_fff|] Integer flag (to be set using the |FALSE| and
+|TRUE| flags) indicating whether or not the data at level |fff| are
+to be compressed.
+  
+  \item[|stat_dim_fff|] Integer dimension of |stat_fff| array.
+
+  \item[|stat_pf_dim_fff|] Integer dimension of |stat_ptr2full_fff| array.
+
+  \item[|stat_ps_dim_fff|] Integer dimension of |stat_ptr2short_fff| array.
+
+  \item[|stat_wt_dim_fff|] Integer dimension of |stat_wt_fff| array (none
+for |flt|; see below).
+
+  \item[|stat_size_fff|] Current number of entries in |stat_fff|. If 
+|fff| is not compressed, this is |tally_size|.
+
+  \item[|stat_wt_tot_fff|] Total weight represented by the current
+contents of |stat_fff|.
+
+  \item[|stat_fff|[$i_{s}$]] Is the $i_{s}$th nonzero score compiled at 
+level |fff|.
+
+  \item[|stat_ptr2full_fff|[$i_{s}$]] Pointer to the entry in the full (i.e.,
+uncompressed) array corresponding to the $i_{s}$ nonzero score compiled
+at level |fff|.
+
+  \item[|stat_ptr2short_fff|[$i_{f}$]] Pointer from the full (i.e., 
+uncompressed) array index $i_{f}$ back to its corresponding entry
+in the compressed array |stat_fff|. The guess is that it is more efficient
+to carry around this array than to search |stat_ptr2full_fff| with each
+value of $i_{f}$ that comes along during the scoring process.
+
+  \item[|stat_wt_frag|[$i_{s}$]] Weight associated with the $i_{s}$ nonzero
+score in |stat_fff|. Note that there is no such array for |flt| since
+the weight is a constant (usually unity) for all entries.
+\end{description}
+
+@ Macros for Stat class.
+
+\begin{description}
+  \item[|stat_mem_inc_fff|] Initial dimension and memory increment for
+compressed arrays at level |fff|. The values used here have been 
+chosen empirically too minimize the number of run time reallocations.
+\end{description}
 
 @ {\bf Random class.}  Prefix is |rn|.  
 
@@ -1631,12 +1725,16 @@ is set to 1 when |pr_bkrc_num|=0.
 
   \item{|pr_pmi_num|} Number of plasma-material interactions in the problem.
 
+  \item{|pr_var0_num|} Number of entries in |pr_var0_list|.
+
   \item{|pr_materials_sub|[$i_{m}$]} Problem index of reference material
 $i_{m}$.
 
   \item{|problem_pmi_sub|[$i_{p}$]} Index of the problem PMI 
 corresponding to reference PMI $i_{p}$.
 
+  \item{|pr_var0_list|[$j$]} List of dependent variables in the problem
+(compiled on the fly), $1 \leq j \leq$ |pr_var0_num|. 
 \end{description}
 
 @ Routines using problem class.
@@ -1656,6 +1754,11 @@ the species $i_{s}$ is not a background species.
 
   \item{|pr_reaction_lookup|($i_{r}$)} Index into the list of problem reactions
 corresponding to reference reaction $i_{r}$.
+
+  \item{|pr_var_back_index|($i$,|back|)} Provides integer index into 
+|pr_var0_list| specific for background species |back| (the generic
+background-related variables such as |pr_var_back_mass| are duplicated
+|pr_background_num| times).
 \end{description}
 
 @ Problem setup variables for isotopic variations. Prefix is |ps|.
@@ -1793,10 +1896,10 @@ be possible.
   \item[|reaction_handling_tab_index[pr_reac][j][i]|] Number of values used for
 the |i|th independent variable of the |j|th dependent variable for |pr_reac|.
 
-  \item[|reaction_handling_var0[pr_reac][j]|] String 
-(length |xs_tag_string_length|) identifying the |j|th dependent variable of 
-|pr_reac|. A string is used here since the nature of the handling data varies
-from one reaction to the next.
+  \item[|reaction_handling_var0[pr_reac][j]|] Integer identifying 
+the |j|th dependent variable of 
+|pr_reac|. This value is a pointer into the global dependent variable
+list |pr_var0_list|.
 
   \item[|reaction_handling_var[pr_reac][j][i]|] Integer identifying the
 |i|th independent variable for the |j|th dependent variable of |pr_reac|. The
