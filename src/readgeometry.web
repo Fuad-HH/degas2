@@ -2,6 +2,9 @@
 \def\Wtitle{readgeometry}
 
 % $Log$
+% Revision 1.7  1995/04/27 21:20:19  jshankar
+% changes to read uedge file
+%
 % Revision 1.6  1995/04/24 20:43:49  karney
 % Generalize reactiondata to allow multiple data arrays per reaction.
 %
@@ -77,9 +80,9 @@ boundary.
       program readgeometry
       implicit_none
       integer mx,my
-      parameter (mx=50,my=50)
+      parameter (mx=120,my=50)
       character*FILELEN filename,datafilename
-      logical uedge
+      logical uedge,degas,sonnet
       integer length,p,b,e // Local
       integer datafile_diskin,zone,n,wall_no,wall_start,
      $     wall_stop,wall_direction,i,grid_startv,grid_stopv,j1,j2,
@@ -91,7 +94,8 @@ boundary.
       real x[2,0:5000],xmin,xmax,zmin,zmax,vol,vola
       real mindensity,minx,minz
       real rm[mx,my,0:4],zm[mx,my,0:4]
-      
+      integer xcorner1,xcorner2,xcorner3,xcorner4, zcorner1,zcorner2
+     $     ,zcorner3,zcorner4
       character*100 plot
       sy_common
       st_common
@@ -122,18 +126,23 @@ boundary.
       assert( read_string(diskin,line,length) )
       assert(length<=len(line))
       
+      uedge =.false.
+      degas =.false.
+      sonnet=.false.
+
       length=parse_string(line(:length))
       p=0
       assert( next_token(line,b,e,p) )
       keyword = line(b:e)
       assert( next_token(line,b,e,p) )
-      assert(keyword ==  'degasfile' || keyword == 'uedgefile')
+      assert(keyword ==  'degasfile' || keyword == 'uedgefile' || keyword == 
+     $     'sonnetfile'  )
       datafilename = line(b:e)
       open(unit=datafile_diskin,file=datafilename,status='old',
      $     form='formatted')
 
       if (keyword == 'degasfile') then
-         uedge=.false.
+         degas =.true.
          call inpt(datafile_diskin,xmin,xmax,zmin,zmax)
       elseif (keyword == 'uedgefile') then
          uedge=.true.
@@ -146,6 +155,11 @@ boundary.
          read(nu,*) iysptrx
          read(nu,*)SP(((rm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
          read(nu,*)SP(((zm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
+      elseif (keyword == 'sonnetfile') then
+         call inpt_sonnet(datafilename,datafile_diskin,xmin,xmax,
+     $        zmin,zmax,rm,zm,nx,ny,mx,my,ixpt1,ixpt2,iysptrx)
+         sonnet= .true.
+         uedge =.true.
       endif
          
       close(unit=datafile_diskin)
@@ -330,7 +344,7 @@ skip:          continue
         elseif (keyword == 'minx') then
            assert(next_token(line,b,e,p))
            minx=read_real(line(b:e))
-/* insert additional keywords below this */
+
       elseif (keyword == 'mesh') then
          assert(uedge)
          assert(next_token(line,b,e,p))
@@ -346,11 +360,23 @@ skip:          continue
             do j2=1,ny
                zone++
                n=0
-               x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
-               x[1,n]=rm(j1,j2,3); x[2,n]=zm(j1,j2,3); n++
-               x[1,n]=rm(j1,j2,4); x[2,n]=zm(j1,j2,4); n++
-               x[1,n]=rm(j1,j2,2); x[2,n]=zm(j1,j2,2); n++
+               if (sonnet) then
+                  xcorner1 = 3; zcorner1 =3
+                  xcorner2 = 1; zcorner2 =1
+                  xcorner3 = 2; zcorner3 =2
+                  xcorner4 = 4; zcorner4 =4
+               else
+                  xcorner1 = 1; zcorner1 =1
+                  xcorner2 = 3; zcorner2 =3
+                  xcorner3 = 4; zcorner3 =4
+                  xcorner4 = 2; zcorner4 =2
+               endif
+               x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+               x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+               x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+               x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
                x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+               
                call decompose_polygon(n,x,zone)
                zn_type_set(zone,zn_plasma)
                zn_volume(zone)=polygon_volume(n,x)
@@ -359,16 +385,16 @@ skip:          continue
             zn_index(zone,2)=j2
          enddo
          zone++
-/* start from left lower corner of box and go clockwise along box till right lower corner. return along outer edge of SOL to starting pt. */
+         /* start from left lower corner of box and go clockwise along box till right lower corner. return along outer edge of SOL to starting pt. */
          n=0
          x[1,n]=xmin; x[2,n]=zmin; n++
          x[1,n]=xmin; x[2,n]=zmax; n++
          x[1,n]=xmax; x[2,n]=zmax; n++
          x[1,n]=xmax; x[2,n]=zmin; n++
          j1=nx; j2=ny
-         x[1,n]=rm(j1,j2,4); x[2,n]=zm(j1,j2,4); n++
+         x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
          do j1=nx,1,-1
-            x[1,n]=rm(j1,j2,3); x[2,n]=zm(j1,j2,3); n++
+            x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
          end do
          x[1,n]=x[1,0]; x[2,n]=x[2,0]               
          call decompose_polygon(n,x,zone)
@@ -380,21 +406,21 @@ skip:          continue
          x[1,n]=xmin; x[2,n]=zmin; n++
          j1=1
          do j2=ny,1,-1
-            x[1,n]=rm(j1,j2,3); x[2,n]=zm(j1,j2,3); n++
+            x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
          end do
          j2=1
          do j1=1,ixpt1
-            x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
+            x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
          end do
          do j1=ixpt2+1,nx
-            x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
+            x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
          end do
          j1=nx
          do j2=1,ny
-            x[1,n]=rm(j1,j2,2); x[2,n]=zm(j1,j2,2); n++
+            x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
          end do
          j2=ny
-         x[1,n]=rm(j1,j2,4); x[2,n]=zm(j1,j2,4); n++
+         x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
 
          x[1,n]=xmax; x[2,n]=zmin; n++
          x[1,n]=x[1,0]; x[2,n]=x[2,0]               
@@ -407,13 +433,15 @@ skip:          continue
          n=0
          j2=1
          do j1=ixpt1+1,ixpt2
-            x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
+            x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
          enddo
          x[1,n]=x[1,0]; x[2,n]=x[2,0]               
          call decompose_polygon(n,x,zone)
          zn_type_set(zone,zn_exit)
          zn_volume(zone)=polygon_volume(n,x)
-            
+
+/* insert additional keywords below this */            
+
       elseif (keyword == 'end') then
            
          goto eof
@@ -432,7 +460,7 @@ eof:  continue
          assert(zn_volume(i)>0)
          vola=vola+zn_volume(i)
       end do
-      write(stderr,*) vol,vola
+
       call erase_geometry
       stop
       end
@@ -471,6 +499,281 @@ eof:  continue
       return
       end
 
+@ subroutine to read inputs from sonnet file.
+@<Functions ...@>=
+      subroutine inpt_sonnet(datafilename,nu,xmin,xmax,
+     $     zmin,zmax,crx,cry,nx,ny,mx,my,ixcut1,ixcut2,iycut)
+      implicit none
+      integer*4 ix, iy, ixh, iyh,nxd,nyd,i,ixcut1,ixcut2,iycut,nu,mx,my
+     $     ,nx,ny,j, corner_no[4] 
+
+      /* for ~/vesey/Sonnet/cmod.elm.779old */
+      parameter (nxd=120,nyd=24) 
+      
+      real  crx(mx,my,0:4), cry(mx,my,0:4),pit(nxd,nyd),
+     $     xmax,xmin,zmax,zmin,dummy1,fix_cornerx,fix_cornery,
+     $     xcorner_old, ycorner_old,xcorner_new, ycorner_new
+
+      character dummy*80 
+      character*FILELEN datafilename
+      open (nu,file =datafilename,status='old')
+
+      xmax = 0.0d0
+      xmin = 1.d5
+      zmax = 0.0d0
+      zmin = 1.d5
+      nx = nxd
+      ny =nyd
+/*  read coordinates */
+      read (nu,3366) dummy
+      read (nu,3366)dummy
+      read (nu,3366)dummy
+      read (nu,3366)dummy
+      
+      do iy= 1,nyd
+         do ix= 1,nxd
+            read (nu,3333) ixh,iyh,crx(ix,iy,1),cry(ix,iy,1),
+     $           crx(ix,iy,2),cry(ix,iy,2)
+            read (nu,3344) pit(ix,iy),dummy1,dummy1
+            read (nu,3333) ixh,iyh,crx(ix,iy,3),cry(ix,iy,3),
+     $           crx(ix,iy,4),cry(ix,iy,4)
+            read (nu,3366)dummy
+                  
+            /* get max and min of crx and cry */
+            do i=1,4
+               if (crx(ix,iy,i) > xmax) xmax = crx(ix,iy,i)
+               if (cry(ix,iy,i) > zmax) zmax = cry(ix,iy,i)
+               if (crx(ix,iy,i) < xmin) xmin = crx(ix,iy,i)
+               if (cry(ix,iy,i) < zmin) zmin = cry(ix,iy,i)
+            enddo
+         enddo
+      enddo
+     
+/*  the cuts may depend on the number u choose for the difference. i should 
+ probably take a relative measure.
+ the configuration seems to be --
+
+    ^ 1--- 2  1--- 2 
+    | | i  |  | i+1| ...
+    | 3--- 4  3--- 4
+    y x --->
+ 
+ along the x direction (iy=0 along the lower edge of inner PFR) , we
+ compare the bottom 
+ corners. these should be equal for adjacent cells until we reach the
+ cut. this is ixcut1. from here as x increases, it traces the outer edge
+ of the core and returns along the lower edge of the outer PFR. this is
+ ixcut2. these two points  are the x coordinates of the x-pt if u look at
+ the whole thing in rectangular geometry. */
+
+      ixcut1 =0
+      ixcut2 =0
+      do i=1,nxd-1
+         if ( (abs(cry(i,1,4)-cry(i+1,1,3)) .ge. 1.e-1) ) then
+            if (ixcut1.eq.0) then
+               ixcut1= i
+            else
+               ixcut2= i
+               goto 5
+            endif
+         endif
+      enddo
+ 5    continue
+      /*print *, 'ixcut1,2=', ixcut1,ixcut2 */
+
+/* here we compare cells on either side of the cut in the y direction till
+ we reach the x-point. where one corner is common with the core. this
+ gives the y coordinate of  x point.  */
+
+      do i=1,nyd-1
+         if (abs(cry(ixcut1,i,2) 
+     *        - cry(ixcut1+1,i,1)).lt.1.e-4) then
+            iycut = i
+            go to 6
+         endif
+      enddo
+ 6    continue
+      /* print*, 'iycut', iycut */
+
+      corner_no[1] = 3; corner_no[2] = 1; corner_no[3] = 2; corner_no[4] =4
+
+      /* fix mismatch 6 for ix =30 in cmod.elm779old  */
+
+      i= 30
+      do j=iycut+1, nyd
+         fix_cornerx = crx(i,j,2) 
+         fix_cornery = cry(i,j,2) 
+         call replace_corners(i+1,j,2,fix_cornerx,fix_cornery,corner_no,
+     $        crx,cry,nx,ny,mx,my)
+      enddo
+
+@#if 0
+c this is an example of how to exchange corners of two cells if required.
+c here two corners ic1 and ic2 of [17,42] are exchanged.
+      ic1 = 2 
+      ic2 = 3
+
+      xcorner_old = crx[17,42,corner_no[ic1]]
+      ycorner_old = cry[17,42,corner_no[ic1]]
+      xcorner_new =  crx[17,42,corner_no[ic2]]
+      ycorner_new =  cry[17,42,corner_no[ic2]]
+
+      call replace_corners(17,42,ic1,xcorner_new,ycorner_new,
+     $     corner_no,crx,cry,nx,ny,mx,my)
+
+      xcorner_new = xcorner_old 
+      ycorner_new = ycorner_old  
+
+      call replace_corners(17,42,ic2,xcorner_new,ycorner_new,
+     $     corner_no,crx,cry,nx,ny,mx,my)
+@#endif
+
+      /* -------- check continuity of points ----------- */
+      /* check end points along x and top to bottom along y */
+      do ix =1,ixcut1-1
+         do iy=1,iycut
+            if(crx(ix,iy,2)     != crx(ix+1,iy,1) ||
+     $           crx(ix,iy,4)   != crx(ix+1,iy,3) ||
+     $           cry(ix,iy,2)   != cry(ix+1,iy,1) ||
+     $           cry(ix,iy,4)   != cry(ix+1,iy,3)) then
+               print*, 'mismatch 1, ix,iy', ix,iy,ix+1,iy
+            stop
+         endif
+         if (iy == iycut) goto 7
+         if(crx(ix,iy,1)        != crx(ix,iy+1,3) ||
+     $        crx(ix,iy,2)    != crx(ix,iy+1,4)) then
+            print*, 'mismatch 2, ix,iy', ix,iy,ix,iy+1
+            stop
+         endif
+ 7       continue
+      enddo
+      enddo
+      /* match across ixcut1 and ixcut2 in the x direction  */
+      do iy=1,iycut
+         if (crx(ixcut1,iy,2)   != crx(ixcut2+1,iy,1) ||
+     $        crx(ixcut1,iy,4)  != crx(ixcut2+1,iy,3)) then
+         print*, 'mismatch 3, ixcut1,iy', ixcut1,iy
+         stop
+      endif
+      enddo
+      /* match beyond ixcut1 along x and y */
+      do ix =ixcut2+1,nxd-1
+         do iy=1,iycut
+            if(crx(ix,iy,2)     != crx(ix+1,iy,1) ||
+     $           crx(ix,iy,4)   != crx(ix+1,iy,3) ||
+     $           cry(ix,iy,2)   != cry(ix+1,iy,1) ||
+     $           cry(ix,iy,4)   != cry(ix+1,iy,3)) then
+               print*, 'mismatch 4, ix,iy', ix,iy,ix+1,iy
+            stop
+         endif
+         if (iy == iycut) goto 8
+         if(crx(ix,iy,1)        != crx(ix,iy+1,3) ||
+     $        crx(ix,iy,2)    != crx(ix,iy+1,4)) then
+            print*, 'mismatch 5, ix,iy', ix,iy,ix,iy+1
+            stop
+         endif
+ 8       continue
+      enddo
+      enddo
+      /* beyond iycut in x and y direction */
+      do ix =1,nxd-1
+         do iy=iycut+1,nyd
+            if(crx(ix,iy,2)    != crx(ix+1,iy,1) ||
+     $           crx(ix,iy,4)  != crx(ix+1,iy,3) ||
+     $           cry(ix,iy,2)  != cry(ix+1,iy,1) ||
+     $           cry(ix,iy,4)  != cry(ix+1,iy,3)) then
+               print*, 'mismatch 6, ix,iy', ix,iy,ix+1,iy
+               stop
+         endif
+         if (iy == nyd) goto 9
+         if(crx(ix,iy,1)       != crx(ix,iy+1,3) ||
+     $        crx(ix,iy,2)   != crx(ix,iy+1,4)) then
+            print*, 'mismatch 7, ix,iy', ix,iy,ix,iy+1
+            stop
+         endif
+ 9       continue
+      enddo
+      enddo
+
+@#if 0
+      do i=1,nxd
+         do j=1,nyd
+            write (12,3000) i,j,crx(i,j,3),crx(i,j,1),crx(i,j,2),
+     $           crx(i,j,4),crx(i,j,3)
+            write (12,3000) i,j,cry(i,j,3),cry(i,j,1),cry(i,j,2),
+     $           cry(i,j,4),cry(i,j,3)
+         enddo 
+      enddo 
+@#endif
+
+ 3000 format(2(i3,2x),5(e12.6,2x))
+ 3366 format(a)
+ 3344 format(18x,e17.10,14x,e17.10,1x,e17.10)
+c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
+ 3333 format(19x,i3,1x,i3,4x,e17.10,1x,e17.10,8x,e17.10,1x,e17.10)
+
+      return
+      end
+
+@ replace corneri of cell ix,iy with [xcorner_new, ycorner_new]
+@<Functions...@>=
+
+      subroutine replace_corners(ix,iy,corneri,xcorner_new,
+     $ycorner_new,corner_no,x,y,nx,ny,mx,my)
+      implicit none
+      integer *4  ix,iy,corneri,corner_no[4],nx,ny,mx,my
+      real xcorner_new,ycorner_new,x(mx,my,0:4), y(mx,my,0:4)
+      if (corneri == 1 ) then
+         x[ix,iy,corner_no[1]] = xcorner_new
+         y[ix,iy,corner_no[1]] = ycorner_new 
+         if (iy == 1) goto 1
+         x[ix,iy-1,corner_no[2]] = xcorner_new
+         y[ix,iy-1,corner_no[2]] = ycorner_new 
+ 1       if (ix == 1 || iy == 1) goto 2
+         x[ix-1,iy-1,corner_no[3]] = xcorner_new
+         y[ix-1,iy-1,corner_no[3]] = ycorner_new 
+ 2       if (ix== 1) goto 9
+         x[ix-1,iy,corner_no[4]] = xcorner_new
+         y[ix-1,iy,corner_no[4]] = ycorner_new 
+      elseif (corneri == 2 ) then
+         x[ix,iy,corner_no[2]] = xcorner_new
+         y[ix,iy,corner_no[2]] = ycorner_new 
+         if (ix== 1) goto 3
+         x[ix-1,iy,corner_no[3]] = xcorner_new
+         y[ix-1,iy,corner_no[3]] = ycorner_new 
+ 3       if (ix == 1 || iy == ny) goto 4
+         x[ix-1,iy+1,corner_no[4]] = xcorner_new
+         y[ix-1,iy+1,corner_no[4]] = ycorner_new 
+ 4       if (iy == ny) goto 9
+         x[ix,iy+1,corner_no[1]] = xcorner_new
+         y[ix,iy+1,corner_no[1]] = ycorner_new 
+      elseif (corneri == 3 ) then
+         x[ix,iy,corner_no[3]] = xcorner_new
+         y[ix,iy,corner_no[3]] = ycorner_new 
+         if (iy == ny) goto 5
+         x[ix,iy+1,corner_no[4]] = xcorner_new
+         y[ix,iy+1,corner_no[4]] = ycorner_new 
+ 5       if (ix == nx || iy == ny) goto 6
+         x[ix+1,iy+1,corner_no[1]] = xcorner_new
+         y[ix+1,iy+1,corner_no[1]] = ycorner_new 
+ 6       if (ix == nx ) goto 9
+         x[ix+1,iy,corner_no[2]] = xcorner_new
+         y[ix+1,iy,corner_no[2]] = ycorner_new 
+      elseif (corneri == 4 ) then
+         x[ix,iy,corner_no[4]] = xcorner_new
+         y[ix,iy,corner_no[4]] = ycorner_new 
+         if (ix == nx ) goto 7
+         x[ix+1,iy,corner_no[1]] = xcorner_new
+         y[ix+1,iy,corner_no[1]] = ycorner_new 
+ 7       if (ix == nx || iy == 1) goto 8
+         x[ix+1,iy-1,corner_no[2]] = xcorner_new
+         y[ix+1,iy-1,corner_no[2]] = ycorner_new 
+ 8       if (iy == 1) goto 9
+         x[ix,iy-1,corner_no[3]] = xcorner_new
+         y[ix,iy-1,corner_no[3]] = ycorner_new 
+      endif
+ 9    return
+      end
 @* Index.
 
 
