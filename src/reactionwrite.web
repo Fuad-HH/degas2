@@ -2,6 +2,10 @@
 \Title{reactionwrite}
 
 % $Log$
+% Revision 1.10  1996/03/01 20:22:10  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.9  1995/09/07 22:28:15  jshankar
 % added some comments
 %
@@ -60,133 +64,107 @@ format with a complete specification of the reaction.
 
 @ The unnamed module.
 
-
-
 @a
       program reactionwrite
       implicit_none
-      call reaction_write('hionize')
-      call reaction_write('hchex')
+      call reaction_write('hionize','ehr1.dat',
+     &     'V. 2.0, e ionization of H, CR data from ehr1.dat')
+      call reaction_write('hrecombine','ehr1.dat',
+     &     'V. 2.0, e recombination of H+, CR data from ehr1.dat')
       stop
       end
-      
+
       @<Functions and subroutines@>
       
 @ Set up array sizes to read in data for a particular reaction.
 
 @<Functions...@>=
-      subroutine reaction_write(name)
+      subroutine reaction_write(name,filein,version)
       implicit_none
-      character*(*) name        // length at most |rc_sy_len|
-      integer i,j,fileid          // Local
+
+      character*(*) name,filein,version                 // Input
+
+      integer i,j,fileid                                // Local
       real delta
-      character*FILELEN filein,fileout
-      character*LINELEN tag
-      xs_common                 // Common
+      character*FILELEN fileout
+      character*LINELEN tag,description
+
+      xs_common                                         // Common
       nc_common
       xs_ncdecl
       sy_common
       st_common 
       
       xs_name=name
-      xs_num_dep_var=1
+      xsection_version=version
+      xs_num_dep_var=4
 
-      xs_tab_index(1,1)=1
-      xs_tab_index(2,1)=1
-      xs_tab_index(3,1)=1
-      xs_tab_index(1,2)=1
-      xs_tab_index(2,2)=1
-      xs_tab_index(3,2)=1
-      xs_tab_index(1,3)=1
-      xs_tab_index(2,3)=1
-      xs_tab_index(3,3)=1
-      xs_tab_index(1,4)=1
-      xs_tab_index(2,4)=1
-      xs_tab_index(3,4)=1
-      xs_tab_index(1,5)=1
-      xs_tab_index(2,5)=1
-      xs_tab_index(3,5)=1
-
-      if (name == 'hionize' || name == 'hchex') then
-
-         xs_organization[1]='table'
-         xs_rank[1]=2          //2 indept. variables.
-
-         xs_var[0,1]='rate'   //dependent is rate for both
-         xs_spacing[0,1]='linear'     //spacing linear for both
-         xs_units[0,1]='cm^3 s^-1'    //same units obviously
-         xs_mult[0,1]=const(1.0,-6)    // and same multiplication factor
-
-         xs_var[1,1]='temperature'    //1st indept. is temp. for both
-         xs_spacing[1,1]='log'        //it is on a log scale
-         xs_units[1,1]='eV'              //units are eV
-         xs_mult[1,1]=electron_charge     // factor is el. charge.
-         xs_tab_index(1,1)=48            // no. of temp. values
+      do i=1,xs_num_dep_var
+         xs_organization[i]='table'
+         xs_rank[i]=2 
+         xs_spacing[0,i]='log' 
+         xs_var[1,i]='temperature'
+         xs_spacing[1,i]='log'
+         xs_units[1,i]='eV'  
+         xs_mult[1,i]=electron_charge  
+         xs_tab_index[1,i]=60   
          delta=const(10.0)**const(0.1)
-         xs_min[1,1]=const(1.0)
-         xs_max[1,1]=xs_min[1,1]*delta**(xs_tab_index(1,1)-1)
+         xs_min[1,i]=const(10.)**const(-1.2)
+         xs_max[1,i]=xs_min[1,1]*delta**(xs_tab_index[1,i]-1)
 
-      end if
-
-      if (name == 'hionize') then
-
-         xs_var[2,1]='density'      // 2nd indept. is density here.
-         xs_spacing[2,1]='log'        
-         xs_units[2,1]='cm^-3'
-         xs_mult[2,1]=const(1.0,6)
-         xs_tab_index(2,1)=11           //11 density values
+         xs_var[2,i]='density'  
+         xs_spacing[2,i]='log'        
+         xs_units[2,i]='cm^-3'
+         xs_mult[2,i]=const(1.0,6)
+         xs_tab_index[2,i]=15 
          delta=const(10.0)**const(0.5)
-         xs_min[2,1]=const(1.0,10)
-         xs_max[2,1]=xs_min[2,1]*delta**(xs_tab_index(2,1)-1)
+         xs_min[2,i]=const(1.0,10)
+         xs_max[2,i]=xs_min[2,i]*delta**(xs_tab_index[2,i]-1)
 
-         filein='../data/eh.dat'
-         tag=' '
-         
-      else if (name == 'hchex') then
-
-         xs_var[2,1]='energy'     //2nd indept. is energy here.
-         xs_spacing[2,1]='log'
-         xs_units[2,1]='eV'
-         xs_mult[2,1]=electron_charge
-         xs_tab_index(2,1)=48         //48 energy values
-         delta=const(10.0)**const(0.1)
-         xs_min[2,1]=const(1.0)
-         xs_max[2,1]=xs_min[2,1]*delta**(xs_tab_index(2,1)-1)
-
-         filein='../data/atmc.dat'
-         tag='h0 + h+ -> h+ + h0'
-         
-
-      end if
-
-/* nothing is known about all the other independent variables */
-      do i=xs_rank[1]+1,xs_table_rank_max
-
-         xs_var[i,1]='unknown'
-         xs_spacing[i,1]='unknown'
-         xs_units[i,1]='unknown'
-         xs_mult[i,1]=zero
-         xs_min[i,1]=zero
-         xs_max[i,1]=zero
-
+         do j=xs_rank[i]+1,xs_table_rank_max
+            xs_tab_index[j,i]=1
+            xs_var[j,i]='unknown'
+            xs_spacing[j,i]='unknown'
+            xs_units[j,i]='unknown'
+            xs_mult[j,i]=zero
+            xs_min[j,i]=zero
+            xs_max[j,i]=zero
+         end do
       end do
 
-/* nothing known about the other dependent variables */
-      do j=xs_num_dep_var+1,xs_dep_var_max
+      xs_var[0,1]='rate' 
+      xs_units[0,1]='cm^3 s^-1'  
+      xs_mult[0,1]=const(1.0,-6) 
 
-         xs_rank[j]=1
-         xs_organization[j]='unknown'
-         xs_var[0,j]='unknown'
-         xs_spacing[0,j]='unknown'
-         xs_units[0,j]='unknown'
-         xs_mult[0,j]=zero
-         do i=1,xs_table_rank_max
-            xs_var[i,j]='unknown'
-            xs_spacing[i,j]='unknown'
-            xs_units[i,j]='unknown'
-            xs_mult[i,j]=zero
-            xs_min[i,j]=zero
-            xs_max[i,j]=zero
+      xs_var[0,2]='electron_excitation_losses'
+      xs_units[0,2]='ergs s^-1'
+      xs_mult[0,2]=const(1.0,-7)
+
+      xs_var[0,3]='N(3)/N(1)'
+      xs_units[0,3]=' '
+      xs_mult[0,3]=one
+
+      xs_var[0,4]='N(2)/N(1)'
+      xs_units[0,4]=' '
+      xs_mult[0,4]=one
+
+
+/* nothing known about the other dependent variables */
+      do i=xs_num_dep_var+1,xs_dep_var_max
+         xs_rank[i]=1
+         xs_organization[i]='unknown'
+         xs_var[0,i]='unknown'
+         xs_spacing[0,i]='unknown'
+         xs_units[0,i]='unknown'
+         xs_mult[0,i]=zero
+         do j=1,xs_table_rank_max
+            xs_tab_index[j,i]=1
+            xs_var[j,i]='unknown'
+            xs_spacing[j,i]='unknown'
+            xs_units[j,i]='unknown'
+            xs_mult[j,i]=zero
+            xs_min[j,i]=zero
+            xs_max[j,i]=zero
          end do
       end do
 
@@ -194,29 +172,38 @@ format with a complete specification of the reaction.
          xs_eval_name[j]='unknown'
       end do
       
-      var_alloc(xs_tab1)
-      var_alloc(xs_tab2)
-      var_alloc(xs_tab3)
-      var_alloc(xs_tab4)
-      var_alloc(xs_tab5)
+      xs_ragged_alloc(xs_data,xs_tab_index)
 
-      xs_table1(0,0,0)=zero
-      xs_table2(0,0,0)=zero
-      xs_table3(0,0,0)=zero
-      xs_table4(0,0,0)=zero
-      xs_table5(0,0,0)=zero
+      if (name == 'hionize') then
+         call file_read(filein,1,' Ionization Rate')
+         tag=' Neutral'
+      else if (name == 'hrecombine') then
+         call file_read(filein,1,' Recombination Rate')
+         tag=' Continuum'
+      end if
 
-      call file_read(filein,tag)
-      fileout='../data/'\/trim(name)\/'.nc'
+      call file_read(filein,2,trim(tag)\/' Electron Losses')
+      call file_read(filein,3,trim(tag)\/' n=3 / n=1')
+      call file_read(filein,4,trim(tag)\/' n=2 / n=1')
+      
+      fileout=trim(name)\/'.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+
+      description = 
+     $  'Reference atomic physics data for a reaction in degas 2'
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(xsection_version),
+     $     xsection_version,nc_stat)
+      
       xs_ncdef(fileid)
       call ncendef(fileid,nc_stat)
       xs_ncwrite(fileid)
-      var_free(xs_tab1)
-      var_free(xs_tab2)
-      var_free(xs_tab3)
-      var_free(xs_tab4)
-      var_free(xs_tab5)
+
+      var_free(xs_data_tab)
       call ncclose(fileid,nc_stat)
 
       return
@@ -225,23 +212,38 @@ format with a complete specification of the reaction.
 @ Read in the data from the file.
 
 @<Functions...@>=
-      subroutine file_read(filename,tag)
+      subroutine file_read(filename,jdep,tag)
       implicit_none
-      character*(*) filename,tag // Input
-      integer i,j,k             // Local
+      character*(*) filename,tag                // Input
+      integer jdep
+
+      integer i,j,k,length                      // Local
       character*80 line
-      xs_common                 // Common
+
+      xs_common                                 // Common
+      st_common
       
       open(unit=diskin,file=filename,status='old',form='formatted')
-      if (tag != ' ')then
-loop:    continue
+
+      length=string_length(tag)
+      k=0
+loop: continue
+      read(diskin,'(a)',end=eof) line
+      if (line(:length) == tag) then
          read(diskin,'(a)') line
-         if (line != tag) goto loop
+         do j=0,xs_tab_index[2,jdep]-1
+            read(diskin,*) SP (xs_data_table(i,j,k,jdep),
+     &           i=0,xs_tab_index[1,jdep]-1)
+            read(diskin,'(a)') line
+            read(diskin,'(a)') line
+         end do
+      else
+         goto loop
       end if
-      read(diskin,*) SP (((xs_table1(i,j,k),i=0,xs_tab_index(1,1)-1),
-     $     j=0,xs_tab_index(2,1)-1),
-     $     k=0,xs_tab_index(3,1)-1)
+
+eof:  continue
       close(unit=diskin)
+
       return
       end
 
