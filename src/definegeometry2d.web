@@ -2,6 +2,26 @@
 \Title{definegeometry2d}
 
 % $Log$
+% Revision 1.4  2001/11/16 15:43:39  dstotler
+% Large number of small changes to eliminate problems encountered with
+% F90. Use quad_center to compute center of Sonnet mesh cells when file does
+% not contain a value. Hack in an attempt to write out UEDGE data as a
+% Sonnet file. Add var_frees for local dynamically dimensioned
+% arrays. Had forgotten to set g2_polygon_stratum for triangle
+% decompositions. Extensive user's guide added. Replace line(b:e) in
+% open_file's with explicit filename; Sun F90 was otherwise choking on
+% this. Switch local node, element, and wall arrays to a separate
+% dimensioning parameter initialized to mem_inc so allocations are
+% completely consistent. Set up zonearray and facearray so that
+% arguments to decompose_polygon match their dummies. Add var_reallocbs
+% for poly_prop arrays. Add var_alloc of mesh_xz for cases in which it
+% is not used. Initialize g2_polygon_segment and g2_polygon_stratum to
+% int_unused. Lengthen wall_chunk in print_walls to 31. Replace
+% dimension of temp_triangles with max_triangles. Replace read wallfile
+% statements with equivalent calls to string.web routines to ensure
+% coherence with other data reads. Extend format used for linear format
+% of print_walls to 10 decimal places (matching that of Sonnet mesh).
+%
 % Revision 1.3  2001/07/16 20:45:11  dstotler
 % Moved read_sonnet_mesh to aux2dsetup.web. Refine zone_center setting
 % for vacuum zones broken up by decompose polygon. Initial attempt at
@@ -50,8 +70,8 @@ This code takes a human-readable input file that,
 together with the other file(s) it references, describes
 a geometry you want to use in {\tt DEGAS 2}. The purpose of this code
 is to transform that description into {\tt DEGAS 2}'s internal
-description. The hiearchy of geometry-related objects in
-{\tt DEGAS 2} is, from the lowest level to the highest level is:
+description of the geometry. The hiearchy of geometry-related objects in
+{\tt DEGAS 2} is, from the lowest level to the highest level, is:
 \begin{enumerate}
   \item surface,
   \item cell,
@@ -60,6 +80,7 @@ description. The hiearchy of geometry-related objects in
 \end{enumerate}
 Individual cells are composed of surfaces, as discussed in the documentation
 for the internal geometry (e.g., see |geometry.web|). The next level up
+in two dimensions
 is a polygon. This program will call various routines to break up 
 (non-convex) polygons into
 cells. Finally, a zone may consist of one or more polygons; properties
@@ -71,19 +92,27 @@ are used only within external interfaces such as this code. Cells and surfaces
 are essentially used only by the code itself. Zones are used primarily for the
 specification of input and output data.
 
-The interfaces between the plasma (or vacuum)  and a solid surface (or exit)
-are represented by sectors, which are established for diagnostic purposes.
-In general, a sector is defined by a surface and a zone. This code makes 
-an attempt to identify and label these sectors automatically. 
-Somewhat arbitrarily, a sector between solid and plasma zones is a
-``target'' sector and one between a solid and vacuum zone is a 
+``Sectors'' can be defined to represent the interfaces between adjacent zones.
+The reason for doing so is that flights are halted at sectors, 
+and scores to corresponding ``diagnostics'' (groups of sectors)
+are tabulated.
+This code automatically creates sectors at the interfaces between
+plasma / vacuum zones (i.e., zones in which flights propagate) and solid / 
+exit zones (i.e., zones in which flights do not propagate). 
+Somewhat arbitrarily, a sector between solid and plasma zones is defined to be 
+a ``target'' sector and one between a solid and vacuum zone is a 
 ``wall'' sector. For further details, see the sector class
-described in |sector.hweb|. Currently, this code provides no facility for
-defining ``diagnostics'' from these sectors or for defining 
-``detectors'' from the input file. Instead, these have to be defined
-explicitly in the code.
+described in |sector.hweb|. In addition to being labeled by the surface and
+zone number (over which the user has no control), sectors are labeled
+by a ``stratum'' (the same for all of the sectors in a polygon)
+and a ``segment'' (generated from its location in the polygon).  These
+labels allow the user to subsequently refer to these sectors
+The user can also specify ``auxiliary sectors'' that coincide with
+arbitrary segments of a polygon and even include segments from 
+multiple polygons. The user can then define a diagnostic
+or diagnostics from either default or auxiliary sectors.
 
-Note that the input file for {\tt definegeometry2d} is not listed
+Note that the name of the input file for {\tt definegeometry2d} is not listed
 in {\tt degas2.in}. Although this might be viewed as an omission,
 it is consistent in that {\tt definegeometry2d} is, in principle,
 one of many different means of generating {\tt DEGAS 2} geometries and,
@@ -91,15 +120,15 @@ thus, is not as fundamental as the other entries in
 {\tt degas2.in}. 
 
 Instead, the command line for the execution of {\tt definegeometry2d}
-specifies the name of the main {\tt definegeometry2d} input file. 
-This file will contain pointers to
-other files that provide externally generated, detailed
-information about the geometry. 
+specifies the name of the main {\tt definegeometry2d} input file: 
 
 \begin{verbatim}
 definegeometry2d an_input_file
 \end{verbatim}
 
+The input  file, called here \verb+an_input_file+, will contain pointers to
+other files that provide externally generated, detailed
+information about the geometry. 
 Like other text input files used in {\tt DEGAS 2}, blank lines,
 spaces, and lines 
 beginning with a comment character \verb+#+ are ignored (comments can
@@ -156,7 +185,7 @@ new_zone solid
 # The polygons are enumerated and labeled to facilitate external reference.
 
 # The definition of a polygon is initiated by a "new_polygon" command
-# and finished "breakup_polygon", "triangulate_polygon", or 
+# and finished by "breakup_polygon", "triangulate_polygon", or 
 # "triangulate_to_zones". Each of these breaks the polygon down into
 # DEGAS 2's internal description consisting of cells and surfaces.
 # In the last case, each of the resulting triangles is assigned a new
@@ -247,8 +276,16 @@ new_zone vacuum
   new_polygon
     stratum 8
     edge 61 61 0 0
+#
+# The following define two auxiliary sectors belonging to stratum 14
+#
+       aux_stratum 14
     wall 7 15 15
-    wall 4 7 6
+       end_aux_stratum
+    wall 4 7 7
+       aux_stratum 14
+    wall 4 6 6
+       end_aux_stratum
 #    print_polygon poly_8
   breakup_polygon
 
@@ -268,8 +305,17 @@ new_zone vacuum
 # Polygon 10: gas box exit
     new_polygon
       stratum 10
-      wall 7 3 2
-      wall 5 50 51
+      wall 7 3 3
+#
+# Here we add two more sectors to auxiliary stratum 14
+#
+        aux_stratum 14
+      wall 7 2 2
+        end_aux_stratum
+      wall 5 50 50
+        aux_stratum 14
+      wall 5 51 51
+        end_aux_stratum
 #       print_polygon poly_10
     breakup_polygon
 
@@ -305,6 +351,13 @@ new_zone exit
     edge 11 51 0 0
 #     print_polygon poly_13
   breakup_polygon
+
+# Now define a diagnostic based on the auxiliary stratum defined above
+# in polygons 8 and 10:
+
+new_diagnostic Throat sectors
+  stratum 14
+end_diagnostic
 
 # The description of this geometry in terms of polygons is written out
 # to a netCDF file with this name so that it may be used again later.
@@ -395,14 +448,18 @@ polygons required to fill the universal cell.
 The need for and assignment of properties to a polygon or zone varies from
 one problem to another; their usage should be largely obvious. The |stratum|
 label is in a sense completely arbitrary. However, it is worth assigning
-its value with some thought since it can be used in specifying
+its value with some thought since it gets used in setting up default and
+auxiliary sectors. These are used subsequently in defining diagnostics and
 source locations. The code keeps track of the 
 segment number of each polygon (with the first segment being denoted by
 ``0'', the second by ``1'', etc.; the same labels can be thought of as
 applying to the first point of the segment) as the polygon is broken up and
-translated into internal geometry components. Together, the segment and 
+translated into internal geometry components. For the labels associated with
+polygons broken up by {\tt Triangle} to be maintained, the polygons must
+be specified with a clockwise orientation. Together, the segment and 
 stratum numbers
-allow the user to later refer back to individual segments (e.g., as the
+allow the user to later refer back to individual segments (e.g., in the
+definition of a diagnostic or as the
 location of a surface source) of
 each polygon.
 
@@ -480,9 +537,9 @@ corners and a center so that the mesh can be treated as completely
 unstructured and no connectivity information is needed. On the other
 hand, corners of adjacent mesh cells that are intended to match should
 match {\em exactly}. In defining the surrounding polygons, the user will
-undoubtedly need to be familiar with the mesh's Connectivity in defining the
+undoubtedly need to be familiar with the mesh's connectivity in defining the
 surrounding polygons. The ordering of the corners is important.  See
-below and in |read_sonnet_mesh| for more details.
+below and in subroutine |read_sonnet_mesh| for more details.
   \item[|uedge_mesh|] {\tt filename} specifies the name of a file,
 {\tt filename}, 
 generated by the \verb+UEDGE+ code for the purpose of transferring data to
@@ -551,7 +608,9 @@ a polygon definition). There is a further subdivision
 in that all keywords regarding a specific polygon must appear between
 its |new_polygon| command and the command that denotes its completion
 (|clear_polygon|, |breakup_polygon|, |triangulate_polygon|, or
-|triangulate_to_zones|).
+|triangulate_to_zones|). Likewise, all of the keywords pertaining
+to a diagnostic must appear between its |new_diagnostic| and
+|end_diagnostic| commands.
 
 \begin{description}
   \item[|new_zone|] {\tt type} starts a new zone of type {\tt type}. 
@@ -563,6 +622,54 @@ All polygons specified after this command and prior to the next
 containing the polygon description of the geometry (based on the
 {\tt g2} class, as described in the file {\tt geometry2d.hweb})
 to be named {\tt filename}. The default file name is {\tt polygon.nc}.
+  \item[|new_diagnostic|] {\tt diagnostic name} initiates the definition
+of a diagnostic group (of sectors) associated with the name
+{\tt diagnostic name} (the name of the diagnostic may contain spaces). 
+{\bf The following keywords can be used to describe this diagnostic.}
+An |end_diagnostic| command terminates its definition. The only other
+command that must be used is |stratum|; the others listed below are
+optional.
+  \item[|stratum|] $i_{\rm stratum}$ specifies a previously defined
+(either default or auxiliary) stratum that will identify the sectors
+to be used for this diagnostic. All sectors of that stratum will be
+incorporated. 
+  \item[|variable|] {\tt var} requests that an independent variable mesh
+for the physical quantity {\tt var} be set up for the diagnostic 
+being defined by a preceding |new_diagnostic| command. The default
+is no variable; in that case, the diagnostic lumps together all flights passing
+through its sectors. By using {\tt energy} or {\tt angle} for {\tt var}, 
+the user
+can resolve these passages according to the flights energy
+or angle (angle of incidence relative to the normal to the sector), 
+respectively.
+The user can control the units used for the energy mesh by 
+instead using for {\tt var} 
+{\tt energy J} or {\tt energy eV} (the default is eV). Likewise, the
+angle can be in degrees, {\tt angle degrees} (default) or 
+radians, {\tt angle radians}.
+  \item[|number|] $n_{\rm var}$ specifies the number of values in the
+independent variable mesh for the diagnostic being defined 
+in conjunction with a 
+preceding |new_diagnostic| command.
+  \item[|minimum|] $V_{\rm min}$ specifies the minimum value of an  
+independent variable mesh being defined 
+in conjunction with a preceding |new_diagnostic|
+command.
+  \item[|maximum|] $V_{\rm max}$ specifies the maximum value of an  
+independent variable mesh being defined 
+in conjunction with a preceding |new_diagnostic|
+command.
+  \item[|multiplier|] $F$ specifies a multiplier to be applied to
+the |maximum| and |minimum| of a diagnostic independent variable
+mesh. This command allows the user to utilize units {\em other than} those
+described above under |variable|. The multiplier must result in
+MKS units for the mesh (i.e., J for energy and radians for angle).
+  \item[|spacing|] {\tt spac} specifies the spacing of an independent
+variable mesh being defined by a preceding |new_diagnostic| command.
+The only valid values for {\tt spac} are {\tt linear} and {\tt log}. 
+No default is set, so one of these must appear explicitly.
+  \item[|end_diagnostic|] terminates the definition of the 
+diagnostic begun with a preceding |new_diagnostic| command.
   \item[|quit|] causes the code to terminate immediately. This is useful
 for preliminary runs in which the geometry is known to be inconsistent
 or incomplete, but the code needs to be run so that walls or polygons can
@@ -610,7 +717,7 @@ takes an ``edge'' from a plasma mesh defined with either the
 and adds it to the current polygon. To properly refer to an edge,
 the arguments must be such that either $i_{x,{\rm start}} = i_{x,{\rm stop}}$
 or $i_{z,{\rm start}} = i_{z,{\rm stop}}$. Valid values of $i_{x,{\rm start}}$
-and $i_{x,{\rm stop}}$ will be between $n_{x}$, inclusive. Likewise,
+and $i_{x,{\rm stop}}$ will be between 0 and $n_{x}$, inclusive. Likewise,
 $i_{z,{\rm start}}$ and $i_{z,{\rm stop}}$ will be between 0 and $n_{z}$.
 Either pair can be replaced with \verb+*+ to indicate that the
 entire edge should be added to the polygon.
@@ -626,23 +733,26 @@ can be used in specifying sources, setting up diagnostics, etc. It
 will be applied to subsequent polygons until used again.
   \item[|material|] {\tt mat} sets the material for the polygon to 
 the material having the symbol {\tt mat}. A material with this
-symbol must appear in the |materials_infile| (from the |degas2.in|
+symbol must appear in the |materials_infile| (named in the |degas2.in|
 file) for this run. It will be applied to all subsequent polygons
 until used again. Note that this setting only affects the
-calculation when one edge of this polygon ends up being a target or wall
+calculation when one or more edges 
+of this polygon ends up being a target or wall
 sector.
   \item[|temperature|] $T$ associates a temperature of $T$
 Kelvin (a real number) 
 to the polygon. This value can affect, e.g., the energy of
 desorbed or puffed molecules. It will be applied to all subsequent polygons
 until used again. Note that this setting only affects the
-calculation when one edge of this polygon ends up being a target or wall
+calculation when one or more edges 
+of this polygon ends up being a target or wall
 sector.
   \item[|recyc_coef|] $R$ associates a recycling coefficient of
 $R$ ($R$ a real number, $0 < R \leq 1$) to the polygon.
 It will be applied to all subsequent polygons
 until used again. Note that this setting only affects the
-calculation when one edge of this polygon ends up being a target or wall
+calculation when one or more edges 
+of this polygon ends up being a target or wall
 sector. 
   \item[|triangle_area|] $A$ specifies a minimum area in square meters
 for the triangles
@@ -665,6 +775,22 @@ The hole location is used by {\tt Triangle} when either the
 executed on a polygon that encircles are region that is {\em not} to
 be broken up into triangles. The hole location can be anywhere in
 this interior region.
+  \item[|aux_stratum|] $i_{\rm stratum}$ initiates the definition of
+an auxiliary stratum (consisting of one or more auxiliary sectors) labeled
+as stratum number $i_{\rm stratum}$. The definition is terminated by an
+|end_aux_stratum| command. All of the polygon segments specified between
+the two commands will be used to define auxiliary sectors in this
+stratum. More precisely, sectors will be set up starting at each {\em point}
+between the two commands; the end point of each sector being the 
+next point in the polygon. Thus, the end point of the last auxiliary
+sector is the first point specified {\em after} the |end_aux_stratum|
+command. For this to work correctly, {\em the polygon must have a
+clockwise orientation}. The |aux_stratum| and |end_aux_stratum| commands
+may be invoked multiple times across various polygons, with the same
+or different values of $i_{\rm stratum}$. In this way, segments of
+multiple polygons can be incorporated into a single stratum.
+  \item[|end_aux_stratum|] terminates the definition of an auxiliary
+stratum begun with an |aux_stratum| command.
   \item[|print_polygon|] {\tt filename} prints the points of the
 current polygon to a file, {\tt filename}. If {\tt filename} is not
 present, the coordinates are written to standard out.
@@ -704,6 +830,8 @@ of additional constraints such as a minimum area.
 A clockwise orientation is recommended since this
 will preserve (as |strata_segment| labels) the relationship between 
 the resulting bounding segments and the original polygon points.
+{\em Note: the next polygon to appear in the file must be preceded by
+a |new_zone| command.}
 \end{description}
 
 \section{Other Considerations}
@@ -754,16 +882,73 @@ that there is no $(0,0)$ zone).
   \item Otherwise, use corner 3 of the $(i_{x},i_{z})$ zone.
 \end{enumerate}
 
-{\em Regarding detectors and diagnostics:} Ideally the user would
-also be able to specify detectors and diagnostic sectors via this
-input file. Some such facility may be possible without a great deal
-of effort. However, a graphical approach to their specification would
-likely prove more flexible and
-easier to use. Once an overall graphical approach to running 
-{\tt definegeometry2d} has been contemplated, a decision regarding the
-handling of detectors and diagnostic sectors will be made. In the interim,
-the best approach is to insert hardwired code into this file; specific
-examples can be made available on request.
+{\em Regarding the definition of detectors:} Ideally the user would
+also be able to specify detectors via this
+input file. Instead, a placeholder subroutine called |detector_setup|
+has been defined in the file |def2ddetector.web|. The user can write a
+replacement routine that will be loaded in automatically if it is in a
+file named |usr2ddetector.web|. An example is contained in the file
+|btopdetector.web|. In practice, one would use such a file by 
+executing commands analogous to:
+\begin{verbatim}
+cd $HOME/degas2/src
+cp btopdetector.web usr2ddetector.web
+touch usr2ddetector.web
+cd ../SUN
+gmake definegeometry2d
+\end{verbatim}
+
+Likewise, to revert to the default (null) subroutine,
+\begin{verbatim}
+cd $HOME/degas2/src
+rm usr2ddetector.web
+touch def2ddetector.web
+cd ../SUN
+gmake definegeometry2d
+\end{verbatim}
+
+Note the use of the \verb+touch+ command to make sure \verb+gmake+ 
+recognizes the change.
+
+{\em Regarding the orientation of sectors:} The default sectors 
+set up by this code are equivalent to the ones 
+you would get if you defined auxiliary
+sectors on each segment of every solid or exit polygon that is adjacent to 
+a plasma or vacuum polygon. 
+The zone associated with those sectors, whether they are set up by the
+default procedure or explicitly created as auxiliary sectors, will
+be that of the adjacent plasma or vacuum zone. A flight leaving that 
+plasma or vacuum zone is defined
+as traveling ``out'' of that sector (corresponding to the direction
+sensitive variables available in {\tt tallysetup}, e.g., \verb+mass_out+
+or \verb+mass_in+). 
+
+If, instead, the auxiliary stratum commands appear in the definition 
+of the plasma or vacuum polygon, the
+zone associated with the sector is that of the solid or exit polygon. Again, a 
+flight leaving that zone would be considered as having traveled ``out'' of
+that sector. Since flights are not propagated in solid zones, such a
+facility would seem useless. However, a flight striking this sector 
+from the other side (e.g., traveling through the plasma zone and 
+hitting the solid) is considered as 
+having traveled ``in''
+to this sector. A tally tracking the value of \verb+mass_in+ on this
+sector would yield the same result as a tally tabulating \verb+mass_out+
+for the corresponding sector on the other side of the interface. Because
+this capability adds no information, the default sectors are set 
+up on only one side of the interfaces.
+
+Auxiliary sectors can be defined at interfaces between zones of any type.
+For example, sectors could be defined two plasma zones, between two
+vacuum zones, or between neighboring plasma and vacuum zones.
+In the last case, as in the other ``heterogeneous'' cases 
+described above, the zone associated with an auxiliary sector
+created as part of the definition of a zone of one type will be that
+of the adjacent zone (of the other type).
+If
+the adjacent zones are of the same type, the zone associated with the
+sector will correspond to the one defined later in the construction
+section.
 
 {\em Special note on comments and debuggers:} Part of this file is written
 in C. The current Sun Workshop debugger (there may be others) utilizes the
@@ -782,6 +967,8 @@ be other requirements as well.
 @m wall_loop #:0
 @m wall_loop2 #:0
 @m wall_break #:0
+@m sector_break #:0
+@m sector_break2 #:0
 @m next_surface #:0
 
 @I macros.hweb
@@ -875,6 +1062,36 @@ be other requirements as well.
          g2_polygon_segment[g2_num_polygons][i_inc_g2]=int_unused;
       end do @;
 
+@m increment_num_aux_sectors num_aux_sectors++;
+      dim_aux_sectors=max(dim_aux_sectors,num_aux_sectors);
+      var_realloca(aux_stratum);
+      var_realloca(aux_stratum_poly);
+      var_realloca(aux_stratum_points);
+      var_realloca(aux_stratum_segment);
+      aux_stratum[num_aux_sectors]=int_uninit;
+      aux_stratum_poly[num_aux_sectors]=int_uninit;
+      aux_stratum_points[num_aux_sectors]=int_uninit;
+      aux_stratum_segment[num_aux_sectors]=int_uninit @;
+
+@m increment_num_diags num_diags++;
+      dim_diags=max(dim_diags,num_diags);
+      var_realloca(diag_name);
+      var_realloca(diag_stratum);
+      var_realloca(diag_variable);
+      var_realloca(diag_tab_index);
+      var_realloca(diag_var_min);
+      var_realloca(diag_var_max);
+      var_realloca(diag_mult);
+      var_realloca(diag_spacing); 
+      diag_name[num_diags]=char_uninit;
+      diag_stratum[num_diags]=int_uninit;
+      diag_variable[num_diags]=int_uninit;
+      diag_tab_index[num_diags]=int_uninit;
+      diag_var_min[num_diags]=real_uninit;
+      diag_var_max[num_diags]=real_uninit;
+      diag_mult[num_diags]=real_uninit;
+      diag_spacing[num_diags]=int_uninit @;
+
 @m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
             if (open_stat != 0) then;
          write (stderr,*) ' Cannot open file ',line(b:e),', error number ',open_stat;
@@ -909,6 +1126,8 @@ be other requirements as well.
    Add ``2d'' to distinguish from |wall_ind| in |sector.hweb|.
 */
       define_dimen(wall2d_ind,dim_walls)   
+      define_dimen(aux_sector_ind,dim_aux_sectors)
+      define_dimen(diags_ind,dim_diags)
       define_dimen(mesh_corner_ind,0,4)
       define_dimen(mesh_xz_ind,nxd*nzd)
       define_dimen(poly_int_ind,poly_int_max)
@@ -925,6 +1144,20 @@ be other requirements as well.
       define_varp(wall_nodes,INT,g2_points_ind0,wall2d_ind)
       define_varp(wall_elements,INT,g2_points_ind,wall2d_ind)
       define_varp(wall_element_count,INT,wall2d_ind)
+
+      define_varp(aux_stratum,INT,aux_sector_ind)
+      define_varp(aux_stratum_poly,INT,aux_sector_ind)
+      define_varp(aux_stratum_points,INT,aux_sector_ind)
+      define_varp(aux_stratum_segment,INT,aux_sector_ind)
+
+      define_varp(diag_name,CHAR,sc_diag_name_string,diags_ind)
+      define_varp(diag_stratum,INT,diags_ind)
+      define_varp(diag_variable,INT,diags_ind)
+      define_varp(diag_tab_index,INT,diags_ind)
+      define_varp(diag_var_min,FLOAT,diags_ind)
+      define_varp(diag_var_max,FLOAT,diags_ind)
+      define_varp(diag_mult,FLOAT,diags_ind)
+      define_varp(diag_spacing,INT,diags_ind)
 /*
    Since we can have only one adjustable dimension with pointers,
    combine the two into a single one here. We can use the desired
@@ -937,6 +1170,7 @@ be other requirements as well.
 
       implicit_none_f77
       g2_common
+      sc_common
       implicit_none_f90
 
       character*FILELEN filename         // Input
@@ -976,9 +1210,12 @@ be other requirements as well.
 
       integer symmetry                                       // Symmetry
 
-      integer process_polygon,ntriangles,refine,j            // Zone, Polygon
+      integer process_polygon,ntriangles,refine,j,k,         // Zone, Polygon
+     $        temp_num_stratum_pts,temp_aux_stratum,
+     $        temp_aux_segment,i_aux
       integer temp_int_props[1:poly_int_max],
-     $     temp_segment[0:max_triangles-1][0:3]
+     $     temp_segment[0:max_triangles-1][0:3],
+     $     temp_stratum_pts[0:g2_num_points-1]
       real temp_polygon[0:g2_num_points-1][g2_x:g2_z],
      $     temp_triangles[0:max_triangles-1][0:3][g2_x:g2_z],
      $     temp_real_props[1:poly_real_max],
@@ -988,8 +1225,13 @@ be other requirements as well.
       integer write_poly_nc                                // |polygon.nc| file
       character*FILELEN polygon_nc_file
 
+      integer i_diag,i_grp,i_sect                          // Diagnostic init
+      integer grp_sectors[g2_num_points]
+
       integer num_nodes,num_elements,num_walls,            // Local pointers
-     $        dim_nodes,dim_elements,dim_walls,nxd,nzd
+     $        dim_nodes,dim_elements,dim_walls,nxd,nzd,
+     $        num_aux_sectors,dim_aux_sectors,
+     $        num_diags,dim_diags
 
       declare_varp(nodes)
       declare_varp(node_type)
@@ -1002,6 +1244,20 @@ be other requirements as well.
       declare_varp(wall_nodes)
       declare_varp(wall_elements)
       declare_varp(wall_element_count)
+
+      declare_varp(aux_stratum)
+      declare_varp(aux_stratum_poly)
+      declare_varp(aux_stratum_points)
+      declare_varp(aux_stratum_segment)
+
+      declare_varp(diag_name)
+      declare_varp(diag_stratum)
+      declare_varp(diag_variable)
+      declare_varp(diag_tab_index)
+      declare_varp(diag_var_min)
+      declare_varp(diag_var_max)
+      declare_varp(diag_mult)
+      declare_varp(diag_spacing)
 
       declare_varp(mesh_xz)
 
@@ -1034,6 +1290,8 @@ be other requirements as well.
       num_walls=0
       num_nodes=0
       num_elements=0
+      num_aux_sectors=0
+      num_diags=0
       facearray[0]=0
       facearray[1]=0
 /*
@@ -1043,6 +1301,8 @@ be other requirements as well.
       dim_walls=mem_inc
       dim_nodes=mem_inc
       dim_elements=mem_inc
+      dim_aux_sectors=mem_inc
+      dim_diags=mem_inc
 
       var_alloc(nodes)
       var_alloc(node_type)
@@ -1055,6 +1315,20 @@ be other requirements as well.
       var_alloc(wall_nodes)
       var_alloc(wall_elements)
       var_alloc(wall_element_count)
+
+      var_alloc(aux_stratum)
+      var_alloc(aux_stratum_poly)
+      var_alloc(aux_stratum_points)
+      var_alloc(aux_stratum_segment)
+
+      var_alloc(diag_name)
+      var_alloc(diag_stratum)
+      var_alloc(diag_variable)
+      var_alloc(diag_tab_index)
+      var_alloc(diag_var_min)
+      var_alloc(diag_var_max)
+      var_alloc(diag_mult)
+      var_alloc(diag_spacing)
 
       prep_done=FALSE
       current_int_props[poly_stratum]=0
@@ -1144,6 +1418,15 @@ loop1: continue
       else if (keyword == 'new_polygon') then
          @<New Polygon@>
 
+      else if (keyword == 'new_diagnostic') then
+         assert(next_token(line,b,e,p))
+         increment_num_diags
+         diag_name[num_diags]=line(b:)
+         call specify_diagnostic(diskin,diag_stratum[num_diags],
+     $        diag_variable[num_diags],diag_tab_index[num_diags],
+     $        diag_var_min[num_diags],diag_var_max[num_diags],
+     $        diag_mult[num_diags],diag_spacing[num_diags])
+
       else if (keyword == 'polygon_nc_file') then
          assert(next_token(line,b,e,p))
          if (line(b:e) == 'none' || line(b:e) == 'NONE') then
@@ -1167,6 +1450,18 @@ eof:  continue
       var_reallocb(g2_polygon_stratum)
       var_reallocb(poly_int_props)
       var_reallocb(poly_real_props)
+      var_reallocb(aux_stratum)
+      var_reallocb(aux_stratum_poly)
+      var_reallocb(aux_stratum_points)
+      var_reallocb(aux_stratum_segment)
+      var_reallocb(diag_name)
+      var_reallocb(diag_stratum)
+      var_reallocb(diag_variable)
+      var_reallocb(diag_tab_index)
+      var_reallocb(diag_var_min)
+      var_reallocb(diag_var_max)
+      var_reallocb(diag_mult)
+      var_reallocb(diag_spacing)
 
       if (write_poly_nc == TRUE) then
          fileid=nccreate(trim(polygon_nc_file),NC_CLOBBER,nc_stat)
@@ -1179,15 +1474,35 @@ eof:  continue
       if (keyword == 'end') then
          call boundaries_neighbors
 
-         call default_sectors(g2_num_polygons,g2_polygon_points,
+         call setup_sectors(g2_num_polygons,g2_polygon_points,
      $        g2_polygon_xz,g2_polygon_segment,g2_polygon_zone,
-     $        poly_int_props,poly_real_props)
+     $        poly_int_props,poly_real_props,num_aux_sectors,aux_stratum,
+     $        aux_stratum_poly,aux_stratum_points,aux_stratum_segment)
       
-         call diag_sector_setup
+         call default_diag_setup
+
+         if (num_diags > 0) then
+            do i_diag=1,num_diags
+               i_grp=0
+               do i_sect=1,nsectors
+                  if (strata[i_sect] == diag_stratum[i_diag]) then
+                     i_grp++
+                     assert(i_grp <= g2_num_points)  // Dim. of |grp_sectors|
+                     grp_sectors[i_grp]=i_sect
+                  end if
+               end do
+               assert(i_grp > 0)
+               assert(diag_name[i_diag] != char_uninit)
+               call diag_grp_init(diag_name[i_diag],i_grp,diag_variable[i_diag],
+     $              diag_tab_index[i_diag],diag_var_min[i_diag],
+     $              diag_var_max[i_diag],diag_mult[i_diag],
+     $              diag_spacing[i_diag],grp_sectors)
+            end do
+         end if
 
          call end_sectors
 
-         call null_detector_setup
+         call detector_setup
 
          call end_detectors
 
@@ -1207,6 +1522,18 @@ eof:  continue
       var_free(wall_nodes)
       var_free(wall_elements)
       var_free(wall_element_count)
+      var_free(aux_stratum)
+      var_free(aux_stratum_poly)
+      var_free(aux_stratum_points)
+      var_free(aux_stratum_segment)
+      var_free(diag_name)
+      var_free(diag_stratum)
+      var_free(diag_variable)
+      var_free(diag_tab_index)
+      var_free(diag_var_min)
+      var_free(diag_var_max)
+      var_free(diag_mult)
+      var_free(diag_spacing)
       var_free(mesh_xz)
       var_free(poly_int_props)
       var_free(poly_real_props)
@@ -1711,7 +2038,8 @@ wall_break: continue
       call specify_polygon(diskin,num_walls,wall_element_count,wall_nodes,
      $     nodes,xb_min,xb_max,zb_min,zb_max,nxd,nzd,mesh_xz,
      $     temp_polygon[0][g2_x],n,temp_int_props,
-     $     temp_real_props,process_polygon)
+     $     temp_real_props,temp_aux_stratum,temp_stratum_pts,
+     $     temp_num_stratum_pts,process_polygon)
       if (process_polygon != clear_polygon) then
          ix=0
          iz=0
@@ -1766,6 +2094,34 @@ wall_break: continue
 
             call update_zone_info(zone,ix,iz,new_zone_type,n,
      $           g2_polygon_xz[g2_num_polygons][0][g2_x],center)
+/*
+   Transfer data on auxiliary strata to main arrays. In this case, the
+   original polygon point number can be used directly to identify the
+   chosen segment in |setup_sectors|.
+*/
+            if (temp_num_stratum_pts > 0) then
+               do i=1,temp_num_stratum_pts
+                  increment_num_aux_sectors
+                  aux_stratum[num_aux_sectors]=temp_aux_stratum
+                  aux_stratum_poly[num_aux_sectors]=g2_num_polygons
+                  aux_stratum_points[num_aux_sectors]=temp_stratum_pts[i]
+/*
+  Assign segment number for a stratum just by counting the number that
+  have been specified. Easiest to just start at the end and find the last one.
+*/
+                  temp_aux_segment=1
+                  if (num_aux_sectors > 1) then
+                     do i_aux=num_aux_sectors-1,1,-1
+                        if (aux_stratum[i_aux] == temp_aux_stratum) then
+                           temp_aux_segment=aux_stratum_segment[i_aux]+1
+                           go to sector_break
+                        end if
+                     end do
+sector_break: continue
+                 end if
+                 aux_stratum_segment[num_aux_sectors]=temp_aux_segment
+              end do
+           end if
 
          else if (process_polygon == triangulate_polygon 
      $           || process_polygon == triangulate_to_zones) then
@@ -1802,6 +2158,51 @@ wall_break: continue
                   g2_polygon_xz[g2_num_polygons][i][g2_z]=
      $                 temp_triangles[j][i][g2_z]
                   g2_polygon_segment[g2_num_polygons][i]=temp_segment[j][i]
+/*
+   Transfer data on auxiliary strata to main arrays. This is more complicated
+   than |breakup_polygon| case above since we need to search the triangles
+   to identify which one contains the desired segment.
+*/
+                  if (temp_num_stratum_pts > 0) then
+                     do k=1,temp_num_stratum_pts
+/*
+   The following is a little subtle. The user needs to specify polygons in
+   the clockwise direction in order to preserve segment number. First,
+   assume that the user does likewise in specifying auxiliary strata.
+   Then, the selected polygon segment consists of the point indicated
+   by |temp_stratum_pts[k]| and that point number plus one. The 
+   corresponding triangle side must be labeled with both of these
+   point numbers. Again, because we know the triangles are all clockwise,
+   we can assume that the |i+1| segment would match the larger point
+   number. Furthermore, since the |i=0| and |i=3| points are the same,
+   we don't have to worry that |i=3| will be hit first.
+*/
+                        if ((temp_segment[j][i] == temp_stratum_pts[k])
+     $                  && (temp_segment[j][i+1] == temp_stratum_pts[k]+1)) then
+                           assert(i != 3)
+                           increment_num_aux_sectors
+                           aux_stratum[num_aux_sectors]=temp_aux_stratum
+                           aux_stratum_poly[num_aux_sectors]=g2_num_polygons
+                           aux_stratum_points[num_aux_sectors]=i
+/*
+   As above, the segment number for a given stratum is just an enumeration of
+   the segments comprising the stratum.
+*/
+                           temp_aux_segment=1
+                           if (num_aux_sectors > 1) then
+                              do i_aux=num_aux_sectors-1,1,-1
+                                 if (aux_stratum[i_aux] == temp_aux_stratum) then
+                                    temp_aux_segment=aux_stratum_segment[i_aux]+1
+                                    go to sector_break2
+                                 end if
+                              end do
+sector_break2: continue
+                           end if
+                           aux_stratum_segment[num_aux_sectors]=temp_aux_segment
+                        end if
+                     end do
+                  end if
+
                end do
                g2_polygon_points[g2_num_polygons]=n
                if (process_polygon == triangulate_to_zones && j > 0) 
@@ -2065,7 +2466,9 @@ the data are written to stdout.
       subroutine specify_polygon(nunit,num_walls,wall_element_count,
      $                           wall_nodes,nodes,xb_min,xb_max,zb_min,
      $                           zb_max,nxd,nzd,mesh_xz,polygon,n,
-     $                           int_props,real_props,process_polygon)
+     $                           int_props,real_props,aux_stratum,
+     $                           aux_stratum_pts,num_aux_stratum_pts,
+     $                           process_polygon)
 
       implicit_none_f77
       ma_common                                              // Common
@@ -2077,13 +2480,15 @@ the data are written to stdout.
       real xb_min,xb_max,zb_min,zb_max
       real nodes[*][g2_x:g2_z],mesh_xz[nzd][nxd][0:4][g2_x:g2_z]
 
-      integer n,process_polygon                               // Output
-      integer int_props[1:poly_int_max]
+      integer n,process_polygon,aux_stratum,                 // Output
+     $        num_aux_stratum_pts
+      integer int_props[1:poly_int_max],aux_stratum_pts[0:g2_num_points-1]
       real polygon[0:g2_num_points-1][g2_x:g2_z],real_props[1:poly_real_max]
 
       integer length,p,b,e,i,wall,start,stop,temp,            // Local
      $     ix_start,ix_stop,iz_start,iz_stop,ix_step,iz_step,
-     $     corner,ixi,izi,num,ix,iz,nout,step,i_prop
+     $     corner,ixi,izi,num,ix,iz,nout,step,i_prop,aux_stratum_def,
+     $     aux_stratum_start
       character*FILELEN polyoutfile
       character*LINELEN line,keyword
 
@@ -2100,6 +2505,10 @@ the data are written to stdout.
       do i_prop=1,poly_real_max
          real_props[i_prop]=real_uninit
       end do
+
+      aux_stratum=int_uninit
+      num_aux_stratum_pts=0
+      aux_stratum_def=FALSE
 
 poly_loop: continue
       assert(read_string(diskin,line,length))
@@ -2154,6 +2563,29 @@ poly_loop: continue
             real_props[poly_hole_z]=read_real(line(b:e))
          end if
 
+      else if (keyword == 'aux_stratum') then
+/*
+   Set up currently to handle only one auxiliary stratum per polygon.
+*/
+         assert(next_token(line,b,e,p))
+         if (aux_stratum == int_uninit) then
+            aux_stratum=read_integer(line(b:e))
+            assert(aux_stratum != int_uninit)
+         else
+            assert(aux_stratum == read_integer(line(b:e)))
+         end if            
+         aux_stratum_def=TRUE
+         aux_stratum_start=n
+
+      else if (keyword == 'end_aux_stratum') then
+         assert(aux_stratum_def==TRUE)
+         do i=aux_stratum_start,n-1
+            num_aux_stratum_pts++
+            aux_stratum_pts[num_aux_stratum_pts]=i
+         end do
+         assert(num_aux_stratum_pts > 0)
+         aux_stratum_def=FALSE
+
       else if (keyword == 'print_polygon') then
          if (next_token(line,b,e,p)) then
             polyoutfile=line(b:e)
@@ -2170,6 +2602,10 @@ poly_loop: continue
             write(nout,'(1x,1pe14.6,2x,e14.6)') polygon[i][g2_x],
      $           polygon[i][g2_z]
          end do
+         if (polyoutfile != char_undef) then
+            close(unit=nout)
+         end if
+
 
       else if (keyword == 'breakup_polygon') then
          polygon[n][g2_x]=polygon[0][g2_x]
@@ -2343,7 +2779,142 @@ outer_loop: continue
             ix+=ix_step
             iz+=iz_step
             n++
+            assert(n <= g2_num_points-1)
          end do
+
+@* Read data specifying a diagnostic.
+
+@m diag_loop #:0
+
+@<Functions...@>=
+      subroutine specify_diagnostic(nunit,stratum,variable,tab_index,
+     $                              var_min,var_max,mult,spacing)
+
+      implicit_none_f77
+      implicit_none_f90
+
+      integer nunit                                  // Input
+      
+      integer stratum,variable,tab_index,spacing     // Output
+      real var_min,var_max,mult
+
+      integer length,p,b,e                           // Local
+      character*LINELEN line,keyword
+
+      st_decls
+/*
+   Defaults
+*/
+      stratum=int_uninit
+      variable=sc_diag_unknown
+      tab_index=0
+      var_min=zero
+      var_max=zero
+      mult=zero
+      spacing=sc_diag_spacing_unknown
+
+diag_loop: continue
+      assert(read_string(nunit,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      keyword=line(b:e)
+
+      if (keyword == 'stratum') then
+         assert(next_token(line,b,e,p))
+         stratum=read_integer(line(b:e))
+         assert(stratum != int_uninit)
+
+      else if (keyword == 'variable') then
+         @<Variable Keyword@>
+
+      else if (keyword == 'number') then
+         assert(next_token(line,b,e,p))
+         tab_index=read_integer(line(b:e))
+         assert(tab_index > 0)
+
+      else if (keyword == 'minimum') then
+         assert(next_token(line,b,e,p))
+         var_min=read_real(line(b:e))
+
+      else if (keyword == 'maximum') then
+         assert(next_token(line,b,e,p))
+         var_max=read_real(line(b:e))
+
+      else if (keyword == 'multiplier') then
+         assert(next_token(line,b,e,p))
+         mult=read_real(line(b:e))
+         assert(mult != zero)
+
+      else if (keyword == 'spacing') then
+         assert(next_token(line,b,e,p))
+         if (line(b:e) == 'linear') then
+            spacing=sc_diag_spacing_linear
+         else if (line(b:e) == 'log') then
+            spacing=sc_diag_spacing_log
+         else
+            write(stderr,*) ' Unexpected spacing, ',line(b:e)
+            assert(.false.)
+         end if
+
+      else if (keyword == 'end_diagnostic') then
+         assert(stratum != int_uninit)
+         if (variable != sc_diag_unknown) then
+            assert(tab_index > 0)
+            assert(mult != zero)
+            assert(var_min != var_max)
+            assert(spacing != sc_diag_unknown)
+            if (spacing == sc_diag_spacing_log) then
+               assert(var_min*mult > zero)
+               assert(var_max*mult > zero)
+            end if
+         end if
+         return
+
+      end if
+
+      go to diag_loop
+
+      end 
+
+@ Specify the diagnostic variable.
+
+@<Variable Keyword@>=
+         assert(next_token(line,b,e,p))
+         if (line(b:e) == 'energy') then
+            variable=sc_diag_energy
+            if (next_token(line,b,e,p)) then
+               if (line(b:e) == 'J') then
+                  mult=one
+               else if (line(b:e) == 'eV') then
+                  mult=electron_charge
+               else
+                  write(stderr,*) ' Unexpected energy unit, ',line(b:e)
+                  assert(.false.)
+               end if
+            else
+               mult=electron_charge     // Default to eV
+            end if
+         else if (line(b:e) == 'angle') then
+            variable=sc_diag_angle
+            if (next_token(line,b,e,p)) then
+               if (line(b:e) == 'radians') then
+                  mult=one
+               else if (line(b:e) == 'degrees') then
+                  mult=PI/const(1.8,2)
+               else
+                  write(stderr,*) ' Unexpected angle unit, ',line(b:e)
+                  assert(.false.)
+               end if
+            else
+               mult=PI/const(1.8,2)     // Default to degrees
+            end if
+         else
+            write(stderr,*) ' Unexpected diagnostic variable, ',line(b:e)
+            assert(.false.)
+         end if
+
 
 @* Fill in data for this zone. NOTE: the center point is set using the
 argument |center| from the first call to this routine for the current
@@ -2549,30 +3120,30 @@ the triangles (for additional information see
       return
       end
 
-@* Set up default sectors. This code has been lifted directly out of
-|readgeometry.web|. In fact, were it not for the problem-specific 
-macros there, could have replaced that code with this subroutine call
-as well.
-
-@m next_surface #:0
+@* Set up sectors. This code is based on the original in |readgeometry.web|. 
+An extension to handle user-specified, auxiliary sectors has been 
+added.
 
 @<Functions...@>=
-      subroutine default_sectors(num_polygons,polygon_points,polygon_xz,
+      subroutine setup_sectors(num_polygons,polygon_points,polygon_xz,
      $                           polygon_segment,polygon_zone,poly_int_props,
-     $                           poly_real_props)
+     $                           poly_real_props,num_aux_sectors,aux_stratum,
+     $                           aux_stratum_poly,aux_stratum_points,
+     $                           aux_stratum_segment)
 
       implicit_none_f77
       zn_common                                              // Common   
       sc_common 
       implicit_none_f90
 
-      integer num_polygons                                   // Input
+      integer num_polygons,num_aux_sectors                  // Input
       integer polygon_segment[*][0:g2_num_points-1],polygon_points[*],
-     $     polygon_zone[*],poly_int_props[*][1:poly_int_max]
+     $     polygon_zone[*],poly_int_props[*][1:poly_int_max],aux_stratum[*],
+     $     aux_stratum_poly[*],aux_stratum_points[*],aux_stratum_segment[*]
       real polygon_xz[*][0:g2_num_points-1][g2_x:g2_z],
      $     poly_real_props[*][1:poly_real_max]
 
-      integer i_poly,j,sector1,face1,zone1,zone2            // Local
+      integer i_poly,j,sector1,face1,zone1,zone2,i_aux      // Local
 
       @<Memory allocation interface@>
 
@@ -2599,9 +3170,10 @@ as well.
      $              polygon_xz[i_poly][j+1][g2_x],
      $              zn_type(polygon_zone[i_poly]),zone1,face1,zone2)
                if (zn_check(zone1) && zn_check(zone2)) then
+
                   if ((zn_type(zone1) == zn_solid) 
      $                 && (zn_type(zone2) == zn_plasma)) then
-                     sector1=define_sector(
+                     sector1=define_sector(                     // TARGET
      $                    poly_int_props[i_poly][poly_stratum],
      $                    polygon_segment[i_poly][j],-face1,zone2,zone1)
                      define_sector_target(sector1,
@@ -2612,7 +3184,7 @@ as well.
 
                   else if ((zn_type(zone1) == zn_solid) 
      $                    && (zn_type(zone2) == zn_vacuum)) then 
-                     sector1=define_sector(
+                     sector1=define_sector(                     // WALL
      $                    poly_int_props[i_poly][poly_stratum],
      $                    polygon_segment[i_poly][j],-face1,zone2,zone1)
                      define_sector_wall(sector1,
@@ -2623,24 +3195,35 @@ as well.
 
                   else if ((zn_type(zone1) == zn_exit) 
      $                    && ((zn_type(zone2) == zn_plasma) )) then
-                     sector1=define_sector(
+                     sector1=define_sector(                     // EXIT
      $                    poly_int_props[i_poly][poly_stratum],
      $                    polygon_segment[i_poly][j],-face1,zone2,zone1)
                      define_sector_exit(sector1) 
 
                   else if ((zn_type(zone1) == zn_exit) 
      $                    && ((zn_type(zone2) == zn_vacuum) )) then
-                     sector1=define_sector(
+                     sector1=define_sector(                     // EXIT
      $                    poly_int_props[i_poly][poly_stratum],
      $                    polygon_segment[i_poly][j],-face1,zone2,zone1)
                      define_sector_exit(sector1) 
-                  else
-                     goto next_surface
+                  end if
+/*
+   This is the first attempt at defining non-default sectors.
+   The idea is to just define a sector associated with a specific polygon 
+   segment.
+*/
+                  if (num_aux_sectors > 0) then
+                     do i_aux=1,num_aux_sectors                // AUX.
+                        if ((aux_stratum_poly[i_aux] == i_poly)
+     $                       && (aux_stratum_points[i_aux] == j)) then
+                           sector1=define_sector(aux_stratum[i_aux],
+     $                          aux_stratum_segment[i_aux],-face1,zone2,zone1)
+                        end if
+                     end do
                   end if
 
-                end if
-             end if
-next_surface continue
+               end if
+            end if
          end do
       end do
 
