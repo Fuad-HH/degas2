@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.34  2000/03/27 21:15:18  dstotler
+% A little clean up following merger with Randy's branch.
+%
 % Revision 1.33  1999/08/09 15:18:40  karney
 % An extensive revision of the random number routines
 % (1) make the routines available for export,
@@ -229,7 +232,9 @@ are passed back in the |independent_parameters| array.
       integer num_random
       rn_decl(x)                       // Input / Output
       vc_decl(vb_flow)
+      vc_decl(vt_flow)
       vc_decl(vrel)
+      pr_background_decl(back_test)
       integer i
       real independent_parameters[xs_max_indep_params]
 
@@ -259,6 +264,16 @@ are passed back in the |independent_parameters| array.
          call random_array(independent_parameters[xs_var_1st_random_number],
      $        num_random,rn_args(x))
       end if
+
+      if (bk_check(pr_background_lookup(pt_sp(p)))) then
+         back_test=pr_background_lookup(pt_sp(p))
+         v_ext_to_int(lc_x(pt_loc(p)),bk_v(back_test,lc_zone(pt_loc(p))),vt_flow,geometry_symmetry,background_coords)
+      else
+         vc_set(vt_flow,zero,zero,zero)
+      end if
+      independent_parameters[xs_var_v_flowb_1]=vt_flow[1]
+      independent_parameters[xs_var_v_flowb_2]=vt_flow[2]
+      independent_parameters[xs_var_v_flowb_3]=vt_flow[3]
 
       return
       end
@@ -491,6 +506,12 @@ information into reaction data and miscellaneous arrays.
                   var[i]=xs_var_m_back
                else if (xs_var[i,jdep] == 'emitter_mass') then
                   var[i]=xs_var_m_emitter
+               else if (xs_var[i,jdep] == 'v_flowb_1') then
+                  var[i]=xs_var_v_flowb_1
+               else if (xs_var[i,jdep] == 'v_flowb_2') then
+                  var[i]=xs_var_v_flowb_2
+               else if (xs_var[i,jdep] == 'v_flowb_3') then
+                  var[i]=xs_var_v_flowb_3
                end if
 
                if (spacing[i] == xs_spacing_linear) then
