@@ -1,16 +1,35 @@
 
 @* a program to read filenames for various inputs and outputs from an
-external file. The syntax for the file is 
-symbolic-filename  [actual filename]
-The symbolic name is assigned the filename. symoblic filename are self 
+external file. The syntax for the file is \\
+{\bf symbolic-filename} [actual filename] \\
+The symbolic name is assigned the filename. symbolic filenames are self 
 explanatory as to what the files may contain.
-To add more symbolic filenames simply change the assert stmt that checks that
-the symbolic name is a valid one, and add another 'elseif' block. The new 
-symbolic file name has to be included in the common block.
+To add more symbolic filenames simply change the assert stmt that checks 
+whether the symbolic name is a valid one, and add another 'elseif' block. The
+new symbolic file name has to be included in the common block.
+A sample input file for this is as follows : \\
+
+# file names for degas2
+#the name of this file is passed as argument to readfilenames
+# syntax is : symbolic filename  [actual filename]
+#the filenames can be in any order, comments (starting with #) and blank lines
+# will be ignored.
+
+elementsfile  elements.nc
+backgroundfile background.nc
+testfile  test.nc
+geometryfile geometry.nc
+problemfile problem.nc
+reactionfile reactions.nc
+speciesfile species.nc
+aladinfile aladinput.nc
+aladoutfile aladoutput.nc
+
+
 
 \ID{$Id$}
 
-@m FILE 'readfilenmaes.web'
+@m FILE 'readfilenames.web'
 @I macros.hweb
 
 @f namelist integer
@@ -73,6 +92,7 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
       elseif ( symbolic_fname == 'aladoutfile')  then
          aladoutfile = line(b:e)
       endif
+      print *, symbolic_fname
       goto loop
 eof:  continue
       stop
