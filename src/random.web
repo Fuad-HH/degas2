@@ -2,6 +2,13 @@
 \Title{random numbers}
 
 % $Log$
+% Revision 1.8  1997/09/02 21:14:38  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.7  1997/08/19 14:36:53  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -943,9 +950,18 @@ loop: continue
          t=int(t/base)
       end do
       
+@#if SUN
+/* The Sun f77 compiler has an optimization bug where it moves the assignment
+|x=z| to the previous loop.  This conditional stops this from happening.
+Note the |z[0]| should always be non-negative. */
+      if (z[0] >= 0) then
+@#endif
       do i=0,3
          x[i]=z[i]
       end do
+@#if SUN
+      end if
+@#endif
       
       return
       end
