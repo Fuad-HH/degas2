@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.30  1998/01/14 20:40:53  dstotler
+% Remove var_realloca(sectors) from init_geometry.
+%
 % Revision 1.29  1997/09/02 21:14:32  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -199,6 +202,8 @@ uninitialized; these are set in |boundaries_neighbors|.
       
       sc_plasma_num=0
       var_realloca(plasma_sector)
+      var_realloca(plasma_e_ion_delta)
+      var_realloca(plasma_e_ion_mult)
 
       sc_target_num=0
       var_realloca(target_sector)
@@ -457,6 +462,8 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(vacuum_sector)
 
       var_reallocb(plasma_sector)
+      var_reallocb(plasma_e_ion_delta)
+      var_reallocb(plasma_e_ion_mult)
 
       var_reallocb(target_sector)
       var_reallocb(target_material)
@@ -1012,6 +1019,8 @@ break1:        continue
       var_free(sector_type_pointer)
       var_free(vacuum_sector)
       var_free(plasma_sector)
+      var_free(plasma_e_ion_delta)
+      var_free(plasma_e_ion_mult)
       var_free(target_sector)
       var_free(target_material)
       var_free(target_temperature)
