@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1996/10/31 09:06:59  karney
+% Define scoring arrays.
+%
 % Revision 1.3  1996/10/30 18:26:59  dstotler
 % Add macros define_sector_plasma and define_sector_exit.
 %
@@ -32,8 +35,32 @@ is identified by a positive integer.
 
 @m sc_check(x) (x > 0 && x <= nsectors)
 
-@m sc_solid_mat(x) sector_solid_material[x]
-@m sc_solid_temp(x) sector_solid_temperature[x]
+// Define these to work around the [0] element.
+
+@m diag_lookup(name) string_lookup(name,diagnostic_grp_name[1],sc_diagnostic_grps)
+
+@m plasma_lookup(sector) int_lookup(sector,plasma_sector[1],sc_plasma_num)
+
+@m sc_unknown 0      // Sector types
+@m sc_vacuum 1
+@m sc_plasma 2
+@m sc_target 3
+@m sc_wall 4
+@m sc_exit 5
+@m sc_diagnostic(grp) 6+grp-1 @;  // I guess this will work as long as new ones go in before here
+@m sc_type_max 15
+
+@m sc_diag_unknown 0  // Independent variables for diagnostic groups
+@m sc_diag_energy 1
+@m sc_diag_angle 2
+
+@m sc_diag_spacing_unknown 0
+@m sc_diag_spacing_linear 1
+@m sc_diag_spacing_log 2
+
+@m sc_diag_name_len 40
+
+@m diagnostic_sector(i,grp) diagnostic_sector_tab[diagnostic_grp_base[grp]+i-1]  // Used anywhere?
 
 @ Define the dimensions and variables used by the geometry routines.
 Note that the dimensions in this file begin at 0. However, the 0 index 
@@ -51,45 +78,85 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_var_pk(sc,nsectors,INT)
       define_dimen_pk(sc,sector_ind,0,nsectors)
       define_dimen_pk(sc,sector_neg_pos_ind,sc_neg,sc_pos)
-      define_varp_pk(sc,strata,INT,sector_ind)
+      define_dimen_pk(sc,sector_type_ind,sc_type_max)
+
+/*
+   These two provide external code labels for each sector, analogous to
+   |zone_index|. E.g., |strata| would correspond to DEGAS |walls| and
+   |sector_strata_segment| to wall segments.
+*/
+      define_varp_pk(sc,strata,INT,sector_ind)  
+      define_varp_pk(sc,sector_strata_segment,INT,sector_ind)
+
       define_varp_pk(sc,sectors,INT,sector_ind)
       define_varp_pk(sc,sector_zone,INT,sector_ind)
       define_varp_pk(sc,sector_surface,INT,sector_ind)
       define_varp_pk(sc,sector_points,FLOAT,vc_ind,sector_neg_pos_ind,sector_ind)
-      define_dummy_pk(sc,sc_ignore,INT)
+      define_varp_pk(sc,sector_type_pointer,INT,sector_type_ind,sector_ind)
 
 /* Subclasses; first |vacuum| */
       define_var_pk(sc,sc_vacuum_num,INT)
       define_dimen_pk(sc,vacuum_ind,0,sc_vacuum_num)
-      define_varp_pk(sc,sector_vacuum,INT,sector_ind)
+      define_varp_pk(sc,vacuum_sector,INT,vacuum_ind) 
           // Properties: ?
 
 /* |plasma| subclass */
       define_var_pk(sc,sc_plasma_num,INT)
       define_dimen_pk(sc,plasma_ind,0,sc_plasma_num)
-      define_varp_pk(sc,sector_plasma,INT,sector_ind)
+      define_varp_pk(sc,plasma_sector,INT,plasma_ind)
           // Properties: field-line-angle-of-incidence, for example
 
-/* |solid| subclass */
-      define_var_pk(sc,sc_solid_num,INT)
-      define_dimen_pk(sc,solid_ind,0,sc_solid_num)
-      define_varp_pk(sc,sector_solid,INT,sector_ind)
-      define_varp_pk(sc,sector_solid_material,INT,solid_ind)
-      define_varp_pk(sc,sector_solid_temperature,FLOAT,solid_ind)
+/* |target| subclass */
+      define_var_pk(sc,sc_target_num,INT)
+      define_dimen_pk(sc,target_ind,0,sc_target_num)
+      define_varp_pk(sc,target_sector,INT,target_ind)
+      define_varp_pk(sc,target_material,INT,target_ind)
+      define_varp_pk(sc,target_temperature,FLOAT,target_ind)
+
+/* |wall| subclass */
+      define_var_pk(sc,sc_wall_num,INT)
+      define_dimen_pk(sc,wall_ind,0,sc_wall_num)
+      define_varp_pk(sc,wall_sector,INT,wall_ind)
+      define_varp_pk(sc,wall_material,INT,wall_ind)
+      define_varp_pk(sc,wall_temperature,FLOAT,wall_ind)
 
 /* |exit| subclass (includes pump) */
       define_var_pk(sc,sc_exit_num,INT)
       define_dimen_pk(sc,exit_ind,0,sc_exit_num)
-      define_varp_pk(sc,sector_exit,INT,sector_ind)
-          // Properties: e.g., pump albedo
+      define_varp_pk(sc,exit_sector,INT,exit_ind)
+      define_varp_pk(sc,exit_albedo,FLOAT,exit_ind)
 
-/* |diagnostic| subclass (to be written) */
+/* |diagnostic| subclass */
+      define_var_pk(sc,sc_diagnostic_grps,INT)               
+
+      define_dimen_pk(sc,sc_diag_name_string,sc_diag_name_len)
+      define_dimen_pk(sc,diag_grp_ind,0,sc_diagnostic_grps)  
+
+      define_var_pk(sc,sc_diag_max_bins,INT)             
+
+      define_varp_pk(sc,diagnostic_grp_name,CHAR,sc_diag_name_string,diag_grp_ind)
+      define_varp_pk(sc,diagnostic_num_sectors,INT,diag_grp_ind)
+
+      define_varp_pk(sc,diagnostic_var,INT,diag_grp_ind)        
+                                                                
+      define_varp_pk(sc,diagnostic_tab_index,INT,diag_grp_ind)  
+      define_varp_pk(sc,diagnostic_min,FLOAT,diag_grp_ind)      
+      define_varp_pk(sc,diagnostic_delta,FLOAT,diag_grp_ind)
+      define_varp_pk(sc,diagnostic_spacing,INT,diag_grp_ind)
+      
+      define_varp_pk(sc,diagnostic_grp_base,INT,diag_grp_ind) 
+      define_var_pk(sc,sc_diag_size,INT)                      
+      define_dimen_pk(sc,sc_diag_ind,0,sc_diag_size-1)        
+      define_varp_pk(sc,diagnostic_sector_tab,INT,sc_diag_ind)   
+                                               
+
       
 @ Common blocks definitions.
 
 @f sc_common integer
 @m sc_common
       sc_common_a;
+      sc_common_b;
 
 @ Indices
 
@@ -98,20 +165,43 @@ starting them at $0$, the dimensions have a length of at least $1$.
 
 /* Constructors (really?) for sector subclasses.
    Any real reason for not doing these as subroutines? */
-@m define_sector_solid(sc,mat,temp)
-      sc_solid_num=sc_solid_num+1;
-      sector_solid[sc]=sc_solid_num;
-      var_realloca(sector_solid_material);
-      var_realloca(sector_solid_temperature);
-      sector_solid_material[sc_solid_num]=mat;
-      sector_solid_temperature[sc_solid_num]=temp @;
+@m define_sector_vacuum(sc)
+      sc_vacuum_num=sc_vacuum_num+1;
+      var_realloca(vacuum_sector);
+      vacuum_sector[sc_vacuum_num]=sc;
+      sector_type_pointer[sc][sc_vacuum]=sc_vacuum_num @;
 @m define_sector_plasma(sc)
       sc_plasma_num=sc_plasma_num+1;
-      sector_plasma[sc]=sc_plasma_num @;
-@m define_sector_exit(sc)
+      var_realloca(plasma_sector);
+      plasma_sector[sc_plasma_num]=sc;
+      sector_type_pointer[sc][sc_plasma]=sc_plasma_num @;
+@m define_sector_target(sc,mat,temp)
+      sc_target_num=sc_target_num+1;
+      var_realloca(target_sector);
+      var_realloca(target_material);
+      var_realloca(target_temperature);
+      target_sector[sc_target_num]=sc;
+      sector_type_pointer[sc][sc_target]=sc_target_num;
+      target_material[sc_target_num]=mat;
+      target_temperature[sc_target_num]=temp @;
+@m define_sector_wall(sc,mat,temp)
+      sc_wall_num=sc_wall_num+1;
+      var_realloca(wall_sector);
+      var_realloca(wall_material);
+      var_realloca(wall_temperature);
+      wall_sector[sc_wall_num]=sc;
+      sector_type_pointer[sc][sc_wall]=sc_wall_num;
+      wall_material[sc_wall_num]=mat;
+      wall_temperature[sc_wall_num]=temp @;
+@m define_sector_exit(sc,alb)
       sc_exit_num=sc_exit_num+1;
-      sector_exit[sc]=sc_exit_num @;
+      var_realloca(exit_sector);
+      var_realloca(exit_albedo);
+      exit_sector[sc_exit_num]=sc;
+      sector_type_pointer[sc][sc_exit]=sc_exit_num;
+      exit_albedo[sc_exit_num]=alb @;
 
 
 
 
+      
