@@ -2,6 +2,10 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.24  1996/03/01 20:20:11  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.23  1995/11/03 15:06:38  karney
 % Clean up for release.
 %
@@ -176,9 +180,10 @@ so this routine can easily be used in standalone codes, such as |reaction_test|.
       implicit_none
       real reaction_rate_a                               // Function
       pr_test_decl(test)                                 // Input
-      real v_test[3]
+      vc_decl(v_test)
       pr_background_decl(back)
-      real nb,vb_flow[3],tb
+      real nb,tb
+      vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
 
       pr_reaction_decl(pr_reac)  
@@ -394,6 +399,148 @@ constant.
      $     array3(ib[1],ib[2],ia[3])*fx[1]*fx[2]*(one-fx[3])+
      $     array3(ib[1],ib[2],ib[3])*fx[1]*fx[2]*fx[3]
       
+      return
+      end
+      
+@ The four-dimensional version.
+
+@m array4(i,j,k,l) array[i+n[1]*(j+n[2]*(k+n[3]*l))]
+
+@<Functions...@>=
+      function interpolate4(f,array,n)
+      implicit_none
+      real interpolate4         // Function
+      integer n[4]              // Input
+      real f[4],array[0:*]
+      integer i,ia[4],ib[4]   // Local
+      real fx[4],ia1,ib1
+
+      do i=1,4
+         ia[i]=int(f[i])
+         if (f[i] < areal(ia[i])) ia[i]=ia[i]-1
+         fx[i]=f[i]-areal(ia[i])
+         ib[i]=ia[i]+1
+         ia[i]=min(max(0,ia[i]),n[i]-1)
+         ib[i]=min(max(0,ib[i]),n[i]-1)
+      end do
+      ia1=
+     $     array4(ia[1],ia[2],ia[3],ia[4])*(one-fx[1])*(one-fx[2])*(one-fx[3])*(one-fx[4])+
+     $     array4(ia[1],ia[2],ia[3],ib[4])*(one-fx[1])*(one-fx[2])*(one-fx[3])*fx[4]+
+     $     array4(ia[1],ia[2],ib[3],ia[4])*(one-fx[1])*(one-fx[2])*fx[3]*(one-fx[4])+
+     $     array4(ia[1],ia[2],ib[3],ib[4])*(one-fx[1])*(one-fx[2])*fx[3]*fx[4]+
+     $     array4(ia[1],ib[2],ia[3],ia[4])*(one-fx[1])*fx[2]*(one-fx[3])*(one-fx[4])+
+     $     array4(ia[1],ib[2],ia[3],ib[4])*(one-fx[1])*fx[2]*(one-fx[3])*fx[4]+
+     $     array4(ia[1],ib[2],ib[3],ia[4])*(one-fx[1])*fx[2]*fx[3]*(one-fx[4])+
+     $     array4(ia[1],ib[2],ib[3],ib[4])*(one-fx[1])*fx[2]*fx[3]*fx[4]
+      ib1=
+     $     array4(ib[1],ia[2],ia[3],ia[4])*fx[1]*(one-fx[2])*(one-fx[3])*(one-fx[4])+
+     $     array4(ib[1],ia[2],ia[3],ib[4])*fx[1]*(one-fx[2])*(one-fx[3])*fx[4]+
+     $     array4(ib[1],ia[2],ib[3],ia[4])*fx[1]*(one-fx[2])*fx[3]*(one-fx[4])+
+     $     array4(ib[1],ia[2],ib[3],ib[4])*fx[1]*(one-fx[2])*fx[3]*fx[4]+
+     $     array4(ib[1],ib[2],ia[3],ia[4])*fx[1]*fx[2]*(one-fx[3])*(one-fx[4])+
+     $     array4(ib[1],ib[2],ia[3],ib[4])*fx[1]*fx[2]*(one-fx[3])*fx[4]+
+     $     array4(ib[1],ib[2],ib[3],ia[4])*fx[1]*fx[2]*fx[3]*(one-fx[4])+
+     $     array4(ib[1],ib[2],ib[3],ib[4])*fx[1]*fx[2]*fx[3]*fx[4]
+
+      interpolate4=ia1+ib1
+      
+      return
+      end
+      
+@ The five-dimensional version.
+
+@m array5(i,j,k,l,m) array[i+n[1]*(j+n[2]*(k+n[3]*(l+n[4]*m)))]
+
+@<Functions...@>=
+      function interpolate5(f,array,n)
+      implicit_none
+      real interpolate5         // Function
+      integer n[5]              // Input
+      real f[5],array[0:*]
+      integer i,ia[5],ib[5]   // Local
+      real fx[5],ia1ia2,ia1ib2,ib1ia2,ib1ib2
+
+      do i=1,5
+         ia[i]=int(f[i])
+         if (f[i] < areal(ia[i])) ia[i]=ia[i]-1
+         fx[i]=f[i]-areal(ia[i])
+         ib[i]=ia[i]+1
+         ia[i]=min(max(0,ia[i]),n[i]-1)
+         ib[i]=min(max(0,ib[i]),n[i]-1)
+      end do
+      ia1ia2=
+     $     array5(ia[1],ia[2],ia[3],ia[4],ia[5])*(one-fx[1])*(one-fx[2])*(one-fx[3])*(one-fx[4])*(one-fx[5])+
+     $     array5(ia[1],ia[2],ia[3],ia[4],ib[5])*(one-fx[1])*(one-fx[2])*(one-fx[3])*(one-fx[4])*fx[5]+
+     $     array5(ia[1],ia[2],ia[3],ib[4],ia[5])*(one-fx[1])*(one-fx[2])*(one-fx[3])*fx[4]*(one-fx[5])+
+     $     array5(ia[1],ia[2],ia[3],ib[4],ib[5])*(one-fx[1])*(one-fx[2])*(one-fx[3])*fx[4]*fx[5]+
+     $     array5(ia[1],ia[2],ib[3],ia[4],ia[5])*(one-fx[1])*(one-fx[2])*fx[3]*(one-fx[4])*(one-fx[5])+
+     $     array5(ia[1],ia[2],ib[3],ia[4],ib[5])*(one-fx[1])*(one-fx[2])*fx[3]*(one-fx[4])*fx[5]+
+     $     array5(ia[1],ia[2],ib[3],ib[4],ia[5])*(one-fx[1])*(one-fx[2])*fx[3]*fx[4]*(one-fx[5])+
+     $     array5(ia[1],ia[2],ib[3],ib[4],ib[5])*(one-fx[1])*(one-fx[2])*fx[3]*fx[4]*fx[5]
+      ia1ib2=
+     $     array5(ia[1],ib[2],ia[3],ia[4],ia[5])*(one-fx[1])*fx[2]*(one-fx[3])*(one-fx[4])*(one-fx[5])+
+     $     array5(ia[1],ib[2],ia[3],ia[4],ib[5])*(one-fx[1])*fx[2]*(one-fx[3])*(one-fx[4])*fx[5]+
+     $     array5(ia[1],ib[2],ia[3],ib[4],ia[5])*(one-fx[1])*fx[2]*(one-fx[3])*fx[4]*(one-fx[5])+
+     $     array5(ia[1],ib[2],ia[3],ib[4],ib[5])*(one-fx[1])*fx[2]*(one-fx[3])*fx[4]*fx[5]+
+     $     array5(ia[1],ib[2],ib[3],ia[4],ia[5])*(one-fx[1])*fx[2]*fx[3]*(one-fx[4])*(one-fx[5])+
+     $     array5(ia[1],ib[2],ib[3],ia[4],ib[5])*(one-fx[1])*fx[2]*fx[3]*(one-fx[4])*fx[5]+
+     $     array5(ia[1],ib[2],ib[3],ib[4],ia[5])*(one-fx[1])*fx[2]*fx[3]*fx[4]*(one-fx[5])+
+     $     array5(ia[1],ib[2],ib[3],ib[4],ib[5])*(one-fx[1])*fx[2]*fx[3]*fx[4]*fx[5]
+      ib1ia2=
+     $     array5(ib[1],ia[2],ia[3],ia[4],ia[5])*fx[1]*(one-fx[2])*(one-fx[3])*(one-fx[4])*(one-fx[5])+
+     $     array5(ib[1],ia[2],ia[3],ia[4],ib[5])*fx[1]*(one-fx[2])*(one-fx[3])*(one-fx[4])*fx[5]+
+     $     array5(ib[1],ia[2],ia[3],ib[4],ia[5])*fx[1]*(one-fx[2])*(one-fx[3])*fx[4]*(one-fx[5])+
+     $     array5(ib[1],ia[2],ia[3],ib[4],ib[5])*fx[1]*(one-fx[2])*(one-fx[3])*fx[4]*fx[5]+
+     $     array5(ib[1],ia[2],ib[3],ia[4],ia[5])*fx[1]*(one-fx[2])*fx[3]*(one-fx[4])*(one-fx[5])+
+     $     array5(ib[1],ia[2],ib[3],ia[4],ib[5])*fx[1]*(one-fx[2])*fx[3]*(one-fx[4])*fx[5]+
+     $     array5(ib[1],ia[2],ib[3],ib[4],ia[5])*fx[1]*(one-fx[2])*fx[3]*fx[4]*(one-fx[5])+
+     $     array5(ib[1],ia[2],ib[3],ib[4],ib[5])*fx[1]*(one-fx[2])*fx[3]*fx[4]*fx[5]
+      ib1ib2=
+     $     array5(ib[1],ib[2],ia[3],ia[4],ia[5])*fx[1]*fx[2]*(one-fx[3])*(one-fx[4])*(one-fx[5])+
+     $     array5(ib[1],ib[2],ia[3],ia[4],ib[5])*fx[1]*fx[2]*(one-fx[3])*(one-fx[4])*fx[5]+
+     $     array5(ib[1],ib[2],ia[3],ib[4],ia[5])*fx[1]*fx[2]*(one-fx[3])*fx[4]*(one-fx[5])+
+     $     array5(ib[1],ib[2],ia[3],ib[4],ib[5])*fx[1]*fx[2]*(one-fx[3])*fx[4]*fx[5]+
+     $     array5(ib[1],ib[2],ib[3],ia[4],ia[5])*fx[1]*fx[2]*fx[3]*(one-fx[4])*(one-fx[5])+
+     $     array5(ib[1],ib[2],ib[3],ia[4],ib[5])*fx[1]*fx[2]*fx[3]*(one-fx[4])*fx[5]+
+     $     array5(ib[1],ib[2],ib[3],ib[4],ia[5])*fx[1]*fx[2]*fx[3]*fx[4]*(one-fx[5])+
+     $     array5(ib[1],ib[2],ib[3],ib[4],ib[5])*fx[1]*fx[2]*fx[3]*fx[4]*fx[5]
+
+      interpolate5=ia1ia2+ia1ib2+ib1ia2+ib1ib2
+      
+      return
+      end
+
+@ Simple function to identify bounding indices prior to interpolation for nonuniform spacing
+cases. This assumes that |array| increases monotonically. Taken from Numerical Recipes.
+
+@<Functions...@>=
+      function find_index(x,array,n)
+      implicit_none
+      real find_index            // Function
+      integer n                  // Input
+      real x,array[0:*]
+      integer jl, jm, ju     // Local
+
+      jl=-1
+      ju=n
+loop1: continue
+      if (ju-jl > 1) then
+         jm=(ju+jl)/2
+         if (x > array[jm]) then
+            jl=jm
+         else
+            ju=jm
+         end if
+         goto loop1
+      end if
+      jl=min(max(0,jl),n-2)
+
+/* Arranged so that if $|x| < |array[0]|, |find_index| < 0$ and if 
+   $|x| > |array[n-1]|$,
+   $|find_index| > |n| - 1$. In either case, the interpolation routines will
+   yield the limiting values. */
+      find_index=(x - array[jl]) / (array[jl+1] - array[jl]) + jl
+
       return
       end
       
@@ -663,7 +810,6 @@ skip: continue
       var_alloc(reaction_misc_var_indep)
 
       do i=1,pr_reaction_num
-         write(stdout,*) pr_reaction(i)
          call reaction_read(i)
       end do
       return
