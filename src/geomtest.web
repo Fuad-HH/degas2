@@ -2,6 +2,11 @@
 \Title{geomtest}
 
 % $Log$
+% Revision 1.9  1995/10/12 21:42:46  karney
+% Finish the implementation of sectors.  Now track exits when encountering a
+% sector (on either side).  Sector and strata information is now part of the
+% location.
+%
 % Revision 1.8  1995/10/04 18:33:28  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -72,7 +77,7 @@
       integer n,zone,i,j,stratum,sector
       gi_ext
       external init_geometry,
-     $     add_surface,plane,end_geometry,check_geometry,print_geometry,
+     $     add_surface,plane,boundaries_neighbors,check_geometry,print_geometry,
      $     erase_geometry // External
 
       call readfilenames
@@ -159,7 +164,7 @@
       call decompose_polygon(n,xa,zone)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
 
-      call end_geometry
+      call boundaries_neighbors
       call write_geometry
 /*
       call print_geometry(stdout)
