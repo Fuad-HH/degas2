@@ -2,6 +2,10 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.35  1999/02/04 19:17:56  dstotler
+% Add an assert that absorption is nonzero if the ts_pmi = 0 result is
+% selected.
+%
 % Revision 1.34  1999/02/04 19:11:53  dstotler
 % Previous implementation of absorption was not consistent with simpler
 % PMI cases, e.g., as in some of the examples. Rearrange choice between
@@ -428,52 +432,84 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       subroutine score_sector(fl_dummy(x),estimator_factors)
 
       implicit_none_f77
-      sc_common                                        // Common
+      sc_common                                               // Common
       implicit_none_f90
 
-      fl_decl(x)                                       // Input / Output
-      real estimator_factors[*]                        // Scratch
+      fl_decl(x)                                              // Input / Output
+      real estimator_factors[*]                               // Scratch
 
-      integer type,type_ptr_1,type_ptr_2,type_ptr       // Local
+      integer type,type_ptr_1,type_ptr_2,type_ptr,nprod,i     // Local
       real mat_temp,mat_recyc_coef
+      pt_decl(prod[0:pm_product_max])
       sc_decl(sector1)
       sc_decl(sector2)
       ma_decl(mat_ref)
       
-
       sector1=lc_sector(pt_loc(fl_current(x)))
       sector2=lc_sector_next(pt_loc(fl_current(x)))
-
-      call score_diagnostics(pt_args(fl_current(x)),estimator_factors) // Do diagnostic types
-
-      do type=1,sc_diagnostic(0)            // Loop over non-diagnostic types
+/*
+  The PMI and |score_diagnostics| routines will operate on the current
+  flight through the |prod[0]| particle. PMI products will be assigned from
+  |prod[1]|, etc. In these cases, |fl_current(x)| is no longer needed
+  after this point and is killed explicitly below with the decrementing
+  of |fl_pointer|. If |sector1| and |sector2| involve purely diagnostics 
+  sectors, however, |fl_current(x)| remains valid. Since |prod[0]| is
+  used for scoring, we can take it through the face here without causing
+  problems in the loop over |nprod| later.
+*/
+      nprod=0
+      pt_copy(fl_current(x),prod[0])
+      pt_thru_face(fl_current(x))  
+/*
+   This loop over non-diagnostic sectors will handle PMI's and exits.
+*/
+      do type=1,sc_diagnostic(0)       
          type_ptr_1=sector_type_pointer[sector1][type]
          type_ptr_2=sector_type_pointer[sector2][type]
-         if (type_ptr_1 != 0) then
+         if (type_ptr_1 != int_unused && type_ptr_1 != int_undef) then
 /*
    If both sectors are of this type, just process the first one.
 */
             type_ptr=type_ptr_1   
-         else if (type_ptr_2 != 0) then
-            assert(type_ptr_1 == 0)
+         else if (type_ptr_2 != int_unused && type_ptr_2 != int_undef) then
+            assert(type_ptr_1 == int_unused || type_ptr_1 == int_undef)
             type_ptr=type_ptr_2
          else
             type_ptr=0
          end if
 
          if (type_ptr != 0) then
+            assert(nprod == 0)
             if (type == sc_exit) then
-               fl_pointer(x)--          // Need to add corresponding PMI
+               assert(sc_exit_check(type_ptr))
             else if (type == sc_wall) then
+               assert(sc_wall_check(type_ptr))
                mat_ref=wall_material[type_ptr]
                mat_temp=wall_temperature[type_ptr]
                mat_recyc_coef=wall_recyc_coef[type_ptr]
-               call process_pmi(fl_args(x),mat_ref,mat_temp,mat_recyc_coef)
+               call process_pmi(mat_ref,mat_temp,mat_recyc_coef,
+     $              nprod,pt_args(prod[0]),rn_args(fl_rand(x)))
             else if (type == sc_target) then
+               assert(sc_target_check(type_ptr))
                mat_ref=target_material[type_ptr]
                mat_temp=target_temperature[type_ptr]
                mat_recyc_coef=target_recyc_coef[type_ptr]
-               call process_pmi(fl_args(x),mat_ref,mat_temp,mat_recyc_coef)
+               call process_pmi(mat_ref,mat_temp,mat_recyc_coef,
+     $              nprod,pt_args(prod[0]),rn_args(fl_rand(x)))
+            end if
+            fl_pointer(x)--
+         end if
+      end do
+/*
+   Score diagnostic sectors, including those without an associated
+   PMI (|nprod| = 0). Copy test-products onto current stack.
+*/
+      do i=0,nprod
+         if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
+            call score_diagnostics(pt_args(prod[i]),estimator_factors)
+            if (i > 0) then
+               fl_pointer(x)++
+               pt_copy(prod[i],fl_current(x))
             end if
          end if
       end do
@@ -484,7 +520,8 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
 @ Select and execute a plasma-material interaction.
 
 @<Functions...@>=
-      subroutine process_pmi(fl_dummy(x),mat_ref,mat_temp,mat_recyc_coef)
+      subroutine process_pmi(mat_ref,mat_temp,mat_recyc_coef,
+     $           nprod,pt_dummy(prod),rn_dummy(x))
 
       implicit_none_f77
       pr_common
@@ -492,18 +529,18 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       pm_common
       implicit_none_f90
 
-      fl_decl(x)                         // Input
-      ma_decl(mat_ref)
+      ma_decl(mat_ref)                     // Input
       real mat_temp,mat_recyc_coef
+      integer nprod
+      pt_decl(prod[0:pm_product_max])      // Output
+      rn_decl(x)                           // Input/output
 
-      integer i,nprod                    // Local
+      integer i                           // Local
       real yield[0:pr_pmi_max],independent_parameters[pf_max_indep_params]
       real cos_angle,sum,rnd
 
       pr_pmi_decl(ts_pmi)
       pr_pmi_decl(default_pmi)
-      pt_decl(prod[pm_product_max])
-      
 
       external find_yield,intersection_direction
       real find_yield,intersection_direction
@@ -515,13 +552,13 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       end do
       
       independent_parameters[pf_var_energy_in]=
-     $     half*sp_m(pr_test(pt_test(fl_current(x))))
-     $     *vc_abs2(pt_v(fl_current(x)))
-      independent_parameters[pf_var_vel_1_in]=pt_v(fl_current(x))[1]
-      independent_parameters[pf_var_vel_2_in]=pt_v(fl_current(x))[2]
-      independent_parameters[pf_var_vel_3_in]=pt_v(fl_current(x))[3]
-      cos_angle=intersection_direction(lc_face(pt_loc(fl_current(x))),
-     $     lc_x(pt_loc(fl_current(x)))[1],pt_v(fl_current(x))[1])
+     $     half*sp_m(pr_test(pt_test(prod[0])))
+     $     *vc_abs2(pt_v(prod[0]))
+      independent_parameters[pf_var_vel_1_in]=pt_v(prod[0])[1]
+      independent_parameters[pf_var_vel_2_in]=pt_v(prod[0])[2]
+      independent_parameters[pf_var_vel_3_in]=pt_v(prod[0])[3]
+      cos_angle=intersection_direction(lc_face(pt_loc(prod[0])),
+     $     lc_x(pt_loc(prod[0]))[1],pt_v(prod[0])[1])
       independent_parameters[pf_var_cos_polar_angle_in]=cos_angle
       independent_parameters[pf_var_polar_angle_in]=acos(cos_angle)
       independent_parameters[pf_var_t_wall]=mat_temp
@@ -534,15 +571,15 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       yield[0]=one-mat_recyc_coef // This is the absorbed fraction
       sum=yield[0]
       default_pmi=0
-      assert(pr_pm_case_num(pt_test(fl_current(x))) > 0)
-      do ts_pmi=1,pr_pm_case_num(pt_test(fl_current(x)))
-         if (pm_materials(pr_pm_ref(pr_pm_cases(pt_test(fl_current(x)),ts_pmi))) == mat_ref) then
-            yield[ts_pmi]=find_yield(pt_args(fl_current(x)),
+      assert(pr_pm_case_num(pt_test(prod[0])) > 0)
+      do ts_pmi=1,pr_pm_case_num(pt_test(prod[0]))
+         if (pm_materials(pr_pm_ref(pr_pm_cases(pt_test(prod[0]),ts_pmi))) == mat_ref) then
+            yield[ts_pmi]=find_yield(pt_args(prod[0]),
      $           pr_pmi_args(ts_pmi),independent_parameters,
-     $           rn_args(fl_rand(x)))
+     $           rn_args(x))
 @#if EIR_REC_BENCH
 // Duplicate EIRENE behavior of setting yield = 0 for incident energies < 1 eV.
-            if (pr_pm_ref(pr_pm_cases(pt_test(fl_current(x)),ts_pmi)) == 8 && independent_parameters[pf_var_energy_in] <= electron_charge) yield[ts_pmi]=zero
+            if (pr_pm_ref(pr_pm_cases(pt_test(prod[0]),ts_pmi)) == 8 && independent_parameters[pf_var_energy_in] <= electron_charge) yield[ts_pmi]=zero
 @#endif
             if (yield[ts_pmi] < zero) then
                default_pmi=ts_pmi
@@ -557,7 +594,7 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       if (default_pmi > 0 && sum < one) yield[default_pmi]=one-sum
 
 @#if 0
-      if (pr_pm_case_num(pt_test(fl_current(x))) > 1) then 
+      if (pr_pm_case_num(pt_test(prod[0])) > 1) then 
          rn_next(rnd,x)
       else            
          rnd=zero     
@@ -574,7 +611,7 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
 @#endif
 
       sum=zero
-      do i=0,pr_pm_case_num(pt_test(fl_current(x)))  // Includes abs. term
+      do i=0,pr_pm_case_num(pt_test(prod[0]))  // Includes abs. term
          sum=sum+yield[i]
          if (sum >= rnd) then
             ts_pmi=i
@@ -584,24 +621,17 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       ts_pmi=default_pmi
 break1:     continue
       if (ts_pmi > 0) then                            // Using a real PMI
-         call pick_pmi(pt_args(fl_current(x)),pr_pmi_args(ts_pmi),
-     $        independent_parameters,
-     $        nprod,pt_args(prod[1]),rn_args(fl_rand(x)))
-         fl_pointer(x)--
-         do i=1,nprod
-            if (pt_test(prod[i]) > 0) then
-               fl_pointer(x)++
-               pt_copy(prod[i],fl_current(x))
-            end if
-         end do
+         call pick_pmi(pr_pmi_args(ts_pmi),independent_parameters,
+     $        nprod,pt_args(prod[0]),rn_args(x))
       else                                           // Use absorption!
          assert(yield[0] > zero)      // Be sure absorption is nonzero.
-         fl_pointer(x)--                        
+         nprod=0
       end if
 @#if 0
 // Alternate approach using suppressed absorption, as in EIRENE
+// NOTE: have modified this code without testing it!!!
       sum=zero
-      do i=1,pr_pm_case_num(pt_test(fl_current(x)))  
+      do i=1,pr_pm_case_num(pt_test(prod[0]))  
          sum=sum+yield[i]
          if (sum >= rnd) then
             ts_pmi=i
@@ -610,21 +640,15 @@ break1:     continue
       end do
       ts_pmi=default_pmi
       assert(sum < one)
-      if (yield[0] > zero) then
-         pt_w(fl_current(x))*=one-yield[0]/(one-sum)
-      end if
-      assert(pt_w(fl_current(x)) > const(1.,-4))
 break1:     continue
-      call pick_pmi(pt_args(fl_current(x)),pr_pmi_args(ts_pmi),
-     $              independent_parameters,
-     $              nprod,pt_args(prod[1]),rn_args(fl_rand(x)))
-      fl_pointer(x)--
-      do i=1,nprod
-         if (pt_test(prod[i]) > 0) then
-            fl_pointer(x)++
-            pt_copy(prod[i],fl_current(x))
-         end if
-      end do
+      call pick_pmi(pr_pmi_args(ts_pmi),independent_parameters,
+     $              nprod,pt_args(prod[0]),rn_args(x))
+      if (yield[0] > zero) then
+         do i=1,nprod
+            pt_w(prod[i])*=one-yield[0]/(one-sum)
+         end do
+         assert(pt_w(prod[i]) > const(1.,-4))
+      end if
 @#endif
       return
       end
