@@ -2,6 +2,10 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.13  1998/09/29 13:18:05  dstotler
+% Add a local common block to communicate the sampled source position on
+% the plate between the x and v setting routines.
+%
 % Revision 1.12  1998/09/04 17:20:49  dstotler
 % Minor changes to satisfy FWEAVE and TeX.
 %
@@ -400,8 +404,8 @@ using routines specific for the type of that source.
      $     vc_args(vone),vc_args(vsrc))
 @#else
 // Use normal at point {\em on surface}, obtained by common from |surface_source_x|
-      call surface_reflect(sector_surface[xseg],x_surface,vc_args(vzero),
-     $     vc_args(vone),vc_args(vsrc))
+      call surface_reflect(sector_surface[xseg],vc_args(x_surface),
+     $     vc_args(vzero),vc_args(vone),vc_args(vsrc))
 @#endif
       vc_scale(ion_velocity,vsrc,vsrc)
 
@@ -431,18 +435,20 @@ with an isotropic distribution; we would need another routine for that.
       sp_decl(spsrc)
 
       integer j,xseg2            // Local
-      real fr,vgauss,vpuff,temp
-      vc_decl(deltax)
-      vc_decl(xp)
-      vc_decl(xp2)
+      real vgauss,vpuff,temp
       vc_decl(vzero)
       vc_decl(vcos)
+
+      sources_localcommon
 
       st_decls
 
       assert(so_geom(isource) == so_surface)
       spsrc=so_species(isource)
 
+      rn_cos_next(vcos,r)
+      vc_set(vzero,zero,zero,zero)
+@#if 0
 /* The usual procedure in sampling source location is to move it away from
    the surface a bit. To use |surface_reflect|, however, we need a point
    on the surface. ``Move'' along a normal between the sector endpoints
@@ -453,10 +459,14 @@ with an isotropic distribution; we would need another routine for that.
       fr=vc_product(xp,deltax)/vc_abs2(deltax)
       assert(fr >= 0 && fr <= one)
       vc_xvt(sector_points[xseg][0],deltax,fr,xp2)
-      rn_cos_next(vcos,r)
-      vc_set(vzero,zero,zero,zero)
       call surface_reflect(sector_surface[xseg],vc_args(xp2),vc_args(vzero),
      $     vc_args(vcos),vc_args(vsrc))
+@#else
+/*  Use now common value of |x_surface|.
+*/
+      call surface_reflect(sector_surface[xseg],vc_args(x_surface),
+     $     vc_args(vzero),vc_args(vcos),vc_args(vsrc))
+@#endif
 
 /* To get a thermal particle as in original DEGAS, need to sample
    each component from a Gaussian.
