@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.1  1993/09/30  18:43:22  karney
+% Pre PET checkin
+%
 
 @n/
 
@@ -61,8 +64,8 @@
       real_alloc(stat,4*zn_num)
       real_alloc(stat1,4*zn_num)
       
-      seed[0]=1123
-      seed[1]=2341
+      seed[0]=1
+      seed[1]=2
       
       weight=zero
       do i=1,zn_num
@@ -72,6 +75,7 @@
       end do
       
       do j=0,nflights-1
+         write(stdout,*) 'FLIGHTNO: ',j
          call follow(j,stat1,seed)
          call stat_add(zn_num,one,stat1,weight,stat,weight,stat)
          call next_seed(1,seed,seed)
@@ -88,27 +92,26 @@
 @<Functions...@>=
       subroutine follow(num,stat,seed)
       implicit_none
+      zn_common
       integer seed[0:1],num,cell,face,i,j,count
       real stat[2,zn_num],v[3],w[3],r,phi,tot_len,wa,t,tmax,ionize_rate
       logical done
       lc_decl(x)
-      rn_decl(x)
       fl_decl(x)
       rn_common
       ts_common
       bk_common
       sp_common
-      zn_common
       st_common
       external lc_track,cell_enter,new_cell,reaction_rate,check_location
       logical lc_track,check_location
       real cell_enter,reaction_rate
       integer new_cell
       
-      rn_init(seed,x)
-      r=2.2+0.2*random(rn_args(x))
-      phi=2*PI*random(rn_args(x))
-      vc_set(lc_x(x),r*cos(phi),r*sin(phi),-const(2.5))
+      rn_init(seed,fl_rand(x))
+      r=2.2+0.2*random(rn_args(fl_rand(x)))
+      phi=2*PI*random(rn_args(fl_rand(x)))
+      vc_set(lc_x(x),r*cos(phi),r*sin(phi),-const(3.0))
       vc_set(v,zero,zero,one)
          
       cell=0
@@ -124,8 +127,8 @@ loop2: continue                 // Track to plasma
       lc_thru_face(x)
       done=lc_track(TRACK_BASIC,geom_infinity,lc_args(x),v,lc_args(x),t)
       if (zn_type(lc_zone(x)) != zn_plasma) goto loop2
-      call rand_cosdist(w,rn_args(x))
-      wa=abs(rand_gauss(rn_args(x)))*sqrt(electron_charge*const(10.0)/atomic_mass_unit)
+      call rand_cosdist(w,rn_args(fl_rand(x)))
+      wa=abs(rand_gauss(rn_args(fl_rand(x))))*sqrt(electron_charge*const(10.0)/atomic_mass_unit)
       do i=1,3
          w[i]=wa*w[i]
       end do
@@ -163,7 +166,7 @@ c      write(stdout,*) SP 1,(lc_x(pt_loc(fl_current(x)))(i),i=1,3)
 
 loop: continue                  // Still in same zone
       if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
-         tmax=-log(random(rn_args(x)))
+         tmax=-log(random(rn_args(fl_rand(x))))
      $        /reaction_rate(pt_args(fl_current(x)),
      $        ts_rc(pt_test(fl_current(x)),2),
      $        ts_bk(pt_test(fl_current(x)),2))
@@ -172,7 +175,7 @@ loop: continue                  // Still in same zone
       end if         
 
       if (pt_w(fl_current(x)) < const(0.1)) then
-         if (random(rn_args(x)) > half) then
+         if (random(rn_args(fl_rand(x))) > half) then
             fl_pointer(x)=fl_pointer(x)-1
             if (fl_pointer(x) <= 0) goto break
          else
@@ -183,10 +186,11 @@ loop: continue                  // Still in same zone
 c      write(stdout,*) SP 2,(lc_x(pt_loc(fl_current(x)))(i),i=1,3),tmax
       
       count=count+1
-      done=lc_track(TRACK_BASIC,tmax,lc_args(pt_loc(fl_current(x))),v,
+      done=lc_track(TRACK_BASIC,tmax,lc_args(pt_loc(fl_current(x))),pt_v(fl_current(x))(1),
      $     lc_args(pt_loc(fl_current(x))),t)
+      write(stdout,*) lc_cell(pt_loc(fl_current(x)))
 c      write(stdout,*) SP 3,(lc_x(pt_loc(fl_current(x)))(i),i=1,3),t
-      if (t==zero || count > 1000) goto break
+c      if (t==zero || count > 1000) goto break
       stat[1,lc_zone(pt_loc(fl_current(x)))]=
      $     stat[1,lc_zone(pt_loc(fl_current(x)))]+
      $     ionize_rate*t*pt_w(fl_current(x))
@@ -196,7 +200,7 @@ c      write(stdout,*) SP 3,(lc_x(pt_loc(fl_current(x)))(i),i=1,3),t
          assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
          wa=sqrt(two*bk_temp(2,lc_zone(pt_loc(fl_current(x))))*electron_charge/atomic_mass_unit)
          do i=1,3
-            pt_v(fl_current(x))[i]=wa*rand_gauss(rn_args(x))
+            pt_v(fl_current(x))[i]=wa*rand_gauss(rn_args(fl_rand(x)))
          end do
          goto loop
       else                      // Go to next zone or reflect
