@@ -2,6 +2,9 @@
 \def\Wtitle{reactionwrite}
 
 % $Log$
+% Revision 1.4  1995/02/16 18:38:54  dstotler
+% Cleanup some conflicts associated with recent merges.
+%
 % Revision 1.3  1994/11/21 15:51:33  dstotler
 % Interim update associated with ratecalc. ratecalc.hweb and
 % xsection.hweb have undergone substantial revision, but should be
@@ -167,17 +170,17 @@ format with a complete specification of the reaction.
          xs_eval_name[j]='unknown'
       end do
       
-      var_alloc(xs_table1)
-      var_alloc(xs_table2)
-      var_alloc(xs_table3)
-      var_alloc(xs_table4)
-      var_alloc(xs_table5)
+      var_alloc(xs_tab1)
+      var_alloc(xs_tab2)
+      var_alloc(xs_tab3)
+      var_alloc(xs_tab4)
+      var_alloc(xs_tab5)
 
-      xs_table1[0,0,0]=zero
-      xs_table2[0,0,0]=zero
-      xs_table3[0,0,0]=zero
-      xs_table4[0,0,0]=zero
-      xs_table5[0,0,0]=zero
+      xs_table1(0,0,0)=zero
+      xs_table2(0,0,0)=zero
+      xs_table3(0,0,0)=zero
+      xs_table4(0,0,0)=zero
+      xs_table5(0,0,0)=zero
 
       call file_read(filein,tag)
       fileout='../data/'\/trim(name)\/'.nc'
@@ -185,11 +188,11 @@ format with a complete specification of the reaction.
       xs_ncdef(fileid)
       call ncendef(fileid,nc_stat)
       xs_ncwrite(fileid)
-      var_free(xs_table1)
-      var_free(xs_table2)
-      var_free(xs_table3)
-      var_free(xs_table4)
-      var_free(xs_table5)
+      var_free(xs_tab1)
+      var_free(xs_tab2)
+      var_free(xs_tab3)
+      var_free(xs_tab4)
+      var_free(xs_tab5)
       call ncclose(fileid,nc_stat)
 
       return

@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.8  1995/02/16 18:38:26  dstotler
+% Cleanup some conflicts associated with recent merges.
+%
 % Revision 1.7  1995/01/30 21:06:48  karney
 % Merge in my changes with Daren's
 %
@@ -291,11 +294,11 @@ constant.
       
       call xs_copy(num)
 
-      var_free(xs_table1)
-      var_free(xs_table2)
-      var_free(xs_table3)
-      var_free(xs_table4)
-      var_free(xs_table5)
+      var_free(xs_tab1)
+      var_free(xs_tab2)
+      var_free(xs_tab3)
+      var_free(xs_tab4)
+      var_free(xs_tab5)
 
       return
       end
@@ -385,15 +388,15 @@ constant.
          do j=0,xs_tab_index[2,jdep]-1
             do i=0,xs_tab_index[1,jdep]-1
                if (jdep == 1) then
-                  table_entry=xs_table1[i,j,k]
+                  table_entry=xs_table1(i,j,k)
                else if (jdep == 2) then
-                  table_entry=xs_table2[i,j,k]
+                  table_entry=xs_table2(i,j,k)
                else if (jdep == 3) then
-                  table_entry=xs_table3[i,j,k]
+                  table_entry=xs_table3(i,j,k)
                else if (jdep == 4) then
-                  table_entry=xs_table4[i,j,k]
+                  table_entry=xs_table4(i,j,k)
                else if (jdep == 5) then
-                  table_entry=xs_table5[i,j,k]
+                  table_entry=xs_table5(i,j,k)
                end if
                if (reaction_xs_spacing[0,num] == xs_spacing_linear) then
                   rc_xsection3(num,i,j,k)=table_entry*xs_mult[0,jdep]

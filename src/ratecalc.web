@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.10  1995/02/16 18:38:10  dstotler
+% Cleanup some conflicts associated with recent merges.
+%
 % Revision 1.9  1995/02/01 13:45:14  dstotler
 % Extend ratecalc to treat fits; functionality of ratecalc is complete.
 %
@@ -328,15 +331,15 @@ on the origin of the cross section data; it is assumed to be in grams.
    assumed to be = 5 here.
 */
                      if (j == 1) then
-                        xs_table1[m,l,k]=zsigma
+                        xs_table1(m,l,k)=zsigma
                      else if (j == 2) then
-                        xs_table2[m,l,k]=zsigma
+                        xs_table2(m,l,k)=zsigma
                      else if (j == 3) then
-                        xs_table3[m,l,k]=zsigma
+                        xs_table3(m,l,k)=zsigma
                      else if (j == 4) then
-                        xs_table4[m,l,k]=zsigma
+                        xs_table4(m,l,k)=zsigma
                      else if (j == 5) then
-                        xs_table5[m,l,k]=zsigma
+                        xs_table5(m,l,k)=zsigma
                      end if
 
                   end do
@@ -354,15 +357,15 @@ on the origin of the cross section data; it is assumed to be in grams.
             xs_tab_index[1,j]=num_fit_coef
             do m=0,xs_tab_index[1,j]-1
                if (j == 1) then
-                  xs_table1[m,1,1]=fit_coef[m+1]
+                  xs_table1(m,1,1)=fit_coef[m+1]
                else if (j == 2) then
-                  xs_table2[m,1,1]=fit_coef[m+1]
+                  xs_table2(m,1,1)=fit_coef[m+1]
                else if (j == 3) then
-                  xs_table3[m,1,1]=fit_coef[m+1]
+                  xs_table3(m,1,1)=fit_coef[m+1]
                else if (j == 4) then
-                  xs_table4[m,1,1]=fit_coef[m+1]
+                  xs_table4(m,1,1)=fit_coef[m+1]
                else if (j == 5) then
-                  xs_table5[m,1,1]=fit_coef[m+1]
+                  xs_table5(m,1,1)=fit_coef[m+1]
                end if
             end do
          else
@@ -378,11 +381,11 @@ on the origin of the cross section data; it is assumed to be in grams.
       xs_ncdef(fileid)
       call ncendef(fileid,nc_stat)
       xs_ncwrite(fileid)
-      var_free(xs_table1)
-      var_free(xs_table2)
-      var_free(xs_table3)
-      var_free(xs_table4)
-      var_free(xs_table5)
+      var_free(xs_tab1)
+      var_free(xs_tab2)
+      var_free(xs_tab3)
+      var_free(xs_tab4)
+      var_free(xs_tab5)
       call ncclose(fileid,nc_stat)
       
       stop             
@@ -583,17 +586,17 @@ coefficients since the user will not know this in general.
          assert(xs_rank[j] <= xs_table_rank_max)
       end do
 
-      var_alloc(xs_table1)
-      var_alloc(xs_table2)
-      var_alloc(xs_table3)
-      var_alloc(xs_table4)
-      var_alloc(xs_table5)
+      var_alloc(xs_tab1)
+      var_alloc(xs_tab2)
+      var_alloc(xs_tab3)
+      var_alloc(xs_tab4)
+      var_alloc(xs_tab5)
 
-      xs_table1[0,0,0]=zero
-      xs_table2[0,0,0]=zero
-      xs_table3[0,0,0]=zero
-      xs_table4[0,0,0]=zero
-      xs_table5[0,0,0]=zero
+      xs_table1(0,0,0)=zero
+      xs_table2(0,0,0)=zero
+      xs_table3(0,0,0)=zero
+      xs_table4(0,0,0)=zero
+      xs_table5(0,0,0)=zero
 
       return
       end
