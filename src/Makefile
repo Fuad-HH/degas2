@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.44  1995/11/29 17:42:44  karney
+# Specify path (.) for idtof
+#
 # Revision 1.43  1995/11/17 22:00:48  karney
 # A couple of fixes for Cray compilation.
 #
@@ -289,7 +292,7 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
     ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb \
-    pmi.hweb pmiformat.hweb readfilenames.hweb strata.hweb
+    pmi.hweb pmiformat.hweb readfilenames.hweb strata.hweb materials.hweb
 
 %.f: %.web $(HEADERS)
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -388,7 +391,7 @@ pmiwrite =
 pmiwrite_libs = $(NETCDF)
 pmiwrite: $(pmiwrite)
 
-datasetup = elementread.$O elementsetup.$O speciesetup.$O reactionsetup.$O readfilenames.$O
+datasetup = elementread.$O elementsetup.$O speciesetup.$O reactionsetup.$O materialsetup.$O pmisetup.$O readfilenames.$O
 datasetup_libs = $(NETCDF)
 datasetup: $(datasetup)
 
@@ -408,7 +411,7 @@ test = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O
 test_libs = $(NETCDF)
 test: $(test)
 
-readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O
+readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry)
 
