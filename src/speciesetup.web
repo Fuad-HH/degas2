@@ -2,6 +2,10 @@
 \def\Wtitle{speciesetup}
 
 % $Log$
+% Revision 1.11  1995/05/26 04:01:53  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.10  1995/04/25 22:14:54  karney
 % Initial version of sources.web
 %
@@ -42,7 +46,7 @@ Introduction\ldots
 @m FILE 'speciesetup.web'
 
 @I macros.hweb
-
+@I readfilenames.hweb
 @ The unnamed module.
 
 @a
@@ -154,12 +158,15 @@ eof:  continue
       integer fileid
       sp_ncdecl
       st_common
+      rf_common
       character*LINELEN description,program_version
+      character* FILELEN tempfile    //local
 
       program_version=
      $     '$Id$'
 
-      fileid = nccreate('../data/species.nc',NC_CLOBBER,nc_stat)
+      tempfile = filenames_array[speciesfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
 
       description = 'Data for species in degas 2'
       call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,

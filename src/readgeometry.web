@@ -2,6 +2,9 @@
 \def\Wtitle{readgeometry}
 
 % $Log$
+% Revision 1.11  1995/05/31 19:26:37  dstotler
+% Expand and clean up documentation.
+%
 % Revision 1.10  1995/05/26 04:01:47  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -211,6 +214,7 @@ end
       @<compar.h@>
 
       call command_arg(1,filename)
+      call readfilenames
 
       datafile_diskin=diskin+1
 
@@ -250,6 +254,7 @@ end
          read(nu,*) iysptrx
          read(nu,*)SP(((rm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
          read(nu,*)SP(((zm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
+
       elseif (keyword == 'sonnetfile') then
          call inpt_sonnet(datafilename,datafile_diskin,xmin,xmax,
      $        zmin,zmax,rm,zm,nx,ny,mx,my,ixpt1,ixpt2,iysptrx)
@@ -648,6 +653,29 @@ eof:  continue
          enddo
       enddo
      
+<<<<<<< readgeometry.web
+/*  the cuts may depend on the number u choose for the difference. i should 
+ probably take a relative measure.
+ the configuration seems to be -- */
+/*
+      1--- 2  1--- 2 
+    | | i  |  | i+1| ...
+    | 3--- 4  3--- 4
+    y x --->
+/* 
+  /* along the x direction (iy=0 along the lower edge of inner PFR) , we
+||||||| 1.10
+/*  the cuts may depend on the number u choose for the difference. i should 
+ probably take a relative measure.
+ the configuration seems to be --
+
+    ^ 1--- 2  1--- 2 
+    | | i  |  | i+1| ...
+    | 3--- 4  3--- 4
+    y x --->
+ 
+ along the x direction (iy=0 along the lower edge of inner PFR) , we
+=======
 /*  
    the cuts may depend on the number u choose for the difference. i should 
    probably take a relative measure.
@@ -673,6 +701,7 @@ eof:  continue
 
  
  along the x direction (iy=0 along the lower edge of inner PFR) , we
+>>>>>>> 1.11
  compare the bottom 
  corners. these should be equal for adjacent cells until we reach the
  cut. this is ixcut1. from here as x increases, it traces the outer edge
@@ -830,7 +859,13 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
       return
       end
 
+<<<<<<< readgeometry.web
+@ replace corneri of cell ix,iy with | [xcorner_new, ycorner_new] |
+||||||| 1.10
+@ replace corneri of cell ix,iy with [xcorner_new, ycorner_new]
+=======
 @ replace corneri of cell ix,iy with [|xcorner_new|, |ycorner_new|]
+>>>>>>> 1.11
 @<Functions...@>=
 
       subroutine replace_corners(ix,iy,corneri,xcorner_new,
