@@ -2,6 +2,10 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.8  1995/01/26 14:56:46  dstotler
+% First complete version of ratecalc. Presently, input is done entirely
+% through subroutine setup_netcdf.
+%
 % Revision 1.7  1994/11/21 15:51:05  dstotler
 % Interim update associated with ratecalc. ratecalc.hweb and
 % xsection.hweb have undergone substantial revision, but should be
@@ -39,13 +43,125 @@
 
 \ID{$Id$}
 
-These routines access atomic physics cross sections from the ALADDIN
-database and compute reaction rates, as well as higher velocity
-moments, from them. As presently configured, this code takes as input
-the information required for ALADDIN to identify the desired data.
-Separate input describes the calculations to be performed on these 
-data. Namely, the output is presently envisioned to be in tabular
-format; the user describes the size and contents of these tables.
+In the
+computation of plasma source terms $S_{A_{p},k}$ 
+due to interactions between neutral
+atoms and charged particles\cite{Reit93}, integrals
+like the following must be computed,
+\begin{equation}
+\label{source1}
+S_{A_{p},k} = \Gamma \int d^{3}v \: f(\vec{v}) \langle \sigma_{k}(v_{rel})
+\Delta A_{p} \rangle_{p},
+\end{equation}
+where $\Gamma$ is the flux of neutral particles, $f(\vec{v})$ is the neutral
+particle distribution function, $p$ is a plasma species index, $\sigma_{k}$ is 
+the cross section for the $k$th reaction between the neutral and species
+$p$, $v_{rel}$ is the relative velocity of the two particles, and 
+$\Delta A_{p}$ is the change in a plasma quantity (e.g., density, momentum,
+energy, etc.) in a single collision. 
+
+By expressing $\Delta A_{p}$ as a power series in the relative velocity, the 
+$S_{A_{p},k}$ can be written as a linear sum of velocity moments of the
+distribution function weighted by $\sigma_{k}$. The primary 
+purpose of this code is to compute these moments at user-specified 
+parameters using cross section data accessed from external files.
+
+Presently, the cross section data is assumed to reside in the ALADDIN
+database. The formats of the input file and common blocks reflect this
+assumption. The input information used to identify the data in the
+database are in the |ra| class. 
+Output from this code is stored in netCDF files using the |xs|
+class (see file classes.web for descriptions of both classes).
+
+If the requested data organization is ``fit'', the parameters used to
+describe the fit and the name of the function required to evaluate it are
+retrieved from the database and stored in the output data file. Alternatively,
+if the organization for a particuar dependent variable is ``table'', 
+the input information specifies the range, number, and spacing of the
+corrseponding independent variables. At each set of independent
+variables, the dependent variable (cross section,
+reaction rate, or higher moment) is evaluated and sent to the output file.
+
+The integral in Eq.~(\ref{source1}) is evaluated here in two different
+regimes. The first is applicable to situations in which
+a neutral atom (``projectile'')
+collides with plasma electrons (``target''). In this case, the velocity
+moments required are given by
+\begin{equation}
+\label{ereactionrate1}
+\langle \sigma v v^{|n|}\rangle = \frac{4 \pi}{\alpha m} \left( \frac{2}{m} 
+\right)^{(n+2)/2} \int_{0}^{\infty} dE \: \sigma f(E) E^{(n+2)/2},
+\end{equation} 
+where $\sigma(E)$ is the cross section,
+$f(E)$ is an arbitrary distribution function, $m$ is the
+particle mass relating $E$ and $v$ via $E = \frac{1}{2} m v^{2}$, and $\alpha$
+is the normalization constant for the distribution function,
+\[ 
+\alpha = \frac{4 \pi}{m} \left( \frac{2}{m} 
+\right)^{1/2} \int_{0}^{\infty} dE \: f(E) E^{1/2}.
+\] 
+In order for the numerical integrations to work
+effectively, it is necessary that $E$ be in practical units; eV in this
+case. 
+
+More specifically, the assumptions made in arriving
+at Eq.~(\ref{ereactionrate1}) are:
+\begin{enumerate}
+  \item $\sigma$ is a function only of the magnitude of the relative
+velocities of the colliding particles.
+  \item The distribution function is a function only of the particle's
+energy (or, equivalently, speed).
+  \item The velocity of the ``projectile'' particle is much less than
+the typical velocity of the ``target'' particles (i.e., defined by $f$).
+\end{enumerate}
+
+In the second regime, the velocities of the two colliding particles may
+be comparable. For example, this would be the case if both species were
+``heavy'' (e.g., neither was an electron). 
+The integration in Eq.~(\ref{source1}) must then be done
+over the relative velocity. This can be done conveniently
+when the plasma species is
+described by a Maxwellian distribution function. 
+It is conceivable that an arbitrary distribution could be specified in terms
+of orthogonal polynomials times a Maxwellian so that the required integral
+could be computed as a linear sum of integrals like those described here.
+
+The velocity moments in this regime are expressed in terms of the standard 
+integral\cite{Reit93}
+\begin{equation}
+\label{iln1}
+I_{\ell, |n|} \equiv \frac{ \exp( -u^{2} / u_{p}^{2}) }
+                     {\sqrt{\pi} u u_{p}^{n+1}}
+                     \int_{0}^{\infty} dv_{rel} \: v_{rel}^{2+|n|}
+                     \sigma_{\ell}(v_{rel}) 
+                     \left\{ \exp\left[\frac{-v_{rel}(v_{rel} - 2u)}
+                     {u_{p}^{2}}\right] 
+                            - (-1)^{n}\exp\left[\frac{-v_{rel}(v_{rel} + 2u)}
+                     {u_{p}^{2}}\right] \right\},
+\end{equation}
+where $u$ is the velocity of the neutral particle, and $u_{p}$ is the
+thermal velocity of the plasma particle. The latter is related to the
+plasma temperature by $T_{p} = \frac{1}{2} m_{1} u_{p}^{2}$; the
+former is derived from the neutral energy in the same way. The subscript
+$\ell$ is included to allow the treatment of elastic collisions
+($\ell \neq 0$). Note that Eq.~(\ref{iln1}) is not the same as 
+$\langle \sigma v v^{n} \rangle$ because of the need to treat angular
+dependence in the integrand of Eq.~(\ref{source1}), e.g., for
+the momentum source rate. Quantities such as this can be found as a linear
+combination of the $I_{\ell, |n|}$. The result provided by
+this code is $I_{\ell, |n|} u_{p}^{n}$ and, thus, has
+ the same dimensions as 
+$\langle \sigma v v^{n} \rangle$.
+
+In the expressions defining the neutral energy and plasma temperature,
+the mass $m_{1}$ used is 1 amu. This allows the results to be easily 
+rescaled for different isotopes. To facilitate numerical integration,
+the units used for the various velocities
+are $\sqrt{{\rm eV}/{\rm amu}}$; neither |u| nor $u_{p}$ should be $\leq 0$.
+However, the energy used as the 
+argument for $\sigma$ must have a specific mass. Its value (specified by
+|ra_mass| here) varies, depending
+on the origin of the cross section data; it is assumed to be in grams.
 
 @m FILE 'ratecalc.web'
 
@@ -58,110 +174,39 @@ format; the user describes the size and contents of these tables.
       program ratecalc
       implicit_none
       integer fileid,j,k,l,m                      // Local
-      double precision zsigma
+      double precision zenergy,zsigma
       real norm_constant,infinite_integral
       real ind_var_min[xs_table_rank_max],ind_var_delta[xs_table_rank_max],
      $   ind_var[xs_table_rank_max]
       character*msg_length error
+      character*FILELEN fileout
       external electron_rate_integrand,           // External
      $   electron_norm_integrand,ion_rate_integrand
 
       ra_common                                   // Commons and declarations
-      ra_ncdecl
       xs_common
       xs_ncdecl
       nc_common
       sy_common
       ra_common_l                                 // Local common
 
-      call setup_netcdf
 /* 
-   Read file containing the information describing the ALADDIN data 
+   Get ALADDIN input information and instructions for filling files.
 */
-      fileid=ncopen('../data/aladinput.nc',NC_NOWRITE,nc_stat)
-      ra_ncread(fileid)
-      call ncclose(fileid,nc_stat)
+      call read_input
+
+      do j=1,xs_num_dep_var            // Main loop
 
 /* 
    Get fit information from ALADDIN. 
 */
-        call aladdin_read_coefs(ra_data_filename,ra_hier_label,
-     $     ra_num_hier,ra_bool_and_label,ra_num_bool_and,
-     $     ra_bool_not_label,ra_num_bool_not,fit_coef,
-     $     num_fit_coef,leval)
+         call aladdin_read_coefs(ra_data_filename,ra_hier_label,
+     $      ra_num_hier,ra_bool_and_label[1,j],ra_num_bool_and[j],
+     $      ra_bool_not_label[1,j],ra_num_bool_not[j],fit_coef,
+     $      num_fit_coef,leval)
 
-/* 
-   In one version, all of the above were functions of dependent variable
-   index. The approach was simplified for the purposes of this code. 
-   More complicated arrangements could be executed with separate codes
-   (or perhaps by reading more than one input file per output file).
-*/
+         if (xs_organization[j] == 'table') then   // Either {\bf table} or fit
 
-/*
-   Open file containing information about the independent variables,
-   number of dependent variables, etc. The resulting cross sections,
-   rates, and higher
-   moments will be written to this file.
-*/
-      fileid=ncopen('../data/aladoutput.nc',NC_WRITE,nc_stat)
-      xs_ncread(fileid)
-
-/* 
-   Check some of the data parameters for consistency 
-*/
-      assert(xs_num_dep_var <= xs_dep_var_max)
-
-      do j=1,xs_num_dep_var
-         assert(xs_rank[j] <= xs_table_rank_max)
-      end do
-
-/* 
-   Fill in table for cross section. The first
-   dependent variable is assumed to be
-   the cross section. The reaction rate and higher moments will be
-   placed in subsequent dependent variable slots. Check that rank 
-   and independent variable are as expected. 
-*/
-      assert(xs_rank[1] == 1)
-      assert(xs_var[1,1] == 'energy') 
-      assert(xs_units[1,1] == 'eV')
-
-/*
-   Note that in finding |delta| for the independent variables, we
-   use multiplier = 1. That is, the units stated in the input file
-   (e.g., eV) are the ones to be used in this code.
-*/
-      call find_delta(xs_spacing[1,1],xs_min[1,1],one,xs_max[1,1],
-     $   xs_tab_index[1,1],ind_var_min[1],ind_var_delta[1])
-
-      do k=0,xs_tab_index(1,1)-1
-         ind_var[1]=ind_var_min[1]+areal(k)*ind_var_delta[1]
-         if (xs_spacing[1,1] == 'log') ind_var[1]=exp(ind_var[1])
-
-/*
-   Aladdin expects all arguments in double precision.
-*/
-         ind_var[1]=dble(ind_var[1])  
-
-         zsigma=zero           // ALADDIN does not always initialize 
-         call aladdin_eval_fit(leval,ind_var[1],fit_coef,
-     $      num_fit_coef,zsigma,error)
-         xs_table1[k,1,1]=zsigma
-      end do
-
-/* 
-   Now compute higher moments 
-*/
-      if (xs_num_dep_var > 1) then
-         do j=2,xs_num_dep_var
-
-/*
-   Assume that |j| = 2 is the reaction rate, with successively higher
-   moments at each subsequent |j|. Could possibly check or even assign
-   values of |xs_var| here.
-*/
-            moment_number=j-2  
- 
 /*
    Find all |delta| values at this |j|
 */
@@ -185,91 +230,150 @@ format; the user describes the size and contents of these tables.
                      ind_var[1]=ind_var_min[1]+areal(m)*ind_var_delta[1]
                      if (xs_spacing[1,j] == 'log') ind_var[1]=exp(ind_var[1])
 
+                     if (xs_var[0,j] == 'cross_section') then
+
+/* 
+   Fill in table for {\bf cross section}. Check that rank 
+   and independent variable are as expected. 
+*/
+                        assert(xs_rank[1] == 1)
+                        assert(xs_var[1,1] == 'energy') 
+                        assert(xs_units[1,1] == 'eV')
+
 /*
+   Aladdin expects all arguments in double precision.
+*/
+                        zenergy=dble(ind_var[1])  
+
+                        zsigma=zero      // ALADDIN does not always initialize 
+                        call aladdin_eval_fit(leval,zenergy,fit_coef,
+     $                     num_fit_coef,zsigma,error)
+
+/*
+   For {\bf higher moments}, the variable |moment_number| must be set. 
+   Determine the required value from the contents of |xs_var[0,j]|.
+*/
+                     else
+                        if (xs_var[0,j] == 'reaction_rate') then
+                           moment_number=0
+                        else if (xs_var[0,j] == '1st_rate_moment') then
+                           moment_number=1
+                        else if (xs_var[0,j] == '2nd_rate_moment') then
+                           moment_number=2
+                        else if (xs_var[0,j] == '3rd_rate_moment') then
+                           moment_number=3
+                        else
+                           assert('Unknown moment number' == ' ')
+                        end if
+      
+/*
+   Now carry out calculations for {\bf higher moments}.
    Check ALADDIN's hierarchical labels to see if this is an {\bf electron 
    impact process}; integrals should be a function of
    electron temperature only (i.e., |xs_rank| = 1).
 */
-                     if (ra_hier_label[2] == 'e') then
-                        assert(xs_rank[j] == 1)              
-                        assert(xs_var[1,j] == 'temperature')
-                        temperature=ind_var[1]
+                        if (ra_hier_label[2] == 'e') then
+                           assert(xs_rank[j] == 1)              
+                           assert(xs_var[1,j] == 'temperature')
+                           temperature=ind_var[1]
 
 /*
    Compute normalization constant for the distribution function.
 */
-                        norm_constant=
-     $                     infinite_integral(electron_norm_integrand)
-                        num_evaluations=0
-                        zsigma=infinite_integral(electron_rate_integrand)
-                        zsigma=zsigma/norm_constant
+                           norm_constant=
+     $                        infinite_integral(electron_norm_integrand)
+                           num_evaluations=0
+                           zsigma=infinite_integral(electron_rate_integrand)
+                           zsigma=zsigma/norm_constant
 
 /*
    Alternatively, check to see if this is an {\bf ion impact process}; 
    do this by examining third hierarchical label to see if it
-   indicates a positive charge. These integrals should be a
-   function of ion temperature and neutral energy; there is no
-   assumed order in |xs_var|, hence the assignment of |u| and |up|
-   inside the if-then-else block. The units of |u| and |up| are
-   taken to be $\sqrt{{\rm eV}/{\rm amu}}$. This effectively
-   normalizes the range of integration; i.e., at least the lower
-   part of the range is at velocities
-   of order unity. For this to work, the variable |ra_mass| should
-   have units of grams, ion temperature and neutral energy should
-   be in eV; also, the cross section computed should require
-   its argument also in eV.
+   indicates a positive charge. 
 */
-                     else if ((ra_hier_label[3]SP[1:2] == '[+') &&
-     $                  (ra_hier_label[3]SP[3:3] != '0')) then
-                        assert(xs_rank[j] == 2)
-                        assert(xs_units[1,j] == 'eV')
-                        assert(xs_units[2,j] == 'eV')
-                        assert(ra_mass_units == 'g')
-                        if ((xs_var[1,j] == 'energy') 
-     $                     && (xs_var[2,j] == 'temperature')) then
-                           u=sqrt(two*ind_var[1])
-                           up=sqrt(two*ind_var[2])
-                        else if ((xs_var[1,j] == 'temperature')
-     $                     && (xs_var[2,j] == 'energy')) then
-                           up=sqrt(two*ind_var[1])
-                           u=sqrt(two*ind_var[2])
-                        else
-                           assert('Unexpected values of xs_var' == ' ')
-                        end if
+                        else if ((ra_hier_label[3]SP[1:2] == '[+') &&
+     $                     (ra_hier_label[3]SP[3:3] != '0')) then
+                           assert(xs_rank[j] == 2)
+                           assert(xs_units[1,j] == 'eV')
+                           assert(xs_units[2,j] == 'eV')
+                           assert(ra_mass_units == 'g')
+                           if ((xs_var[1,j] == 'energy') 
+     $                        && (xs_var[2,j] == 'temperature')) then
+                              u=sqrt(two*ind_var[1])
+                              up=sqrt(two*ind_var[2])
+                           else if ((xs_var[1,j] == 'temperature')
+     $                        && (xs_var[2,j] == 'energy')) then
+                              up=sqrt(two*ind_var[1])
+                              u=sqrt(two*ind_var[2])
+                           else
+                              assert('Unexpected values of xs_var' == ' ')
+                           end if
               
-                        assert(up != zero)    // Expression valid only for
-                        assert(u != zero)     // nonzero values of |u| and |up|
-                        num_evaluations=0
-                        zsigma=infinite_integral(ion_rate_integrand)
+                           assert(up != zero)
+                           assert(u != zero) 
+                           num_evaluations=0  
+                           zsigma=infinite_integral(ion_rate_integrand)
 
-                     else
-                        assert('Unknown reaction process' == ' ')
-                     end if
+                        else
+                           assert('Unknown reaction process' == ' ')
+                        end if
+                     end if        // End of ``if'' for |xs_var|
 
 /*
    Pay for efficiency in dimensioning |xs_table| differently for each |j|
    with this ugly if-then-else block; again, |xs_dep_var_max| is
    assumed to be = 5 here.
 */
-                  if (j == 2) then
-                     xs_table2[m,l,k]=zsigma
-                  else if (j == 3) then
-                     xs_table3[m,l,k]=zsigma
-                  else if (j == 4) then
-                     xs_table4[m,l,k]=zsigma
-                  else if (j == 5) then
-                     xs_table5[m,l,k]=zsigma
-                  end if
+                     if (j == 1) then
+                        xs_table1[m,l,k]=zsigma
+                     else if (j == 2) then
+                        xs_table2[m,l,k]=zsigma
+                     else if (j == 3) then
+                        xs_table3[m,l,k]=zsigma
+                     else if (j == 4) then
+                        xs_table4[m,l,k]=zsigma
+                     else if (j == 5) then
+                        xs_table5[m,l,k]=zsigma
+                     end if
 
                   end do
                end do
-            end do
-         end do
-      end if
+            end do        // End of ``do'' loops over |xs_table| indices
 
+/*
+   For {\bf fits}, store name of evaluation function, number of fit
+   coefficients, and the coefficients themselves. As above, need an 
+   ugly if-then-else block to do this for the |xs_dep_var_max| = 5
+   arrays representing |xs_table|.
+*/
+         else if (xs_organization[j] == 'fit') then
+            xs_eval_name[j]=leval
+            xs_tab_index[1,j]=num_fit_coef
+            do m=0,xs_tab_index[1,j]-1
+               if (j == 1) then
+                  xs_table1[m,1,1]=fit_coef[m+1]
+               else if (j == 2) then
+                  xs_table2[m,1,1]=fit_coef[m+1]
+               else if (j == 3) then
+                  xs_table3[m,1,1]=fit_coef[m+1]
+               else if (j == 4) then
+                  xs_table4[m,1,1]=fit_coef[m+1]
+               else if (j == 5) then
+                  xs_table5[m,1,1]=fit_coef[m+1]
+               end if
+            end do
+         else
+            assert('Unknown organization' == ' ')
+         end if          // End for ``if'' on |xs_organization|
+      end do             // End of ``do'' over dependent variables
+ 
 /*
    All done. Write and close netCDF file
 */
+      fileout='../data/aladoutput.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+      xs_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
       xs_ncwrite(fileid)
       var_free(xs_table1)
       var_free(xs_table2)
@@ -283,10 +387,28 @@ format; the user describes the size and contents of these tables.
 
       @<Functions and subroutines@>
 
-@ Set up netCDF files.
+@ Read input data into common variables and setup defaults.
+Presently, intend to read all of the data listed below from a file. However,
+some quantities are either determined locally or assumed to have
+specific values. Those variables are:
+\begin{description}
+  \item[|ra_num|*] Set by counting the corresponding labels.
+  \item[|xs_num_dep_var|] Set by counting the number of 
+dependent variables specified.
+  \item[|xs_rank|] Set by counting the number of independent variables.
+  \begin{itemize}
+    \item Note that when the organization is ``fit'', the |xs_table| array will
+effectively be of rank one, i.e., containing the fit coefficients.
+    \item Also in this case |xs_tab_index| is set temporarily
+to the parameter used to specify the maximum number of fit
+coefficients since the user will not know this in general.
+    \end{itemize}
+  \item[|xs_units|] Are assumed to be cgs or eV for temperature and energy.
+  \item[|xs_multiplier|] Are then the corresponding MKS conversion factors.
+\end{description}
 
 @<Functions...@>=
-      subroutine setup_netcdf
+      subroutine read_input
       implicit_none
       integer fileid,i,j                // Local
       character*FILELEN fileout
@@ -295,14 +417,11 @@ format; the user describes the size and contents of these tables.
       nc_common
       ra_ncdecl
       xs_common
-      xs_ncdecl
       sy_common
 
       ra_mass=const(3.3452,-24)
-      ra_num_hier=14
-      ra_num_bool_and=1
-      ra_num_bool_not=0
       ra_mass_units='g'
+      ra_num_hier=14
       ra_hier_label[1]='ION'
       ra_hier_label[2]='H{2}'
       ra_hier_label[3]='[+1]'
@@ -317,9 +436,20 @@ format; the user describes the size and contents of these tables.
       ra_hier_label[12]='[+1]'
       ra_hier_label[13]='(G)'
       ra_hier_label[14]='e'
-      ra_bool_and_label[1]='XS'
+      do j=1,xs_dep_var_max
+         ra_num_bool_and[j]=1
+         ra_num_bool_not[j]=0
+         if (j == 2) then
+            ra_bool_and_label[1,j]='RC'
+         else
+            ra_bool_and_label[1,j]='XS'
+         end if
+      end do
       ra_data_filename='/u/ftp/pub/aladdin/data/janev.dat'
 
+/* 
+   These variables can be written as a netCDF file, if needed.
+*/
       fileout='../data/aladinput.nc'
       fileid=nccreate(fileout,NC_CLOBBER,nc_stat)
       ra_ncdef(fileid)
@@ -330,11 +460,11 @@ format; the user describes the size and contents of these tables.
       xs_name='h_ion_by_h+'
       xs_num_dep_var=5
 
-      xs_tab_index[1,1]=48
-      xs_tab_index[2,1]=1
+      xs_tab_index[1,1]=ra_fit_coef_max  // Set temporarily until get
+      xs_tab_index[2,1]=1                // actual value from ALADDIN
       xs_tab_index[3,1]=1
-      xs_tab_index[1,2]=10
-      xs_tab_index[2,2]=4
+      xs_tab_index[1,2]=ra_fit_coef_max
+      xs_tab_index[2,2]=1
       xs_tab_index[3,2]=1
       xs_tab_index[1,3]=2
       xs_tab_index[2,3]=4
@@ -347,7 +477,12 @@ format; the user describes the size and contents of these tables.
       xs_tab_index[3,5]=1
 
       do j = 1, xs_num_dep_var
-         xs_organization[j]='table'
+         if ((j == 1) || (j == 2)) then
+            xs_organization[j]='fit'
+         else
+            xs_organization[j]='table'
+         end if
+         xs_eval_name[j]='unknown'
       end do
 
       xs_rank[1]=1
@@ -390,7 +525,7 @@ format; the user describes the size and contents of these tables.
       xs_units[1,1]='eV'
       xs_var[0,2]='reaction_rate'
       xs_units[0,2]='cm^3/s'
-      xs_var[0,3]='first_rate_moment'
+      xs_var[0,3]='1st_rate_moment'
       xs_units[0,3]='cm^4/s^2'
       xs_var[0,4]='2nd_rate_moment'
       xs_units[0,4]='cm^5/s^3'
@@ -436,6 +571,15 @@ format; the user describes the size and contents of these tables.
          end do
       end if
       
+/* 
+   Check some of the data parameters for consistency 
+*/
+      assert(xs_num_dep_var <= xs_dep_var_max)
+
+      do j=1,xs_num_dep_var
+         assert(xs_rank[j] <= xs_table_rank_max)
+      end do
+
       var_alloc(xs_table1)
       var_alloc(xs_table2)
       var_alloc(xs_table3)
@@ -447,18 +591,6 @@ format; the user describes the size and contents of these tables.
       xs_table3[0,0,0]=zero
       xs_table4[0,0,0]=zero
       xs_table5[0,0,0]=zero
-
-      fileout='../data/aladoutput.nc'
-      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
-      xs_ncdef(fileid)
-      call ncendef(fileid,nc_stat)
-      xs_ncwrite(fileid)
-      var_free(xs_table1)
-      var_free(xs_table2)
-      var_free(xs_table3)
-      var_free(xs_table4)
-      var_free(xs_table5)
-      call ncclose(fileid,nc_stat)
 
       return
       end
@@ -506,7 +638,8 @@ is used to effect a change in units. Hence, the output minimum
 This routine is a single argument function which provides the integrand
 in a calculation of velocity-weighted averages of a user-specified
 function over a user-specified distribution function. The principle
-use of this routine is to compute a velocity-weighted reaction rate 
+use of this routine is to compute a velocity-weighted reaction rate
+for electrons colliding with neutral particles, 
 \begin{equation}
 \label{ereactionrate}
 \langle \sigma v v^{|n|}\rangle = \frac{4 \pi}{\alpha m} \left( \frac{2}{m} 
@@ -514,7 +647,7 @@ use of this routine is to compute a velocity-weighted reaction rate
 \end{equation} 
 where $\sigma(E)$ is computed
 using the function |sigma|, $f(E)$ is calculated by 
-the function |edist|, $m$ is the
+the function |e_distrib_fn|, $m$ is the
 particle mass relating $E$ and $v$ via $E = \frac{1}{2} m v^{2}$, and $\alpha$
 is the normalization constant for the distribution function,
 \[ 
@@ -523,19 +656,6 @@ is the normalization constant for the distribution function,
 \] 
 Note that $\alpha$ does not appear in this routine but is incorporated
 in the calling routines. 
-
-A number of assumptions must be made in arriving
-at Eq.~(\ref{ereactionrate}).
-\begin{enumerate}
-  \item $\sigma$ is a function only of the magnitude of the relative
-velocities of the colliding particles.
-  \item The distribution function is a function only of the particle's
-energy (or, equivalently, speed).
-  \item The velocity of the ``projectile'' particle is much less than
-the typical velocity of the ``target'' particles (i.e., defined by $f$).
-\end{enumerate}
-These are the standard assumptions made when a neutral atom (``projectile'')
-collides with plasma electrons (``target'').
 
 This routine is set up with a single argument so that it can be used with
 ``canned'' integration routines; the argument |energy| is the energy $E$ in 
@@ -600,27 +720,12 @@ multiplier converts the resulting units to cgs.
       end
 
 @ This routine is a single argument function which provides the integrand
-in a calculation of a standard integral closely associated with 
-velocity-weighted reaction rates. 
-More specifically, these integrals arise in the
-computation of plasma source terms due to interactions between neutral
-atoms and charged particles\cite{Reit93}, $S_{A_{p},k}$,
-\begin{equation}
-\label{source}
-S_{A_{p},k} = \Gamma \int d^{3}v \: f(\vec{v}) \langle \sigma_{k}(v_{rel})
-\Delta A_{p} \rangle_{p},
-\end{equation}
-where $\Gamma$ is the flux of neutral particles, $f(\vec{v})$ is the neutral
-particle distribution function, $p$ is a plasma species index, $\sigma_{k}$ is 
-the cross section for the $k$th reaction between the neutral and species
-$p$, $v_{rel}$ is the relative velocity of the two particles, and 
-$\Delta A_{p}$ is the change in a plasma quantity (e.g., density, momentum,
-energy, etc.) in a single collision. 
-
-When the plasma species can be
-described by a Maxwellian distribution function, the required cross
-section averages in Eq.(\ref{source}) can be computed in terms of the standard 
-integral\cite{Reit93}
+in a calculation 
+velocity-weighted reaction rates for cases involving two ``heavy''
+particles. 
+The plasma species is assumed to be
+described by a Maxwellian distribution function. The desired integral can
+be expressed in terms of\cite{Reit93}
 \begin{equation}
 \label{iln}
 I_{\ell, |n|} \equiv \frac{ \exp( -u^{2} / u_{p}^{2}) }
@@ -634,13 +739,8 @@ I_{\ell, |n|} \equiv \frac{ \exp( -u^{2} / u_{p}^{2}) }
 \end{equation}
 where $u$ is the velocity of the neutral particle, and $u_{p}$ is the
 thermal velocity of the plasma particle. The latter is related to the
-plasma temperature by $T_{p} = \frac{1}{2} m_{p} u_{p}^{2}$. The subscript
-$\ell$ is included to allow the treatment of elastic collisions
-($\ell \neq 0$). Note that Eq.~(\ref{iln}) is not the same as 
-$\langle \sigma v v^{n} \rangle$ because of the need to treat angular
-dependence in the integrand of Eq.~(\ref{source}), e.g., for
-the momentum source rate. Quantities such as this can be found as a linear
-combination of the $I_{\ell, |n|}$. However, the result provided by
+plasma temperature by $T_{p} = \frac{1}{2} m_{p} u_{p}^{2}$.  
+The result provided by
 this routine is $I_{\ell, |n|} u_{p}^{n}$ and, thus, has
  the same dimensions as 
 $\langle \sigma v v^{n} \rangle$.
@@ -776,7 +876,7 @@ is returned in |leval|.
      $   bool_and_label(ra_label_max),bool_not_label(ra_label_max)
       integer num_hier,num_bool_and,num_bool_not
 
-      character*ra_eval_name_length leval                      // Output
+      character*xs_eval_name_length leval                      // Output
       integer num_fit_coef
       double precision fit_coef(ra_fit_coef_max)
 
@@ -845,7 +945,7 @@ passed in from the ALADDIN data files. The resulting value is returned as
       subroutine aladdin_eval_fit(leval,pet,fit_coef,num_fit_coef,pfit,kermsg)
       implicit_none
 
-      character*ra_eval_name_length leval                  // Input
+      character*xs_eval_name_length leval                  // Input
       integer num_fit_coef
       double precision pet
       double precision fit_coef(ra_fit_coef_max)
