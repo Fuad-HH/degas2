@@ -38,7 +38,7 @@ C              FORMAT
 C
 C------------------------------------------------------------------------------
 C
-      PARAMETER (NELNMX=100, NHLMX=100, NBLMX=100)
+      PARAMETER (NELNMX=4500, NHLMX=100, NBLMX=100)
 C
       CHARACTER*80 EBUFF(NELNMX)
       CHARACTER*40 HL(NHLMX), BL(NBLMX)
