@@ -2,6 +2,10 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.11  1999/04/20 20:03:40  dstotler
+% Eliminate sectors based on solid zones. Divide source current for gas
+% puff by nz.
+%
 % Revision 1.10  1999/02/02 14:54:18  dstotler
 % Modified calls defining targets to include recycling coefficient (=
 % 1).
@@ -476,6 +480,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       background_coords=plasma_coords_cartesian  
 
 /* Define a H gas puff source along stratum 4 (|x| = |x_min|) */
+      so_set_run_flags
       so_grps=1
       so_seg_tot=0
       var_realloca(source_base_ptr)
@@ -483,6 +488,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_realloca(source_type)
       var_realloca(source_geometry)
       var_realloca(source_num_flights)
+      var_realloca(source_num_checkpoints)
       var_realloca(source_species)
       var_realloca(source_total_current)
       var_realloca(source_weight_norm)
@@ -491,6 +497,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_type(so_grps)=so_puff
       so_geom(so_grps)=so_surface
       so_nflights(so_grps)=100       // Should be reset manually prior to run
+      so_chkpt(so_grps)=0
       so_species(so_grps)=sp_lookup(puff_species)
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
@@ -519,6 +526,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_reallocb(source_type)
       var_reallocb(source_geometry)
       var_reallocb(source_num_flights)
+      var_reallocb(source_num_checkpoints)
       var_reallocb(source_species)
       var_reallocb(source_total_current)
       var_reallocb(source_weight_norm)
