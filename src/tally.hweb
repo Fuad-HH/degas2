@@ -1,0 +1,139 @@
+@* Tally definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+Scoring can happen at one of four points within degas 2: (a) when a
+track crosses a sector (e.g., to compute a flux), (b) when a track
+travels through a zone (e.g., to compute a track length estimator), 
+(c) at a collision event (e.g., to compute a collision estimator),
+and (d) after the run (to compute a derived score).
+
+Used the word ``tally'' here instead of ``score'' since the two-letter
+prefix for the latter would be too similar to those for sectors and
+sources.
+
+For further documentation, see the classes.web file.
+
+@I zone.hweb
+@I sector.hweb
+@I problem.hweb
+
+@f tl_decl integer
+
+@m tl_args(x) x
+
+@m tl_dummy(x) x
+
+@m tl_decl(x) integer x @;
+
+@m tl_copy(x,y) y=x @;
+
+@m tl_check(x) (x > 0 && x <= tl_num && 
+      tl_type(x) > 0 && tl_type(x) <= tl_type_max)
+
+@ Constant specifications.
+
+@m tl_type_max 3                  // Types of different tallies
+@m tl_type_sector 1
+@m tl_type_test 2
+@m tl_type_reaction 3
+
+@m tl_est_max 3                   // Different estimators
+@m tl_est_track 1  
+@m tl_est_collision 2
+@m tl_est_post_process 3
+
+@m tl_rank_max 5
+
+@m tl_index_unknown 0             // Indices for the independent variables
+@m tl_index_zone 1
+@m tl_index_plasma_zone 2
+@m tl_index_test 3
+@m tl_index_back 4
+@m tl_index_detector 5          
+@m tl_index_test_author 6         // Reaction or PMI responsible for $\vec{v}$
+@m tl_index_reaction 7
+@m tl_index_pmi 8
+@m tl_index_material 9
+@m tl_index_source_group 10       // A source group
+@m tl_index_sector 11
+@m tl_index_strata 12
+@m tl_index_strata_segment 13
+@m tl_index_energy_bin 14
+@m tl_index_angle_bin 15
+@m tl_index_detector 16
+@m tl_index_wavelength_bin 17
+@m tl_index_diagnostic 18
+@m tl_index_max 100               // An arbitrary limit
+
+@m tl_name_length 80              // For tally names
+@m tl_tag_length 40               // For dependent variable names
+
+@m tl_geom_unknown 0
+@m tl_geom_volume 1        
+@m tl_geom_surface 2       
+@m tl_geom_detector 3      
+@m tl_geom_global 4        
+
+@m scoring_data_max 20            // Length of |scoring_data| array
+@m max_bins 200
+
+@ Variable definitions. |tally_ind| is dimensioned from zero to
+accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
+
+@a
+      package_init(tl)
+
+      define_dimen_pk(tl,tally_type_ind,tl_type_max)  
+      define_dimen_pk(tl,tally_rank_ind,tl_rank_max)  
+      define_dimen_pk(tl,tally_est_ind,tl_est_max)
+      define_dimen_pk(tl,tally_reac_ind,pr_reaction_num)
+      define_dimen_pk(tl,tally_name_string,tl_name_length)
+      define_dimen_pk(tl,tally_tag_string,tl_tag_length)  
+
+      define_var_pk(tl,tl_num,INT)                     
+      define_dimen_pk(tl,tally_ind,tl_num)             
+      define_var_pk(tl,tally_size,INT)                 
+
+      define_varp_pk(tl,tally_type_num,INT,tally_type_ind) 
+      define_varp_pk(tl,tally_type,INT,tally_ind)          
+      define_varp_pk(tl,tally_geometry,INT,tally_ind)      
+      define_varp_pk(tl,tally_geometry_ptr,INT,tally_ind)  
+      define_varp_pk(tl,tally_base,INT,tally_ind)          
+      define_varp_pk(tl,tally_type_base,INT,tally_type_ind)
+      define_varp_pk(tl,tally_rank,INT,tally_ind)          
+      define_varp_pk(tl,tally_indep_var,INT,tally_rank_ind,tally_ind)  
+      define_varp_pk(tl,tally_tab_index,INT,tally_rank_ind,tally_ind)
+      define_varp_pk(tl,tally_name,CHAR,tally_name_string,tally_ind) 
+      define_varp_pk(tl,tally_dep_var,CHAR,tally_tag_string,tally_ind)
+      define_varp_pk(tl,tally_est_test,FLOAT,tally_est_ind,tally_ind)
+      define_varp_pk(tl,tally_est_reaction,FLOAT,tally_reac_ind,tally_est_ind,tally_ind)
+
+@ Common blocks definitions.
+
+@f tl_common integer
+@m tl_common
+      tl_common_a;
+      integer inc;
+      character*LINELEN tally_version;
+      common /com_tally_c/ tally_version;
+      save /com_tally_c/ @;
+
+@ Setting up tally information.
+
+/* The |ragged_alloc| macros are similar to those in 
+   |pmidata.hweb|. More detailed documentation is given there. */
+@m tl_set_baseinc(x,y,subs)
+      x##_base##subs##=x##_size;
+      inc=1;
+      $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
+        inc=inc*y##subs##[I];
+      }
+
+@m tl_set_base_size(x,y,subs)
+      tl_set_baseinc(x,y,subs);
+      x##_size=x##_size+inc @;
