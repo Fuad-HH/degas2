@@ -2,6 +2,10 @@
 \Title{score}
 
 % $Log$
+% Revision 1.16  2001/11/16 15:56:57  dstotler
+% Pass stat_flt to post_process_test_scores by common rather than
+% argument list.
+%
 % Revision 1.15  2001/07/16 21:03:47  dstotler
 % Added complete scoring of sources, adding routines for scoring puff
 % and plate sources. Changed post_process_back_scores to
@@ -215,6 +219,7 @@
       implicit_none_f77
       pr_common                                        // Common
       tl_common
+      gi_common
       sc_common
       implicit_none_f90
       
@@ -224,7 +229,8 @@
       pt_decl(prod[0:pm_product_max])                 
       real estimator_factors[*]                        // Scratch
 
-      integer i,j,jscore,pr_reac,idiag1,idiag2           // Local
+      integer i,j,jscore,pr_reac,idiag,i_side,sector,  // Local
+     $        surface,count,i_sect,subsector         
       real scoring_data[scoring_data_max]
       logical need_scores
 
@@ -235,30 +241,47 @@
          do i=1,tally_type_num[tl_type_sector]
             jscore=tally_type_base[tl_type_sector]+i-1
 /*
-   This assumes that only scores involving |lc_sector| and |lc_sector_next|
-   are being updated here. This is as in |handle_diagnostics|.
+   Moved this from below to keep nonzero entries from
+   being wiped out after they had been set.
 */
-            idiag1=sector_type_pointer[lc_sector(pt_loc(prod[j]))][sc_diagnostic(tally_geometry_ptr[jscore])]
-            idiag2=sector_type_pointer[lc_sector_next(pt_loc(prod[j]))][sc_diagnostic(tally_geometry_ptr[jscore])]
-
+            estimator_factors[jscore]=zero
+            do i_side=1,2
+               if (i_side == 1) then
+                  sector=lc_sector(pt_loc(prod[j]))
+               else if (i_side == 2) then
+                  sector=lc_sector_next(pt_loc(prod[j]))
+               else
+                  assert(' You are seriously lost!' == ' ')
+               end if
+               if (sc_check(sector)) then
+                  surface=sector_surface[sector]
+                  count=surface_sectors[s_sign(surface),s_count,abs(surface)]
+                  assert(count >= 1)
+                  do i_sect=1,count
+                     subsector=sectors[surface_sectors[s_sign(surface),s_start,abs(surface)]+i_sect-1]
+                     idiag=sector_type_pointer[subsector][sc_diagnostic(tally_geometry_ptr[jscore])]
 /*
    Disable scores for which direction-dependent dependent variables are 
    going the wrong way for the current pair of sectors (flight is going
    out of |sector| and coming into |sector_next|).
 */
-            if ((sc_diag_check(idiag1,tally_geometry_ptr[jscore]) 
-     $        &&  !(tally_dep_var[jscore] >= pr_var_mass_in 
-     $             && tally_dep_var[jscore] <= pr_var_mass_in+pr_num_diag_vars-1))
-     $     || (sc_diag_check(idiag2,tally_geometry_ptr[jscore])
-     $         && !(tally_dep_var[jscore] >= pr_var_mass_out 
-     $         && tally_dep_var[jscore] <= pr_var_mass_out+pr_num_diag_vars-1)))
-     $      then
-               estimator_factors[jscore]=pt_w(prod[j])
-               need_scores=.true.
-            else
-               estimator_factors[jscore]=zero
-            end if
-         end do
+                     if ((sc_diag_check(idiag,tally_geometry_ptr[jscore])) 
+     $                    && (((i_side == 1) && !((tally_dep_var[jscore] >= pr_var_mass_in) 
+     $                                            && (tally_dep_var[jscore] <= pr_var_mass_in+pr_num_diag_vars-1))) 
+     $                        || ((i_side == 2) && !((tally_dep_var[jscore] >= pr_var_mass_out) 
+     $                                            && (tally_dep_var[jscore] <= pr_var_mass_out+pr_num_diag_vars-1))))) 
+     $                    then
+                        estimator_factors[jscore]=pt_w(prod[j])
+                        need_scores=.true.
+@#if 0
+                     else
+                        estimator_factors[jscore]=zero
+@#endif
+                     end if
+                  end do      // |i_sect|
+               end if         // |sc_check(sector)|
+            end do            // |i_side|
+         end do               // |i|
 
          if (need_scores) then
 
@@ -1045,6 +1068,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
 
       implicit_none_f77
       sc_common                                       // Common
+      gi_common
       pr_common
       tl_common
       implicit_none_f90
@@ -1061,7 +1085,8 @@ bins. The treated variables thus far are energy and angle of incicidence.
      $     bins[max_segments][max_bins]
       real geom_mult[max_segments][max_bins]
 
-      integer diag_grp,idiag,isector                  // Local
+      integer diag_grp,idiag,i_side,sector,           // Local
+     $        i_sect,surface,count,subsector      
       real value
 
       lc_decls
@@ -1069,66 +1094,70 @@ bins. The treated variables thus far are energy and angle of incicidence.
       diag_grp=pointer
       number_segments=0
 /*
-   {\em Note: if this code is modified so that sectors other than |lc_sector|
-   or |lc_sector_next| are added to this |segments| list, a similar change
-   needs to be made to |score_sector| where |estimator_factors| are set.}
+   Have now modified this to allow for multiple sectors per surface,
+   as in |score_diagnostics|.
 
    Had also thought to enforce directionality here. Opted to do it instead
    in |score_diagnostics| since otherwise this routine might return
    |number_segments| = 0.
 */
-      do isector=1,2
-         if (isector == 1) then
-            idiag=sector_type_pointer[lc_sector(pt_loc(p))][sc_diagnostic(diag_grp)]
-         else if (isector == 2) then
-            idiag=sector_type_pointer[lc_sector_next(pt_loc(p))][sc_diagnostic(diag_grp)]
+      do i_side=1,2
+         if (i_side == 1) then
+            sector=lc_sector(pt_loc(p))
+         else if (i_side == 2) then
+            sector=lc_sector_next(pt_loc(p))
          else
-            assert('Need to allow for more sector segments' == ' ')
+            assert(' You are seriously lost!' == ' ')
          end if
-            
-@#if 0
-         if (idiag != 0) then
-@#endif
-         if (sc_diag_check(idiag,diag_grp)) then
-            number_segments++
-            assert(number_segments <= max_segments)
-            segments[number_segments]=idiag
-            if (diagnostic_var[diag_grp] == sc_diag_energy) then
-               bin_label=tl_index_energy_bin
-               value=scoring_data[pr_var_energy]
-            else if (diagnostic_var[diag_grp] == sc_diag_angle) then
-               bin_label=tl_index_angle_bin
-               value=scoring_data[pr_var_angle]
-            else
-               bin_label=tl_index_unknown
-            end if
+         if (sc_check(sector)) then
+            surface=sector_surface[sector]
+            count=surface_sectors[s_sign(surface),s_count,abs(surface)]
+            assert(count >= 1)
+            do i_sect=1,count
+               subsector=sectors[surface_sectors[s_sign(surface),s_start,abs(surface)]+i_sect-1]
+               idiag=sector_type_pointer[subsector][sc_diagnostic(diag_grp)]
+               if (sc_diag_check(idiag,diag_grp)) then
+                  number_segments++
+                  assert(number_segments <= max_segments)
+                  segments[number_segments]=idiag
+                  if (diagnostic_var[diag_grp] == sc_diag_energy) then
+                     bin_label=tl_index_energy_bin
+                     value=scoring_data[pr_var_energy]
+                  else if (diagnostic_var[diag_grp] == sc_diag_angle) then
+                     bin_label=tl_index_angle_bin
+                     value=scoring_data[pr_var_angle]
+                  else
+                     bin_label=tl_index_unknown
+                  end if
 
-            if (bin_label != tl_index_unknown) then
-               number_bins[number_segments]=1
-               if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log) 
-     $              value=log(value)
-               if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log
-     $              || diagnostic_spacing[diag_grp] == sc_diag_spacing_linear) then
-                  bins[number_segments][1]=int((value-diagnostic_min[diag_grp])
-     $                      /diagnostic_delta[diag_grp]+one)
-               else
-                  assert('Unsupported spacing' == ' ')
-               end if
-               if (bins[number_segments][1] > 0 
-     $                 && bins[number_segments][1] 
-     $                     <= diagnostic_tab_index[diag_grp]) then
-                  geom_mult[number_segments][1]=one
-               else
-                  bins[number_segments][1]=1            
-                  geom_mult[number_segments][1]=zero  // Outside bin range: throw out
-               end if
-            else
-               number_bins[number_segments]=1
-               bins[number_segments][1]=0
-               geom_mult[number_segments][1]=one
-            end if
-         end if
-      end do
+                  if (bin_label != tl_index_unknown) then
+                     number_bins[number_segments]=1
+                     if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log) 
+     $                    value=log(value)
+                     if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log
+     $                    || diagnostic_spacing[diag_grp] == sc_diag_spacing_linear) then
+                        bins[number_segments][1]=int((value-diagnostic_min[diag_grp])
+     $                       /diagnostic_delta[diag_grp]+one)
+                     else
+                        assert('Unsupported spacing' == ' ')
+                     end if
+                     if (bins[number_segments][1] > 0 
+     $                    && bins[number_segments][1] 
+     $                    <= diagnostic_tab_index[diag_grp]) then
+                        geom_mult[number_segments][1]=one
+                     else
+                        bins[number_segments][1]=1            
+                        geom_mult[number_segments][1]=zero  // Outside bin range: throw out
+                     end if
+                  else
+                     number_bins[number_segments]=1
+                     bins[number_segments][1]=0
+                     geom_mult[number_segments][1]=one
+                  end if                                    // |bin_label|
+               end if                                       // |sc_diag_check|
+            end do                                          // |i_sect|
+         end if                                             // |sc_check|
+      end do                                                // |i_side|
 
       return
       end
