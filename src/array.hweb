@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 # Revision 1.2  1993/06/01  22:15:07  karney
 # Redo pre-Albuquerque checkin
 #
@@ -131,6 +134,7 @@
 
 @m array_sizea(x) array_unit(x)*mem_size(range_size(ind_##x##_m))
 @m array_sizeb(x) array_unit(x)*(mem_size(range_size(ind_##x##_m))-mem_inc)
+@m array_sizec(x,y) array_unit(x)*mem_size((y)-range_min(ind_##x##_m)+1)
 
 @m var_realloca(x) if (mod(range_size(ind_##x##_m),mem_inc) == 1) then;
       _IFCASE(type_##x,
@@ -144,6 +148,14 @@
       char_realloc(x,array_sizea(x),array_size(x)),
       int_realloc(x,array_sizea(x),array_size(x)),
       real_realloc(x,array_sizea(x),array_size(x)));
+      end if @;
+
+@m var_reallocc(x,on,n) if (mem_size((on)-range_min(ind_##x##_m)+1) !=
+      mem_size((n)-range_min(ind_##x##_m)+1)) then;
+      _IFCASE(type_##x,
+      char_realloc(x,array_sizec(x,on),array_sizec(x,n)),
+      int_realloc(x,array_sizec(x,on),array_sizec(x,n)),
+      real_realloc(x,array_sizec(x,on),array_sizec(x,n)));
       end if @;
 
 @* External interface to array.  These macros aid in defining array
@@ -173,3 +185,7 @@ use |var_realloca(array)| to reallocate the space each time.  The
 allocation will only take place every |mem_inc| steps.  Once the final
 size is reached use |var_reallocb(array)| to repack the array in the
 smallest possible space.
+
+In the last dimension is growing by steps other than one, then use
+|var_reallocc(array,oldmax,newmax)| where |oldmax| and |newmax| are the
+old and new values of the upper limit of the last dimension.
