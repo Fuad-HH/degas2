@@ -2,6 +2,11 @@
 
 % $Id$
 % $Log$
+% Revision 1.11  1995/07/14 13:20:15  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.10  1995/06/12 13:07:07  karney
 % Add in dummy elements into common blocks to avoid complaints from
 % Alpha.
@@ -67,8 +72,15 @@ say that a zero length dimension is unlimited.
       define_dimen_pk(gi,neighbor_ind,0,nneighbors)
       define_dimen_pk(gi,neg_pos,s_neg,s_pos)
       define_dimen_pk(gi,surface_info_ind,s_start,s_count)
-      define_dimen_pk(gi,coeff_ind,NCOEFFS)
+      define_dimen_pk(gi,surface_tx_ind,t_surf,t_mx)
+      define_dimen_pk(gi,tx_ind_1,3)
+      define_dimen_pk(gi,tx_ind_2,4)
+ /* These start at zero since a geometry may be defined by |ntransforms=0|
+    or |nsectors=0| and netcdf (and other) routines can't handle zero length
+    arrays */
+      define_dimen_pk(gi,transform_ind,0,ntransforms)
       define_dimen_pk(gi,sector_ind,0,nsectors)
+      define_dimen_pk(gi,coeff_ind,NCOEFFS)
 @#if 0
       define_dimen_pk(gi,givc_ind,3)
 @#endif
@@ -77,6 +89,8 @@ say that a zero length dimension is unlimited.
       define_var_pk(gi,universal_cell_vol,FLOAT)
       define_varp_pk(gi,cells,INT,cell_info_ind,cell_ind)
       define_varp_pk(gi,surfaces,INT,neg_pos,surface_info_ind,surface_ind)
+      define_varp_pk(gi,surfaces_tx_ind,INT,neg_pos,surface_tx_ind,surface_ind)
+      define_varp_pk(gi,surfaces_tx_mx,FLOAT,tx_ind_1,tx_ind_2,transform_ind)
       define_varp_pk(gi,surface_sectors,INT,neg_pos,surface_info_ind,surface_ind)
       define_varp_pk(gi,boundaries,INT,boundary_ind)
       define_varp_pk(gi,neighbors,INT,neighbor_ind)
@@ -97,8 +111,8 @@ say that a zero length dimension is unlimited.
 
 @f gi_ext integer
 @m gi_ext
-      external define_surface,start_cell,polygon_volume;
-      integer define_surface,start_cell;
+      external define_surface,define_surface_a,start_cell,polygon_volume;
+      integer define_surface,define_surface_a,start_cell;
       real polygon_volume;
 
 @ Indices into the surface coefficient array.
@@ -132,6 +146,9 @@ where the $c$'s are coefficients given by |coeff|.
 @m s_start 0
 @m s_count 1
 @m s_sign(k) (sign(1,k)+1)/2
+
+@m t_surf 0                     // Indices into |surface_tx_ind|
+@m t_mx 1
 
 @ Passing information about surfaces.
 

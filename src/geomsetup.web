@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.18  1995/10/02 21:05:31  karney
+% Fix typos.
+%
 % Revision 1.17  1995/10/02 20:56:35  karney
 % Implement define_surface_a.
 %
@@ -112,10 +115,12 @@ should.
 
       nsurfaces=0
       nsectors=0
+      ntransforms=0
       var_realloca(strata)
       var_realloca(surface_sectors)
       var_realloca(sector_surface)
       var_realloca(sector_points)
+      var_realloca(surfaces_tx_mx)
 
       zn_num=0
       $DO(I,1,zn_type_max) {
@@ -142,8 +147,8 @@ should.
       integer symmetry          // Input
       real min_corner[3],max_corner[3]
       real vol                  // Output
-      integer face,surf_type,i
-      real x[3,0:4],apex[3],a[3],x1[3],x2[3],x3[3],coeff[NCOEFFS]
+      integer face,face1,face2,surf_type,i // Local
+      real x[3,0:4],apex[3],a[3],x0[3],x1[3],x2[3],x3[3],coeff[NCOEFFS],tx[3,4]
       gi_common
       gi_ext
       external vector_compare
@@ -179,74 +184,37 @@ should.
          vol=PI*(max_corner[1]^2-min_corner[1]^2)*(max_corner[3]-min_corner[3])
 
       else if (symmetry==geometry_symmetry_plane) then
-@#if 0
-         vc_set(a,one,zero,zero)
+         vc_set(a,zero,one,zero)
          call plane(min_corner,a,coeff)
-         face=define_surface(coeff,.true.)
-         call add_surface(face,0,.true.)
+         face1=define_surface(coeff,.true.)
+         call add_surface(face1,0,.true.)
          call plane(max_corner,a,coeff)
-         face=define_surface(coeff,.true.)
-         call add_surface(-face,0,.true.)
-@#endif
-         do i=0,3
-            vc_copy(x[i],x1)
-            vc_copy(x[i+1],x2)
-            vc_set(x3,x[1,i],one,x[3,i])
-            call planea(x1,x3,x2,coeff)
-            face=define_surface(coeff,.true.)
-            call add_surface(face,0,.true.)
-         end do
+         face2=define_surface(coeff,.true.)
+         call add_surface(-face2,0,.true.)
+         call init_identity(tx)
+         vc_set(x0,zero,-(max_corner[2]-min_corner[2]),zero)
+         call geom_translate(x0,tx)
+         call add_transform(face1,face2,tx)
+         call invert(tx,tx)
+         call add_transform(-face2,-face1,tx)
 
          do i=0,3
             vc_copy(x[i],x1)
             vc_copy(x[i+1],x2)
-            if (face>0) then
-               vc_copy(x1,surface_points[0,face])
-               vc_copy(x2,surface_points[1,face])
-            end if
-            if (x1[1] == x2[1]) then
-               if (x1[3] > x2[3]) then
-                  x1[3] = one
-                  x2[3] = zero
-               else
-                  x2[3] = one
-                  x1[3] = zero
-               end if
-            else if (x1[3] == x2[3]) then
-               if (x1[1] > x2[1]) then
-                  x1[1] = one
-                  x2[1] = zero
-               else
-                  x2[1] = one
-                  x1[1] = zero
-               end if
-            end if
             if (vector_compare(x1,x2)>0) then
                vc_set(x3,x1[1],one,x1[3])
             else
                vc_set(x3,x2[1],one,x2[3])
             end if
             call planea(x1,x3,x2,coeff)
-            face=define_surface(coeff,.true.)
+            face=define_surface_a(coeff,x1,x2)
+            if (face>0) then
+               vc_copy(x1,surface_points[0,face])
+               vc_copy(x2,surface_points[1,face])
+            end if
             call add_surface(face,0,.true.)
          end do
 
-         vc_set(a,zero,one,zero)
-         call plane(min_corner,a,coeff)
-         face=define_surface(coeff,.true.)
-         call add_surface(face,0,.true.)
-         call plane(max_corner,a,coeff)
-         face=define_surface(coeff,.true.)
-         call add_surface(-face,0,.true.)
-@#if 0
-         vc_set(a,zero,zero,one)
-         call plane(min_corner,a,coeff)
-         face=define_surface(coeff,.true.)
-         call add_surface(face,0,.true.)
-         call plane(max_corner,a,coeff)
-         face=define_surface(coeff,.true.)
-         call add_surface(-face,0,.true.)
-@#endif
          vol=(max_corner[1]-min_corner[1])*(max_corner[2]-min_corner[2])*
      $        (max_corner[3]-min_corner[3])
       end if
@@ -291,6 +259,9 @@ should.
 
       var_reallocb(strata_type)
       var_reallocb(strata_pointer)
+      
+      var_reallocb(surfaces_tx_ind)
+      var_reallocb(surfaces_tx_mx)
 
       nboundaries=0
       do j=0,ncells
@@ -392,6 +363,8 @@ then search for duplicates and return the duplicate index if it exists.
       var_realloca(surface_sectors)
       var_realloca(surface_coeffs)
       var_realloca(surface_points)
+      var_realloca(surfaces_tx_ind)
+
       do i=1,NCOEFFS
          surface_coeffs[i,nsurfaces]=coeff[i]
       end do
@@ -404,6 +377,11 @@ then search for duplicates and return the duplicate index if it exists.
       surface_sectors[s_neg,s_count,nsurfaces] = 0
       surface_sectors[s_pos,s_start,nsurfaces] = 0
       surface_sectors[s_pos,s_count,nsurfaces] = 0
+
+      surfaces_tx_ind[s_neg,t_surf,nsurfaces] = 0
+      surfaces_tx_ind[s_neg,t_mx,nsurfaces] = 0
+      surfaces_tx_ind[s_pos,t_surf,nsurfaces] = 0
+      surfaces_tx_ind[s_pos,t_mx,nsurfaces] = 0
 
       define_surface=nsurfaces
 
@@ -592,6 +570,40 @@ break: continue
       return
       end
 
+@* Define a transform for surface.
+
+@<Functions...@>=
+      subroutine add_transform(surface,newsurface,tx)
+      implicit_none
+      integer surface,newsurface // Input
+      real tx[3,4]
+      gi_common                 // Input/Output
+      integer i                 // Local
+@#if 0
+      real coeff[NCOEFFS]
+@#endif
+      sy_common
+      setup_common
+
+      ntransforms++
+      var_realloca(surfaces_tx_mx)
+      
+      surfaces_tx_ind[s_sign(surface),t_surf,abs(surface)]=newsurface
+      surfaces_tx_ind[s_sign(surface),t_mx,abs(surface)]=ntransforms
+      do i=1,4
+         vc_copy(tx[i],surfaces_tx_mx[ntransforms][i])
+      end do
+
+
+@#if 0      
+      write(stdout,*) 'original coeff:', (surface_coeffs[i,abs(surface)],i=1,NCOEFFS)
+      call transform_face(surface_coeffs[1,abs(newsurface)],tx,coeff)
+      write(stdout,*) 'trans    coeff:', (coeff[i],i=1,NCOEFFS)
+@#endif
+      
+      return
+      end
+
 @* Simple check of geometry.
 
 @<Functions...@>=
@@ -713,6 +725,8 @@ break1:        continue
       var_free(boundaries)
       var_free(neighbors)
       var_free(surface_sectors)
+      var_free(surfaces_tx_ind)
+      var_free(surfaces_tx_mx)
       ncells=-1
       nsurfaces=0
       nboundaries=0

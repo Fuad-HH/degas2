@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.39  1995/08/23 14:44:59  dstotler
+# Added dependencies for reactiontest.
+#
 # Revision 1.38  1995/08/01 17:56:26  karney
 # Various changes to make compilation clean on ALPHA.
 #
@@ -338,6 +341,10 @@ flighttest = elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.
 flighttest_libs = $(NETCDF)
 flighttest: $(flighttest)
 
+geomtest = geometry.$O geomsetup.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O
+geomtest_libs = $(NETCDF)
+geomtest: $(geomtest)
+
 geomtesta = geometry.$O plotgeom.$O elementread.$O readfilenames.$O
 geomtesta_libs = $(HDF) $(NETCDF)
 geomtesta: $(geomtesta)
@@ -395,7 +402,6 @@ ratecalc: $(ratecalc)
 #sysdeptest: $(SYSDEPO) string.$O
 array: $(SYSDEPO)
 teststring: $(SYSDEPO) string.$O
-geomtest: geometry.$O geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) composite.$O string.$O readfilenames.$O
 #geomtesta: geometry.$O $(SYSDEPO) string.$O plotgeom.$O elementread.$O
 #geomread: geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
 #pvmmaster: pvmmaster.$O $(SYSDEPO) random.$O stat.$O geometry.$O

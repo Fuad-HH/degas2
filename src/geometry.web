@@ -3,6 +3,11 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.19  1995/07/14 13:20:12  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.18  1995/06/22 21:36:22  jshankar
 % corrected a few typos
 %
@@ -135,11 +140,12 @@ positive side, |surface_sectors[s_pos,s_count,k]| and
 
 |neighbors| is a list of cells for each face.
 
-NOT IMPLEMENTED YET: Each surface may have a transformation associated
-with it.  If \newline |surface_tx_ind[abs(k),s_sign(k),t_surf]| is nonzero, then
-a point on surface |k| is transformed to a point on surface
-|surface_tx_ind[abs(k),s_sign(k),t_surf]| using the transformation
-|surface_tx_mx[1..3,1..4,surface_tx_ind[abs(k),s_sign(k),t_mx]]|.
+NOT IMPLEMENTED YET:
+Each surface may have a transformation associated with it.  If \newline
+|surface_tx_ind[s_sign(k),t_surf,abs(k)]| is nonzero, then a point on
+surface |k| is transformed to a point on surface
+|surface_tx_ind[s_sign(k),t_surf,abs(k)]| using the transformation
+|surface_tx_mx[1..3,1..4,surface_tx_ind[s_sign(k),t_mx,abs(k)]]|.
 
 After the geometry is set up, information about the geometry is held in
 |geom_args|.  This can be declared (in non-geometry routines) by
@@ -781,11 +787,12 @@ $< 0$, it is taken as 0.
 
 @ Determine the new cell for particle exiting through face |exit_face|.
 Returns 0, if there are no cells on the other side of |exit_face|.  This
-indicates that the particle is exiting the universal cell.
-using the face index of |exit_face|, the starting index which points to
-the list of cells for that face and the no. of cells for the face is found.
-we check whether |x| lies strictly inside any of the cells and return if it 
-does. otherwise, a relaxed check is done for the same.     
+indicates that the particle is exiting the universal cell.  Using the
+face index of |exit_face|, the starting index which points to the list
+of cells for that face and the number of cells for the face is found.
+we check whether |x| lies strictly inside any of the cells and return if
+it does. Otherwise, a relaxed check is done for the same.
+
 @<Functions...@>=
       function new_cell(exit_face,x)
       implicit_none
@@ -847,11 +854,12 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
       gi_common
       real t,x[3]               // Output
       integer cell1,exit_face,cell2,sector1,sector2
-      integer j,k               // Local
+      integer j,k,k1,tx               // Local
       real dt,tleft,t1
-      external cell_intersect,new_cell   // External
+      external cell_intersect,new_cell,in_surface   // External
       real cell_intersect
       integer new_cell
+      logical in_surface
 
       assert(type == pt_geometry || type == pt_neutral)
       assert(cell>0)
@@ -874,6 +882,29 @@ loop: continue
          track = .true.
          return
       end if
+
+      if (type != pt_geometry) then
+
+ /* Process the transformation first */
+         k1=surfaces_tx_ind[s_sign(k),t_surf,abs(k)]
+         if (k1 != 0) then
+            tx=surfaces_tx_ind[s_sign(k),t_mx,abs(k)]
+@#if 0
+            write(stderr,*) 'Surface tx: ',k,k1
+            write(stderr,*) 'Old x,v: ',(x[i],i=1,3),(v[i],i=1,3)
+@#endif
+            k=k1
+            call transform(surfaces_tx_mx[1,1,tx],x,x)
+            call transform_velocity(surfaces_tx_mx[1,1,tx],v,v)
+@#if 0
+            write(stderr,*) 'New x,v: ',(x[i],i=1,3),(v[i],i=1,3)
+@#endif
+            assert(in_surface(surface_info(k),x,.false.,zero))
+         end if
+
+      end if
+         
+
       j = new_cell(k,x) // Find next cell
       if ( cells[c_zone,cell1] == cells[c_zone,j] ) goto loop // Still in zone
 
