@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1993/10/25  22:29:36  karney
+% Adding PVM support
+%
 % Revision 1.4  1993/09/30  18:38:05  karney
 % Pre-PET checkin
 %
@@ -157,7 +160,8 @@
 
 @ Define package functions.
 
-@m package_init(pk) _DEFINE(pk##_common_a save /pk##_com/;)
+@m package_init(pk) _DEFINE(pk##_common_a save /pk##_com_a/;)
+      _DEFINE(pk##_common_b save /pk##_com_b/;)
       _DEFINE(pk##_ncdef(fileid))
       _DEFINE(pk##_ncwrite(fileid))
       _DEFINE(pk##_ncreada(fileid))
@@ -183,11 +187,8 @@
       _DEFINE(pk##_ncreadb(fileid) temp(fileid); dimen_inq(fileid,name);)
       _UNDEF(temp)
       
-@m define_var_pk(pk,name,...) define_var(name,#.)
-      _DEFINE(temp pk##_common_a)
-      _UNDEF(pk##_common_a)
-      _DEFINE(pk##_common_a temp declare_var(name); common /pk##_com/ name;)
-      _UNDEF(temp)
+@m define_var_pk(pk,name,type,...) define_var(name,type,#.)
+      _IF(type == CHAR,define_common(pk,name,b),define_common(pk,name,a))
       _DEFINE(temp(fileid) pk##_ncdef(fileid))
       _UNDEF(pk##_ncdef)
       _DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
@@ -218,10 +219,16 @@
       _DEFINE(pk##_pvmgeta temp; pvm_get(name))
       _UNDEF(temp)
 
+@m define_common(pk,name,SUF)
+      _DEFINE(temp pk##_common_##SUF)
+      _UNDEF(pk##_common_##SUF)
+      _DEFINE(pk##_common_##SUF temp declare_var(name); common /pk##_com_##SUF/ name;)
+      _UNDEF(temp)
+
 @m define_varp_pk(pk,name,...) define_var(name,#.)
       _DEFINE(temp pk##_common_a)
       _UNDEF(pk##_common_a)
-      _DEFINE(pk##_common_a temp declare_varp(name); common /pk##_com/ ptr_##name;)
+      _DEFINE(pk##_common_a temp declare_varp(name); common /pk##_com_a/ ptr_##name;)
       _UNDEF(temp)
       _DEFINE(temp(fileid) pk##_ncdef(fileid))
       _UNDEF(pk##_ncdef)
