@@ -2,6 +2,9 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.12  1998/09/04 17:20:49  dstotler
+% Minor changes to satisfy FWEAVE and TeX.
+%
 % Revision 1.11  1998/03/11 15:25:00  dstotler
 % In set_plate_source_v, take ion_energy from plasma_e_ion_mult and
 % plasma_e_ion_delta.
@@ -86,6 +89,11 @@ incomplete, it should be easy to add more functionality. Models are
 at this point faithful to the original DEGAS versions. This routine
 oversees the selection of the flight origin's position, velocity,
 species and ``relative weight''.
+
+@f sources_localcommon integer
+@m sources_localcommon save /sources_common/;
+      vc_decl(x_surface);
+      common /sources_common/ x_surface @;
 
 @<Functions...@>=
       subroutine sample_sources(fl_dummy(x),rel_wt)
@@ -189,6 +197,8 @@ routine really just samples on a line.
       vc_decl(vone)
       vc_decl(vnorm)
 
+      sources_localcommon
+
       lc_decls
 
       rn_next(urd,r)
@@ -216,6 +226,7 @@ routine really just samples on a line.
       vc_set(vone,zero,zero,one)
       call surface_reflect(sector_surface[xseg],vc_args(xsrc),vc_args(vzero),
      $     vc_args(vone),vc_args(vnorm))
+      vc_copy(xsrc,x_surface)    // For use in |set_plate_source_v|
 /* Then take a small step along the normal to be sure we're in the cell */
       fr=geom_epsilon/vc_abs(vnorm)
       vc_xvt(xsrc,vnorm,fr,lc_x(x))
@@ -343,6 +354,8 @@ using routines specific for the type of that source.
       external neutralize_species  // External
       integer neutralize_species
 
+      sources_localcommon
+
       assert(so_geom(isource) == so_surface)
       spion=so_species(isource)
       plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
@@ -382,8 +395,14 @@ using routines specific for the type of that source.
  */
       vc_set(vzero,zero,zero,zero)
       vc_set(vone,zero,zero,-one)  
+@#if 0
       call surface_reflect(sector_surface[xseg],lc_x(x),vc_args(vzero),
      $     vc_args(vone),vc_args(vsrc))
+@#else
+// Use normal at point {\em on surface}, obtained by common from |surface_source_x|
+      call surface_reflect(sector_surface[xseg],x_surface,vc_args(vzero),
+     $     vc_args(vone),vc_args(vsrc))
+@#endif
       vc_scale(ion_velocity,vsrc,vsrc)
 
       spsrc=neutralize_species(spion)
