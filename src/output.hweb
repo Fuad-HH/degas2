@@ -1,0 +1,58 @@
+@* Output Arrays.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+These are the principle output data from DEGAS 2. These are naturally grouped
+with the tally data, but aren't needed until the run is complete. Hence,
+we have collected them separately here.
+
+@I tally.hweb
+@I sources.hweb
+
+@ Indices for moments in the arrays.
+
+@m o_mean 0
+@m o_var  1       // variance
+
+@m ou_coupling_mass 1             // Rate of background mass exchange
+@m ou_coupling_momentum_1 2       // Rate of background momentum exchange 
+@m ou_coupling_momentum_2 3       // (by components)
+@m ou_coupling_momentum_3 4
+@m ou_coupling_energy 5           // Rate of background energy exchange
+@m ou_coupling_max 5
+
+@m ou_back_max 2                  // In lieu of pointer for |pr_background_num|
+
+@m out_array(table,i,j,k,l,m,t,mo) table##[tally_base[t]+i+tally_tab_index[t][1]*(j+tally_tab_index[t][2]*(k+tally_tab_index[t][3]*(l+tally_tab_index[t][4]*m)))][mo]
+
+@ Variable definitions. 
+
+@a
+      package_init(ou)
+
+      define_dimen_pk(ou,output_coupling_ind,ou_coupling_max) 
+      define_dimen_pk(ou,output_moments_ind,o_mean,o_var)
+
+      define_dimen_pk(ou,output_tab_ind,0,tally_size-1)
+      define_dimen_pk(ou,output_grps_ind,so_grps)
+
+      define_varp_pk(ou,output_all,FLOAT,output_moments_ind,output_tab_ind) 
+      define_varp_pk(ou,output_grp,FLOAT,output_moments_ind,output_tab_ind,output_grps_ind)
+
+      define_varp_pk(ou,out_post_all,FLOAT,output_moments_ind,output_tab_ind) 
+      define_varp_pk(ou,out_post_grp,FLOAT,output_moments_ind,output_tab_ind,output_grps_ind)
+   //   define_varp_pk(ou,output_coupling,FLOAT,background_ind,bk_plasma_ind,output_coupling_ind) 
+
+@ Common blocks definitions.
+
+@f ou_common integer
+@m ou_common
+      ou_common_a;
+      character*LINELEN output_version;
+      common /com_output_c/ output_version;
+      save /com_output_c/ @;
+
