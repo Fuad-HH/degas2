@@ -2,6 +2,10 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.25  2000/04/01 17:32:32  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.24.2.1  1999/12/16 18:26:21  dstotler
 % Enabled H-alpha plots with a test for the presence of the appropriate
 % tally. Changes to allow test exchange tallies and PMI tallies as
@@ -186,6 +190,8 @@
       integer integral_region
       character*4 ivlab
       character*1 ind_sy[3]
+      character*3 vtag
+      character*tl_tag_length vname
       data ind_sy /'1','2','3'/
 
       declare_varp(hdf_data)
@@ -340,6 +346,31 @@
      $        'sp'\/trim(sp_sy(pr_test(j)))\/' density rsd',' ','E11.3',
      $        x,a,b,alen,blen)
 
+         if (tl_check(string_lookup('neutral velocity vector',tally_name,tl_num))) then
+            vname='neutral velocity vector'
+            vtag='vel'
+         else 
+            assert(tl_check(string_lookup('neutral flux vector',tally_name,tl_num)))
+            vname='neutral flux vector'
+            vtag='flx'
+         end if
+         do i=1,3                                     // Component
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma || zn_type(zone) == zn_vacuum) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,i,
+     $                 out_post_all,o_mean,trim(vname))
+                  hdf_data[zone]=ha_rate
+               else
+                  hdf_data[zone]=zero
+               end if
+            end do
+            call data_slice(
+     $           'sp'\/trim(sp_sy(pr_test(j)))\/vtag\/ind_sy[i]\/'.hdf',
+     $           hdf_data,trim(sp_sy(pr_test(j)))\/vtag\/ind_sy[i],
+     $           'm/s','E11.3',x,a,b,alen,blen)
+         end do
+
          if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
             do i=1,zn_num
                if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
@@ -414,16 +445,16 @@
                      index_parameters[tl_index_zone]=zone
                      ha_rate=extract_output_datum(index_parameters,1,
      $                    out_post_all,o_mean,'ion source rate')
-                     hdf_data[zone]=ha_rate
+                     hdf_data[zone]=ha_rate/zn_volume(zone)
                      ha_temp+=ha_rate
                   else
                      hdf_data[zone]=zero
                   end if
                end do
                write(diskout,*) 'back = ',back,', source = ',ha_temp 
-               call data_slice(trim(sp_sy(pr_background(back)))\/'ionize.hdf',
+               call data_slice(trim(sp_sy(pr_background(back)))\/'ionizeV.hdf',
      $              hdf_data,trim(sp_sy(pr_background(back)))\/'_Ion_Source_rate',
-     $              's**-1','E11.3',
+     $              'm**-3 s**-1','E11.3',
      $              x,a,b,alen,blen)
 
                do zone=1,zn_num
