@@ -1,0 +1,199 @@
+% $Id$
+\Title{pmitest}
+
+% $Log$
+
+@* A test program for the Plasma-Material Interaction (PMI) routines.
+
+\ID{$Id$}
+
+@m FILE 'pmitest.web'
+
+@I macros.hweb
+@I string.hweb
+@I problem.hweb
+@I random.hweb
+@I pmi.hweb
+@I pmidata.hweb
+@I materials.hweb
+
+@ The main program.
+
+@a
+      program pmitest
+      implicit_none
+      character*LINELEN line                          // Local
+      integer length,p,b,e
+      integer seed[0:5]
+      integer i,nprod
+      real velocity,energy,polar_angle,yield,ran,eprod
+      real independent_parameters[pf_max_indep_params]
+      
+      pm_decl(pmi_ref)
+      sp_decl(test_species)
+      pr_test_decl(test)
+      ma_decl(mat_ref)
+      pr_pmi_decl(pmi_sub)
+      pr_materials_decl(mat_sub)
+      pr_pmi_decl(ts_pmi)
+      vc_decl(v_test)
+      rn_decl(tag)
+      sp_decl(prod[pm_product_max])
+      vc_decl(v_prod[pm_product_max])
+      real w_prod[pm_product_max]
+
+      external pd_eval_data                          // External
+      real pd_eval_data
+
+      st_common
+      sp_common
+      rc_common
+      pr_common
+      pm_common
+      ma_common
+      pd_common
+
+      call readfilenames
+      call init_pmitest
+
+/* Called routines need random number thread */
+      seed[0]=1234
+      seed[1]=5678
+      call random_init(seed,rn_args(tag))  
+
+loop: continue
+      write(stdout,*) 'Enter symbol for test particle and Plasma-Material Interaction'
+
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      test_species=sp_lookup(line(b:e))
+      assert(next_token(line,b,e,p))
+      pmi_ref=pm_lookup(line(b:e))
+
+      if (pm_gen(pmi_ref) == pmi_generic_yes) then
+         assert(sp_generic(test_species) == sp_generic(pm_reagent(pmi_ref)))
+      else
+         assert(test_species == pm_reagent(pmi_ref))
+      end if
+      test=problem_species_test(test_species)
+      mat_ref=pm_materials(pmi_ref)
+      mat_sub=problem_materials_sub(mat_ref)
+      pmi_sub=problem_pmi_sub(pmi_ref)
+      ts_pmi=int_lookup(pmi_sub,pr_pm_cases(test,1),pr_pmi_max)
+      
+      write(stdout,*) '     Test species is:       ',sp_name(test_species)
+      write(stdout,*) '     Material is: ',ma_name(mat_ref)
+      write(stdout,*) '     PMI name is:      ',pm_name(pmi_ref)
+
+loop1: continue
+
+      write(stdout,'(/a)') 'Enter test energy and polar angle-of-incidence'
+      
+      if (! read_string(stdin,line,length)) goto loop
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      energy=electron_charge*read_real(line(b:e)) 
+      assert(next_token(line,b,e,p))
+      polar_angle=read_real(line(b:e))*PI/const(180.0)
+
+      velocity=sqrt(two*energy/sp_m(test_species))
+/* Pretend surface normal is in +z direction => can easily interpret
+   product velocities. */
+      vc_set(v_test,velocity*sin(polar_angle),zero,-velocity*cos(polar_angle))
+
+      assert(pmi_yield_var[pmi_sub][0] == pf_var_yield)
+      do i=1,pf_max_indep_params
+         independent_parameters[i]=zero
+      end do
+      independent_parameters[pf_var_energy_in]=energy
+      independent_parameters[pf_var_vel_1_in]=v_test[1]
+      independent_parameters[pf_var_vel_2_in]=v_test[2]
+      independent_parameters[pf_var_vel_3_in]=v_test[3]
+      independent_parameters[pf_var_polar_angle_in]=polar_angle
+      independent_parameters[pf_var_t_wall]=const(3.,2)*boltzmanns_const // INPUT !!
+      if (pmi_yield_num_random[pmi_sub] > 0) then
+         assert(pmi_yield_num_random[pmi_sub] <= pf_max_random)
+         do i=1,pmi_yield_num_random[pmi_sub]
+            rn_next(ran,tag)
+            independent_parameters[pf_var_1st_random_number+i-1]=ran
+         end do
+      end if
+
+      yield=pd_eval_data(pd_data_args(pmi_yield,[pmi_sub]),
+     $     independent_parameters,rn_args(tag))
+
+      write(stdout,*) '    Test energy = ',energy,' J'
+      write(stdout,*) '    Test (vx,vy,vz) = ',v_test[1],', ',v_test[2],', ',v_test[3],
+     $                     ' m/s'
+      write(stdout,*) '    Incident polar angle = ',polar_angle,' radians'
+      write(stdout,*) '      => Yield = ',yield
+
+/* Determine PMI products */
+//      do i=1,6400           
+      if (pm_pmi_type(pmi_ref) == 'reflection') then
+         call reflection(pr_test_args(test),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),
+     $        w_prod,rn_args(tag))
+      else if (pm_pmi_type(pmi_ref) == 'adsorption') then
+         call adsorption(pr_test_args(test),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),
+     $        w_prod,rn_args(tag))
+      else if (pm_pmi_type(pmi_ref) == 'desorption') then
+         call desorption(pr_test_args(test),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),
+     $        w_prod,rn_args(tag))
+      else
+         assert('Unsupported PMI type' == ' ')
+      end if
+/*
+   For accumulating distributions...
+      eprod=half*sp_m(prod[1])*vc_abs2(v_prod[1])
+      if (sp_sy(prod[1]) == 'H') then
+         write(10,*) eprod,v_prod[1][1],v_prod[1][2],v_prod[1][3]
+      else if (sp_sy(prod[1]) == 'H2') then
+         write(11,*) eprod,v_prod[1][1],v_prod[1][2],v_prod[1][3]
+      end if
+      end do
+*/
+
+      write(stdout,*) ' Number of products = ',nprod
+      do i=1,nprod
+         write(stdout,*) '  Product #',i,' is ',sp_name(prod[i])
+         write(stdout,*) '     (vx,vy,vz) = ',v_prod[i][1],', ',v_prod[i][2],
+     $                   ', ',v_prod[i][3],' m/s'
+         write(stdout,*) '     weight = ',w_prod[i]
+      end do
+
+      goto loop1
+
+
+eof:  continue
+      stop
+      end
+      @<Functions and Subroutines@>
+
+@* Initialize.
+
+@<Functions...@>=
+      subroutine init_pmitest
+      implicit_none
+      
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_materials
+      call nc_read_pmi
+      call nc_read_problem
+      
+      return
+      end
+
+@* INDEX.
+      
