@@ -2,6 +2,24 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.23  1999/07/19 19:28:53  karney
+% (1) Remove much dead code in random.web.
+%
+% (2) Add more timing tests in randomtest.web.
+%
+% (3) Implement |geometry_symmetry_oned| where $y$ and $z$ coordinates are
+% ignored.
+%
+% This is treated exactly like goemetry_symmetry_plane, except that there's a
+% additional transformation defined to carry a particle from zmin to zmax and
+% vice versa.
+%
+% (4) Implement partitioning of symmetry direction via additional
+% zonearray[0:ndiv-1], ndiv, and facearray[0:ndiv] arguments to
+% decompose_polygon.  zonearray[k] has additional faces facearray[k] and
+% -facearray[k-1] added.  (See boxgen.web for sample code, although the
+% zonearray feature is not properly exercised yet.)
+%
 % Revision 1.22  1998/09/04 17:07:50  dstotler
 % Relax angle constraint in subr. convex_polygon to prevent cells with
 % too nearly colinear edges.
@@ -508,7 +526,10 @@ break: continue
       subroutine process_polygon_plane(n,x,zonearray,mdiv,facearray)
 
       define_dimen(divs,0,mdiv-1)
+@#if 0
       define_varp(cella,FLOAT,divs)
+@#endif
+      define_varp(cella,INT,divs)
 
       implicit_none_f77
       gi_common
@@ -552,7 +573,10 @@ break: continue
          end if
          call planea(x1,x3,x2,coeff)
          face=define_surface_a(coeff,x1,x2)
+@#if 0
          do m=1,mdiv-1
+@#endif
+         do m=0,mdiv-1
             call add_surface(face,cella[m],.true.)
          end do
          if (face>0) then
@@ -692,7 +716,10 @@ loop: continue                  // Loop over cells
       end if
       if (kdiv != 0) then
          do m=0,mdiv-1
+@#if 0
             call add_surface(kdiv,cella[n],.true.)
+@#endif
+            call add_surface(kdiv,cella[m],.true.)
          end do
          guardmin = guardmax
       else
