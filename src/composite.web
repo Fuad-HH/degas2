@@ -2,6 +2,9 @@
 \def\Wtitle{composite}
 
 % $Log$
+% Revision 1.10  1995/06/07 15:56:07  karney
+% Add profiling; fix bug in composite.web
+%
 % Revision 1.9  1995/05/26 04:00:22  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -65,7 +68,7 @@ the $\hat {\vect z}$ axis.
 @* Some utility routines.  First check whether two line segments intersect.
 Each line segment is given by a two-dimensional array, whose first index
 corresponds to $x$ ($1$) or $z$ ($2$), and whose second index ($1$ or $2$)
-correspons to the two end points.
+corresponds to the two end points.
 
 @<Functions...@>=
       function segment_intersect(x1,x2)
@@ -108,7 +111,7 @@ coincide.
       logical self_intersect    // Function
       integer n                 // Input
       real x[2,0:n]
-      integer i,j               // Local
+      integer i,j                // Local
       external segment_intersect // External
       logical segment_intersect
 
@@ -120,6 +123,7 @@ coincide.
       do i=0,n-1
          do j=i+2,min(n-1,n+i-2)
             if (segment_intersect(x[1,i],x[1,j])) then
+
                return
             end if
          end do
@@ -242,7 +246,7 @@ of the points.
       do i=0,n
           write(stderr,*) x[1,i],x[2,i]
       end do
-*/
+*/      
       real_alloc(a,2*(n+1))
       real_alloc(b,2*n)
 
@@ -250,7 +254,7 @@ of the points.
       a[1,m]=x[1,m]
       a[2,m]=x[2,m]
       do i=1,n
-         if (x[1,i] != a[1,m] || x[2,i] != a[2,m]) then
+         if (x[1,i] != a[1,m] || x[2,i] != a[2,m]) then  
             m++
             a[1,m]=x[1,i]
             a[2,m]=x[2,i]
@@ -269,7 +273,7 @@ loop: continue
 @#endif
 
       if (convex_polygon(m,a)) then
-        call process_polygon(m,a,zone) 
+         call process_polygon(m,a,zone) 
          real_free(a,2*(n+1))
          real_free(b,2*n)
          return
