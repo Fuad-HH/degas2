@@ -2,6 +2,11 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.13  1995/07/14 13:20:49  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.12  1995/06/21 20:09:34  jshankar
 % modified to include readfilenames
 %
@@ -183,12 +188,12 @@ end
       integer mx,my
       parameter (mx=120,my=50)
       character*FILELEN filename,datafilename
-      logical uedge,degas,sonnet
+      logical uedge,degas,sonnet,single_null,double_null
       integer length,p,b,e // Local
       integer datafile_diskin,zone,n,wall_no,wall_start,
      $     wall_stop,wall_direction,i,grid_startv,grid_stopv,j1,j2,
      $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
-     $     trx,ix,iy,symmetry
+     $     trx,symmetry,ix_mirror,null_type
 
       character*LINELEN line,keyword
       logical complete
@@ -222,7 +227,6 @@ end
 
       datafile_diskin=diskin+1
 
-
       open(unit=diskin,file=filename,status='old',form='formatted')
 
       /* read the file containing keywords that describe the way plotting has to be done */
@@ -232,6 +236,9 @@ end
       uedge =.false.
       degas =.false.
       sonnet=.false.
+      single_null=.false.
+      double_null=.false.
+
       symmetry=geometry_symmetry_cylindrical
 @#if 0
        symmetry=geometry_symmetry_plane
@@ -251,28 +258,16 @@ end
       if (keyword == 'degasfile') then
          degas =.true.
          call inpt(datafile_diskin,xmin,xmax,zmin,zmax)
+         call init_geometry
+         close(unit=datafile_diskin)
       elseif (keyword == 'uedgefile') then
          uedge=.true.
          nu= datafile_diskin
-         read(nu,*)
-         read(nu,*) nx
-         read(nu,*) ny
-         read(nu,*) ixpt1
-         read(nu,*) ixpt2
-         read(nu,*) iysptrx
-         read(nu,*)SP(((rm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
-         read(nu,*)SP(((zm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
-
       elseif (keyword == 'sonnetfile') then
-         call inpt_sonnet(datafilename,datafile_diskin,xmin,xmax,
-     $        zmin,zmax,rm,zm,nx,ny,mx,my,ixpt1,ixpt2,iysptrx)
          sonnet= .true.
+         /* everything is the same as for uedge for single null */
          uedge =.true.
       endif
-         
-      close(unit=datafile_diskin)
-
-      call init_geometry
 
       if (! uedge) then
          min_corner[1]=xmin
@@ -291,7 +286,28 @@ loop2: continue
       p=0
       assert( next_token(line,b,e,p) )
       keyword = line(b:e)
-      if (keyword == 'new_zone') then
+      if (keyword == 'null_type') then
+         assert(next_token(line,b,e,p))
+         null_type =read_integer(line(b:e))
+         if (null_type ==1) then
+            single_null = .true.
+         elseif (null_type== 2) then
+            double_null = .true.
+            ix_mirror =0   //initialise only
+         else
+            print*, 'unknown null type'
+            assert(.false.)
+         endif
+         if (uedge) then
+            call inpt_uedge(nu,nx,ny,ixpt1,ixpt2,iysptrx,
+     $           rm,zm,mx,my,null_type,ix_mirror )
+         elseif (sonnet) then
+            call inpt_sonnet(datafile_diskin,xmin,xmax,
+     $           zmin,zmax,rm,zm,nx,ny,mx,my,ixpt1,ixpt2,iysptrx,
+     $           null_type,ix_mirror)
+         endif
+         call init_geometry
+      elseif (keyword == 'new_zone') then
          zone++
          zn_volume(zone)=zero
          assert(next_token(line,b,e,p))
@@ -461,27 +477,33 @@ skip:          continue
            assert(next_token(line,b,e,p))
            minx=read_real(line(b:e))
 
-      elseif (keyword == 'mesh') then
-         assert(uedge)
-         assert(next_token(line,b,e,p))
-         xmin=read_real(line(b:e))
-         assert(next_token(line,b,e,p))
-         xmax=read_real(line(b:e))
-         assert(next_token(line,b,e,p))
-         zmin=read_real(line(b:e))
-         assert(next_token(line,b,e,p))
-         zmax=read_real(line(b:e))
-         min_corner[1]=xmin
-         min_corner[2]=zero
-         min_corner[3]=zmin
-         max_corner[1]=xmax
-         max_corner[2]=two*PI
-         max_corner[3]=zmax
-         call universal_cell(symmetry,min_corner,max_corner,vol)
-         do j1=1,nx
-            do j2=1,ny
-               zone++
-               n=0
+
+        elseif (keyword == 'mesh') then
+           assert(uedge)
+           assert(next_token(line,b,e,p))
+           xmin=read_real(line(b:e))
+           assert(next_token(line,b,e,p))
+           xmax=read_real(line(b:e))
+           assert(next_token(line,b,e,p))
+           zmin=read_real(line(b:e))
+           assert(next_token(line,b,e,p))
+           zmax=read_real(line(b:e))
+           min_corner[1]=xmin
+           min_corner[2]=zero
+           min_corner[3]=zmin
+           max_corner[1]=xmax
+           max_corner[2]=two*PI
+           max_corner[3]=zmax
+           call universal_cell(symmetry,min_corner,max_corner,vol)
+           do j1=1,nx
+              do j2=1,ny
+                 zone++
+                 n=0
+/* (xcorner1,zcorner1) is the left bottom corner of a cell. (2,2) (3,3) and
+(4,4)  are the other corners  if you proceed in the clock-wise
+direction. The convention varies, hence the corners have to be set to
+conform with the data file being used  */
+
                if (sonnet) then
                   xcorner1 = 3; zcorner1 =3
                   xcorner2 = 1; zcorner2 =1
@@ -513,15 +535,47 @@ skip:          continue
    right lower corner. return along outer edge of SOL to starting pt. 
 */
          n=0
+         if (single_null) then
          x[1,n]=xmin; x[2,n]=zmin; n++
          x[1,n]=xmin; x[2,n]=zmax; n++
          x[1,n]=xmax; x[2,n]=zmax; n++
          x[1,n]=xmax; x[2,n]=zmin; n++
          j1=nx; j2=ny
          x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
-         do j1=nx,1,-1
-            x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
-         end do
+
+            do j1=nx,1,-1
+               x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+            end do
+         elseif (double_null .and. uedge) then
+            x[1,n]=xmin; x[2,n]=zmin; n++
+            x[1,n]=xmin; x[2,n]=zmax; n++
+            x[1,n]=xmax; x[2,n]=zmax; n++
+            x[1,n]=xmax; x[2,n]=zmin; n++
+            j1=nx; j2=ny
+            x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+            j2=ny
+            do j1=nx,ix_mirror+1,-1
+               x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+            enddo
+            j1=ix_mirror+1
+            do j2=ny,1,-1
+               x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+            enddo
+            j1=ix_mirror; j2=1
+            x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+            j1= ix_mirror
+            do j2=1,ny
+               x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+            enddo
+            j2=ny
+            do j1=ix_mirror,1,-1
+               x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+            enddo
+
+         else 
+            print*, 'neither single nor double null'
+            assert(.false.)
+         endif
          x[1,n]=x[1,0]; x[2,n]=x[2,0]               
          call decompose_polygon(n,x,zone)
          zn_type_set(zone,zn_solid)
@@ -558,12 +612,32 @@ skip:          continue
 /* core region */
          n=0
          j2=1
-         do j1=ixpt1+1,ixpt2
+         if (single_null ) then
+            do j1=ixpt1+1,ixpt2
+               x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+            enddo
+            x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+            call decompose_polygon(n,x,zone)
+            zn_type_set(zone,zn_exit)
+         elseif (double_null .and. uedge) then
+            j1=ix_mirror;j2=1
+            x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+            j1=ix_mirror+1;j2=1
             x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
-         enddo
-         x[1,n]=x[1,0]; x[2,n]=x[2,0]               
-         call decompose_polygon(n,x,zone)
-         zn_type_set(zone,zn_exit)
+            j2=1
+            do j1=ix_mirror+1,ixpt2
+               x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+            enddo
+            j2=1
+            do j1=ixpt1+1,ix_mirror
+               x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+            enddo
+
+            x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+            call decompose_polygon(n,x,zone)
+            zn_type_set(zone,zn_exit) 
+         endif
+
          zn_volume(zone)=polygon_volume(n,x)
 
 /* insert additional keywords below this */            
@@ -586,7 +660,7 @@ eof:  continue
          assert(zn_volume(i)>0)
          vola=vola+zn_volume(i)
       end do
-      write(stdout,*) vol,vola
+      write(stdout,*) 'vol and vola =', vol,vola
 
       call erase_geometry
       stop
@@ -594,22 +668,24 @@ eof:  continue
 
 @ subroutine to read inputs from sonnet file.
 @<Functions ...@>=
-      subroutine inpt_sonnet(datafilename,nu,xmin,xmax,
-     $     zmin,zmax,crx,cry,nx,ny,mx,my,ixcut1,ixcut2,iycut)
+      subroutine inpt_sonnet(nu,xmin,xmax,
+     $zmin,zmax,crx,cry,nx,ny,mx,my,ixcut1,ixcut2,iycut,null_type,
+     $ix_mirror)
       implicit none
-      integer*4 ix, iy, ixh, iyh,nxd,nyd,i,ixcut1,ixcut2,iycut,nu,mx,my
-     $     ,nx,ny,j, corner_no[4] 
+      integer ix, iy, ixh, iyh,nxd,nyd,i,ixcut1,ixcut2,iycut,nu,mx,my
+     $     ,nx,ny,j, corner_no[4],null_type,ix_mirror
 
       /* for ~/vesey/Sonnet/cmod.elm.779old */
       parameter (nxd=120,nyd=24) 
       
       real  crx(mx,my,0:4), cry(mx,my,0:4),pit(nxd,nyd),
-     $     xmax,xmin,zmax,zmin,dummy1,fix_cornerx,fix_cornery,
-     $     xcorner_old, ycorner_old,xcorner_new, ycorner_new
+     $     xmax,xmin,zmax,zmin,dummy1,fix_cornerx,fix_cornery
 
+@#if 0
+      real xcorner_old, ycorner_old,xcorner_new, ycorner_new
+@#endif
       character dummy*80 
-      character*FILELEN datafilename
-      open (nu,file =datafilename,status='old')
+
 
       xmax = 0.0d0
       xmin = 1.d5
@@ -737,72 +813,9 @@ c here two corners ic1 and ic2 of [17,42] are exchanged.
      $     corner_no,crx,cry,nx,ny,mx,my)
 @#endif
 
-      /* -------- check continuity of points ----------- */
-      /* check end points along x and top to bottom along y */
-      do ix =1,ixcut1-1
-         do iy=1,iycut
-            if(crx(ix,iy,2)     != crx(ix+1,iy,1) ||
-     $           crx(ix,iy,4)   != crx(ix+1,iy,3) ||
-     $           cry(ix,iy,2)   != cry(ix+1,iy,1) ||
-     $           cry(ix,iy,4)   != cry(ix+1,iy,3)) then
-               print*, 'mismatch 1, ix,iy', ix,iy,ix+1,iy
-            stop
-         endif
-         if (iy == iycut) goto 7
-         if(crx(ix,iy,1)        != crx(ix,iy+1,3) ||
-     $        crx(ix,iy,2)    != crx(ix,iy+1,4)) then
-            print*, 'mismatch 2, ix,iy', ix,iy,ix,iy+1
-            stop
-         endif
- 7       continue
-      enddo
-      enddo
-      /* match across ixcut1 and ixcut2 in the x direction  */
-      do iy=1,iycut
-         if (crx(ixcut1,iy,2)   != crx(ixcut2+1,iy,1) ||
-     $        crx(ixcut1,iy,4)  != crx(ixcut2+1,iy,3)) then
-         print*, 'mismatch 3, ixcut1,iy', ixcut1,iy
-         stop
-      endif
-      enddo
-      /* match beyond ixcut1 along x and y */
-      do ix =ixcut2+1,nxd-1
-         do iy=1,iycut
-            if(crx(ix,iy,2)     != crx(ix+1,iy,1) ||
-     $           crx(ix,iy,4)   != crx(ix+1,iy,3) ||
-     $           cry(ix,iy,2)   != cry(ix+1,iy,1) ||
-     $           cry(ix,iy,4)   != cry(ix+1,iy,3)) then
-               print*, 'mismatch 4, ix,iy', ix,iy,ix+1,iy
-            stop
-         endif
-         if (iy == iycut) goto 8
-         if(crx(ix,iy,1)        != crx(ix,iy+1,3) ||
-     $        crx(ix,iy,2)    != crx(ix,iy+1,4)) then
-            print*, 'mismatch 5, ix,iy', ix,iy,ix,iy+1
-            stop
-         endif
- 8       continue
-      enddo
-      enddo
-      /* beyond iycut in x and y direction */
-      do ix =1,nxd-1
-         do iy=iycut+1,nyd
-            if(crx(ix,iy,2)    != crx(ix+1,iy,1) ||
-     $           crx(ix,iy,4)  != crx(ix+1,iy,3) ||
-     $           cry(ix,iy,2)  != cry(ix+1,iy,1) ||
-     $           cry(ix,iy,4)  != cry(ix+1,iy,3)) then
-               print*, 'mismatch 6, ix,iy', ix,iy,ix+1,iy
-               stop
-         endif
-         if (iy == nyd) goto 9
-         if(crx(ix,iy,1)       != crx(ix,iy+1,3) ||
-     $        crx(ix,iy,2)   != crx(ix,iy+1,4)) then
-            print*, 'mismatch 7, ix,iy', ix,iy,ix,iy+1
-            stop
-         endif
- 9       continue
-      enddo
-      enddo
+      call check_data(crx,cry,ixcut1,ixcut2,iycut,nxd,nyd,
+     $3,1,2,4,3,1,2,4,mx,my,null_type,ix_mirror)
+
 
 @#if 0
       do i=1,nxd
@@ -883,6 +896,173 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
          y[ix,iy-1,corner_no[3]] = ycorner_new 
       endif
  9    return
+      end
+
+@ input routine for uedge data 
+@<Functions ...@>=
+      subroutine inpt_uedge(nu,nx,ny,ixpt1,ixpt2,iysptrx,
+     $     rmu,zmu,m1x,m1y,null_type,ix_mirror)
+      implicit_none
+      integer m1x,m1y
+c      parameter (mx=120,my=50)
+      real rmu[m1x,m1y,0:4],zmu[m1x,m1y,0:4]
+      integer ix,iy,i,nu,nx,ny,ixpt1,ixpt2,iysptrx,ix_mirror,null_type
+
+
+      read(nu,*)
+      read(nu,*) nx
+      read(nu,*) ny
+      read(nu,*) ixpt1
+      read(nu,*) ixpt2
+      read(nu,*) iysptrx
+      read(nu,*)SP(((rmu(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
+      read(nu,*)SP(((zmu(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
+/* its a good idea to check that data before going further */
+
+      call check_data(rmu,zmu,ixpt1,ixpt2,iysptrx,nx,ny,1,
+     $3,4,2,1,3,4,2,m1x,m1y,null_type,ix_mirror)
+      return
+      end
+
+
+@ general routine  to check consistency of data for degas2 geometry.
+@<Functions ...@>=
+
+      subroutine check_data(x,y,ixcut1,ixcut2,iycut,nx,ny,xcorner1,
+     $xcorner2,xcorner3,xcorner4,ycorner1,ycorner2,ycorner3,ycorner4,
+     $m2x,m2y,null_type,ix_mirror)
+      implicit_none 
+      integer m2x,m2y
+      real x[m2x,m2y,0:4],y[m2x,m2y,0:4]  //input
+      integer ix,iy,nx,ny,ixcut1,ixcut2,iycut,ix_mirror,null_type
+      integer xcorner1,xcorner2,xcorner3,xcorner4, ycorner1,ycorner2
+     $     ,ycorner3,ycorner4
+      logical single_null,double_null
+
+      single_null=.false.
+      double_null=.false.
+      if (null_type ==1) then
+         single_null = .true.
+      elseif (null_type== 2) then
+         double_null = .true.
+         ix_mirror=nx/2
+      else
+         print*, 'unknown null type'
+         assert(.false.)
+      endif
+
+
+      /* -------- check continuity of points ----------- */
+      /* check end points along x and top to bottom along y */
+      do ix =1,ixcut1-1
+         do iy=1,iycut
+            if(x(ix,iy,xcorner3)       != x(ix+1,iy,xcorner2) ||
+     $           x(ix,iy,xcorner4)     != x(ix+1,iy,xcorner1) ||
+     $           y(ix,iy,ycorner3)     != y(ix+1,iy,ycorner2) ||
+     $           y(ix,iy,ycorner4)     != y(ix+1,iy,ycorner1)) then
+               print*, 'mismatch 1, ix,iy', ix,iy,ix+1,iy
+               print*, 'corners of adjacent cells along x dont match'
+               stop
+            endif
+            if (iy == iycut) goto 6
+            if(x(ix,iy,xcorner2)       != x(ix,iy+1,xcorner1) ||
+     $           x(ix,iy,xcorner3)     != x(ix,iy+1,xcorner4)) then
+            print*, 'mismatch 2, ix,iy', ix,iy,ix,iy+1
+            print*, 'corners of top of lower cell and bottom of upper
+     $           cell dont match'
+            stop
+         endif
+ 6       continue
+      enddo
+      enddo
+      /* match end points along x and top to bottom along y from
+      cut1 to cut2 */
+      /* for double nulls the mirror may come halfway in between, so dont 
+      check for continuity across it. */
+      do ix=ixcut1+1,ixcut2-1
+         if (double_null .and. ix ==ix_mirror) goto 70
+         do iy=1,iycut
+            if(x(ix,iy,xcorner3) != x(ix+1,iy,xcorner2) ||
+     $           x(ix,iy,xcorner4) != x(ix+1,iy,xcorner1) ||
+     $           y(ix,iy,ycorner3) != y(ix+1,iy,ycorner2) ||
+     $           y(ix,iy,ycorner4) != y(ix+1,iy,ycorner1)) then
+               print*, 'mismatch 3, ix,iy', ix,iy,ix+1,iy
+               print*, 'corners of adjacent cells along x dont match
+     $              between xcut1 and xcut2 '
+               stop
+            endif
+            if (iy == iycut) goto 7
+            if(x(ix,iy,xcorner2) != x(ix,iy+1,xcorner1) ||
+     $           x(ix,iy,xcorner3) != x(ix,iy+1,xcorner4)) then
+               print*, 'mismatch 4, ix,iy', ix,iy,ix,iy+1
+               print*, 'corners of top of lower cell and bottom of upper
+     $              cell dont match between xcut1 and xcut2'
+               stop
+            endif
+ 7          continue
+         enddo
+ 70      continue
+      enddo
+
+      /* match across ixcut1 and ixcut2 in the x direction  */
+      do iy=1,iycut
+         if (x(ixcut1,iy,xcorner3)   != x(ixcut2+1,iy,xcorner2) ||
+     $        x(ixcut1,iy,xcorner4)  != x(ixcut2+1,iy,xcorner1)) then
+         print*, 'mismatch 5, ixcut1,iy', ixcut1,iy
+         print*, 'cells on one side of the xcut1 and other side of
+     $        of xcut2 along x dont match'
+         stop
+      endif
+      enddo
+      /* match beyond ixcut1 along x and y */
+      do ix =ixcut2+1,nx-1
+         do iy=1,iycut
+            if(x(ix,iy,xcorner3)     != x(ix+1,iy,xcorner2) ||
+     $           x(ix,iy,xcorner4)   != x(ix+1,iy,xcorner1) ||
+     $           y(ix,iy,ycorner3)   != y(ix+1,iy,ycorner2) ||
+     $           y(ix,iy,ycorner4)   != y(ix+1,iy,ycorner1)) then
+               print*, 'mismatch 6, ix,iy', ix,iy,ix+1,iy
+               print*, 'corners of adjacent cells along x after xcut2
+     $              dont match'
+            stop
+         endif
+         if (iy == iycut) goto 8
+         if(x(ix,iy,xcorner2)        != x(ix,iy+1,xcorner1) ||
+     $        x(ix,iy,xcorner3)    != x(ix,iy+1,xcorner4)) then
+            print*, 'mismatch 7, ix,iy', ix,iy,ix,iy+1
+            print*, 'corners of top of lower cell and bottom of upper
+     $           cell after xcut2 dont match '
+            stop
+         endif
+ 8       continue
+      enddo
+      enddo
+      /* beyond iycut in x and y direction */
+      do ix =1,nx-1
+         if (double_null .and. ix ==ix_mirror) goto 90
+         do iy=iycut+1,ny
+            if(x(ix,iy,xcorner3) != x(ix+1,iy,xcorner2) ||
+     $           x(ix,iy,xcorner4) != x(ix+1,iy,xcorner1) ||
+     $           y(ix,iy,ycorner3) != y(ix+1,iy,ycorner2) ||
+     $           y(ix,iy,ycorner4) != y(ix+1,iy,ycorner1)) then
+               print*, 'mismatch 8, ix,iy', ix,iy,ix+1,iy
+               print*, 'corners of adjacent cells along x after ycut
+     $              dont match'
+               stop
+            endif
+         if (iy == ny) goto 9
+         if(x(ix,iy,xcorner2)   != x(ix,iy+1,xcorner1) ||
+     $        x(ix,iy,xcorner3) != x(ix,iy+1,xcorner4)) then
+            print*, 'mismatch 9, ix,iy', ix,iy,ix,iy+1
+            print*, 'corners of top of lower cell and bottom of upper
+     $           cell after ycut dont match '
+            stop
+         endif
+ 9       continue
+      enddo
+ 90   continue
+      enddo
+      return
       end
 
 @* INDEX.
