@@ -3,6 +3,9 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.24  1996/05/24 18:48:21  dstotler
+% Comment change; bug fix in track (for v = 0 case).
+%
 % Revision 1.23  1996/03/01 20:23:47  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -685,6 +688,9 @@ the cell.
       call surface_gradient(surface_args,x,grad)
       surface_intersection_direction=-vc_product(grad,v)/
      $     (vc_abs(v)*vc_abs(grad))
+      if (surface_intersection_direction < -one) surface_intersection_direction=-one
+      if (surface_intersection_direction > one) surface_intersection_direction=one
+      assert(abs(surface_intersection_direction) <= one)
 
       return
       end
