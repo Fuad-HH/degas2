@@ -2,6 +2,24 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.41  1999/07/19 19:29:01  karney
+% (1) Remove much dead code in random.web.
+%
+% (2) Add more timing tests in randomtest.web.
+%
+% (3) Implement |geometry_symmetry_oned| where $y$ and $z$ coordinates are
+% ignored.
+%
+% This is treated exactly like goemetry_symmetry_plane, except that there's a
+% additional transformation defined to carry a particle from zmin to zmax and
+% vice versa.
+%
+% (4) Implement partitioning of symmetry direction via additional
+% zonearray[0:ndiv-1], ndiv, and facearray[0:ndiv] arguments to
+% decompose_polygon.  zonearray[k] has additional faces facearray[k] and
+% -facearray[k-1] added.  (See boxgen.web for sample code, although the
+% zonearray feature is not properly exercised yet.)
+%
 % Revision 1.40  1999/05/25 13:10:40  dstotler
 % Somehow GEOMETRY got left as UEDGE_RECT_SLAB instead of GENERAL; fix. Moved a comment.
 %
@@ -1228,7 +1246,9 @@ skip:          continue
            max_corner[1]=xmax
            max_corner[2]=ymax
            max_corner[3]=zmax
+@#if 0
            call init_geometry
+@#endif
            call universal_cell(symmetry,min_corner,max_corner,vol)
 /* 
    (xcorner1,zcorner1) is the left bottom corner of a cell. (2,2) (3,3) and
@@ -1598,6 +1618,7 @@ skip:          continue
               j2=ny
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+              polygon_segment[n,num_polygon]=0    
 
               i=2
               do j=1,nosegsxz[i]
@@ -1725,6 +1746,7 @@ skip:          continue
               j2=ny
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
+              polygon_segment[n,num_polygon]=0   
 
               i=2
               do j=1,nosegsxz[i]
@@ -1970,6 +1992,7 @@ skip:          continue
            polygon_x[2,n,num_polygon]=zmin; n++
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
            polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+           polygon_segment[n,num_polygon]=0  
            i=1
            do j=1,nosegsxz[i]
               polygon_x[1,n,num_polygon]=xwall[j,i]
@@ -2047,10 +2070,11 @@ skip:          continue
            polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
            i=1
            do j=nosegsxz[i],1,-1
+              polygon_segment[n,num_polygon]=j   
               polygon_x[1,n,num_polygon]=xwall[j,i]
               polygon_x[2,n,num_polygon]=zwall[j,i]; n++
-              polygon_segment[n,num_polygon]=j
            end do
+           polygon_segment[n,num_polygon]=0  
            polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
            polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]               
            polygon_points[num_polygon]=n
@@ -2527,7 +2551,7 @@ follow immediately below (FWEB insisted things be arranged this way).
       var_alloc(de_zone_frags)
       
       de_grps=0
-      de_view_size=0
+      de_view_size=1
       var_alloc(de_view_tab)
 
       return
