@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.13  1995/04/11 12:02:08  dstotler
+% Completely overhaul find_threshold.
+%
 % Revision 1.12  1995/03/07 18:10:24  dstotler
 % Fix one minor bug in main code; appears to be unrelated to previous revision.
 %
@@ -179,16 +182,15 @@ on the origin of the cross section data; it is assumed to be in grams.
 @m FILE 'ratecalc.web'
 
 @I macros.hweb
-@I ratecalc.hweb
 
 @ The unnamed module
 
 @a
       program ratecalc
       implicit_none
-      integer fileid,j,k,l,m                      // Local
-      double precision zenergy,zsigma
-      real norm_constant,infinite_integral
+      integer fileid,j,k,l,m,num_fit_coef_aladdin  // Local
+      double precision zte_aladdin,zsigma
+      real norm_constant,infinite_integral,zenergy,ztemperature
       real ind_var_min[xs_table_rank_max],ind_var_delta[xs_table_rank_max],
      $   ind_var[xs_table_rank_max]
       character*msg_length error
@@ -218,7 +220,8 @@ on the origin of the cross section data; it is assumed to be in grams.
      $      ra_bool_not_label[1,j],ra_num_bool_not[j],fit_coef,
      $      num_fit_coef,leval)
 
-         if (xs_organization[j] == 'table') then   // Either {\bf table} or fit
+         if ((xs_organization[j] == 'table_eval')  // Either {\bf table} or fit
+     $      || (xs_organization[j] == 'table_calc')) then
 
 /*
    Find all |delta| values at this |j|
@@ -243,94 +246,87 @@ on the origin of the cross section data; it is assumed to be in grams.
                      ind_var[1]=ind_var_min[1]+areal(m)*ind_var_delta[1]
                      if (xs_spacing[1,j] == 'log') ind_var[1]=exp(ind_var[1])
 
-                     if (xs_var[0,j] == 'cross_section') then
-
-/* 
-   Fill in table for {\bf cross section}. Check that rank 
-   and independent variable are as expected. 
-*/
-                        assert(xs_rank[1] == 1)
-                        assert(xs_var[1,1] == 'energy') 
-                        assert(xs_units[1,1] == 'eV')
-
 /*
-   Aladdin expects all arguments in double precision.
-*/
-                        zenergy=dble(ind_var[1])  
-
-                        zsigma=zero      // ALADDIN does not always initialize 
-                        call aladdin_eval_fit(leval,zenergy,fit_coef,
-     $                     num_fit_coef,zsigma,error)
-
-/*
-   For {\bf higher moments}, the variable |moment_number| must be set. 
+   For cross sections, presumably will only be evaluating fits to fill
+   the table. Hence, |moment_number| is not needed. But,
+   for higher moments, the variable |moment_number| must be set. 
    Determine the required value from the contents of |xs_var[0,j]|.
 */
+                     if (xs_var[0,j] == 'cross_section') then
+	                assert(xs_organization[j] == 'table_eval')
+                     else if (xs_var[0,j] == 'reaction_rate') then
+                        moment_number=0
+                     else if (xs_var[0,j] == '1st_rate_moment') then
+                        moment_number=1
+                     else if (xs_var[0,j] == '2nd_rate_moment') then
+                        moment_number=2
+                     else if (xs_var[0,j] == '3rd_rate_moment') then
+                        moment_number=3
                      else
-                        if (xs_var[0,j] == 'reaction_rate') then
-                           moment_number=0
-                        else if (xs_var[0,j] == '1st_rate_moment') then
-                           moment_number=1
-                        else if (xs_var[0,j] == '2nd_rate_moment') then
-                           moment_number=2
-                        else if (xs_var[0,j] == '3rd_rate_moment') then
-                           moment_number=3
-                        else
-                           assert('Unknown moment number' == ' ')
-                        end if
+                        assert('Unknown dependent variable' == ' ')
+                     end if
       
 /*
-   Now carry out calculations for {\bf higher moments}.
-   Check ALADDIN's hierarchical labels to see if this is an {\bf electron 
-   impact process}; integrals should be a function of
-   electron temperature only (i.e., |xs_rank| = 1).
+   Now split up procedures according to rank of dependent variable. The
+   sorts of things we expect to find with |xs_rank| = 1 are: {\bf cross
+   sections} (to be evaluated) and rates for {\bf electron 
+   impact processes}. In the former case, the independent variable is
+   an energy, temperature for the latter.
 */
-                        if (ra_hier_label[2] == 'e') then
-                           assert(xs_rank[j] == 1)              
-                           assert(xs_var[1,j] == 'temperature')
-                           temperature=ind_var[1]
+                     if (xs_rank[j] == 1) then
+                        assert(xs_units[1,j] == 'eV')
 
-/*
-   Compute normalization constant for the distribution function.
-*/
+                        if (xs_organization[j] == 'table_calc') then
+                           temperature=ind_var[1]   // {\bf Calculate} integral
                            norm_constant=
      $                        infinite_integral(electron_norm_integrand)
                            num_evaluations=0
                            zsigma=infinite_integral(electron_rate_integrand)
                            zsigma=zsigma/norm_constant
 
+			else                        // {\bf Evaluate} fit
+                           zte_aladdin=dble(ind_var[1])  // It expects double
+                           zsigma=zero                   // Doesn't initialize 
+                           call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
+     $                        num_fit_coef,zsigma,error)
+                        end if
+
 /*
-   Alternatively, check to see if this is an {\bf ion impact process}; 
-   do this by examining third hierarchical label to see if it
-   indicates a positive charge. 
+   Alternatively, treat |xs_rank| = 2: expect an {\bf ion impact process}.
 */
-                        else if ((ra_hier_label[3]SP[1:2] == '[+') &&
-     $                     (ra_hier_label[3]SP[3:3] != '0')) then
-                           assert(xs_rank[j] == 2)
-                           assert(xs_units[1,j] == 'eV')
-                           assert(xs_units[2,j] == 'eV')
-                           assert(ra_mass_units == 'g')
-                           if ((xs_var[1,j] == 'energy') 
-     $                        && (xs_var[2,j] == 'temperature')) then
-                              u=sqrt(two*ind_var[1])
-                              up=sqrt(two*ind_var[2])
-                           else if ((xs_var[1,j] == 'temperature')
-     $                        && (xs_var[2,j] == 'energy')) then
-                              up=sqrt(two*ind_var[1])
-                              u=sqrt(two*ind_var[2])
-                           else
-                              assert('Unexpected values of xs_var' == ' ')
-                           end if
+                     else if (xs_rank[j] == 2) then
+                        assert(xs_units[1,j] == 'eV')
+                        assert(xs_units[2,j] == 'eV')
+                        assert(ra_mass_units == 'g')
+                        if ((xs_var[1,j] == 'energy') 
+     $                     && (xs_var[2,j] == 'temperature')) then
+                           zenergy=ind_var[1]
+                           ztemperature=ind_var[2]
+                        else if ((xs_var[1,j] == 'temperature')
+     $                     && (xs_var[2,j] == 'energy')) then
+                           ztemperature=ind_var[1]
+                           zenergy=ind_var[2]
+                        else
+                           assert('Unexpected values of xs_var' == ' ')
+                        end if
+                        if (xs_organization[j] == 'table_calc') then
               
-                           assert(up != zero)
-                           assert(u != zero) 
+                           up=sqrt(two*ztemperature)
+                           u=sqrt(two*zenergy)
                            num_evaluations=0  
                            zsigma=infinite_integral(ion_rate_integrand)
-
                         else
-                           assert('Unknown reaction process' == ' ')
+                           zte_aladdin=dble(ztemperature)
+                           num_fit_coef_aladdin=num_fit_coef+1
+                           fit_coef[num_fit_coef_aladdin]=dble(zenergy)
+                           zsigma=zero
+                           call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
+     $                        num_fit_coef_aladdin,zsigma,error)
                         end if
-                     end if        // End of ``if'' for |xs_var|
+
+                     else
+                           assert('Ranks higher than 2 not treated' == ' ')
+                     end if
 
 /*
    Pay for efficiency in dimensioning |xs_table| differently for each |j|
@@ -493,7 +489,7 @@ coefficients since the user will not know this in general.
          if ((j == 1) || (j == 2)) then
             xs_organization[j]='fit'
          else
-            xs_organization[j]='table'
+            xs_organization[j]='table_calc'
          end if
          xs_eval_name[j]='unknown'
       end do
