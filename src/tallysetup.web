@@ -1,0 +1,483 @@
+% $Id$
+\Title{tallysetup}
+
+% $Log$
+
+@* Introduction.
+
+\ID{$Id$}
+
+This code defines the tallies in a hardwired fashion as part of the initial
+implementation of the scoring. Once the scoring mechanisms in the code and
+the format of the tally file have been finalized, a more elaborate user
+interface can be developed to replace this code.
+
+@m FILE 'tallysetup.web'
+
+@I macros.hweb
+@I readfilenames.hweb
+@I sysdep.hweb
+@I string.hweb
+@I tally.hweb
+@I zone.hweb
+@I problem.hweb
+@I species.hweb
+@I reaction.hweb
+@I materials.hweb
+@I pmi.hweb
+@I netcdf.hweb
+@I pmidata.hweb
+@I element.hweb
+@I array.hweb
+@I geomint.hweb
+@I sector.hweb
+@I detector.hweb
+@I location.hweb
+
+/* 
+   These tags will make it easier to pick the estimators for
+   each reaction. Largely, these designations are the same as 
+   |rc_reaction_type|, but are defined locally so that they can be
+   arbitrarily assigned for greater flexibility. There's really
+   nothing analogous needed for non-reaction tallies.
+*/
+@m pr_rc_unknown 1
+@m pr_rc_recombination 2
+@m pr_rc_ionize_suppress 3
+@m pr_rc_dissociation 4
+@m pr_rc_test_ion 5
+@m pr_rc_max 5
+
+@ The unnamed module.
+
+@a 
+      program tallysetup
+
+      implicit_none
+
+      call readfilenames
+
+      call read_geometry
+
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+      call nc_read_materials
+      call nc_read_pmi
+      call nc_read_problem
+
+      call init_tally
+      call nc_write_tally
+      call clear_tally
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Set hardwired tally definitions.
+
+@<Functions...@>=
+      subroutine init_tally
+
+      implicit_none
+
+      integer pointer,i,test,pr_reac
+      integer indep_var[tl_rank_max],tab_index[tl_rank_max],
+     $     estimator[pr_rc_max]
+      character*1 ind_sy[3]
+      data ind_sy /'1','2','3'/
+
+      ptr_decl(pr_rc_type)
+      integer pr_rc_type[pr_reaction_num]
+
+      tl_common
+      de_common
+      zn_common
+      rc_common
+      pr_common
+      sp_common
+      sc_common
+      st_common
+      sy_common
+      rf_common
+      gi_common
+
+      var_alloc(tally_type_num)
+      var_alloc(tally_type_base)
+      int_alloc(pr_rc_type,pr_reaction_num)
+
+      do i=1,tl_type_max
+         tally_type_num[i]=0
+      end do
+      tally_size=0
+      assert(max_bins >= max(sc_diag_max_bins,de_max_bins))
+
+      tally_version=
+     $     '$Id$'
+
+/* 
+   {\bf SECTOR TALLIES}
+   \begin{itemize}
+     \item wall currents(species,segment)
+     \item wall energy currents(species,segment)
+     \item wall energy spectrum(species,segment,bin)
+     \item wall angle distribution(species,segment,bin)
+     \item exit currents(species,segment)
+   \end{itemize}
+*/
+
+      indep_var[1]=tl_index_test
+      tab_index[1]=pr_test_num
+
+      pointer=diag_lookup('Wall and Target Counts')
+      indep_var[2]=tl_index_diagnostic
+      tab_index[2]=diagnostic_num_sectors[pointer]
+
+      estimator[1]=tl_est_collision     // Not needed for sector tallies yet
+
+      call define_tally('wall & target mass current',
+     $     tl_type_sector,tl_geom_surface,pointer,'mass',2,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+      
+      call define_tally('wall & target energy current',
+     $     tl_type_sector,tl_geom_surface,pointer,'energy',2,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+
+      pointer=diag_lookup('Wall and Target Energy Spectrum')
+      tab_index[2]=diagnostic_num_sectors[pointer]
+      indep_var[3]=tl_index_energy_bin
+      tab_index[3]=diagnostic_tab_index[pointer]
+
+      call define_tally('wall & target mass: energy spectrum',
+     $     tl_type_sector,tl_geom_surface,pointer,'mass',3,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+
+      pointer=diag_lookup('Wall and Target Angle Spectrum')
+      tab_index[2]=diagnostic_num_sectors[pointer]
+      indep_var[3]=tl_index_angle_bin
+      tab_index[3]=diagnostic_tab_index[pointer]
+
+      call define_tally('wall & target mass: angle spectrum',
+     $     tl_type_sector,tl_geom_surface,pointer,'mass',3,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+
+      pointer=diag_lookup('Exit Counts')
+      if (pointer > 0) then
+         tab_index[2]=diagnostic_num_sectors[pointer]
+         call define_tally('exit mass current',
+     $        tl_type_sector,tl_geom_surface,pointer,'mass',2,indep_var,
+     $        tab_index,estimator,pr_rc_type)
+      end if
+
+/*
+   {\bf TEST TALLIES}
+   \begin{itemize}
+     \item neutral density(zone,species)
+     \item neutral velocity_x(zone,species)
+     \item neutral energy(zone,species)
+   \end{itemize}
+*/
+      pointer=0
+      indep_var[1]=tl_index_zone
+      tab_index[1]=zn_num
+      
+      indep_var[2]=tl_index_test
+      tab_index[2]=pr_test_num
+      
+      estimator[1]=tl_est_track   // Only one type; don't need |pr_rc_type|
+ //     estimator[1]=tl_est_collision
+
+      call define_tally('neutral density',
+     $     tl_type_test,tl_geom_volume,pointer,'mass',2,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+      
+      do i=1,3
+         call define_tally('neutral velocity '\/ind_sy[i],
+     $        tl_type_test,tl_geom_volume,pointer,'momentum '\/ind_sy[i],2,
+     $        indep_var,tab_index,estimator,pr_rc_type)
+      end do
+
+      call define_tally('neutral energy',
+     $     tl_type_test,tl_geom_volume,pointer,'energy',2,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+
+/*
+   {\bf REACTION TALLIES}
+   \begin{itemize}
+     \item ion source(zone,species)
+     \item ion momentum source_x(zone,species)
+     \item ion energy source(zone,species)
+     \item h_alpha emission rate(zone)      (h = H, D, T)
+     \item h_alpha chord integrals(view)
+     \item h_alpha spectrum(view,bin)
+   \end{itemize}
+*/
+
+      do pr_reac=1,pr_reaction_num
+         if (rc_reaction_type(pr_reaction(pr_reac))SP(1:6) 
+     $        == 'dissoc') then
+            pr_rc_type[pr_reac]=pr_rc_dissociation
+         else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $           == 'ionize_suppress') then
+            pr_rc_type[pr_reac]=pr_rc_ionize_suppress
+         else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $           == 'recombination') then
+            pr_rc_type[pr_reac]=pr_rc_recombination
+         else
+            pr_rc_type[pr_reac]=pr_rc_unknown
+         end if
+      end do
+/*
+   This will overwrite some of the above (e.g., dissociation).
+*/
+      do test=1,pr_test_num
+         if (sp_z(pr_test(test)) != 0) then // Same check as in |particle.hweb|
+            do i=1,pr_rc_num(test)
+               pr_rc_type[pr_ts_rc(test,i)]=pr_rc_test_ion 
+            end do
+         end if
+      end do
+
+      pointer=0
+      indep_var[1]=tl_index_zone
+      tab_index[1]=zn_num
+
+      indep_var[2]=tl_index_back
+      tab_index[2]=pr_background_num
+
+ //     estimator[pr_rc_unknown]=tl_est_track
+      estimator[pr_rc_unknown]=tl_est_collision
+      estimator[pr_rc_recombination]=tl_est_post_process
+//      estimator[pr_rc_recombination]=tl_est_collision
+      estimator[pr_rc_ionize_suppress]=tl_est_post_process
+      estimator[pr_rc_dissociation]=tl_est_track
+ //     estimator[pr_rc_dissociation]=tl_est_collision
+      estimator[pr_rc_test_ion]=tl_est_collision
+
+      call define_tally('ion source rate',
+     $     tl_type_reaction,tl_geom_volume,pointer,'back mass',2,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+
+
+      estimator[pr_rc_dissociation]=tl_est_collision
+ //     estimator[pr_rc_dissociation]=tl_est_track
+
+      do i=1,3
+         call define_tally('ion '\/ind_sy[i]\/' momentum source',
+     $        tl_type_reaction,tl_geom_volume,pointer,
+     $        'back '\/ind_sy[i]\/' momentum',2,indep_var,tab_index,estimator,pr_rc_type)
+      end do
+
+      estimator[pr_rc_ionize_suppress]=tl_est_track
+
+      call define_tally('ion energy source',
+     $     tl_type_reaction,tl_geom_volume,pointer,'back energy',2,indep_var,
+     $     tab_index,estimator,pr_rc_type)
+
+      do test=1,pr_test_num
+         if ((sp_sy(pr_test(test)) == 'H')
+     $        || (sp_sy(pr_test(test)) == 'D')
+     $        || (sp_sy(pr_test(test)) == 'T')) then
+
+            pointer=0
+            indep_var[1]=tl_index_zone
+            tab_index[1]=zn_num
+
+            estimator[pr_rc_ionize_suppress]=tl_est_post_process
+            
+            call define_tally(trim(sp_sy(pr_test(test)))\/'alpha emission rate',
+     $           tl_type_reaction,tl_geom_volume,pointer,
+     $           'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
+     $           1,indep_var,tab_index,estimator,pr_rc_type)
+
+            pointer=de_lookup('Chord integrals')
+            if (pointer > 0) then                  // No default setup for this
+               indep_var[1]=tl_index_detector
+               tab_index[1]=detector_num_views[pointer]
+               call define_tally(trim(sp_sy(pr_test(test)))\/'alpha chord integrals',
+     $              tl_type_reaction,tl_geom_detector,pointer,
+     $              'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
+     $              1,indep_var,tab_index,estimator,pr_rc_type) 
+            end if
+            
+
+            pointer=de_lookup('Halpha spectrum')
+            if (pointer > 0) then
+               tab_index[1]=detector_num_views[pointer]
+               indep_var[2]=tl_index_wavelength_bin
+               tab_index[2]=detector_tab_index[pointer]
+            
+               estimator[pr_rc_ionize_suppress]=tl_est_track
+               
+               call define_tally(trim(sp_sy(pr_test(test)))\/'alpha spectrum',
+     $              tl_type_reaction,tl_geom_detector,pointer,
+     $              'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
+     $              2,indep_var,tab_index,estimator,pr_rc_type)     
+            end if
+
+         end if
+      end do
+
+      int_free(pr_rc_type,pr_reaction_num)
+
+      return
+      end
+
+@ Carry out individual variable assignments for tally definition.
+
+@<Functions...@>=
+      subroutine define_tally(name,type,geometry,pointer,dep_var,rank,
+     $   indep_var,tab_index,estimator,arg_type)
+
+      implicit_none
+
+      integer type,geometry,pointer,rank,indep_var            // Input
+      integer indep_var[tl_rank_max],tab_index[tl_rank_max],
+     $     estimator[pr_rc_max],arg_type[*]
+      character*(*) name,dep_var
+
+      integer i,est,pr_reac                                   // Local
+
+      tl_common                                               // Common
+      sy_common
+      pr_common
+
+      tl_num++
+
+      var_realloca(tally_name)
+      var_realloca(tally_type)
+      var_realloca(tally_geometry)
+      var_realloca(tally_geometry_ptr)
+      var_realloca(tally_rank)
+      var_realloca(tally_indep_var)
+      var_realloca(tally_dep_var)
+      var_realloca(tally_base)
+      var_realloca(tally_tab_index)
+      var_realloca(tally_est_test)
+      var_realloca(tally_est_reaction)
+
+      if (tally_type_num[type] == 0) then
+         tally_type_base[type]=tl_num
+      else
+/*
+   Check that tallies of each type are all grouped together
+*/
+         assert(tally_type[tl_num-1] == type)  
+      end if
+
+      tally_name[tl_num]=name
+      tally_type[tl_num]=type
+      tally_type_num[type]++
+      tally_geometry[tl_num]=geometry
+      tally_geometry_ptr[tl_num]=pointer
+      tally_dep_var[tl_num]=dep_var
+      tally_rank[tl_num]=rank
+      do i=1,rank
+         tally_indep_var[tl_num][i]=indep_var[i]
+         tally_tab_index[tl_num][i]=tab_index[i]
+      end do
+      if (rank < tl_rank_max) then
+         do i=rank+1,tl_rank_max
+            tally_indep_var[tl_num][i]=tl_index_unknown
+            tally_tab_index[tl_num][i]=1
+         end do
+      end if
+
+      tl_set_base_size(tally,tally_tab_index,[tl_num])
+
+      if (tally_type[tl_num] == tl_type_reaction) then
+         do est=1,tl_est_max
+            do pr_reac=1,pr_reaction_num
+               tally_est_reaction[tl_num][est][pr_reac]=zero   // Default
+            end do
+         end do
+         do pr_reac=1,pr_reaction_num
+            tally_est_reaction[tl_num][estimator[arg_type[pr_reac]]][pr_reac]=one
+         end do
+
+      else if (tally_type[tl_num] == tl_type_test) then
+         do est=1,tl_est_max
+            tally_est_test[tl_num][est]=zero    // Default
+         end do
+/* 
+   There's only one ``type'' of test particle in this context:
+*/
+         tally_est_test[tl_num][estimator[1]]=one
+      end if
+
+      return
+      end
+      
+@ Write out data into netcdf file \verb+tally.nc+ Note: might eventually
+merge these data into the problemfile, written by |nc_write_problem|.
+
+@<Functions...@>=
+      subroutine nc_write_tally
+      implicit_none
+      tl_common                  // Common
+      nc_common
+      st_common
+      rf_common
+      pr_common
+      integer fileid             // Local
+      tl_ncdecl
+      character*LINELEN description,program_version
+      character*FILELEN tempfile
+
+      program_version=
+     $     '$Id$'
+
+      tempfile=filenames_array[tallyfile]
+      fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
+
+      description = 'Tally description for problem in degas 2'
+
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
+     $     string_length(program_version),
+     $     program_version,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'tally_version',NC_CHAR,
+     $     string_length(tally_version),
+     $     tally_version,nc_stat)
+
+      tl_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      tl_ncwrite(fileid)
+
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Clear tally arrays.
+
+@<Functions...@>=
+      subroutine clear_tally
+      implicit_none
+
+      tl_common
+      sy_common
+      pr_common
+
+      var_free(tally_type_num)
+      var_free(tally_type_base)
+      var_free(tally_name)
+      var_free(tally_type)
+      var_free(tally_geometry)
+      var_free(tally_geometry_ptr)
+      var_free(tally_rank)
+      var_free(tally_indep_var)
+      var_free(tally_dep_var)
+      var_free(tally_base)
+      var_free(tally_tab_index)
+      var_free(tally_est_test)
+      var_free(tally_est_reaction)
+
+      return
+      end
+
