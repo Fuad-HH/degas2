@@ -2,6 +2,13 @@
 \Title{reactionwrite}
 
 % $Log$
+% Revision 1.14  1997/09/02 21:14:41  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.13  1997/08/19 14:37:00  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -83,9 +90,9 @@ format with a complete specification of the reaction.
       implicit_none_f77
       implicit_none_f90
       call reaction_write('hionize','ehr2.dat',
-     &     'V. 2.2, e ionization of H, CR data from ehr2.dat')
+     &     'V. 2.4, e ionization of H, CR data from ehr2.dat')
       call reaction_write('hrecombine','ehr2.dat',
-     &     'V. 2.2, e recombination of H+, CR data from ehr2.dat')
+     &     'V. 2.4, e recombination of H+, CR data from ehr2.dat')
       stop
       end
 
@@ -101,7 +108,7 @@ format with a complete specification of the reaction.
 
       character*(*) name,filein,version                 // Input
 
-      integer i,j,fileid                                // Local
+      integer i,j,k,l,fileid                            // Local
       real delta,density,eionize,a32,e32
       character*FILELEN fileout
       character*LINELEN tag,description
@@ -316,6 +323,16 @@ format with a complete specification of the reaction.
       xs_data_table(1,0,0,xs_num_dep_var)=const(6.56045,3)
       xs_data_table(2,0,0,xs_num_dep_var)=const(6.56045,3)
       xs_data_table(3,0,0,xs_num_dep_var)=zero
+
+      do i=xs_num_dep_var+1,xs_dep_var_max
+         do j=0,xs_tab_index[3,j]-1
+            do k=0,xs_tab_index[2,j]-1
+               do l=0,xs_tab_index[3,j]-1
+                  xs_data_table(l,k,j,i)=real_unused
+               end do
+            end do
+         end do
+      end do
 
       fileout=trim(name)\/'.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
