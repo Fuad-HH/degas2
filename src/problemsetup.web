@@ -2,6 +2,9 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.16  1996/05/24 18:55:41  dstotler
+% Add routines to set products for PMI; do problemsetup for PMI.
+%
 % Revision 1.15  1996/03/01 20:32:36  dstotler
 % Add problem-level PMI and material variables; incorporate pmidata into
 % problem data file.
@@ -462,13 +465,13 @@ also allowing for the isotopically equivalent combinations.
 @<Functions...@>=
       subroutine check_problem
       implicit_none
-      integer i,j,k,l,ts_reagent                     // Local
+      integer i,j,k,l,m,ts_reagent                   // Local
 
       pr_test_decl(test)
       pr_background_decl(background)
       pr_generic_decl(generic)
-      pr_generic_decl(generic_ts)
-      pr_generic_decl(generic_bk)
+      pr_generic_decl(generic_reagents[pr_bkrc_reagent_max])
+      pr_background_decl(back[pr_bkrc_reagent_max])
 
       sp_decl(reagents[rc_reagent_max])
 
@@ -576,6 +579,7 @@ also allowing for the isotopically equivalent combinations.
       do i=1,pr_test_num
          pr_rc_num(i)=0
       end do
+      pr_bkrc_dim=0
 
       do j=1,pr_reaction_num
 
@@ -583,49 +587,112 @@ also allowing for the isotopically equivalent combinations.
    specification. Despite a general appearance, this still assumes 
    binary collisions. */
          generic=0
-         generic_ts=0
-         generic_bk=0
+         ts_reagent=0
+         do i=1,pr_bkrc_reagent_max
+            generic_reagents[i]=0
+         end do
          do i=1,rc_reagent_num(pr_reaction(j))
             generic=generics[rc_reagent(pr_reaction(j),i)]
 
             if (problem_species_test(equivalents[generic,1]) == 0) then      
 
 /* If not a test, then it must be a background */
-               assert(problem_species_background(equivalents[generic,1])!=0 && generic_bk==0)
-               generic_bk=generic
+               assert(problem_species_background(equivalents[generic,1])!=0)
+               generic_reagents[i]=generic
 
 /* Check for the converse, as well. Use |ts_reagent| to record which
 is which for later use. */
             else if (problem_species_background(equivalents[generic,1]) == 0) then
-               assert(problem_species_test(equivalents[generic,1])!=0 && generic_ts==0)
+               assert (problem_species_test(equivalents[generic,1])!=0 && ts_reagent==0) 
                ts_reagent=i
-               generic_ts=generic
+               generic_reagents[i]=generic
             end if
          end do
 
-/* Done setting |generic_ts| and |generic_bk|; use to assign remaining |pr| arrays */
-         do k=1,num_equiv[generic_ts]
-            test=problem_species_test(equivalents[generic_ts,k])
-            do l=1,num_equiv[generic_bk]
-               background=problem_species_background(equivalents[generic_bk,l])
-               assert( pr_test_check(test) && pr_background_check(background) )
-               pr_rc_num(test)=pr_rc_num(test)+1
-               assert(pr_rc_num(test) <= pr_reaction_max)
-               pr_ts_rc(test,pr_rc_num(test))=j
-               pr_ts_bk(test,pr_rc_num(test))=background
-               if (ts_reagent==1) then
-                  reagents[1]=pr_test(test)
-                  reagents[2]=pr_background(background)
-               else if (ts_reagent==2) then
-                  reagents[1]=pr_background(background)
-                  reagents[2]=pr_test(test)
-               else
-                  assert('Illegal value of ts_reagent' == ' ')
-               end if
-               call set_products(pr_test_args(test),sp_args(reagents),rc_args(pr_reaction(j)))
+/* Done setting |generic_reagents|; use to assign remaining |pr| arrays */
+         if (ts_reagent > 0) then
+            do k=1,num_equiv[generic_reagents[ts_reagent]]
+               test=problem_species_test(equivalents[generic_reagents[ts_reagent],k])
+               do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1]]
+                  background=problem_species_background(
+     $                 equivalents[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1],l])
+                  assert( pr_test_check(test) && pr_background_check(background) )
+                  pr_rc_num(test)=pr_rc_num(test)+1
+                  assert(pr_rc_num(test) <= pr_reaction_max)
+                  pr_ts_rc(test,pr_rc_num(test))=j
+                  pr_ts_bk(test,pr_rc_num(test))=background
+                  if (ts_reagent==1) then
+                     reagents[1]=pr_test(test)
+                     reagents[2]=pr_background(background)
+                  else if (ts_reagent==2) then
+                     reagents[1]=pr_background(background)
+                     reagents[2]=pr_test(test)
+                  else
+                     assert('Illegal value of ts_reagent' == ' ')
+                  end if
+                  call set_products(pr_test_args(test),sp_args(reagents),rc_args(pr_reaction(j)))
+               end do
             end do
-         end do
+         else
+/* Reactions among background species...
+   We have not established a protocol yet for dealing with reactions involving
+   two background species. The typical reactions involve a test species (given
+   velocity and position) and a background species (described only by a 
+   temperature, density, and flow velocity). If we're going to treat reactions
+   between two background species in the same way, we'll need to specify which
+   behaves more like a test particle. Rather than rely on a convention for the
+   ordering of the reagents on input, make this decision here based on mass.
+   The obvious motivation is that one of the reagents is inevitably an electron
+   in which case i) its temperature determines the reaction rate, and ii) we
+   will not likely be interested in it as a test particle. Whereas, the other
+   reagent (e.g., an ion about to be recombined) will be sampled in preparation
+   for determining the velocity of the sourced test species.
+ */
+            do k=1,num_equiv[generic_reagents[1]]
+               back[1]=problem_species_background(equivalents[generic_reagents[1],k])
+               assert(pr_background_check(back[1]))
+               do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max]]
+                  back[pr_bkrc_reagent_max]=problem_species_background(
+     $                 equivalents[generic_reagents[pr_bkrc_reagent_max],l])
+                  assert(pr_background_check(back[pr_bkrc_reagent_max]))
+                  pr_bkrc_dim++  
+                  var_realloca(problem_background_reaction)
+                  var_realloca(problem_bkrc_reagents)
+                  var_realloca(problem_bkrc_products)
+                  pr_bk_rc(pr_bkrc_dim)=j
+                  do m=1,pr_bkrc_reagent_max
+                     if (sp_m(pr_background(back[pr_bkrc_reagent_max])) 
+     $                    < sp_m(pr_background(back[1]))) then
+                        pr_bkrc_rg(pr_bkrc_dim,m)=back[pr_bkrc_reagent_max-m+1]
+                     else
+                        pr_bkrc_rg(pr_bkrc_dim,m)=back[m]
+                     end if
+                     reagents[m]=pr_background(back[m])
+                  end do
+                  call set_bkrc_products(pr_bkrc_dim,sp_args(reagents))
+               end do
+            end do
+         end if
       end do
+/* Have to introduce |pr_bkrc_dim| because netCDF allocates space for these
+   arrays even if |pr_bkrc_num|=0. The problem arises when the netCDF file
+   containing these variables is read back in. The size is reported to be
+   non-zero, but the dimensioning variables says it should be zero. The
+   awkward solution is to use |pr_bkrc_dim| as the dimension of these
+   arrays and |pr_bkrc_num| as the actual number of reactions. The former
+   is set to 1 if there are no background reactions.
+ */
+      pr_bkrc_num=pr_bkrc_dim
+      if (pr_bkrc_dim == 0) then
+         pr_bkrc_dim=1
+         var_alloc(problem_background_reaction)
+         var_alloc(problem_bkrc_reagents)
+         var_alloc(problem_bkrc_products)
+      else
+         var_reallocb(problem_background_reaction)
+         var_reallocb(problem_bkrc_reagents)
+         var_reallocb(problem_bkrc_products)
+      end if
 
       do i=1,pr_test_num
          pr_pm_case_num(i)=0
@@ -657,9 +724,9 @@ is which for later use. */
    no generic materials, (2) the ordering of test and materials is hardwired.
 */
          else if (pm_gen(pr_pm_ref(j)) == pmi_generic_yes) then
-            generic_ts=generics[pm_reagent(pr_pm_ref(j))]
-            do k=1,num_equiv[generic_ts]
-               test=problem_species_test(equivalents[generic_ts,k])
+            generic_reagents[1]=generics[pm_reagent(pr_pm_ref(j))]
+            do k=1,num_equiv[generic_reagents[1]]
+               test=problem_species_test(equivalents[generic_reagents[1],k])
                assert(pr_test_check(test))
                pr_pm_case_num(test)++
                pr_pm_cases(test,pr_pm_case_num(test))=j
@@ -700,6 +767,13 @@ routine specific for each reaction.
          call set_prod_dissoc(pr_test_args(ts),sp_args(reagents),rc_args(r))
       else if (rc_reaction_type(r)=='dissoc_rec') then
          call set_prod_dissoc_rec(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='dissoc_cramd') then
+         call set_prod_dissoc(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='elastic') then
+         call set_prod_elastic(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else
+         pr_num_arrangements(ts,pr_rc_num(ts))=0
+         return
       end if
 
 /* Rescale multiplicity so that it becomes a probability */
@@ -834,6 +908,48 @@ electron. */
       return
       end
 
+@ Set up isotopic variants of elastic collisions. By convention, an elastic 
+reaction specification takes the form:t
+\begin{equation}
+{\rm A}^{+} + {\rm B} \rightarrow {\rm A}^{+} + {\rm B}.
+\end{equation}
+the superscript ``+''s are used only to indicate a charge state;
+the actual charge states of A and B are intended to be arbitrary.
+Currently the only reaction allowed is that given below.
+\begin{equation}
+{\rm H}^{+} + {\rm H2} \rightarrow {\rm H}^{+} + {\rm H2}.
+\end{equation}
+
+
+@<Functions...@>=
+
+      subroutine set_prod_elastic(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
+      implicit_none
+
+      pr_test_decl(ts)
+      rc_decl(r)
+      sp_decl(reagents[1])
+
+      external species_add_check         // External
+      logical species_add_check
+
+      rc_common
+      pr_common
+      sp_common
+      st_common
+
+      assert(rc_product_num(r)==2)
+      pr_num_arrangements(ts,pr_rc_num(ts))=1
+      pr_prod_mult(ts,pr_rc_num(ts),1)=one
+
+      assert(sp_generic(rc_product(r,1))==sp_generic(reagents[1]))
+      pr_ts_prod(ts,pr_rc_num(ts),1,1)=rc_product(r,1)
+      assert(sp_generic(rc_product(r,2))==sp_generic(reagents[2]))
+      pr_ts_prod(ts,pr_rc_num(ts),1,2)=rc_product(r,2)
+
+      return
+      end
+
 @ Set up isotopic variants of dissociation. This reactions is assumed to
 have the form:
 \begin{equation}
@@ -904,6 +1020,80 @@ by the recombination of A and B.
       return
       end 
       
+@ This is a clearing-house routine used to select the product-setting
+routine specific for each reaction among background species. Presently,
+the only application for this is recombination.
+
+@<Functions...@>=
+      subroutine set_bkrc_products(bkrc_ind,sp_dummy(reagents))
+      implicit_none
+
+      integer bkrc_ind            // Input
+      sp_decl(reagents[1])
+      
+      pr_common
+      rc_common
+
+      if (rc_reaction_type(pr_reaction(pr_bk_rc(bkrc_ind)))=='recombination') then
+         call set_prod_recombine(bkrc_ind,sp_args(reagents))
+      else
+         assert('Unsupported reaction type' == ' ')
+         return
+      end if
+
+      return
+      end
+
+@ Set up isotopic variants of recombinations. By convention, a recombination
+reaction specification takes the form:
+\begin{equation}
+{\rm A}^{-} + {\rm B}^{+} \rightarrow {\rm AB};
+\end{equation}
+note that B could be charged to start with.
+
+@<Functions...@>=
+      subroutine set_prod_recombine(bkrc_ind,sp_dummy(reagents))
+      implicit_none
+
+      integer bkrc_ind
+      sp_decl(reagents[1])
+
+      external species_add_check      // External
+      logical species_add_check
+
+      integer i                       // Local
+      rc_decl(r)
+
+      sp_decl(product[2])
+
+      rc_common
+      pr_common
+      pr_common_l
+      sp_common
+      st_common
+
+      r=pr_reaction(pr_bk_rc(bkrc_ind))
+      assert(rc_product_num(r)==1)
+
+/* Assuming that only one product is listed for recombination. If there are
+more products, not only does this routine have to be augmented, but will 
+probably need to add common arrays to deal with product permutations.
+By looping over the generic
+equivalents to |rc_product|, we ensure that any details
+(e.g., quantum state) not checked by |species_add_check| are 
+correctly carried through. */
+      do i=1,num_equiv[generics[rc_product(r,1)]]
+         product[1]=equivalents[generics[rc_product(r,1)],i]
+         if (species_add_check(1,sp_args(product),2,sp_args(reagents))) then
+            pr_bkrc_prod(bkrc_ind,1)=product[1]
+            return
+         end if
+      end do
+      assert('Unmatched recombination product' == ' ') 
+
+      return
+      end
+
 @ This is a clearing-house routine used to select the product-setting routine
 specific for each PMI.
 
@@ -1189,151 +1379,6 @@ reagents. */
          end do
       end do
       assert(pr_num_arrangements(ts,pr_rc_num(ts)) > 0)
-      return
-      end
-
-@ Write out data into netcdf file \verb+elements.nc+
-      
-@<Functions...@>=
-      subroutine nc_write_problem
-      implicit_none
-      pr_common                 // Common
-      rd_common
-      pd_common
-      sp_common
-      ma_common
-      pm_common
-      nc_common                 // Local
-      integer fileid
-      pr_ncdecl
-      rd_ncdecl
-      pd_ncdecl
-      st_common
-      rf_common
-      character*LINELEN description,program_version
-      character*FILELEN tempfile     //local
-
-      program_version=
-     $     '$Id$'
-
-      tempfile = filenames_array[problemfile]
-      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
-
-      description = 'Data for problem in degas 2'
-      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
-     $     string_length(description),
-     $     description,nc_stat)
-
-      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
-     $     string_length(problem_version),
-     $     problem_version,nc_stat)
-      
-      call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
-     $     string_length(program_version),
-     $     program_version,nc_stat)
-      
-      pr_ncdef(fileid)
-      rd_ncdef(fileid)
-      pd_ncdef(fileid)
-      call ncendef(fileid,nc_stat)
-      pr_ncwrite(fileid)
-      rd_ncwrite(fileid)
-      pd_ncwrite(fileid)
-      
-      call ncclose(fileid,nc_stat)
-      
-      return
-      end
-
-@ Count the number of occurrences of a given element in a species. This
-short function loops through the components of the input species |sp|,
-identifies the one matching element |el| and returns the count of that
-element. If the element is not present, zero is returned.
-
-@<Functions...@>=
-      function species_el_count(sp_dummy(sp),el_dummy(el))
-      implicit_none
-      integer species_el_count            // Function
-      sp_decl(sp)                         // Input
-      el_decl(el)
-      integer i,j                         // Local
-
-      sp_common
-
-      j=0
-      do i=1,sp_ncomp(sp)
-         if (sp_el(sp,i)==el) then
-            j=i
-            go to break
-         end if
-      end do
-      species_el_count=0
-      return
-
-break: continue
-      species_el_count=sp_count(sp,j)
-      
-      return
-      end
-
-@ Compare the sum of two species lists. The number of species in the lists
-|list1| and |list2| are |n1| and |n2|. One subtle reason
-for carrying out this task as a check against a specific list rather than 
-using the summed properties of |list1| to choose a resulting species
-from the full list of species is that such a choice may not be unique
-due to the presence of other properties not checked here (e.g., quantum
-states). 
-
-@<Functions...@>=
-      function species_add_check(n1,sp_dummy(list1),n2,sp_dummy(list2))
-      implicit_none
-      logical species_add_check           // Function
-      integer n1,n2                       // Input
-      sp_decl(list1[n1])
-      sp_decl(list2[n2])
-      integer z_sum1,z_sum2,i,ic,count_sum1,count_sum2  // Local
-      real m_sum1,m_sum2
-      external species_el_count           // External
-      integer species_el_count
-
-      sp_common
-      el_common
-
-      species_add_check=.false.
-/* First compare total charge and mass of the two lists */
-      z_sum1=0
-      m_sum1=zero
-      do i=1,n1
-         z_sum1=z_sum1+sp_z(list1[i])
-         m_sum1=m_sum1+sp_m(list1[i])
-      end do
-      z_sum2=0
-      m_sum2=zero
-      do i=1,n2
-         z_sum2=z_sum2+sp_z(list2[i])
-         m_sum2=m_sum2+sp_m(list2[i])
-      end do
-
-      if (z_sum1 != z_sum2) return
-      if (abs(m_sum1-m_sum2) > epsilon*max(m_sum1,m_sum2)) return
-
-/* Next, loop over the full list of elements, counting the total number 
-appearing in each list and comparing the two. */
-      do ic=1,el_num
-         count_sum1=0
-         count_sum2=0
-         do i=1,n1
-            count_sum1=count_sum1+species_el_count(list1[i],el_args(ic))
-         end do
-         do i=1,n2
-            count_sum2=count_sum2+species_el_count(list2[i],el_args(ic))
-         end do
-         if (count_sum1 != count_sum2) return
-      end do
-
-/* Passed all tests; call it a match. */
-      species_add_check=.true.
-
       return
       end
 
