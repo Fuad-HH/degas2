@@ -2,6 +2,11 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.2  1997/08/19 14:37:09  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.1  1997/08/07 20:33:41  dstotler
 % This initial set of tallies is a good start. It currently works with
 % both boxgen and readgeometry.
@@ -52,6 +57,53 @@ interface can be developed to replace this code.
 @m pr_rc_test_ion 5
 @m pr_rc_max 5
 
+@ To simplify the specification of the conversions to be used to change
+  tallies from their internal values to the external quantities of interest
+  to the user, we've defined several ``conversion packages'' which automate
+  the specification of the actual tally class variables. Here's a brief 
+  description of each along with the required macro values: 
+
+@m cv_package_unknown 0       // Use to specify a null conversion
+
+@m cv_out_scale_test_mass 1   // On output, scale tally by mass of test species
+
+@m cv_out_scale_back_mass 2   // Same, but scale by mass of background species
+
+@m cv_out_scale_volume 3      // On output, scale tally by the zone volume
+
+@m cv_out_Pa_to_mTorr 4       // On output, convert Pa to mTorr (for pressure)
+
+@m cv_out_three_halves 5        // Again, for the pressure calculation
+
+@m cv_track_v_to_external 6   // Convert velocities from internal to external
+                              // coordinates; must be done during tracking.
+
+@  The last three are needed largely just to help define the particle number 
+   and velocity used during the computation of post-processing tallies.
+
+@m cv_post_scale_test_mass 7  // During post-processing, scale by the test mass
+
+@m cv_post_divide_number 8    // During post-processing, divide tally by the
+                              // number of test particles.
+
+@m cv_post_v_to_internal 9    // During post-processing, convert velocity 
+                              // from external back to internal coordinates.
+
+@m cv_max_package 9
+
+@ Second index of the |conversion_packages| array. These correspond in the
+  obvious way to the tally class conversion variables.
+
+@m cv_action 1
+@m cv_type 2
+@m cv_scaler_1 3
+@m cv_scaler_2 4
+@m cv_scaler_3 5
+@m cv_partner_1 6
+@m cv_partner_2 7
+
+@m cv_max_parameter 7
+
 @ The unnamed module.
 
 @a 
@@ -98,9 +150,10 @@ interface can be developed to replace this code.
       gi_common
       implicit_none_f90
 
-      integer pointer,i,test,pr_reac
+      integer pointer,i,icv,test,pr_reac,num_conversions
       integer indep_var[tl_rank_max],tab_index[tl_rank_max],
-     $     estimator[pr_rc_max]
+     $     conversions[tl_cv_max_conversions],estimator[pr_rc_max],
+     $     conversion_packages[cv_max_package][cv_max_parameter]
       character*1 ind_sy[3]
       data ind_sy /'1','2','3'/
 
@@ -115,11 +168,22 @@ c      integer pr_rc_type[pr_reaction_num]
       var_alloc(tally_type_base)
       var_alloc(pr_rc_type)
 
+      tl_num=0
       do i=1,tl_type_max
          tally_type_num[i]=0
       end do
       tally_size=0
       assert(max_bins >= max(sc_diag_max_bins,de_max_bins))
+
+      do pr_reac=1,pr_reaction_num
+         pr_rc_type[pr_reac]=pr_rc_unknown
+      end do
+
+      nconversions=0
+      do icv=1,tl_cv_max_conversions
+         conversions[icv]=cv_package_unknown
+      end do
+      call set_conversion_packages(conversion_packages)
 
       tally_version=
      $     '$Id$'
@@ -127,7 +191,7 @@ c      integer pr_rc_type[pr_reaction_num]
 /* 
    {\bf SECTOR TALLIES}
    \begin{itemize}
-     \item wall currents(species,segment)
+     \item wall fluxes(species,segment)
      \item wall energy currents(species,segment)
      \item wall energy spectrum(species,segment,bin)
      \item wall angle distribution(species,segment,bin)
@@ -142,48 +206,69 @@ c      integer pr_rc_type[pr_reaction_num]
       indep_var[2]=tl_index_diagnostic
       tab_index[2]=diagnostic_num_sectors[pointer]
 
+/*
+   Note: have envisioned scaling most or all of these sector tallies by
+   the sector area. Have temporarily postponed until we get around to
+   computing this area.
+*/
+
+      num_conversions=1
+      conversions[1]=cv_out_scale_test_mass
+
       estimator[1]=tl_est_collision     // Not needed for sector tallies yet
 
-      call define_tally('wall & target mass current',
+      call define_tally('wall & target current',
      $     tl_type_sector,tl_geom_surface,pointer,'mass',2,indep_var,
-     $     tab_index,estimator,pr_rc_type)
-      
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
+
+      num_conversions=0
+
       call define_tally('wall & target energy current',
      $     tl_type_sector,tl_geom_surface,pointer,'energy',2,indep_var,
-     $     tab_index,estimator,pr_rc_type)
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
 
       pointer=diag_lookup('Wall and Target Energy Spectrum')
       tab_index[2]=diagnostic_num_sectors[pointer]
       indep_var[3]=tl_index_energy_bin
       tab_index[3]=diagnostic_tab_index[pointer]
 
-      call define_tally('wall & target mass: energy spectrum',
+      num_conversions=1
+      conversions[1]=cv_out_scale_test_mass
+
+      call define_tally('wall & target current: energy spectrum',
      $     tl_type_sector,tl_geom_surface,pointer,'mass',3,indep_var,
-     $     tab_index,estimator,pr_rc_type)
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
 
       pointer=diag_lookup('Wall and Target Angle Spectrum')
       tab_index[2]=diagnostic_num_sectors[pointer]
       indep_var[3]=tl_index_angle_bin
       tab_index[3]=diagnostic_tab_index[pointer]
 
-      call define_tally('wall & target mass: angle spectrum',
+      call define_tally('wall & target current: angle spectrum',
      $     tl_type_sector,tl_geom_surface,pointer,'mass',3,indep_var,
-     $     tab_index,estimator,pr_rc_type)
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
 
       pointer=diag_lookup('Exit Counts')
       if (pointer > 0) then
          tab_index[2]=diagnostic_num_sectors[pointer]
-         call define_tally('exit mass current',
+         call define_tally('exit current',
      $        tl_type_sector,tl_geom_surface,pointer,'mass',2,indep_var,
-     $        tab_index,estimator,pr_rc_type)
+     $        tab_index,num_conversions,conversions,conversion_packages,
+     $        estimator,pr_rc_type)
       end if
 
 /*
    {\bf TEST TALLIES}
    \begin{itemize}
      \item neutral density(zone,species)
-     \item neutral velocity_x(zone,species)
-     \item neutral energy(zone,species)
+     \item particle number(zone,species)
+     \item neutral flux vector(zone,species)
+     \item particle velocity vector(zone,species)
+     \item neutral pressure(zone,species)
    \end{itemize}
 */
       pointer=0
@@ -196,24 +281,60 @@ c      integer pr_rc_type[pr_reaction_num]
       estimator[1]=tl_est_track   // Only one type; don't need |pr_rc_type|
  //     estimator[1]=tl_est_collision
 
+      num_conversions=2
+      conversions[1]=cv_out_scale_volume
+      conversions[2]=cv_out_scale_test_mass
+
       call define_tally('neutral density',
      $     tl_type_test,tl_geom_volume,pointer,'mass',2,indep_var,
-     $     tab_index,estimator,pr_rc_type)
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
       
-      do i=1,3
-         call define_tally('neutral velocity '\/ind_sy[i],
-     $        tl_type_test,tl_geom_volume,pointer,'momentum '\/ind_sy[i],2,
-     $        indep_var,tab_index,estimator,pr_rc_type)
-      end do
+      num_conversions=1
+      conversions[1]=cv_post_scale_test_mass
 
-      call define_tally('neutral energy',
+      call define_tally('particle number',
+     $     tl_type_test,tl_geom_volume,pointer,'mass',2,indep_var,
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
+
+      num_conversions=3
+      conversions[1]=cv_out_scale_test_mass
+      conversions[2]=cv_out_scale_volume
+      conversions[3]=cv_track_v_to_external
+
+      call define_tally('neutral flux vector',
+     $     tl_type_test,tl_geom_volume,pointer,'momentum vector',2,
+     $     indep_var,tab_index,num_conversions,conversions,
+     $     conversion_packages,estimator,pr_rc_type)
+
+      num_conversions=4
+      conversions[1]=cv_post_divide_number
+      conversion_packages[cv_post_divide_number][cv_partner_1]
+     $     =string_lookup('particle number',tally_name,tl_num)
+      conversions[2]=cv_post_scale_test_mass
+      conversions[3]=cv_track_v_to_external
+      conversions[4]=cv_post_v_to_internal
+
+      call define_tally('particle velocity vector',
+     $     tl_type_test,tl_geom_volume,pointer,'momentum vector',2,
+     $     indep_var,tab_index,num_conversions,conversions,
+     $     conversion_packages,estimator,pr_rc_type)
+
+      num_conversions=2
+      conversions[1]=cv_out_scale_volume
+   //   conversions[2]=cv_out_Pa_to_mTorr
+      conversions[2]=cv_out_three_halves
+
+      call define_tally('neutral pressure',
      $     tl_type_test,tl_geom_volume,pointer,'energy',2,indep_var,
-     $     tab_index,estimator,pr_rc_type)
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
 
 /*
    {\bf REACTION TALLIES}
    \begin{itemize}
-     \item ion source(zone,species)
+     \item ion source rate(zone,species)
      \item ion momentum source_x(zone,species)
      \item ion energy source(zone,species)
      \item h_alpha emission rate(zone)      (h = H, D, T)
@@ -254,6 +375,9 @@ c      integer pr_rc_type[pr_reaction_num]
       indep_var[2]=tl_index_back
       tab_index[2]=pr_background_num
 
+      num_conversions=1
+      conversions[1]=cv_out_scale_back_mass      // Leave as volume integrated
+
  //     estimator[pr_rc_unknown]=tl_est_track
       estimator[pr_rc_unknown]=tl_est_collision
       estimator[pr_rc_recombination]=tl_est_post_process
@@ -265,23 +389,28 @@ c      integer pr_rc_type[pr_reaction_num]
 
       call define_tally('ion source rate',
      $     tl_type_reaction,tl_geom_volume,pointer,'back mass',2,indep_var,
-     $     tab_index,estimator,pr_rc_type)
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
 
+      num_conversions=1
+      conversions[1]=cv_track_v_to_external
 
+//     estimator[pr_rc_dissociation]=tl_est_track
       estimator[pr_rc_dissociation]=tl_est_collision
- //     estimator[pr_rc_dissociation]=tl_est_track
 
-      do i=1,3
-         call define_tally('ion '\/ind_sy[i]\/' momentum source',
-     $        tl_type_reaction,tl_geom_volume,pointer,
-     $        'back '\/ind_sy[i]\/' momentum',2,indep_var,tab_index,estimator,pr_rc_type)
-      end do
-
+      call define_tally('ion momentum source vector',tl_type_reaction,
+     $     tl_geom_volume,pointer,
+     $     'back momentum vector',2,indep_var,tab_index,
+     $     num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
+ 
+      num_conversions=0
+      
       estimator[pr_rc_ionize_suppress]=tl_est_track
 
       call define_tally('ion energy source',
      $     tl_type_reaction,tl_geom_volume,pointer,'back energy',2,indep_var,
-     $     tab_index,estimator,pr_rc_type)
+     $     tab_index,num_conversions,conversions,conversion_packages,estimator,pr_rc_type)
 
       do test=1,pr_test_num
          if ((sp_sy(pr_test(test)) == 'H')
@@ -292,13 +421,19 @@ c      integer pr_rc_type[pr_reaction_num]
             indep_var[1]=tl_index_zone
             tab_index[1]=zn_num
 
+            num_conversions=1
+            conversions[1]=cv_out_scale_volume
+
             estimator[pr_rc_ionize_suppress]=tl_est_post_process
             
             call define_tally(trim(sp_sy(pr_test(test)))\/'alpha emission rate',
      $           tl_type_reaction,tl_geom_volume,pointer,
      $           'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
-     $           1,indep_var,tab_index,estimator,pr_rc_type)
+     $           1,indep_var,tab_index,num_conversions,conversions,
+     $           conversion_packages,estimator,pr_rc_type)
 
+            num_conversions=0
+            
             pointer=de_lookup('Chord integrals')
             if (pointer > 0) then                  // No default setup for this
                indep_var[1]=tl_index_detector
@@ -306,9 +441,9 @@ c      integer pr_rc_type[pr_reaction_num]
                call define_tally(trim(sp_sy(pr_test(test)))\/'alpha chord integrals',
      $              tl_type_reaction,tl_geom_detector,pointer,
      $              'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
-     $              1,indep_var,tab_index,estimator,pr_rc_type) 
+     $              1,indep_var,tab_index,num_conversions,conversions,
+     $              conversion_packages,estimator,pr_rc_type) 
             end if
-            
 
             pointer=de_lookup('Halpha spectrum')
             if (pointer > 0) then
@@ -316,16 +451,38 @@ c      integer pr_rc_type[pr_reaction_num]
                indep_var[2]=tl_index_wavelength_bin
                tab_index[2]=detector_tab_index[pointer]
             
+               num_conversions=0
+
                estimator[pr_rc_ionize_suppress]=tl_est_track
                
                call define_tally(trim(sp_sy(pr_test(test)))\/'alpha spectrum',
      $              tl_type_reaction,tl_geom_detector,pointer,
      $              'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
-     $              2,indep_var,tab_index,estimator,pr_rc_type)     
+     $              2,indep_var,tab_index,num_conversions,conversions,
+     $              conversion_packages,estimator,pr_rc_type)     
             end if
 
          end if
       end do
+
+      var_reallocb(tally_name)
+      var_reallocb(tally_type)
+      var_reallocb(tally_geometry)
+      var_reallocb(tally_geometry_ptr)
+      var_reallocb(tally_rank)
+      var_reallocb(tally_indep_var)
+      var_reallocb(tally_dep_var)
+      var_reallocb(tally_base)
+      var_reallocb(tally_tab_index)
+      var_reallocb(tally_est_test)
+      var_reallocb(tally_est_reaction)
+      var_reallocb(tally_num_conversions)
+      var_reallocb(tally_cv_ptr)
+      var_reallocb(tally_cv_action)
+      var_reallocb(tally_cv_type)
+      var_reallocb(tally_cv_num_partners)
+      var_reallocb(tally_cv_scalers)
+      var_reallocb(tally_cv_partners)
 
       var_free(pr_rc_type)
 
@@ -336,20 +493,23 @@ c      integer pr_rc_type[pr_reaction_num]
 
 @<Functions...@>=
       subroutine define_tally(name,type,geometry,pointer,dep_var,rank,
-     $   indep_var,tab_index,estimator,arg_type)
+     $   indep_var,tab_index,num_conversions,conversions,conversion_packages,estimator,arg_type)
 
       implicit_none_f77
       tl_common                                               // Common
       pr_common
       implicit_none_f90
 
-      integer type,geometry,pointer,rank            // Input
+      integer type,geometry,pointer,rank,num_conversions      // Input
       integer indep_var[tl_rank_max],tab_index[tl_rank_max],
+     $     conversions[tl_cv_max_conversions],
+     $     conversion_packages[cv_max_package][cv_max_parameter],
      $     estimator[pr_rc_max],arg_type[*]
       character*(*) name,dep_var
 
       integer i,est,pr_reac                                   // Local
       tl_decls
+      st_decls
 
       @<Memory allocation interface@>
 
@@ -366,6 +526,8 @@ c      integer pr_rc_type[pr_reaction_num]
       var_realloca(tally_tab_index)
       var_realloca(tally_est_test)
       var_realloca(tally_est_reaction)
+      var_realloca(tally_num_conversions)
+      var_realloca(tally_cv_ptr)
 
       if (tally_type_num[type] == 0) then
          tally_type_base[type]=tl_num
@@ -377,6 +539,9 @@ c      integer pr_rc_type[pr_reaction_num]
       end if
 
       tally_name[tl_num]=name
+      if (index(name,'vector') > 0) then
+         assert(index(dep_var,'vector') > 0)
+      end if
       tally_type[tl_num]=type
       tally_type_num[type]++
       tally_geometry[tl_num]=geometry
@@ -395,6 +560,53 @@ c      integer pr_rc_type[pr_reaction_num]
       end if
 
       tl_set_base_size(tally,tally_tab_index,[tl_num])
+
+      tally_num_conversions[tl_num]=num_conversions
+      do i=1,tl_cv_max_conversions
+         tally_cv_ptr[tl_num][i]=tl_cv_unknown
+      end do
+
+      if (num_conversions > 0) then
+
+         assert(num_conversions <= tl_cv_max_conversions)
+         do i=1,num_conversions
+            nconversions++
+            var_realloca(tally_cv_action)
+            var_realloca(tally_cv_type)
+            var_realloca(tally_cv_num_partners)
+            var_realloca(tally_cv_scalers)
+            var_realloca(tally_cv_partners)
+
+            tally_cv_ptr[tl_num][i]=nconversions
+            tally_cv_action[nconversions]
+     $           =conversion_packages[conversions[i]][cv_action]
+            tally_cv_type[nconversions]
+     $           =conversion_packages[conversions[i]][cv_type]
+            assert(tl_cv_max_scalers == 3)
+            tally_cv_scalers[nconversions][1]
+     $           =conversion_packages[conversions[i]][cv_scaler_1]
+            tally_cv_scalers[nconversions][2]
+     $           =conversion_packages[conversions[i]][cv_scaler_2]
+            tally_cv_scalers[nconversions][3]
+     $           =conversion_packages[conversions[i]][cv_scaler_3]
+            assert(tl_cv_max_partners == 3)
+            tally_cv_partners[nconversions][1]=tl_num
+            tally_cv_partners[nconversions][2]  
+     $           =conversion_packages[conversions[i]][cv_partner_1] 
+            tally_cv_partners[nconversions][3]
+     $           =conversion_packages[conversions[i]][cv_partner_2] 
+            tally_cv_num_partners[nconversions]=1
+            if (conversion_packages[conversions[i]][cv_partner_1] 
+     $              != tl_cv_partner_unknown) then
+               tally_cv_num_partners[nconversions]=2
+               if (conversion_packages[conversions[i]][cv_partner_2] 
+     $                 != tl_cv_partner_unknown) then
+                  tally_cv_num_partners[nconversions]=3
+               end if
+            end if
+               
+         end do
+      end if
 
       if (tally_type[tl_num] == tl_type_reaction) then
          do est=1,tl_est_max
@@ -492,6 +704,110 @@ merge these data into the problemfile, written by |nc_write_problem|.
       var_free(tally_tab_index)
       var_free(tally_est_test)
       var_free(tally_est_reaction)
+      var_free(tally_num_conversions)
+      var_free(tally_cv_ptr)
+      var_free(tally_cv_action)
+      var_free(tally_cv_type)
+      var_free(tally_cv_num_partners)
+      var_free(tally_cv_scalers)
+      var_free(tally_cv_partners)
+
+      return
+      end
+
+@ Define the contents of the conversion packages. Define these verbally in
+the main code and stick the grunge here. These are divided up into the
+separate |tl_cv| arrays in |define_tally|. Note: these definitions could 
+possibly be used to {\em replace} the separate arrays in the tally class.
+
+@<Functions...@>=
+      subroutine set_conversion_packages(conversion_packages)
+      implicit_none_f77
+      implicit_none_f90
+
+      integer conversion_packages[cv_max_package][cv_max_parameter]  // Output
+
+      integer p                                                      // Local
+
+      assert(tl_cv_max_scalers == 3)
+      assert(tl_cv_max_partners == 3)
+
+      do p=1,cv_max_package
+         conversion_packages[p][cv_partner_1]=tl_cv_partner_unknown
+         conversion_packages[p][cv_partner_2]=tl_cv_partner_unknown
+      end do
+         
+      p=cv_out_scale_test_mass
+
+      conversion_packages[p][cv_action]=tl_cv_scale
+      conversion_packages[p][cv_type]=tl_cv_output
+      conversion_packages[p][cv_scaler_1]=tl_cv_test_mass
+      conversion_packages[p][cv_scaler_2]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_3]=tl_cv_scaler_unknown
+
+      p=cv_out_scale_back_mass
+
+      conversion_packages[p][cv_action]=tl_cv_scale
+      conversion_packages[p][cv_type]=tl_cv_output
+      conversion_packages[p][cv_scaler_1]=tl_cv_back_mass
+      conversion_packages[p][cv_scaler_2]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_3]=tl_cv_scaler_unknown
+
+      p=cv_out_scale_volume
+
+      conversion_packages[p][cv_action]=tl_cv_scale
+      conversion_packages[p][cv_type]=tl_cv_output
+      conversion_packages[p][cv_scaler_1]=tl_cv_volume
+      conversion_packages[p][cv_scaler_2]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_3]=tl_cv_scaler_unknown
+      
+      p=cv_out_Pa_to_mTorr
+
+      conversion_packages[p][cv_action]=tl_cv_scale
+      conversion_packages[p][cv_type]=tl_cv_output
+      conversion_packages[p][cv_scaler_1]=tl_cv_Pa_per_mTorr
+      conversion_packages[p][cv_scaler_2]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_3]=tl_cv_scaler_unknown
+      
+      p=cv_out_three_halves
+
+      conversion_packages[p][cv_action]=tl_cv_scale
+      conversion_packages[p][cv_type]=tl_cv_output
+      conversion_packages[p][cv_scaler_1]=tl_cv_three_halves
+      conversion_packages[p][cv_scaler_2]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_3]=tl_cv_scaler_unknown
+      
+      p=cv_post_scale_test_mass
+
+      conversion_packages[p][cv_action]=tl_cv_scale
+      conversion_packages[p][cv_type]=tl_cv_post
+      conversion_packages[p][cv_scaler_1]=tl_cv_test_mass
+      conversion_packages[p][cv_scaler_2]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_3]=tl_cv_scaler_unknown
+
+      p=cv_track_v_to_external
+      
+      conversion_packages[p][cv_action]=tl_cv_to_external_coords
+      conversion_packages[p][cv_type]=tl_cv_track
+      conversion_packages[p][cv_scaler_1]=tl_cv_pos_1
+      conversion_packages[p][cv_scaler_2]=tl_cv_pos_2
+      conversion_packages[p][cv_scaler_3]=tl_cv_pos_3
+
+      p=cv_post_divide_number
+
+      conversion_packages[p][cv_action]=tl_cv_divide_number
+      conversion_packages[p][cv_type]=tl_cv_post
+      conversion_packages[p][cv_scaler_1]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_2]=tl_cv_scaler_unknown
+      conversion_packages[p][cv_scaler_3]=tl_cv_scaler_unknown
+      
+      p=cv_post_v_to_internal
+      
+      conversion_packages[p][cv_action]=tl_cv_to_internal_coords
+      conversion_packages[p][cv_type]=tl_cv_post
+      conversion_packages[p][cv_scaler_1]=tl_cv_zone_pos_1
+      conversion_packages[p][cv_scaler_2]=tl_cv_zone_pos_2
+      conversion_packages[p][cv_scaler_3]=tl_cv_zone_pos_3
 
       return
       end

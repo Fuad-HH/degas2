@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1997/08/19 14:37:09  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.1  1997/08/07 20:32:15  dstotler
 % Changed name from score to tally to avoid prefix conflict with sector.
 % Finished scoring implementation with definition of new variables.
@@ -78,11 +83,43 @@ For further documentation, see the classes.web file.
 @m tl_name_length 80              // For tally names
 @m tl_tag_length 40               // For dependent variable names
 
-@m tl_geom_unknown 0
+@m tl_geom_unknown 0              // Tally geometries
 @m tl_geom_volume 1        
 @m tl_geom_surface 2       
 @m tl_geom_detector 3      
-@m tl_geom_global 4        
+@m tl_geom_global 4 
+
+@m tl_cv_unknown 0                // Tally conversions    
+@m tl_cv_scaler_unknown 0
+@m tl_cv_partner_unknown 0
+
+@m tl_cv_max_conversions 5        // Fixed dimensioning parameters
+@m tl_cv_max_scalers 3    
+@m tl_cv_max_partners 3
+@m tl_cv_max_local_data 5
+
+@m tl_cv_track 1                  // Types of conversions 
+@m tl_cv_post 2
+@m tl_cv_output 3
+
+@m tl_cv_scale 1                  // Action performed by the conversion
+@m tl_cv_to_external_coords 2
+@m tl_cv_to_internal_coords 3
+@m tl_cv_divide_number 4
+
+@m tl_cv_test_mass 1              // Scalers and other parameters used 
+@m tl_cv_back_mass 2
+@m tl_cv_volume 3
+@m tl_cv_Pa_per_mTorr 4
+@m tl_cv_pos_1 5
+@m tl_cv_pos_2 6
+@m tl_cv_pos_3 7
+@m tl_cv_zone_pos_1 8
+@m tl_cv_zone_pos_2 9
+@m tl_cv_zone_pos_3 10 
+@m tl_cv_three_halves 11
+
+@m tl_cv_max_params 11  
 
 @m scoring_data_max 20            // Length of |scoring_data| array
 @m max_bins 200
@@ -98,10 +135,17 @@ accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
       define_dimen_pk(tl,tally_est_ind,tl_est_max)
       define_dimen_pk(tl,tally_reac_ind,pr_reaction_num)
       define_dimen_pk(tl,tally_name_string,tl_name_length)
-      define_dimen_pk(tl,tally_tag_string,tl_tag_length)  
+      define_dimen_pk(tl,tally_tag_string,tl_tag_length) 
+      define_dimen_pk(tl,tally_cv_ptr_ind,tl_cv_max_conversions)
+      define_dimen_pk(tl,tally_cv_scaler_ind,tl_cv_max_scalers)
+      define_dimen_pk(tl,tally_cv_partner_ind,tl_cv_max_partners)
 
       define_var_pk(tl,tl_num,INT)                     
       define_dimen_pk(tl,tally_ind,tl_num)             
+
+      define_var_pk(tl,nconversions,INT)
+      define_dimen_pk(tl,tally_cv_ind,nconversions)
+
       define_var_pk(tl,tally_size,INT)                 
 
       define_varp_pk(tl,tally_type_num,INT,tally_type_ind) 
@@ -115,8 +159,18 @@ accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
       define_varp_pk(tl,tally_tab_index,INT,tally_rank_ind,tally_ind)
       define_varp_pk(tl,tally_name,CHAR,tally_name_string,tally_ind) 
       define_varp_pk(tl,tally_dep_var,CHAR,tally_tag_string,tally_ind)
+
       define_varp_pk(tl,tally_est_test,FLOAT,tally_est_ind,tally_ind)
       define_varp_pk(tl,tally_est_reaction,FLOAT,tally_reac_ind,tally_est_ind,tally_ind)
+
+      define_varp_pk(tl,tally_num_conversions,INT,tally_ind)
+      define_varp_pk(tl,tally_cv_ptr,INT,tally_cv_ptr_ind,tally_ind)
+      define_varp_pk(tl,tally_cv_action,INT,tally_cv_ind)
+      define_varp_pk(tl,tally_cv_type,INT,tally_cv_ind)
+      define_varp_pk(tl,tally_cv_num_partners,INT,tally_cv_ind)
+      define_varp_pk(tl,tally_cv_scalers,INT,tally_cv_scaler_ind,tally_cv_ind)
+      define_varp_pk(tl,tally_cv_partners,INT,tally_cv_partner_ind,tally_cv_ind)
+
       define_varlocal_pk(tl,tally_version,CHAR,string)
       package_end(tl)
 
@@ -136,6 +190,7 @@ accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
       $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
         inc=inc*y##subs##[I];
       }
+      if (index(x##_name##subs,'vector') > 0) inc=3*inc @;
 
 @m tl_set_base_size(x,y,subs)
       tl_set_baseinc(x,y,subs);
