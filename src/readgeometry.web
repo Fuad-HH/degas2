@@ -2,6 +2,10 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.38  1999/03/25 20:56:07  dstotler
+% Increased num_points to 200. Added some stuff to input documentation
+% (mostly for UEDGE case).
+%
 % Revision 1.37  1999/02/04 19:13:16  dstotler
 % Add input recycling coefficients specifically for the UEDGE_RECT_SLAB
 % case.
@@ -462,7 +466,7 @@ See the Examples section in the manual for additional examples of
 @m BOX 2              // A 1 by 1 box, e.g., from |boxgen|.
 @m WISING_CMOD 3      // Fred Wising's UEDGE simulation of C-Mod.
 
-@m GEOMETRY GENERAL  // Pick one of the above.
+@m GEOMETRY UEDGE_RECT_SLAB  // Pick one of the above.
 
 @m next_surface #:0     // Statement label
 
@@ -523,7 +527,12 @@ See the Examples section in the manual for additional examples of
       integer datafile_diskin,wallfile_diskin,zone,n,wall_no,wall_start,
      $     wall_stop,wall_direction,i,j,grid_startv,grid_stopv,j1,j2,
      $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
-     $     trx,symmetry,ix_mirror,null_type,grid_sense,segment
+     $     trx,symmetry,ix_mirror,null_type,grid_sense,segment,segment1
+@#if (GEOMETRY == UEDGE_RECT_SLAB)
+      integer var,tab_index,spacing
+      real var_min,var_max,mult
+      integer grp_sectors1[mx]
+@#endif
 
       character*LINELEN line,keyword,new_zone_type
       logical complete,vacuum
@@ -831,10 +840,14 @@ eof:  continue
    cycling through all of the polygons of zone type solid or exit and 
    checking each surface to see if there is a plasma or vacuum zone on the
    other side. The filter used here is that |find_poly_zone| arranges for
-   the type of |zone1| to match that of polygon |i|; then, the lines setting
-   sector subclass type bypass plasma / vacuum polygons.
+   the type of |zone1| to match that of polygon |i|. This is done so that,
+   for example, a target sector is identified by having |zone1| be a 
+   solid and |zone2| be plasma. The target sector is then associated with
+   |zone2| (and its corresponding face, -|face1|); |zone1| is passed
+   to |define_sector| as a check.
 */
       segment=0    // |UEDGE_RECT_SLAB|
+      segment1=0   // Test of diagnostic sectors
       do i=1,num_polygon
          do j=0,polygon_points[i]-1
             if (polygon_x[1,j,i] != polygon_x[1,j+1,i] 
@@ -850,60 +863,88 @@ eof:  continue
                      assert(zn_type(zone1) == zn_plasma 
      $                    && zn_type(zone2) == zn_plasma)
                      stratum=6
-                     segment++
-                     sector1=define_sector(stratum,segment,face1,zone1)
+                     segment++             
+                     sector1=define_sector(stratum,segment,face1,zone1,0) // Null second zone
                      temp_material=ma_lookup('mirror')
                      define_sector_wall(sector1,temp_material,
      $                    current_temperature*boltzmanns_const,
      $                    current_recyc_coef)
                      segment++
-                     sector2=define_sector(stratum,segment,-face1,zone2)
+                     sector2=define_sector(stratum,segment,-face1,zone2,0)
                      define_sector_wall(sector2,temp_material,
      $                    current_temperature*boltzmanns_const,
      $                    current_recyc_coef)
+/*
+   Designate the rest of the surfaces along $z = 0.75$ as diagnostic
+   sectors. The sector numbers are stored in arrays for use in calls
+   to |diag_grp_init| below. Note that in most instances, defining
+   sectors on one side of an interface is sufficient. A second
+   group of sectors with arguments -|face1| and |zone2| could have
+   been defined, if needed.
+*/
+                  else if ((polygon_x[1,j+1,i] > polygon_x[1,j,i]) 
+     $                         && polygon_x[2,j,i] == const(0.75) 
+     $                         && polygon_x[2,j+1,i] == const(0.75)) then
+                     assert(zn_type(zone1) == zn_plasma 
+     $                    && zn_type(zone2) == zn_plasma)
+                     stratum=7
+                     segment1++             
+                     sector1=define_sector(stratum,segment1,face1,zone1,0) 
+                     grp_sectors1[segment1]=sector1
+/*
+   Verify that dimension of |grp_sector| array is adequate.
+*/
+                     assert(segment1 <= mx) 
                   end if
 @#endif                  
                   stratum=polygon_stratum[i]
                   if ((zn_type(zone1) == zn_solid) && (zn_type(zone2) == zn_plasma)) then
                      sector1=define_sector(stratum,polygon_segment[j+1,i],
-     $                    face1,zone1)
+     $                    -face1,zone2,zone1)
                      assert(ma_check(polygon_material[i]))
                      assert(polygon_temperature[i] > zero)
                      define_sector_target(sector1,polygon_material[i],
      $                    polygon_temperature[i]*boltzmanns_const,
      $                    polygon_recyc_coef[i])
+@#if 0
                      sector2=define_sector(stratum,polygon_segment[j+1,i],
      $                    -face1,zone2)
                      define_sector_plasma(sector2)
+@#endif
 
                   else if ((zn_type(zone1) == zn_solid) && (zn_type(zone2) == zn_vacuum)) then 
                      sector1=define_sector(stratum,polygon_segment[j+1,i],
-     $                    face1,zone1)
+     $                    -face1,zone2,zone1)
                      assert(ma_check(polygon_material[i]))
                      assert(polygon_temperature[i] > zero)
                      define_sector_wall(sector1,polygon_material[i],
      $                    polygon_temperature[i]*boltzmanns_const,
      $                    polygon_recyc_coef[i])
+@#if 0
                      sector2=define_sector(stratum,polygon_segment[j+1,i],
      $                    -face1,zone2)
                      define_sector_vacuum(sector2)
+@#endif
 
                   else if ((zn_type(zone1) == zn_exit) && ((zn_type(zone2) == zn_plasma) )) then
                      sector1=define_sector(stratum,polygon_segment[j+1,i],
-     $                    face1,zone1)
-                     define_sector_exit(sector1,zero)    // assume transparent
+     $                    -face1,zone2,zone1)
+                     define_sector_exit(sector1) 
+@#if 0
                      sector2=define_sector(stratum,polygon_segment[j+1,i],
      $                    -face1,zone2)
                      define_sector_plasma(sector2)
+@#endif
 
                   else if ((zn_type(zone1) == zn_exit) && ((zn_type(zone2) == zn_vacuum) )) then
                      sector1=define_sector(stratum,polygon_segment[j+1,i],
-     $                    face1,zone1)
-                     define_sector_exit(sector1,zero)    // assume transparent
+     $                    -face1,zone2,zone1)
+                     define_sector_exit(sector1) 
+@#if 0
                      sector2=define_sector(stratum,polygon_segment[j+1,i],
      $                    -face1,zone2)
                      define_sector_vacuum(sector2)
-
+@#endif
                   else
                      goto next_surface
                   end if
@@ -915,6 +956,21 @@ next_surface continue
       end do
       
       call diag_sector_setup
+
+@#if (GEOMETRY == UEDGE_RECT_SLAB)
+/*
+   Define this set of sectors as a separate ``diagnostic group''. 
+   No energy or angle distribution is to be computed on these sectors:
+*/
+      var=sc_diag_unknown
+      tab_index=0
+      var_min=zero
+      var_max=zero
+      mult=zero
+      spacing=sc_diag_spacing_unknown
+      call diag_grp_init('Throat sectors',segment1,var,tab_index,
+     $     var_min,var_max,mult,spacing,grp_sectors1)
+@#endif
 
       call end_sectors
 
