@@ -2,6 +2,9 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.18  1996/10/31 09:06:57  karney
+% Define scoring arrays.
+%
 % Revision 1.17  1996/10/30 18:15:31  dstotler
 % Extensive changes  to deal with "background reactions" (i.e.,
 % recombination) in check_problem. Moved species_add_check and el_count
@@ -90,6 +93,8 @@ collated accordingly and written to the single output netCDF file
 @I pmidata.hweb
 @I element.hweb
 @I score.hweb
+
+@m SCORING 0
 
 /* The following variables are required in a number of these routines, but
 not in any outside of |problemsetup|; hence, they exist only in this local
@@ -1416,9 +1421,11 @@ loop1: continue
       p=0
 
       assert(next_token(line(:length),b,e,p))
+@#if SCORING
       pr_score_num++
       var_realloca(problem_score)
       var_realloca(problem_score_indep_vars)
+@#endif
 /* Need to keep this synchronized with score.hweb */
       if (line(b:e) == 'mass') then
          i=1
@@ -1429,10 +1436,13 @@ loop1: continue
       else
          assert(len("Unknown score dep variable") < 0)
       end if
+@#if SCORING
       problem_score[pr_score_num]=i
       problem_score_rank(pr_score_num)=0
+@#endif
 loop3: continue
       if (! next_token(line(:length),b,e,p)) goto loop1
+@#if SCORING
       problem_score_rank(pr_score_num)++
       assert( problem_score_rank(pr_score_num) <= tl_rank_max )
 /* Need to keep this synchronized with score.hweb */
@@ -1466,6 +1476,7 @@ loop3: continue
          assert(len("Unknown score indep variable") < 0)
       end if
       problem_score_indep_vars[pr_score_num][problem_score_rank(pr_score_num)]=i
+@#endif
       goto loop3
          
 eof:  return
