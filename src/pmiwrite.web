@@ -2,6 +2,10 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.5  1996/05/24 18:54:35  dstotler
+% Add routines to write simple, generic data files. Finalize and clean
+% up treatment of Bateman and refl-Ruzic data.
+%
 % Revision 1.4  1996/03/01 20:21:15  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -59,27 +63,42 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
 @a
       program pmiwrite
       implicit_none
-      character*LINELEN tag,v_type
+      character*LINELEN tag,v_type,version
       tag='t -> c'
-      call pmi_write_degas_refl(tag)
+      version='V. 1.0, T reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      call pmi_write_degas_refl(tag,version)
       tag='h -> c'
-      call pmi_write_degas_refl(tag)
+      version='V. 1.0, H reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      call pmi_write_degas_refl(tag,version)
       tag='d -> c'
-      call pmi_write_degas_refl(tag)
+      version='V. 1.0, D reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      call pmi_write_degas_refl(tag,version)
+      tag='h -> mo'
+      version='V. 1.0, H reflection on Mo data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      call pmi_write_degas_refl(tag,version)
+      tag='d -> mo'
+      version='V. 1.0, D reflection on Mo data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      call pmi_write_degas_refl(tag,version)
       tag='he -> fe'
-      call pmi_write_degas_marl(tag)
+      version='V. 1.0, He reflection on Fe, marlowe data from marl.dat'
+      call pmi_write_degas_marl(tag,version)
       tag='h -> fe'
-      call pmi_write_degas_marl(tag)
+      version='V. 1.0, H reflection on Fe, marlowe data from marl.dat'
+      call pmi_write_degas_marl(tag,version)
       tag='hmirror'
-      call pmi_write_mirror(tag)
+      version='V. 1.0, simple data for unit yield, specular reflection of H on a mirror'
+      call pmi_write_mirror(tag,version)
       tag='h2mirror'
-      call pmi_write_mirror(tag)
+      version='V. 1.0, simple data for unit yield, specular reflection of H2 on a mirror'
+      call pmi_write_mirror(tag,version)
       tag='hadsorbc'
       v_type='none'
-      call pmi_write_misc(tag,const(0.1),v_type)
+      version='V. 1.0, simple data for adsorption of H on C'
+      call pmi_write_misc(tag,const(0.1),v_type,version)
       tag='h2adsorbc'
       v_type='none'
-      call pmi_write_misc(tag,const(0.2),v_type)
+      version='V. 1.0, simple data for adsorption of H on C'
+      call pmi_write_misc(tag,const(0.2),v_type,version)
 /*      Try doing these manually... 
       tag='hdesorbc'
       v_type='cosine'
@@ -90,10 +109,12 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
 */
       tag='hadsorbex'
       v_type='none'
-      call pmi_write_misc(tag,one,v_type)
+      version='V. 1.0, simple data for adsorption of H at exit'
+      call pmi_write_misc(tag,one,v_type,version)
       tag='h2adsorbex'
       v_type='none'
-      call pmi_write_misc(tag,one,v_type)
+      version='V. 1.0, simple data for adsorption of H2 at exit'
+      call pmi_write_misc(tag,one,v_type,version)
 
       stop
       end
@@ -104,9 +125,9 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
 combination. An angular dependence is added to the reflection coefficient.
 
 @<Functions...@>=
-      subroutine pmi_write_degas_refl(tag)
+      subroutine pmi_write_degas_refl(tag,version)
       implicit_none
-      character*LINELEN tag
+      character*LINELEN tag,version
       integer i,j,fileid,b,e,p,bin,ein,bm,em          // Local
       real delta,theta_in,delta2
       character*LINELEN full_tag,description
@@ -122,11 +143,11 @@ combination. An angular dependence is added to the reflection coefficient.
 
       fit=.true.
 /* The following two must be the opposite of each other! */
-      cosspec=.true.
-      cosine=.false.
+      cosspec=.false.
+      cosine=.true.
 
       description = 'Data for Plasma-Material Interactions in degas 2'
-      pf_version = 'degas: refl.dat with Ruzic lrflct1=2 angle dep.'
+      pf_version = version
 
 /* Parse tag into name */      
       p=0
@@ -306,25 +327,10 @@ combination. An angular dependence is added to the reflection coefficient.
       if (cosspec) pf_data_table(0,0,0,0,0,3)=1.7
 
 /*
-   Fill in the arrays containing the independent variables. Since 
-   the spacing is uniform everywhere here, these are straightforward.
-*/
-      pf_ragged_alloc(pf_indep_var,pf_tab_index)
-
-      do i=0,pf_tab_index[1,1]-1
-         pf_indep_var_table(i,1,1)=pf_min[1,1]*delta2**i
-         pf_indep_var_table(i,1,2)=pf_min[1,2]*delta2**i
-      end do
-
-      do i=0,pf_tab_index[2,1]-1
-         pf_indep_var_table(i,2,1)=pf_min[2,1]+delta*i
-      end do
-
-/*
    Write netCDF file and close everything up
 */
 
-      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileout='./'\/trim(pf_name)\/'.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
 
       call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
@@ -340,7 +346,6 @@ combination. An angular dependence is added to the reflection coefficient.
       pf_ncwrite(fileid)
 
       var_free(pf_data_tab)
-      var_free(pf_indep_var_tab)
 
       call ncclose(fileid,nc_stat)
 
@@ -377,14 +382,21 @@ loop:    continue
 @ Read data from DEGAS file marl.dat. The only projectiles considered
 are the three isotopes of hydrogen and helium; the only surface is iron.
 
+@m num_energies 7
+
 @<Functions...@>=
-      subroutine pmi_write_degas_marl(tag)
+      subroutine pmi_write_degas_marl(tag,version)
       implicit_none
-      character*LINELEN tag
+      character*LINELEN tag,version
       integer i,j,fileid,b,e,p,bin,ein,bm,em,jspecies,k,l,m    // Local
       character*LINELEN description,line
       character*FILELEN filein,fileout
+      real old_energies[0:num_energies-1],new_energies[0:num_energies-1],
+     $     old_values[0:num_energies-1],new_values[0:num_energies-1]
       real delta
+      external find_index                                      // External
+      real find_index            
+
       pf_common                                                // Common
       nc_common
       pf_ncdecl
@@ -392,7 +404,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       st_common 
 
       description = 'Data for Plasma-Material Interactions in degas 2'
-      pf_version = 'degas: marl.dat'
+      pf_version = version
 
 /* Parse tag into name */      
       p=0
@@ -425,6 +437,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       pf_rank[1]=2
       pf_units[0,1]=' '
       pf_mult[0,1]=one
+      pf_spacing[0,1]='linear'
 
 /*
    Second dependent variable: quantiles for outgoing energy
@@ -432,8 +445,9 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       pf_var[0,2]='sqrt_energy_out'
       pf_eval_name[2]='table'
       pf_rank[2]=3
-      pf_units[0,2]='eV**0.5'
+      pf_units[0,2]='eV^0.5'
       pf_mult[0,2]=sqrt(electron_charge)
+      pf_spacing[0,2]='log'
 
 /*
    Third dependent variable: quantiles for cosine of outgoing polar angle
@@ -443,6 +457,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       pf_rank[3]=4
       pf_units[0,3]=' '
       pf_mult[0,3]=one
+      pf_spacing[0,3]='linear'
 
 /*
    Fourth dependent variable: quantiles for cosine of outgoing azimuthal angle
@@ -452,6 +467,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       pf_rank[4]=5
       pf_units[0,4]=' '
       pf_mult[0,4]=one
+      pf_spacing[0,4]='linear'
 
 /*
    All dependent variables are functions of the incident energy and polar
@@ -461,8 +477,6 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
    first in the subscript list.
 */
       do j=1,pf_num_dep_var
-         pf_spacing[0,j]='linear'
-
          pf_var[j,j]='polar_angle_in'
          pf_tab_index[j,j]=5
          pf_units[j,j]='degrees'
@@ -475,7 +489,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
          pf_tab_index[j+1,j]=7
          pf_units[j+1,j]='eV'
          pf_mult[j+1,j]=electron_charge
-         pf_spacing[j+1,j]='nonuniform'
+         pf_spacing[j+1,j]='log'
          pf_min[j+1,j]=one
          pf_max[j+1,j]=const(1.,3)
       end do
@@ -539,35 +553,6 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
          end do
       end do
 
-/*
-   Fill in independent variable tables; all are uniform except the incoming
-   energy.
-*/
-      pf_ragged_alloc(pf_indep_var,pf_tab_index)
-
-      delta=const(20.0)
-      do j=1,pf_num_dep_var
-         do i=0,pf_tab_index[j,j]-1
-            pf_indep_var_table(i,j,j)=pf_min[j,j]+i*delta
-         end do
-         pf_indep_var_table(0,j+1,j)=one
-         pf_indep_var_table(1,j+1,j)=const(25.)
-         pf_indep_var_table(2,j+1,j)=const(50.)
-         pf_indep_var_table(3,j+1,j)=const(100.)
-         pf_indep_var_table(4,j+1,j)=const(200.)
-         pf_indep_var_table(5,j+1,j)=const(500.)
-         pf_indep_var_table(6,j+1,j)=const(1.,3)
-      end do
-
-      delta=const(0.2)
-      do j=2,pf_num_dep_var
-         do i=1,pf_rank[j]-2
-            do k=0,pf_tab_index[i,j]-1
-               pf_indep_var_table(k,i,j)=pf_min[i,j]+k*delta
-            end do
-         end do
-      end do
-
       pf_ragged_alloc(pf_data,pf_tab_index)
 
       filein='../data/marl.dat'
@@ -605,9 +590,89 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       end do
 
 /*
+  Interpolate energy index onto uniform (log spaced) grid.
+*/
+
+      old_energies[0]=one
+      old_energies[1]=const(25.)
+      old_energies[2]=const(50.)
+      old_energies[3]=const(100.)
+      old_energies[4]=const(200.)
+      old_energies[5]=const(500.)
+      old_energies[6]=const(1.,3)
+
+      assert(pf_tab_index[2,1] <= num_energies)   // Dimension of arrays
+      delta=half*log(const(1.,1))
+      do j=0,pf_tab_index[2,1]-1
+         old_energies[j]=log(old_energies[j])
+         new_energies[j]=log(pf_min[2,1])+j*delta
+      end do
+
+      do j=0,pf_tab_index[2,1]-1
+         new_energies[j]=find_index(new_energies[j],old_energies,
+     $        pf_tab_index[2,1])
+      end do
+
+      do i=0,pf_tab_index[1,1]-1
+         do j=0,pf_tab_index[2,1]-1
+            old_values[j]=pf_data_table(i,j,0,0,0,1)
+         end do
+         call interpolate_grid(new_values,old_values,pf_spacing[0,1],
+     $        new_energies,pf_tab_index[2,1])
+         do j=0,pf_tab_index[2,1]-1
+            pf_data_table(i,j,0,0,0,1)=new_values[j]
+         end do
+      end do
+
+      do k=0,pf_tab_index[1,2]-1
+         do i=0,pf_tab_index[2,2]-1
+            do j=0,pf_tab_index[3,2]-1
+               old_values[j]=pf_data_table(k,i,j,0,0,2)
+            end do
+            call interpolate_grid(new_values,old_values,pf_spacing[0,2],
+     $           new_energies,pf_tab_index[3,2])
+            do j=0,pf_tab_index[3,2]-1
+               pf_data_table(k,i,j,0,0,2)=new_values[j]
+            end do
+         end do
+      end do
+            
+      do l=0,pf_tab_index[1,3]-1
+         do k=0,pf_tab_index[2,3]-1
+            do i=0,pf_tab_index[3,3]-1
+               do j=0,pf_tab_index[4,3]-1
+                  old_values[j]=pf_data_table(l,k,i,j,0,3)
+               end do
+               call interpolate_grid(new_values,old_values,pf_spacing[0,3],
+     $              new_energies,pf_tab_index[4,3])
+               do j=0,pf_tab_index[4,3]-1
+                  pf_data_table(l,k,i,j,0,3)=new_values[j]
+               end do
+            end do
+         end do
+      end do
+
+      do m=0,pf_tab_index[1,4]-1
+         do l=0,pf_tab_index[2,4]-1
+            do k=0,pf_tab_index[3,4]-1
+               do i=0,pf_tab_index[4,4]-1
+                  do j=0,pf_tab_index[5,4]-1
+                     old_values[j]=pf_data_table(m,l,k,i,j,4)
+                  end do
+                  call interpolate_grid(new_values,old_values,pf_spacing[0,4],
+     $                 new_energies,pf_tab_index[5,4])
+                  do j=0,pf_tab_index[5,4]-1
+                     pf_data_table(m,l,k,i,j,4)=new_values[j]
+                  end do
+               end do
+            end do
+         end do
+      end do
+
+/*
    Write netCDF file and close everything up
 */
-      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileout='./'\/trim(pf_name)\/'.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
 
       call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
@@ -623,14 +688,49 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       pf_ncwrite(fileid)
 
       var_free(pf_data_tab)
-      var_free(pf_indep_var_tab)
 
       call ncclose(fileid,nc_stat)
       close(unit=diskin)
 
       return
       end
-      
+
+@ Interpolates a 1-D array of values from one grid to another. The values
+may be interpolated linearly or logarithmically. The grid indices 
+|new_grid| have already been matched up to the old ones.
+
+@<Functions...@>=
+      subroutine interpolate_grid(new_values,old_values,value_spacing,
+     $     new_grid,n)
+      implicit_none
+                                                        
+      real new_values[0:*],old_values[0:*],new_grid[0:*]  // Input
+      character*(*) value_spacing
+      integer n
+
+      integer i                                           // Local
+
+      external interpolate1                               // External
+      real interpolate1
+
+      if (value_spacing == 'log') then
+         do i=0,n-1
+            old_values[i]=log(old_values[i])
+         end do
+      else
+         assert(value_spacing == 'linear')
+      end if
+
+      do i=0,n-1
+         new_values[i]=interpolate1(new_grid[i],old_values,n)
+         if (value_spacing == 'log') then
+            new_values[i]=exp(new_values[i])
+         end if
+      end do
+
+      return
+      end
+
 @ Ruzic's fit for the angular dependence of the reflection coefficient.
 The input |rn| is assumed to be for normal incidence, polar angle
 |theta| = 0; |theta| is assumed to be in degrees. 
@@ -653,21 +753,21 @@ An overall upper limit of 0.9 is enforced.
 the characteristics of which can be summarized in this short argument list.
 
 @<Functions...@>=
-      subroutine pmi_write_misc(tag,yield,v_type)
+      subroutine pmi_write_misc(tag,yield,v_type,version)
       implicit_none
-      character*LINELEN tag,v_type                    // Input
+      character*LINELEN tag,v_type,version           // Input
       real yield
       integer i,j,fileid                             // Local
       character*LINELEN description
       character*FILELEN fileout
-      pf_common                                       // Common
+      pf_common                                      // Common
       nc_common
       pf_ncdecl
       sy_common
       st_common 
 
       description = 'Data for Plasma-Material Interactions in degas 2'
-      pf_version = 'degas: refl.dat with Ruzic lrflct1=2 angle dep.'
+      pf_version = version
 
 /* Tag is the name here. */
       pf_name=tag
@@ -734,21 +834,10 @@ the characteristics of which can be summarized in this short argument list.
       pf_data_table(0,0,0,0,0,1)=yield
 
 /*
-   Fill in the arrays containing the independent variables. Since 
-   the spacing is uniform everywhere here, these are straightforward.
-*/
-      pf_ragged_alloc(pf_indep_var,pf_tab_index)
-
-      do i=0,pf_tab_index[1,1]-1
-         pf_indep_var_table(i,1,1)=zero
-         pf_indep_var_table(i,1,2)=zero
-      end do
-
-/*
    Write netCDF file and close everything up
 */
 
-      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileout='./'\/trim(pf_name)\/'.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
 
       call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
@@ -764,7 +853,6 @@ the characteristics of which can be summarized in this short argument list.
       pf_ncwrite(fileid)
 
       var_free(pf_data_tab)
-      var_free(pf_indep_var_tab)
 
       call ncclose(fileid,nc_stat)
 
@@ -774,9 +862,9 @@ the characteristics of which can be summarized in this short argument list.
 @ Mirror process.
 
 @<Functions...@>=
-      subroutine pmi_write_mirror(tag)
+      subroutine pmi_write_mirror(tag,version)
       implicit_none
-      character*LINELEN tag                          // Input
+      character*LINELEN tag,version                  // Input
       integer i,j,fileid                             // Local
       character*LINELEN description
       character*FILELEN fileout
@@ -787,7 +875,7 @@ the characteristics of which can be summarized in this short argument list.
       st_common 
 
       description = 'Data for Plasma-Material Interactions in degas 2'
-      pf_version = 'degas: refl.dat with Ruzic lrflct1=2 angle dep.'
+      pf_version = version
 
 /* Tag is the name here. */
       pf_name=tag
@@ -874,23 +962,10 @@ the characteristics of which can be summarized in this short argument list.
       pf_data_table(0,0,0,0,0,3)=pf_min[1,3]   // ``$E_{out} = E_{in}$''
       pf_data_table(1,0,0,0,0,3)=pf_max[1,3]
 /*
-   Fill in the arrays containing the independent variables. Since 
-   the spacing is uniform everywhere here, these are straightforward.
-*/
-      pf_ragged_alloc(pf_indep_var,pf_tab_index)
-
-      do i=0,pf_tab_index[1,1]-1
-         pf_indep_var_table(i,1,1)=zero
-         pf_indep_var_table(i,1,2)=zero
-      end do
-      pf_indep_var_table(0,1,3)=pf_min[1,3]
-      pf_indep_var_table(1,1,3)=pf_max[1,3]
-
-/*
    Write netCDF file and close everything up
 */
 
-      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileout='./'\/trim(pf_name)\/'.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
 
       call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
@@ -906,7 +981,6 @@ the characteristics of which can be summarized in this short argument list.
       pf_ncwrite(fileid)
 
       var_free(pf_data_tab)
-      var_free(pf_indep_var_tab)
 
       call ncclose(fileid,nc_stat)
 
