@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.34  1995/06/16 09:54:44  karney
+# remove unresolved conflict garbage
+#
 # Revision 1.33  1995/06/13 21:19:40  jshankar
 # changed to compile readfilenames.
 #
@@ -237,7 +240,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
-    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb strata.hweb \
+    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb segment.hweb \
     pmi.hweb pmiformat.hweb 
 
 %.f: %.web $(HEADERS)
@@ -306,10 +309,6 @@ sysdeptest: $(sysdeptest)
 randomtest = random.$O randother.$O
 randomtest_libs =
 randomtest: $(randomtest)
-
-randomtest2 = random.$O randother.$O
-randomtest2_libs =
-randomtest2: $(randomtest2)
 
 pvmmaster = random.$O stat.$O geometry.$O
 pvmmaster_libs = $(NETCDF) $(PVM)
