@@ -2,6 +2,10 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.9  1996/05/24 18:44:19  dstotler
+% In dissociation routines, force a search for ediss and elediss index
+% with each new call.
+%
 % Revision 1.8  1996/03/01 20:25:07  dstotler
 % Switch to explicit includes of header files.
 %
@@ -114,28 +118,42 @@ instances of the particle class.
          call chargex(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
      $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
      $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     pr_reaction_args(ts_reac),
+     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
+     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $     pt_w(prod[1]),rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'elastic') then
+         call elastic(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
+     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
+     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
+     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
      $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $     pt_w(prod[1]),rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc') then
          call dissoc(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
      $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
      $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     pr_reaction_args(ts_reac),
+     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
      $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $     pt_w(prod[1]),rn_args(x))
          else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc_rec') then
          call dissoc(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
      $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
      $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     pr_reaction_args(ts_reac),
+     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
+     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $     pt_w(prod[1]),rn_args(x))
+         else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc_cramd') then
+         call dissoc_cramd(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
+     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
+     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
+     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
      $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $     pt_w(prod[1]),rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'ionize') then
          call ionize(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
      $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
      $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     pr_reaction_args(ts_reac),
+     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
      $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $     pt_w(prod[1]),rn_args(x))
       else
@@ -185,7 +203,7 @@ such as |reaction_test|.
 @<Functions...@>=
       subroutine chargex(pr_test_dummy(test),vc_dummy(v_test),
      $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     pr_reaction_dummy(ts_reac),
+     $     zone,pr_reaction_dummy(ts_reac),
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     rn_dummy(x))
 
@@ -195,6 +213,7 @@ such as |reaction_test|.
       vc_decl(v_test)
       pr_background_decl(back)
       real nb,tb
+      integer zone
       vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
 
@@ -287,12 +306,12 @@ loop: continue
       return
       end
 
-@ Process a dissociation. Arguments are the same as for |chargex|.
+@ Process an elastic collision. Arguments are the same as for |chargex|.
 
 @<Functions...@>=
-      subroutine dissoc(pr_test_dummy(test),vc_dummy(v_test),
+      subroutine elastic(pr_test_dummy(test),vc_dummy(v_test),
      $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     pr_reaction_dummy(ts_reac),
+     $     zone,pr_reaction_dummy(ts_reac),
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     rn_dummy(x))
 
@@ -302,6 +321,229 @@ loop: continue
       vc_decl(v_test)
       pr_background_decl(back)
       real nb,tb
+      integer zone
+      vc_decl(vb_flow)
+      pr_reaction_decl(ts_reac)
+
+      vc_decl(v_prod[rc_product_max])
+      sp_decl(prod[rc_product_max])
+      real w_prod[rc_product_max]
+      rn_decl(x)                                       // Input/Output
+      pr_reaction_decl(pr_reac)                        // Local
+
+      vc_decl(vt_plasma_frame)
+      vc_decl(vb_therm)
+      vc_decl(vrel)
+      vc_decl(vcm)
+      vc_decl(vb_cm)
+      vc_decl(vt_cm)
+
+/*
+   This is the test declarations
+*/
+
+      vc_decl(p_initial)
+      vc_decl(p_final)
+      vc_decl(pi_h2)
+      vc_decl(pi_h)
+      vc_decl(pf_h2)
+      vc_decl(pf_h)
+
+      real initial_energy,final_energy
+
+/*
+   This is the end of the test declarations
+*/
+
+      integer nprod
+      integer rm_prob_max,rm_mu_prob
+      integer i,count,itest
+
+      real cross_section_a
+      real v_thermal,ran,sigvmax,tempmax,cx
+      real rel_energy,rel_energy_bin
+      real reaction_prob_max,reaction_prob_ran,mu_angle
+      real interpolate1
+      real vcm_sq,vb_cmsq,vt_cmsq
+      real vcm_sqrt,vbcm_sqrt,vtcm_sqrt
+      real lab_energy,vb_lab,vt_lab
+      real lab_angle,vb_langle,vt_langle,min_scat_angle
+
+      save tempmax
+
+      data min_scat_angle / 0.86602539649921 /         // PI / 6.
+      data sigvmax / zero /
+      data tempmax / zero /
+      data itest / 0 /
+
+      external cross_section_a                         // External
+      external interpolate1
+      external lab_angle,lab_energy
+
+      pr_common                                        // Common
+      rc_common
+      rd_common
+      sp_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+      count=0
+
+/*
+  If not done already, extract |sgvmax| from |rd_misc_data3|
+*/
+      if (sigvmax == zero) then
+         do i=1,xs_dep_var_max
+            if (reaction_misc_var_dep[pr_reac][i] == 'sigv_max') then
+               assert(reaction_misc_rank[pr_reac][i] == 0)
+               sigvmax=rd_misc_data3(pr_reac,i,0,0,0)
+               goto break
+            end if
+         end do
+break:   continue
+      end if
+
+/*     
+      Transform to frame moving with the local background flow velocity
+*/
+      vc_difference(v_test,vb_flow,vt_plasma_frame)
+
+loop: continue
+      count++
+/*    
+      Pick a background particle 
+*/
+      v_thermal=sqrt(tb/sp_m(pr_background(back)))
+      do i=1,3
+         rn_gauss_next(ran,x)
+         vb_therm[i]=v_thermal*ran
+      end do
+
+@#if 1
+
+      cx=cross_section_a(pr_test_args(test),vc_args(vt_plasma_frame),
+     $    pr_background_args(back),nb,vc_args(vb_therm),tb,
+     $    pr_reaction_args(ts_reac))
+      assert(cx<=sigvmax)
+      if (cx > tempmax) then
+         tempmax=cx
+      end if
+      rn_next(ran,x)
+      if(cx < ran*sigvmax) goto loop
+
+@#endif
+
+/*
+      After selection of a random probability, interpolate the tabulated
+      values of scattering.
+*/
+
+      rn_next(reaction_prob_ran,x)
+
+      if ( itest == 0 ) then
+         itest = 1
+         do i = 1 , xs_dep_var_max
+	    if (reaction_misc_var_dep[pr_reac][i] == 'c_probability') then
+	       rm_prob_max = i
+	    else if  (reaction_misc_var_dep[pr_reac][i] == 'mu_probability') then
+	       rm_mu_prob=i
+	    endif
+         end do
+      endif
+
+      assert(reaction_misc_var_indep[pr_reac][rm_prob_max][1] == xs_var_sp_energy )
+      assert(reaction_misc_var_indep[pr_reac][rm_mu_prob][1] == xs_var_bin )
+      assert(reaction_misc_var_indep[pr_reac][rm_mu_prob][2] == xs_var_sp_energy )
+      assert(reaction_misc_organization[pr_reac][rm_prob_max] == xs_organization_table)
+      assert(reaction_misc_organization[pr_reac][rm_mu_prob] == xs_organization_table)
+
+      do i = 1 , 3
+         vcm(i) = (sp_m(pr_test(test))*vt_plasma_frame(i)+
+     $             sp_m(pr_background(back))*vb_therm(i))/
+     $            (sp_m(pr_test(test))+sp_m(pr_background(back)))
+         vb_cm(i) = vb_therm(i) - vcm(i)
+	 vt_cm(i) = vt_plasma_frame(i) - vcm(i)
+      end do
+
+      vc_difference(vt_plasma_frame,vb_therm,vrel)
+      rel_energy=half*vc_abs2(vrel)
+
+      if(reaction_misc_spacing[pr_reac][rm_prob_max][1] == xs_spacing_log) 
+     $     rel_energy = log(rel_energy)
+
+      rel_energy_bin=(rel_energy-reaction_misc_min[pr_reac][rm_prob_max][1])/
+     $     reaction_misc_delta[pr_reac][rm_prob_max][1]
+
+      reaction_prob_max=one-interpolate1(rel_energy_bin,
+     $     reaction_misc_table[reaction_misc_base[pr_reac][rm_prob_max]],
+     $     reaction_misc_tab_index[pr_reac][rm_prob_max][1])
+
+      if( reaction_prob_ran >= reaction_prob_max ) then
+/*
+      use minimum scattering angle
+*/
+
+         mu_angle = min_scat_angle
+      
+      else
+/*    
+      use interpolated scattering angle
+*/
+         call elastic_angle(rel_energy_bin,reaction_prob_ran,mu_angle,
+     $                      rm_prob_max,rm_mu_prob,pr_reac)
+
+      end if
+/*    
+      convert to laboratory frame from center-of-mass frame
+*/
+      vcm_sq = vc_abs2(vcm)
+      vb_cmsq = vc_abs2(vb_cm)
+      vt_cmsq = vc_abs2(vt_cm)
+      vcm_sqrt = sqrt(vcm_sq)
+      vbcm_sqrt = sqrt(vb_cmsq)
+      vtcm_sqrt = sqrt(vt_cmsq)
+
+      vb_lab = sqrt(lab_energy(mu_angle,vcm_sq,vcm_sqrt,vb_cmsq,vbcm_sqrt))
+      vt_lab = sqrt(lab_energy(mu_angle,vcm_sq,vcm_sqrt,vt_cmsq,-vtcm_sqrt))
+      vb_langle=lab_angle(mu_angle,vcm_sqrt,vbcm_sqrt,vb_lab)
+      vt_langle=lab_angle(mu_angle,vcm_sqrt,-vtcm_sqrt,vt_lab)
+
+      call new_direct(vc_args(vcm),vb_lab,vb_langle,vc_args(v_prod[1]),
+     $                1,rn_args(x))
+      call new_direct(vc_args(vcm),vt_lab,vt_langle,
+     $                vc_args(v_prod[1]),2,rn_args(x))
+
+      assert(pr_num_arrangements(test,ts_reac) == 1) 
+
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,1,i)
+         if (sp_name(prod[i]) == 'molecular hydrogen') then
+            w_prod[i]=one
+         else
+            w_prod[i]=zero
+         end if
+         vc_add(v_prod[i],vb_flow,v_prod[i])
+      end do
+      
+      return
+      end
+
+@ Process a dissociation. Arguments are the same as for |chargex|.
+
+@<Functions...@>=
+      subroutine dissoc(pr_test_dummy(test),vc_dummy(v_test),
+     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
+     $     zone,pr_reaction_dummy(ts_reac),
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $     rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                               // Input
+      vc_decl(v_test)
+      pr_background_decl(back)
+      real nb,tb
+      integer zone
       vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
 
@@ -438,14 +680,12 @@ break:continue
       return
       end
 
-@ Process an ionization. Arguments are the same as for |chargex|. This
-routine is required for ionizations which are not treated by the method
-of reduced absorption.
+@ Process a dissociation for CRAMD. Arguments are the same as for |chargex|.
 
 @<Functions...@>=
-      subroutine ionize(pr_test_dummy(test),vc_dummy(v_test),
+      subroutine dissoc_cramd(pr_test_dummy(test),vc_dummy(v_test),
      $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     pr_reaction_dummy(ts_reac),
+     $     zone,pr_reaction_dummy(ts_reac),
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     rn_dummy(x))
 
@@ -455,6 +695,186 @@ of reduced absorption.
       vc_decl(v_test)
       pr_background_decl(back)
       real nb,tb
+      integer zone
+      vc_decl(vb_flow)
+      pr_reaction_decl(ts_reac)
+
+      integer nprod                                    // Output
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max]
+      rn_decl(x)                                       // Input/Output
+
+      pr_reaction_decl(pr_reac)                        // Local
+      integer i,num_heavy_products,i_eloss,i_iloss,i_hfrac,j_arr
+      integer product_index[2]
+      vc_decl(v_iso)
+      real sum,ran,indep_var,eloss,iloss,hfrac,ediss,v_diss1,v_diss2
+      real mass[2]
+
+      external interpolate1                            // External
+      real interpolate1
+      
+      pr_common                                        // Common
+      rc_common
+      sp_common
+      rn_common
+      rd_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+
+/*
+   Randomly select from the various product arrangements available for this
+   test particle-reaction combination. The array |pr_prod_mult| provides the
+   probability for each.
+*/
+      sum=zero
+      rn_next(ran,x)
+      do i=1,pr_num_arrangements(test,ts_reac)
+         sum=sum+pr_prod_mult(test,ts_reac,i)
+         if (sum >= ran) then
+            j_arr=i
+            goto break
+         end if
+      end do
+
+break:continue
+
+/*
+   Get an isotropic unit vector to use in setting the product velocities.
+*/
+      rn_iso_next(v_iso,x)
+
+/*
+   Search through the list of miscellaneous dependent
+   variables to find |ediss|, the dissociation energy, and |elediss|, the
+   energy lost by the dissociating agent. 
+*/
+      do i=1,xs_dep_var_max
+         if (reaction_misc_var_dep[pr_reac][i] == 'elec_e_loss_rate') then
+            i_eloss=i
+         else if (reaction_misc_var_dep[pr_reac][i] == 'ion_e_loss_rate') then
+            i_iloss=i
+         else if (reaction_misc_var_dep[pr_reac][i] == 'hfrac') then
+            i_hfrac=i
+         end if
+      end do
+
+/*
+   Using the indices found above, obtain the loss rates and H-fractions.
+   Note that we need to do this every call since these quantities are 
+   functions of location.
+*/
+      if (reaction_misc_rank[pr_reac][i_eloss] == 0) then
+         eloss=rd_misc_data3(pr_reac,i_eloss,0,0,0)
+      else if (reaction_misc_rank[pr_reac][i_eloss] == 1) then
+         assert(reaction_misc_var_indep[pr_reac][i_eloss][1] == xs_var_zone)
+         indep_var=zone
+         if (reaction_misc_spacing[pr_reac][i_eloss][1] == xs_spacing_log) indep_var=log(indep_var)
+         indep_var=(indep_var-reaction_misc_min[pr_reac][i_eloss][1])/
+     $        reaction_misc_delta[pr_reac][i_eloss][1]
+         eloss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_eloss]],reaction_misc_tab_index[pr_reac][i_eloss][1])
+         if (reaction_misc_spacing[pr_reac][i_eloss][0] == xs_spacing_log)
+     $        eloss=exp(eloss)
+      end if
+
+      if (reaction_misc_rank[pr_reac][i_iloss] == 0) then
+         iloss=rd_misc_data3(pr_reac,i_iloss,0,0,0)
+      else if (reaction_misc_rank[pr_reac][i_iloss] == 1) then
+         assert(reaction_misc_var_indep[pr_reac][i_iloss][1] == xs_var_zone)
+         indep_var=zone
+         if (reaction_misc_spacing[pr_reac][i_iloss][1] == xs_spacing_log) indep_var=log(indep_var)
+         indep_var=(indep_var-reaction_misc_min[pr_reac][i_iloss][1])/
+     $        reaction_misc_delta[pr_reac][i_iloss][1]
+         iloss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_iloss]],reaction_misc_tab_index[pr_reac][i_iloss][1])
+         if (reaction_misc_spacing[pr_reac][i_iloss][0] == xs_spacing_log)
+     $        iloss=exp(iloss)
+      end if
+
+      if (reaction_misc_rank[pr_reac][i_hfrac] == 0) then
+         hfrac=rd_misc_data3(pr_reac,i_hfrac,0,0,0)
+      else if (reaction_misc_rank[pr_reac][i_hfrac] == 1) then
+         assert(reaction_misc_var_indep[pr_reac][i_hfrac][1] == xs_var_zone)
+         indep_var=zone
+         if (reaction_misc_spacing[pr_reac][i_hfrac][1] == xs_spacing_log) indep_var=log(indep_var)
+         indep_var=(indep_var-reaction_misc_min[pr_reac][i_hfrac][1])/
+     $        reaction_misc_delta[pr_reac][i_hfrac][1]
+         hfrac=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_hfrac]],reaction_misc_tab_index[pr_reac][i_hfrac][1])
+         if (reaction_misc_spacing[pr_reac][i_hfrac][0] == xs_spacing_log)
+     $        hfrac=exp(hfrac)
+      end if
+
+/*
+   Count the number of ``heavy'' products (i.e., not electrons) and store
+   their masses.
+*/
+      num_heavy_products=0
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,j_arr,i)
+         if (sp_sy(prod[i]) != 'e') then
+            num_heavy_products++
+            mass[num_heavy_products]=sp_m(prod[i])
+            product_index[num_heavy_products]=i
+            if (sp_z(prod[i]) == 0) then
+               w_prod[i]=two*hfrac
+            else
+               assert(sp_z(prod[i]) > 0)
+               w_prod[i]=two*(one-hfrac)
+            end if
+         else
+            w_prod[i]=zero
+         end if
+      end do
+      
+/* 
+   For the time being, the actual dissocation energy is hardwired at 3 eV.
+   Doing better will require significant improvements to CRAMD.
+*/
+      ediss=const(3.)*electron_charge    
+/*
+   Set speeds of products so as to conserve momentum. This routine is 
+   equipped to deal with only two heavy products.
+*/
+      assert(num_heavy_products == 2)
+      v_diss1=sqrt(const(4.0)*ediss*(mass[2]/mass[1])/(mass[1]+mass[2]))
+      v_diss2=-v_diss1*mass[1]/mass[2]
+
+/*
+   Set product velocities by transforming back into the lab frame (from the
+   test particle frame). Set weight fractions.
+*/
+      do i=1,nprod
+         if (product_index[1] == i) then
+            vc_xvt(v_test,v_iso,v_diss1,v_prod[i])
+         else if (product_index[2] == i) then
+            vc_xvt(v_test,v_iso,v_diss2,v_prod[i])
+         else
+            vc_set(v_prod[i],zero,zero,zero)
+         end if
+      end do
+
+      return
+      end
+
+@ Process an ionization. Arguments are the same as for |chargex|. This
+routine is required for ionizations which are not treated by the method
+of reduced absorption.
+
+@<Functions...@>=
+      subroutine ionize(pr_test_dummy(test),vc_dummy(v_test),
+     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
+     $     zone,pr_reaction_dummy(ts_reac),
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $     rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                               // Input
+      vc_decl(v_test)
+      pr_background_decl(back)
+      real nb,tb
+      integer zone
       vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
 
@@ -506,5 +926,230 @@ break:   continue
 
       return
       end 
+
+@ Calculate the elasctic scattering angle from tabulated data.
+
+@<Functions...@>=
+
+      subroutine elastic_angle(rel_energy_bin,mu_prob,mu_angle,
+     $                         rm_prob_max,rm_mu_prob,pr_reac)
+      implicit_none
+      real rel_energy_bin,mu_prob_var(0:2),mu_angle,mu_angle_var(1:2)
+      real prob_var_delta(0:1),prob_var_bin(0:1),mu_prob
+      real max_probability,elastic_probability,boundry_angle,mu_interpolation
+      integer rm_prob_max,rm_mu_prob,pr_reac
+      integer i,j,ip,p_bin(0:1)
+      external max_probability,elastic_probability,boundry_angle
+      external mu_interpolation
+      
+      rd_common
+
+      mu_prob_var(0) = mu_prob
+      ip = int(rel_energy_bin)
+      if ( rel_energy_bin < areal(ip) ) ip = ip - 1
+
+      do i = 0 , 1
+
+         prob_var_delta(i) = (1. - max_probability(ip,
+     $        reaction_misc_table[reaction_misc_base[pr_reac][rm_prob_max]],
+     $        reaction_misc_tab_index[pr_reac][rm_prob_max][1]))/
+     $        (reaction_misc_tab_index[pr_reac][rm_mu_prob][1]-1.)
+         prob_var_bin(i) = mu_prob_var(0) / prob_var_delta(i)
+
+         p_bin(i) = int(prob_var_bin(i))
+         p_bin(i) = min(max(0,p_bin(i)),
+     $        reaction_misc_tab_index[pr_reac][rm_prob_max][1]-1)
+
+         ip = ip + 1
+
+      end do
+
+      do i = 1 , 2
+
+         mu_prob_var(i) = elastic_probability(p_bin,prob_var_delta,
+     $       rel_energy_bin)
+
+         mu_angle_var(i) = boundry_angle(p_bin,rel_energy_bin,
+     $        reaction_misc_table[reaction_misc_base[pr_reac][rm_mu_prob]],
+     $        reaction_misc_tab_index[pr_reac][rm_mu_prob][1])
+
+         do j = 0 , 1
+            p_bin(j) = p_bin(j) + 1
+         end do
+
+      end do
+
+      mu_angle = mu_interpolation(mu_angle_var,mu_prob_var)
+
+      return
+      end
+
+@     Function to determine the probability of a minimum scatter
+
+@<Functions...@>=
+      function max_probability (ip,array,n)
+      implicit_none
+      real array[0:*],max_probability
+      integer if,ip,n
+      
+      assert ( ip < n )
+      if = min(max(0,ip),n-1)
+      max_probability=array(if)
+
+      return
+      end
+
+@     Function to interpolate a boundry probability
+
+@<Functions...@>=
+      function elastic_probability (p_bin,dp,f)
+      implicit_none
+      real elastic_probability,f,fx,dp(0:1)
+      integer ia,p_bin(0:1)
+      
+      ia = int(f)
+      if ( f < areal(ia) ) ia = ia -1
+      fx = f - areal(ia)
+    
+      elastic_probability = p_bin(0)*dp(0)*(one-fx)+p_bin(1)*dp(1)*fx
+
+      return
+      end
+
+@ The two-dimensional version.
+
+@m array2b(i,j) array[i*n+j]
+
+@<Functions...@>=
+      function boundry_angle(p_bin,f,array,n)
+      implicit_none
+      real boundry_angle,f,fx,array(0:*)
+      integer p_bin(0:1),n,ia,ib
+      
+      ia = int(f)
+      if ( f < areal(ia)) ia = ia-1
+      ib=ia+1
+      fx = f - areal(ia)
+
+      boundry_angle=array2b(ia,p_bin(0))*(one-fx)+array2b(ib,p_bin(1))*fx
+
+      return
+      end
+
+@     function to calculate the actual scattering angle
+
+@<Functions...@>=
+      function mu_interpolation ( mu , prob )
+      implicit_none
+      real mu_interpolation,mu(1:2),prob(0:2)
+
+      mu_interpolation=mu(2)-(mu(2)-mu(1))*(prob(2)-prob(0))/(prob(2)-prob(1))
+
+      return
+      end
+
+@ Subroutine to determine the laboratory scattering angle
+
+@<Functions...@>=
+      subroutine new_direct(vc_dummy(v_dummy),v_lab,cos_psi,vc_dummy(v_prod),
+     $                      i,rn_dummy(x))
+      implicit_none
+
+      rn_decl(x)
+
+      vc_decl(v_prod[rc_product_max])
+      vc_decl(v_dummy)
+      vc_decl(v_prime)
+      vc_decl(unit_v)
+      vc_decl(vector_temp)
+
+      integer i,itest
+
+      real sign,v_lab
+      real cos_psi,sin_psi
+      real cos_delta,sin_delta
+      real rho_bar
+      real eps,eps_sq,eta,eta_sq,eps_eta
+
+      data itest / 0 /
+
+      if ( itest .eq. 0 ) then
+
+loop: continue
+      rn_next(eps,x)
+      rn_next(eta,x)
+      eps_sq=eps*eps
+      eta_sq=eta*eta
+      eps_eta=eps_sq+eta_sq
+      if ( eps_eta > one ) goto loop
+
+      cos_delta=(eps_sq-eta_sq)/eps_eta
+      sin_delta=2.*eps*eta/eps_eta
+      rn_next(sign,x)
+      if ( sign < 0.5 ) sin_delta = -sin_delta
+
+      sin_psi=sqrt(1.-cos_psi*cos_psi)
+
+      itest = 1
+
+      elseif( itest == 1 ) then
+
+         sin_psi=-sqrt(1.-cos_psi*cos_psi)
+         itest = 0
+
+      end if
+
+      vc_unit(v_dummy,unit_v)
+
+      rho_bar=sqrt(1.-unit_v(3)*unit_v(3))
+
+      if (  unit_v(3) <= 0.95 ) then
+
+         v_prime(1)=(sin_psi*cos_delta*unit_v(3)*unit_v(1)-
+     $     sin_psi*sin_delta*unit_v(2))/rho_bar+cos_psi*unit_v(1)
+         v_prime(2)=(sin_psi*cos_delta*unit_v(3)*unit_v(2)+
+     $     sin_psi*sin_delta*unit_v(1))/rho_bar+cos_psi*unit_v(2)
+         v_prime(3)=-sin_psi*cos_delta*rho_bar+cos_psi*unit_v(3)
+
+      else
+
+         v_prime(1)=sin_psi*cos_delta
+         v_prime(2)=sin_psi*sin_delta
+         v_prime(3)=cos_psi*unit_v(3)
+
+      endif
+
+      vc_scale(v_lab,v_prime,v_prod[i])
+
+      return
+      end
+
+@ Calculation of Post Collision Laboratory velocity squared
+
+@<Functions...@>=
+      function lab_energy(mu_angle,vcm_sq,vcm_sqrt,vx_cmsq,vxcm_sqrt)
+      implicit_none
+
+      real vcm_sq,vcm_sqrt,vx_cmsq,vxcm_sqrt
+      real mu_angle,lab_energy
+      
+      lab_energy = vcm_sq+vx_cmsq+2.*vcm_sqrt*vxcm_sqrt*mu_angle
+
+      return
+      end
+
+@ Subroutine to determine the laboratory scattering angle
+
+@<Functions...@>=
+      function lab_angle(mu_angle,vcm_sqrt,vxcm_sqrt,vx_lab)
+      implicit_none
+
+      real vcm_sqrt,vxcm_sqrt,vx_lab
+      real mu_angle,lab_angle
+
+      lab_angle=(vcm_sqrt+vxcm_sqrt*mu_angle)/vx_lab
+
+      return
+      end
 
 @* INDEX.
