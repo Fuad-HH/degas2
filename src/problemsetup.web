@@ -2,6 +2,13 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.25  1998/01/14 20:51:40  dstotler
+% Replace problem_species_test with pr_test_lookup and
+% problem_species_background with pr_background_lookup. Since Charles
+% moved definition of "generic" arrays to a separate package in
+% problem.hweb, can remove pr_localcommon macro here. Moved
+% corresponding comments to classes.web.
+%
 % Revision 1.24  1997/08/21 01:46:20  karney
 % Convert rest of memory allocation to fortran 90 standard.
 %
@@ -367,6 +374,8 @@ eof:  return
       @<Memory allocation interface@>
       st_decls
       
+      pr_reaction_dim=0
+      assert(pr_reaction_num==0)
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
       if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
@@ -378,13 +387,21 @@ loop1: continue
       p=0
 loop2: continue
       if ( ! next_token(line(:length),b,e,p) ) goto loop1
-      pr_reaction_num++
+      pr_reaction_dim++
       var_realloca(problem_rc)
-      pr_reaction(pr_reaction_num) = rc_lookup(line(b:e))
-      assert(pr_reaction(pr_reaction_num) > 0)
+      pr_reaction(pr_reaction_dim) = rc_lookup(line(b:e))
+      assert(pr_reaction(pr_reaction_dim) > 0)
       goto loop2
 
-eof:  return
+eof:  continue
+
+      pr_reaction_num=pr_reaction_dim
+      if (pr_reaction_dim == 0) then
+         pr_reaction_dim=1
+         var_realloca(problem_rc)
+      end if
+
+      return
       end
 
 @ Read in materials labels.
@@ -524,9 +541,11 @@ also allowing for the isotopically equivalent combinations.
          write(stdout,*) pr_mat_ref(i),', ',trim(ma_name(pr_mat_ref(i)))
       end do
       write(stdout,*) 'Reference reaction indices are:'
-      do i=1,pr_reaction_num
-         write(stdout,*) pr_reaction(i),', ',trim(rc_name(pr_reaction(i)))
-      end do
+      if (pr_reaction_num > 0) then
+         do i=1,pr_reaction_num
+            write(stdout,*) pr_reaction(i),', ',trim(rc_name(pr_reaction(i)))
+         end do
+      end if
       write(stdout,*) 'Reference PMI indices are:'
       do i=1,pr_pmi_num
          write(stdout,*) pr_pm_ref(i),', ',trim(pm_name(pr_pm_ref(i)))
@@ -587,68 +606,71 @@ also allowing for the isotopically equivalent combinations.
       end do
       
 /* We can only deal with binary collisions currently */
-      do j=1,pr_reaction_num
-         assert(rc_reagent_num(pr_reaction(j)) == 2)
-      end do
+      if (pr_reaction_num > 0) then
+         do j=1,pr_reaction_num
+            assert(rc_reagent_num(pr_reaction(j)) == 2)
+         end do
+      end if
       
       do i=1,pr_test_num
          pr_rc_num(i)=0
       end do
       pr_bkrc_dim=0
 
-      do j=1,pr_reaction_num
+      if (pr_reaction_num > 0) then
+         do j=1,pr_reaction_num
 
 /* Allow for arbitrary ordering of |test| and |background| in reagent 
    specification. Despite a general appearance, this still assumes 
    binary collisions. */
-         generic=0
-         ts_reagent=0
-         do i=1,pr_bkrc_reagent_max
-            generic_reagents[i]=0
-         end do
-         do i=1,rc_reagent_num(pr_reaction(j))
-            generic=generics[rc_reagent(pr_reaction(j),i)]
+            generic=0
+            ts_reagent=0
+            do i=1,pr_bkrc_reagent_max
+               generic_reagents[i]=0
+            end do
+            do i=1,rc_reagent_num(pr_reaction(j))
+               generic=generics[rc_reagent(pr_reaction(j),i)]
 
-            if (pr_test_lookup(equivalents[generic,1]) == 0) then      
+               if (pr_test_lookup(equivalents[generic,1]) == 0) then      
 
 /* If not a test, then it must be a background */
-               assert(pr_background_lookup(equivalents[generic,1])!=0)
-               generic_reagents[i]=generic
+                  assert(pr_background_lookup(equivalents[generic,1])!=0)
+                  generic_reagents[i]=generic
 
 /* Check for the converse, as well. Use |ts_reagent| to record which
 is which for later use. */
-            else if (pr_background_lookup(equivalents[generic,1]) == 0) then
-               assert (pr_test_lookup(equivalents[generic,1])!=0 && ts_reagent==0) 
-               ts_reagent=i
-               generic_reagents[i]=generic
-            end if
-         end do
+               else if (pr_background_lookup(equivalents[generic,1]) == 0) then
+                  assert (pr_test_lookup(equivalents[generic,1])!=0 && ts_reagent==0) 
+                  ts_reagent=i
+                  generic_reagents[i]=generic
+               end if
+            end do
 
 /* Done setting |generic_reagents|; use to assign remaining |pr| arrays */
-         if (ts_reagent > 0) then
-            do k=1,num_equiv[generic_reagents[ts_reagent]]
-               test=pr_test_lookup(equivalents[generic_reagents[ts_reagent],k])
-               do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1]]
-                  background=pr_background_lookup(
-     $                 equivalents[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1],l])
-                  assert( pr_test_check(test) && pr_background_check(background) )
-                  pr_rc_num(test)=pr_rc_num(test)+1
-                  assert(pr_rc_num(test) <= pr_reaction_max)
-                  pr_ts_rc(test,pr_rc_num(test))=j
-                  pr_ts_bk(test,pr_rc_num(test))=background
-                  if (ts_reagent==1) then
-                     reagents[1]=pr_test(test)
-                     reagents[2]=pr_background(background)
-                  else if (ts_reagent==2) then
-                     reagents[1]=pr_background(background)
-                     reagents[2]=pr_test(test)
-                  else
-                     assert('Illegal value of ts_reagent' == ' ')
-                  end if
-                  call set_products(pr_test_args(test),sp_args(reagents),rc_args(pr_reaction(j)))
+            if (ts_reagent > 0) then
+               do k=1,num_equiv[generic_reagents[ts_reagent]]
+                  test=pr_test_lookup(equivalents[generic_reagents[ts_reagent],k])
+                  do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1]]
+                     background=pr_background_lookup(
+     $                    equivalents[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1],l])
+                     assert( pr_test_check(test) && pr_background_check(background) )
+                     pr_rc_num(test)=pr_rc_num(test)+1
+                     assert(pr_rc_num(test) <= pr_reaction_max)
+                     pr_ts_rc(test,pr_rc_num(test))=j
+                     pr_ts_bk(test,pr_rc_num(test))=background
+                     if (ts_reagent==1) then
+                        reagents[1]=pr_test(test)
+                        reagents[2]=pr_background(background)
+                     else if (ts_reagent==2) then
+                        reagents[1]=pr_background(background)
+                        reagents[2]=pr_test(test)
+                     else
+                        assert('Illegal value of ts_reagent' == ' ')
+                     end if
+                     call set_products(pr_test_args(test),sp_args(reagents),rc_args(pr_reaction(j)))
+                  end do
                end do
-            end do
-         else
+            else
 /* Reactions among background species...
    We have not established a protocol yet for dealing with reactions involving
    two background species. The typical reactions involve a test species (given
@@ -663,32 +685,33 @@ is which for later use. */
    reagent (e.g., an ion about to be recombined) will be sampled in preparation
    for determining the velocity of the sourced test species.
  */
-            do k=1,num_equiv[generic_reagents[1]]
-               back[1]=pr_background_lookup(equivalents[generic_reagents[1],k])
-               assert(pr_background_check(back[1]))
-               do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max]]
-                  back[pr_bkrc_reagent_max]=pr_background_lookup(
-     $                 equivalents[generic_reagents[pr_bkrc_reagent_max],l])
-                  assert(pr_background_check(back[pr_bkrc_reagent_max]))
-                  pr_bkrc_dim++  
-                  var_realloca(problem_background_reaction)
-                  var_realloca(problem_bkrc_reagents)
-                  var_realloca(problem_bkrc_products)
-                  pr_bk_rc(pr_bkrc_dim)=j
-                  do m=1,pr_bkrc_reagent_max
-                     if (sp_m(pr_background(back[pr_bkrc_reagent_max])) 
-     $                    < sp_m(pr_background(back[1]))) then
-                        pr_bkrc_rg(pr_bkrc_dim,m)=back[pr_bkrc_reagent_max-m+1]
-                     else
-                        pr_bkrc_rg(pr_bkrc_dim,m)=back[m]
-                     end if
-                     reagents[m]=pr_background(back[m])
+               do k=1,num_equiv[generic_reagents[1]]
+                  back[1]=pr_background_lookup(equivalents[generic_reagents[1],k])
+                  assert(pr_background_check(back[1]))
+                  do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max]]
+                     back[pr_bkrc_reagent_max]=pr_background_lookup(
+     $                    equivalents[generic_reagents[pr_bkrc_reagent_max],l])
+                     assert(pr_background_check(back[pr_bkrc_reagent_max]))
+                     pr_bkrc_dim++  
+                     var_realloca(problem_background_reaction)
+                     var_realloca(problem_bkrc_reagents)
+                     var_realloca(problem_bkrc_products)
+                     pr_bk_rc(pr_bkrc_dim)=j
+                     do m=1,pr_bkrc_reagent_max
+                        if (sp_m(pr_background(back[pr_bkrc_reagent_max])) 
+     $                       < sp_m(pr_background(back[1]))) then
+                           pr_bkrc_rg(pr_bkrc_dim,m)=back[pr_bkrc_reagent_max-m+1]
+                        else
+                           pr_bkrc_rg(pr_bkrc_dim,m)=back[m]
+                        end if
+                        reagents[m]=pr_background(back[m])
+                     end do
+                     call set_bkrc_products(pr_bkrc_dim,sp_args(reagents))
                   end do
-                  call set_bkrc_products(pr_bkrc_dim,sp_args(reagents))
                end do
-            end do
-         end if
-      end do
+            end if
+         end do
+      end if
 /* Have to introduce |pr_bkrc_dim| because netCDF allocates space for these
    arrays even if |pr_bkrc_num|=0. The problem arises when the netCDF file
    containing these variables is read back in. The size is reported to be
