@@ -2,6 +2,11 @@
 \Title{elementsetup}
 
 % $Log$
+% Revision 1.17  1997/08/19 14:36:36  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.16  1996/03/01 20:26:41  dstotler
 % Switch to explicit includes.
 %
@@ -109,11 +114,11 @@ loop1: continue
       assert( next_token(line,b,e,p) )
       el_z(el_num)=read_integer(line(b:e))
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') el_sy(el_num)
+      el_sy(el_num)=read_text(line(b:e))
       assert( next_token(line,b,e,p) )
       el_m(el_num)=read_real(line(b:e))
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') el_name(el_num)
+      el_name(el_num)=read_text(line(b:e))
       goto loop1
 eof:  continue
       close(unit=diskin)

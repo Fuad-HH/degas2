@@ -1,0 +1,21 @@
+@* Header macros for pvm.
+% $Id$
+
+% $Log$
+%
+
+@ Macro definitions for MPI.
+
+\ID{$Id$}
+
+@m mpi_broadcast(name)
+      call MPI_Bcast(name, array_size(name), $IFCASE(type_##name,MPI_CHARARCTER,MPI_INTEGER, MPI_DOUBLE_PRECISION), mpi_root, MPI_COMM_WORLD)
+
+@a
+      package_init(mp)
+      
+      define_var_pk(mp,mpi_root,INT)
+      define_var_pk(mp,mpi_size,INT)
+      define_var_pk(mp,mpi_rank,INT)
+
+      package_end(mp)

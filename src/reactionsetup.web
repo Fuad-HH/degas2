@@ -1,7 +1,12 @@
-% $Id$
+% $Id: react
 \Title{reactionsetup}
 
 % $Log$
+% Revision 1.22  1997/08/19 14:36:59  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.21  1997/08/07 20:13:28  dstotler
 % Add rc_emitter functionality.
 %
@@ -146,7 +151,7 @@ loop1: continue
 */      
       p=0
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') rc_sy(rc_num)
+      rc_sy(rc_num)=read_text(line(b:e))
       rc_reagent_num(rc_num) = 0
       rc_emitter(rc_num) = 0
 loop2: continue

@@ -2,6 +2,11 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.17  1998/03/11 14:57:10  dstotler
+% Add asserts in track_chargex to check that I_ln integrals are included
+% in data. Comment out assert on sgvmax so rejection can be disabled by
+% setting it to 0.
+%
 % Revision 1.16  1998/01/14 20:29:38  dstotler
 % Replace variable names in chargex and elastic which conflicted with
 % geomint.hweb. Replace transform_v routine with macro. Replace variable
@@ -752,6 +757,7 @@ break:continue
       
       pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
 
 /*
    Randomly select from the various product arrangements available for this
@@ -851,6 +857,7 @@ break:continue
    Collision scoring. This isn't done yet. There remain the MAR and 
    H-alpha data to implement.
 */
+
       coupling_scores[back][ou_coupling_mass]+=
      $  -sp_m(pr_background(back))*rate
       coupling_scores[back][ou_coupling_energy]+=-eloss

@@ -2,6 +2,10 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.17  1997/09/29 18:39:49  karney
+% Typo in Makefile
+% SGI fix in sysdep.web
+%
 % Revision 1.16  1997/09/29 17:17:42  karney
 % Implement mem_check.
 %
@@ -102,9 +106,15 @@ System dependent routines for degas.
 @m CHARPOINTERBUG 0
 @#endif
 
+@#if IBM
+@m FORTRANNAME(x) x
+@#else
+@m FORTRANNAME(x) x##_
+@#endif
+
 @a
       @<Functions and Subroutines@>
-@#if IBM
+@#if IBM || LINUX
 @c
 #include <stdio.h>
 #include <strings.h>
@@ -135,6 +145,11 @@ This is from \verb&f77/f77_floatingpoint.h&.
 @<Functions...@>=
 @#if !IBM
       function get_env(var,val)
+      implicit_none_f77
+@#if LINUX
+      use f90_unix
+@#endif
+      implicit_none_f90
       logical get_env           // Function
       character*(*) var         // Input
       character*(*) val         // Output
@@ -161,7 +176,7 @@ This is from \verb&f77/f77_floatingpoint.h&.
 
 @<C Functions@>=
 @#if IBM
-int get_env(var,val,var_len,val_len)
+int FORTRANNAME(get_env)(var,val,var_len,val_len)
      char *var,*val;
      int var_len,val_len;
 {
@@ -179,7 +194,7 @@ int get_env(var,val,var_len,val_len)
     return FALSE;
   else {
     strncpy(val,val_a,val_len);
-    string_pad(val,val_len);
+    FORTRANNAME(string_pad)(val,val_len);
     return TRUE;
   }
 }
@@ -321,7 +336,7 @@ overflow until 2068.
       implicit_none_f77
       implicit_none_f90
       real cpu_time             // Function
-@#if HP || IBM
+@#if HP || IBM || LINUX
       integer clock             // External
 @#elif CRAY
       real second               // External
@@ -330,7 +345,7 @@ overflow until 2068.
       single_precision etime    // External
 @#endif
 
-@#if HP || IBM
+@#if HP || IBM || LINUX
       cpu_time=const(1.0,-6)*areal(clock())
 @#elif CRAY
       cpu_time=second()
@@ -341,14 +356,29 @@ overflow until 2068.
       return
       end
 
+@ Interface for |clock| for Linux.
+
+@<C Functions@>=
+@#if LINUX
+int FORTRANNAME(clock)()
+{
+      return clock();
+}
+@#endif
+      
 @* Various system information.  Return process ID.
 
 @<Functions...@>=
       function get_pid()
       implicit_none_f77
+@#if LINUX
+      use f90_unix
+@#endif
       implicit_none_f90
       integer get_pid           // Function
+@#if !LINUX
       integer getpid           // External
+@#endif
 
       get_pid=getpid()
 
@@ -380,6 +410,20 @@ overflow until 2068.
       return
       end
 
+@ Linux interface to getcwd
+@<C Functions@>=
+@#if LINUX
+int FORTRANNAME(getcwd)(name,len)
+char * name;
+int len;
+{
+      if (getcwd(name,len))
+         return(0);
+      else
+         return(1);
+}
+@#endif
+
 @ Set working directory.  Returns |.true.| if successful.
 
 @<Functions...@>=
@@ -394,6 +438,21 @@ overflow until 2068.
 
       return
       end
+
+@ Linux interface to chdir
+@<C Functions@>=
+@#if LINUX
+int FORTRANNAME(chdir)(name,len)
+char *name;
+int len;
+{
+      char *namea;
+      namea=(char *)malloc(len+1);
+      strncpy(namea,name,len);
+      namea[len]='\0';
+      return chdir(namea);
+}
+@#endif
 
 @ Get user name.
 
@@ -446,14 +505,31 @@ overflow until 2068.
       return
       end
 
+@ Linux interface to gethostname.
+@<C Functions@>=
+@#if LINUX
+int FORTRANNAME(hostnm)(name,len)
+char * name;
+int len;
+{
+      return gethostname(name,len);
+}
+@#endif
+
+
 @* Get command line arguments.  Return argument count in |arg_count()|.
 
 @<Functions...@>=
       function arg_count()
       implicit_none_f77
+@#if LINUX
+      use f90_unix
+@#endif
       implicit_none_f90
       integer arg_count         // Function
+@#if !LINUX
       integer iargc             // External
+@#endif
 
       arg_count=iargc()
 
@@ -465,6 +541,9 @@ overflow until 2068.
 @<Functions...@>=
       subroutine command_arg(i,arg)
       implicit_none_f77
+@#if LINUX
+      use f90_unix
+@#endif
       implicit_none_f90
       integer i                 // Input
       character*(*) arg         // Output
@@ -1014,6 +1093,10 @@ can't do pointer arithmetic).
       character(len=*), intent(in) :: name
       logical mem_realloc_check
       external mem_realloc_check
+@#if CHARPOINTERBUG
+      logical mem_alloc_check
+      external mem_alloc_check
+@#endif
       mem_common
 
       interface
@@ -1042,7 +1125,15 @@ can't do pointer arithmetic).
       endif
 @#endif
 
-      assert(mem_realloc_check(name,u1,nu))
+@#if CHARPOINTERBUG
+      if (u1 == l1-1) then
+         assert(mem_alloc_check(name,nu))
+      else
+@#endif
+         assert(mem_realloc_check(name,u1,nu))
+@#if CHARPOINTERBUG
+      endif
+@#endif
       if (u1 == nu) then
          np ASSIGN p
          return
@@ -1071,6 +1162,10 @@ can't do pointer arithmetic).
       character(len=*), intent(in) :: name
       logical mem_realloc_check
       external mem_realloc_check
+@#if CHARPOINTERBUG
+      logical mem_alloc_check
+      external mem_alloc_check
+@#endif
       mem_common
 
       interface
@@ -1100,7 +1195,15 @@ can't do pointer arithmetic).
       endif
 @#endif
 
-      assert(mem_realloc_check(name,u2,nu))
+@#if CHARPOINTERBUG
+      if (u2 == l2-1) then
+         assert(mem_alloc_check(name,nu))
+      else
+@#endif
+         assert(mem_realloc_check(name,u2,nu))
+@#if CHARPOINTERBUG
+      endif
+@#endif
       if (u2 == nu) then
          np ASSIGN p
          return
@@ -1129,6 +1232,10 @@ can't do pointer arithmetic).
       character(len=*), intent(in) :: name
       logical mem_realloc_check
       external mem_realloc_check
+@#if CHARPOINTERBUG
+      logical mem_alloc_check
+      external mem_alloc_check
+@#endif
       mem_common
 
       interface
@@ -1159,7 +1266,15 @@ can't do pointer arithmetic).
       endif
 @#endif
 
-      assert(mem_realloc_check(name,u3,nu))
+@#if CHARPOINTERBUG
+      if (u3 == l3-1) then
+         assert(mem_alloc_check(name,nu))
+      else
+@#endif
+         assert(mem_realloc_check(name,u3,nu))
+@#if CHARPOINTERBUG
+      endif
+@#endif
       if (u3 == nu) then
          np ASSIGN p
          return
@@ -1188,6 +1303,10 @@ can't do pointer arithmetic).
       character(len=*), intent(in) :: name
       logical mem_realloc_check
       external mem_realloc_check
+@#if CHARPOINTERBUG
+      logical mem_alloc_check
+      external mem_alloc_check
+@#endif
       mem_common
 
       interface
@@ -1219,7 +1338,15 @@ can't do pointer arithmetic).
       endif
 @#endif
 
-      assert(mem_realloc_check(name,u4,nu))
+@#if CHARPOINTERBUG
+      if (u4 == l4-1) then
+         assert(mem_alloc_check(name,nu))
+      else
+@#endif
+         assert(mem_realloc_check(name,u4,nu))
+@#if CHARPOINTERBUG
+      endif
+@#endif
       if (u4 == nu) then
          np ASSIGN p
          return
@@ -2140,7 +2267,11 @@ memory leaks.
       character*(*) message
 
       write(stderr,*) message
+@#if !LINUX
       pause
+@#else
+      read(stdin,*)
+@#endif
 
       return
       end

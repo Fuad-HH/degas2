@@ -3,6 +3,13 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.28  1997/09/02 21:14:30  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.27  1997/08/19 14:36:38  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -271,6 +278,7 @@ universal cell.
 @ Evaluate surface function using Horner's rule.
 
 @<Functions...@>=
+@#if !SURFACE_EVAL_MACRO
       function surface_eval(surface_args,x)
       implicit_none_f77
       implicit_none_f90
@@ -278,14 +286,25 @@ universal cell.
       decl_surface_args         // Input
       real x[3] // Input
 
+/*
+      write(25,'(1p13e12.5)') x,coeff
+*/
+
+@#if PLANE_SURFACES
+      surface_eval=sigma*(x[3]*coeff[cz]+
+     $     x[2]*coeff[cy]+x[1]*coeff[cx]+
+     $     coeff[c0])
+@#else
       surface_eval=sigma*(x[3]*(coeff[czz]*x[3]+coeff[cyz]*x[2]+
      $     coeff[cxz]*x[1]+coeff[cz])+
      $     x[2]*(coeff[cyy]*x[2]+coeff[cxy]*x[1]+
      $     coeff[cy])+x[1]*(coeff[cxx]*x[1]+coeff[cx])+
      $     coeff[c0])
+@#endif
 
       return
       end
+@#endif
 
 @ Evaluate gradient of a surface $\sigma \nabla f(\vect x)$.
 
@@ -297,13 +316,18 @@ universal cell.
       real x[3]
       real grad[3]              // Output
 
+@#if PLANE_SURFACES
+      grad[1]=sigma*coeff[cx]
+      grad[2]=sigma*coeff[cy]
+      grad[3]=sigma*coeff[cz]
+@#else
       grad[1]=sigma*(coeff[cxz]*x[3]+coeff[cxy]*x[2]+
      $     2*coeff[cxx]*x[1]+coeff[cx])
       grad[2]=sigma*(coeff[cyz]*x[3]+2*coeff[cyy]*x[2]+
      $     coeff[cxy]*x[1]+coeff[cy])
       grad[3]=sigma*(2*coeff[czz]*x[3]+coeff[cyz]*x[2]+
      $     coeff[cxz]*x[1]+coeff[cz])
-
+@#endif
       return
       end
 
@@ -333,7 +357,7 @@ In order to avoid evaluating |f|  twice, |surface_val|  should be passed as
       if ( surface_val ) then
          f0=f
       else
-         f0=surface_eval(surface_args,x)
+         f0=surface_eval_a(surface_args,x)
       end if
 
       in_surface = abs(f0) <= geom_epsilon*vc_abs(grad)
@@ -359,7 +383,7 @@ if it lies on the negative side within |geom_epsion| it is accepted.
 
       inside_surface=.true.
 
-      f=surface_eval(surface_args,x)
+      f=surface_eval_a(surface_args,x)
       
       if (f >= zero) return
       
@@ -386,7 +410,7 @@ on the surface.
       inside_cell=.false.
 
       dosurfaces(n)
-         if ( surface_eval(cell_surface_info(n),x) < zero )
+         if ( surface_eval_a(cell_surface_info_a(n),x) < zero )
      $        return
       end do
 
@@ -415,14 +439,14 @@ it is accepted. A strict check is done on the cut surfaces though.
       sloppy_inside=.false.
 
       dofaces(n)                // Do the sloppy check on faces.
-         f0 = surface_eval(cell_surface_info(n),x)
+         f0 = surface_eval_a(cell_surface_info_a(n),x)
          if ( f0 < zero ) then
             if ( ! in_surface(cell_surface_info(n),x,.true.,f0) ) return
          end if
       end do
 
       docuts(n)                 // Do strict check on cut surfaces.
-         if ( surface_eval(cell_surface_info(n),x) < zero )
+         if ( surface_eval_a(cell_surface_info_a(n),x) < zero )
      $        return
       end do
 
@@ -475,7 +499,7 @@ $$ \sigma_k f_k(\vect x) \ge 0 $$ is done on all the other surfaces.
 
       dosurfaces(n)
          if ( surf_list[n] != face ) then
-            if ( surface_eval(cell_surface_info(n),x) < zero )
+            if ( surface_eval_a(cell_surface_info_a(n),x) < zero )
      $           return
          end if
       end do
@@ -507,7 +531,7 @@ check is done on the cut surfaces.
 
       dofaces(n)
          if ( surf_list[n] != face ) then
-            f0 = surface_eval(cell_surface_info(n),x)
+            f0 = surface_eval_a(cell_surface_info_a(n),x)
             if ( f0 < zero ) then
                if ( ! in_surface(cell_surface_info(n),x,.true.,f0) ) return
             end if
@@ -515,7 +539,7 @@ check is done on the cut surfaces.
       end do
 
       docuts(n)                 // Do strict check on cut surfaces.
-         if ( surface_eval(cell_surface_info(n),x) < zero )
+         if ( surface_eval_a(cell_surface_info_a(n),x) < zero )
      $        return
       end do
 
@@ -586,13 +610,13 @@ strictly inside the cell; ie., it may lie within |geom_epsilon| of the faces.
       cell_compare=-1
 
       docuts (n)
-         if (surface_eval(cell_surface_info(n),x) < zero) return
+         if (surface_eval_a(cell_surface_info_a(n),x) < zero) return
       end do
 
       on=.false.
 
       dofaces(n)
-         f0=surface_eval(cell_surface_info(n),x)
+         f0=surface_eval_a(cell_surface_info_a(n),x)
          if (in_surface(cell_surface_info(n),x,.true.,f0)) f0=zero
          if (f0 < zero) return
          if (f0 == zero) on=.true.
@@ -647,13 +671,17 @@ intersect the first face in its direction.
       logical in_surface
 @#endif
 
+@#if PLANE_SURFACES
+      a=zero
+@#else
       a=sigma*
      $    (v[3]*(coeff[czz]*v[3]+coeff[cyz]*v[2]+
      $    coeff[cxz]*v[1])+v[2]*(coeff[cyy]*v[2]+
      $    coeff[cxy]*v[1])+coeff[cxx]*v[1]^2)
+@#endif
       call surface_gradient(surface_args,x0,temp)
       h=half*vc_product(temp,v)
-      c=surface_eval(surface_args,x0)
+      c=surface_eval_a(surface_args,x0)
 
 @#if DEBUG
       if ( c < zero ) then

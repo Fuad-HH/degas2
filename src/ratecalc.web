@@ -2,6 +2,10 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.30  1998/01/14 20:55:38  dstotler
+% Change comment: "elastic collisions, l = 1 represents" ... instead of
+% "inelastic".
+%
 % Revision 1.29  1997/08/21 19:47:02  karney
 % Use f90's portable method of specifying precision (via kind and
 % selected_real_kind).
@@ -411,13 +415,13 @@ next_dep_var: continue      // Label macros are defined in ratecalc.hweb
       assert( next_token(line(:length),b,e,p) )              // Read name
       xs_num_dep_var++
       assert(xs_num_dep_var <= xs_dep_var_max)
-      read(line(b:e),'(a)') xs_var[0,xs_num_dep_var]
+      xs_var[0,xs_num_dep_var]=read_text(line(b:e))
 
       assert( next_token(line(:length),b,e,p) )
-      read(line(b:e),'(a)') xs_eval_name[xs_num_dep_var]     // Eval. name
+      xs_eval_name[xs_num_dep_var] =read_text(line(b:e)) // Eval. name
 
       if ( next_token(line(:length),b,e,p) ) then
-         read(line(b:e),'(a)') xs_spacing[0,xs_num_dep_var]  // And spacing
+         xs_spacing[0,xs_num_dep_var]=read_text(line(b:e)) // And spacing
       else
          xs_spacing[0,xs_num_dep_var]='unknown'
       end if
@@ -537,7 +541,7 @@ next_dep_var:   continue
       else                     // And their corresponding independent variables
          xs_rank[dep_var[1]]++
          assert(xs_rank[dep_var[1]] <= xs_table_rank_max)
-         read(line(b:e),'(a)') xs_var[xs_rank[dep_var[1]],dep_var[1]]
+         xs_var[xs_rank[dep_var[1]],dep_var[1]]=read_text(line(b:e))
          if (xs_var[xs_rank[dep_var[1]],dep_var[1]] == 'none') then
             xs_rank[dep_var[1]]=0                      // Constant
          else
@@ -565,7 +569,7 @@ next_dep_var:   continue
             end if
                                                        // And spacing
             if ( next_token(line(:length),b,e,p) ) then
-               read(line(b:e),'(a)') xs_spacing[xs_rank[dep_var[1]],dep_var[1]]
+               xs_spacing[xs_rank[dep_var[1]],dep_var[1]]=read_text(line(b:e))
             else
                xs_spacing[xs_rank[dep_var[1]],dep_var[1]]='unknown'
             end if
@@ -675,7 +679,7 @@ react_begin: continue               // Labels are defined in ratecalc.hweb
       assert( next_token(line,b,e,p) )
       ra_mass=read_real(line(b:e))
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') ra_mass_units
+      ra_mass_units=read_text(line(b:e))
 
       assert(read_string(unit,line,length))    // Third line: data filename
       length=parse_string(line(:length))
@@ -697,7 +701,7 @@ next_hlab: continue
 
       if ( ! next_token(line,b,e,p) ) goto bool_sect
       ra_num_hier++
-      read(line(b:e),'(a)') ra_hier_label[ra_num_hier]
+      ra_hier_label[ra_num_hier]=read_text(line(b:e))
       goto next_hlab
 
 /*
@@ -745,12 +749,12 @@ next_bool: continue
       if (and_section) then
          do i=1,idep
             ra_num_bool_and[dep_var[i]]++
-            read(line(b:e),'(a)') ra_bool_and_label[ra_num_bool_and[dep_var[i]],dep_var[i]]
+            ra_bool_and_label[ra_num_bool_and[dep_var[i]],dep_var[i]]=read_text(line(b:e))
          end do
       else
          do i=1,idep
             ra_num_bool_not[dep_var[i]]++
-            read(line(b:e),'(a)') ra_bool_not_label[ra_num_bool_not[dep_var[i]],dep_var[i]]
+            ra_bool_not_label[ra_num_bool_not[dep_var[i]],dep_var[i]]=read_text(line(b:e))
          end do
       end if
             
@@ -945,7 +949,9 @@ index into the |xs| class variables for this dependent variable and
       character*msg_length error
 
       external electron_rate_integrand,           // External
-     $   electron_norm_integrand,ion_rate_integrand
+     $     electron_norm_integrand,ion_rate_integrand
+      real electron_rate_integrand,
+     $     electron_norm_integrand,ion_rate_integrand
 
       ra_localcommon
       xs_decls
@@ -1611,7 +1617,8 @@ to |dcadre| with the original ones).
       real dcadre,lower_result,upper_result,error,
      $   lower_bound_rev,upper_bound_rev
       external basic_inf_integration,basic_trap_integration,   // External
-     $   integrand,basic_midpt_integration
+     $     integrand,basic_midpt_integration
+      real integrand
 
 /*
    Locate ``thresholds'' if any and alter bounds accordingly; the accuracy

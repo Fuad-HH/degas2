@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.60  1998/03/11 14:53:11  dstotler
+# Add dependencies of pmiwrite on elementread and readfilenames.
+#
 # Revision 1.59  1998/01/14 19:59:53  dstotler
 # Update object list for flighttest, geomtesta, and sourcetest.
 #
@@ -225,6 +228,10 @@ ifeq ($(SYSTEM),IRIX64)
   MACHINE=SGI
   PVMARCH=SGI
 endif
+ifeq ($(SYSTEM),Linux)
+  MACHINE=LINUX
+  PVMARCH=LINUX
+endif
 ifeq ($(findstring sn,$(SYSTEM)),sn)
   MACHINE=CRAY
   PVMARCH=CRAY
@@ -250,12 +257,16 @@ utils: makemodule idtof Makefile
 %.p: %.web
 %.tex: %.web
 %.dvi: %.tex
+%.f: %.F
+%.o: %.F
 
 # Deal with location of things
 
 ifndef DEGASROOT
     DEGASROOT=$(HOME)
 endif
+
+LIBROOT=/usr/local
 
 -include Makefile.local
 
@@ -286,9 +297,7 @@ Makefile.depends: $(SOURCEDIR)/Makefile.depends
 degas2.in: $(SOURCEDIR)/degas2.in
 	cp $< $@
 
-# Set up librarys
-LIBROOT=/usr/local
-
+# Set up libraries
 ifeq ($(MACHINE),SUN)
   NETCDF=-L$(LIBROOT)/lib -lnetcdf -lnsl
   HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
@@ -345,6 +354,12 @@ endif
 
 WEAVEFLAGS=-f -i! -W[ -ykw600 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 
+ifeq ($(MACHINE),LINUX)
+  DEBUGFLG=-g90
+else
+  DEBUGFLG=-g
+endif
+
 ifeq ($(MACHINE),CRAY)
   FC=cft77
   ifeq ($(DEBUG),yes)
@@ -361,8 +376,8 @@ else  # !CRAY
   endif
   LD=$(FC)
   ifeq ($(DEBUG),yes)
-    FFLAGS=-c -g -u
-    LDFLAGS=
+    FFLAGS=-c $(DEBUGFLG) -u
+    LDFLAGS=$(DEBUGFLG)
     CFLAGS=-g
   else
     FFLAGS=-c -O -fast $(PROFILE)
@@ -374,7 +389,7 @@ endif
 ifeq ($(FORTRAN90),yes)
     FC=f90
     ifeq ($(DEBUG),yes)
-      FFLAGS=-c -g
+      FFLAGS=-c $(DEBUGFLG)
     else
       ifeq ($(MACHINE),CRAY)
         FFLAGS=-c -O3
@@ -393,12 +408,20 @@ endif
 ifeq ($(MACHINE),ALPHA)
     F90MODS=-I.
 endif
+ifeq ($(MACHINE),LINUX)
+    F90MODS=-I.
+    FC+=-mismatch_all
+endif
 endif
 
 ifeq ($(MACHINE),IBM)
   SYSDEPO=sysdep.$O sysdepc.$O
 else
+ifeq ($(MACHINE),LINUX)
+  SYSDEPO=sysdep.$O sysdepc.$O
+else
   SYSDEPO=sysdep.$O
+endif
 endif
 
 ifndef CROSSCOMPILE
@@ -434,6 +457,12 @@ endif
 	$(FTANGLE) -I$(SOURCEDIR) $(TANGLEFLAGS) -m$(TARGET) -=n=#_mod.f $<
 
 ifeq ($(TARGET),IBM)
+  sysdep.f sysdepc.c: sysdep.web macros.hweb
+	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
+	$(IDENTAPPEND)
+endif
+
+ifeq ($(TARGET),LINUX)
   sysdep.f sysdepc.c: sysdep.web macros.hweb
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
 	$(IDENTAPPEND)
@@ -586,7 +615,7 @@ sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O
 sourcetest_libs = $(NETCDF)
 sourcetest: $(sourcetest) $(foreach arg,$(subst .$O,_mods,$(sourcetest)),$($(arg)))
 
-ratecalc = ratecalc.$O $(ALADIR)/aladdin_subr.o readfilenames.$O
+ratecalc = ratecalc.$O aladdin_subr.o readfilenames.$O
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc) $(foreach arg,$(subst .$O,_mods,$(ratecalc)),$($(arg)))
 
@@ -635,6 +664,15 @@ depend: makedepend
 
 #aladdin_subr.o: $(ALADIR)/ALPCOM.FOR $(ALADIR)/ALCOM.FOR
 #	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
+
+aladdin_subr.f: $(ALADIR)/aladdin_subr.f
+	cp $< $@
+
+aladdin_subr.o: aladdin_subr.f ALPCOM.FOR ALCOM.FOR
+	$(FC) -c $(DEBUGFLG) aladdin_subr.f
+
+%.FOR: $(ALADIR)/%.FOR
+	cp $< $@
 
 TAGS:
 	etags --language=fortran --regex='/[ 	]*define_[a-z]+_pk([a-z]+,[A-Za-z0-9_]+,/' --regex='/[ 	]*@m [A-Za-z0-9_]+(?/' *.web *.hweb

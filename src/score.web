@@ -3,6 +3,13 @@
 \Title{score}
 
 % $Log$
+% Revision 1.3  1998/01/14 21:05:13  dstotler
+% Implemented conversions. Moved a bunch of post-processing routines
+% over from flighttest.web. Replace variables: background_sources with
+% coupling_scores, problem_species_test with pr_test_lookup. Added
+% asserts to check number_segments and number_bins against array
+% dimensions.
+%
 % Revision 1.2  1997/08/19 14:37:03  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -1127,7 +1134,7 @@ break: continue
                      assert(zn_check(zone))
                      if (zn_type(zone) == zn_plasma) then
                         vc_copy(zone_center[zone],lc_x(zone_loc))
-                        lc_set(zone_loc)
+                        lc_set_a(zone_loc)
                         assert(lc_zone(zone_loc) == zone)
 
                         particle_no=scores[out_array_index(ind_val,jscore)][o_mean]
@@ -1223,7 +1230,7 @@ break: continue
          assert(so_geom(is) == so_volume)
          zone=source_segment_ptr[seg_tot]
          vc_copy(zone_center[zone],lc_x(zone_loc))
-         lc_set(zone_loc)
+         lc_set_a(zone_loc)
          pt_init(fake_pt,sp_sy(so_species(is)),is)
          lc_copy(zone_loc,pt_loc(fake_pt))
          v_ext_to_int(lc_x(zone_loc),bk_v(pr_bkrc_rg(bk_rc_is,2),

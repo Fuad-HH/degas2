@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.24  1998/03/11 14:54:33  dstotler
+% Change offending comment.
+%
 % Revision 1.23  1998/01/14 20:02:14  dstotler
 % Added comment pointing out unusual "at-m-star" command.
 %
@@ -129,6 +132,7 @@ dimension name, the macro |range(name)| defines the range of the name.
 @m range(name) range_min(name):range_max(name)
 @m rangea(name) range_min(name),range_max(name)
 @m range_star(name) range_min(name):*
+@m range_stara(name) range_min(name):range_min(name)
 @m range_min1(name) min_##name
 @m range_min(name) (range_min1(name))
 @m range_max1(name) max_##name
@@ -221,6 +225,23 @@ is the no. of the  arg. represented by the dots.
           (range(ind_##x##_1),range(ind_##x##_2),range_star(ind_##x##_3)),
           (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
           (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5)))) @;
+
+/* The shape with the last size set to 1.  This is because IBM's xlf doesn't
+like a pointer array to have a starred last dimension */
+
+@m array_shape_stara(x)
+      $IF(type_##x == CHAR,
+          $IFCASE(rank_##x,,,
+          (range_stara(ind_##x##_2)),
+          (range(ind_##x##_2),range_stara(ind_##x##_3)),
+          (range(ind_##x##_2),range(ind_##x##_3),range_stara(ind_##x##_4)),
+          (range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_stara(ind_##x##_5))),
+          $IFCASE(rank_##x,,
+          (range_stara(ind_##x##_1)),
+          (range(ind_##x##_1),range_stara(ind_##x##_2)),
+          (range(ind_##x##_1),range(ind_##x##_2),range_stara(ind_##x##_3)),
+          (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range_stara(ind_##x##_4)),
+          (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_stara(ind_##x##_5)))) @;
 @#endif
 
 /* A Fortran-90 style rank, e.g., |(:,:)| */
@@ -312,9 +333,15 @@ suppose we have : */
 later. */
 
 @#if FORTRAN77
+@#if !IBM
 @m declare_varp(x)
       ptr_decl(x);
       var_type(x) x array_shape_star(x) @;
+@#else
+@m declare_varp(x)
+      ptr_decl(x);
+      var_type(x) x array_shape_stara(x) @;
+@#endif
 @#else
 @m declare_varp(x)
       var_type(x),dimension array_rank(x), pointer :: x @;
@@ -353,6 +380,32 @@ dimnU is y and dimnL is known.( lower limit of last dimension given by
 
 @#if FORTRAN77
 @m array_sizev(x,y) array_unit(x)*((y)-range_min(ind_##x##_m)+1)
+@#endif
+
+/* |var_beg(x)| gives the initial element of an array
+
+@m var_beg(x)
+      x $IF(type_##x == CHAR,
+          $IFCASE(rank_##x,,,
+          (range_min(ind_##x##_2)),
+          (range_min(ind_##x##_2),range_min(ind_##x##_3)),
+          (range_min(ind_##x##_2),range_min(ind_##x##_3),range_min(ind_##x##_4)),
+          (range_min(ind_##x##_2),range_min(ind_##x##_3),range_min(ind_##x##_4),range_min(ind_##x##_5))),
+          $IFCASE(rank_##x,,
+          (range_min(ind_##x##_1)),
+          (range_min(ind_##x##_1),range_min(ind_##x##_2)),
+          (range_min(ind_##x##_1),range_min(ind_##x##_2),range_min(ind_##x##_3)),
+          (range_min(ind_##x##_1),range_min(ind_##x##_2),range_min(ind_##x##_3),range_min(ind_##x##_4)),
+          (range_min(ind_##x##_1),range_min(ind_##x##_2),range_min(ind_##x##_3),range_min(ind_##x##_4),range_min(ind_##x##_5)))) @;
+
+
+@ Array slices for passing to subroutines.  I think we only need a full
+one-dimensional slice of numeric arrays and that's what's given here.
+
+@#if FORTRAN77
+@m slice1(x,dims) x dims [range_min(ind_##x##_1)]
+@#else
+@m slice1(x,dims) x dims [:]
 @#endif
 
 @ Macros to simplify memory allocation

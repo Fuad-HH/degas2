@@ -3,6 +3,10 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.31  1998/03/11 15:00:06  dstotler
+% Add allocation statements for plasma_e_ion_mult and
+% plasma_e_ion_delta.
+%
 % Revision 1.30  1998/01/14 20:40:53  dstotler
 % Remove var_realloca(sectors) from init_geometry.
 %
@@ -526,7 +530,7 @@ then search for duplicates and return the duplicate index if it exists.
       call surface_normalize(coeff)
       if (duplicate) then
          do k=1,nsurfaces
-            if (surface_equal(coeff,surface_coeffs[1,k],orientation)) then
+            if (surface_equal(coeff,slice1(surface_coeffs,[k]),orientation)) then
                define_surface=orientation*k
                return
             end if
@@ -932,8 +936,8 @@ break:      continue
    |k| is {\em not} one of the originals0. If so, break out of here.
 */
                   do j=1,num_outer_surfaces
-                     if (surface_equal(surface_coeffs[1,k],   // Not original, but still outer
-     $                    surface_coeffs[1,outer_surfaces[j]],orientation)) goto break1
+                     if (surface_equal(slice1(surface_coeffs,[k]),   // Not original, but still outer
+     $                    slice1(surface_coeffs,[outer_surfaces[j]]),orientation)) goto break1
                   end do
                   write(stderr,*) 'This surface isn''t an outer surface, but there''s something on one side and not on the other'
                   write(stderr,*) k

@@ -2,6 +2,9 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.26  1998/03/11 15:14:12  dstotler
+% Permit pr_reaction_num=0.
+%
 % Revision 1.25  1998/01/14 20:51:40  dstotler
 % Replace problem_species_test with pr_test_lookup and
 % problem_species_background with pr_background_lookup. Since Charles
@@ -137,7 +140,7 @@ collated accordingly and written to the single output netCDF file
       implicit_none_f77
       implicit_none_f90
       
-@#if SUN
+@#if SUN && FORTRAN77
       call float_abort
 @#endif
       call readfilenames
@@ -792,7 +795,7 @@ routine specific for each reaction.
 
       pr_test_decl(ts)          // Input
       rc_decl(r)
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
       
       integer i                 // Local
       real sum   
@@ -846,7 +849,7 @@ note that B could be charged to start with.
       implicit_none_f90
 
       pr_test_decl(ts)
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
       rc_decl(r)
 
       external species_add_check      // External
@@ -909,7 +912,7 @@ the actual charge states of A and B are intended to be arbitrary.
 
       pr_test_decl(ts)
       rc_decl(r)
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
 
       external species_add_check         // External
       logical species_add_check
@@ -975,7 +978,7 @@ Currently the only reaction allowed is that given below.
 
       pr_test_decl(ts)
       rc_decl(r)
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
 
       external species_add_check         // External
       logical species_add_check
@@ -1011,7 +1014,7 @@ where the products B$_{j}$ are the result of the dissociation of B.
 
       pr_test_decl(ts)
       rc_decl(r)
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
 
       integer i                // Local
 
@@ -1051,14 +1054,14 @@ by the recombination of A and B.
 
       pr_test_decl(ts)
       rc_decl(r)
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
 
 
 
       if (rc_product_num(r)==2) then
-         call product_perm_2(pr_test_args(ts),2,sp_args(reagents),rc_args(r),1)
+         call product_perm_2(pr_test_args(ts),2,sp_args(reagents),rc_args(r))
       else if (rc_product_num(r)==3) then
-         call product_perm_3(pr_test_args(ts),2,sp_args(reagents),rc_args(r),1)
+         call product_perm_3(pr_test_args(ts),2,sp_args(reagents),rc_args(r))
       else
          assert('Illegal value of rc_product_num' == ' ')
       end if
@@ -1078,7 +1081,7 @@ the only application for this is recombination.
       implicit_none_f90
 
       integer bkrc_ind            // Input
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
       
 
       if (rc_reaction_type(pr_reaction(pr_bk_rc(bkrc_ind)))=='recombination') then
@@ -1108,7 +1111,7 @@ note that B could be charged to start with.
       implicit_none_f90
 
       integer bkrc_ind
-      sp_decl(reagents[1])
+      sp_decl(reagents[*])
 
       external species_add_check      // External
       logical species_add_check

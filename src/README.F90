@@ -117,8 +117,8 @@ Solaris.
     f90 -M. -c routine.f -> routine.o   # scans cwd for definition of mmm in all .M files.
     f90 -o prog routine.o        # header.o not used (but may be included?)
 
-OSF/1
-    f90 -c header.f -> header.o header.mod
+OSF/1 & Linux
+    f90 -c header.f -> header.o mmm.mod
     f90 -I. -c routine.f -> routine.o   # scans the current directory for mmm.dm
     f90 -o prog routine.o header.o
 

@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  1998/01/09 15:45:51  karney
+% Optimization for Cray f90 modified.
+% Accomodate variuos netcdf versions.
+%
 % Revision 1.9  1997/08/19 14:36:46  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -128,8 +132,8 @@ Convert to LaTeX/NFSS
       $IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
       $IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
       $IF(type_##name == CHAR,
-        call ncvarputc(fileid,dimid(name),nc_corner,nc_edge,name,array_size(name),nc_stat),
-        call ncvarput(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
+        call ncvarputc(fileid,dimid(name),nc_corner,nc_edge,var_beg(name),array_size(name),nc_stat),
+        call ncvarput(fileid,dimid(name),nc_corner,nc_edge,var_beg(name),nc_stat)) @;
 
 @m dimen_inq(fileid,name)
       dimid(name) = ncdimid(fileid,#name,nc_stat);
@@ -159,8 +163,8 @@ Convert to LaTeX/NFSS
       $IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
       $IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
       $IF(type_##name == CHAR,
-        call ncvargetc(fileid,dimid(name),nc_corner,nc_edge,name,array_size(name),nc_stat),
-        call ncvarget(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
+        call ncvargetc(fileid,dimid(name),nc_corner,nc_edge,var_beg(name),array_size(name),nc_stat),
+        call ncvarget(fileid,dimid(name),nc_corner,nc_edge,var_beg(name),nc_stat)) @;
 
 @* netCDF Macros.
 

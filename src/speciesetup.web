@@ -2,6 +2,11 @@
 \Title{speciesetup}
 
 % $Log$
+% Revision 1.19  1997/08/19 14:37:06  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.18  1996/03/01 20:22:41  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -143,7 +148,7 @@ loop1: continue
 */      
       p=0
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') sp_sy(sp_num)
+      sp_sy(sp_num)=read_text(line(b:e))
       sp_ncomp(sp_num) = 0
       sp_z(sp_num)=0
       sp_m(sp_num)=zero

@@ -2,6 +2,11 @@
 
 % $Id$
 % $Log$
+% Revision 1.16  1997/08/19 14:36:40  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.15  1997/08/07 19:47:53  dstotler
 % Altered order of variables to avoid complaints from ALPHA.
 %
@@ -152,9 +157,33 @@ where the $c$'s are coefficients given by |coeff|.
 @m t_surf 0                     // Indices into |surface_tx_ind|
 @m t_mx 1
 
+@ A possible macro invocation of |surface_eval|.  Possible
+specialization to plance surfaces.
+
+@m SURFACE_EVAL_MACRO 0
+@m PLANE_SURFACES 0
+
+@#if SURFACE_EVAL_MACRO
+
+@m surface_eval_a(x1,x2) surface_eval_b(x1,x2)
+
+@#if PLANE_SURFACES
+@m surface_eval_b(coeff,sigma,x) (sigma*(x[3]*coeff[cz]+x[2]*coeff[cy]+x[1]*coeff[cx]+coeff[c0]))
+@#else
+@m surface_eval_b(coeff,sigma,x) (sigma*(x[3]*(coeff[czz]*x[3]+coeff[cyz]*x[2]+coeff[cxz]*x[1]+coeff[cz])+x[2]*(coeff[cyy]*x[2]+coeff[cxy]*x[1]+coeff[cy])+x[1]*(coeff[cxx]*x[1]+coeff[cx])+coeff[c0]))
+@#endif
+
+@#else
+
+@m surface_eval_a surface_eval
+
+@#endif
+
+
 @ Passing information about surfaces.
 
 @m surface_info(k) surface_coeffs[1,abs(k)],sign(1,k) // Information on the $k$th surface
+@m surface_info_a(k) surface_coeffs[abs(k)],sign(1,k) // As above, but suitable as a macro (instead of function) arg
 @m surface_args coeff,sigma     // Same thing as dummy arguments
 @f decl_surface_args integer
 @m decl_surface_args real coeff[NCOEFFS];
@@ -172,6 +201,13 @@ where the $c$'s are coefficients given by |coeff|.
 faces.
 
 @m cell_surface_info(n) surface_info(surf_list[n])
+
+@#if SURFACE_EVAL_MACRO
+@m cell_surface_info_a(n) surface_info_a(surf_list[n])
+@#else
+@m cell_surface_info_a(n) cell_surface_info(n)
+@#endif
+
 @f dofaces do
 @m dofaces(n) do n=1,nface
 @f docuts do

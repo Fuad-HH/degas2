@@ -2,6 +2,11 @@
 \Title{pmisetup}
 
 % $Log$
+% Revision 1.4  1997/08/19 14:36:49  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.3  1996/05/24 18:53:03  dstotler
 % Add facility for declaring whether or not a PMI treats generic
 % species.
@@ -91,7 +96,7 @@ loop1: continue
 */      
       p=0
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') pm_sy(pm_num)
+      pm_sy(pm_num)=read_text(line(b:e))
       assert( next_token(line,b,e,p) )
       pm_reagent(pm_num) = sp_lookup(line(b:e))
       assert( next_token(line,b,e,p) )
