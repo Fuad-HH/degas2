@@ -1,6 +1,9 @@
 #  -*- text -*-
 # $Header$
 # $Log$
+# Revision 1.5  1995/06/06 13:10:09  karney
+# Document readgeometry.
+#
 # Revision 1.4  1995/04/24 20:43:33  karney
 # Generalize reactiondata to allow multiple data arrays per reaction.
 #
@@ -18,7 +21,7 @@ General setup:
 
 To get an up-to-date source, do
 
-    setenv CVSROOT /soft/cvs
+    setenv CVSROOT /afs/pppl.gov/common/cvs
     cd
     cvs co degas2
 
@@ -88,6 +91,8 @@ problemsetup: converts problem.input and reaction data files to problem.nc
 reactionwrite: converts some old Degas input files to netcdf format (to be
 superceded by ratecalc).
 
+pmiwrite: converts some old Degas surface data files into netcdf format.
+
 readgeometry: reads a geometry specification file (specified as arg) to
 creates geometry.nc
 
@@ -107,3 +112,40 @@ geometry.inp to determine the slice to plot.  Creates an HDF file
 geomtesta.hdf.
 
 readgeometry: read in a text file to specify the geometry.
+
+Reference Materials:
+
+CVS
+
+   CVS (Concurrent Version System) is used to coordinate work on a code 
+by a number of authors. CVS maintains a central, "safe" version of the
+code; authors check out copies in their own disk space in order to
+work on the code. By doing a cvs update, a given author can update his
+local sources to incorporate changes others have saved to the central
+repository. The cvs commit command allows him to save his own changes
+to the repository.
+   The cvs manual page contains all of the detailed commands; the page for
+rcsintro may also be helpful as an introduction. Many cvs commands may
+be executed from within Emacs. See the Emacs Info page on Pcl-cvs for 
+more details.
+
+FWEB
+
+   The FWEB package provides a tool for code documentation as well as a 
+powerful preprocessor. The typesetting abilities of FWEB allow authors
+to insert TeX (or LaTeX) comments into their code. In DEGAS 2, the
+preprocessor is utilized extensively for writing macros which allow
+the code seen by the user to be significantly more powerful than pure
+FORTRAN 77. For examples of the overall structure of FWEB programs, see
+the *.web files; most of the macros are located in the header *.hweb files.
+   FWEB is fully documented in the Info facility of Emacs.
+
+netCDF
+
+   netCDF provides a device-independent binary file format. Furthermore,
+these files are self-describing. Most of the effort required to read
+and write these files is handled by macros. These are documented in
+the file netcdf.hweb. By adding the commands in src/.emacs to your
+.emacs file, Emacs will be able to convert automatically these files 
+to text and back to binary for perusal and editing.
+   netCDF is fully documented in the Info facility of Emacs.
