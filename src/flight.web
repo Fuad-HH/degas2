@@ -2,6 +2,9 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.19  1996/01/25 15:02:28  dstotler
+% Fixed a bug in a reaction reference.
+%
 % Revision 1.18  1995/08/23 14:46:07  dstotler
 % Modified argument lists in calls to reaction_rate and
 % process_reaction.
@@ -72,6 +75,18 @@
 
 
 @I macros.hweb
+@I zone.hweb
+@I sysdep.hweb
+@I particle.hweb
+@I flight.hweb
+@I random.hweb
+@I background.hweb
+@I species.hweb
+@I string.hweb
+@I problem.hweb
+@I location.hweb
+@I reaction.hweb
+
 
 @ The main program.
 
@@ -260,6 +275,20 @@ break1:  continue
 
          goto loop
       else                      // Go to next zone or reflect
+@#if 0                          // Proposed revision for treating sectors here
+         if (lc_cell_next(pt_loc(fl_current(x))) == 0) then
+
+/* Universal cell crossings should have been handled by a transformation or
+   an explicit exit. So, indicate an error here now? */
+            assert("Leaving universal cell" == " ")
+         else if (lc_sector(pt_loc(fl_current(x))) != 0 
+     $           || lc_sector_next(pt_loc(fl_current(x))) != 0) then
+            call process_sector(pt_args(fl_current(x)))
+         else
+            pt_thru_face(fl_current(x))
+         end if
+         goto loop1
+@#else
          if (lc_cell_next(pt_loc(fl_current(x))) == 0 ||
      $        zn_type(lc_zone_next(pt_loc(fl_current(x)))) == zn_exit) then
             fl_pointer(x)--
@@ -272,9 +301,71 @@ break1:  continue
             pt_thru_face(fl_current(x))
          end if
          goto loop1
+@#endif
       end if
 break: continue
 
       return
       end
+@#if 0        // Temporary location for this routine?
+      subroutine process_sector(pt_dummy(p))
+
+      implicit_none
+
+      pt_decl(p)
+
+      sector1=lc_sector(pt_loc(p))
+      sector2=lc_sector_next(pt_loc(p))
+
+      if (sector1 != 0) then
+         stratum=strata[sector1]
+         if (sr_type(stratum) == sr_exit) then
+            assert(sector2 != 0 && stratum == strata[sector2])
+            handle_exit(pt_args(p))
+         else if (sr_type(stratum) == sr_wall 
+     $           || sr_type(stratum) == sr_target) then
+            assert(sector2 != 0 && stratum == strata[sector2])
+
+/* Explicitly included |sector1| in the argument list with the idea that we
+   we use it to obtain the zone information we will need for $T_{e}$, etc.
+   But, clearly, we could just as easily have gotten this from |pt_loc(p)|,
+   right? If so, do we really need two sectors / default stratum? */
+            if (sr_type(stratum) == sr_target) cross_sheath(pt_args(p),sector1)
+            mat_sub=sc_solid_mat(sector_solid[sector2])
+            sum=zero
+            do i=1,pr_pm_case_num(pt_test(p),mat_sub)
+               yield[i]=calculate_yield(pt_args(p),
+     $              pr_pm_cases(pt_test(p),mat_sub,i))
+               sum=sum+yield[i]
+            end do
+
+/* Factor in adsorption as probability[i+1]=one-sum? */
+            rn_next(rnd,fl_rand(x))  // We need |x| here, not just |p|
+            rnd=rnd*sum
+            sum=zero
+            do i=1,pr_pmi_case_num(pt_test(p),mat_sub)
+               sum=sum+yield[i]
+               if (sum >= rnd) then
+                  call process_pmi(pt_test(p),
+     $                 pr_pm_cases(pt_test(p),mat_sub,i),nprod,
+     $                 pt_args(prod[1]),rn_args(fl_rand(x))
+               end if
+            end do
+         else if (sr_type(stratum) == sr_diagnostic) then
+            assert("No diagnostic stratum routines yet" == 0)
+         else 
+            assert("Undefined stratum" == 0)
+         end if
+      else if (sector2 != 0) then
+         stratum=strata[sector2]
+         if (sr_type(stratum) == sr_diagnostic) then
+            assert("No diagnostic stratum routines yet" == 0)
+         else
+            assert("Unhandled sector" == 0)
+         end if
+      end if
+
+      return
+      end
+@#endif
 
