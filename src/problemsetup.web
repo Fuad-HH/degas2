@@ -2,6 +2,10 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.11  1995/07/19 20:15:59  dstotler
+% Further changes for handling isotopes; establish variables and logic
+% required to specify appropriate isotopes for reaction products.
+%
 % Revision 1.10  1995/07/14 13:20:30  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -319,6 +323,20 @@ which will actually be used to implement reactions in the run.
       var_alloc(problem_num_arrangements)
       var_alloc(problem_prod_mult)
       var_alloc(problem_test_products)
+
+      do i=1,pr_test_num
+         do j=1,pr_reaction_max
+            pr_ts_rc(i,j)=0
+            pr_ts_bk(i,j)=0
+            pr_num_arrangements(i,j)=0
+            do k=1,pr_arrangement_max
+               pr_prod_mult(i,j,k)=zero
+               do l=1,rc_product_max
+                  pr_ts_prod(i,j,k,l)=0
+               end do
+            end do
+         end do
+      end do
 
       do i=1,pr_num_generics
          pr_num_eq(i)=0
