@@ -2,6 +2,12 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.11  2001/07/16 20:59:26  dstotler
+% Comment out most of the subroutine calls in the main program so that
+% it doesn't make such a mess of the directory when being run. Add calls
+% to pmi_write_trim for He -> C and Fe. Note additional contents of TRIM
+% file.
+%
 % Revision 1.10  1998/12/22 16:47:40  dstotler
 % Fill unused portion of main data table with real_unused (also in DEGAS
 % refl section, use real_undef for the datum corresponding to a fit with
@@ -169,6 +175,11 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       tag='He -> Fe'
       data_tag=tag
       version='V. 1.0. He reflection on Fe, trim data'
+      call pmi_write_trim(tag,data_tag,version)
+
+      tag='D -> Fe'        
+      data_tag='D -> Fe'
+      version='V. 1.1. D reflection on Fe, trim data'
       call pmi_write_trim(tag,data_tag,version)
 
       stop
@@ -1500,10 +1511,10 @@ may be interpolated linearly or logarithmically. The grid indices
       implicit_none_f77
       implicit_none_f90
                                                         
-      real new_values[0:*][0:n-1],old_values[0:*][0:nold-1], // Input
+      integer m,n,mold,nold                                  // Input
+      real new_values[0:*][0:n-1],old_values[0:*][0:nold-1], 
      $     new_grid_m[0:*],new_grid_n[0:*]
       character*(*) value_spacing
-      integer m,n,mold,nold
 
       integer i,j                                            // Local
       integer dim[2]
@@ -1548,11 +1559,11 @@ may be interpolated linearly or logarithmically. The grid indices
       implicit_none_f77
       implicit_none_f90
                                                         
-      real new_values[0:*][0:m-1][0:n-1],                     // Input
+      integer l,m,n,lold,mold,nold                          // Input
+      real new_values[0:*][0:m-1][0:n-1],            
      $     old_values[0:*][0:mold-1][0:nold-1],
      $     new_grid_l[0:*],new_grid_m[0:*],new_grid_n[0:*]
       character*(*) value_spacing
-      integer l,m,n,lold,mold,nold
 
       integer i,j,k                                          // Local
       integer dim[3]
