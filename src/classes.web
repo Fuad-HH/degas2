@@ -2,6 +2,10 @@
 \Title{classes}
 
 % $Log$
+% Revision 1.21  1998/05/08 13:46:45  dstotler
+% Updated to reflect changes made for score compression and removal of
+% run-time strings.
+%
 % Revision 1.20  1998/01/14 20:07:16  dstotler
 % Considerable update of text, variable descriptions, and formatting.
 %
@@ -746,6 +750,10 @@ the target sector |target_ind|.
 target material comprising the target sector |target_ind|.
 \end{description}
 
+  \item[|target_recyc_coef[target_ind]|] Recycling coefficient (1 - 
+absorbed fraction) of the target material comprising the target 
+sector |target_ind|.
+
 {\bf wall subclass}
 \begin{description}
   \item[|sc_wall_num|] Number of sectors in the wall subclass.
@@ -759,6 +767,10 @@ the wall sector |wall_ind|.
 
   \item[|wall_temperature[wall_ind]|] Temperature, in joules, of the 
 wall material comprising the wall sector |wall_ind|.
+
+  \item[|wall_recyc_coef[wall_ind]|] Recycling coefficient (1 - 
+absorbed fraction) of the wall material comprising the wall 
+sector |wall_ind|.
 \end{description}
 
 {\bf exit subclass}
@@ -837,13 +849,14 @@ subclass.
   \item[|define_sector_plasma(sector)|] Adds |sector| to the plasma sector
 subclass.
 
-  \item[|define_sector_target(sector,material,temp)|] Adds |sector| to the 
+  \item[|define_sector_target(sector,material,temp,recyc)|] 
+Adds |sector| to the 
 target sector subclass. It is assumed to made of |material| (member of the
-material class |ma|) at temperature |temp|.
+material class |ma|) at temperature |temp|, with recycling coefficient |recyc|.
 
-  \item[|define_sector_wall(sector,material,temp)|] Adds |sector| to the 
+  \item[|define_sector_wall(sector,material,temp,recyc)|] Adds |sector| to the 
 wall sector subclass. It is assumed to made of |material| (member of the
-material class |ma|) at temperature |temp|.
+material class |ma|) at temperature |temp|, with recycling coefficient |recyc|.
 
   \item[|define_sector_exit(sector,albedo)|] Adds |sector| to the exit
 sector subclass. An albedo value of |albedo| is assigned (not implemented at
