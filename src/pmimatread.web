@@ -1,0 +1,120 @@
+% $Id$
+\Title{pmimattread}
+
+% $Log$
+
+@* Introduction.
+
+\ID{$Id$}
+
+Introduction\ldots
+
+@m FILE 'pmimatread.web'
+
+@I macros.hweb
+@I readfilenames.hweb
+@I netcdf.hweb
+@I species.hweb
+@I sysdep.hweb
+@I materials.hweb
+@I pmi.hweb
+@I problem.hweb
+@I reactiondata.hweb
+@I pmidata.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+@ Read in data from netcdf file \verb+materials.nc+
+      
+@<Functions...@>=
+      subroutine nc_read_materials
+      implicit_none
+      integer fileid
+      character *FILELEN tempfile  //local
+      ma_common
+      ma_ncdecl
+      nc_common
+      sy_common
+      rf_common
+
+      tempfile =  filenames_array[materialsfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     materials_version,len(materials_version),nc_stat)
+
+      ma_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Read in data from netcdf file \verb+pmi.nc+
+      
+@<Functions...@>=
+      subroutine nc_read_pmi
+      implicit_none
+      integer fileid
+      character *FILELEN tempfile  //local
+      pm_common
+      pm_ncdecl
+      nc_common
+      sy_common
+      rf_common
+
+      tempfile =  filenames_array[pmifile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     pmi_version,len(pmi_version),nc_stat)
+
+      pm_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Read in data from netcdf file \verb+problem.nc+
+      
+@<Functions...@>=
+      subroutine nc_read_problem
+      implicit_none
+      integer fileid
+      character *FILELEN tempfile  //local
+      pr_common
+      rd_common
+      pd_common
+      ma_common
+      pm_common
+      sp_common
+      pr_ncdecl
+      rd_ncdecl
+      pd_ncdecl
+      nc_common
+      sy_common
+      rf_common
+
+      tempfile =  filenames_array[problemfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     problem_version,len(problem_version),nc_stat)
+
+      pr_ncread(fileid)
+      rd_ncread(fileid)
+      pd_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* INDEX.
+
