@@ -1,0 +1,68 @@
+@ common block definitions for filenames
+
+@a
+      package_init(rf)
+      define_var_pk(rf,filenames_max,INT) 
+      define_dimen_pk(rf,filenames_size,FILELEN)
+      define_dimen_pk(rf,filenames_ind,filenames_max)
+      define_varp_pk(rf,filenames_array,CHAR,filenames_size,filenames_ind)
+
+@ declarations for filenames routine
+
+@f rf_common integer 
+@m rf_common
+	rf_common_a @;
+
+
+@ indices for the array of filenames
+@m elementsfile 1
+@m backgroundfile 2
+@m testfile 3
+@m geometryfile 4
+@m problemfile 5
+@m reactionfile 6
+@m speciesfile 7
+@m aladinfile 8
+@m aladoutfile 9
+
+@* file names for degas2
+each file used by degas2 as input or output has a name which can be specified 
+by the user in a file. The filenames are read as variables called
+|sybolic_fnames|. These names are easily associated with the contents of
+the file.  Each of these goes into an array called
+|filenames_array|. To refer to a particular filename, a pointer to this
+array is used. The pointers have names that are easy to remember and are
+same as the symbolic filenames. They are defined through macros above. A
+common block that contains |filenames_array|  is passed to all routines
+that will  require a filename. To refer to a file name which has the
+sybolic name \em{elementsfile}, we have to refer to
+\em{filenames_array[elementsfile]} and to refer to a file with the sybolic
+name \em{geometryfile} we refer to \em{filenames_array[geometryfile]} and
+so on. The array of filenames can be filled by calling the routine
+readfilenames. In summary, the main input file for degas2 contains
+something like - 
+
+\begin{verbatim}
+elementsfile elements.nc
+backgroundfile back.nc
+...
+...
+\end{verbatim}
+
+and we open these files by doing :
+
+rf_common
+...
+
+open (unit,file=filenames_array[elementsfile],status='unknown')
+open (unit,file=filenames_array[backgroundfile],status='old')
+...
+...
+
+
+
+
+
+
+
+
