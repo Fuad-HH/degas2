@@ -57,6 +57,8 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
       assert( next_token(line,b,e,p) )
       sym_name = line(b:e)
       assert( next_token(line,b,e,p) )
+@#if 0
+// Replace with equivalent assert below; this is too long!
       assert ( sym_name == 'elementsfile' || sym_name ==
      $     'backgroundfile' || sym_name ==  'testfile' ||
      $     sym_name == 'geometryfile' || sym_name ==
@@ -71,7 +73,9 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     || sym_name == 'cramdproblemfile' 
      $     || sym_name == 'tallyfile'
      $     || sym_name == 'outputfile'
-     $     || sym_name == 'oldsourcefile')
+     $     || sym_name == 'oldsourcefile'
+     $     || sym_name == 'tally_infile')
+@#endif
       
 @#if 0
       filenames_max = filenames_max +1
@@ -119,6 +123,10 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
          filenames_array[outputfile] = line(b:e)
       elseif ( sym_name == 'oldsourcefile') then
          filenames_array[oldsourcefile] = line(b:e)
+      elseif ( sym_name == 'tally_infile') then
+         filenames_array[tally_infile] = line(b:e)
+      else 
+         assert('Unknown symbolic name' == ' ')
       endif
 
       goto loop

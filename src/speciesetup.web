@@ -2,6 +2,16 @@
 \Title{speciesetup}
 
 % $Log$
+% Revision 1.22.2.2  2000/01/07 14:19:21  dstotler
+% Initialized sp_el and sp_count with int_uninit to eliminate
+% cross-platform diffs in species.nc.
+%
+% Revision 1.22.2.1  1999/12/16 19:03:17  dstotler
+% Move input file documentation from manual to here.
+%
+% Revision 1.22  1999/03/25 20:52:45  dstotler
+% Added check(s) on filenames_array.
+%
 % Revision 1.21  1998/09/04 17:22:20  dstotler
 % Minor changes to satisfy FWEAVE and TeX.
 %
@@ -76,11 +86,60 @@
 % Initial revision
 
 
-@* Introduction.
+@* Routines used to set up species.
 
 \ID{$Id$}
 
-Introduction\ldots
+Inputs for species are contained in the file with the symbolic
+name \verb+species_infile+ identified in the \verb+degas2.in+ file. 
+Each species is an aggregate of the
+elements and is represented by two lines in this file.  The
+first line provides the full name of the species.  
+The second line is a blank-delimited
+sequence of entries
+\begin{verbatim}
+symbol count-1 element-1 count-2 element-2 ...
+\end{verbatim}
+
+An isotopic equivalence of this species to a previously-defined
+generic one is indicated with a delimiter ``='' followed by the
+symbol of the generic species.
+
+For example,
+
+\begin{verbatim}
+geometry
+0  1 0
+electron
+e  1 e
+atomic hydrogen
+H  1 H
+molecular hydrogen
+H2 2 H
+hydrogen ion
+H+ 1 H -1 e
+atomic deuterium
+D  1 D      = H
+deuterium ion
+D+ 1 D -1 e = H+
+molecular hydrogen-deuterium
+HD 1 H 1 D  = H2
+molecular deuterium
+D2 2 D      = H2
+molecular hydrogen ion
+H2+ 2 H -1 e
+molecular hydrogen-deterium ion
+HD+ 1 H 1 D -1 e = H2+
+molecular deuterium ion
+D2+ 2 D -1 e     = H2+
+helium
+He
+\end{verbatim}
+
+These routines are called by the program |datasetup|. |datasetup| reads 
+the \verb+species_infile+, translates the information into DEGAS 2 data,
+and generates the netCDF file corresponding to the symbolic name
+\verb+speciesfile+.
 
 @m FILE 'speciesetup.web'
 
@@ -97,7 +156,7 @@ Introduction\ldots
 @a
       @<Functions and Subroutines@>
 
-@ Read is data from \verb+species.input+.
+@ Read in data from \verb+species_infile+.
 
 @<Functions...@>=
       subroutine read_species
@@ -112,7 +171,7 @@ Introduction\ldots
       external get_multiplicity // External
       integer get_multiplicity
 
-      integer length,p,b,e // Local
+      integer length,p,b,e,i // Local
       character*LINELEN line
       character*FILELEN tempfile     //local
 
@@ -159,6 +218,10 @@ loop1: continue
       sp_ncomp(sp_num) = 0
       sp_z(sp_num)=0
       sp_m(sp_num)=zero
+      do i=1,sp_ncomp_max
+         sp_el(sp_num,i)=int_uninit
+         sp_count(sp_num,i)=int_uninit
+      end do
 /*
    Loop over individual ``elements''
 */
@@ -187,7 +250,7 @@ loop2: continue
 */
          assert( next_token(line,b,e,p) )
          sp_el(sp_num,sp_ncomp(sp_num)) = el_lookup(line(b:e))
-         assert( sp_el(sp_num,sp_ncomp(sp_num)) > 0)
+         assert(el_check(sp_el(sp_num,sp_ncomp(sp_num))))
 /*
    Compute net charge of species. This is = 0 by default; nonzero values are
    arrived at by incorporating the appropriate number (positive or negative) of electrons.
