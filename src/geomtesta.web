@@ -2,6 +2,9 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.23  1999/04/20 20:09:13  dstotler
+% Add zn_vacuum for neutral density & pressure files.
+%
 % Revision 1.22  1998/12/22 16:44:54  dstotler
 % Upgrade EIRENE plot section to do dynamic allocation, primarily to
 % allow for > 1 stratum. Also, add write of momentum and energy source
@@ -118,6 +121,7 @@
       implicit_none_f90
 
       call readfilenames
+@#if 0
       call read_geometry
       call nc_read_species
       call nc_read_reactions
@@ -128,6 +132,9 @@
       call read_cramd_data
 
       call nc_read_tally
+      call nc_read_output
+@#endif
+      call degas_init
       call nc_read_output
 
       call exercise
@@ -272,6 +279,7 @@
       end do
 @#endif
 @#if 1
+      assert(output_old_file == TRUE)
       do j=2,pr_test_num
          index_parameters[tl_index_test]=j
          ha_temp=zero
