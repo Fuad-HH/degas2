@@ -2,6 +2,13 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.21  1999/08/09 15:18:41  karney
+% An extensive revision of the random number routines
+% (1) make the routines available for export,
+% (2) remove some undesirable properties in the old routines (it's unlikely
+% that this has had any effect),
+% (3) allow different sources groups to be initialized easily.
+%
 % Revision 1.20  1999/07/19 19:29:06  karney
 % (1) Remove much dead code in random.web.
 %
@@ -170,7 +177,7 @@ This is from \verb&f77/f77_floatingpoint.h&.
 @#if !IBM
       function get_env(var,val)
       implicit_none_f77
-@#if LINUX
+@#if LINUX && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
@@ -276,7 +283,7 @@ day, minutes east of Greenwich, hour, minute, second, milliseconds.
       call time(temp)
       read(temp,'(i2,1x,i2,1x,i2)')
      $     date_array[5],date_array[6],date_array[7]
-@#elif SGI
+@#elif SGI || ( LINUX && PGROUP )
       call idate(date_array[2],date_array[3],date_array[1])
       if (date_array[1]>90) then
          date_array[1]=date_array[1]+1900
@@ -351,7 +358,7 @@ period is 153 days long.
       return
       end
 
-@ Return string representation of the date and time (using ISO 8601 format:
+@ Return string representation of the date and time using ISO 8601 format:
 YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
 
 @<Functions...@>=
@@ -382,8 +389,15 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
       implicit_none_f77
       implicit_none_f90
       real cpu_time             // Function
-@#if HP || IBM || LINUX
+@#if FORTRAN90
+      integer count,rate
+      call system_clock(count,rate)
+      cpu_time=real(count)/real(max(1,rate))
+@#else
+@#if HP || IBM || ( LINUX && NAGWARE )
       integer clock             // External
+@#elif LINUX && PGROUP
+      integer mclock            // External
 @#elif CRAY
       real second               // External
 @#else
@@ -391,21 +405,23 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
       single_precision etime    // External
 @#endif
 
-@#if HP || IBM || LINUX
+@#if HP || IBM || ( LINUX && NAGWARE)
       cpu_time=const(1.0,-6)*areal(clock())
+@#elif LINUX && PGROUP
+      cpu_time=const(1.0,-2)*areal(mclock())
 @#elif CRAY
       cpu_time=second()
 @#else
       cpu_time=areal(etime(tarray))
 @#endif
-
+@#endif
       return
       end
 
 @ Interface for |clock| for Linux.
 
 @<C Functions@>=
-@#if LINUX
+@#if LINUX && NAGWARE
 int FORTRANNAME(clock)()
 {
       return clock();
@@ -417,12 +433,12 @@ int FORTRANNAME(clock)()
 @<Functions...@>=
       function get_pid()
       implicit_none_f77
-@#if LINUX
+@#if LINUX && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
       integer get_pid           // Function
-@#if !LINUX
+@#if !( LINUX && NAGWARE )
       integer getpid           // External
 @#endif
 
@@ -458,7 +474,7 @@ int FORTRANNAME(clock)()
 
 @ Linux interface to getcwd
 @<C Functions@>=
-@#if LINUX
+@#if LINUX && NAGWARE
 int FORTRANNAME(getcwd)(name,len)
 char * name;
 int len;
@@ -495,7 +511,7 @@ int len;
 
 @ Linux interface to chdir
 @<C Functions@>=
-@#if LINUX
+@#if LINUX && NAGWARE
 int FORTRANNAME(chdir)(name,len)
 char *name;
 int len;
@@ -569,7 +585,7 @@ int len;
 
 @ Linux interface to gethostname.
 @<C Functions@>=
-@#if LINUX
+@#if LINUX && NAGWARE
 int FORTRANNAME(hostnm)(name,len)
 char * name;
 int len;
@@ -584,7 +600,7 @@ int len;
 @<Functions...@>=
       function arg_count()
       implicit_none_f77
-@#if LINUX
+@#if LINUX && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
@@ -593,7 +609,7 @@ int len;
       external ipxfargc
       integer ipxfargc
 @#else
-@#if !LINUX
+@#if !( LINUX && NAGWARE )
       integer iargc             // External
 @#endif
 @#endif
@@ -611,7 +627,7 @@ int len;
 @<Functions...@>=
       subroutine command_arg(i,arg)
       implicit_none_f77
-@#if LINUX
+@#if LINUX && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90

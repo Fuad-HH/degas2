@@ -2,6 +2,13 @@
 \Title{Random numbers}
 
 % $Log$
+% Revision 1.11  1999/08/09 15:18:38  karney
+% An extensive revision of the random number routines
+% (1) make the routines available for export,
+% (2) remove some undesirable properties in the old routines (it's unlikely
+% that this has had any effect),
+% (3) allow different sources groups to be initialized easily.
+%
 
 
 @* Introduction.
@@ -429,6 +436,9 @@ precision result.
          call rand_batch(rn_args(x))
       end if
       random=rand_center(rn_array(x)[rn_index(x)])
+@#if HIPREC
+      srandom=random
+@#endif
       rn_index(x)=rn_index(x)+1
 
       return
@@ -519,7 +529,11 @@ On some machines it is better to implement the operation of taking the
 fractional part with a conditional.  Both of these methods are
 equivalent since $0\le y<2$.
 
-@#if SGI || CRAY || LINUX
+@#if USEINT
+  @m ran_assign(x,y)
+      tmp=y;
+      x=tmp-int(tmp) @;
+@#else
   @m ran_assign(x,y)
       tmp=y;
       if (tmp>=one) then;
@@ -527,10 +541,6 @@ equivalent since $0\le y<2$.
       else;
          x=tmp;
       end if @;
-@#else
-  @m ran_assign(x,y)
-      tmp=y;
-      x=tmp-int(tmp) @;
 @#endif
 
 @<Functions...@>=
@@ -760,9 +770,9 @@ characters are ignored.
       implicit_none_f90
       character*(*) decimal
       rn_seed_decl(seed)
+      external rand_axc
       integer i,ten[0:ran_s-1],c[0:ran_s-1],ch
       data ten/10,7*0/
-      external rand_axc
       
       do i=0,ran_s-1
          seed[i]=0
@@ -793,9 +803,9 @@ bit; this is the operation carried out by the BSD sum utility.
       parameter (b=2^14)
       character*(*) string
       rn_seed_decl(seed)
+      external rand_axc
       integer t,i,k,unity[0:ran_s-1],c[0:ran_s-1],ch
       data unity/1,7*0/
-      external rand_axc
       
       do i=0,ran_s-1
          seed[i]=0
@@ -837,13 +847,21 @@ of |zzzz| is 1 is the zone offset is negative.
       implicit_none_f90
       integer time[8]           // Input
       rn_seed_decl(seed)        // Output
-      character*21 c
+      character*26 c            // Local
+      integer t[8]
       external decimal_to_seed
-
+                                // make sure time is in range
+      t[1]=mod(mod(time[1],1000000000)+1000000000,1000000000)
+      t[2]=mod(mod(time[2],100)+100,100)
+      t[3]=mod(mod(time[3],100)+100,100)
+      t[4]=((1-sign(1,time[4]))/2)*1000+mod(abs(time[4]),1000)
+      t[5]=mod(mod(time[5],100)+100,100)
+      t[6]=mod(mod(time[6],100)+100,100)
+      t[7]=mod(mod(time[7],100)+100,100)
+      t[8]=mod(mod(time[7],1000)+1000,1000)
       c=' '
-      write(c(1:8),'(i4.4,2i2.2)') time[1],time[2],time[3]
-      write(c(9:12),'(i1.1,i3.3)') SP (1-sign(1,time[4]))/2,abs(time[4])
-      write(c(13:21),'(3i2.2,i3.3)') time[5],time[6],time[7],time[8]
+      write(c(1:17),'(i9.9,2i2.2,i4.4)') t[1],t[2],t[3],t[4]
+      write(c(18:26),'(3i2.2,i3.3)') t[5],t[6],t[7],t[8]
       call decimal_to_seed(c,seed)
 
       return
@@ -886,18 +904,27 @@ loop: continue
          z[j]=int(z[j]/decbase)
       end do
       if (z[max(0,k)]==0) k=k-1
+      j=pow*(i+1)
       if (k>=0) then
-         write(str(pow*i+1:pow*(i+1)),'(i4.4)') t
+         str(j-(pow-1):j)='0000'
       else
-         write(str(pow*i+1:pow*(i+1)),'(i4)') t
+         str(j-(pow-1):j)='   0'
       end if
+loop1: continue
+      if (t==0) goto skip
+      str(j:j)=char(ichar('0')+mod(t,10))
+      j=j-1
+      t=int(t/10)
+      goto loop1
+skip: continue
       if (k>=0) goto loop
 
-      if (len(decimal)>len(str)) then
-         decimal(:len(decimal)-len(str)) = ' '
-         decimal(len(decimal)-len(str)+1:) = str
+      k=min(j+1,len(str))
+
+      if (len(decimal)>=len(str(k:))) then
+         decimal=str(k:)
       else
-         decimal = str(len(str)-len(decimal)+1:)
+         decimal = str(len(str(k:))-len(decimal)+1:)
       end if
       
       return
@@ -921,10 +948,10 @@ The time is proportional to $\log n$.
       implicit_none_f90
       integer n,ax[0:ran_s-1],cx[0:ran_s-1] // Input
       rn_seed_decl(y)           // Input/Output
+      external rand_axc
       integer a[0:ran_s-1],c[0:ran_s-1],
      $     z[0:ran_s-1],t[0:ran_s-1],m,i
       data z/ran_s*0/
-      external rand_axc
 
       if (n == 0) return
       assert(n>0)
@@ -970,6 +997,7 @@ each of the $n_k$.
       implicit_none_f90
       integer n0,n1,n2          // Input
       rn_seed_decl(seed)        // Input/Output
+      external rand_next_seed
       integer af0[0:ran_s-1],cf0[0:ran_s-1]
       integer ab0[0:ran_s-1],cb0[0:ran_s-1]
       integer af1[0:ran_s-1],cf1[0:ran_s-1]
@@ -988,7 +1016,6 @@ each of the $n_k$.
       data cf2/  2285,  8057,  3864, 10235,  1805, 10614,  9615, 15522/
       data ab2/   405,  4903,  2746,  1477,  3263, 13564,  8139,  2362/
       data cb2/  8463,   575,  5876,  2220,  4924,  1701,  9060,  5639/
-      external rand_next_seed
 
       if (n2>0) then
          call rand_next_seed(n2,af2,cf2,seed)

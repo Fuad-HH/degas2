@@ -1,5 +1,12 @@
 # $Id$
 # $Log$
+# Revision 1.70  1999/08/09 15:18:31  karney
+# An extensive revision of the random number routines
+# (1) make the routines available for export,
+# (2) remove some undesirable properties in the old routines (it's unlikely
+# that this has had any effect),
+# (3) allow different sources groups to be initialized easily.
+#
 # Revision 1.69  1999/05/25 13:30:41  dstotler
 # Raise tangle's yn flag to 7000. Add yb flag = 100000. Added
 # degasinit dependency for geomtesta, matcheir, matchout. Added
@@ -241,12 +248,14 @@ DEGASROOT=$(HOME)
 # Default settings
 FCF77=f77
 FCF90=f90
-FCMPI=mpif77
+FCMPI77=mpif77
+FCMPI90=mpif90
 LDF77=$(FCF77)
 LDF90=$(FCF90)
-LDMPI=$(FCMPI)
+LDMPI77=$(FCMPI77)
+LDMPI90=$(FCMPI90)
 FFLAGS=
-F77FLAGS=-u
+F77FLAGS=
 DEBUGFLAGS=-g
 OPTFLAGS=-O
 LIBROOT=/usr/local
@@ -277,8 +286,9 @@ ifeq ($(SYSTEM),SunOS)
   PVMARCH=SUN4
   NETCDF=-L$(LIBROOT)/lib -lnetcdf -lnsl
   HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
+  F77FLAGS=-u
   F90MODS=-M.
-  FCMPI=hf77
+  FCMPI77=hf77
   OPTFLAGS=-fast
 endif
 ifeq ($(SYSTEM),AIX)
@@ -311,9 +321,6 @@ endif
 ifeq ($(SYSTEM),Linux)
   MACHINE=LINUX
   PVMARCH=LINUX
-  DEBUGFLAGS=-g90
-  F90FLAGS=-mismatch_all
-  SYSDEPC=yes
 endif
 ifeq ($(findstring sn,$(SYSTEM)),sn)
   MACHINE=CRAY
@@ -328,6 +335,10 @@ TARGET=$(notdir $(shell pwd | sed 's+-[^/]*$$++'))
 
 ifeq ($(TARGET),SGI)
   MPI=yes
+endif
+
+ifeq ($(TARGET),LINUX)
+  COMPILER=NAGWARE
 endif
 
 ifneq ($(TARGET),$(MACHINE))
@@ -415,6 +426,23 @@ ifeq ($(DEBUG),yes)
   TANGLEFLAGS+=-mDEBUG
 endif
 
+ifeq ($(COMPILER),PGROUP)
+  TANGLEFLAGS+=-mPGROUP
+  FCF77=pgf90
+  FCF90=pgf90
+  FCMPI77=mpif90
+  FCMPI90=mpif90
+  F77FLAGS=-fast
+else
+ ifeq ($(COMPILER),NAGWARE)
+  TANGLEFLAGS+=-mNAGWARE
+  SYSDEPC=yes
+  FCF90=f95
+  DEBUGFLAGS=-g90
+  F90FLAGS=-mismatch_all -w
+ endif
+endif
+
 FC=$(FCF77)
 
 ifeq ($(NETCDFV2),yes)
@@ -423,7 +451,8 @@ endif
 
 ifeq ($(MPI),yes)
   TANGLEFLAGS+=-mMPI
-  FC=$(FCMPI)
+  FC=$(FCMPI77)
+  FCF90=$(FCMPI90)
   MPILIBSA=$(MPILIBS)
 endif
 
@@ -439,7 +468,7 @@ endif
 ifeq ($(FORTRAN90),yes)
   TANGLEFLAGS+=-mFORTRAN90
   FC=$(FCF90)
-  COMPFLAGS+=$(F90MODS)
+  COMPFLAGS+=$(F90MODS) $(F90FLAGS)
 else
   COMPFLAGS+=$(F77FLAGS)
 endif

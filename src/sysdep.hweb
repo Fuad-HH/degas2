@@ -1,6 +1,13 @@
 @* Macros for machine dependencies.
 % $Id$
 % $Log$
+% Revision 1.12  1999/08/09 15:18:41  karney
+% An extensive revision of the random number routines
+% (1) make the routines available for export,
+% (2) remove some undesirable properties in the old routines (it's unlikely
+% that this has had any effect),
+% (3) allow different sources groups to be initialized easily.
+%
 % Revision 1.11  1998/06/01 15:56:35  karney
 % MPI enabled version.
 %
@@ -116,6 +123,17 @@
     @m LINUX 1
 @#endif
 
+@#if defined(NAGWARE)
+    @m NAGWARE 1
+    @m PGROUP 0
+@#elif defined(PGROUP)
+    @m NAGWARE 0
+    @m PGROUP 1
+@#else
+    @m NAGWARE 0
+    @m PGROUP 0
+@#endif
+
 @ Fortran 77 vs. 90.
 
 @#if defined(FORTRAN90)
@@ -155,15 +173,15 @@
   @m areal    REAL
   @m const(x,...) x@&$IFCASE(#0,e0,e###1)
   @m epsilon  1.0e-15
-  @m single_precision REAL
-  @m single   REAL
+  @m single_precision Real
+  @m single   Real
 @#else
   @m real     DOUBLE PRECISION  // Default precision
   @m areal    DBLE              // Coerce to default precision
   @m const(x,...) x@&$IFCASE(#0,d0,d###1) // Constant in default precision
   @m epsilon  1.0d-15           // Approximate round-off error
-  @m single_precision REAL      // Declare single precision
-  @m single   REAL              // Coerce to single precision
+  @m single_precision Real      // Declare single precision
+  @m single   Real              // Coerce to single precision
 @#endif
 @#endif
 
@@ -180,6 +198,16 @@
 @#else
   @m address INTEGER
 @#endif 
+
+@#if defined(USEINT)
+  @m USEINT 1
+@#else
+@#if SGI || CRAY || LINUX
+  @m USEINT 0
+@#else
+  @m USEINT 1
+@#endif
+@#endif
 
 @ The sizes of integers and characters in terms of reals.
 
