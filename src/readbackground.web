@@ -2,6 +2,9 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.9  1995/08/23 14:48:04  dstotler
+% Uses the geometry symmetry in calls to subroutine inpt.
+%
 % Revision 1.8  1995/07/14 13:20:47  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -55,6 +58,19 @@
 @<Functions...@>=
       program readbackground
       implicit_none
+      character*FILELEN datafilename
+
+      call command_arg(1,datafilename)
+
+      call process_background(datafilename)
+
+      stop
+      end
+
+@ The main subroutine.
+
+@<Functions...@>=
+      subroutine process_background(datafilename)
       character*FILELEN datafilename,degasfilename,uedgefilename
       logical uedge,degas
       integer i,ii
@@ -63,10 +79,8 @@
       pr_common
       bk_common
 
-      call command_arg(1,datafilename)
-
       call readfilenames
-
+      
       degas = .false. ; uedge =.false.
 
 /* find out whether the data file is degas or uedge depending on the extension 
@@ -197,6 +211,7 @@ skip:       continue
       so_num=nosegsxz[nowals]
       var_alloc(source_type)
       var_alloc(source_current)
+      var_alloc(source_element)
       var_alloc(source_pos)
       source_total=zero
       do j2=1,so_num
@@ -285,6 +300,7 @@ skip:       continue
       so_num=2*ny
       var_alloc(source_type)
       var_alloc(source_current)
+      var_alloc(source_element)
       var_alloc(source_pos)
       source_total=zero
       i=0
@@ -328,6 +344,8 @@ skip:       continue
       nc_common
       so_common
       so_ncdecl
+      sr_common
+      sr_ncdecl
       rf_common
 
       tempfile = filenames_array[backgroundfile]
@@ -335,10 +353,12 @@ skip:       continue
       vc_ncdef(fileid)
       bk_ncdef(fileid)
       so_ncdef(fileid)
+      sr_ncdef(fileid)
       call ncendef(fileid,nc_stat);
       vc_ncwrite(fileid)
       bk_ncwrite(fileid)
       so_ncwrite(fileid)
+      sr_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
 
       return

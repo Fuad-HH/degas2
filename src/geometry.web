@@ -3,6 +3,11 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.21  1995/10/12 21:42:39  karney
+% Finish the implementation of sectors.  Now track exits when encountering a
+% sector (on either side).  Sector and strata information is now part of the
+% location.
+%
 % Revision 1.20  1995/10/04 18:33:18  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -863,16 +868,21 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
       real t,x[3]               // Output
       integer cell1,exit_face,cell2,sector1,sector2
       integer j,k,k1,tx,i,start,count // Local
-      real dt,tleft,t1
+      real dt,tleft,t1,v1[3]
       external cell_intersect,new_cell,in_surface   // External
       real cell_intersect
       integer new_cell
       logical in_surface
 
-      assert(type == pt_geometry || type == pt_neutral)
+      assert(type == pt_geometry || type == pt_neutral || type == pt_ion)
       assert(cell>0)
       j = cell
       vc_copy(x0,x)
+      if (type == pt_ion) then
+         vc_set(v1,zero,zero,zero)
+      else
+         vc_copy(v,v1)
+      end if
       t1=zero
       sector1=0
       sector2=0
@@ -880,9 +890,9 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
 loop: continue
       cell1 = j                 // Update cell
       tleft = tmax-t1
-      dt = min(tleft,cell_intersect(cell_info(cell1),x,v,k))
+      dt = min(tleft,cell_intersect(cell_info(cell1),x,v1,k))
       t1 = t1+dt
-      vc_xvt(x,v,dt,x)       // Update position
+      vc_xvt(x,v1,dt,x)       // Update position
       if ( dt == tleft ) then  // We're done
          t = tmax               // Set |t| exactly to |tmax|
          exit_face = 0
@@ -913,13 +923,16 @@ break1:  continue
             tx=surfaces_tx_ind[s_sign(k),t_mx,abs(k)]
 @#if 0
             write(stderr,*) 'Surface tx: ',k,k1
-            write(stderr,*) 'Old x,v: ',(x[i],i=1,3),(v[i],i=1,3)
+            write(stderr,*) 'Old x,v: ',(x[i],i=1,3),(v1[i],i=1,3)
 @#endif
             k=k1
             call transform(surfaces_tx_mx[1,1,tx],x,x)
-            call transform_velocity(surfaces_tx_mx[1,1,tx],v,v)
+            call transform_velocity(surfaces_tx_mx[1,1,tx],v1,v1)
+            if (type != pt_ion) then
+               vc_copy(v1,v)
+            end if
 @#if 0
-            write(stderr,*) 'New x,v: ',(x[i],i=1,3),(v[i],i=1,3)
+            write(stderr,*) 'New x,v: ',(x[i],i=1,3),(v1[i],i=1,3)
 @#endif
             assert(in_surface(surface_info(k),x,.false.,zero))
          end if
@@ -1162,6 +1175,8 @@ cells, it checks that the cells are neighbors.
       vc_ncdecl
       sy_common
       rf_common
+      sr_common
+      sr_ncdecl
       integer fileid
       character*FILELEN tempfile    //local
 
@@ -1170,6 +1185,7 @@ cells, it checks that the cells are neighbors.
       vc_ncread(fileid)
       gi_ncread(fileid)
       zn_ncread(fileid)
+      sr_ncread(fileid)
       call ncclose(fileid,nc_stat)
 
       return

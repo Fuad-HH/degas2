@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.22  1995/08/23 14:47:04  dstotler
+% Modified arguments lists for reaction rate and cross section routines.
+%
 % Revision 1.21  1995/08/09 18:00:48  dstotler
 % Modify primarily subroutine xs_copy to sort out miscellaneous data and
 % place into reaction_misc arrays.
@@ -588,7 +591,11 @@ information into reaction data and miscellaneous arrays.
                      table_entry=xs_table5(i,j,k)
                   end if
                   if (spacing[0] == xs_spacing_log) then
-                     table_entry=log(table_entry*xs_mult[0,jdep])
+                     if (table_entry > zero) then
+                        table_entry=log(table_entry*xs_mult[0,jdep])
+                     else
+                        table_entry=-const(1000000.0)
+                     end if
                   else
                      table_entry=table_entry*xs_mult[0,jdep]
                   end if

@@ -2,6 +2,11 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.17  1995/10/04 18:33:35  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.16  1995/09/07 22:29:23  jshankar
 % merged my changes with somebodys.
 %
@@ -218,6 +223,7 @@ end
       real mindensity,minx,minz
       real rm[mx,my,0:4],zm[mx,my,0:4]
       real min_corner[3],max_corner[3]
+      real xx1[3],xx2[3]
       integer xcorner1,xcorner2,xcorner3,xcorner4, zcorner1,zcorner2
      $     ,zcorner3,zcorner4
       character*100 plot
@@ -457,6 +463,8 @@ loop3:   continue
                zn_volume(zone)=polygon_volume(n,x)
                zn_index(zone,1)=j1
                zn_index(zone,2)=j2
+ /* This is only an approximation and assumes that the zone is convex */
+               vc_set(zone_center[zone],half*(x[1,0]+x[1,2]),zero,half*(x[2,0]+x[2,2]))
 skip:          continue
               end do
               write(stderr,*) j2,' ',plot(grid_startv:grid_stopv)
@@ -525,6 +533,7 @@ skip:          continue
            max_corner[1]=xmax
            max_corner[2]=two*PI
            max_corner[3]=zmax
+           call init_geometry
            call universal_cell(symmetry,min_corner,max_corner,vol)
            do j1=1,nx
               do j2=1,ny
@@ -557,9 +566,49 @@ conform with the data file being used  */
                zn_volume(zone)=polygon_volume(n,x)
                zn_index(zone,1)=j1
                zn_index(zone,2)=j2
+               vc_set(zone_center[zone],rm[j1,j2,0],zero,zm[j1,j2,0])
             enddo
          enddo
          zone++
+
+@#if 0
+
+ /* Pending work */
+ /* Define strata */
+
+         so_num=2*ny
+         var_alloc(source_type)
+         var_alloc(source_current)
+         var_alloc(source_element)
+         var_alloc(source_pos)
+         source_total=zero
+         i=0
+         j1=1
+         stratum=1
+         do j2=ny,1,-1
+            i++
+            vc_set(xx1,x[1,2],zero,x[2,2])
+            vc_set(xx2,x[1,3],zero,x[2,3])
+            sector=define_sector(stratum,lookup_surface(xx1,xx2),zone)
+
+            source_type[i]=so_surface
+            source_current[i]=flux1[j2]
+            source_total=source_total+source_current[i]
+            vc_set(source_pos[i][0],rm[j1,j2,3],zero,zm[j1,j2,3])
+            vc_set(source_pos[i][1],rm[j1,j2,1],zero,zm[j1,j2,1])
+         end do
+         j1=nx
+         stratum=2
+         do j2=1,ny
+            i++
+            source_type[i]=so_surface
+            source_current[i]=flux2[j2]
+            source_total=source_total+source_current[i]
+            vc_set(source_pos[i][0],rm[j1,j2,2],zero,zm[j1,j2,2])
+            vc_set(source_pos[i][1],rm[j1,j2,4],zero,zm[j1,j2,4])
+         end do
+
+@#endif
 
 /*
    start from left lower corner of box and go clockwise along box till 

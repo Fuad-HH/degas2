@@ -1,5 +1,10 @@
 # $Id$
 # $Log$
+# Revision 1.41  1995/10/12 21:42:34  karney
+# Finish the implementation of sectors.  Now track exits when encountering a
+# sector (on either side).  Sector and strata information is now part of the
+# location.
+#
 # Revision 1.40  1995/10/04 18:33:13  karney
 # (1) Fix comments to avoid bugs in ftangle.
 # (2) Implement transforms on surfaces.
@@ -174,6 +179,8 @@ Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
 %.sty: $(SOURCEDIR)/%.sty
 	cp $< $@
+degas2.in: $(SOURCEDIR)/degas2.in
+	cp $< $@
 
 # Set up librarys
 LIBROOT=/usr/local
@@ -247,14 +254,14 @@ ifndef CROSSCOMPILE
   O=o
   %.o: %.f
 	$(FC) $(FFLAGS) $<
-  %: %.o $(SYSDEPO) string.$O idtof
+  %: %.o $(SYSDEPO) string.$O idtof degas2.in
 	idtof $(patsubst %.$O,%.f,$^) > $*.id.f
 	$(FC) $(FFLAGS) $*.id.f
-	$(LD) $(LDFLAGS) -o $@ $(filter-out idtof,$^) $*.id.o $($@_libs)
+	$(LD) $(LDFLAGS) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs)
 else # We're cross compiling
   O=f
   %: %.o
-  %: %.$O sysdep.$O string.$O idtof
+  %: %.$O sysdep.$O string.$O idtof degas2.in
 	@echo Made $^
 endif
 
@@ -422,14 +429,8 @@ idtof: idtof.sh
 	cp $< $@
 	chmod a+x $@
 
-#../$(MACHINE)/etags: etags.c getopt.c getopt1.c getopt.h
-#	gcc -o $@ -g -DETAGS -Demacs etags.c getopt.c getopt1.c
-
 #aladdin_subr.o: $(ALADIR)/ALPCOM.FOR $(ALADIR)/ALCOM.FOR
 #	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
-
-#TAGS:  ../$(MACHINE)/etags
-#	$< *.web *.hweb
 
 TAGS:
 	etags --language=fortran --regex='/[ 	]*define_[a-z]+_pk([a-z]+,[A-Za-z0-9_]+,/' --regex='/[ 	]*@m [A-Za-z0-9_]+(?/' *.web *.hweb

@@ -3,6 +3,11 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.20  1995/10/12 21:42:45  karney
+% Finish the implementation of sectors.  Now track exits when encountering a
+% sector (on either side).  Sector and strata information is now part of the
+% location.
+%
 % Revision 1.19  1995/10/04 18:33:26  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -260,6 +265,7 @@ should.
 
       var_reallocb(zone_type)
       var_reallocb(zone_index)
+      var_reallocb(zone_center)
       var_reallocb(zone_pointer)
       var_reallocb(zone_volume)
 
@@ -473,6 +479,7 @@ these values match.
       
       var_reallocc(zone_type,zn_num,max(zn_num,zone))
       var_reallocc(zone_index,zn_num,max(zn_num,zone))
+      var_reallocc(zone_center,zn_num,max(zn_num,zone))
       var_reallocc(zone_pointer,zn_num,max(zn_num,zone))
       var_reallocc(zone_volume,zn_num,max(zn_num,zone))
       zn_num=max(zn_num,zone)
@@ -788,6 +795,8 @@ break1:        continue
       zn_ncdecl
       vc_ncdecl
       rf_common
+      sr_common
+      sr_ncdecl
       integer fileid
       character*FILELEN tempfile
 
@@ -796,10 +805,12 @@ break1:        continue
       vc_ncdef(fileid)
       gi_ncdef(fileid)
       zn_ncdef(fileid)
+      sr_ncdef(fileid)
       call ncendef(fileid,nc_stat);
       vc_ncwrite(fileid)
       gi_ncwrite(fileid)
       zn_ncwrite(fileid)
+      sr_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
 
       return
