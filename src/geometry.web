@@ -2,6 +2,9 @@
 \def\Wtitle{geometry}
 
 % $Log$
+% Revision 1.2  1993/09/23  12:34:34  karney
+% Change netcdf file extension from .cdf to .nc
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -80,8 +83,7 @@ After the geometry is set up, information about the geometry is held in
 
 @I macros.hweb
 
-@i geomint.hweb
-@I netcdf.hweb
+@I geomint.hweb
 
 @* External interface to geometry routines.
 
@@ -966,11 +968,10 @@ cells, it checks that the cells are neighbors.
       subroutine read_geometry
       implicit_none
       gi_common             // Common
-      decl_netcdf               // Local
+      nc_common               // Local
       netcdf_geometry_decls
       integer fileid
-      external nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid,mem_alloc // External
-      integer nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid,mem_alloc
+      sy_common
       
 
       fileid = ncopen('geometry.nc',NC_NOWRITE,nc_stat)
