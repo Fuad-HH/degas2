@@ -2,6 +2,13 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.20  1999/08/09 15:18:41  karney
+% An extensive revision of the random number routines
+% (1) make the routines available for export,
+% (2) remove some undesirable properties in the old routines (it's unlikely
+% that this has had any effect),
+% (3) allow different sources groups to be initialized easily.
+%
 % Revision 1.19  1999/07/22 17:58:41  dstotler
 % Change 1 to one in argument to mod function in response to ALPHA's
 % complaint about incompatible types.
@@ -100,6 +107,8 @@
 
 @m FILE 'sources.web'
 
+@m COUETTE 0
+
 @I macros.hweb
 @I random.hweb
 @I location.hweb
@@ -137,23 +146,26 @@ species and ``relative weight''.
       common /sources_common/ x_surface @;
 
 @<Functions...@>=
-      subroutine sample_sources(fl_dummy(x),rel_wt)
+      subroutine sample_sources(est,fl_dummy(x),estimator_factors,rel_wt)
       implicit_none_f77
       so_common           // Common
       sp_common
       pr_common
       implicit_none_f90
       
-      fl_decl(x)          // Input and output
-      real rel_wt         // Output
+      integer est                   // Input
+      fl_decl(x)                    // Input/output
+      real estimator_factors[*]     // Scratch 
+      real rel_wt                   // Output
 
-      real urd,vprob      // Local
+      real urd,vprob                // Local
       integer kseg,xseg
-      sp_decl(spsrc)
+      so_decl(is)
 
       st_decls
       rn_decls
 
+      is=fl_source(x)
 /*
    Sample one segment from this source group. This implementation follows
    the description of the sampling algorithm described in Sec. 3.4.1 (and
@@ -168,27 +180,31 @@ species and ``relative weight''.
       else
          assert('Illegal value of so_sampling' == ' ')
       end if
-      kseg=int(so_nseg(fl_source(x))*urd)
-      vprob=so_nseg(fl_source(x))*urd - kseg
-      if (vprob < source_segment_prob_alias[so_base(fl_source(x))+kseg]) then
-         xseg=source_segment_ptr[so_base(fl_source(x))+kseg]
+      kseg=int(so_nseg(is)*urd)
+      vprob=so_nseg(is)*urd - kseg
+      if (vprob < source_segment_prob_alias[so_base(is)+kseg]) then
+         xseg=source_segment_ptr[so_base(is)+kseg]
       else
-         xseg=source_segment_ptr_alias[so_base(fl_source(x))+kseg]
-         kseg=int_lookup(xseg,source_segment_ptr[so_base(fl_source(x))],so_nseg(fl_source(x)))-1
+         xseg=source_segment_ptr_alias[so_base(is)+kseg]
+         kseg=int_lookup(xseg,source_segment_ptr[so_base(is)],so_nseg(is))-1
       end if
 
-      call set_source_x(so_args(fl_source(x)),xseg,rn_args(fl_rand(x)),
+      call set_source_x(est,so_args(is),xseg,rn_args(fl_rand(x)),
      $     lc_args(pt_loc(fl_origin(x))))
 
-      call set_source_v(so_args(fl_source(x)),xseg,lc_args(pt_loc(fl_origin(x))),
-     $     rn_args(fl_rand(x)),vc_args(pt_v(fl_origin(x))),sp_args(spsrc))
+      call set_source_v(so_args(is),xseg,lc_args(pt_loc(fl_origin(x))),
+     $     rn_args(fl_rand(x)),vc_args(pt_v(fl_origin(x))))
 
-      fl_init(x,sp_sy(spsrc))
+      fl_init(x,sp_sy(so_species(is)))
       assert(pr_test_check(pt_test(fl_current(x))))
 
-      rel_wt=source_segment_rel_wt[so_base(fl_source(x))+kseg]
-     $     *so_wt_norm(fl_source(x))
+      rel_wt=source_segment_rel_wt[so_base(is)+kseg]
+     $     *so_wt_norm(is)
 
+      if (est != tl_est_unknown) then
+         call score_sources(est,so_args(is),xseg,pt_args(fl_current(x)),
+     $        estimator_factors,rn_args(fl_rand(x)))
+      end if
 
       return
       end
@@ -197,15 +213,15 @@ species and ``relative weight''.
 using routines specific for the geometry of that source. 
 
 @<Functions...@>=
-      subroutine set_source_x(so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
+      subroutine set_source_x(est,so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
       implicit_none_f77
       gi_common                  // Common
       so_common
       implicit_none_f90
 
       so_decl(isource)           // Input
-      integer xseg
-      rn_decl(r)                 // Input and output
+      integer est,xseg
+      rn_decl(r)                 // Input/output
       lc_decl(x)                 // Output
       rn_decls
 
@@ -216,9 +232,9 @@ using routines specific for the geometry of that source.
      $     geometry_symmetry == geometry_symmetry_oned ||
      $     geometry_symmetry == geometry_symmetry_cylindrical)
       if (so_geom(isource) == so_surface) then
-         call set_surface_source_x(so_args(isource),xseg,rn_args(r),lc_args(x))
+         call set_surface_source_x(est,so_args(isource),xseg,rn_args(r),lc_args(x))
       else if (so_geom(isource) == so_volume) then
-         call set_volume_source_x(so_args(isource),xseg,rn_args(r),lc_args(x))
+         call set_volume_source_x(est,so_args(isource),xseg,rn_args(r),lc_args(x))
       else
          assert("Untreated source geometry" == " ")
       end if
@@ -230,15 +246,15 @@ using routines specific for the geometry of that source.
 routine really just samples on a line.
 
 @<Functions...@>=
-      subroutine set_surface_source_x(so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
+      subroutine set_surface_source_x(est,so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
       implicit_none_f77
       gi_common
       sc_common
       implicit_none_f90
 
       so_decl(isource)           // Input
-      integer xseg
-      rn_decl(r)                 // Input and output
+      integer est,xseg
+      rn_decl(r)                 // Input/output
       lc_decl(x)                 // Output
 
       real urd,r0,r1,fr
@@ -253,7 +269,11 @@ routine really just samples on a line.
 
       lc_decls
 
-      rn_next(urd,r)
+      if (est == tl_est_post_process) then
+         urd=half
+      else
+         rn_next(urd,r)
+      end if
 
 /* For cylindrical (toroidal) geometry, weight sampling along this
    surface by the major radius:
@@ -294,7 +314,7 @@ routine really just samples out of a rectangle and uses rejection to narrow
 the selection to being inside the given zone.
 
 @<Functions...@>=
-      subroutine set_volume_source_x(so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
+      subroutine set_volume_source_x(est,so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
       implicit_none_f77
       gi_common
       sc_common
@@ -302,8 +322,8 @@ the selection to being inside the given zone.
       implicit_none_f90
 
       so_decl(isource)           // Input
-      integer xseg
-      rn_decl(r)                 // Input and output
+      integer est,xseg
+      rn_decl(r)                 // Input/output
       lc_decl(x)                 // Output
 
       integer i                  // Local
@@ -313,33 +333,39 @@ the selection to being inside the given zone.
       lc_decls
       rn_decls
 
-      i=0
-loop: continue
-      i++
-//      assert(i < 200)     // Catch bugs; temporary
-      rn_next(urd_x,r)
-      rn_next(urd_z,r)
+      if (est == tl_est_post_process) then
+         vc_copy(zone_center[xseg],lc_x(x))
+         lc_set(x)
+         assert((lc_cell(x) > 0) && (lc_zone(x) == xseg))
+      else
+         i=0
+loop:    continue
+         i++
+//       assert(i < 200)     // Catch bugs; temporary
+         rn_next(urd_x,r)
+         rn_next(urd_z,r)
 
 /* For cylindrical (toroidal) geometry, weight sampling along this
    surface by the major radius:
  */
-      if (geometry_symmetry == geometry_symmetry_cylindrical) then
-         r0=sqrt(zone_min[xseg][1]**2+zone_min[xseg][2]**2)
-         r1=sqrt(zone_max[xseg][1]**2+zone_max[xseg][2]**2)
-         if (r1 != r0) urd_x=(sqrt(r0**2 + urd_x*(r1**2-r0**2)) - r0) / (r1 - r0)
-      else
-         assert(geometry_symmetry == geometry_symmetry_plane ||
-     $        geometry_symmetry == geometry_symmetry_oned)
+         if (geometry_symmetry == geometry_symmetry_cylindrical) then
+            r0=sqrt(zone_min[xseg][1]**2+zone_min[xseg][2]**2)
+            r1=sqrt(zone_max[xseg][1]**2+zone_max[xseg][2]**2)
+            if (r1 != r0) urd_x=(sqrt(r0**2 + urd_x*(r1**2-r0**2)) - r0) / (r1 - r0)
+         else
+            assert(geometry_symmetry == geometry_symmetry_plane ||
+     $           geometry_symmetry == geometry_symmetry_oned)
+         end if
+         x=zone_min[xseg][1]+urd_x*(zone_max[xseg][1]-zone_min[xseg][1])
+         y=zone_min[xseg][2]+urd_x*(zone_max[xseg][2]-zone_min[xseg][2])
+         z=zone_min[xseg][3]+urd_z*(zone_max[xseg][3]-zone_min[xseg][3])
+
+         vc_set(lc_x(x),x,y,z)
+
+         lc_set(x)
+
+         if (lc_cell(x) < 0 || lc_zone(x) != xseg) goto loop
       end if
-      x=zone_min[xseg][1]+urd_x*(zone_max[xseg][1]-zone_min[xseg][1])
-      y=zone_min[xseg][2]+urd_x*(zone_max[xseg][2]-zone_min[xseg][2])
-      z=zone_min[xseg][3]+urd_z*(zone_max[xseg][3]-zone_min[xseg][3])
-
-      vc_set(lc_x(x),x,y,z)
-
-      lc_set(x)
-
-      if (lc_cell(x) < 0 || lc_zone(x) != xseg) goto loop
 
       return
       end
@@ -349,7 +375,7 @@ using routines specific for the type of that source.
 
 @<Functions...@>=
       subroutine set_source_v(so_dummy(isource),xseg,lc_dummy(x),
-     $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
+     $   rn_dummy(r),vc_dummy(vsrc))
       implicit_none_f77
       so_common                  // Common
       implicit_none_f90
@@ -357,20 +383,19 @@ using routines specific for the type of that source.
       so_decl(isource)           // Input
       integer xseg
       lc_decl(x)                
-      rn_decl(r)                 // Input and output
+      rn_decl(r)                 // Input/output
       vc_decl(vsrc)              // Output
-      sp_decl(spsrc)
 
 
       if (so_type(isource) == so_plate) then 
          call set_plate_source_v(so_args(isource),xseg,lc_args(x),
-     $        rn_args(r),vc_args(vsrc),sp_args(spsrc))
+     $        rn_args(r),vc_args(vsrc))
       else if (so_type(isource) == so_puff) then
          call set_puff_source_v(so_args(isource),xseg,lc_args(x),
-     $        rn_args(r),vc_args(vsrc),sp_args(spsrc))
+     $        rn_args(r),vc_args(vsrc))
       else if (so_type(isource) == so_recomb) then
          call set_recomb_source_v(so_args(isource),xseg,lc_args(x),
-     $        rn_args(r),vc_args(vsrc),sp_args(spsrc))
+     $        rn_args(r),vc_args(vsrc))
       else
          assert("Unsupported source type" == " ")
       end if
@@ -382,7 +407,51 @@ using routines specific for the type of that source.
       
 @<Functions...@>=
       subroutine set_plate_source_v(so_dummy(isource),xseg,lc_dummy(x),
-     $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
+     $   rn_dummy(r),vc_dummy(vsrc))
+      implicit_none_f77
+      sc_common
+      implicit_none_f90
+
+      so_decl(isource)           // Input
+      integer xseg
+      lc_decl(x)                
+      rn_decl(r)                 // Input/output
+      vc_decl(vsrc)              // Output
+
+      integer j                  // Local
+      real vgauss,wa,ion_energy
+      sc_target_decl(target_sc_ptr)
+
+      target_sc_ptr=sector_type_pointer[xseg][sc_target]
+      assert(sc_target_check(target_sc_ptr))
+      wa=zero
+      if (target_e_ion_mult[target_sc_ptr] > zero) then
+/* Sample a Gaussian energy at background temperature */
+         do j=1,3
+            rn_gauss_next(vgauss,r)
+            wa+=vgauss**2
+         end do
+      else
+         assert(target_e_ion_mult[target_sc_ptr] == zero)
+      end if
+
+      call plate_v_details(so_args(isource),xseg,lc_args(x),wa,
+     $     vc_args(vsrc),ion_energy)
+
+      return
+      end
+
+@ Plate velocity details. This one routine provides all of the detailed
+information about the computation of the incident velocity and energy.
+The interface is chosen so as to be callable from both runtime and
+post-processing environments. The |wa| argument represents the Gaussian
+energy factor. For the former this is a random variable; for the latter,
+the average value is used. 
+
+@<Functions...@>=
+      subroutine plate_v_details(so_dummy(isource),xseg,lc_dummy(x),wa,
+     $   vc_dummy(vsrc),ion_energy)
+
       implicit_none_f77
       so_common                  // Common
       pr_common
@@ -394,45 +463,25 @@ using routines specific for the type of that source.
 
       so_decl(isource)           // Input
       integer xseg
+      real wa
       lc_decl(x)                
-      rn_decl(r)                 // Input and output
       vc_decl(vsrc)              // Output
-      sp_decl(spsrc)
+      real ion_energy
 
-      integer j                  // Local
-      real vgauss,wa,sheath_pot,ion_energy,ion_velocity
+      real ion_velocity          // Local
       sp_decl(spion)  
       vc_decl(vzero)
       vc_decl(vone)
       sc_target_decl(target_sc_ptr)
 
-      external neutralize_species  // External
-      integer neutralize_species
-
       sources_localcommon
 
       assert(so_geom(isource) == so_surface)
-      spion=so_species(isource)
+      spion=so_root_sp(isource)
       target_sc_ptr=sector_type_pointer[xseg][sc_target]
       assert(sc_target_check(target_sc_ptr))
-      wa=zero
-      if (target_e_ion_mult[target_sc_ptr] > zero) then
-/* Sample a Gaussian energy at background temperature */
-         do j=1,3
-            rn_gauss_next(vgauss,r)
-            wa+=vgauss**2
-         end do
-         wa=half*wa*bk_temp(pr_background_lookup(spion),lc_zone(x))
-      else
-         assert(target_e_ion_mult[target_sc_ptr] == zero)
-      end if
-@#if 0
-      assert(sp_sy(pr_background(1))=='e')
-/* Simple sheath model for now: $\Phi = 3 T_{e}$. */
-      sheath_pot=const(3.)*bk_temp(1,lc_zone(x))
-      assert(sp_z(spion) > 0)
-      ion_energy=sp_z(spion)*sheath_pot + wa
-@#endif
+
+      wa=half*wa*bk_temp(pr_background_lookup(spion),lc_zone(x))
 /*
    First attempt at a flexible sheath physics model. These parameters
    are now set in |readbackground.web|.
@@ -450,17 +499,10 @@ using routines specific for the type of that source.
  */
       vc_set(vzero,zero,zero,zero)
       vc_set(vone,zero,zero,-one)  
-@#if 0
-      call surface_reflect(sector_surface[xseg],lc_x(x),vc_args(vzero),
-     $     vc_args(vone),vc_args(vsrc))
-@#else
 // Use normal at point {\em on surface}, obtained by common from |surface_source_x|
       call surface_reflect(sector_surface[xseg],vc_args(x_surface),
      $     vc_args(vzero),vc_args(vone),vc_args(vsrc))
-@#endif
       vc_scale(ion_velocity,vsrc,vsrc)
-
-      spsrc=neutralize_species(spion)
 
       return
       end
@@ -471,7 +513,7 @@ with an isotropic distribution; we would need another routine for that.
       
 @<Functions...@>=
       subroutine set_puff_source_v(so_dummy(isource),xseg,lc_dummy(x),
-     $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
+     $   rn_dummy(r),vc_dummy(vsrc))
       implicit_none_f77
       so_common                  // Common
       sc_common
@@ -481,42 +523,25 @@ with an isotropic distribution; we would need another routine for that.
       so_decl(isource)           // Input
       integer xseg
       lc_decl(x)                
-      rn_decl(r)                 // Input and output
+      rn_decl(r)                 // Input/output
       vc_decl(vsrc)              // Output
-      sp_decl(spsrc)
 
-      integer j,xseg2            // Local
-      real vgauss,vpuff,temp
-      vc_decl(vzero)
+      integer j                  // Local
+      real vgauss,vpuff,energy
       vc_decl(vcos)
+@#if COUETTE 
+      real xi,cos_theta,sin_theta,phi,cos_phi,sin_phi,
+     $     ran,log_ran
+      vc_decl(vcos)
+      rn_decls
 
-      sources_localcommon
+      call random_gauss(vcos,2,rn_args(r))   // Maxwell flux for Couette flow
 
-      st_decls
-
-      assert(so_geom(isource) == so_surface)
-      spsrc=so_species(isource)
-
-      rn_cos_next(vcos,r)
-      vc_set(vzero,zero,zero,zero)
-@#if 0
-/* The usual procedure in sampling source location is to move it away from
-   the surface a bit. To use |surface_reflect|, however, we need a point
-   on the surface. ``Move'' along a normal between the sector endpoints
-   to find the point |xp2| which corresponds to |lc(x)|.
- */
-      vc_difference(sector_points[xseg][1],sector_points[xseg][0],deltax)
-      vc_difference(lc_x(x),sector_points[xseg][0],xp)
-      fr=vc_product(xp,deltax)/vc_abs2(deltax)
-      assert(fr >= 0 && fr <= one)
-      vc_xvt(sector_points[xseg][0],deltax,fr,xp2)
-      call surface_reflect(sector_surface[xseg],vc_args(xp2),vc_args(vzero),
-     $     vc_args(vcos),vc_args(vsrc))
+      rn_next(ran,r)
+      log_ran=log(ran)
+      vcos[3]=sqrt(-(log_ran+log_ran))
 @#else
-/*  Use now common value of |x_surface|.
-*/
-      call surface_reflect(sector_surface[xseg],vc_args(x_surface),
-     $     vc_args(vzero),vc_args(vcos),vc_args(vsrc))
+      rn_cos_next(vcos,r)
 @#endif
 
 /* To get a thermal particle as in original DEGAS, need to sample
@@ -527,17 +552,47 @@ with an isotropic distribution; we would need another routine for that.
          rn_gauss_next(vgauss,r)
          vpuff+=vgauss**2
       end do
-/* The energy of the puff is hardwired here at 0.03 eV. Again, this
-   is another piece of miscellaneous info that needs a home in the
-   source class.
- */
-@#if 0
-      vpuff=sqrt(vpuff*electron_charge*const(3.,-2)/sp_m(spsrc))
-@#endif
-@#if 0
-      xseg2=int_lookup(-sector_surface[xseg],sector_surface[1],nsectors)
-      assert(strata[xseg2]==strata[xseg])
-@#endif
+
+      call puff_v_details(so_args(isource),xseg,lc_args(x),vpuff,
+     $     vc_dummy(vcos),vc_dummy(vsrc),energy)
+      return
+      end
+
+@ Puff velocity details.
+
+@<Functions...@>=
+      subroutine puff_v_details(so_dummy(isource),xseg,lc_dummy(x),vpuff,
+     $   vc_dummy(vcos),vc_dummy(vsrc),energy)
+
+      implicit_none_f77
+      so_common                  // Common
+      sc_common
+      sp_common
+      implicit_none_f90
+
+      so_decl(isource)           // Input
+      integer xseg
+      real vpuff
+      lc_decl(x)                
+      vc_decl(vcos)
+      vc_decl(vsrc)              // Output
+      real energy
+
+      real temp                  // Local
+      sp_decl(spsrc)
+      vc_decl(vzero)
+
+      sources_localcommon
+
+      assert(so_geom(isource) == so_surface)
+      spsrc=so_species(isource)
+
+      vc_set(vzero,zero,zero,zero)
+/*  Use now common value of |x_surface|.
+*/
+      call surface_reflect(sector_surface[xseg],vc_args(x_surface),
+     $     vc_args(vzero),vc_args(vcos),vc_args(vsrc))
+
       if (sc_wall_check(sector_type_pointer[xseg][sc_wall])) then
          temp=wall_temperature[sector_type_pointer[xseg][sc_wall]]
       else if (sc_target_check(sector_type_pointer[xseg][sc_target])) then
@@ -545,8 +600,15 @@ with an isotropic distribution; we would need another routine for that.
       else
          assert('Puffing surface not found' == ' ')
       end if
+      energy=half*vpuff*temp
+@#if COUETTE
+      vpuff=sqrt(temp/sp_m(spsrc)) // Maxwell flux for Couette flow
+      vc_scale(vpuff,vsrc,vsrc)
+      vsrc[2]+=const(1.,3)       // Couette flow velocity      
+@#else
       vpuff=sqrt((vpuff*temp)/sp_m(spsrc))   // 1 eV for box case
       vc_scale(vpuff,vsrc,vsrc)
+@#endif
 
       return
       end
@@ -555,7 +617,7 @@ with an isotropic distribution; we would need another routine for that.
       
 @<Functions...@>=
       subroutine set_recomb_source_v(so_dummy(isource),xseg,lc_dummy(x),
-     $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
+     $   rn_dummy(r),vc_dummy(vsrc))
       implicit_none_f77
       so_common                  // Common
       pr_common
@@ -568,18 +630,19 @@ with an isotropic distribution; we would need another routine for that.
       so_decl(isource)           // Input
       integer xseg
       lc_decl(x)                
-      rn_decl(r)                 // Input and output
+      rn_decl(r)                 // Input/output
       vc_decl(vsrc)              // Output
-      sp_decl(spsrc)
 
       integer j                  // Local
       real vgauss,vion
+      sp_decl(spsrc)
       vc_decl(vb_flow)
       pr_background_decl(spback)
 
 
       assert(so_geom(isource) == so_volume)
       spsrc=so_species(isource)
+@#if 0
 /* Need also species of recombining ion. This should be stored in the
    source class, but this appears to be a sort of miscellaneous info.
    for which we don't have a convenient slot (e.g., along with neutralized
@@ -592,8 +655,10 @@ with an isotropic distribution; we would need another routine for that.
             spback=pr_bkrc_rg(j,2)
          end if
       end do
+@#else
+      spback=pr_background_lookup(so_root_sp(isource))
+@#endif
       assert(spback != 0)
-
       v_ext_to_int(lc_x(x),bk_v(spback,lc_zone(x)),vb_flow,geometry_symmetry,background_coords)
       vion=sqrt(bk_temp(spback,lc_zone(x))/sp_m(spsrc))
       do j=1,3
@@ -604,65 +669,5 @@ with an isotropic distribution; we would need another routine for that.
       return
       end
 
-@ Test species corresponding to background. Uses the fact that all charge in
-a species arises from electrons along with the |species_add_check| function
-to find the first entry the test list which matches the background species
-with no electrons in its elements list.
-
-@<Functions...@>=
-      function neutralize_species(sp_dummy(s))
-      implicit_none_f77
-      el_common                          // Common
-      sp_common
-      pr_common
-      implicit_none_f90
-      st_decls
-      integer neutralize_species         // Function
-      sp_decl(s)                         // Input
-
-      integer i,num_elec,num1,num2       // Local
-      sp_decl(e_sp)
-      sp_decl(test_sp)
-      sp_decl(list1[sp_ncomp_max])
-      sp_decl(list2[sp_ncomp_max])
-
-      
-      external species_add_check         // External
-      logical species_add_check
-
-      num_elec=0
-      do i=1,sp_ncomp(s)
-         if (el_z(sp_el(s,i)) == -1) then
-            num_elec+=sp_count(s,i)
-         end if
-      end do
-
-      list1[1]=s
-      num1=1
-      num2=1
-      e_sp=sp_lookup('e')
-      do i=1,abs(num_elec)
-         if (num_elec < 0) then
-            list1[i+1]=e_sp
-            num1++
-         else
-            list2[i+1]=e_sp
-            num2++
-         end if
-      end do
-
-
-      do i=1,pr_test_num
-         test_sp=pr_test(i)
-         list2[1]=test_sp
-         if (species_add_check(num1,sp_args(list1),num2,sp_args(list2))) go to break
-      end do
-      assert("No matching neutral species" == " ")
-break: continue
-
-      neutralize_species=test_sp
-
-      return
-      end
 
 @* INDEX.
