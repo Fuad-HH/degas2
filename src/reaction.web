@@ -2,6 +2,10 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.30  1998/03/11 15:16:02  dstotler
+% Allow for pr_reaction_num=0; includes also doing dummy allocation of
+% reaction_rate_tab and reaction_handling_tab.
+%
 % Revision 1.29  1998/01/14 20:57:56  dstotler
 % Replace transform_v routine with macro. Change a comment for FWEAVE.
 %
@@ -601,8 +605,9 @@ information into reaction data and miscellaneous arrays.
       implicit_none_f90
       rd_decls
       xs_decls
+      st_decls
       integer num                                         // Input
-      integer i,j,jdep,k,rh_ind,num_random                // Local
+      integer i,j,jdep,k,rh_ind,num_random,i_var0         // Local
       integer spacing[0:xs_dep_var_max],var[xs_dep_var_max]
       real table_entry,min[xs_dep_var_max],delta[xs_dep_var_max]
       character*xs_eval_name_length eval_name
@@ -628,7 +633,7 @@ information into reaction data and miscellaneous arrays.
       do j=1,rd_dep_var_max
          reaction_handling_rank[num][j]=0
          reaction_handling_eval_name[num][j]='unknown'
-         reaction_handling_var0[num][j]='unknown'
+         reaction_handling_var0[num][j]=pr_var_unknown
          reaction_handling_spacing[num][j][0]=xs_spacing_unknown
          do i=1,xs_table_rank_max
             reaction_handling_var[num][j][i]=xs_var_unknown
@@ -752,7 +757,17 @@ information into reaction data and miscellaneous arrays.
             goto skip
          else
             rh_ind++                                          // Handling
-            reaction_handling_var0[num][rh_ind]=xs_var[0,jdep]
+            i_var0=string_lookup(xs_var[jdep][0],pr_var0_list,
+     $           pr_var0_num)
+            if (i_var0 > 0) then
+               reaction_handling_var0[num][rh_ind]=i_var0
+            else
+               pr_var0_num++
+               var_realloca(pr_var0_list)
+               pr_var0_list[pr_var0_num]
+     $              =xs_var[jdep][0]
+               reaction_handling_var0[num][rh_ind]=pr_var0_num
+            end if
             reaction_handling_eval_name[num][rh_ind]=eval_name
             reaction_handling_rank[num][rh_ind]=xs_rank[jdep]
             reaction_handling_spacing[num][rh_ind][0]=spacing[0]
@@ -855,6 +870,25 @@ skip: continue
          rd_null_alloc(reaction_rate)
          rd_null_alloc(reaction_handling)
       end if
+
+      return
+      end
+
+@ Initialize ``base'' arrays for both reaction and PMI data. Done via
+subroutine to allow one routine to handle both rank 1 and 2 cases.
+
+@<Functions...@>=
+      subroutine init_base(base,size)
+      implicit_none_f77
+      implicit_none_f90
+      integer size                        // Input
+      integer base[size]
+      integer i                           // Local
+
+      do i=1,size
+         base[i]=int_unused
+      end do
+
       return
       end
 
