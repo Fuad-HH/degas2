@@ -2,6 +2,10 @@
 \def\Wtitle{randomtest}
 
 % $Log$
+% Revision 1.4  1995/05/26 04:01:24  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.3  1994/02/02 22:25:53  karney
 % Convert to random_seed_test.
 %
@@ -42,7 +46,9 @@ This random number generator is portable as long as no bits are lost in the
 additions and subtractions in |random_batch|.  As a check, with
 |seed[0]=1234| and |seed[1]=5678|, the zeroth and thousandth random numbers
 are $53744947432387/2^{48} \approx 0.1909404099094552$ and
-$80023218797819/2^{48} \approx 0.2842995840446569$.
+$80023218797819/2^{48} \approx 0.2842995840446569$. Also, a speed check
+of the random number generator is included for comparison with standard
+numerical operations.
 
 @m FILE 'randomtest.web'
 
@@ -55,10 +61,12 @@ $80023218797819/2^{48} \approx 0.2842995840446569$.
 @a
       program random_test
       implicit_none
-      integer seed[0:1]   // Local
+      integer seed[0:1]                 // Local
       integer i,j,k
-      real x
-      rn_decl(tag)              // Local for random number routines
+      real x,start,end,cpu_time
+      real*8 rndd1
+      real xx[0:110000],yy[0:110000]
+      rn_decl(tag)                     // Local for random number routines
       rn_common
 
       do k=1,3
@@ -107,6 +115,79 @@ $80023218797819/2^{48} \approx 0.2842995840446569$.
          write(stdout,*) x
 
       end do
+
+/*
+   Speed checks. These arrays will be used below to prevent loops
+   from being trivialized by the compiler.
+*/
+      do i=0,99999
+         yy[i]=xx[i]
+      end do
+
+/*
+   Get seed and initialize
+*/
+      call random_seed_test(seed)
+      call random_init(seed,rn_args(tag))
+
+/* 
+   Time for $100044 = 1588 |RAN_K|$ executions of |rn_fast_next| 
+*/
+      start=cpu_time()
+      do i=1,1588*RAN_K,RAN_K
+         call random_check(RAN_K,rn_args(tag))
+         do j=i,i-1+RAN_K  
+            rn_fast_next(xx[j],tag)
+         end do
+      end do
+      end=cpu_time()
+      write(stdout,*) 'Fast random time:   ',end-start
+
+/* 
+   Time for 100000 executions of |rn_next| 
+*/
+      start=cpu_time()
+      do i=0,99999     
+         rn_next(xx[i],tag)
+      end do
+      end=cpu_time()
+      write(stdout,*) 'Normal random time: ',end-start
+
+
+/* 
+   Time for 100000 executions of |rn_gauss_next| 
+*/
+      start=cpu_time()
+      do i=0,99999
+         rn_gauss_next(xx[i],tag)
+      end do
+      end=cpu_time()
+      write(stdout,*) 'Gauss random time:  ',end-start
+
+/*
+   Times for standard numerical operations
+*/
+      start=cpu_time()
+      do i=0,99999
+         yy[i]=xx[i]
+      end do
+      end=cpu_time()
+      write(stdout,*) 'Time for copy:     ',end-start
+
+      start=cpu_time()
+      do i=0,99999
+         xx[i]=exp(yy[i])
+      end do
+      end=cpu_time()
+      write(stdout,*) 'Time for exp():     ',end-start
+
+
+      start=cpu_time()
+      do i=0,99999
+         yy[i]=xx[i]+1233456789.
+      end do
+      end=cpu_time()
+      write(stdout,*) 'Time for addition: ',end-start
 
       stop
       end
