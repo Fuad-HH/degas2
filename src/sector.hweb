@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1998/03/11 15:24:13  dstotler
+% Add plasma_e_ion_delta, plasma_e_ion_mult. Add sc_plasma_check. Add
+% sc_plasma_decl.
+%
 % Revision 1.6  1997/08/19 14:37:04  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -125,6 +129,7 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_varp_pk(sc,target_sector,INT,target_ind)
       define_varp_pk(sc,target_material,INT,target_ind)
       define_varp_pk(sc,target_temperature,FLOAT,target_ind)
+      define_varp_pk(sc,target_recyc_coef,FLOAT,target_ind)
 
 /* |wall| subclass */
       define_var_pk(sc,sc_wall_num,INT)
@@ -132,6 +137,7 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_varp_pk(sc,wall_sector,INT,wall_ind)
       define_varp_pk(sc,wall_material,INT,wall_ind)
       define_varp_pk(sc,wall_temperature,FLOAT,wall_ind)
+      define_varp_pk(sc,wall_recyc_coef,FLOAT,wall_ind)
 
 /* |exit| subclass (includes pump) */
       define_var_pk(sc,sc_exit_num,INT)
@@ -185,24 +191,28 @@ starting them at $0$, the dimensions have a length of at least $1$.
       sector_type_pointer[sc][sc_plasma]=sc_plasma_num; 
       plasma_e_ion_delta[sc_plasma_num]=zero;       // Simple default values,
       plasma_e_ion_mult[sc_plasma_num]=one @;       // Reset with background
-@m define_sector_target(sc,mat,temp)
+@m define_sector_target(sc,mat,temp,recyc)
       sc_target_num=sc_target_num+1;
       var_realloca(target_sector);
       var_realloca(target_material);
       var_realloca(target_temperature);
+      var_realloca(target_recyc_coef);
       target_sector[sc_target_num]=sc;
       sector_type_pointer[sc][sc_target]=sc_target_num;
       target_material[sc_target_num]=mat;
-      target_temperature[sc_target_num]=temp @; 
-@m define_sector_wall(sc,mat,temp)
+      target_temperature[sc_target_num]=temp;
+      target_recyc_coef[sc_target_num]=recyc @; 
+@m define_sector_wall(sc,mat,temp,recyc)
       sc_wall_num=sc_wall_num+1;
       var_realloca(wall_sector);
       var_realloca(wall_material);
       var_realloca(wall_temperature);
+      var_realloca(wall_recyc_coef);
       wall_sector[sc_wall_num]=sc;
       sector_type_pointer[sc][sc_wall]=sc_wall_num;
       wall_material[sc_wall_num]=mat;
-      wall_temperature[sc_wall_num]=temp @;
+      wall_temperature[sc_wall_num]=temp;
+      wall_recyc_coef[sc_wall_num]=recyc @;
 @m define_sector_exit(sc,alb)
       sc_exit_num=sc_exit_num+1;
       var_realloca(exit_sector);
