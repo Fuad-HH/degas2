@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.24  1996/03/01 20:29:17  dstotler
+% Accomodate move of sector variables into sector.hweb.
+%
 % Revision 1.23  1996/01/25 15:04:38  dstotler
 % Changed the name of end_geometry to boundaries_neighbors; added
 % end_sectors. Modified check_geometry to permit (degenerate) outer
@@ -297,6 +300,8 @@ should.
       var_reallocb(zone_center)
       var_reallocb(zone_pointer)
       var_reallocb(zone_volume)
+      var_reallocb(zone_min)
+      var_reallocb(zone_max)
 
       var_reallocb(surfaces_tx_ind)
       var_reallocb(surfaces_tx_mx)
@@ -503,6 +508,31 @@ these values match.
       return
       end
 
+@ Lookup a sector based on |sector_points|.  Returns 0 if none found.
+
+@<Functions...@>=
+      function lookup_sector(x1,x2)
+      implicit_none
+      integer lookup_sector    // Function
+      real x1[3],x2[3]          // Input
+      gi_common                 // Input/Output
+      integer k                 // Local
+
+      sc_common
+
+      do k=1,nsectors
+         if (vc_equal(x1,sector_points[0,k]) &&
+     $        vc_equal(x2,sector_points[1,k])) then
+            lookup_sector = k
+            return
+         end if
+      end do
+      
+      lookup_sector=0
+         
+      return
+      end
+
 @ Start definition of a cell.
 
 @<Functions...@>=
@@ -531,6 +561,9 @@ these values match.
       var_reallocc(zone_center,zn_num,max(zn_num,zone))
       var_reallocc(zone_pointer,zn_num,max(zn_num,zone))
       var_reallocc(zone_volume,zn_num,max(zn_num,zone))
+      var_reallocc(zone_min,zn_num,max(zn_num,zone))
+      var_reallocc(zone_max,zn_num,max(zn_num,zone))
+      
       zn_num=max(zn_num,zone)
 
       return
@@ -634,6 +667,11 @@ these values match.
          vc_copy(surface_points[0,-surface],sector_points[1,nsectors])
          vc_copy(surface_points[1,-surface],sector_points[0,nsectors])
       end if
+
+      sector_vacuum[nsectors]=0
+      sector_plasma[nsectors]=0
+      sector_solid[nsectors]=0
+      sector_exit[nsectors]=0
 
       ptr_sector_list=surface_sectors[s_sign(surface),s_start,abs(surface)]+pointer_offset
       sector_count=surface_sectors[s_sign(surface),s_count,abs(surface)]
