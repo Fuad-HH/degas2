@@ -3,6 +3,10 @@
 \Title{score}
 
 % $Log$
+% Revision 1.5  1998/04/27 17:26:01  karney
+% Reorder common block includes to avoid complaints from DEC compilers.
+% Remove spurious -R load flag from Makefile.
+%
 % Revision 1.4  1998/04/16 15:31:11  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -28,7 +32,7 @@
 
 @m FILE 'score.web'
 
-@m max_segments 10
+@m max_segments 36
 
 @I macros.hweb
 @I sysdep.hweb
@@ -36,6 +40,7 @@
 @I problem.hweb
 @I tally.hweb
 @I output.hweb
+@I stat.hweb
 @I species.hweb
 @I sector.hweb
 @I detector.hweb
@@ -61,7 +66,7 @@
 @ Handle scores of type ``test''.
 
 @<Functions...@>=
-      subroutine score_test(est,est_fac,pt_dummy(p),scores,estimator_factors)
+      subroutine score_test(est,est_fac,pt_dummy(p),estimator_factors)
 
       implicit_none_f77
       pr_common                                        // Common
@@ -72,13 +77,10 @@
       integer est                                      // Input
       real est_fac
       pt_decl(p)
-      real scores[0:*][o_mean:o_var]                   // Output
 
-      integer back,i,jscore,num_scoring_data,pr_reac   // Local
-      real scoring_data[scoring_data_max],
-     $     coupling_scores[ou_back_max][ou_coupling_max]
-      real estimator_factors[0:*]                      // Scratch
-      character*tl_tag_length scoring_data_label[scoring_data_max]
+      integer i,jscore,pr_reac                         // Local
+      real scoring_data[scoring_data_max]
+      real estimator_factors[*]                        // Scratch
       logical need_scores
 
       @<Memory allocation interface@>
@@ -94,25 +96,15 @@
 
       if (need_scores) then
 
-         num_scoring_data=0
          do i=1,scoring_data_max
             scoring_data[i]=zero
-            scoring_data_label[i]='unknown'
-         end do
-         do back=1,pr_background_num
-            do i=1,ou_coupling_max
-               coupling_scores[back][i]=zero
-            end do
          end do
 
-         call test_scoring_data(pt_args(p),num_scoring_data,
-     $        scoring_data,scoring_data_label,coupling_scores)
+         call test_scoring_data(pt_args(p),scoring_data)
 
          pr_reac=0
          call add_scores(tl_type_test,pt_args(p),pr_reaction_args(pr_reac),
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,estimator_factors,
-     $        scores)
+     $        scoring_data,estimator_factors)
       end if
 
       return
@@ -121,39 +113,20 @@
 @ Fill in |scoring_data| for test species.
 
 @<Functions...@>=
-      subroutine test_scoring_data(pt_dummy(p),num_scoring_data,
-     $     scoring_data,scoring_data_label,coupling_scores)
+      subroutine test_scoring_data(pt_dummy(p),scoring_data)
 
       implicit_none_f77
       sp_common                                     // Common
       implicit_none_f90
 
       pt_decl(p)                                    // Input
-      integer num_scoring_data                      // Output
-      real scoring_data[scoring_data_max]
-      character*tl_tag_length scoring_data_label[scoring_data_max]
-      real coupling_scores[*][ou_coupling_max]
+      real scoring_data[scoring_data_max]           // Output
 
-
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='mass'
-      scoring_data[num_scoring_data]=sp_m(pt_sp(p))
-
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='momentum vector'
-      scoring_data[num_scoring_data]=sp_m(pt_sp(p))*pt_v(p)[1]
-
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='momentum 2'
-      scoring_data[num_scoring_data]=sp_m(pt_sp(p))*pt_v(p)[2]
-
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='momentum 3'
-      scoring_data[num_scoring_data]=sp_m(pt_sp(p))*pt_v(p)[3]
-
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='energy'
-      scoring_data[num_scoring_data]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
+      scoring_data[pr_var_mass]=sp_m(pt_sp(p))
+      scoring_data[pr_var_momentum_vector]=sp_m(pt_sp(p))*pt_v(p)[1]
+      scoring_data[pr_var_momentum_2]=sp_m(pt_sp(p))*pt_v(p)[2]
+      scoring_data[pr_var_momentum_3]=sp_m(pt_sp(p))*pt_v(p)[3]
+      scoring_data[pr_var_energy]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
 
       return
       end
@@ -161,7 +134,7 @@
 @ Handle scores at diagnostic sectors.
 
 @<Functions...@>=
-      subroutine score_diagnostics(pt_dummy(p),scores,estimator_factors)
+      subroutine score_diagnostics(pt_dummy(p),estimator_factors)
 
       implicit_none_f77
       pr_common                                        // Common
@@ -172,13 +145,10 @@
       tl_decls
 
       pt_decl(p)                                       // Input
-      real scores[0:*][o_mean:o_var]                   // Output
-      real estimator_factors[0:*]                      // Scratch
+      real estimator_factors[*]                        // Scratch
 
-      integer back,i,jscore,num_scoring_data,pr_reac   // Local
-      real scoring_data[scoring_data_max],
-     $     coupling_scores[ou_back_max][ou_coupling_max]
-      character*tl_tag_length scoring_data_label[scoring_data_max]
+      integer i,jscore,pr_reac                         // Local
+      real scoring_data[scoring_data_max]
       logical need_scores
 
       @<Memory allocation interface@>
@@ -201,25 +171,15 @@
 
       if (need_scores) then
 
-         num_scoring_data=0
          do i=1,scoring_data_max
             scoring_data[i]=zero
-            scoring_data_label[i]='unknown'
-         end do
-         do back=1,pr_background_num
-            do i=1,ou_coupling_max
-               coupling_scores[back][i]=zero
-            end do
          end do
 
-         call sector_scoring_data(pt_args(p),num_scoring_data,
-     $        scoring_data,scoring_data_label,coupling_scores)
+         call sector_scoring_data(pt_args(p),scoring_data)
 
          pr_reac=0
          call add_scores(tl_type_sector,pt_args(p),pr_reaction_args(pr_reac),
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,estimator_factors,
-     $        scores)
+     $        scoring_data,estimator_factors)
       end if
 
       return
@@ -228,18 +188,14 @@
 @ Fill in |scoring_data| for sector diagnostics.
 
 @<Functions...@>=
-      subroutine sector_scoring_data(pt_dummy(p),num_scoring_data,
-     $     scoring_data,scoring_data_label,coupling_scores)
+      subroutine sector_scoring_data(pt_dummy(p),scoring_data)
 
       implicit_none_f77
       sp_common                                     // Common
       implicit_none_f90
 
       pt_decl(p)                                    // Input
-      integer num_scoring_data                      // Output
-      real scoring_data[scoring_data_max]
-      character*tl_tag_length scoring_data_label[scoring_data_max]
-      real coupling_scores[*][ou_coupling_max]
+      real scoring_data[scoring_data_max]           // Output
 
       real cos_angle                                // Local
 
@@ -249,19 +205,13 @@
 /* 
    Should we take these instead from |independent_parameters|? 
 */
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='mass'
-      scoring_data[num_scoring_data]=sp_m(pt_sp(p))
+      scoring_data[pr_var_mass]=sp_m(pt_sp(p))
 
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='angle'
       cos_angle=intersection_direction(lc_face(pt_loc(p)),lc_x(pt_loc(p))[1],
      $     pt_v(p)[1])
-      scoring_data[num_scoring_data]=acos(cos_angle)
+      scoring_data[pr_var_angle]=acos(cos_angle)
 
-      num_scoring_data++
-      scoring_data_label[num_scoring_data]='energy'
-      scoring_data[num_scoring_data]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
+      scoring_data[pr_var_energy]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
 
       return
       end
@@ -279,7 +229,7 @@ instances of the particle class.
 @<Functions...@>=
       subroutine score_reaction(est,est_fac,
      $   pr_reaction_dummy(ts_reac),rate,
-     $   nprod,pt_dummy(prod),scores,estimator_factors,rn_dummy(x))
+     $   nprod,pt_dummy(prod),estimator_factors,rn_dummy(x))
 
       implicit_none_f77
       sp_common                             // Common
@@ -295,17 +245,14 @@ instances of the particle class.
       pr_reaction_decl(ts_reac)
       integer nprod                        // Output
       pt_decl(prod[0:rc_product_max])
-      real scores[0:*][o_mean:o_var]
-      real estimator_factors[0:*]          // Scratch
+      real estimator_factors[*]            // Scratch
       rn_decl(x)                           // Input/output
 
       pr_reaction_decl(pr_reac)            // Local
       logical need_scores
-      integer back,i,jscore,num_scoring_data
+      integer i,jscore
       real independent_parameters[xs_max_indep_params],
-     $     scoring_data[scoring_data_max],
-     $     coupling_scores[ou_back_max][ou_coupling_max]
-      character*tl_tag_length scoring_data_label[scoring_data_max]
+     $     scoring_data[scoring_data_max]
 
       st_decls
       @<Memory allocation interface@>
@@ -325,15 +272,8 @@ instances of the particle class.
       end do
 
       if (need_scores || est == tl_est_collision) then
-         num_scoring_data=0
          do i=1,scoring_data_max
             scoring_data[i]=zero
-            scoring_data_label[i]='unknown'
-         end do
-         do back=1,pr_background_num
-            do i=1,ou_coupling_max
-               coupling_scores[back][i]=zero
-            end do
          end do
 
          call set_indep_params(pt_args(prod[0]),
@@ -344,24 +284,19 @@ instances of the particle class.
          if (est == tl_est_track || est == tl_est_post_process) then
             call pick_track_reaction(pr_test_args(pt_test(prod[0])),
      $           pr_reaction_args(ts_reac),rate,independent_parameters,
-     $           num_scoring_data,scoring_data,scoring_data_label,
-     $           coupling_scores,rn_args(x))
+     $           scoring_data,rn_args(x))
          else if (est == tl_est_collision) then
             call pick_reaction(pr_test_args(pt_test(prod[0])),
      $           pr_reaction_args(ts_reac),rate,independent_parameters,
      $           nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $           pt_w(prod[1]),num_scoring_data,scoring_data,
-     $           scoring_data_label,coupling_scores,rn_args(x))
+     $           pt_w(prod[1]),scoring_data,rn_args(x))
          else
             assert('Unsupported estimator' == ' ')
          end if
 
          call add_scores(tl_type_reaction,pt_args(prod[0]),
      $        pr_reaction_args(pr_ts_rc(pt_test(prod[0]),ts_reac)),
-     $        num_scoring_data,
-     $        scoring_data,scoring_data_label,coupling_scores,
-     $        estimator_factors,
-     $        scores)
+     $        scoring_data,estimator_factors)
       end if
 
 /*
@@ -389,7 +324,7 @@ instances of the particle class.
 For now it only handles recombination.
 
 @<Functions...@>=
-      subroutine score_sources(fl_dummy(x),scores,estimator_factors)
+      subroutine score_sources(fl_dummy(x),estimator_factors)
 
       implicit_none_f77
       so_common                                    // Common
@@ -398,8 +333,7 @@ For now it only handles recombination.
 
       fl_decl(x)                                   // Input / Output
 
-      real scores[0:*][o_mean:o_var]               // Output
-      real estimator_factors[0:*]
+      real estimator_factors[*]                    // Output
 
       integer i,is,bk_rc_is                        // Local
       real rate
@@ -422,9 +356,9 @@ For now it only handles recombination.
          rate=find_rate(pt_args(fl_current(x)),   // OK?
      $                 pr_background_args(pr_bkrc_rg(bk_rc_is,1)),
      $                 pr_reaction_args(pr_bk_rc(bk_rc_is)),rn_args(x))
-         call score_recombination(tl_est_collision,one/rate,pr_reaction_args(bk_rc_is),
-     $        rate,pt_args(fl_current(x)),scores,estimator_factors,
-     $        rn_args(fl_rand(x)))
+         call score_recombination(tl_est_collision,one/rate,
+     $        pr_reaction_args(bk_rc_is),rate,pt_args(fl_current(x)),
+     $        estimator_factors,rn_args(fl_rand(x)))
 //  No other source types being scored now
       end if
 
@@ -435,7 +369,7 @@ For now it only handles recombination.
 
 @<Functions...@>=
       subroutine score_recombination(est,est_fac,pr_reaction_dummy(bk_rc_is),
-     $     rate,pt_dummy(p),scores,estimator_factors,rn_dummy(x))
+     $     rate,pt_dummy(p),estimator_factors,rn_dummy(x))
 
       implicit_none_f77
       pr_common                                        // Common
@@ -452,15 +386,12 @@ For now it only handles recombination.
       real est_fac,rate
       pr_reaction_decl(bk_rc_is)
       pt_decl(p)
-      real scores[0:*][o_mean:o_var]                   // Output
-      real estimator_factors[0:*]                      // Scratch
+      real estimator_factors[*]                        // Scratch
       rn_decl(x)                                       // Input/output
 
-      integer jscore,back,i,num_scoring_data  // Local
+      integer jscore,i                                 // Local
       real independent_parameters[xs_max_indep_params],
-     $     scoring_data[scoring_data_max],
-     $     coupling_scores[ou_back_max][ou_coupling_max]
-      character*tl_tag_length scoring_data_label[scoring_data_max]
+     $     scoring_data[scoring_data_max]
       logical need_scores
       pr_reaction_decl(pr_reac) 
       pr_background_decl(back_1)
@@ -482,15 +413,8 @@ For now it only handles recombination.
       end do
 
       if (need_scores) then
-         num_scoring_data=0
          do i=1,scoring_data_max
             scoring_data[i]=zero
-            scoring_data_label[i]='unknown'
-         end do
-         do back=1,pr_background_num
-            do i=1,ou_coupling_max
-               coupling_scores[back][i]=zero
-            end do
          end do
 
          back_1=pr_bkrc_rg(bk_rc_is,1)
@@ -503,13 +427,10 @@ For now it only handles recombination.
          call recombination_data(pr_test_args(pt_test(p)),
      $        pr_reaction_args(bk_rc_is),est,
      $        rate,independent_parameters,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,rn_args(x))
+     $        scoring_data,rn_args(x))
 
          call add_scores(tl_type_reaction,pt_args(p),pr_reaction_args(pr_reac),
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,estimator_factors,
-     $        scores)
+     $        scoring_data,estimator_factors)
 
       end if      // |need_scores|
       
@@ -523,13 +444,9 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
    detectors (e.g., spectrometers), it might be desirable to score signals on
    more than one scoring bin. Again, the affected bins are in an array |bins|.
 
-
 @<Functions...@>=
       subroutine add_scores(type,pt_dummy(p),
-     $   pr_reaction_dummy(pr_reac),num_scoring_data,
-     $   scoring_data,scoring_data_label,coupling_scores,
-     $   estimator_factors,
-     $   scores)
+     $   pr_reaction_dummy(pr_reac),scoring_data,estimator_factors)
 
       implicit_none_f77
       pr_common
@@ -540,30 +457,23 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
       tl_decls
       st_decls
 
-      integer type,num_scoring_data              // Input
+      integer type                               // Input
       pt_decl(p)
       pr_reaction_decl(pr_reac)
-      real scoring_data[scoring_data_max],
-     $     coupling_scores[*][ou_coupling_max],estimator_factors[0:*]
-      character*tl_tag_length scoring_data_label[scoring_data_max]
-      real scores[0:*][o_mean:o_var]             // Output
+      real scoring_data[scoring_data_max],estimator_factors[*]
 
                                                  // Local
       integer i,j,k,jscore,back,number_segments,geom_seg_label,geom_seg,
-     $     number_bins,bin_label,ibin,dep_index,dep_index_back
+     $     number_bins,bin_label,ibin,back_min,back_max
       integer index_parameters[tl_index_unknown:tl_index_max],
      $     segments[max_segments],ind_val[tl_rank_max],bins[max_bins] 
-      real geom_mult[max_segments][max_bins],converted_data[scoring_data_max]
-      character*tl_tag_length coupling_scores_label[ou_coupling_max]
-      data coupling_scores_label[ou_coupling_mass]/'back mass'/
-      data coupling_scores_label[ou_coupling_momentum_1]/'back momentum vector'/
-      data coupling_scores_label[ou_coupling_momentum_2]/'back momentum 2'/
-      data coupling_scores_label[ou_coupling_momentum_3]/'back momentum 3'/
-      data coupling_scores_label[ou_coupling_energy]/'back energy'/
+      real check_data
+      real geom_mult[max_segments][max_bins],
+     $     converted_data[scoring_data_max]
 
       @<Memory allocation interface@>
 
-      do i=1,tl_index_max
+      do i=tl_index_unknown,tl_index_max
          index_parameters[i]=0
       end do
 
@@ -574,76 +484,55 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
       index_parameters[tl_index_strata]=strata[lc_sector(pt_loc(p))]
       index_parameters[tl_index_strata_segment]=sector_strata_segment[lc_sector(pt_loc(p))]
 
-      assert(scoring_data_max >= ou_coupling_max) // Check for |converted_data|
-
       do i=1,tally_type_num[type]
          jscore=tally_type_base[type]+i-1
-         dep_index=0
-         dep_index_back=0
-         if (num_scoring_data > 0) then
-            assert(num_scoring_data <= scoring_data_max)
-            dep_index=string_lookup(tally_dep_var[jscore],scoring_data_label,num_scoring_data)
-         end if
-         dep_index_back=string_lookup(tally_dep_var[jscore],coupling_scores_label,ou_coupling_max)
 
 /*
-  The flip side of having the flexibility to specify |scoring_data| for
-  some reactions and not for others is that |dep_index| is legitimately
-  zero for the latter. Hence, we can't treat that as an error condition.
-  Should we disable these scores (via |estimator_factors|) at a higher level?
+   Determine whether or not |jscore| has a dependence on the background
+   species. Also, see if the value of the dependent variable in 
+   |scoring_data| is non-zero. {\bf Note: if we had an additive conversion,
+   this could possibly lead to improperly skipped scores!}
 */
+         check_data=zero
+         if (tally_dep_var[jscore] >= pr_var_back_mass
+     $        && tally_dep_var[jscore] <= pr_var_back_mass+pr_num_back_vars-1)
+     $        then
+            back_min=1
+            back_max=pr_background_num
+            do back=1,pr_background_num
+               index_parameters[tl_index_back]=back
+               do j=1,tally_dep_var_dim[jscore]
+                  check_data+=abs(scoring_data[
+     $            tl_scoring_index(tally_dep_var[jscore],j,index_parameters)])
+               end do
+            end do
+         else
+            back_min=0
+            back_max=0
+            index_parameters[tl_index_back]=0
+            do j=1,tally_dep_var_dim[jscore]
+               check_data+=abs(scoring_data[
+     $           tl_scoring_index(tally_dep_var[jscore],j,index_parameters)])
+            end do
+         end if
 
-         if ((estimator_factors[jscore] > zero)  
-     $        && (dep_index > 0 || dep_index_back > 0)) then
+         if (estimator_factors[jscore]*check_data > zero) then
 
             call handle_geometry(pt_args(p),tally_geometry[jscore],
      $           tally_geometry_ptr[jscore],tally_dep_var[jscore],
-     $           num_scoring_data,scoring_data,scoring_data_label,
-     $           number_segments,segments,geom_seg_label,
+     $           scoring_data,number_segments,segments,geom_seg_label,
      $           number_bins,bins,bin_label,geom_mult)
 
             do geom_seg=1,number_segments
                index_parameters[geom_seg_label]=segments[geom_seg]
                do ibin=1,number_bins
                   index_parameters[bin_label]=bins[ibin]
-/*    Coupling scores: */
-                  if (dep_index_back > 0) then
-                     do back=1,pr_background_num
-                        index_parameters[tl_index_back]=back
-                        do k=1,tl_rank_max
-                           if (k <= tally_rank[jscore]) then
-                              ind_val[k]
-     $                          =index_parameters[tally_indep_var[jscore][k]]-1
-                              assert(ind_val[k] >= 0 
-     $                          && ind_val[k] < tally_tab_index[jscore][k])
-                           else
-                              ind_val[k]=0
-                           end if
-                        end do
-                        call track_conversions(tl_args(jscore),pt_args(p),
-     $                       ind_val,coupling_scores_label,ou_coupling_max,
-     $                       coupling_scores[back][1],converted_data)
-                        if (index(tally_name[jscore],'vector') > 0) then
-                           do j=1,3
-                              scores[out_array_vc_index(j,ind_val,jscore)][o_mean]
-     $                             += converted_data[dep_index_back+j-1]
-     $                             *geom_mult[geom_seg][ibin]
-     $                             *estimator_factors[jscore]
-                           end do
-                        else
-                           scores[out_array_index(ind_val,jscore)][o_mean]
-     $                          += converted_data[dep_index_back]
-     $                          *geom_mult[geom_seg][ibin]
-     $                          *estimator_factors[jscore]
-                        end if
-                     end do
-
-                  else if (dep_index > 0) then
-/*     Other scores:  */
+                  do back=back_min,back_max
+                     index_parameters[tl_index_back]=back
                      do k=1,tl_rank_max
                         if (k <= tally_rank[jscore]) then
                            ind_val[k]
-     $                          =index_parameters[tally_indep_var[jscore][k]]-1
+     $                        =index_parameters[tally_indep_var[jscore][k]]-1
                            assert(ind_val[k] >= 0 
      $                          && ind_val[k] < tally_tab_index[jscore][k])
                         else
@@ -651,26 +540,64 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
                         end if
                      end do
                      call track_conversions(tl_args(jscore),pt_args(p),
-     $                    ind_val,scoring_data_label,num_scoring_data,
-     $                    scoring_data,converted_data)
-                     if (index(tally_name[jscore],'vector') > 0) then
-                        do j=1,3
-                           scores[out_array_vc_index(j,ind_val,jscore)][o_mean]
-     $                          += converted_data[dep_index+j-1]
-     $                          *geom_mult[geom_seg][ibin]
-     $                          *estimator_factors[jscore]
-                        end do
-                     else
-                        scores[out_array_index(ind_val,jscore)][o_mean]
-     $                       += converted_data[dep_index]
+     $                    index_parameters,scoring_data,converted_data)
+
+                     do j=1,tally_dep_var_dim[jscore]
+                        call set_comp_scores(
+     $                     out_array_index(j,ind_val,jscore),
+     $                     converted_data[
+     $             tl_scoring_index(tally_dep_var[jscore],j,index_parameters)]
      $                       *geom_mult[geom_seg][ibin]
-     $                       *estimator_factors[jscore]
-                     end if
-                  end if
+     $                       *estimator_factors[jscore])
+
+                     end do 
+                  end do  // |back|
                end do     // |ibin|
             end do        // |geom_seg|
          end if
       end do              // |jscore|
+
+      return
+      end
+
+@ Set compressed score arrays. 
+
+@<Functions...@>=
+      subroutine set_comp_scores(ifull,datum)
+
+      implicit_none_f77
+      sa_common
+      implicit_none_f90
+
+      integer ifull                             // Input
+      real datum
+      integer ishort                            // Local
+      
+      @<Memory allocation interface@>
+
+      if (datum == zero) return
+
+      if (stat_comp_flt == TRUE) then
+         if (stat_ptr2short_flt[ifull] == int_uninit) then
+            stat_size_flt++
+            if (stat_size_flt > stat_dim_flt) then
+               var_realloc(stat_flt,stat_dim_flt-1,stat_dim_flt+stat_mem_inc_flt-1)
+               var_realloc(stat_ptr2full_flt,stat_pf_dim_flt-1,stat_pf_dim_flt+stat_mem_inc_flt-1)
+               stat_dim_flt+=stat_mem_inc_flt
+               stat_pf_dim_flt+=stat_mem_inc_flt
+            end if
+            ishort=stat_size_flt-1
+            stat_ptr2full_flt[ishort]=ifull
+            stat_ptr2short_flt[ifull]=ishort
+            stat_flt[ishort][o_mean]=zero
+            stat_flt[ishort][o_var]=zero
+         else
+            ishort=stat_ptr2short_flt[ifull]
+         end if
+      else
+         ishort=ifull
+      end if
+      stat_flt[ishort][o_mean]+=datum
 
       return
       end
@@ -681,10 +608,8 @@ tracked by those elements.
 
 @<Functions...@>=
       subroutine handle_geometry(pt_dummy(p),geometry,
-     $     pointer,dep_var,
-     $     num_scoring_data,scoring_data,scoring_data_label,
-     $     number_segments,segments,geom_seg_label,
-     $     number_bins,bins,bin_label,geom_mult)
+     $     pointer,dep_var,scoring_data,number_segments,segments,
+     $     geom_seg_label,number_bins,bins,bin_label,geom_mult)
 
       implicit_none_f77
       pr_common
@@ -694,16 +619,13 @@ tracked by those elements.
       tl_decls
 
       pt_decl(p)                                   // Input
-      integer geometry,pointer,num_scoring_data
+      integer geometry,pointer,dep_var
       real scoring_data[scoring_data_max]
-      character*tl_tag_length dep_var
-      character*tl_tag_length scoring_data_label[scoring_data_max]
 
                                                    // Output
       integer number_segments,geom_seg_label,number_bins,bin_label
       integer segments[max_segments],bins[max_bins]
       real geom_mult[max_segments][max_bins]
-
 
       number_segments=0
       segments[1]=0
@@ -717,14 +639,12 @@ tracked by those elements.
          geom_mult[1][1]=one
       else if (geometry == tl_geom_detector) then
          call handle_detectors(pt_args(p),pointer,dep_var,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        number_segments,segments,
+     $        scoring_data,number_segments,segments,
      $        number_bins,bins,bin_label,geom_mult)
          geom_seg_label=tl_index_detector
       else if (geometry == tl_geom_surface) then
          call handle_diagnostics(pt_args(p),pointer,dep_var,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        number_segments,segments,
+     $        scoring_data,number_segments,segments,
      $        number_bins,bins,bin_label,geom_mult)
          geom_seg_label=tl_index_diagnostic
       else
@@ -738,10 +658,11 @@ tracked by those elements.
 only independent variable tracked on these detectors presently is the
 wavelength of emissions. 
 
+@m max_lines 3
+
 @<Functions...@>=
       subroutine handle_detectors(pt_dummy(p),pointer,dep_var,
-     $   num_scoring_data,scoring_data,scoring_data_label,
-     $   number_segments,segments,
+     $   scoring_data,number_segments,segments,
      $   number_bins,bins,bin_label,geom_mult)
 
       implicit_none_f77
@@ -753,73 +674,76 @@ wavelength of emissions.
       pt_decls
       tl_decls
 
-      pt_decl(p)                                      // Input
-      integer pointer,num_scoring_data
+      pt_decl(p)                                              // Input
+      integer pointer,dep_var
       real scoring_data[scoring_data_max]
-      character*tl_tag_length dep_var
-      character*tl_tag_length scoring_data_label[scoring_data_max]
 
-      integer number_segments,number_bins,bin_label   // Output
+      integer number_segments,number_bins,bin_label           // Output
       integer segments[max_segments],bins[max_bins]
       real geom_mult[max_segments][max_bins]
 
-      integer de_group,iview,i,ibin                   // Local
+      integer de_group,iview,i,ibin,num_lines,i_e_rate,       // Local
+     $        i_line
+      integer lines[max_lines],e_rates[max_lines]
       real lambda0,lambda,lambda_f,dl,vth,delta_l_th,f
       character*tl_tag_length line
-      logical v1_set,v2_set,v3_set,vf1_set,vf2_set,vf3_set,vth_set
       vc_decl(v)
+      logical init
       
       lc_decls
+      st_decls
 
-      external find_lambda                            // External
+      external find_lambda                                    // External
       real find_lambda
+
+      save init,num_lines,lines,e_rates
+      data init/.true./
+
+      if (init) then
+         num_lines=0
+         do i=1,pr_var0_num
+            if (pr_var0_list[i]SP(1:10) == 'wavelength') then
+               num_lines++
+               lines[num_lines]=i
+               line=pr_var0_list[i]SP(11:)
+               i_e_rate=string_lookup('emission_rate'\/line,
+     $              pr_var0_list,pr_var0_num)
+               assert(i_e_rate > 0)
+               e_rates[num_lines]=i_e_rate
+            end if
+         end do
+         init=.false.
+      end if
 
       de_group=pointer
       number_segments=0
-      assert(dep_var(1:13) == 'emission_rate')
-      line=dep_var(14:)
+      
+      i_line=int_lookup(dep_var,e_rates,num_lines)
+/*
+   Should we check to see if |scoring_data[dep_var]| $\neq$ 0?
+*/
+      assert(i_line > 0)
       if (detector_var[de_group] == de_var_wavelength) then
          bin_label=tl_index_wavelength_bin
 /*
-   Flags to check for single particle velocity
+   Only two options currently: single particle and Maxwellian profile.
+   Determine if latter is being used by magnitude of |vth|. If additional
+   options are added, analogous critical parameters will need to be used
+   as flags to indicate which option is needed for this |dep_var|.
 */
-         v1_set=.false.
-         v2_set=.false.
-         v3_set=.false.
-/*
-   Flags to check for Maxwellian distributed velocity profile
-*/
-         vf1_set=.false.
-         vf2_set=.false.
-         vf3_set=.false.
-         vth_set=.false.
-
-         do i=1,num_scoring_data
-            if (scoring_data_label[i] == 'emitter_v_1') then 
-               v[1]=scoring_data[i]
-               v1_set=.true.
-            else if (scoring_data_label[i] == 'emitter_v_2') then 
-               v[2]=scoring_data[i]
-               v2_set=.true.
-            else if (scoring_data_label[i] == 'emitter_v_3') then 
-               v[3]=scoring_data[i]
-               v3_set=.true.
-            else if (scoring_data_label[i] == 'emitter_vf-Maxwell_1') then 
-               v[1]=scoring_data[i]
-               vf1_set=.true.
-            else if (scoring_data_label[i] == 'emitter_vf-Maxwell_2') then 
-               v[2]=scoring_data[i]
-               vf2_set=.true.
-            else if (scoring_data_label[i] == 'emitter_vf-Maxwell_3') then 
-               v[3]=scoring_data[i]
-               vf3_set=.true.
-            else if (scoring_data_label[i] == 'emitter_vth-Maxwell') then
-               vth=scoring_data[i]
-               vth_set=.true.
-            else if (scoring_data_label[i] == 'wavelength'\/line) then
-               lambda0=scoring_data[i]
-            end if
-         end do
+         if (scoring_data[pr_var_emitter_vth_Maxwell] > zero) then
+            vth=scoring_data[pr_var_emitter_vth_Maxwell]
+            v[1]=scoring_data[pr_var_emitter_vf_Maxwell_vector]
+            v[2]=scoring_data[pr_var_emitter_vf_Maxwell_2]
+            v[3]=scoring_data[pr_var_emitter_vf_Maxwell_3]
+         else
+            vth=zero
+            v[1]=scoring_data[pr_var_emitter_v_vector]
+            v[2]=scoring_data[pr_var_emitter_v_2]
+            v[3]=scoring_data[pr_var_emitter_v_3]
+            assert(vc_abs(v) > zero)
+         end if
+         lambda0=scoring_data[lines[i_line]]
          assert(lambda0 > zero)
       else
          bin_label=tl_index_unknown
@@ -837,7 +761,7 @@ wavelength of emissions.
 /*
    Single Particle Velocity
 */
-               if (v1_set && v2_set && v3_set) then
+               if (vth==zero) then
                   lambda=find_lambda(vc_args(lc_x(pt_loc(p))),vc_args(v),
      $                 vc_args(de_view_points[iview][de_view_start]),lambda0)
                   number_bins=1
@@ -863,7 +787,7 @@ wavelength of emissions.
 /*
    Maxwellian Distributed Profile
 */
-               else if (vf1_set && vf2_set && vf3_set && vth_set) then
+               else if (vth>zero) then
                   lambda_f=find_lambda(vc_args(lc_x(pt_loc(p))),vc_args(v),
      $                 vc_args(de_view_points[iview][de_view_start]),lambda0)
                   delta_l_th=lambda0*vth/speed_of_light
@@ -956,8 +880,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
 
 @<Functions...@>=
       subroutine handle_diagnostics(pt_dummy(p),pointer,dep_var,
-     $  num_scoring_data,scoring_data,scoring_data_label,
-     $  number_segments,segments,
+     $  scoring_data,number_segments,segments,
      $  number_bins,bins,bin_label,geom_mult)
 
       implicit_none_f77
@@ -970,16 +893,14 @@ bins. The treated variables thus far are energy and angle of incicidence.
       tl_decls
       
       pt_decl(p)                                      // Input
-      integer pointer,num_scoring_data
+      integer pointer,dep_var
       real scoring_data[scoring_data_max]
-      character*tl_tag_length dep_var
-      character*tl_tag_length scoring_data_label[scoring_data_max]
 
       integer number_segments,number_bins,bin_label   // Output
       integer segments[max_segments],bins[max_bins]
       real geom_mult[max_segments][max_bins]
 
-      integer diag_grp,i,j,idiag                     // Local
+      integer diag_grp,i,j,idiag                      // Local
       real value
       sc_decl(sector1)
       sc_decl(sector2)
@@ -994,37 +915,30 @@ bins. The treated variables thus far are energy and angle of incicidence.
 
       if (diagnostic_var[diag_grp] == sc_diag_energy) then
          bin_label=tl_index_energy_bin
+         value=scoring_data[pr_var_energy]
       else if (diagnostic_var[diag_grp] == sc_diag_angle) then
          bin_label=tl_index_angle_bin
+         value=scoring_data[pr_var_angle]
       else
          bin_label=tl_index_unknown
          number_bins=1
          bins[1]=0
       end if
 
-      do i=1,num_scoring_data
-         if ((diagnostic_var[diag_grp] == sc_diag_energy
-     $        && scoring_data_label[i] == 'energy') 
-     $        || (diagnostic_var[diag_grp] == sc_diag_angle
-     $        && scoring_data_label[i] == 'angle')) then
-            value=scoring_data[i]
-
-            if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log) 
-     $           value=log(value)
-            if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log
-     $          || diagnostic_spacing[diag_grp] == sc_diag_spacing_linear) then
-               number_bins++
-               assert(number_bins <= max_bins)
-               bins[number_bins]=int((value-diagnostic_min[diag_grp])
-     $              /diagnostic_delta[diag_grp]+one)
-            else
-               assert('Unsupported spacing' == ' ')
-            end if
-            go to break
+      if (bin_label != tl_index_unknown) then
+         if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log) 
+     $        value=log(value)
+         if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log
+     $        || diagnostic_spacing[diag_grp] == sc_diag_spacing_linear) then
+            number_bins++
+            assert(number_bins <= max_bins)
+            bins[number_bins]=int((value-diagnostic_min[diag_grp])
+     $           /diagnostic_delta[diag_grp]+one)
+         else
+            assert('Unsupported spacing' == ' ')
          end if
-      end do
-break: continue
-               
+      end if
+
 /*
    {\em Note: if this code is modified so that sectors other than |lc_sector|
    or |lc_sector_next| are added to this |segments| list, a similar change
@@ -1078,10 +992,11 @@ break: continue
 
       real scores[0:*][o_mean:o_var]                    // Output
 
-      real estimator_factors[0:*]                       // Scratch
+      real estimator_factors[*]                         // Scratch
       integer jscore,jscore_v,i,j,k,l,m,irank_test,irank_zone,test,zone,
-     $     ir,ic,nprod
-      integer index_parameters[tl_index_max],ind_val[tl_rank_max]
+     $        ir,ic,nprod
+      integer index_parameters[tl_index_unknown:tl_index_max],
+     $        ind_val[tl_rank_max]
       real est_fac,particle_no,rate
       vc_decl(velocity)
       lc_decl(zone_loc)
@@ -1116,7 +1031,7 @@ break: continue
       end do
 
       do m=1,tally_tab_index[jscore][5]
-         index_parameters[tally_indep_var[jscore][5]]=m  // Do we need both?
+         index_parameters[tally_indep_var[jscore][5]]=m
          ind_val[5]=m-1
          do l=1,tally_tab_index[jscore][4]
             index_parameters[tally_indep_var[jscore][4]]=l
@@ -1140,9 +1055,9 @@ break: continue
                         lc_set_a(zone_loc)
                         assert(lc_zone(zone_loc) == zone)
 
-                        particle_no=scores[out_array_index(ind_val,jscore)][o_mean]
-                        do ic=1,3
-                           velocity[ic]=scores[out_array_vc_index(ic,ind_val,jscore_v)][o_mean]
+                        particle_no=scores[out_array_index(1,ind_val,jscore)][o_mean]
+                        do ic=1,tally_dep_var_dim[jscore_v]
+                           velocity[ic]=scores[out_array_index(ic,ind_val,jscore_v)][o_mean]
                         end do
 
                         pt_init(fake_prod[0],sp_sy(pr_test(test)),is)
@@ -1158,8 +1073,9 @@ break: continue
      $                             pr_reaction_args(pr_ts_rc(pt_test(fake_prod[0]),ir)),
      $                             rn_args(fake_rn))
                               call score_reaction(tl_est_post_process,est_fac,
-     $                             pr_reaction_args(ir),rate,nprod,pt_args(fake_prod[0]),
-     $                             scores,estimator_factors,
+     $                             pr_reaction_args(ir),rate,
+     $                             nprod,pt_args(fake_prod[0]),
+     $                             estimator_factors,
      $                             rn_args(fake_rn))
                            end do
                         end if
@@ -1195,7 +1111,7 @@ break: continue
 
       real scores[0:*][o_mean:o_var]              // Output
 
-      real estimator_factors[0:*]                 // Scratch
+      real estimator_factors[*]                   // Scratch
 
       integer i,bk_rc_is,seg,seg_tot,zone         // Local
       real est_fac,rate
@@ -1245,7 +1161,7 @@ break: continue
      $        / rate       // i.e., weight $\rightarrow$ ion density*volume
          call score_recombination(tl_est_post_process,est_fac,
      $        pr_reaction_args(bk_rc_is),rate,
-     $        pt_args(fake_pt),scores,
+     $        pt_args(fake_pt),
      $        estimator_factors,rn_args(fake_rn))
       end do 
 
@@ -1255,7 +1171,7 @@ break: continue
 @ Function to extract data from output arrays.
 
 @<Functions...@>=
-      function extract_output_datum(index_parameters,icomp,scores,name)
+      function extract_output_datum(index_parameters,icomp,scores,mom,name)
 
       implicit_none_f77
       pr_common                                  // Common
@@ -1266,7 +1182,7 @@ break: continue
 
       real extract_output_datum                  // Function
       integer index_parameters[tl_index_max]     // Input
-      integer icomp
+      integer icomp,mom
       real scores[0:*][o_mean:o_var]  
       character*(*) name
       integer tally_number,i                     // Local
@@ -1274,12 +1190,9 @@ break: continue
 
       st_decls
 
-      if (icomp > 0) then
-         assert(index(name,'vector') > 0)
-         assert(icomp <= 3)
-      end if
       tally_number=string_lookup(name,tally_name,tl_num)
       assert(tally_number > 0)
+      assert(icomp <= tally_dep_var_dim[tally_number])
       
       do i=1,tl_rank_max
          if (i <= tally_rank[tally_number]) then
@@ -1291,11 +1204,7 @@ break: continue
          end if
       end do
 
-      if (icomp > 0) then
-         extract_output_datum=scores[out_array_vc_index(icomp,ind_val,tally_number)][o_mean]
-      else
-         extract_output_datum=scores[out_array_index(ind_val,tally_number)][o_mean]
-      end if
+      extract_output_datum=scores[out_array_index(icomp,ind_val,tally_number)][mom]
 
       return
       end
