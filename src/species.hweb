@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 
 \ID{$Id$}
 
@@ -32,36 +35,31 @@ species is identified by an integer indexing into these arrays.
 @ Length specifications.
 
 @m sp_sy_len 8
-@m sp_name_len 16
+@m sp_name_len 32
 @m sp_ncomp_max 10
 
 @ Variable definitions.
 
 @a
-      define_dimen(species_symbol_string,sp_sy_len)
-      define_dimen(species_name_string,sp_name_len)
-      define_dimen(species_ind,sp_num)
-      define_dimen(species_comp_ind,sp_ncomp_max)
-      define_var(sp_num,INT)
-      define_var(species_name,CHAR,species_name_string,species_ind)
-      define_var(species_sy,CHAR,species_symbol_string,species_ind)
-      define_var(species_z,INT,species_ind)
-      define_var(species_m,FLOAT,species_ind)
-      define_var(species_el,INT,species_comp_ind,species_ind)
-      define_var(species_count,INT,species_comp_ind,species_ind)
+      package_init(sp)
+      define_dimen_pk(sp,species_symbol_string,sp_sy_len)
+      define_dimen_pk(sp,species_name_string,sp_name_len)
+      define_dimen_pk(sp,species_ind,sp_num)
+      define_dimen_pk(sp,species_comp_ind,sp_ncomp_max)
+      define_var_pk(sp,sp_num,INT)
+      define_varp_pk(sp,species_name,CHAR,species_name_string,species_ind)
+      define_varp_pk(sp,species_sy,CHAR,species_symbol_string,species_ind)
+      define_varp_pk(sp,species_z,INT,species_ind)
+      define_varp_pk(sp,species_m,FLOAT,species_ind)
+      define_varp_pk(sp,species_ncomp,INT,species_ind)
+      define_varp_pk(sp,species_el,INT,species_comp_ind,species_ind)
+      define_varp_pk(sp,species_count,INT,species_comp_ind,species_ind)
 
 @ Common blocks definitions.
 
 @f sp_common integer
 @m sp_common
-      declare_var(sp_num);
-      declare_varp(species_name);
-      declare_varp(species_sy);
-      declare_varp(species_z);
-      declare_varp(species_m);
-      declare_varp(species_el);
-      declare_varp(species_count);
-      common /com_species/ sp_num,ptr_species_m,ptr_species_z,ptr_species_name,ptr_species_sy,ptr_species_el,ptr_species_count;
-      character*80 elements_version;
-      common /com_species_c/ elements_version;
-      save /com_species/,/com_species_c/ @;
+      sp_common_a;
+      character*80 species_version;
+      common /com_species_c/ species_version;
+      save /com_species_c/ @;
