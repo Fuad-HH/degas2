@@ -3,6 +3,12 @@
 % $Id$
 
 % $Log$
+% Revision 1.3  1998/01/14 20:46:21  dstotler
+% Rewrote macros to handle subscripts for main scoring arrays with a
+% separate macro for vector scores. Change title phrase to improve
+% readability in classes.web. Add arrays for manual coupling to fluid
+% code.
+%
 % Revision 1.2  1997/08/19 14:36:46  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -37,9 +43,7 @@ complete. Hence, we have collected them separately here.
 
 @m out_index_5(ind,t) ind[1]+tally_tab_index[t][1]*(ind[2]+tally_tab_index[t][2]*(ind[3]+tally_tab_index[t][3]*(ind[4]+tally_tab_index[t][4]*ind[5])))
 
-@m out_array_index(ind,t) tally_base[t]+out_index_5(ind,t)
-
-@m out_array_vc_index(i,ind,t) tally_base[t]+i-1+3*(out_index_5(ind,t))
+@m out_array_index(i,ind,t) tally_base[t]+i-1+tally_dep_var_dim[t]*(out_index_5(ind,t))
 
 @ Variable definitions. 
 
