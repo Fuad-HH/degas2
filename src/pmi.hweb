@@ -1,0 +1,67 @@
+@* Plasma-Material Interaction Process definitions.
+
+% $Id$
+
+% $Log$
+%
+
+\ID{$Id$}
+
+Information about plasma-material interaction processes is held in arrays in 
+common blocks.  A plasma-material interaction process is identified by 
+an integer indexing into these arrays.
+
+@f pm_decl integer
+@m pm_args(x) x
+@m pm_dummy(x) x
+@m pm_decl(x) integer x @;
+@m pm_copy(x,y) y=x @;
+@m pm_check(x) assert(x > 0 && x <= pm_num) @;
+@m pm_name(x) pmi_name[x]
+@m pm_sy(x)   pmi_sy[x]
+@m pm_product_num(x) pmi_product_num[x]
+@m pm_product(x,i)   pmi_product[i,x]
+@m pm_filename(x)    pmi_filename[x]
+@m pm_pmi_type(x) pmi_type[x]
+@m pm_lookup(sy) string_lookup(sy,pmi_sy,pm_num)
+
+@ Length specifications.
+
+@m pm_sy_len 24
+@m pm_name_len 32
+@m pm_type_len 32
+@m pm_material_len 32
+@m pm_product_max 4
+
+@ Variable definitions.
+
+@a
+      package_init(pm)
+
+      define_dimen_pk(pm,pmi_symbol_string,pm_sy_len)
+      define_dimen_pk(pm,pmi_name_string,pm_name_len)
+      define_dimen_pk(pm,pmi_type_string,pm_type_len)
+      define_dimen_pk(pm,pmi_material_string,pm_material_len)
+      define_var_pk(pm,pm_num,INT)
+      define_dimen_pk(pm,pmi_ind,pm_num)
+      define_dimen_pk(pm,pmi_filename_string,FILELEN)
+      define_dimen_pk(pm,pmi_product_ind,pm_product_max)
+
+      define_varp_pk(pm,pmi_name,CHAR,pmi_name_string,pmi_ind)
+      define_varp_pk(pm,pmi_type,CHAR,pmi_type_string,pmi_ind)
+      define_varp_pk(pm,pmi_sy,CHAR,pmi_symbol_string,pmi_ind)
+      define_varp_pk(pm,pmi_incident,INT,pmi_ind)
+      define_varp_pk(pm,pmi_material,CHAR,pmi_material_string,pmi_ind)
+      define_varp_pk(pm,pmi_product_num,INT,pmi_ind)
+      define_varp_pk(pm,pmi_product,INT,pmi_product_ind,pmi_ind)
+      define_varp_pk(pm,pmi_filename,CHAR,pmi_filename_string,pmi_ind)
+
+@ Common blocks definitions.
+
+@f pm_common integer
+@m pm_common
+      pm_common_a;
+      character*LINELEN pmi_version;
+      common /com_pmi_c/ pmi_version;
+      save /com_pmi_c/ @;
+
