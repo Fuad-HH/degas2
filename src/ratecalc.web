@@ -2,13 +2,16 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.2  1994/06/14 21:29:13  dstotler
+% Continue typing in integration routines from Numerical Recipes.
+%
 % Revision 1.1  1994/06/13 19:18:28  dstotler
 % Initial revision
 %
 
 @n/
 
-@* Introduction
+@* Introduction.
 
 \ID{$Id$}
 
@@ -197,6 +200,88 @@ infinite (value passed not used). It is assumed that the function
 
       return
       end
+
+* A simple test of evaluating a cross section with aladdin.  This lookup
+* up the cross section for hydrogen charge exchange and evaluates the
+* cross section at 10000 eV/amu.
+
+      program aladtest
+      implicit none
+      integer ncfmax,nhslmax
+      parameter (ncfmax=100,nhslmax=10)
+      logical eof,match
+      character*80 errmsg,file
+      double precision cf(ncfmax),x,res
+      character*40 hsl(nhslmax)
+      integer nhsl,i,n,k
+c      data (hsl(i),i=1,6)/'CX', 'H', '[+1]', 'H', '[+0]', '(1s)'/
+      data nhsl /9/
+      data (hsl(i),i=1,9)/'EXC', 'e', 'H', '[+0]', '(1s)', 'e',
+     &     'H', '[+0]', '(n=4)'/
+
+* These declarations really belong in ALCOM.FOR
+      integer leseqn,neln,nhl,nbl,lcmptr,ncmln,lcfptr,ncfln,
+     $     nelnmx,nhlmx,nblmx
+      include 'ALPCOM.FOR'
+
+* Specify file
+      file='/u/aladdin/data/hneutral.dat'
+      write(6,*) 'Looking in file '//file
+      write(6,*) 'with hierarchical search labels:'
+      do i=1,nhsl
+         write(6,*) hsl(i)
+      end do
+c      open(20,file='/u/aladdin/data/heavyall.dat',status='old')
+      open(20,file='/u/aladdin/data/hneutral.dat',status='old')
+* Search for labels
+      k=0
+ 5    call alread(20,k,eof,errmsg)
+      if (eof) stop
+      call alcomp(hsl,nhsl,errmsg,0,errmsg,0,match)
+      if (.not.match) goto 5
+
+* Found label; print out info
+      write(6,*) 'Found record at index: ',k
+      write(6,*) 'Error message: ',errmsg
+      write(6,*) 'Aladdin buffer:'
+      do i=1,neln
+         write(6,*) ebuff(i)
+      end do
+      write(6,*) 'Hierarchical labels:'
+      do i=1,nhl
+         write(6,*) hl(i)
+      end do
+      write(6,*) 'Boolean labels:'
+      do i=1,nbl
+         write(6,*) bl(i)
+      end do
+
+* Decode coefficients
+      call alrecf(cf,n,ncfmax,errmsg)
+      write(6,*) 'Coefficient array:'
+      do i=1,n
+         write(6,*) cf(i)
+      end do
+
+* At this point all you need to know is
+* cf(1..n) and bl(nbl)
+
+* If we're ever writing out tabular data for later processing, it might
+* be a good idea to include the filename 'file' and ebuff(i),i=1,neln as a
+* record of where the data came from.
+
+      if (bl(nbl).eq.'#HCX1') then
+         x=1.d4
+         call hcx1(x,cf,n,res,errmsg)
+         write(6,*) 'Value at ',x,' = ', res
+      else if (bl(nbl).eq.'#NEEXH2') then
+         x=1.d3
+         call neexh2(x,cf,n,res,errmsg)
+         write(6,*) 'Value at ',x,' = ', res
+      end if
+      stop
+      end
+
 
 @* References.
 
