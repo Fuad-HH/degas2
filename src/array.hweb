@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1994/02/14 22:21:10  karney
+% Separate character variables into a different common block.
+%
 % Revision 1.5  1993/10/25  22:29:36  karney
 % Adding PVM support
 %
@@ -164,9 +167,7 @@
       _DEFINE(pk##_common_b save /pk##_com_b/;)
       _DEFINE(pk##_ncdef(fileid))
       _DEFINE(pk##_ncwrite(fileid))
-      _DEFINE(pk##_ncreada(fileid))
-      _DEFINE(pk##_ncreadb(fileid))
-      _DEFINE(pk##_ncreadc(fileid))
+      _DEFINE(pk##_ncread(fileid))
       _DEFINE(pk##_ncdecl)
       _DEFINE(pk##_pvmput)
       _DEFINE(pk##_pvmgeta)
@@ -182,9 +183,9 @@
       _UNDEF(pk##_ncdecl)
       _DEFINE(pk##_ncdecl temp; integer dimid(name);)
       _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncreadb(fileid))
-      _UNDEF(pk##_ncreadb)
-      _DEFINE(pk##_ncreadb(fileid) temp(fileid); dimen_inq(fileid,name);)
+      _DEFINE(temp(fileid) pk##_ncread(fileid))
+      _UNDEF(pk##_ncread)
+      _DEFINE(pk##_ncread(fileid) temp(fileid); dimen_inq(fileid,name);)
       _UNDEF(temp)
       
 @m define_var_pk(pk,name,type,...) define_var(name,type,#.)
@@ -202,13 +203,13 @@
       _DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
       _UNDEF(temp)
       _IF(rank_##name == 0, 
-        _DEFINE(temp(fileid) pk##_ncreada(fileid))
-        _UNDEF(pk##_ncreada)
-        _DEFINE(pk##_ncreada(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
+        _DEFINE(temp(fileid) pk##_ncread(fileid))
+        _UNDEF(pk##_ncread)
+        _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
         _UNDEF(temp),
-        _DEFINE(temp(fileid) pk##_ncreadc(fileid))
-        _UNDEF(pk##_ncreadc)
-        _DEFINE(pk##_ncreadc(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
+        _DEFINE(temp(fileid) pk##_ncread(fileid))
+        _UNDEF(pk##_ncread)
+        _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
         _UNDEF(temp))
       _DEFINE(temp pk##_pvmput)
       _UNDEF(pk##_pvmput)
@@ -242,9 +243,9 @@
       _UNDEF(pk##_ncwrite)
       _DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
       _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncreadc(fileid))
-      _UNDEF(pk##_ncreadc)
-      _DEFINE(pk##_ncreadc(fileid) temp(fileid); var_inq(fileid,name); var_alloc(name); var_read(fileid,name);)
+      _DEFINE(temp(fileid) pk##_ncread(fileid))
+      _UNDEF(pk##_ncread)
+      _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_alloc(name); var_read(fileid,name);)
       _UNDEF(temp)
       _DEFINE(temp pk##_pvmput)
       _UNDEF(pk##_pvmput)

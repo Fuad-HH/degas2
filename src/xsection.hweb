@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1994/07/05 11:56:20  karney
+% Sync with repository
+%
 % Revision 1.3  1994/02/16 18:55:26  karney
 % Remove redundant xs_tab_index array.
 % Convert crosssection files to use strings for variables and spacings.
@@ -22,6 +25,7 @@ Information about crosssections.
 
 @m xs_organization_unknown 0    // Types of data organization
 @m xs_organization_table 1
+@m xs_organization_fit 2
 
 @m xs_spacing_unknown 0          // Types of spacing in tables
 @m xs_spacing_linear 1
@@ -31,38 +35,63 @@ Information about crosssections.
 @m xs_var_density 1             // Indices for the independent variables
 @m xs_var_energy 2
 @m xs_var_temperature 3
-@m xs_var_rate 4
+@m xs_var_rate 4                // Indices for dependent variables
+@m xs_var_cross_section 5
 
 @m xs_unit_string_length 12     // The length of the unit specifications
 @m xs_tag_string_length 20      // The length of variable names and spacings
 
 @m xs_table_rank_max 3          // The biggest rank table
+@m xs_dep_var_max 5             // Maximum number of dependent variables
 
 @ variable definitions.
 
 @a
       package_init(xs)
+
       define_dimen_pk(xs,rank_ind,xs_table_rank_max)
       define_dimen_pk(xs,rank_ind0,0,xs_table_rank_max)
-      define_dimen_pk(xs,index1_ind,0,xs_tab_index1-1)
-      define_dimen_pk(xs,index2_ind,0,xs_tab_index2-1)
-      define_dimen_pk(xs,index3_ind,0,xs_tab_index3-1)
+      define_dimen_pk(xs,dep_var_ind,xs_dep_var_max)
+
+      define_var_pk(xs,xs_tab_index,INT,rank_ind,dep_var_ind)
+
+      define_dimen_pk(xs,index1v1_ind,0,xs_tab_index(1,1)-1)
+      define_dimen_pk(xs,index2v1_ind,0,xs_tab_index(2,1)-1)
+      define_dimen_pk(xs,index3v1_ind,0,xs_tab_index(3,1)-1)
+      define_dimen_pk(xs,index1v2_ind,0,xs_tab_index(1,2)-1)
+      define_dimen_pk(xs,index2v2_ind,0,xs_tab_index(2,2)-1)
+      define_dimen_pk(xs,index3v2_ind,0,xs_tab_index(3,2)-1)
+      define_dimen_pk(xs,index1v3_ind,0,xs_tab_index(1,3)-1)
+      define_dimen_pk(xs,index2v3_ind,0,xs_tab_index(2,3)-1)
+      define_dimen_pk(xs,index3v3_ind,0,xs_tab_index(3,3)-1)
+      define_dimen_pk(xs,index1v4_ind,0,xs_tab_index(1,4)-1)
+      define_dimen_pk(xs,index2v4_ind,0,xs_tab_index(2,4)-1)
+      define_dimen_pk(xs,index3v4_ind,0,xs_tab_index(3,4)-1)
+      define_dimen_pk(xs,index1v5_ind,0,xs_tab_index(1,5)-1)
+      define_dimen_pk(xs,index2v5_ind,0,xs_tab_index(2,5)-1)
+      define_dimen_pk(xs,index3v5_ind,0,xs_tab_index(3,5)-1)
+
       define_dimen_pk(xs,unit_string,xs_unit_string_length)
       define_dimen_pk(xs,tag_string,xs_tag_string_length)
       define_dimen_pk(xs,xs_symbol_string,rc_sy_len)
+
       define_var_pk(xs,xs_name,CHAR,xs_symbol_string)
-      define_var_pk(xs,xs_min,FLOAT,rank_ind)
-      define_var_pk(xs,xs_max,FLOAT,rank_ind)
-      define_var_pk(xs,xs_mult,FLOAT,rank_ind0)
-      define_var_pk(xs,xs_organization,CHAR,tag_string)
-      define_var_pk(xs,xs_rank,INT)
-      define_var_pk(xs,xs_tab_index1,INT)
-      define_var_pk(xs,xs_tab_index2,INT)
-      define_var_pk(xs,xs_tab_index3,INT)
-      define_var_pk(xs,xs_spacing,CHAR,tag_string,rank_ind0)
-      define_var_pk(xs,xs_var,CHAR,tag_string,rank_ind0)
-      define_var_pk(xs,xs_units,CHAR,unit_string,rank_ind0)
-      define_varp_pk(xs,xs_table,FLOAT,index1_ind,index2_ind,index3_ind)
+      define_var_pk(xs,xs_num_dep_var,INT)
+      define_var_pk(xs,xs_min,FLOAT,rank_ind,dep_var_ind)
+      define_var_pk(xs,xs_max,FLOAT,rank_ind,dep_var_ind)
+      define_var_pk(xs,xs_mult,FLOAT,rank_ind0,dep_var_ind)
+      define_var_pk(xs,xs_organization,CHAR,tag_string,dep_var_ind)
+      define_var_pk(xs,xs_rank,INT,dep_var_ind)
+
+      define_var_pk(xs,xs_spacing,CHAR,tag_string,rank_ind0,dep_var_ind)
+      define_var_pk(xs,xs_var,CHAR,tag_string,rank_ind0,dep_var_ind)
+      define_var_pk(xs,xs_units,CHAR,unit_string,rank_ind0,dep_var_ind)
+
+      define_varp_pk(xs,xs_table1,FLOAT,index1v1_ind,index2v1_ind,index3v1_ind)
+      define_varp_pk(xs,xs_table2,FLOAT,index1v2_ind,index2v2_ind,index3v2_ind)
+      define_varp_pk(xs,xs_table3,FLOAT,index1v3_ind,index2v3_ind,index3v3_ind)
+      define_varp_pk(xs,xs_table4,FLOAT,index1v4_ind,index2v4_ind,index3v4_ind)
+      define_varp_pk(xs,xs_table5,FLOAT,index1v5_ind,index2v5_ind,index3v5_ind)
 
 @ Common blocks definitions.
 
@@ -71,7 +100,3 @@ Information about crosssections.
       xs_common_a;
       xs_common_b @;
 
-@m xs_ncread(fileid)
-      xs_ncreada(fileid);
-      xs_ncreadb(fileid);
-      xs_ncreadc(fileid) @;

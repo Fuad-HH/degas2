@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1994/10/17 14:34:19  dstotler
+% Further development of ratecalc.web routines. Also added header file.
+%
 
 \ID{$Id$}
 
@@ -15,10 +18,56 @@ Define a few macros for neatness sake.
 @m num_extrap_pts 5                  // Points used to extrapolate estimates
 @m max_interp_pts 10                 // Maximum number of interp. points
 @m msg_length 80                     // Length of ALADDIN error messages
+@m ra_search_label_length 40         // Length of labels used to identify data
+@m ra_data_filename_length 80        // Length of filename containing data
+@m ra_eval_name_length 40            // Routine used to evaluate data
+@m ra_label_max 100                  // Maximum number of search labels for data
+@m ra_fit_coef_max 200               // Maximum number of fit coefficients
+
+@ variable definitions
+
+@a
+      package_init(ra)
+
+      define_dimen_pk(ra,search_label,ra_search_label_length)
+      define_dimen_pk(ra,label_num_ind,ra_label_max)
+      define_dimen_pk(ra,data_filename,ra_data_filename_length)
+      define_dimen_pk(ra,eval_name,ra_eval_name_length)
+      define_var_pk(ra,ra_mass,FLOAT)
+      define_var_pk(ra,ra_num_hier,INT)
+      define_var_pk(ra,ra_num_bool_and,INT)
+      define_var_pk(ra,ra_num_bool_not,INT)
+      define_var_pk(ra,ra_hier_label,CHAR,search_label,label_num_ind)
+      define_var_pk(ra,ra_bool_and_label,CHAR,search_label,label_num_ind)
+      define_var_pk(ra,ra_bool_not_label,CHAR,search_label,label_num_ind)
+      define_var_pk(ra,ra_data_filename,CHAR,data_filename)
+
+@ Common block definitions
 
 /* ALADDIN common blocks use implicit naming convention; define a macro
    to take care of the type declarations when ALPCOM.FOR is used. */
-@f decl_alpcom.for common
-@m decl_alpcom.for integer nelnmx,nhlmx,nblmx 
-    integer leseqn,neln,nhl,nbl,lcmptr,ncmln,lcfptr,ncfln
-    include 'ALPCOM.FOR'
+@f decl_alpcom common
+@m decl_alpcom 
+      integer nelnmx,nhlmx,nblmx;
+      integer leseqn,neln,nhl,nbl,lcmptr,ncmln,lcfptr,ncfln;
+      include "../Aladdin/ALPCOM.FOR"
+@;
+
+/* And a local common block */
+@f ra_common_l integer
+@m ra_common_l 
+      real u,up,temperature;
+      double precision fit_coef(ra_fit_coef_max);
+      integer moment_number, num_fit_coef;
+      character*ra_eval_name_length leval;
+      common u,up,temperature,fit_coef,moment_number,num_fit_coef,leval @;
+
+@f ra_common integer
+@m ra_common
+      ra_common_a;
+      ra_common_b @;
+
+
+
+
+ 

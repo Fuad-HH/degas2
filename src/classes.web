@@ -2,6 +2,9 @@
 \def\Wtitle{classes}
 
 % $Log$
+% Revision 1.3  1993/09/30 18:42:02  karney
+% Pre-PET checkin
+%
 % Revision 1.2  1993/09/24  21:23:16  karney
 % Correct spelling of zn_index.
 %
@@ -181,6 +184,88 @@ index.
 |ts_rc_num(test)| is the number of reactions this particle has.
 |ts_rc(test,i)| is the number of the $i$th reaction.
 |ts_bk(test,i)| is the background number for the $i$th reaction.
+
+@ Cross section class. Prefix is |xs|.
+
+The properties associated with ``cross sections'' (which is a generic
+designation for not only cross sections, but all related quantities
+such as reaction rates, momentum transfer rates; the somewhat disjoint
+set of parameters associated with elastic collisions will be included
+as well) are presented below. Here, the subscript |j| denotes the index
+for dependent variables (dimension variable |dep_var_ind|), while 
+the nonzero values of the subscript |i| represent the independent
+variables (dimension variables |rank_ind| and 
+|rank_ind0|) needed to determine a particular value of variable |j|.
+Some of these variables apply exclusively to ``fits'', some to
+``tables''; some apply to both. 
+\begin{description}
+  \item[|xs_name|] String naming the ``cross section''. 
+Same as the reaction name; that is, it should match
+|rc_sy(rc_num)|.
+  \item[|xs_organization[j]|] String describing the manner in which the 
+data are organized. Examples
+envisioned thus far are `table' and `fit'.
+  \item[|xs_rank[j]|] Integer number of independent variables for this particular
+``cross section''.
+  \item[|xs_var[0,j]|] String which tells more precisely what this quantity
+is; e.g., `rate', `cross\_section'.
+  \item[|xs_spacing[0,j]|] String describing the way the data are to be
+interpolated. Examples are `linear' and `log'.
+  \item[|xs_units[0,j]|] String providing the units for this quantity; 
+may be in any system.
+  \item[|xs_mult[0,j]|] Floating point multiplier for this quantity. While
+it may be used for any necessary purpose, it should provide the conversion
+factor from |xs_units[0,j]| to the MKS system.
+  \item[|xs_var[i,j]|] String describing independent variable |i|. Examples
+contemplated thus far are `energy', `temperature', and `density'.
+  \item[|xs_spacing[i,j]|] String telling the method of interpolation to be
+used for independent variable |i|.
+  \item[|xs_units[i]|] String providing the units for independent variable
+|i|.
+  \item[|xs_mult[i,j]|] Floating point multipier for independent variable |i|.
+It should provide the conversion factor from |xs_units[i]| to the MKS system.
+  \item[|xs_tab_index1v1|] For tabular organizations, this string provides the
+number of values used for the first independent variable and first dependent
+variable. Analogous variables
+are used for additional |i| and |j| values (namely, |xs_tab_indexivj|).
+  \item[|xs_min[i,j]|] Floating point minimum value to be used for independent
+variable |i| in a table. It will be combined with the maximum and the number
+of values to actually define the array of independent variable values.
+  \item[|xs_max[i,j]|] Floating point maximum value to be used for independent
+variable |i| in a table.
+  \item[|xs_table1|] Table of values for the first dependent variable. Analogous
+variables are defined for each of the other |j| dependent variables. The
+(nontrivial) ranks of these table are |xs_rank[j]|.
+  \item[|xs_hier_label[j]|] Array of of hierarchical search labels used to
+identify (e.g., for use with ALADDIN) data associated with dependent 
+variable |j|.
+  \item[|xs_num_hier[j]|] Number of search labels in array |xs_hier_label|.
+  \item[|xs_bool_and_label[j]|] Array of labels used to further identify
+information assciated with dependent variable |j|; in searching the data files,
+entries which {\em contain} these strings are selected.
+  \item[|xs_num_bool_and[j]|] Number of labels in |xs_bool_and_label|.
+  \item[|xs_bool_not_label[j]|] Array of labels used to further identify
+information assciated with dependent variable |j|; in searching the data files,
+entries which {\em do not contain} these strings are selected.
+  \item[|xs_num_bool_not[j]|] Number of labels in |xs_bool_not_label|.
+  \item[|xs_fit_coef[j]|] Arrays of fit coefficients associated with dependent
+variable |j|. Note that these may eventually be inserted into |xs_tablej|
+when organization = `fit'.
+  \item[|xs_num_fit_coef[j]|] Number of fit coefficients in |xs_fit_coef|.
+  \item[|xs_data_filename[j]|] File name from which data for dependent variable
+|j| will be extracted.
+  \item[|xs_eval_name[j]|] Name of routine used to evaluate fit for dependent
+variable |j|.
+\end{description}
+Ideally |xs_table| would have an additional index associated with
+   the number of dependent variables. However, since the rank and size
+   of the table is in general different for each dependent variable, it
+   is more efficient to define a separate table for each dependent variable;
+   i.e., to make the dependent variable number explicitly part of the
+   name. The variable dimensioning is then accomplished with the
+   |indexivj_ind| dimensions defined above. It would be convenient if
+   these could be some sort of array, but since they eventually appear
+   in dimension statements, that is not possible.
 
 @i classes.hweb
 @* Index.

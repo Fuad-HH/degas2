@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.14  1994/08/24 15:02:42  karney
+# Added degasgeom to read in old degas' geometry spec.
+#
 # Revision 1.13  1994/07/05 11:56:15  karney
 # Sync with repository
 #
@@ -66,6 +69,8 @@ else
 endif
 endif
 
+ALADIR=$(HOME)/degas2/Aladdin
+
 Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
 %.sh: $(SOURCEDIR)/%.sh
@@ -100,9 +105,9 @@ FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
 ifdef DEBUG
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt1000000 -yn6000
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn6000
 else
-  TANGLEFLAGS=-mINLINE -W[ -ytt1000000 -yn6000
+  TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn6000
 endif
 WEAVEFLAGS=-f -i -W[ -ykw600
 
@@ -150,7 +155,8 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
-    background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb
+    background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
+    ratecalc.hweb
 
 %.f: %.web $(HEADERS) fixit
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -252,6 +258,10 @@ degasgeom = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O rand
 degasgeom_libs = $(NETCDF)
 degasgeom: $(degasgeom)
 
+ratecalc = $(ALADIR)/aladdin_subr.o
+ratecalc_libs = $(NETCDF)
+ratecalc: $(ratecalc)
+
 #elementread: sysdep.$O
 #test: sysdep.$O
 #sysdeptest: sysdep.$O string.$O
@@ -282,6 +292,9 @@ fixit: fixit.sh fixit.el
 	
 etags: etags.c getopt.c getopt1.c getopt.h
 	gcc -o etags -g -DETAGS -Demacs etags.c getopt.c getopt1.c
+
+#aladdin_subr.o: $(ALADIR)/ALPCOM.FOR $(ALADIR)/ALCOM.FOR
+#	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
 
 TAGS:  etags
 	etags *.web *.hweb
