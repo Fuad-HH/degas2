@@ -3,6 +3,9 @@
 \def\Wtitle{geometry}
 
 % $Log$
+% Revision 1.11  1994/08/24 15:02:51  karney
+% Added degasgeom to read in old degas' geometry spec.
+%
 % Revision 1.10  1994/06/28 03:28:12  karney
 % Non-existent change
 %
@@ -218,7 +221,12 @@ universal cell.
 @ Check whether a point lies within |geom_epsilon| of a surface.  If
 |surface_val| is |.true.|, then the value of the surface function is given
 in |f|.
-
+It is necessary to relax the check a bit if you want to check for a point 
+lying on the face of a cell or inside the cell because that rarely happens. 
+A typical distance would be $f /\nabla f$. If this is smaller  than a small 
+number say |geom_epsilon|, we could say that the point lies in the cell.
+In order to avoid evaluating |f|  twice, |surface_val|  should be passed as 
+|.true.| if |f| is known and |f| should be passed to this function.
 @<Functions...@>=
       function in_surface(surface_args,x,surface_val,f)
       implicit_none
@@ -245,7 +253,8 @@ in |f|.
 
 @ Check whether a point lies on the positive side of a surface (within
 |geom_epsilon|).
-
+Here, if |f| >= 0 the point lies on the positive side of the surface. Else,
+if it lies on the negative side within |geom_epsion| it is accepted.
 @<Functions...@>=
       function inside_surface(surface_args,x)
       implicit_none
@@ -269,6 +278,8 @@ in |f|.
       end
 
 @* Basic geometrical routines.  First check whether a point lies in a cell.
+| cell_args | is a dummy argument. |cell_surface_info(n)| contains information
+on the surface.
 
 @<Functions...@>=
       function inside_cell(cell_args,x)
@@ -293,7 +304,8 @@ in |f|.
       end
 
 @ Sloppy check for whether a point lies inside a particular cell.
-
+Sloppy check implies that if |x| lies within |geom_epsilon| of the face, it is
+ accepted. A strict check is done on the cut surfaces though. 
 @<Functions...@>=
       function sloppy_inside(cell_args,x)
       implicit_none
@@ -324,6 +336,7 @@ in |f|.
 
       return
       end
+@ why is the sloppy check done on the faces and cut surfaces in |sloppy_inside| but on surfaces in |inside_cell|.
 
 @ Check that a face belongs to a cell.
 
@@ -348,7 +361,9 @@ in |f|.
 
 @ Now similar routines to check whether the point is in a cell, but
 skipping the check on the face indexed by |face|.
-
+this is used when a flight exits a cell through a face to another cell, this 
+face is excluded from the check. A strict check for the condition 
+$$ \sigma_k f_k(\vect x) \ge 0 $$ is done on all the other surfaces.
 @<Functions...@>=
       function inside_cell_a(cell_args,face,x)
       implicit_none
@@ -375,7 +390,9 @@ skipping the check on the face indexed by |face|.
       end
 
 @ Sloppy equivalent of |inside_cell_a|.
-
+Here, the check on the all the surfaces other than the face is not done 
+strictly (the point can lie within |geom_epsilon| of the surface). A strict
+check is done on the cut surfaces.
 @<Functions...@>=
       function sloppy_inside_a(cell_args,face,x)
       implicit_none
@@ -411,7 +428,9 @@ skipping the check on the face indexed by |face|.
       end
 
 @ Check that a point lies on a particular face of a cell.
-
+For a point to lie on a face, it has to satisfy 2 conditions : \\
+It has to lie within |geom_epsilon| of the face and also strictly inside 
+the cell.
 @<Functions...@>=
       function on_face(cell_args,face,x)
       implicit_none
@@ -430,7 +449,8 @@ skipping the check on the face indexed by |face|.
       end
 
 @ A sloppy version of |on_face|.
-
+This is the same as |on_face| except that the point does'nt have to lie stric
+tly inside the cell ie.. it may lie within |geom_epsilon| of the faces. 
 @<Functions...@>=
       function sloppy_on(cell_args,face,x)
       implicit_none
@@ -481,7 +501,7 @@ skipping the check on the face indexed by |face|.
       if (on) then
          cell_compare=0
       else
-         cell_compare=1
+         cell_compare=1 // comes here if f0 > 0
       end if
 
       return
@@ -493,6 +513,21 @@ intersection is found, return |geom_infinity|.  This may return a negative
 result, if $\vect x_0$ is initially on the wrong side of the face.  (In
 this case the particle should pass to the neighboring cell.)
 
+To find the intersection of the surface |f(x)| with the path of the particle 
+given by $\vect x_0 + \vect v t$ , we put this in the equation  $$f(\vect x + 
+\vect v t)= 0 $$ . We get \\
+$$ f(\vect x) + g(\vect v) t^2 + \nabla f. \vect v t $$ \\
+This is a  quadratic equation of the form \\
+$$ a t^2 + 2 h t +c = 0 $$ where a,h and t are given as \\
+$$ a= \sigma*
+     (v[3]*(coeff[czz]*v[3]+coeff[cyz]*v[2]+
+       coeff[cxz]*v[1])+v[2]*(coeff[cyy]*v[2]+
+       coeff[cxy]*v[1])+coeff[cxx]*v[1]^2)
+$$ 
+$ h= \frac {1}{2} \nabla f. \vect v $ \\
+$ c= f(\vect x) $ \\
+solving this equation gives the value of t (time) taken for the particle to
+intersect the first face in its direction. 
 @<Functions...@>=
       function surface_intersect(surface_args,x0,v)
       implicit_none
@@ -500,7 +535,7 @@ this case the particle should pass to the neighboring cell.)
       decl_surface_args         // Input
       real x0[3],v[3]
       real a,h,c,temp[3],disc   // Local
-      external surface_eval     // External
+      external surface_eval     // Exter nal
       real surface_eval
 @#if DEBUG
       external surface_intersection_direction,in_surface // External
@@ -665,6 +700,10 @@ $\vect e_2 = \vect e_3 \times \vect e_1$.
 \vect v t$ with a cell.  |cell_intersect| returns time of the intersection
 as function value.  The face through which the trajectory exits is given by
 |exit_face|.
+The time taken to intersect each of the faces is calculated by the function 
+|surface_intersect|. The smallest of these times is taken as |cell_intersect|.
+The face of intersection is saved in |ns|. If the value of |cell_intersect| is
+$\lt 0$, it is taken as 0.
 
 @<Functions...@>=
       function cell_intersect(cell_args,x0,v,exit_face)
@@ -699,7 +738,10 @@ as function value.  The face through which the trajectory exits is given by
 @ Determine the new cell for particle exiting through face |exit_face|.
 Returns 0, if there are no cells on the other side of |exit_face|.  This
 indicates that the particle is exiting the universal cell.
-
+using the face index of |exit_face|, the starting index which points to
+the list of cells for that face and the no. of cells for the face is found.
+we check whether |x| lies strictly inside any of the cells and return if it 
+does. otherwise, a relaxed check is done for the same.     
 @<Functions...@>=
       function new_cell(exit_face,x)
       implicit_none
@@ -806,6 +848,12 @@ already inside the cell and |geom_infinity| is returned if the trajectory
 misses the cell entirely.  The face through which the trajectory enters is
 given by |enter_face|.
 
+If the point $\vect x_0$ does'nt lie inside the given |cell|, get the surface
+ index
+of the surface of |cell| of which |x0| lies on the +ve side from  |boundaries|
+and find the time for intersection with this surface. Advance $\vect x_0$  by  
+$\vect v t$ and check if it lies inside |cell|. If it does, get the index of
+the surface and return as |enter_face|.
 @<Functions...@>=
       function cell_enter(cell,x0,v,enter_face)
       implicit_none
