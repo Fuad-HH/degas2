@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.36  1999/03/25 20:51:55  dstotler
+% Added check(s) on filenames_array.
+%
 % Revision 1.35  1999/02/02 15:03:05  dstotler
 % Allocation calls etc. for recyc_coef arrays analogous to temperature
 % arrays.
@@ -213,7 +216,7 @@ uninitialized; these are set in |boundaries_neighbors|.
       vc_set(sector_points[nsectors][sc_neg],real_unused,real_unused,real_unused)
       vc_set(sector_points[nsectors][sc_pos],real_unused,real_unused,real_unused)
       do i=1,sc_type_max
-         sector_type_pointer[nsectors][i]=int_unused
+         sector_type_pointer[nsectors][i]=int_undef
       end do
 
       sc_vacuum_num=0
@@ -223,10 +226,6 @@ uninitialized; these are set in |boundaries_neighbors|.
       sc_plasma_num=0
       var_realloca(plasma_sector)
       plasma_sector[sc_plasma_num]=int_unused
-      var_realloca(plasma_e_ion_delta)
-      plasma_e_ion_delta[sc_plasma_num]=real_unused
-      var_realloca(plasma_e_ion_mult)
-      plasma_e_ion_mult[sc_plasma_num]=real_unused
 
       sc_target_num=0
       var_realloca(target_sector)
@@ -237,6 +236,10 @@ uninitialized; these are set in |boundaries_neighbors|.
       target_temperature[sc_target_num]=real_unused
       var_realloca(target_recyc_coef)
       target_recyc_coef[sc_target_num]=real_unused
+      var_realloca(target_e_ion_delta)
+      target_e_ion_delta[sc_target_num]=real_unused
+      var_realloca(target_e_ion_mult)
+      target_e_ion_mult[sc_target_num]=real_unused
 
       sc_wall_num=0
       var_realloca(wall_sector)
@@ -251,8 +254,10 @@ uninitialized; these are set in |boundaries_neighbors|.
       sc_exit_num=0
       var_realloca(exit_sector)
       exit_sector[sc_exit_num]=int_unused
+@#if 0
       var_realloca(exit_albedo)
       exit_albedo[sc_exit_num]=real_unused
+@#endif
 
       sc_diagnostic_grps=0
       var_realloca(diagnostic_grp_name)
@@ -511,13 +516,13 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(vacuum_sector)
 
       var_reallocb(plasma_sector)
-      var_reallocb(plasma_e_ion_delta)
-      var_reallocb(plasma_e_ion_mult)
 
       var_reallocb(target_sector)
       var_reallocb(target_material)
       var_reallocb(target_temperature)
       var_reallocb(target_recyc_coef)
+      var_reallocb(target_e_ion_delta)
+      var_reallocb(target_e_ion_mult)
 
       var_reallocb(wall_sector)
       var_reallocb(wall_material)
@@ -525,7 +530,9 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(wall_recyc_coef)
 
       var_reallocb(exit_sector)
+@#if 0
       var_reallocb(exit_albedo)
+@#endif
 
       var_reallocb(diagnostic_grp_name)
       var_reallocb(diagnostic_num_sectors)
@@ -796,10 +803,16 @@ these values match.
       return
       end
 
-@* Define a new sector belonging to a particular stratum.
+@* Define a new sector belonging to a particular stratum. The arguments
+|surface| and |zone1| completely define the sector. However, present
+usage has many properties of the adjoining second zone, |zone2|, assigned 
+to the sector. As an extra check, |zone2| may be specified when calling
+this routine. The code will verify that |zone2| and |zone1| are indeed
+adjacent with |surface| separating them. This check can be bypassed
+by setting |zone2| = 0.
 
 @<Functions...@>=
-      function define_sector(stratum,seg,surface,zone)
+      function define_sector(stratum,seg,surface,zone1,zone2)
       implicit_none_f77
       gi_common                                      // Input/Output
       sc_common
@@ -807,15 +820,46 @@ these values match.
       al_common
       implicit_none_f90
       integer define_sector                          // Function
-      integer stratum,seg,surface,zone               // Input
-      integer i,sector_count,base                    // Local
-      integer ptr_sector_list                         // Pointer
+      integer stratum,seg,surface,zone1,zone2        // Input
+      integer i,sector_count,base,zone_sign,         // Local
+     $        icell,num_faces,iface
+      integer ptr_sector_list                        // Pointer
+      logical match_plus,match_minus
       @<Memory allocation interface@>
       al_decls
 
       assert(stratum > 0)
       assert(surface != 0)
-      assert(zn_check(zone))
+      assert(zn_check(zone1))
+
+/*
+   Check orientation of |surface|, |zone1|, and |zone2| (if specified).
+*/
+      match_plus=.false.
+      match_minus=.false.
+      zone_sign=0
+      do icell=0,ncells
+         if (cells[c_zone,icell] == zone1) then
+            zone_sign=1
+         else if (zn_check(zone2) && cells[c_zone,icell] == zone2) then
+            zone_sign=-1
+         end if
+         if (zone_sign != 0) then
+            num_faces=cells[c_faces,icell]
+            assert(num_faces > 0)
+            do iface=cells[c_start,icell],cells[c_start,icell]+num_faces-1
+               if (boundaries[iface] == zone_sign*surface) then
+                  if (zone_sign > 0) then
+                     match_plus=.true.
+                  else
+                     match_minus=.true.
+                  end if
+               end if
+            end do
+            zone_sign=0
+         end if
+      end do
+      assert(match_plus && (!zn_check(zone2) || match_minus))
       
       nsectors++
 
@@ -828,7 +872,7 @@ these values match.
 
       strata[nsectors]=stratum
       sector_strata_segment[nsectors]=seg
-      sector_zone[nsectors]=zone
+      sector_zone[nsectors]=zone1
       sector_surface[nsectors]=surface
 
       if (surface>0) then
@@ -840,7 +884,7 @@ these values match.
       end if
 
       do i=1,sc_type_max
-         sector_type_pointer[nsectors][i]=0
+         sector_type_pointer[nsectors][i]=int_unused
       end do
 
       ptr_sector_list=surface_sectors[s_sign(surface),s_start,abs(surface)]
@@ -859,7 +903,7 @@ these values match.
 
       base=surfaces[s_sign(surface),s_start,abs(surface)]-1
       do i=1,surfaces[s_sign(surface),s_count,abs(surface)]
-         if (cells[c_zone,neighbors[base+i]]==zone) goto break
+         if (cells[c_zone,neighbors[base+i]]==zone1) goto break
       end do
       assert(.false.)
 break: continue
@@ -1070,18 +1114,20 @@ break1:        continue
       var_free(sector_type_pointer)
       var_free(vacuum_sector)
       var_free(plasma_sector)
-      var_free(plasma_e_ion_delta)
-      var_free(plasma_e_ion_mult)
       var_free(target_sector)
       var_free(target_material)
       var_free(target_temperature)
       var_free(target_recyc_coef)
+      var_free(target_e_ion_delta)
+      var_free(target_e_ion_mult)
       var_free(wall_sector)
       var_free(wall_material)
       var_free(wall_temperature)
       var_free(wall_recyc_coef)
       var_free(exit_sector)
+@#if 0
       var_free(exit_albedo)
+@#endif
       var_free(diagnostic_grp_name)
       var_free(diagnostic_num_sectors)
       var_free(diagnostic_var)
