@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.15  2000/03/27 21:14:44  dstotler
+% A little clean up following merger with Randy's branch.
+%
 % Revision 1.14.4.2  2000/03/27 15:19:06  dstotler
 % Removed background_pres (use a local array in flighttest.web).
 %
@@ -112,7 +115,11 @@ these arrays.
 @m bk_mx 120      // Dimensions for plasma code arrays
 @m bk_my 120
 
-@ Move velocity from external reference plane to internal position.
+@ Move velocity from external reference plane to internal position. Note that
+with |geometry_symmetry_cylindrical| the velocities are always rotated back
+to a reference plane (zero toroidal angle) where the cartesian and cylindrical
+velocities are identical. Hence, the |coord| parameter is used only in cases
+without symmetry.
 
 @m v_ext_to_int(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || sym == geometry_symmetry_oned || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian) || (x[1]**2+x[2]**2 == zero)) then;
       vc_copy(v,v_t);
