@@ -2,6 +2,11 @@
 
 % $Id$
 % $Log$
+% Revision 1.13  1995/10/12 21:42:44  karney
+% Finish the implementation of sectors.  Now track exits when encountering a
+% sector (on either side).  Sector and strata information is now part of the
+% location.
+%
 % Revision 1.12  1995/10/04 18:33:23  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -54,10 +59,12 @@
 \ID{$Id$}
 
 @ Define the dimensions and variables used by the geometry routines.
-Note that |sector_ind| and |transform_ind| are defined to run from 0.
+Note that |transform_ind| is defined to run from 0.
 However the 0 index isn't really used.  They are defined this way to
 accomodate netcdf's wish to say that a zero length dimension is
 unlimited.
+
+@I vector.hweb
 
 @a
       package_init(gi)
@@ -66,7 +73,6 @@ unlimited.
       define_var_pk(gi,nboundaries,INT)
       define_var_pk(gi,nneighbors,INT)
       define_var_pk(gi,ntransforms,INT)
-      define_var_pk(gi,nsectors,INT)
       define_var_pk(gi,geometry_symmetry,INT)
 @#if 1
       define_dummy_pk(gi,gi_ignore,INT)
@@ -82,14 +88,10 @@ unlimited.
       define_dimen_pk(gi,tx_ind_1,3)
       define_dimen_pk(gi,tx_ind_2,4)
       define_dimen_pk(gi,transform_ind,0,ntransforms)
-      define_dimen_pk(gi,sector_ind,0,nsectors)
       define_dimen_pk(gi,coeff_ind,NCOEFFS)
 @#if 0
       define_dimen_pk(gi,givc_ind,3)
 @#endif
-      define_var_pk(gi,universal_cell_min,FLOAT,vc_ind)
-      define_var_pk(gi,universal_cell_max,FLOAT,vc_ind)
-      define_var_pk(gi,universal_cell_vol,FLOAT)
       define_varp_pk(gi,cells,INT,cell_info_ind,cell_ind)
       define_varp_pk(gi,surfaces,INT,neg_pos,surface_info_ind,surface_ind)
       define_varp_pk(gi,surfaces_tx_ind,INT,neg_pos,surface_tx_ind,surface_ind)
@@ -99,11 +101,9 @@ unlimited.
       define_varp_pk(gi,neighbors,INT,neighbor_ind)
       define_varp_pk(gi,surface_coeffs,FLOAT,coeff_ind,surface_ind)
       define_varp_pk(gi,surface_points,FLOAT,vc_ind,neg_pos,surface_ind)
-      define_varp_pk(gi,strata,INT,sector_ind)
-      define_varp_pk(gi,sectors,INT,sector_ind)
-      define_varp_pk(gi,sector_zone,INT,sector_ind)
-      define_varp_pk(gi,sector_surface,INT,sector_ind)
-      define_varp_pk(gi,sector_points,FLOAT,vc_ind,neg_pos,sector_ind)
+      define_var_pk(gi,universal_cell_min,FLOAT,vc_ind)
+      define_var_pk(gi,universal_cell_max,FLOAT,vc_ind)
+      define_var_pk(gi,universal_cell_vol,FLOAT)
 
 @ Geometry declaration for geometry routines.
 
