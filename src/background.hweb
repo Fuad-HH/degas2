@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1997/08/19 14:36:28  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.8  1996/10/30 17:15:44  dstotler
 % Change plasma_ind -> bk_plasma_ind to prevent confusion.
 %
@@ -65,6 +70,32 @@ these arrays.
 
 @m plasma_coords_cartesian 1    // |v| holds the $x$, $y$, and $z$ components.
 @m plasma_coords_cylindrical 2  // |v| holds the $R$, $\phi$, and $z$ components.
+
+@ Move velocity from external reference plane to internal position.
+
+@m v_ext_to_int(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian)) then;
+      vc_copy(v,v_t);
+      else if (sym == geometry_symmetry_cylindrical || (sym == geometry_symmetry_none && coord == plasma_coords_cylindrical)) then;
+      assert(x[1]**2+x[2]**2 > zero);
+      v_t[1]=(v[1]*x[1]-v[2]*x[2])/sqrt(x[1]**2+x[2]**2);   
+      v_t[2]=(v[1]*x[2]+v[2]*x[1])/sqrt(x[1]**2+x[2]**2);
+      v_t[3]=v[3];
+      else;
+      assert(.false.);
+      end if @;
+
+@ Move velocity from internal position external reference plane.
+
+@m v_int_to_ext(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian)) then;
+      vc_copy(v,v_t);
+      else if (sym == geometry_symmetry_cylindrical || (sym == geometry_symmetry_none && coord == plasma_coords_cylindrical)) then; 
+      assert(x[1]**2+x[2]**2 > zero);
+      v_t[1]=(v[1]*x[1]+v[2]*x[2])/sqrt(x[1]**2+x[2]**2);   
+      v_t[2]=(-v[1]*x[2]+v[2]*x[1])/sqrt(x[1]**2+x[2]**2);
+      v_t[3]=v[3];
+      else;
+      assert(.false.);
+      end if @;
 
 @ Variable definitions.
 
