@@ -2,6 +2,11 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.28  1997/08/19 14:36:58  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.27  1997/08/07 20:09:41  dstotler
 % Implement variable name changes corresponding to alterations
 % to xsection.hweb and reactiondata.hweb. Add a semi-general
@@ -114,6 +119,7 @@
 @I macros.hweb
 @I zone.hweb
 @I background.hweb
+@I geomint.hweb
 @I species.hweb
 @I problem.hweb
 @I reactiondata.hweb
@@ -184,6 +190,7 @@ are passed back in the |independent_parameters| array.
       implicit_none_f77
       zn_common
       bk_common
+      gi_common
       sp_common
       pr_common
       implicit_none_f90
@@ -197,8 +204,7 @@ are passed back in the |independent_parameters| array.
       real independent_parameters[xs_max_indep_params]
       real rr
 
-      call transform_v(pr_background_args(back),lc_args(pt_loc(p)),
-     $     vc_args(vb_flow))
+      v_ext_to_int(lc_x(pt_loc(p)),bk_v(back,lc_zone(pt_loc(p))),vb_flow,geometry_symmetry,background_coords)
 
       do i=1,xs_max_indep_params
          independent_parameters[i]=zero
@@ -229,38 +235,6 @@ are passed back in the |independent_parameters| array.
       return
       end
       
-@ Transform background velocity vector into cartesian coordinates.
-
-@<Functions...@>=
-      subroutine transform_v(pr_background_dummy(back),lc_dummy(loc),
-     $    vc_dummy(vb_flow))
-      implicit_none_f77
-      bk_common
-      zn_common
-      
-      implicit_none_f90
-
-      pr_background_decl(back)                       // Input
-      lc_decl(loc)
-      vc_decl(vb_flow)                               // Output
-      real rr                                        // Local
-
-      if (background_coords == plasma_coords_cartesian) then
-         vc_copy(bk_v(back,lc_zone(loc)),vb_flow)
-      else if (background_coords == plasma_coords_cylindrical) then
-         rr=sqrt(lc_x(loc)[1]**2+lc_x(loc)[2]**2)
-         vb_flow[1]=(bk_v(back,lc_zone(loc))[1]*lc_x(loc)[1]-
-     $        bk_v(back,lc_zone(loc))[2]*lc_x(loc)[2])/rr
-         vb_flow[2]=(bk_v(back,lc_zone(loc))[1]*lc_x(loc)[2]+
-     $        bk_v(back,lc_zone(loc))[2]*lc_x(loc)[1])/rr
-         vb_flow[3]=bk_v(back,lc_zone(loc))[3]
-      else
-         assert(.false.)
-      end if
-
-      return
-      end
-
 @ General function to extract a particular datum from the input data tables.
 Note that the {\em calling} argument list is defined via a macro.
 
@@ -334,8 +308,10 @@ Note that the {\em calling} argument list is defined via a macro.
       else
          assert('Unsupported evaluation option' == ' ')
 // Either implement separate fit clearing-house or use this one.
-//         eval_data=pd_eval_fit(eval_name,rank,ind_params_label,tab_index[1],
-//     $        data_table[0],ind_params_value,rn_args(x))
+@#if 0
+         eval_data=pd_eval_fit(eval_name,rank,ind_params_label,tab_index[1],
+     $        data_table[0],ind_params_value,rn_args(x))
+@#endif
       end if
              
       return
