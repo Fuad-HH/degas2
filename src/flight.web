@@ -2,6 +2,12 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.27  1998/03/11 14:58:24  dstotler
+% Add pf_var_cos_polar_angle_in to independent_parameters. Allow
+% pr_rc_num(test)=0. Removed assert which prevented two sectors having
+% the same type in score_sector - needed to do the internal mirror in
+% Marv's slab case.
+%
 % Revision 1.26  1998/01/14 20:36:18  dstotler
 % Remove commented out call to source_test. Move call of score_sources
 % from sample_sources to here.
@@ -126,6 +132,7 @@
 @I sources.hweb
 @I tally.hweb
 @I output.hweb
+@I stat.hweb
 @I materials.hweb
 
 @ The main program.
@@ -136,38 +143,69 @@
 @ Follow a bunch of flights.
 
 @<Functions...@>=
-      subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scores1,estimator_factors)
+//      subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scores1,estimator_factors)
+      subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,estimator_factors)
       implicit_none_f77
       zn_common
       pr_common
       tl_common
+      sa_common
       implicit_none_f90
       tl_decls
-      integer nstart,nflights   // Input
+      integer nstart,nflights            // Input
       rn_seed_decl(seed0)
       so_decl(isource)
       @<Memory allocation interface@>
-      real scores[0:*][o_mean:o_var],weight // Output
-      real scores1[0:*][o_mean:o_var],estimator_factors[0:*]       // Scratch
-      integer i,j               // Local 
+      real estimator_factors[*]          // Scratch
+      integer i,j,mult,new_dim           // Local 
       rn_seed_decl(seed)
       fl_decl(x)
-      real weight1
+      real rel_wt
       
       rn_seed_copy(seed0,seed)
 
+@#if 0
       weight=zero
       do i=0,tally_size-1
          scores[i][o_mean]=zero
          scores[i][o_var]=zero
       end do
-      
+@#endif
+
       do j=nstart,nstart+nflights-1
          fl_label(x,j,isource)
-         call follow(fl_args(x),scores1,weight1,seed,estimator_factors)
-         call stat_acc(tally_size,weight1,scores1,weight,scores)
+
+//         call follow(fl_args(x),scores1,weight1,seed,estimator_factors)
+         call follow(fl_args(x),seed,rel_wt,estimator_factors)
+         stat_wt_tot_flt=rel_wt
+
+         if (min(stat_size_frag+stat_size_flt,tally_size)>stat_dim_frag
+     $        && stat_comp_frag == TRUE) then
+            mult=max(1,stat_size_flt/stat_mem_inc_frag)
+            new_dim=min(stat_dim_frag+mult*stat_mem_inc_frag,tally_size)
+            var_realloc(stat_frag,stat_dim_frag-1,new_dim-1)
+            var_realloc(stat_ptr2full_frag,stat_pf_dim_frag-1,new_dim-1)
+            var_realloc(stat_wt_frag,stat_wt_dim_frag-1,new_dim-1)
+            stat_dim_frag=new_dim
+            stat_pf_dim_frag=new_dim
+            stat_wt_dim_frag=new_dim
+         end if
+
+//         call stat_acc(tally_size,weight1,scores1,weight,scores)
+         call stat_acc(stat_comp_flt,stat_wt_tot_flt,stat_size_flt,
+     $         stat_dim_flt,stat_flt,stat_pf_dim_flt,stat_ptr2full_flt,
+     $         stat_ps_dim_flt,stat_ptr2short_flt,
+     $         stat_comp_frag,stat_wt_tot_frag,stat_size_frag,stat_dim_frag,
+     $         stat_frag,stat_pf_dim_frag,stat_ptr2full_frag,
+     $         stat_ps_dim_frag,stat_ptr2short_frag,stat_wt_dim_frag,
+     $         stat_wt_frag)
+
          call next_seed(1,seed)
       end do
+
+      if (stat_comp_flt == TRUE)
+     $    call stat_wt_balance(stat_wt_tot_frag,stat_size_frag,stat_dim_frag,
+     $        stat_frag,stat_wt_dim_frag,stat_wt_frag)
       
       return
       end
@@ -175,7 +213,7 @@
 @ Follow a single particle.
 
 @<Functions...@>=
-      subroutine follow(fl_dummy(x),scores,rel_wt,seed,estimator_factors)
+      subroutine follow(fl_dummy(x),seed,rel_wt,estimator_factors)
       implicit_none_f77
       bk_common
       sp_common
@@ -190,9 +228,10 @@
       real rel_wt
       integer i,nprod
       rn_seed_decl(seed)
-      real scores(o_mean:o_var,0:*),t,tmax,ionize_rate,rnd,other_rate,
+  //    real scores(o_mean:o_var,0:*),t,tmax,ionize_rate,rnd,other_rate,
+      real t,tmax,ionize_rate,rnd,other_rate,
      $     rate[pr_reaction_max],rate_all[pr_reaction_max],sum,t_fac
-      real estimator_factors         // Scratch
+      real estimator_factors[*]         // Scratch
       logical done
 
       pt_decl(prod[0:rc_product_max])
@@ -203,16 +242,17 @@
       external find_rate
       real find_rate
       
-
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
 
+@#if 0
       do i=0,tally_size-1
          scores[i][o_mean]=zero
          scores[i][o_var]=zero
       end do
+@#endif
 
       call sample_sources(fl_args(x),rel_wt)
-      call score_sources(fl_args(x),scores,estimator_factors)
+      call score_sources(fl_args(x),estimator_factors)
 
 loop1: continue                 // Start a new 
 
@@ -263,14 +303,14 @@ loop: continue                  // Still in same zone
          t_fac=t
       end if   
          
-      call score_test(tl_est_track,t_fac,pt_args(fl_current(x)),scores,estimator_factors)
+      call score_test(tl_est_track,t_fac,pt_args(fl_current(x)),estimator_factors)
 
       pt_copy(fl_current(x),prod[0])
       if (pr_rc_num(pt_test(fl_current(x))) > 0) then
          do i=1,pr_rc_num(pt_test(fl_current(x)))
             call score_reaction(tl_est_track,t_fac,
      $           pr_reaction_args(i),rate_all[i],
-     $           nprod,pt_args(prod[0]),scores,estimator_factors,
+     $           nprod,pt_args(prod[0]),estimator_factors,
      $           rn_args(fl_rand(x)))
             assert(nprod == 0)
          end do
@@ -291,12 +331,12 @@ loop: continue                  // Still in same zone
                assert(rate[i] > zero)
                call score_test(tl_est_collision,one/other_rate,
      $              pt_args(fl_current(x)),
-     $              scores,estimator_factors)
+     $              estimator_factors)
 
                pt_copy(fl_current(x),prod[0])
                call score_reaction(tl_est_collision,  // {\em And process!}
      $              one/rate[i],pr_reaction_args(i),rate[i],
-     $              nprod,pt_args(prod[0]),scores,estimator_factors,
+     $              nprod,pt_args(prod[0]),estimator_factors,
      $              rn_args(fl_rand(x)))
                goto break1
             end if
@@ -306,7 +346,7 @@ break1:  continue
          fl_pointer(x)--
          if (nprod > 0) then
             do i=1,nprod
-               if (pt_test(prod[i]) > 0) then
+               if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
                   fl_pointer(x)++
                   pt_copy(prod[i],fl_current(x))
                end if
@@ -327,7 +367,7 @@ break1:  continue
             assert("Leaving universal cell" == " ")
          else if (lc_sector(pt_loc(fl_current(x))) != 0 
      $           || lc_sector_next(pt_loc(fl_current(x))) != 0) then
-            call score_sector(fl_args(x),scores,estimator_factors)
+            call score_sector(fl_args(x),estimator_factors)
             if (fl_pointer(x) <= 0) goto break
             assert(fl_check(x))
          else
@@ -345,15 +385,14 @@ break: continue     // End of flight!
 plasma-material interactions and scoring at ``diagnostic'' surfaces.
 
 @<Functions...@>=
-      subroutine score_sector(fl_dummy(x),scores,estimator_factors)
+      subroutine score_sector(fl_dummy(x),estimator_factors)
 
       implicit_none_f77
       sc_common                                        // Common
       implicit_none_f90
 
       fl_decl(x)                                       // Input / Output
-      real scores[0:*][o_mean:o_var]
-      real estimator_factors[0:*]                      // Scratch
+      real estimator_factors[*]                        // Scratch
 
       integer type,type_ptr_1,type_ptr_2,type_ptr       // Local
       real mat_temp
@@ -365,7 +404,7 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       sector1=lc_sector(pt_loc(fl_current(x)))
       sector2=lc_sector_next(pt_loc(fl_current(x)))
 
-      call score_diagnostics(pt_args(fl_current(x)),scores,estimator_factors) // Do diagnostic types
+      call score_diagnostics(pt_args(fl_current(x)),estimator_factors) // Do diagnostic types
 
       do type=1,sc_diagnostic(0)            // Loop over non-diagnostic types
          type_ptr_1=sector_type_pointer[sector1][type]
