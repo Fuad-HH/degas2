@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1995/06/12 13:07:13  karney
+% Add in dummy elements into common blocks to avoid complaints from
+% Alpha.
+%
 % Revision 1.4  1995/04/25 22:14:47  karney
 % Initial version of sources.web
 %
@@ -21,6 +25,8 @@
 
 Data for reactions is held in arrays in common blocks.
 |rd_datan(x,m,...)| accesses the data for the $m$th table as an $n$d array.
+Miscellaneous (i.e., not cross section or reaction rate) data is handled
+in the analogous |rd_misc_data3| array.
 
 @m rd_data1(x,m,i) reaction_data_table[reaction_data_base[x][m]+i]
 @m rd_data2(x,m,i,j) reaction_data_table[reaction_data_base[x][m]+i+reaction_data_tab_index[x][m][1]*j]
@@ -37,16 +43,18 @@ Data for reactions is held in arrays in common blocks.
 @m rd_xs 1
 @m rd_rate 2
 
+@m rd_misc_data3(x,m,i,j,k) reaction_misc_table[reaction_misc_base[x][m]+i+reaction_misc_tab_index[x][m][1]*(j+reaction_misc_tab_index[x][m][2]*k)]
+
 @ Variable definitions.
 
 @a
       package_init(rd)
-      define_var_pk(rd,rd_table_size,INT)
+      define_var_pk(rd,reaction_data_size,INT)
       define_dummy_pk(rd,rd_ignore,INT)
       define_dimen_pk(rd,rd_rank_ind,xs_table_rank_max)
       define_dimen_pk(rd,rd_dep_var_ind,xs_dep_var_max)
       define_dimen_pk(rd,rd_rank_ind0,0,xs_table_rank_max)
-      define_dimen_pk(rd,rd_table_ind,0,rd_table_size-1)
+      define_dimen_pk(rd,rd_table_ind,0,reaction_data_size-1)
       define_varp_pk(rd,reaction_organization,INT,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_data_min,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_data_delta,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
@@ -56,10 +64,60 @@ Data for reactions is held in arrays in common blocks.
       define_varp_pk(rd,reaction_data_base,INT,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_data_var,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_data_table,FLOAT,rd_table_ind)
-
+      
+      define_var_pk(rd,reaction_misc_size,INT)
+      define_dimen_pk(rd,rd_tag_string,xs_tag_string_length)
+      define_dimen_pk(rd,rd_misc_table_ind,0,reaction_misc_size-1)
+      define_varp_pk(rd,reaction_misc_organization,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_min,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_delta,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_rank,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_spacing,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_tab_index,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_base,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_var_dep,CHAR,rd_tag_string,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_var_indep,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_misc_table,FLOAT,rd_misc_table_ind)
 @ Common blocks definitions.
 
 @f rd_common integer
 @m rd_common
       rd_common_a;
+      integer inc;
 
+/*
+   |rd_set_inc| computes the number of elements in the J-dimensional
+   object labeled by the indices |m| and |n|, where J is the range of 
+   the first index of |y|. |y| is intended to be a |tab_index| array
+   of the sort defined above.
+*/
+@m rd_set_inc(y,m,n)
+      inc=1;
+      $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
+        inc=inc*y[I,m,n];
+      }
+
+/*
+   |rd_ragged_alloc| and |rd_ragged_realloc| are designed to automatically
+   allocate memory for ragged arrays needed by this class. This simply 
+   involves calculating the size of each incremental ``chunk'' 
+   (corresponding to particular values of the subscripts |m| and |n|), 
+   using that to allocate space in the table |x_table|, setting the
+   base |x_base| which stores the address of the initial location of the
+   (m,n)th chunk, and totaling the size |x_size| of the array. The number
+   of elements in the (m,n)th chunk is contained in the |y| array; see
+   |set_inc| above. Since |x_table| has zero size at the beginning of the
+   code, no initial allocation is required. However, |x_size| must be
+   initialized and memory for |x_base| allocated. We do this in the
+   disguise of |rd_ragged_alloc| for consistency with other macros
+   which are expanded at the same time.
+*/
+@m rd_ragged_alloc(x) 
+      x##_size=0;
+      var_alloc(x##_base);
+
+@m rd_ragged_realloc(x,y,m,n)
+      rd_set_inc(y,m,n);
+      x##_base(m,n)=x##_size;
+      var_realloc(x##_table,x##_size-1,x##_size-1+inc);
+      x##_size=x##_size+inc @;
