@@ -2,6 +2,9 @@
 \def\Wtitle{pvmmaster}
 
 % $Log$
+% Revision 1.1  1993/10/26  16:08:39  karney
+% Initial revision
+%
 
 @n/
 
@@ -12,15 +15,16 @@
 @m FILE 'pvmmaster.web'
 @m SP _UNQUOTE(' ')
 @I macros.hweb
+@I pvm.hweb
 
 @ The main program.
 
 @a
-      program flight_test
+      program pvm_master
       implicit_none
 
-      call degas_init
-      call do_flights_master(1000,29)
+      call master_init
+      call pvm_flights_master(100000,500,13)
 
       stop
       end
@@ -30,15 +34,10 @@
 @ Initialize common blocks.
 
 @<Functions...@>=
-      subroutine degas_init
+      subroutine master_init
       implicit_none
       
       call read_geometry
-      call nc_read_elements
-      call nc_read_species
-      call nc_read_background
-      call nc_read_test
-      call nc_read_reactions
       
       return
       end
@@ -46,23 +45,21 @@
 @ The master controller.
 
 @<Functions...@>=
-      subroutine do_flights_master(nflights,nfrag)
+      subroutine pvm_flights_master(nflights,nfrag,nslaves)
       implicit_none
-      integer nflights,nfrag     // Input
-      integer seed[0:1],i,j     // Local
+      integer nflights,nfrag,nslaves     // Input
+      integer seed[0:1],i,j,num,nparcel // Local
+      integer mytid,tids[0:99],numt,ret,msgtag,tid,buf,bytes
       zn_common
       sy_common
       real weight,weight1
       ptr_decl(stat)
       ptr_decl(stat1)
-      ptr_decl(stat2)
       real stat(2,zn_num)
       real stat1(2,zn_num)
-      real stat2(2,zn_num)
       
       real_alloc(stat,2*zn_num)
       real_alloc(stat1,2*zn_num)
-      real_alloc(stat2,2*zn_num)
 
       seed[0]=1
       seed[1]=2
@@ -74,15 +71,64 @@
          end do
       end do
 
-      do j=0,nflights-1,nfrag
-         call do_flights(j,min(nfrag,nflights-j),seed,stat1,weight1,stat2)
-         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
+      call pvmfmytid(mytid)
+      call pvmfspawn('pvmslave',PVMDEFAULT,'*',nslaves,tids,numt)
+      assert(numt == nslaves)
+
+      nparcel=(nflights+nfrag-1)/nfrag
+
+      do j=0,min(nparcel,nslaves)-1
+         num=min(nfrag,nflights-j*nfrag)
+         assert(num>0)
+         call pvmfinitsend(PVMDEFAULT,ret); assert(ret >= 0)
+         call pvmfpack(pvm_int,j*nfrag,1,1,ret); assert(ret >= 0)
+         call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
+         call pvmfpack(pvm_int,seed,2,1,ret); assert(ret >= 0)
+         msgtag=1
+         call pvmfsend(tids[j],msgtag,ret); assert(ret >= 0)
          call next_seed(nfrag,seed,seed)
       end do
 
+      do j=min(nparcel,nslaves),nparcel-1
+         msgtag=2
+         call pvmfrecv(-1,msgtag,buf); assert(ret >= 0)
+         call pvmfbufinfo(buf,bytes,msgtag,tid,ret)
+         call pvmfunpack(pvm_real,stat1,2*zn_num,1,ret); assert(ret >= 0)
+         call pvmfunpack(pvm_real,weight1,1,1,ret); assert(ret >= 0)
+         num=min(nfrag,nflights-j*nfrag)
+         assert(num>0)
+         call pvmfinitsend(PVMDEFAULT,ret); assert(ret >= 0)
+         call pvmfpack(pvm_int,j*nfrag,1,1,ret); assert(ret >= 0)
+         call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
+         call pvmfpack(pvm_int,seed,2,1,ret); assert(ret >= 0)
+         msgtag=1
+         call pvmfsend(tid,msgtag,ret); assert(ret >= 0)
+         call next_seed(nfrag,seed,seed)
+         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
+      end do
+      
+      do j=0,min(nparcel,nslaves)-1
+         msgtag=2
+         call pvmfrecv(-1,msgtag,buf); assert(ret >= 0)
+         call pvmfbufinfo(buf,bytes,msgtag,tid,ret)
+         call pvmfunpack(pvm_real,stat1,2*zn_num,1,ret); assert(ret >= 0)
+         call pvmfunpack(pvm_real,weight1,1,1,ret); assert(ret >= 0)
+         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
+      end do
+         
+      num=0
+      call pvmfinitsend(PVMDEFAULT,ret); assert(ret >= 0)
+      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
+      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
+      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
+      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
+      msgtag=1
+      call pvmfmcast(nslaves,tids,msgtag,ret); assert(ret >= 0)
+
+      call pvmfexit(ret); assert(ret >= 0)
+
       real_free(stat,2*zn_num)
       real_free(stat1,2*zn_num)
-      real_free(stat2,2*zn_num)
 
       open(unit=diskout,file='stat.dat')
       write(diskout,*) stat
