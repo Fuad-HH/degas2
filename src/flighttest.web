@@ -2,6 +2,10 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.25  1998/04/27 17:26:00  karney
+% Reorder common block includes to avoid complaints from DEC compilers.
+% Remove spurious -R load flag from Makefile.
+%
 % Revision 1.24  1998/04/16 15:31:01  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -110,6 +114,7 @@
 @I sources.hweb
 @I tally.hweb
 @I output.hweb
+@I stat.hweb
 @I netcdf.hweb
 @I readfilenames.hweb
 @I problem.hweb
@@ -155,9 +160,10 @@ PVM more straightforward.
 @<Functions...@>=
       subroutine do_flights_master(nflights,nfrag)
 
-      define_varp(output_frag,FLOAT,output_moments_ind,output_tab_ind)
-      define_varp(output_flt,FLOAT,output_moments_ind,output_tab_ind)
-      define_varp(estimator_factors,FLOAT,output_tab_ind)
+//      define_varp(output_frag,FLOAT,output_moments_ind,output_tab_ind)
+//      define_varp(output_flt,FLOAT,output_moments_ind,output_tab_ind)
+//      define_varp(estimator_factors,FLOAT,output_tab_ind)   ??????? WHY??
+      define_varp(estimator_factors,FLOAT,tally_ind)
       define_varp(weight_grp,FLOAT,output_grps_ind)
 
       implicit_none_f77
@@ -166,33 +172,31 @@ PVM more straightforward.
       pr_common
       tl_common
       ou_common
+      sa_common
       implicit_none_f90
 
       integer nflights,nfrag                                // Input
-      integer i,j,is,zone,nprod,seg,seg_tot,test,bk_rc_is   // Local
+      integer i,j,is,zone,test,new_dim,pr_reac,jscore       // Local
       integer index_parameters[tl_index_max]
-      rn_seed_decl(seed)
-      real weight_frag,tot_scale_curr,prob,density,dummy,
+      real mult,tot_scale_curr,prob,density,dummy,
      $     dens_rsd,pressure,pres_rsd
-      logical init
+      logical init,need_scores,have_pressure
+      rn_seed_decl(seed)
 
       @<Memory allocation interface@>
       tl_decls
+      st_decls
 
-      real find_rate,extract_output_datum                    // External
+      real find_rate,extract_output_datum                   // External
       external find_rate,extract_output_datum
 
-      declare_varp(output_frag)
-      declare_varp(output_flt)
+ //     declare_varp(output_frag)
+ //     declare_varp(output_flt)
       declare_varp(estimator_factors)
       declare_varp(weight_grp)
 
-c      real output_frag[0:tally_size-1][o_mean:o_var]
-c      real output_flt[0:tally_size-1][o_mean:o_var]
-c      real weight_grp[so_grps]
-      
-      var_alloc(output_frag)
-      var_alloc(output_flt)
+//      var_alloc(output_frag)
+//      var_alloc(output_flt)
       var_alloc(estimator_factors)
       var_alloc(weight_grp)
 
@@ -215,8 +219,14 @@ c      real weight_grp[so_grps]
          end do
       end do
 
-      tot_scale_curr=zero
+      stat_comp_flt=TRUE
+      stat_comp_frag=FALSE // Set using |nfrag| and |nflights|?
+      stat_comp_fin=FALSE  // Additional code changes required if set = TRUE
 
+      call stat_init
+
+      tot_scale_curr=zero
+     
       do is=1,so_grps
          nflights=so_nflights(is)
          nfrag=nflights                      // Temporary fudge!
@@ -225,15 +235,48 @@ c      real weight_grp[so_grps]
          do j=0,nflights-1,nfrag
                                              // Calculate the flights
             call do_flights(j,min(nfrag,nflights-j),so_args(is),seed,
-     $           output_frag,weight_frag,output_flt,estimator_factors) 
+     $                                            estimator_factors) 
 
-            call stat_acc(tally_size,weight_frag,output_frag,
-     $           weight_grp[is],output_grp[is][0][o_mean])
+            assert(stat_comp_frag == FALSE ||       // In lieu of checking all
+     $         (stat_wt_frag[0]==stat_wt_tot_frag 
+     $           && stat_wt_frag[stat_size_frag-1]==stat_wt_tot_frag))
+
+            if (min(stat_size_fin+stat_size_frag,tally_size)>stat_dim_fin) then
+               assert(stat_comp_fin == TRUE) 
+               mult=max(1,stat_size_flt/stat_mem_inc_fin)
+               new_dim=min(stat_dim_fin+mult*stat_mem_inc_fin,tally_size)
+               var_realloc(stat_fin,stat_dim_fin-1,new_dim-1)
+               var_realloc(stat_ptr2full_fin,stat_pf_dim_fin-1,new_dim-1)
+               var_realloc(stat_wt_fin,stat_wt_dim_fin-1,new_dim-1)
+               stat_dim_fin=new_dim
+               stat_pf_dim_fin=new_dim
+               stat_wt_dim_fin=new_dim
+            end if
+                                  // Accumulating directly into |output_grp|! 
+            assert(stat_comp_fin == FALSE && stat_dim_fin == tally_size) 
+            call stat_acc(stat_comp_frag,stat_wt_tot_frag,stat_size_frag,
+     $           stat_dim_frag,stat_frag,stat_pf_dim_frag,stat_ptr2full_frag,
+     $           stat_ps_dim_frag,stat_ptr2short_frag,
+     $           stat_comp_fin,stat_wt_tot_fin,stat_size_fin,stat_dim_fin,
+     $           output_grp[is][0][o_mean],
+     $           stat_pf_dim_fin,stat_ptr2full_fin,
+     $           stat_ps_dim_fin,stat_ptr2short_fin,stat_wt_dim_fin,
+     $           stat_wt_fin)
+
             call next_seed(nfrag,seed) // Advance the seed
          end do
          
-         tot_scale_curr+=so_scale(is)*so_tot_curr(is)
+         if (stat_comp_frag == TRUE)   // |output_grp| here, too!
+     $    call stat_wt_balance(stat_wt_tot_fin,stat_size_fin,stat_dim_fin,
+     $           output_grp[is][0][o_mean],stat_wt_dim_fin,stat_wt_fin)
+         if (stat_comp_fin == TRUE)
+     $     call stat_decomp(stat_size_fin,stat_dim_fin,stat_fin,
+     $                       stat_ps_dim_fin,stat_ptr2short_fin,
+     $                       tally_size,output_grp[is][0][o_mean])
 
+         weight_grp[is]=stat_wt_tot_fin    // Use instead of |stat_wt_tot_fin|?
+         tot_scale_curr+=so_scale(is)*so_tot_curr(is)
+           
       end do           // Over |is|
 
 /*
@@ -268,7 +311,7 @@ c      real weight_grp[so_grps]
          output_all[i][o_var]=sqrt(output_all[i][o_var])/max(abs(output_all[i][o_mean]),const(1.0,-100))
          output_all[i][o_mean]*=tot_scale_curr
          do is=1,so_grps
-            output_grp[is][i][o_var]=sqrt(output_grp[is][i][o_var])/max(output_grp[is][i][o_mean],const(1.0,-100))
+            output_grp[is][i][o_var]=sqrt(output_grp[is][i][o_var])/max(abs(output_grp[is][i][o_mean]),const(1.0,-100))
             output_grp[is][i][o_mean]*=tot_scale_curr
          end do
       end do
@@ -278,32 +321,58 @@ c      real weight_grp[so_grps]
 */
       var_alloc(out_post_grp)
       var_alloc(out_post_all)
-      do is=1,so_grps
-         do i=0,tally_size-1
-            out_post_grp[is][i][o_mean]=output_grp[is][i][o_mean]
-            out_post_grp[is][i][o_var]=zero
+      stat_comp_flt=FALSE.               // To get diagonal pointers
+      if (stat_dim_flt < tally_size) then
+         var_realloc(stat_flt,stat_dim_flt-1,tally_size-1)
+         stat_dim_flt=tally_size
+         stat_size_flt=tally_size
+      end if
+
+/*
+   Since the post-processing routines eventually call |add_scores|, which
+   now increments |stat_flt|, we must use the |stat_flt| array to hold
+   the scores for the current source group. We could have chosen to
+   to pass |stat_flt| to the post-processing arrays by common, but
+   retained this interface to minimize changes. To do so, it must 
+   be full-size!
+*/
+      need_scores=.false.
+      do i=1,tally_type_num[tl_type_reaction]
+         do pr_reac=1,pr_reaction_num
+            jscore=tally_type_base[tl_type_reaction]+i-1
+            if (tally_est_reaction[jscore][tl_est_post_process][pr_reac] 
+     $                     > zero) then
+               need_scores=.true.
+            end if
          end do
-      end do
-      do i=0,tally_size-1
-         out_post_all[i][o_mean]=zero
-         out_post_all[i][o_var]=zero
       end do
 
       do is=1,so_grps 
 
-         call final_conversions(tl_cv_post,out_post_grp[is][0][o_mean])
-
-         call post_process_test_scores(is,out_post_grp[is][0][o_mean],
-     $        estimator_factors)
-         if (so_type(is) == so_recomb) then      
-            call post_process_back_scores(is,out_post_grp[is][0][o_mean],
-     $           estimator_factors)
+         do i=0,tally_size-1
+            stat_flt[i][o_mean]=output_grp[is][i][o_mean]
+         end do
+         assert(stat_size_flt==tally_size)
+         call final_conversions(tl_cv_post,stat_flt)
+            
+         if (need_scores) then
+            call post_process_test_scores(is,stat_flt,estimator_factors)
+            if (so_type(is) == so_recomb) then      
+               call post_process_back_scores(is,stat_flt,estimator_factors)
+            end if
          end if
 
-         call final_conversions(tl_cv_output,out_post_grp[is][0][o_mean])
+         call final_conversions(tl_cv_output,stat_flt)
 
          do i=0,tally_size-1
-            out_post_all[i][o_mean]+=out_post_grp[is][i][o_mean]
+            out_post_grp[is][i][o_mean]=stat_flt[i][o_mean]
+            out_post_grp[is][i][o_var]=zero
+            if (is == 1) then
+               out_post_all[i][o_mean]=stat_flt[i][o_mean]
+               out_post_all[i][o_var]=zero
+            else
+               out_post_all[i][o_mean]+=stat_flt[i][o_mean]
+            end if
          end do
       end do       // is
 
@@ -337,19 +406,29 @@ c      real weight_grp[so_grps]
 
       open(unit=diskout,file='density.out',status='unknown')
       dummy=zero
+      if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
+         have_pressure=.true.
+      else
+         have_pressure=.false.   // Not kept with minimal set of scores
+      end if
       do test=2,pr_test_num    // Exclude ``0'' test species
          do zone=1,zn_num
             if (zone_type[zone] == zn_plasma) then
                   index_parameters[tl_index_test]=test
                   index_parameters[tl_index_zone]=zone
-                  density=extract_output_datum(index_parameters,0,
-     $                 out_post_all[0][o_mean],'neutral density')
-                  dens_rsd=extract_output_datum(index_parameters,0,
-     $                 output_all[0][o_var],'neutral density')
-                  pressure=extract_output_datum(index_parameters,0,
-     $                 out_post_all[0][o_mean],'neutral pressure')
-                  pres_rsd=extract_output_datum(index_parameters,0,
-     $                 output_all[0][o_var],'neutral pressure')
+                  density=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,'neutral density')
+                  dens_rsd=extract_output_datum(index_parameters,1,
+     $                 output_all,o_var,'neutral density')
+                  if (have_pressure) then
+                     pressure=extract_output_datum(index_parameters,1,
+     $                    out_post_all,o_mean,'neutral pressure')
+                     pres_rsd=extract_output_datum(index_parameters,1,
+     $                    output_all,o_var,'neutral pressure')
+                  else
+                     pressure=zero
+                     pres_rsd=zero
+                  end if
                   write(diskout,'(2i6,1p6e13.4)') zone_index[zone][1],
      $              zone_index[zone][2],density,dens_rsd,pressure,pres_rsd,
      $              dummy,dummy
@@ -361,8 +440,10 @@ c      real weight_grp[so_grps]
       call nc_write_output
       call clear_output
 
-      var_free(output_frag)
-      var_free(output_flt)
+      call clear_stat
+
+//      var_free(output_frag)
+//      var_free(output_flt)
       var_free(estimator_factors)
       var_free(weight_grp)
 
@@ -421,20 +502,20 @@ we don't set the dimensions until just before the call.
                   if (zn_check(zone_map(ix,iy))) then
                      index_parameters[tl_index_zone]=zone_map(ix,iy)
                      output_2D_coupling(ix,iy,back,ou_coupling_mass)=
-     $                    extract_output_datum(index_parameters,0,
-     $                    out_post_all[0][o_mean],'ion source rate')
+     $                    extract_output_datum(index_parameters,1,
+     $                    out_post_all,o_mean,'ion source rate')
                      output_2D_coupling(ix,iy,back,ou_coupling_momentum_1)=
      $                    extract_output_datum(index_parameters,1,
-     $                    out_post_all[0][o_mean],'ion momentum source vector')
+     $                    out_post_all,o_mean,'ion momentum source vector')
                      output_2D_coupling(ix,iy,back,ou_coupling_momentum_2)=
      $                    extract_output_datum(index_parameters,2,
-     $                    out_post_all[0][o_mean],'ion momentum source vector')
+     $                    out_post_all,o_mean,'ion momentum source vector')
                      output_2D_coupling(ix,iy,back,ou_coupling_momentum_3)=
      $                    extract_output_datum(index_parameters,3,
-     $                    out_post_all[0][o_mean],'ion momentum source vector')
+     $                    out_post_all,o_mean,'ion momentum source vector')
                      output_2D_coupling(ix,iy,back,ou_coupling_energy)=
-     $                    extract_output_datum(index_parameters,0,
-     $                    out_post_all[0][o_mean],'ion energy source')
+     $                    extract_output_datum(index_parameters,1,
+     $                    out_post_all,o_mean,'ion energy source')
                   else
                      do i=1,ou_coupling_max
                         output_2D_coupling(ix,iy,back,i)=zero
