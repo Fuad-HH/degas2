@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.14  1996/05/24 18:57:02  dstotler
+% Add calls to read materials and PMI files.
+%
 % Revision 1.13  1996/03/01 20:22:01  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -142,9 +145,10 @@ loop1: continue
       vc_set(vt,vrel,zero,zero)
       vc_set(vb,zero,zero,zero)
       
-      rate=reaction_rate_a(pr_test_args(problem_species_test(test)),vc_args(vt),
-     $   pr_background_args(problem_species_background(background)),
-     $   density,vc_args(vb),temperature,pr_reaction_args(ts_reac))
+      rate=reaction_rate_a(sp_args(test),vc_args(vt),
+     $   sp_args(background),
+     $   density,vc_args(vb),temperature,
+     $   pr_reaction_args(pr_ts_rc(pr_test(test),ts_reac)))
 
       write(stdout,*) '    Test energy = ',energy,' J'
       write(stdout,*) '    Test (vx,vy,vz) = ',vt[1],', ',vt[2],', ',vt[3],
