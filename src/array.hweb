@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.16  1995/06/12 13:07:01  karney
+% Add in dummy elements into common blocks to avoid complaints from
+% Alpha.
+%
 % Revision 1.15  1995/05/31 19:22:46  dstotler
 % Numerous fixes to get documentation to remove TeX errors.
 %
@@ -68,21 +72,36 @@
 @m FLOAT 2
 
 @ Declaring dimensions and variables.
+Each vector that is declared has one or more dimensions which have
+names. These  have to be defined first. Character variables have a name 
+associated with their length. Each of these dimension names will have an
+upper  and lower bound. 
 |@@f define_dimen integer | tells web to format the variables in
 |define_dimen|  as integers. The macro |define_dimen(name,...)| defines the
-lower and upper bounds of the single dimension array |name|. If 1 arg. is
-given, it puts the lower limit = 1 and upper limit = the first (and
-only) argument in |define_dimen|. If 2 args. are given,  it puts the lower
-limit as the first arg and the upper limit as the second.
+lower and upper bounds of the dimension name |name|. It defines  variables by
+prefixing |min| and |max| to the dimension name. If 1 arg. is
+given, it puts the lower limit (|min_name|) =1, and upper limit
+(|max_name|) = the first (and only) argument in |define_dimen|. If 2
+args. are given,  it puts the lower  limit as the first arg and the upper
+limit as the second. 
+
 @f define_dimen integer
-/* \#0 is the number of args represented by the dots. \#\# pastes the strings
-on either side of it after appropriate expansions, hence 'name' is expanded
-to the variable's name. \#n represents the nth argument represented by the
-dots. */
+
+/* \#0 is the number of args represented by the dots.(atmost 2) \#\# pastes
+the strings on either side of it after appropriate expansions, hence |name|
+is expanded to the variable's name. \#n represents the nth argument
+represented by the dots. */
+
 @m define_dimen(name,...)
       $ASSERT( #0 == 1 || #0 == 2)
       $IF(#0 == 1, $DEFINE(min_##name 1),$DEFINE(min_##name #1))
       $IF(#0 == 1, $DEFINE(max_##name #1),$DEFINE(max_##name #2))
+
+/* Once the variables |min_name| and |max_name| are defined for each
+dimension name, the macro |range(name)| defines the range of the name.
+|range_size(name)|  defines the size (upper limit - lower limit +1) and
+|var_type(name)| is defined as the type of variable with the dimension name
+|name|. */
 
 @m range(name) range_min(name):range_max(name)
 @m range_star(name) range_min(name):*
@@ -95,23 +114,25 @@ dots. */
 @m var_type(name) var_type1(name)
  
 @f define_var integer
-/* |define_var| defines quantities  for the various  args which are
-actually dimensions of the array or character x.these are of the form
-|type_x|, |rank_x| and |ind_x_n| where 
-``x'' is substituted by the name of the array/character variable  and ``n''
-is the no. of the  
-dimension.(1 to |MAX_DIM|).  ``type'' is 0,1 or 2 for a character, integer or
-real variable and |rank_x| is the no. of args represented by the dots. 
-eg.. for x(5) we have |ind_x_1| =5, for y(2,10) we have |ind_y_1| =
-2 and |ind_y_2|= 10 , for z(1,5,10) we have |ind_z_1| =1 ,|ind_z_2| =5 
-and |ind_z_3|=
-10 . For a character variable x, in place of the first dimension, the size
-of x is used for |ind_x_1|, the first dimension is |ind_x_2| and so
-on. eg.. for x(20)* 5 |ind_x_1| =5  and |ind_x_2| = 20. The other thing is
-|ind_x_m| which is similar to above but, here m  
-does not vary (just a fixed string). |ind_x_m| equals the value of the last
-argument or the last dimension for an array. eg.. for x, |ind_x_m| =0, for
-x(5), |ind_x_m| =5, for y(2,10), |ind_y_m| =10, for z(1,5,10), |ind_z_m|=10 */ 
+
+/* The macro |define_var| defines variables of the form |ind_x_n| which are
+equated with  the args. to |define_var| represented by dots. The args. are 
+names of the dimensions of the array |x| or name of the length of character
+variable |x|. The macro defines a variable |type_x| (an integer which tells us
+whether it is real(2), integer(1) or character(0) ). 
+|x|  is substituted by the name of the array/character variable  and |n|
+is the no. of the  arg. represented by the dots.
+|rank_x| is the no. of args represented by the dots. */
+
+// Suppose  we have defined :
+// |define_dimen|(a,0,10)
+// |define_dimen|(b,1,10)
+// |define_dimen|(c,5,20)
+// |define_var|(temp,real,a,b,c)
+
+// we get |ind_temp_1| = a, |ind_temp_2| =b, |ind_temp_3| = c
+/* |ind_x_m| equals the name of the last argument and
+|ind_temp_m| =c in the above example.  */
 
 @m define_var(x,type,...) $ASSERT( #0 <= MAX_DIM && #0 >= 0)
       $ASSERT( type >= CHAR && type <= FLOAT )
@@ -125,23 +146,28 @@ x(5), |ind_x_m| =5, for y(2,10), |ind_y_m| =10, for z(1,5,10), |ind_z_m|=10 */
       $DEFINE(ind_##x##_m $IFCASE(#0,0,#1,#2,#3,#4,#5))
 
 @f declare_var integer
-/* |declare_var(x)| declares the variable x. it may be a character, real or
+
+/* |declare_var(x)| declares the variable x. It may be a character, real or
 integer and can have 0 to |MAX_DIM| dimensions. For this to work, the
-values of |ind_x_n| and corresponding |range| must be known. For a
-character variable ``x''  it produces a declaration of the form : character
-* size x , where ``size'' is same as |ind_x_1|. for an array of dimension
-``n'' (n<= |MAX_DIM|) , it is :
-character * size x(dim1L:dim1U,dim2L:dim2U... dimnL:dimnU) where
-dim1L,dim2L ... and dim1U,dim2U ... are lower and upper dimensions also
-given by  ranges of |ind_x_2|, |ind_x_3| .. etc. For integer and real
-variables the declaration is just :  
-real x ; or integer x. For arrays, it is of the form: real
- x(dim1L:dim1U,dim2L:dim2U... dimnL:dimnU) where dim1L,dim2L ... and
-dim1U,dim2U ... are lower and upper dimensions also given by ranges of
-|ind_x_1|, |ind_x_2| etc.  same goes for integers.
-NB: the syntax of the $IF statement is :
-$IF (expression,true,false). note the position of the commas
+values of |ind_x_n| and corresponding |range| must be known through the
+|define_dimen| and |define_var| macros explained earlier. */
+
+// suppose we have 
+// |define_dimen(len_junk,10) |
+// |define_dimen(len_junk_array,32) |
+// |define_dimen(dim_junk_array,1,5) |
+// |define_var(junk,CHAR,len_junk) |
+// |define_var(junk_array,CHAR,len_junk_array,dim_junk_array)  |
+// |declare_var(junk) |
+// |declare_var(junk_arrray)|
+// we get:
+// character $\star$ 10 junk
+// character $\star$ 32 |junk_array(1:5)|
+
+// {\bf NB} the syntax of the \$IF statement is :
+/* \$IF (expression,true,false). note the position of the commas
 carefully. They seperate the true  and false parts. */
+
 @m declare_var(x)
       $IFCASE(type_##x, character, integer, real)
       $IF(type_##x == CHAR,
@@ -158,10 +184,23 @@ carefully. They seperate the true  and false parts. */
           x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5)))) @;
 
 @f declare_varp integer
+
 /* |declare_varp(x)| is similar to |declare_var(x)|, but it declares a
-pointer to an array x of at least dim 1 . Also,
-here, the range of the dimension is not from min to max but from min to
-``*'' which puts no upper limit. */
+pointer to an array x . It is necessary to declare a pointer to an array
+for dynamic allocation. So the last upper dimension is not fixed.
+suppose we have : */
+
+// |define_dimen(len_junk_array,32) |
+// |define_dimen(lower_junk_array,1)|
+// |define_var(junk_array,CHAR,len_junk_array,lower_junk_array) |
+// |declare_varp (junk_array) |
+// then we get:
+// character $\star$ 32 |junk_array(1:*)|
+// |pointer(ptr_junk_array,junk_array) |
+
+/* The last statement  comes from the macro |ptr_decl(x)| which is explained
+later. */
+
 @m declare_varp(x)
       $IF(rank_##x > 1 || (type_##x != CHAR && rank_##x > 0),ptr_decl(x);,)
       $IFCASE(type_##x, character, integer, real)
@@ -181,14 +220,17 @@ here, the range of the dimension is not from min to max but from min to
 /* |array_size(x)| is the total size of an array x. It is given as the product
 of the  ranges of the dimensions. The range is defined by a macro
 |range_size| and is basically - dimU - dimL +1	*/
+
 @m array_size(x)
       $IFCASE(rank_##x,1,(range_size(ind_##x##_1)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)*range_size(ind_##x##_5)))
+
 /* |array_unit(x)| is the size calculated by leaving out the last dimension of
-the array x.	*/
+the array x. */
+
 @m array_unit(x)
       $IFCASE(rank_##x,,1,
       (range_size(ind_##x##_1)),
@@ -199,22 +241,26 @@ the array x.	*/
 /* |array_sizev(x,y)| gives the size of an array x if its last
 dimension (upper limit) is y. This can be used to calculate the new size of
 an array x if it's last dimension is changed. It's basically the product of
-the size calculated by leaving out the last dimension (|array_unit(x)| and
+the size calculated by leaving out the last dimension (|array_unit(x)|) and
 the new size of the last dimension which is just = (dimnU -dimnL +1) where
 dimnU is y and dimnL is known.( lower limit of last dimension given by
 |range_min(ind_x_m)| */
+
 @m array_sizev(x,y) array_unit(x)*((y)-range_min(ind_##x##_m)+1)
 
 @ Macros to simplify memory allocation
+
 /* |ptr_decl(x)| declares a pointer to an array x and calls it |ptr_x|
-where ``x'' is the name of the array. 	*/
+where |x| is the name of the array. */
+
 @f ptr_decl integer
 @m ptr_decl(x) pointer (ptr_##x,x)
 
-/* |real_alloc(x,n)| allocates memory for a real array x of size ``n''
+/* |real_alloc(x,n)| allocates memory for a real array x of size |n|
 .|real_realloc(x,on,n)| reallocates memory for an real array x which has a size
-``on'' but needs a size ``n''. Once the array has been used, it's memory
+|on| but needs a size |n|. Once the array has been used, it's memory
 can be freed using |real_free(x,n)| */
+
 @m real_alloc(x,n) ptr_##x=mem_alloc(n) @;
 @m real_realloc(x,on,n) ptr_##x=mem_realloc(ptr_##x,on,n) @;
 @m real_free(x,n) call mem_free(ptr_##x,n) @;
@@ -223,6 +269,7 @@ can be freed using |real_free(x,n)| */
 integers. they use the same function calls, only the size is different,
 this is handled by using |int_mem(n)| instead of just n	which does the
 right thing */
+
 @m int_alloc(x,n) real_alloc(x,int_mem(n)) @;
 @m int_realloc(x,on,n) real_realloc(x,int_mem(on),int_mem(n)) @;
 @m int_free(x,n) real_free(x,int_mem(n)) @;
@@ -231,6 +278,7 @@ right thing */
 characters. they use the same function calls, only the size is different,
 this is handled by using |char_mem(n)| instead of just n which does the
 right thing */
+
 @m char_alloc(x,n) real_alloc(x,char_mem(n)) @;
 @m char_realloc(x,on,n) real_realloc(x,char_mem(on),char_mem(n)) @:
 @m char_free(x,n) real_free(x,char_mem(n)) @;
@@ -240,8 +288,9 @@ of the above macros which were meant for a specific type. Here, the macro
 does the right thing depending on whether the allocation, reallocation or
 freeing has to be done for a real, integer or character. It finds out the
 size of the array too, using the macro |array_size(x)|. note the use of
-|array_sizev(x,y)| to get the size of x with the last dimension set to ``n''
-and ``on''	*/
+|array_sizev(x,y)| to get the size of x with the last dimension set to |n|
+and |on|	*/
+
 @m var_alloc(x) $IFCASE(type_##x,
       char_alloc(x,array_size(x)),
       int_alloc(x,array_size(x)),
@@ -310,6 +359,7 @@ multiple of |mem_inc| (which means the growth has saturated ) */
       int_realloc(x,array_sizea(x),array_size(x)),
       real_realloc(x,array_sizea(x),array_size(x)));
       end if @;
+
 /* |var_reallocc(x,on,n)| reallocates the size of an array x if the sizes
 of x corresponding to the old value of upper limit of the last dim. (on)
 rounded off to the nearest multiple of |mem_inc| and the size 
