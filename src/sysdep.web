@@ -2,6 +2,10 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.23  2000/04/01 17:35:00  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.22  2000/01/27 18:34:46  karney
 % Portability fixes and minor updates to random.
 %
@@ -134,6 +138,7 @@ System dependent routines for degas.
 @m FILE 'sysdep.web'
 
 @I macros.hweb
+@I string.hweb
 
 @ The unnamed module.
 
@@ -1532,7 +1537,6 @@ can't do pointer arithmetic).
       if (u2 == l2-1) then
          np ASSIGN mem_alloc_i2(l1,u1,l2,nu,name)
          return
-         return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
@@ -2362,13 +2366,19 @@ memory leaks.
       implicit_none_f77
       implicit_none_f90
       character*(*) message
+      character*LINELEN response
+
+      st_decls
 
       write(stderr,*) message
-@#if !LINUX
-      pause
-@#else
-      read(stdin,*)
-@#endif
+/*
+   The following is intended to mimic the Sun implementation of the
+   |pause| command that has been declared obsolescent under F90.
+*/
+      write(stderr,*) 'To resume execution, type:   go'
+      write(stderr,*) 'Any other input will terminate the program.'
+      read(stdin,'(a)') response
+      if (trim(response) != 'go') stop
 
       return
       end
