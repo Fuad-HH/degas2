@@ -2,6 +2,9 @@
 \def\Wtitle{system dependent routines}
 
 % $Log$
+% Revision 1.4  1993/11/15  21:50:08  karney
+% Pre APS checkin.
+%
 % Revision 1.3  1993/10/25  22:35:52  karney
 % Add int_lookup.
 %
@@ -244,6 +247,37 @@ variable |p|; on the first call |p| should be set to zero.  Returns
       
       return
       end
+
+@ Read an integer from a string.
+
+@<Functions...@>=
+      function read_integer(string)
+      implicit_none
+      integer read_integer      // Function
+      character*(*) string      // Input
+      character*10 form         // Local
+      
+      write(form,'(a,i3.3,a)') '(i',len(string),')'
+      read(string,form) read_integer
+      
+      return
+      end
+
+@ Read an integer from a string.
+
+@<Functions...@>=
+      function read_real(string)
+      implicit_none
+      real read_real            // Function
+      character*(*) string      // Input
+      character*10 form         // Local
+      
+      write(form,'(a,i3.3,a)') '(f',len(string),'.0)'
+      read(string,form) read_real
+      
+      return
+      end
+
 
 @ Look up a string in an array of strings.  Returns index of first
 match, if found; else 0.
