@@ -1,0 +1,95 @@
+% $Id$
+\def\Wtitle{pvmmaster}
+
+% $Log$
+
+@n/
+
+@* A test program for the geometry routines.
+
+\ID{$Id$}
+
+@m FILE 'pvmmaster.web'
+@m SP _UNQUOTE(' ')
+@I macros.hweb
+
+@ The main program.
+
+@a
+      program flight_test
+      implicit_none
+
+      call degas_init
+      call do_flights_master(1000,29)
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Initialize common blocks.
+
+@<Functions...@>=
+      subroutine degas_init
+      implicit_none
+      
+      call read_geometry
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_background
+      call nc_read_test
+      call nc_read_reactions
+      
+      return
+      end
+      
+@ The master controller.
+
+@<Functions...@>=
+      subroutine do_flights_master(nflights,nfrag)
+      implicit_none
+      integer nflights,nfrag     // Input
+      integer seed[0:1],i,j     // Local
+      zn_common
+      sy_common
+      real weight,weight1
+      ptr_decl(stat)
+      ptr_decl(stat1)
+      ptr_decl(stat2)
+      real stat(2,zn_num)
+      real stat1(2,zn_num)
+      real stat2(2,zn_num)
+      
+      real_alloc(stat,2*zn_num)
+      real_alloc(stat1,2*zn_num)
+      real_alloc(stat2,2*zn_num)
+
+      seed[0]=1
+      seed[1]=2
+      
+      weight=zero
+      do i=1,zn_num
+         do j=1,2
+            stat[j,i]=zero
+         end do
+      end do
+
+      do j=0,nflights-1,nfrag
+         call do_flights(j,min(nfrag,nflights-j),seed,stat1,weight1,stat2)
+         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
+         call next_seed(nfrag,seed,seed)
+      end do
+
+      real_free(stat,2*zn_num)
+      real_free(stat1,2*zn_num)
+      real_free(stat2,2*zn_num)
+
+      open(unit=diskout,file='stat.dat')
+      write(diskout,*) stat
+      close(unit=diskout)
+
+      return
+      end
+
+
+@* Index.
