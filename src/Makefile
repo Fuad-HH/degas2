@@ -79,7 +79,7 @@ PVM=-L/soft/pvm/lib/$(PVMARCH) -lfpvm3 -lpvm3
 LPRFLAGS=-h
 FTANGLE=ftangle
 FWEAVE=fweave
-LATEX=latex2e
+LATEX=latex
 ifdef DEBUG
   TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt1000000
 else
