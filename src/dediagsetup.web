@@ -2,6 +2,11 @@
 \Title{dediagsetup}
 
 % $Log$
+% Revision 1.2  1997/08/19 14:36:34  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.1  1997/08/07 19:37:31  dstotler
 % These routines should be general applicable; currently called from
 % boxgen and readgeometry.
@@ -401,9 +406,19 @@ not-coincidental similarity to |diag_grp_init|.
       subroutine end_detectors
       implicit_none_f77
       de_common
+      zn_common
       implicit_none_f90
+      integer i
 
       @<Memory allocation interface@>
+
+      vc_set(de_view_points[0][de_view_start],real_unused,real_unused,real_unused)
+      vc_set(de_view_points[0][de_view_end],real_unused,real_unused,real_unused)
+      de_view_algorithm[0]=int_unused
+      de_view_halfwidth[0]=real_unused
+      do i=1,zn_num
+         de_zone_frags[i][0]=real_unused
+      end do
 
       var_reallocb(detector_name)
       var_reallocb(detector_num_views)
@@ -413,6 +428,10 @@ not-coincidental similarity to |diag_grp_init|.
       var_reallocb(detector_delta)
       var_reallocb(detector_spacing)
       var_reallocb(de_view_base)
+
+      if (detector_total_views == 0) then
+         de_view_tab[0]=int_unused
+      end if
 
       return
       end
