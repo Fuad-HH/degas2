@@ -1,5 +1,11 @@
 # $Id$
 # $Log$
+# Revision 1.65  1998/06/01 19:47:05  karney
+# "TARGET" is now directory name removing trailing "-JUNK".  Thus
+# ~/degas2/SUN-mpi
+# implies TARGET=SUN
+# Also Makefile.local allows SOURCEDIR to be set.
+#
 # Revision 1.64  1998/06/01 15:56:29  karney
 # MPI enabled version.
 #
@@ -263,7 +269,11 @@ ifeq ($(SYSTEM),AIX)
 endif
 ifeq ($(SYSTEM),OSF1)
   MACHINE=ALPHA
-  OPTFLAGS=-fast
+#  OPTFLAGS=-fast  <-- math_library_fast and noaccuracy_sensitive 
+#                      lead to noticeable differences in results
+#  HDF=-L$(LIBROOT)/lib -ldf -ljpeg1 -lz
+  HDF=-L$(LIBROOT)/lib -ldf $(LIBROOT)/lib/libjpeg.a -lz
+  OPTFLAGS=-O4
 endif
 ifeq ($(SYSTEM),HP-UX)
   MACHINE=HP
@@ -358,7 +368,7 @@ degas2.in: $(SOURCEDIR)/degas2.in
 	cp $< $@
 
 ifeq ($(MACHINE),ALPHA)
-	CRAMD=$(CRAMDIR)/LIB/CRAMDlib.a $(CRAMDIR)/LIB/cramd_lib.a $(CRAMDIR)/LIB/lc_sig.a $(CRAMDIR)/LIB/lc_std.a
+  CRAMD=$(CRAMDIR)/LIB/CRAMDlib.a $(CRAMDIR)/LIB/cramd_lib.a $(CRAMDIR)/LIB/lc_sig.a $(CRAMDIR)/LIB/lc_std.a
 endif
 
 # Cancel some built-in rules
@@ -524,7 +534,7 @@ pvmslave = pvmslave.$O random.$O randother.$O stat.$O geometry.$O elementread.$O
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave) $(foreach arg,$(subst .$O,_mods,$(pvmslave)),$($(arg)))
 
-flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O
+flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O
 flighttest_libs = $(NETCDF) $(MPILIBSA)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
@@ -532,7 +542,7 @@ geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfac
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 
-geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O collide.$O randother.$O random.$O conversions.$O
+geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O collide.$O randother.$O random.$O conversions.$O voigt.$O
 geomtesta_libs =  $(NETCDF) $(HDF)
 geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
 
@@ -553,7 +563,7 @@ datasetup_libs = $(NETCDF)
 datasetup: $(datasetup) $(foreach arg,$(subst .$O,_mods,$(datasetup)),$($(arg)))
 
 problemsetup = problemsetup.$O elementread.$O pmimatread.$O reaction.$O readfilenames.$O plate.$O geometry.$O random.$O randother.$O
-problemsetup_libs = $(NETCDF)
+problemsetup_libs = $(NETCDF) 
 problemsetup: $(problemsetup) $(foreach arg,$(subst .$O,_mods,$(problemsetup)),$($(arg)))
 
 geomread = geomread.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O elementread.$O pmimatread.$O
@@ -604,9 +614,17 @@ pmitest = pmitest.$O elementread.$O pmimatread.$O plate.$O readfilenames.$O rand
 pmitest_libs = $(NETCDF)
 pmitest: $(pmitest) $(foreach arg,$(subst .$O,_mods,$(pmitest)),$($(arg)))
 
-sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O
-sourcetest_libs = $(NETCDF)
+sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O reaction.$O
+sourcetest_libs = $(CRAMD) $(NETCDF)
 sourcetest: $(sourcetest) $(foreach arg,$(subst .$O,_mods,$(sourcetest)),$($(arg)))
+
+voigttest = voigttest.$O voigt.$O
+voigttest_libs = 
+voigttest: $(voigttest) $(foreach arg,$(subst .$O,_mods,$(voigttest)),$($(arg)))
+
+voigtspec = voigtspec.$O voigt.$O
+voigtspec_libs = 
+voigtspec: $(voigtspec) $(foreach arg,$(subst .$O,_mods,$(voigtspec)),$($(arg)))
 
 ratecalc = ratecalc.$O aladdin_subr.o readfilenames.$O
 ratecalc_libs = $(NETCDF)
