@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.3  1996/10/30 18:04:16  dstotler
+% Replace temporary variable inc with pd_inc.
+%
 % Revision 1.2  1996/05/24 18:50:49  dstotler
 % Variable modifications, additions required to handle PMI.
 %
@@ -15,24 +18,21 @@
 @I pmiformat.hweb
 @I problem.hweb
 
-Data for Plasma Material Interactions is held in arrays in common blocks \ldots.
+Data for Plasma Material Interactions is held in arrays in common blocks.
 |pd_yield(i,j,k,l,m,p)| accesses the data for the $p$th PMI as an array
 with up to 5 dimensions.
 Data used in handling the PMI are stored 
-in the  |pd_handling| array.
+in the  |pd_handling(i,j,k,l,m,d,p)| array with the $d$ subscript denoting the
+$d$th dependent variable associated with the $p$th PMI.
 
-@m pd_yield(i,j,k,l,m,p) pmi_yield_tab[i+pmi_yield_tab_index[1,p]*(j+pmi_yield_tab_index[2,p]*(k+pmi_yield_tab_index[3,p]*(l+pmi_yield_tab_index[4,p]*m)))+pmi_yield_base[p]]
+@m pd_yield(i,j,k,l,m,p) pmi_yield_tab[i+pmi_yield_tab_index[p][1]*(j+pmi_yield_tab_index[p][2]*(k+pmi_yield_tab_index[p][3]*(l+pmi_yield_tab_index[p][4]*m)))+pmi_yield_base[p]]
 
-@m pd_yield_indep_var(i,r,p) pmi_yield_indep_var_tab[i+pmi_yield_indep_var_base[r,p]]
-
-@m pd_handling(i,j,k,l,m,d,p) pmi_handling_tab[i+pmi_handling_tab_index[1,d,p]*(j+pmi_handling_tab_index[2,d,p]*(k+pmi_handling_tab_index[3,d,p]*(l+pmi_handling_tab_index[4,d,p]*m)))+pmi_handling_base[d,p]]
-
-@m pd_handling_indep_var(i,r,d,p) pmi_handling_indep_var_tab[i+pmi_handling_indep_var_base[r,d,p]]
+@m pd_handling(i,j,k,l,m,d,p) pmi_handling_tab[i+pmi_handling_tab_index[p][d][1]*(j+pmi_handling_tab_index[p][d][2]*(k+pmi_handling_tab_index[p][d][3]*(l+pmi_handling_tab_index[p][d][4]*m)))+pmi_handling_base[p][d]]
 
 @m pd_data_args(x,subs)
-      x##_eval_name##subs,x##_rank##subs,x##_var##subs[1],x##_tab_index##subs[1],x##_spacing##subs[0],x##_min##subs[1],x##_delta##subs[1],x##_indep_var_tab[0],x##_indep_var_base##subs[1],x##_tab[0],x##_base##subs
+      x##_eval_name##subs,x##_rank##subs,x##_var##subs[1],x##_tab_index##subs[1],x##_spacing##subs[0],x##_min##subs[1],x##_delta##subs[1],x##_tab[0],x##_base##subs
 
-@m pd_dep_var_max pf_dep_var_max-1
+@m pd_dep_var_max $EVAL(pf_dep_var_max-1)
 
 @ Variable definitions.
 
@@ -45,24 +45,22 @@ in the  |pd_handling| array.
       define_dimen_pk(pd,pd_tag_string,pf_tag_string_length)
       define_dimen_pk(pd,pd_eval_string,pf_eval_string_length)
 
+      define_var_pk(pd,pmi_yield_size,INT)
+      define_dimen_pk(pd,pd_yield_ind,0,pmi_yield_size-1)
+      define_var_pk(pd,pmi_handling_size,INT)
+      define_dimen_pk(pd,pd_handling_ind,0,pmi_handling_size-1)
+
       define_varp_pk(pd,pmi_yield_min,FLOAT,pd_rank_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_delta,FLOAT,pd_rank_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_rank,INT,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_spacing,INT,pd_rank_ind0,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_eval_name,CHAR,pd_eval_string,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_tab_index,INT,pd_rank_ind,problem_pmi_sub_ind)
-      define_varp_pk(pd,pmi_yield_var,INT,pd_rank_ind0,problem_pmi_sub_ind)
-      define_varp_pk(pd,pmi_yield_num_random,INT,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_yield_var,INT,pd_rank_ind,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_yield_num_rand,INT,problem_pmi_sub_ind)
 
-      define_var_pk(pd,pmi_yield_size,INT)
-      define_dimen_pk(pd,pd_yield_ind,0,pmi_yield_size-1)
       define_varp_pk(pd,pmi_yield_base,INT,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_tab,FLOAT,pd_yield_ind)
-
-      define_var_pk(pd,pmi_yield_indep_var_size,INT)
-      define_dimen_pk(pd,pd_yield_i_v_ind,0,pmi_yield_indep_var_size-1)
-      define_varp_pk(pd,pmi_yield_indep_var_base,INT,pd_rank_ind,problem_pmi_sub_ind)
-      define_varp_pk(pd,pmi_yield_indep_var_tab,FLOAT,pd_yield_i_v_ind)
 
       define_varp_pk(pd,pmi_handling_min,FLOAT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_delta,FLOAT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
@@ -72,17 +70,10 @@ in the  |pd_handling| array.
       define_varp_pk(pd,pmi_handling_tab_index,INT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_var0,CHAR,pd_tag_string,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_var,INT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
-      define_varp_pk(pd,pmi_handling_num_random,INT,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_handling_num_rand,INT,problem_pmi_sub_ind)
 
-      define_var_pk(pd,pmi_handling_size,INT)
-      define_dimen_pk(pd,pd_handling_ind,0,pmi_handling_size-1)
       define_varp_pk(pd,pmi_handling_base,INT,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_tab,FLOAT,pd_handling_ind)
-
-      define_var_pk(pd,pmi_handling_indep_var_size,INT)
-      define_dimen_pk(pd,pd_handling_i_v_ind,0,pmi_handling_indep_var_size-1)
-      define_varp_pk(pd,pmi_handling_indep_var_base,INT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
-      define_varp_pk(pd,pmi_handling_indep_var_tab,FLOAT,pd_handling_i_v_ind)
 
 @ Common blocks definitions.
 
@@ -93,16 +84,14 @@ in the  |pd_handling| array.
 
 /*
    |pd_ragged_alloc| and |pd_ragged_realloc| are designed to automatically
-   allocate memory for the ragged multidimensional arrays needed by this 
-   class. To save space, these arrays are packed into 1-D arrays and
-   and the multidimensionality is simulated through the macros at the
-   top of this class. Two variables are used along with the main data
+   allocate memory for ragged data arrays. To save space, these arrays 
+   are packed into 1-D arrays and the multidimensionality is simulated 
+   through the macros at the top of this class. Two variables are used 
+   along with the main data
    table in this process. All three should be formed from the same ``root''
    word or phrase; this simplifies the macro argument lists so that
    only |x| needs to be passed in. The |y| array provides the actual dimensions
-   of the ragged array. Since each |y| array is used with more than one
-   (typically two) |x|'s, the use of a common ``root'' is not possible.
-   Looking at each of the variables:
+   of the ragged array. 
    \begin{description}
      \item[|x_tab|] One-dimensional array which will contain the data.
      \item[|x_size|] Integer variable representing the total size of |x_tab|.
@@ -123,17 +112,11 @@ in the  |pd_handling| array.
                      the number of independent variables for that dimension.
    \end{description}
 
-   For half of the usages in this class, |x_base| has index representing the 
-   rank. In these cases (associated with |pd_set_baseinc0|, |x_tab| 
-   contains the values of the independent variables associated with
-   |y|; hence, setting up |x_base| involves nothing more
-   looping over the rank and adding up the number of variables specified by 
-   |y|. In the other case, |x_tab| represents the dependent variable itself.
-   Then, |x_base| just keeps track of where each dependent variable begins. 
-   The macro used to simulate the multidimensionality of |x_tab| uses both
-   |x_base| and |y| to locate a particular entry. The size required for a 
-   dependent variable is just the product of its dimensions which
-   can be computed (|pd_set_baseinc1|) by looping over its rank and 
+   |x_base| just keeps track of where each dependent variable begins in 
+   |x_tab|. The macro used to simulate the multidimensionality of |x_tab| 
+   uses both |x_base| and |y| to locate a particular entry. The size 
+   required for a dependent variable is just the product of its dimensions 
+   which can be computed (|pd_set_baseinc|) by looping over its rank and 
    forming the product of the corresponding entries in |y|.
    
    Since |x_tab| has zero size at the beginning of the
@@ -143,26 +126,27 @@ in the  |pd_handling| array.
    which are expanded at the same time.
 */
 
-@m pd_set_baseinc1(x,y,subs)
+@m pd_set_baseinc(x,y,subs)
       x##_base##subs=x##_size;
       pd_inc=1;
       $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
         pd_inc=pd_inc*y##subs[I];
       }
 
-@m pd_set_baseinc0(x,y,subs)
-      $ASSERT( range_min(ind_##x##_base_1) == range_min(ind_##y##_1) && range_max(ind_##x##_base_1) == range_max(ind_##y##_1)) 
-      x##_base##subs[range_min(ind_##x##_base_1)] = x##_size;
-      $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
-         x##_base##subs[I]=x##_base##subs[I-1]+y##subs[I-1];
-      }
-      pd_inc=x##_base##subs[range_max(ind_##x##_base_1)]-x##_base##subs[range_min(ind_##x##_base_1)]+y##subs[range_max(ind_##y##_1)];
-
 @m pd_ragged_alloc(x) 
       x##_size=0;
       var_alloc(x##_base);
 
 @m pd_ragged_realloc(x,y,subs)
-      $IFCASE(rank_##y - rank_##x##_base,pd_set_baseinc0(x,y,subs),pd_set_baseinc1(x,y,subs))
+      pd_set_baseinc(x,y,subs);
       var_realloc(x##_tab,x##_size-1,x##_size-1+pd_inc);
       x##_size=x##_size+pd_inc @;
+
+/*
+  Although the end result of these macros is similar to that
+  from those in pmiformat.hweb, the approach appears quite different. The
+  reason is that in this case, none of the crucial dimensions are known
+  at compile time. Instead, the base and increments are recomputed, and
+  memory reallocated, not only as new data sets are read in, but also
+  as each dependent variable is handled. 
+*/
