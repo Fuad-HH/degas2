@@ -2,6 +2,11 @@
 \Title{classes}
 
 % $Log$
+% Revision 1.14  1995/07/14 13:19:59  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.13  1995/06/27 13:21:05  dstotler
 % Add a few lines describing specific energy and temperature.
 %
@@ -222,6 +227,60 @@ index.
 |ts_tg(test,i)| is the target number for the $i$th reaction.
 |ts_bk(test,i)| is the background number for the $i$th reaction.
 
+@ Problem class. Prefix is |pr|. 
+
+These properties characterize the
+interactions between the various aspects of the problem: test particles,
+background species, and reactions. The integer indices and array values
+noted below correspond
+to entries into one of several lists associated with a specific problem.
+For clarity, we will associate with each list a different subscript to
+be used in the subsequent definitions.
+Among these are:
+\begin{enumerate}
+  \item Global list of species (input, class |sp|) (subscript: $s$),
+  \item Global list of reactions (input, class |rc|) (subscript: $r$),
+  \item List of test species (problem input) (subscript: $t$),
+  \item List of background species (problem input) (subscript: $b$),
+  \item List of problem reactions (problem input) (subscript: $pr$),
+  \item List of generic species represented in the test and background 
+species lists (subscript: $g$).
+\end{enumerate}
+
+The common variables are:
+\begin{description}
+  \item{|pr_test_num|} Number of test species in the problem.
+  \item{|pr_background_num|} Number of background species in the problem.
+  \item{|pr_reaction_num|} Number of reactions in the problem.
+  \item{|pr_num_generics|} Total number of generic species represented
+in the lists of test and background species.
+  \item{|pr_test($i_{t}$)|} Species index of test species $i_{t}$.
+  \item{|pr_background($i_{b}$)|} Species index of background species $i_{b}$.
+  \item{|pr_gen($i_{s}$)|} Index into the list of generic species for 
+species $i_{s}$ in the global species list.
+  \item{|pr_num_eq($i_{g}$)|} Total number of entries in the test and background 
+species lists which are equivalent to generic species $i_{g}$.
+  \item{|pr_eq($i_{g}$,$j_{t}$)|} Index into the overall species list of the
+$j_{t}$th test particle equivalent to generic species $i_{g}$.
+  \item{|pr_reaction($i_{pr}$)|} Index into the global list of reactions for
+problem reaction $i_{pr}$.
+  \item{|pr_rc_num($i_{t}$)|} Number of reactions for test species $i_{t}$.
+  \item{|pr_ts_rc($i_{t}$,$j_{pr}$)|} Index into the list of problem reactions
+for the $j_{pr}$th reaction involving test species $i_{t}$.
+  \item{|pr_ts_bk($i_{t}$,$j_{pr}$)|} Index into the list of background 
+species for the $j_{pr}$th reaction involving test species $i_{t}$.
+  \item{|pr_num_arrangements($i_{t}$,$j_{pr}$)|} Number of arrangements of
+products (which may or may not be truly different) for  the $j_{pr}$th 
+reaction involving test species $i_{t}$.
+  \item{|pr_ts_prod($i_{t}$,$j_{pr}$,$k$,$l$)|} The $l$th product (equivalent
+to the $l$th generic species in |rc_product|) for the $k$th arrangement of
+the $j_{pr}$th reaction involving test species $i_{t}$.
+  \item{|pr_prod_mult($i_{t}$,$j_{pr}$,$k$)|} Relative weight or 
+multiplicity of the $k$th
+arrangement of  the $j_{pr}$th reaction involving test species $i_{t}$. This
+quantity is the probability of obtaining arrangement $k$ in this reaction.
+\end{description}
+
 @ Cross section class. Prefix is |xs|.
 
 The properties associated with ``cross sections'' (which is a generic
@@ -258,7 +317,7 @@ it may be used for any necessary purpose, it should provide the conversion
 factor from |xs_units[0,j]| to the MKS system.
   \item[|xs_var[i,j]|] String describing independent variable |i|. Examples
 contemplated thus far are `density', `energy', 'temperature', 
-`specific_energy' (i.e., energy per amu), and `specific_temperature'. Note:
+`specific\_energy' (i.e., energy per amu), and `specific\_temperature'. Note:
 the ``non-specific'' forms should only be used for electron-impact processes
 where there can be no confusion as to the relevant mass.
   \item[|xs_spacing[i,j]|] String telling the method of interpolation to be
