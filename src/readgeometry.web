@@ -2,6 +2,10 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.37  1999/02/04 19:13:16  dstotler
+% Add input recycling coefficients specifically for the UEDGE_RECT_SLAB
+% case.
+%
 % Revision 1.36  1999/02/02 15:07:08  dstotler
 % Remove some old code for increment_polygon for clarity. Add
 % polygon_recyc_coef and current_recyc_coef to go along with
@@ -228,12 +232,11 @@ Some keywords have no arguments, however.
 
 Here are the possible keywords and their arguments; 
 keywords will be bold-faced, arguments will be italicized.
-Note that {\tt symmetry}
-must be the first keyword in the file and the one of the {\tt xxxfile}
-keywords (items 2 through 4 below) must follow it. 
+The {\tt symmetry} and one of the three keywords following it
+in the first list below must appear at the top of the 
+{\tt readgeometry} input file.
 As in the other DEGAS 2 input files, lines beginning
 with a \# sign in column 1 are ignored (comments) as are blank lines.
-
 \begin{description}
 \item[symmetry] {\tt sym} describes the symmetry of the geometry with
 {\tt sym} = {\tt plane} or {\tt cylindrical} (``toroidal symmetry'').
@@ -244,6 +247,10 @@ DEGAS input file.
 geometry / plasma file.
 \item[sonnetfile] {\tt filename} provides the name of a SONNET 
 {\tt .elements} file. 
+\end{description}
+
+The keywords which apply only in the {\bf degasfile} case are:
+\begin{description}
 \item[minx] {\tt min} tells the code to exclude grid indices 
 for which the {\tt gridx} value is less than {\tt min}.
 \item[minz] {\tt min} tells the code to exclude grid indices 
@@ -311,9 +318,26 @@ boundary.
 \item[define\_polygon] terminates the definition of the current
 polygon begun by the previous {\bf new\_polygon} and adds it to the 
 current zone. 
+\end{description}
+
+Keywords which apply only in the UEDGE and Sonnet cases (the only difference
+between the two is that double-null option is currently not available;
+the reason has been forgotten!) are:
+\begin{description}
+\item[mesh] {\tt rmin rmax zmin zmax} defines the plasma zones based on
+the UEDGE or Sonnet mesh. The input parameters are used to specify the
+universal cell. The corresponding rectangle, therefore, must completely
+enclose the mesh coordinates.
+\item[null\_type] {\tt j} can be {\tt j} = 1 (single-null) or 2 
+(double-null).
 \item[wallfile] {\tt filename} specifies a file with two wall
 segments which will be used to set up vacuum regions around the plasma zones
 established via a UEDGE file.
+\end{description}
+
+These keywords are used to label solid and exit polygons. They may
+be used with any of the three input file types:
+\begin{description}
 \item[stratum] {\tt j} sets the stratum label to be {\tt j}.
 Polygons defined subsequently will be labeled with this stratum number until
 the label is changed again via this keyword. For DEGAS input files, 
@@ -325,14 +349,17 @@ to be that represented by {\tt symbol} (an entry in the
 Polygons defined subsequently will be made of this material until
 the label is changed again via this keyword. For DEGAS input files,
 {\tt readgeometry} will attempt to extract the material from the {\tt kwmat}
-array, unless overridden by explicit use of this keyword. 
+array, unless overridden by explicit use of this keyword. In other
+words, if the user wishes to set the current material explicitly, the 
+{\bf material} keyword should come {\em after} any 
+{\bf wall} keywords used in defining the polygon (and before 
+{\bf define\_polygon}).
 \item[temperature] {\tt value} assigns the current temperature to
 {\tt value} kelvin. This is used along with the material and stratum
 labels in defining the material surfaces (targets and walls) in the problem.
 If not set, a default temperature of 300 K is used. For DEGAS input files,
 {\tt readgeometry} will attempt to extract the material from the {\tt twall}
 array, unless overridden by explicit use of this keyword. 
-\item[end] terminates the input to {\tt readgeometry}.
 \item[recyc\_coef] {\tt value} assigns the current recycling fraction, 
 handled in the same way as the current material and temperature, to 
 {\tt value}, which must be $\geq 0$ and $\leq 1$. The absorbed fraction
@@ -341,12 +368,14 @@ DEGAS variable {\tt frabsorb} specifies the fraction of the not-reflected
 atoms which are absorbed; i.e., the overall absorption fraction depends on
 the local reflection coefficient. Hence, we have not attempted to relate
 the DEGAS 2 recycling coefficient to {\tt frabsorb}.
+\item[end] terminates the input to {\tt readgeometry}.
 \end{description}
 
 A typical main {\tt readgeometry} input file for reading DEGAS input will have
 a structure similar to:
 
 \begin{verbatim}
+symmetry ...
 
 degasfile ...
 
@@ -357,11 +386,11 @@ grid
 
 new_zone ...
   new_polygon
-    material ...
-    stratum ...
     wall ...
     outer ...
     edge ...
+    material ...
+    stratum ...
   define_polygon
 
   new_polygon
@@ -376,6 +405,24 @@ new_zone
 
 end
 \end{verbatim}
+
+The input files for the UEDGE cases are usually much simpler. This is
+possible since the UEDGE case is more specific and much of the topological 
+information can be hard-wired into the code:
+\begin{verbatim}
+symmetry ...
+
+uedgefile ...
+
+null_type ...
+wall_file ...
+material ...
+mesh ...
+end
+\end{verbatim}
+
+See the Examples section in the manual for additional examples of
+{\tt readgeometry} input files.
 
 \ID{$Id$}
 
@@ -402,7 +449,7 @@ end
 @ The main program
 @m mem_delta 10
 @m xz_index 2
-@m num_points 120
+@m num_points 200
 
 /* 
   Code specific to a few geometries, e.g., for detector setup, appears
