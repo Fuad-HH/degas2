@@ -2,6 +2,15 @@
 \Title{doflights}
 
 % $Log$
+% Revision 1.1  2001/07/16 20:50:38  dstotler
+% Designed to permit external control of BGK iterations by
+% flighttest. This file is roughly the same as the pre-BGK
+% flighttest.web. Contains primary subroutines split off from
+% flighttest.web. Changed "post_process_back_scores" to
+% "post_process_source_scores" and removed stat_flt from  argument
+% list. Removed check on so_type and checked sources in setting
+% need_scores.
+%
 
 @* Subroutines for control of main program.
 
@@ -404,7 +413,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
          call final_conversions(tl_cv_post,stat_flt)
             
          if (need_scores) then
-            call post_process_test_scores(is,stat_flt,estimator_factors)
+            call post_process_test_scores(is,estimator_factors)
             call post_process_source_scores(is,estimator_factors)
          end if
 
@@ -853,9 +862,9 @@ we don't set the dimensions until just before the call.
    sum over the extra dimensions.
 */
 
-      ix_1=output_index_1_min
+      ix_1=max(1,output_index_1_min)
       ix_n=output_index_1_max
-      iy_1=output_index_2_min
+      iy_1=max(1,output_index_2_min)
       iy_n=output_index_2_max
 
       if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
