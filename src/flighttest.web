@@ -2,6 +2,12 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.22  1998/01/14 20:39:17  dstotler
+% Move a bunch of post-processing calculations to score.web (now
+% skipping for 0 mass test species). Replace problem_species_background
+% with pr_background_lookup. Add arrays for manual coupling to fluid
+% code. Replace transform_v routine with a macro.
+%
 % Revision 1.21  1997/09/02 21:14:28  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -254,7 +260,7 @@ c      real weight_grp[so_grps]
 */
 
       do i=0,tally_size-1
-         output_all[i][o_var]=sqrt(output_all[i][o_var])/max(output_all[i][o_mean],const(1.0,-100))
+         output_all[i][o_var]=sqrt(output_all[i][o_var])/max(abs(output_all[i][o_mean]),const(1.0,-100))
          output_all[i][o_mean]*=tot_scale_curr
          do is=1,so_grps
             output_grp[is][i][o_var]=sqrt(output_grp[is][i][o_var])/max(output_grp[is][i][o_mean],const(1.0,-100))
@@ -402,68 +408,70 @@ we don't set the dimensions until just before the call.
    sum over the extra dimensions.
 */
 
-      do back=1,pr_background_num
-         index_parameters[tl_index_back]=back
-         do iy=output_index_2_min,output_index_2_max
-            do ix=output_index_1_min,output_index_1_max
-               if (zn_check(zone_map(ix,iy))) then
-                  index_parameters[tl_index_zone]=zone_map(ix,iy)
-                  output_2D_coupling(ix,iy,back,ou_coupling_mass)=
-     $                 extract_output_datum(index_parameters,0,
-     $                 out_post_all[0][o_mean],'ion source rate')
-                  output_2D_coupling(ix,iy,back,ou_coupling_momentum_1)=
-     $                 extract_output_datum(index_parameters,1,
-     $                 out_post_all[0][o_mean],'ion momentum source vector')
-                  output_2D_coupling(ix,iy,back,ou_coupling_momentum_2)=
-     $                 extract_output_datum(index_parameters,2,
-     $                 out_post_all[0][o_mean],'ion momentum source vector')
-                  output_2D_coupling(ix,iy,back,ou_coupling_momentum_3)=
-     $                 extract_output_datum(index_parameters,3,
-     $                 out_post_all[0][o_mean],'ion momentum source vector')
-                  output_2D_coupling(ix,iy,back,ou_coupling_energy)=
-     $                 extract_output_datum(index_parameters,0,
-     $                 out_post_all[0][o_mean],'ion energy source')
-               else
-                  do i=1,ou_coupling_max
-                     output_2D_coupling(ix,iy,back,i)=zero
-                  end do
-               end if
-            end do      // ix
-         end do         // iy
-      end do            // back
+      if (pr_reaction_num > 0) then      // else: these tallies undefined     
+         do back=1,pr_background_num
+            index_parameters[tl_index_back]=back
+            do iy=output_index_2_min,output_index_2_max
+               do ix=output_index_1_min,output_index_1_max
+                  if (zn_check(zone_map(ix,iy))) then
+                     index_parameters[tl_index_zone]=zone_map(ix,iy)
+                     output_2D_coupling(ix,iy,back,ou_coupling_mass)=
+     $                    extract_output_datum(index_parameters,0,
+     $                    out_post_all[0][o_mean],'ion source rate')
+                     output_2D_coupling(ix,iy,back,ou_coupling_momentum_1)=
+     $                    extract_output_datum(index_parameters,1,
+     $                    out_post_all[0][o_mean],'ion momentum source vector')
+                     output_2D_coupling(ix,iy,back,ou_coupling_momentum_2)=
+     $                    extract_output_datum(index_parameters,2,
+     $                    out_post_all[0][o_mean],'ion momentum source vector')
+                     output_2D_coupling(ix,iy,back,ou_coupling_momentum_3)=
+     $                    extract_output_datum(index_parameters,3,
+     $                    out_post_all[0][o_mean],'ion momentum source vector')
+                     output_2D_coupling(ix,iy,back,ou_coupling_energy)=
+     $                    extract_output_datum(index_parameters,0,
+     $                    out_post_all[0][o_mean],'ion energy source')
+                  else
+                     do i=1,ou_coupling_max
+                        output_2D_coupling(ix,iy,back,i)=zero
+                     end do
+                  end if
+               end do      // ix
+            end do         // iy
+         end do            // back
 
-      open(unit=diskout,file='sources.out',status='unknown')
-      e_back=pr_background_lookup(sp_lookup('e'))
-      do back=1,pr_background_num
-         if (back != e_back) then
-            write(diskout,*) SP
-     $           ((output_2D_coupling(ix,iy,back,ou_coupling_mass),
-     $           ix=output_index_1_min,output_index_1_max),
-     $           iy=output_index_2_min,output_index_2_max)
-            write(diskout,*) SP 
-     $           ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_1),
-     $           ix=output_index_1_min,output_index_1_max),
-     $           iy=output_index_2_min,output_index_2_max)
-            write(diskout,*) SP
-     $           ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_2),
-     $           ix=output_index_1_min,output_index_1_max),
-     $           iy=output_index_2_min,output_index_2_max)
-            write(diskout,*) SP
-     $           ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_3),
-     $           ix=output_index_1_min,output_index_1_max),
-     $           iy=output_index_2_min,output_index_2_max)
-            write(diskout,*) SP
-     $           ((output_2D_coupling(ix,iy,back,ou_coupling_energy),
-     $           ix=output_index_1_min,output_index_1_max),
-     $           iy=output_index_2_min,output_index_2_max)
-         end if
-      end do
-      write(diskout,*) SP
-     $     ((output_2D_coupling(ix,iy,e_back,ou_coupling_energy),
-     $     ix=output_index_1_min,output_index_1_max),
-     $     iy=output_index_2_min,output_index_2_max)
+         open(unit=diskout,file='sources.out',status='unknown')
+         e_back=pr_background_lookup(sp_lookup('e'))
+         do back=1,pr_background_num
+            if (back != e_back) then
+               write(diskout,*) SP
+     $              ((output_2D_coupling(ix,iy,back,ou_coupling_mass),
+     $              ix=output_index_1_min,output_index_1_max),
+     $              iy=output_index_2_min,output_index_2_max)
+               write(diskout,*) SP 
+     $              ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_1),
+     $              ix=output_index_1_min,output_index_1_max),
+     $              iy=output_index_2_min,output_index_2_max)
+               write(diskout,*) SP
+     $              ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_2),
+     $              ix=output_index_1_min,output_index_1_max),
+     $              iy=output_index_2_min,output_index_2_max)
+               write(diskout,*) SP
+     $              ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_3),
+     $              ix=output_index_1_min,output_index_1_max),
+     $              iy=output_index_2_min,output_index_2_max)
+               write(diskout,*) SP
+     $              ((output_2D_coupling(ix,iy,back,ou_coupling_energy),
+     $              ix=output_index_1_min,output_index_1_max),
+     $              iy=output_index_2_min,output_index_2_max)
+            end if
+         end do
+         write(diskout,*) SP
+     $        ((output_2D_coupling(ix,iy,e_back,ou_coupling_energy),
+     $        ix=output_index_1_min,output_index_1_max),
+     $        iy=output_index_2_min,output_index_2_max)
 
-      close(unit=diskout)
+         close(unit=diskout)
+      end if
 
       var_free(zone_map)
      
