@@ -2,6 +2,13 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.3  1997/09/02 21:14:44  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.2  1997/08/19 14:37:05  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -150,7 +157,8 @@ loop1: continue
       weight_tot=zero
 
       do num=1,nsample
-         call sample_sources(num,so_args(isource),fl_args(x),rel_wt)
+         fl_label(x,num,isource)
+         call sample_sources(fl_args(x),rel_wt)
          stat[lc_zone(pt_loc(fl_origin(x)))]+=rel_wt
          weight_tot+=rel_wt
       end do
