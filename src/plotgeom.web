@@ -2,6 +2,11 @@
 \Title{plot geometry}
 
 % $Log$
+% Revision 1.9  1995/07/14 13:20:28  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.8  1995/05/26 04:01:12  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -72,7 +77,10 @@ Introduction\ldots
 @ Output a slice through the geometry to an HDF file, |hdffile|.  |first|
 is |.true.| if this is the first image output.  Slice starts at $\vect x_0$
 with the $x$ exis parallel to $\vect a$ and the $y$ axis parallel to $\vect
-b$.  Size of the image is |alen| by |blen|.
+b$.  Size of the image is |alen| by |blen|. |x0| must be within the problem
+space (i.e., not within a solid). The units of |alen| and |blen| are those
+of the spatial dimensions (i.e., |x0| + |alen|,|blen| must also be within
+the problem space).
 
 @<Functions...@>=
       subroutine output_slice(hdffile,first,x0,a,b,alen,blen,func)
@@ -82,7 +90,7 @@ b$.  Size of the image is |alen| by |blen|.
       real x0[3],a[3],b[3],alen,blen
       gi_common            // Input
       integer min_char,max_char,pixsize // Parameters
-      parameter (min_char=3,max_char=255,pixsize=400000)
+      parameter (min_char=3,max_char=255,pixsize=400000) // not pixsize: max. no. of pixels
       integer DFTAG_RLE,DFTAG_IMC
       parameter (DFTAG_RLE=11, DFTAG_IMC=12)
       integer na,nb,i,j,ind,direction,ret,istart,istop,val // Local
@@ -100,18 +108,18 @@ b$.  Size of the image is |alen| by |blen|.
       logical track
 
       assert(alen > 0 && blen > 0)
-      dx = sqrt(alen*blen/areal(pixsize))
-      na = int(alen/dx)
-      nb = int(blen/dx)
+      dx = sqrt(alen*blen/areal(pixsize))  // length of one pixel
+      na = int(alen/dx)                    // na is the number of pixels in a
+      nb = int(blen/dx)                    // nb .... in b
       assert(na*nb <= pixsize)
 
       do j=0,na*nb-1
-         ch[j]=char(0)
+         ch[j]=char(0)         // array ch will hold plot data; initialize here
       end do
 
-      vc_unit(b,vy)
+      vc_unit(b,vy)            // vy is unit vector corresponding to b
 
-      vc_xvt(x0,vy,half*dx,lc_x(xx))
+      vc_xvt(x0,vy,half*dx,lc_x(xx))       // step along b half a pixel
 /* write (stderr,*) 'lc_x(xx)',lc_x(xx) */
        lc_set(xx)
 
@@ -132,6 +140,7 @@ loop:    continue
          istart=int(xpos/dx+half)
          xpos=xpos+direction*t
          istop=int(xpos/dx+half)
+/*         write(stderr,*) j,istart,istop,xpos,tmax */
          if (direction > 0) then
             istop = istop-1
          else
@@ -146,7 +155,10 @@ loop:    continue
          tmax=tmax-t
          lc_thru_face(xx)
          if (!done) then         // Still more to go
+            if (lc_cell(xx) == 0) then
+               write (stderr,*) j,istart,istop,xpos,tmax
             assert(lc_cell(xx) != 0)
+            end if
             goto loop
          end if
          assert(tmax == zero)
