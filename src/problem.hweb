@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.16  1996/11/04 16:57:00  karney
+% Check in consistent versions of problem.hweb and problemsetup.hweb with
+% scoring arrays commented out.
+%
 % Revision 1.15  1996/11/04 15:23:23  karney
 % Comment out scoring datas in problem.hweb to avoid ftangle overflow.
 %
@@ -77,6 +81,8 @@ problem is identified by an integer indexing into these arrays.
 @f pr_materials_decl integer
 @f pr_pmi_decl integer
 
+@m SCORING 0
+
 @m pr_test_args(x) x
 @m pr_background_args(x) x
 @m pr_reaction_args(x) x
@@ -140,9 +146,11 @@ problem is identified by an integer indexing into these arrays.
 @m pr_background_lookup(sp) int_lookup(sp,problem_background_sp,pr_background_num)
 @m pr_reaction_lookup(rc) int_lookup(rc,problem_rc,pr_reaction_num)
 
+@#if SCORING
 @m pr_score_check(x) (x > 0 && x <= pr_score_num)
 
 @m problem_score_rank(x) problem_score_indep_vars[x](0)
+@#endif
 
 @ Length specifications.
 
@@ -150,10 +158,10 @@ problem is identified by an integer indexing into these arrays.
 @m pr_arrangement_max 4
 @m pr_pmi_max 8
 @m pr_max_equiv 8
+@#if SCORING
 @m pr_score_rank_max 5    // Matches tl_rank_man in score.hweb
+@#endif
 @m pr_bkrc_reagent_max 2
-
-@m SCORING 0
 
 @ Variable definitions.
 
@@ -166,8 +174,11 @@ problem is identified by an integer indexing into these arrays.
       define_var_pk(pr,pr_bkrc_dim,INT)
       define_var_pk(pr,pr_materials_num,INT)
       define_var_pk(pr,pr_pmi_num,INT)
+@#if SCORING
       define_var_pk(pr,pr_score_num,INT)
-/*    define_dummy_pk(pr,pr_ignore,INT) */
+@#else
+      define_dummy_pk(pr,pr_ignore,INT) 
+@#endif
 
       define_dimen_pk(pr,problem_test_ind,pr_test_num)
       define_dimen_pk(pr,problem_background_ind,pr_background_num)
@@ -183,8 +194,10 @@ problem is identified by an integer indexing into these arrays.
       define_dimen_pk(pr,problem_pmi_ind0,pr_pmi_max)
       define_dimen_pk(pr,problem_product_ind,rc_product_max)
       define_dimen_pk(pr,problem_arr_ind,pr_arrangement_max)
+@#if SCORING
       define_dimen_pk(pr,problem_scores,0,pr_score_num)
       define_dimen_pk(pr,problem_score_rank_ind,0,pr_score_rank_max)
+@#endif
 
       define_varp_pk(pr,problem_species_test,INT,problem_species_ind)
       define_varp_pk(pr,problem_species_background,INT,problem_species_ind)

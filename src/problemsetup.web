@@ -2,6 +2,10 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.19  1996/11/04 16:57:02  karney
+% Check in consistent versions of problem.hweb and problemsetup.hweb with
+% scoring arrays commented out.
+%
 % Revision 1.18  1996/10/31 09:06:57  karney
 % Define scoring arrays.
 %
@@ -92,7 +96,7 @@ collated accordingly and written to the single output netCDF file
 @I reactiondata.hweb
 @I pmidata.hweb
 @I element.hweb
-@I score.hweb
+/* @I score.hweb */
 
 @m SCORING 0
 
@@ -230,7 +234,9 @@ eof:  continue
       pr_reaction_num=0
       pr_materials_num=0
       pr_pmi_num=0
+@#if SCORING
       pr_score_num=0
+@#endif
 
       num_generics=0
       int_alloc(generics,sp_num)
@@ -1408,8 +1414,10 @@ reagents. */
       pr_common                 // Common
       sy_common
       st_common
+@#if SCORING
       tl_common
-      
+@#endif
+
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
       if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
