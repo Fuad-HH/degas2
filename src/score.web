@@ -2,6 +2,10 @@
 \Title{score}
 
 % $Log$
+% Revision 1.14  2000/04/01 17:34:34  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.13  2000/03/27 21:15:30  dstotler
 % A little clean up following merger with Randy's branch.
 %
@@ -190,6 +194,7 @@
       scoring_data[pr_var_momentum_2]=sp_m(pt_sp(p))*pt_v(p)[2]
       scoring_data[pr_var_momentum_3]=sp_m(pt_sp(p))*pt_v(p)[3]
       scoring_data[pr_var_energy]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
+      scoring_data[pr_var_xz_stress]=sp_m(pt_sp(p))*pt_v(p)[1]*pt_v(p)[2]
 
       return
       end
@@ -422,119 +427,119 @@ instances of the particle class.
       return
       end
 
-@ Score source group data. This is mostly a place-holder for future expansion.
-For now it only handles recombination.
+@ Set up scoring data for puff source. This routine is analogous to the
+collision routines. 
 
 @<Functions...@>=
-      subroutine score_sources(fl_dummy(x),estimator_factors)
+      subroutine puff_data(est,so_dummy(isource),xseg,pt_dummy(p),scoring_data)
 
       implicit_none_f77
-      so_common                                    // Common
+      sp_common
       pr_common
+      sc_common
       implicit_none_f90
 
-      fl_decl(x)                                   // Input / Output
+      integer est,xseg                            // Input
+      so_decl(isource)
+      pt_decl(p)
 
-      real estimator_factors[*]                    // Output
+      real scoring_data[scoring_data_max]         // Output
 
-      integer i,is,bk_rc_is                        // Local
-      real rate
+      integer psp                                 // Local
+      real vpuff,energy
+      vc_decl(vcos)
+      vc_decl(vsrc)
 
-
-      external find_rate                           // External
-      real find_rate
-
-      is=fl_source(x)
-
-      if (so_type(is) == so_recomb) then
-         bk_rc_is=0
-         do i=1,pr_bkrc_num
-            if (pr_bkrc_prod(i,1) == so_species(is)) then
-               assert(bk_rc_is == 0)
-               bk_rc_is=i
-            end if
-         end do
-         assert(bk_rc_is != 0)
-         rate=find_rate(pt_args(fl_current(x)),   // OK?
-     $                 pr_background_args(pr_bkrc_rg(bk_rc_is,1)),
-     $                 pr_reaction_args(pr_bk_rc(bk_rc_is)),rn_args(x))
-         call score_recombination(tl_est_collision,one/rate,
-     $        pr_reaction_args(bk_rc_is),rate,pt_args(fl_current(x)),
-     $        estimator_factors,rn_args(fl_rand(x)))
-//  No other source types being scored now
+      if (est == tl_est_post_process) then
+         vpuff=const(3.)
+         vc_set(vcos,zero,zero,const(8.)/(const(3.)*sqrt(const(6.)*PI)))
+         call puff_v_details(so_args(isource),xseg,lc_args(pt_loc(p)),vpuff,
+     $        vc_args(vcos),vc_args(vsrc),energy)
+      else if (est == tl_est_collision) then
+         vc_copy(pt_v(p),vsrc)
+         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+      else 
+         assert('Incorrect value of est' == ' ')
       end if
-
+      psp=pr_problem_sp_test(pt_test(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp)]+=
+     $  sp_m(pt_sp(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[1] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[2] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[3] 
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp)]+=
+     $     energy
+      
       return
       end
 
-@ Scoring for recombination. 
+@ Scoring data for plate source.
 
 @<Functions...@>=
-      subroutine score_recombination(est,est_fac,pr_reaction_dummy(bk_rc_is),
-     $     rate,pt_dummy(p),estimator_factors,rn_dummy(x))
+      subroutine plate_data(est,so_dummy(isource),xseg,pt_dummy(p),
+     $                      scoring_data)
 
       implicit_none_f77
-      pr_common                                        // Common
-      rd_common
-      tl_common
+      sp_common
+      pr_common
       so_common
-      ou_common
+      sc_common
       implicit_none_f90
-      
-      pt_decls
-      rd_decls
 
-      integer est                                      // Input
-      real est_fac,rate
-      pr_reaction_decl(bk_rc_is)
+      integer est,xseg                            // Input
+      so_decl(isource)
       pt_decl(p)
-      real estimator_factors[*]                        // Scratch
-      rn_decl(x)                                       // Input/output
 
-      integer jscore,i                                 // Local
-      real independent_parameters[xs_max_indep_params],
-     $     scoring_data[scoring_data_max]
-      logical need_scores
-      pr_reaction_decl(pr_reac) 
-      pr_background_decl(back_1)
+      real scoring_data[scoring_data_max]         // Output
 
-      rn_decls
-      @<Memory allocation interface@>
+      integer psp_1,psp_2                         // Local
+      real wa,energy
+      sp_decl(spion)
+      vc_decl(vsrc)
 
-      pr_reac=pr_bk_rc(bk_rc_is)
+      spion=so_root_sp(isource)
+      if (est == tl_est_post_process) then
+         wa=const(3.)
+/*
+   The current assumption is that the ion velocity is directed
+   normally at the plate. Hence, need do nothing special here with
+   |vsrc|. However, if a more detailed model is invoked, an appropriate
+   average velocity expression needs to be used here.
+*/
+         call plate_v_details(so_args(isource),xseg,lc_args(pt_loc(p)),wa,
+     $        vc_args(vsrc),energy)
+      else if (est == tl_est_collision) then
+         vc_copy(pt_v(p),vsrc)
+         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+      else 
+         assert('Incorrect value of est' == ' ')
+      end if
+      psp_1=pr_problem_sp_back(pr_background_lookup(spion))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_1)]+=
+     $  -sp_m(spion)
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_1)]+=
+     $     -sp_m(spion)*vsrc[1] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_1)]+=
+     $     -sp_m(spion)*vsrc[2] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_1)]+=
+     $     -sp_m(spion)*vsrc[3] 
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_1)]+=
+     $     -energy
 
-      need_scores=.false.
-      do i=1,tally_type_num[tl_type_reaction]
-         jscore=tally_type_base[tl_type_reaction]+i-1
-         assert(rate > zero)
-         estimator_factors[jscore]=tally_est_reaction[jscore][est][pr_reac]
-     $        *pt_w(p)*est_fac
-         if (estimator_factors[jscore] > zero) then
-            need_scores=.true.
-         end if
-      end do
-
-      if (need_scores) then
-         do i=1,scoring_data_max
-            scoring_data[i]=zero
-         end do
-
-         back_1=pr_bkrc_rg(bk_rc_is,1)
-
-         call set_indep_params(pt_args(p),
-     $        pr_background_args(back_1),
-     $        reaction_rate_num_rand[pr_reac],
-     $        rn_args(x),independent_parameters)
-
-         call recombination_data(pr_test_args(pt_test(p)),
-     $        pr_reaction_args(bk_rc_is),est,
-     $        rate,independent_parameters,
-     $        scoring_data,rn_args(x))
-
-         call add_scores(tl_type_reaction,pt_args(p),pr_reaction_args(pr_reac),
-     $        scoring_data,estimator_factors)
-
-      end if      // |need_scores|
+      psp_2=pr_problem_sp_test(pt_test(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
+     $  sp_m(pt_sp(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_2)]+=
+     $     sp_m(pt_sp(p))*vsrc[1] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_2)]+=
+     $     sp_m(pt_sp(p))*vsrc[2] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_2)]+=
+     $     sp_m(pt_sp(p))*vsrc[3] 
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
+     $     energy
       
       return
       end
@@ -1202,7 +1207,15 @@ bins. The treated variables thus far are energy and angle of incicidence.
 
                         particle_no=scores[out_array_index(1,ind_val,jscore)][o_mean]
                         do ic=1,tally_dep_var_dim[jscore_v]
+@#if 0
+/*
+   THE DIVIDE NUMBER CONVERSION IS BROKEN - NEEDS TO DIVIDE BY TOTAL
+   PARTICLE NUMBER NOT BY NUMBER PER GROUP. DO WITHOUT VELOCITY FOR NOW HERE.
+*/
                            velocity[ic]=scores[out_array_index(ic,ind_val,jscore_v)][o_mean]
+@#else
+                           velocity[ic]=one
+@#endif
                         end do
 
                         pt_init(fake_prod[0],sp_sy(pr_test(test)),is)
@@ -1234,14 +1247,21 @@ bins. The treated variables thus far are energy and angle of incicidence.
       return
       end
 
-@ Moved post-processed scores from |flighttest| main routine to here.
+@ Moved post-processed scores from |flighttest| main routine to here. Note:
+although it would be nice to call |set_source_v| to set the velocity here
+just as we do with |set_source_x|, doing so would lead to erroneous 
+energy scores. Namely, on the average $\langle E \rangle \neq
+\frac{1}{2} m \langle v \rangle^{2}$, even though this is always 
+true instantaneously. Hence, the ``data'' routines called here invoke
+the same lower level routines called during the $\vec{v}$ source
+computation and return a suitable energy value according to the 
+situation.
 
 @<Functions...@>=
-      subroutine post_process_back_scores(is,scores,estimator_factors)
+      subroutine post_process_source_scores(so_dummy(is),estimator_factors)
 
       implicit_none_f77
-      pr_common                                   // Common
-      tl_common
+      pr_common                                         // Common
       so_common
       sp_common
       bk_common
@@ -1249,69 +1269,113 @@ bins. The treated variables thus far are energy and angle of incicidence.
       zn_common
       implicit_none_f90
 
-      tl_decls
-      st_decls
+      so_decl(is)                                      // Input
 
-      integer is                                  // Input
+      real estimator_factors[*]                        // Scratch
 
-      real scores[0:*][o_mean:o_var]              // Output
-
-      real estimator_factors[*]                   // Scratch
-
-      integer i,bk_rc_is,seg,seg_tot,zone         // Local
-      real est_fac,rate
-      lc_decl(zone_loc)
+      integer i,bk_rc_is,seg,seg_tot,kseg,xseg,est     // Local
       pt_decl(fake_pt)
       rn_decl(fake_rn)
 
       @<Memory allocation interface@>
       lc_decls
       rn_decls
-
-      real find_rate
-      external find_rate
+      st_decls
 
 /*
-   Background particle scores - Same as above, but the ``fake'' particle is
-   now of a background species and the reactions scored are background
-   reactions. The only one of these presently implemented is recombination.
-   This code could be moved to yet another routine.
-   Catch reaction-post-process scores for recombination. Could be generalized
-   by removing the if-then and calling |score_sources| below.
+   Similar to above, but the ``fake'' particle now corresponds to the sourced
+   species.
 */
-      bk_rc_is=0
-      do i=1,pr_bkrc_num
-         if (pr_bkrc_prod(i,1) == so_species(is)) then
-            assert(bk_rc_is == 0)
-            bk_rc_is=i
-         end if
-      end do
-      assert(bk_rc_is != 0)
-      est_fac=one
-
       do seg=1,so_nseg(is) 
          seg_tot=so_base(is)+seg-1
-         assert(so_geom(is) == so_volume)
-         zone=source_segment_ptr[seg_tot]
-         vc_copy(zone_center[zone],lc_x(zone_loc))
-         lc_set_a(zone_loc)
+         kseg=seg-1
+         xseg=source_segment_ptr[so_base(is)+kseg]
+
+         est=tl_est_post_process
+
          pt_init(fake_pt,sp_sy(so_species(is)),is)
-         lc_copy(zone_loc,pt_loc(fake_pt))
-         v_ext_to_int(lc_x(zone_loc),bk_v(pr_bkrc_rg(bk_rc_is,2),
-     $        lc_zone(zone_loc)),pt_v(fake_pt),geometry_symmetry,background_coords)
-         rate=find_rate(pt_args(fake_pt),
-     $        pr_background_args(pr_bkrc_rg(bk_rc_is,1)),
-     $        pr_reaction_args(pr_bk_rc(bk_rc_is)),rn_args(fake_rn))
-         pt_w(fake_pt)=so_scale(is)*source_current[so_base(is)+seg-1]
-     $        / rate       // i.e., weight $\rightarrow$ ion density*volume
-         call score_recombination(tl_est_post_process,est_fac,
-     $        pr_reaction_args(bk_rc_is),rate,
-     $        pt_args(fake_pt),
+         pt_w(fake_pt)=so_scale(is)*source_current[seg_tot]
+         call set_source_x(est,so_args(is),xseg,rn_args(fake_rn),lc_args(pt_loc(fake_pt)))
+         if (so_type(is) == so_recomb) then
+            bk_rc_is=0
+            do i=1,pr_bkrc_num
+               if (pr_bkrc_prod(i,1) == so_species(is)) then
+                  assert(bk_rc_is == 0)
+                  bk_rc_is=i
+               end if
+            end do
+            assert(bk_rc_is != 0)
+            v_ext_to_int(lc_x(pt_loc(fake_pt)),
+     $           bk_v(pr_background_lookup(so_root_sp(is)),
+     $           lc_zone(pt_loc(fake_pt))),pt_v(fake_pt),geometry_symmetry,background_coords)
+         else
+            vc_set(pt_v(fake_pt),zero,zero,zero)  // Tentative
+         end if
+
+         call score_sources(est,so_args(is),xseg,pt_args(fake_pt),
      $        estimator_factors,rn_args(fake_rn))
-      end do 
+      end do      // |is|
 
       return
       end
+
+      subroutine score_sources(est,so_dummy(is),xseg,pt_dummy(p),
+     $     estimator_factors,rn_dummy(x))
+
+      implicit_none_f77                          // Common
+      pr_common
+      tl_common
+      so_common
+      implicit_none_f90
+
+      integer est,xseg                           // Input
+      so_decl(is)
+      pt_decl(p)
+      real estimator_factors[*]                  // Scratch
+      rn_decl(x)                                 // Input/Output
+      
+      integer i,jscore,prso_reac                 // Local
+      real scoring_data[scoring_data_max]
+      real est_fac
+      logical need_scores
+
+      rn_decls
+      @<Memory allocation interface@>
+
+      prso_reac=pr_reaction_num+so_type(is)
+      est_fac=one
+
+      need_scores=.false.
+      do i=1,tally_type_num[tl_type_reaction]
+         jscore=tally_type_base[tl_type_reaction]+i-1
+         estimator_factors[jscore]=tally_est_reaction[jscore][est][prso_reac]
+     $        *pt_w(p)*est_fac
+         if (estimator_factors[jscore] > zero) then
+            need_scores=.true.
+         end if
+      end do
+
+      if (need_scores) then
+         do i=1,scoring_data_max
+            scoring_data[i]=zero
+         end do
+
+         if (so_type(is) == so_recomb) then
+            call recombination_data(est,so_args(is),xseg,pt_args(p),
+     $           scoring_data,rn_args(x))
+         else if (so_type(is) == so_plate) then
+            call plate_data(est,so_args(is),xseg,pt_args(p),scoring_data)
+         else if (so_type(is) == so_puff) then
+            call puff_data(est,so_args(is),xseg,pt_args(p),scoring_data)
+         end if
+         call add_scores(tl_type_reaction,pt_args(p),prso_reac,
+     $        scoring_data,estimator_factors)
+
+      end if      // |need_scores|
+      
+      return
+      end
+
 
 
 
