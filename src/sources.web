@@ -2,6 +2,10 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.7  1996/10/30 18:28:43  dstotler
+% Complete rewrite of sample_sources, etc. I.e., this is a legitimate
+% first version.
+%
 % Revision 1.6  1996/03/01 20:23:24  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -47,6 +51,8 @@
 @I problem.hweb
 @I element.hweb
 @I string.hweb
+@I tally.hweb
+@I output.hweb
 
 @ The main program.
 
@@ -60,13 +66,13 @@ oversees the selection of the flight origin's position, velocity,
 species and ``relative weight''.
 
 @<Functions...@>=
-      subroutine sample_sources(num,so_dummy(isource),fl_dummy(x),rel_wt)
+      subroutine sample_sources(fl_dummy(x),rel_wt,scores,estimator_factors)
       implicit_none
       
-      integer num         // Input
-      so_decl(isource)  
       fl_decl(x)          // Input and output
       real rel_wt         // Output
+      real scores[0:*][o_mean:o_var]               // Output
+      real estimator_factors[0:*]                  // Scratch
 
       real urd,vprob      // Local
       integer kseg,xseg
@@ -85,24 +91,27 @@ species and ``relative weight''.
    Math. Software} {\bf 3} (1976), 253-256]. 
 */
       rn_next(urd,fl_rand(x))
-      kseg=int(so_nseg(isource)*urd)
-      vprob=so_nseg(isource)*urd - kseg
-      if (vprob < source_segment_prob_alias[so_base(isource)+kseg]) then
-         xseg=source_segment_ptr[so_base(isource)+kseg]
+      kseg=int(so_nseg(fl_source(x))*urd)
+      vprob=so_nseg(fl_source(x))*urd - kseg
+      if (vprob < source_segment_prob_alias[so_base(fl_source(x))+kseg]) then
+         xseg=source_segment_ptr[so_base(fl_source(x))+kseg]
       else
-         xseg=source_segment_ptr_alias[so_base(isource)+kseg]
-         kseg=int_lookup(xseg,source_segment_ptr[so_base(isource)],so_nseg(isource))-1
+         xseg=source_segment_ptr_alias[so_base(fl_source(x))+kseg]
+         kseg=int_lookup(xseg,source_segment_ptr[so_base(fl_source(x))],so_nseg(fl_source(x)))-1
       end if
 
-      call set_source_x(so_args(isource),xseg,rn_args(fl_rand(x)),
+      call set_source_x(so_args(fl_source(x)),xseg,rn_args(fl_rand(x)),
      $     lc_args(pt_loc(fl_origin(x))))
 
-      call set_source_v(so_args(isource),xseg,lc_args(pt_loc(fl_origin(x))),
+      call set_source_v(so_args(fl_source(x)),xseg,lc_args(pt_loc(fl_origin(x))),
      $     rn_args(fl_rand(x)),vc_args(pt_v(fl_origin(x))),sp_args(spsrc))
 
-      fl_init(x,num,sp_sy(spsrc))
+      fl_init(x,sp_sy(spsrc))
 
-      rel_wt=source_segment_rel_wt[so_base(isource)+kseg]*so_wt_norm(isource)
+      rel_wt=source_segment_rel_wt[so_base(fl_source(x))+kseg]
+     $     *so_wt_norm(fl_source(x))
+
+      call score_sources(fl_args(x),scores,estimator_factors)
 
       return
       end
@@ -357,7 +366,7 @@ with an isotropic distribution; we would need another routine for that.
       sp_decl(spsrc)
 
       integer j,xseg2            // Local
-      real fr,vgauss,vpuff
+      real fr,vgauss,vpuff,temp
       vc_decl(deltax)
       vc_decl(xp)
       vc_decl(xp2)
@@ -402,7 +411,14 @@ with an isotropic distribution; we would need another routine for that.
 //      vpuff=sqrt(vpuff*electron_charge*const(3.,-2)/sp_m(spsrc))
       xseg2=int_lookup(-sector_surface[xseg],sector_surface[1],nsectors)
       assert(strata[xseg2]==strata[xseg])
-      vpuff=sqrt(vpuff*sc_solid_temp(sector_solid[xseg2])/sp_m(spsrc))   // 1 eV for box case
+      if (sector_type_pointer[xseg2][sc_wall] != 0) then
+         temp=wall_temperature[sector_type_pointer[xseg2][sc_wall]]
+      else if (sector_type_pointer[xseg2][sc_target] != 0) then
+         temp=target_temperature[sector_type_pointer[xseg2][sc_target]]
+      else
+         assert('Puffing surface not found' == ' ')
+      end if
+      vpuff=sqrt((vpuff*temp)/sp_m(spsrc))   // 1 eV for box case
       vc_scale(vpuff,vsrc,vsrc)
 
       return
@@ -423,7 +439,7 @@ with an isotropic distribution; we would need another routine for that.
       sp_decl(spsrc)
 
       integer j                  // Local
-      real vgauss,rr,vion
+      real vgauss,vion
       vc_decl(vb_flow)
       pr_background_decl(spback)
 
@@ -449,18 +465,8 @@ with an isotropic distribution; we would need another routine for that.
       end do
       assert(spback != 0)
 
-      if (background_coords == plasma_coords_cartesian) then
-         vc_copy(bk_v(spback,lc_zone(x)),vb_flow)
-      else if (background_coords == plasma_coords_cylindrical) then
-         rr=sqrt(lc_x(x)[1]**2+lc_x(x)[2]**2)
-         vb_flow[1]=(bk_v(spback,lc_zone(x))[1]*lc_x(x)[1]-
-     $        bk_v(spback,lc_zone(x))[2]*lc_x(x)[2])/rr
-         vb_flow[2]=(bk_v(spback,lc_zone(x))[1]*lc_x(x)[2]+
-     $        bk_v(spback,lc_zone(x))[2]*lc_x(x)[1])/rr
-         vb_flow[3]=bk_v(spback,lc_zone(x))[3]
-      else
-         assert(.false.)
-      end if
+      call transform_v(pr_background_args(spback),lc_args(x),
+     $     vc_args(vb_flow))
       vion=sqrt(bk_temp(spback,lc_zone(x))/sp_m(spsrc))
       do j=1,3
          rn_gauss_next(vgauss,r)
