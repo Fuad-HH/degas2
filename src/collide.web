@@ -2,6 +2,14 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.27  2001/07/16 20:40:39  dstotler
+% Hacked in workaround for rejection failure in elastic (this *is* now
+% in the repository version). Replaced one instance of background_v with
+% bk_v.  Set second background flow velocity from independent_parameters
+% so that it can be transformed.  Added scoring for test species in
+% bgk_elastic. Add calculation of rate inside recombination_data to
+% allow it to fit in with other source scoring.
+%
 % Revision 1.26  2000/04/01 17:31:24  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -132,7 +140,7 @@
 
 @m FILE 'collide.web'
 
-@m RR 0
+@m RR 1
 
 @I macros.hweb
 @I particle.hweb
@@ -700,8 +708,8 @@ loop: continue
 
       integer i,nprod,back_test,psp_i
 
-      real v_thermal,m_i,ran,rate
-      real independent_parameters[xs_max_indep_params]
+      real v_thermal,m_i,rate
+      real independent_parameters[xs_max_indep_params],ran[1]
       real m_total,m_coef,temp_test,temp_back,temp_ave
 
       pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
@@ -745,7 +753,7 @@ loop: continue
 */
       do i=1,3
          rn_gauss_next(ran,x)
-         vb_therm[i]=v_thermal*ran
+         vb_therm[i]=v_thermal*ran[1]
       end do
 /*    
    End of Neutral Selection - set products and do scoring 
@@ -968,10 +976,14 @@ break:continue
      $        -m_i*v_test[3]*rate
          scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
      $        -half*m_i*vc_abs2(v_test)*rate
+/*
+   Use the weight factors here so that the Russian roulette result is
+   accounted for in the scoring.
+*/
       do i=1,nprod
          test_i=pr_test_lookup(prod[i])
          if (test_i != 0) then
-            m_i=sp_m(pr_test(test_i))
+            m_i=sp_m(pr_test(test_i))*w_prod[i]
             psp_i=pr_problem_sp_test(test_i)
          else
             back_i=pr_background_lookup(prod[i])
