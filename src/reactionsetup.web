@@ -1,0 +1,159 @@
+% $Id$
+\def\Wtitle{reactionsetup}
+
+% $Log$
+% Revision 1.2  1993/09/27  13:11:49  karney
+% First working version.
+%
+% Revision 1.1  1993/09/26  23:37:48  karney
+% Initial revision
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Introduction\ldots
+
+@m FILE 'reactionsetup.web'
+
+@I macros.hweb
+
+@ The unnamed module.
+
+@a
+      program reactionsetup
+      implicit_none
+
+      call nc_read_species
+      call read_reactions
+      call nc_write_reaction
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Read is data from \verb+reactions.input+.
+
+@m mem_inc 100
+@m mem_size(x) (((x)+mem_inc-1)/mem_inc)*mem_inc
+
+@<Functions...@>=
+      subroutine read_reactions
+      implicit_none
+      rc_common                 // Common
+      sp_common
+      integer length,p,b,e      // Local
+      character*80 line
+      sy_common
+      st_common
+
+      rc_num=0
+      reaction_version='unknown'
+      open(unit=diskin,file='../data/reactions.input',
+     $     form='formatted',status='old')
+      assert( read_string(diskin,line,length) )
+      assert(length<=len(line))
+      reaction_version=line(:length)
+loop1: continue
+      if (! read_string(diskin,line,length) ) goto eof
+      rc_num=rc_num+1
+      var_realloca(reaction_name)
+      var_realloca(reaction_sy)
+      var_realloca(reaction_reagant_num)
+      var_realloca(reaction_product_num)
+      var_realloca(reaction_reagant)
+      var_realloca(reaction_product)
+
+      length=parse_string(line(:length))
+      reaction_name[rc_num]=line(:length)
+      assert(read_string(diskin,line,length))
+      length=parse_string(line(:length))
+      
+      p=0
+      assert( next_token(line,b,e,p) )
+      read(line(b:e),'(a)') rc_sy(rc_num)
+      rc_reagant_num(rc_num) = 0
+loop2: continue
+      rc_reagant_num(rc_num) = rc_reagant_num(rc_num) + 1
+      assert( rc_reagant_num(rc_num) <= rc_reagant_max )
+      assert( next_token(line,b,e,p) )
+      rc_reagant(rc_num,rc_reagant_num(rc_num)) = sp_lookup(line(b:e))
+      assert( next_token(line,b,e,p) )
+      assert( line(b:e) == '+' || line(b:e) == '->' )
+      if (line(b:e) == '+') goto loop2
+      
+      rc_product_num(rc_num) = 0
+loop3: continue
+      rc_product_num(rc_num) = rc_product_num(rc_num) + 1
+      assert( rc_product_num(rc_num) <= rc_product_max )
+      assert( next_token(line,b,e,p) )
+      rc_product(rc_num,rc_product_num(rc_num)) = sp_lookup(line(b:e))
+      if ( next_token(line,b,e,p) ) then
+         assert( line(b:e) == '+' )
+         goto loop3
+      end if
+      goto loop1
+eof:  continue
+      close(unit=diskin)
+      var_realloca(reaction_name)
+      var_realloca(reaction_sy)
+      var_realloca(reaction_reagant_num)
+      var_realloca(reaction_product_num)
+      var_realloca(reaction_reagant)
+      var_realloca(reaction_product)
+
+      return
+      end
+
+@ Write out data into netcdf file \verb+reactions.nc+
+      
+@<Functions...@>=
+      subroutine nc_write_reaction
+      implicit_none
+      integer fileid
+      rc_common                   // Common
+      rc_ncdecl
+      nc_common
+      st_common
+      character*80 description,program_version
+
+      program_version=
+     $     '$Id$'
+
+      fileid = nccreate('../data/reactions.nc',NC_CLOBBER,nc_stat)
+
+      description = 'Data for reaction in degas 2'
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(reaction_version),
+     $     reaction_version,nc_stat)
+      
+      call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
+     $     string_length(program_version),
+     $     program_version,nc_stat)
+      
+      rc_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      rc_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
+      
+      return
+      end
+
+      
+
+
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* Index.
+
