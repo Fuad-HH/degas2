@@ -2,6 +2,11 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.28  2001/11/16 15:38:24  dstotler
+% Make argument to rn_gauss_next a 1 element array. Use Russian roulette
+% factors in dissociation product scoring. Russian roulette on
+% dissociation products is now on by default.
+%
 % Revision 1.27  2001/07/16 20:40:39  dstotler
 % Hacked in workaround for rejection failure in elastic (this *is* now
 % in the repository version). Replaced one instance of background_v with
@@ -807,6 +812,8 @@ loop: continue
 
 @ Process a dissociation. Arguments are the same as for |chargex|.
 
+@m max_lines 3
+
 @<Functions...@>=
       subroutine dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
@@ -839,17 +846,21 @@ loop: continue
       pr_background_decl(back)
       pr_background_decl(back_i)
       pr_test_decl(test_i)
-      integer i,i_ediss,i_elediss,num_heavy_products,j_arr,psp_i
-      integer product_index[2]
+      rc_decl(reac)
+      integer i,i_ediss,i_elediss,num_heavy_products,j_arr,psp_i,
+     $        num_lines,i_e_rate,i_gen_rate
+      integer product_index[2],lines[max_lines],e_rates[max_lines]
       vc_decl(v_test)
       vc_decl(v_iso)
+      vc_decl(v_emitter)
       real sum,ran,ediss,elediss,v_diss1,v_diss2,m_i
       real mass[2]
       logical init
+      character*tl_tag_length line
 
       external eval_data                               // External
       real eval_data
-      save init,i_ediss,i_elediss
+      save init,i_ediss,i_elediss,num_lines,lines,e_rates,i_gen_rate
       data init/.true./
 
       if (init) then
@@ -857,6 +868,22 @@ loop: continue
          i_elediss=string_lookup('background_energy_loss_rate',
      $        pr_var0_list,pr_var0_num)
          assert(i_ediss > 0 && i_elediss > 0)
+         num_lines=0
+         do i=1,pr_var0_num
+            if (pr_var0_list[i]SP(1:10) == 'wavelength') then
+               num_lines++
+               lines[num_lines]=i
+               line=pr_var0_list[i]SP(11:)
+               i_e_rate=string_lookup('emission_rate'\/line,
+     $              pr_var0_list,pr_var0_num)
+               assert(i_e_rate > 0)
+               e_rates[num_lines]=i_e_rate
+            end if
+         end do
+         if (num_lines > 0) then
+            i_gen_rate=string_lookup('emission_rate',pr_var0_list,pr_var0_num)
+            assert(i_gen_rate > 0)
+         end if
          init=.false.
       end if
       
@@ -895,7 +922,25 @@ break:continue
             product_index[num_heavy_products]=i
          end if
       end do
-      
+/*
+   Need to set the emitter mass so wavelength can be evaluated.
+*/      
+      reac=pr_reaction(pr_reac)
+      if (rc_emitter(reac) != 0) then
+         if (rc_emitter(reac) > 0) then
+            independent_parameters[xs_var_m_emitter]=sp_m(prod[rc_emitter(reac)])
+/* Don't really recall which reagent is which. Should be able to tell
+   test from a back just with |sp_generic|.
+*/
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_test(test))) then
+            independent_parameters[xs_var_m_emitter]=sp_m(pr_test(test))
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_background(back))) then
+            assert('background velocity not set' == ' ')
+         end if
+      end if
+
       do i=1,rd_dep_var_max
          if (reaction_handling_var0[pr_reac][i] == i_ediss) then
             ediss=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
@@ -904,9 +949,27 @@ break:continue
             elediss=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] != pr_var_unknown) then
+            scoring_data[reaction_handling_var0[pr_reac][i]]
+     $           =eval_data(rd_data_args(reaction_handling,
+     $           [pr_reac][i]),independent_parameters,rn_args(x))
          end if
       end do
-
+/*
+   Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
+   specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
+   the density factor, as is done for the ionization rate above.
+*/
+      if (num_lines > 0) then
+         do i=1,num_lines
+            if (scoring_data[lines[i]] > zero) then
+               assert(scoring_data[e_rates[i]] == zero)
+               assert(rc_emitter(reac) != 0)
+               scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
+     $              *independent_parameters[xs_var_density]
+            end if
+         end do
+      end if
 /*
    Set speeds of products so as to conserve momentum. This routine is 
    equipped to deal with only two heavy products.
@@ -953,6 +1016,26 @@ break:continue
             w_prod[i]=zero
          end if
       end do
+/*
+   Now set emitter velocity.
+*/
+      if (rc_emitter(reac) != 0) then
+         if (rc_emitter(reac) > 0) then
+            vc_copy(v_prod[rc_emitter(reac)],v_emitter)
+/* Don't really recall which reagent is which. Should be able to tell
+   test from a back just with |sp_generic|.
+*/
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_test(test))) then
+            vc_copy(v_test,v_emitter)
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_background(back))) then
+            assert('background velocity not set' == ' ')
+         end if
+         scoring_data[pr_var_emitter_v_vector]=v_emitter[1]
+         scoring_data[pr_var_emitter_v_2]=v_emitter[2]
+         scoring_data[pr_var_emitter_v_3]=v_emitter[3]
+      end if
 
 /*
    Collision scoring. Will be adding some H-alpha detection and scoring.
@@ -1867,6 +1950,8 @@ loop: continue
 
 @ Compute scoring data for dissociation track-length estimator.
 
+@m max_lines 3
+
 @<Functions...@>=
       subroutine track_dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
@@ -1895,17 +1980,21 @@ loop: continue
       pr_background_decl(back)
       pr_background_decl(back_i)
       pr_test_decl(test_i)
+      rc_decl(reac)
       sp_decl(prod[rc_product_max])
-      integer i,i_ediss,i_elediss,nprod,num_heavy_products,j_arr,k,psp_i
-      integer product_index[2]
+      integer i,i_ediss,i_elediss,nprod,num_heavy_products,j_arr,k,psp_i,
+     $        num_lines,i_e_rate,i_gen_rate,i_line
+      integer product_index[2],lines[max_lines],e_rates[max_lines]
       vc_decl(v_test)
-      real ediss,elediss,mass_total,m_i
+      vc_decl(v_emitter)
+      real ediss,elediss,mass_total,m_i,this_line
       real mass[2]
       logical init
+      character*tl_tag_length line
 
       external eval_data                               // External
       real eval_data
-      save init,i_ediss,i_elediss
+      save init,i_ediss,i_elediss,num_lines,lines,e_rates,i_gen_rate
       data init/.true./
 
       if (init) then
@@ -1913,13 +2002,28 @@ loop: continue
          i_elediss=string_lookup('background_energy_loss_rate',
      $        pr_var0_list,pr_var0_num)
          assert(i_ediss > 0 && i_elediss > 0)
+         num_lines=0
+         do i=1,pr_var0_num
+            if (pr_var0_list[i]SP(1:10) == 'wavelength') then
+               num_lines++
+               lines[num_lines]=i
+               line=pr_var0_list[i]SP(11:)
+               i_e_rate=string_lookup('emission_rate'\/line,
+     $              pr_var0_list,pr_var0_num)
+               assert(i_e_rate > 0)
+               e_rates[num_lines]=i_e_rate
+            end if
+         end do
+         if (num_lines > 0) then
+            i_gen_rate=string_lookup('emission_rate',pr_var0_list,pr_var0_num)
+            assert(i_gen_rate > 0)
+         end if
          init=.false.
       end if
       
       pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
       back=pr_ts_bk(test,ts_reac)
       nprod=rc_product_num(pr_reaction(pr_reac))
-
 /*
    Search through the list of miscellaneous dependent
    variables to find |ediss|, the dissociation energy, and |elediss|, the
@@ -1933,8 +2037,41 @@ loop: continue
             elediss=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] != pr_var_unknown) then
+            scoring_data[reaction_handling_var0[pr_reac][i]]
+     $           =eval_data(rd_data_args(reaction_handling,
+     $           [pr_reac][i]),independent_parameters,rn_args(x))
          end if
       end do
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+      end do
+/*
+   Set emitter velocity. This is done just for completeness. Not likely to be a good
+   approximation (since test energy usually much smaller than dissociation energy).
+   This just assumes that the two product velocities are equal to the test velocity,
+   which they are on the average. The assert verifies that |rc_emitter| points to one
+   of the heavy products.
+*/
+      reac=pr_reaction(pr_reac)
+      if (rc_emitter(reac) != 0) then
+         if (rc_emitter(reac) > 0) then
+            vc_copy(v_test,v_emitter)
+            assert(sp_sy(prod[rc_emitter(reac)]) != 'e')
+/* Don't really recall which reagent is which. Should be able to tell
+   test from a back just with |sp_generic|.
+*/
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_test(test))) then
+            vc_copy(v_test,v_emitter)
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_background(back))) then
+            assert('background velocity not set' == ' ')
+         end if
+         scoring_data[pr_var_emitter_v_vector]=v_emitter[1]
+         scoring_data[pr_var_emitter_v_2]=v_emitter[2]
+         scoring_data[pr_var_emitter_v_3]=v_emitter[3]
+      end if
 /*
    TLE scoring:
    This may work for MASS ONLY. The product momentum and energy expressions 
@@ -1947,9 +2084,6 @@ loop: continue
      $  -sp_m(pr_background(back))*rate
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=-elediss
 
-      do i=1,3
-         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
-      end do
       psp_i=pr_problem_sp_test(test)
       m_i=sp_m(pr_test(test))
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
@@ -1986,6 +2120,48 @@ loop: continue
             end if
          end do
          assert(num_heavy_products == 2)
+/*
+   Need to set emitter mass so wavelength can be evaluated.
+*/
+         if (rc_emitter(reac) != 0) then
+            if (rc_emitter(reac) > 0) then
+               independent_parameters[xs_var_m_emitter]=sp_m(prod[rc_emitter(reac)])
+               assert(sp_sy(prod[rc_emitter(reac)]) != 'e')
+/* Don't really recall which reagent is which. Should be able to tell
+   test from a back just with |sp_generic|.
+*/
+            else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $                  == sp_generic(pr_test(test))) then
+               independent_parameters[xs_var_m_emitter]=sp_m(pr_test(test))
+            else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $              == sp_generic(pr_background(back))) then
+               assert('background velocity not set' == ' ')
+            end if
+         end if
+/*
+   Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
+   specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
+   the density factor, as is done for the ionization rate above. These lines
+   differ from those in subroutine |dissoc| in that the line-specific elements
+   of |scoring_data| are incremented rather than set since there may be multiple
+   contributions from the various arrangements.
+*/
+         if (num_lines > 0) then
+            do i_line=1,num_lines
+               do i=1,rd_dep_var_max
+                  if (reaction_handling_var0[pr_reac][i] == lines[i_line]) then
+                     this_line=eval_data(rd_data_args(reaction_handling,
+     $                    [pr_reac][i]),independent_parameters,rn_args(x))
+                     if (this_line > zero) then
+                        assert(rc_emitter(reac) != 0)
+                        scoring_data[e_rates[i_line]]+=scoring_data[i_gen_rate]
+     $              *independent_parameters[xs_var_density]*pr_prod_mult(test,ts_reac,j_arr)
+                     end if
+                  end if
+               end do
+            end do
+         end if
+
          do k=1,num_heavy_products
             test_i=pr_test_lookup(pr_ts_prod(test,ts_reac,j_arr,product_index[k]))
             if (test_i != 0) then
