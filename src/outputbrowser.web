@@ -2,6 +2,9 @@
 \Title{outputbrowser}
 
 % $Log$
+% Revision 1.3  2001/07/16 20:57:51  dstotler
+% Modify to deal with source scores.
+%
 % Revision 1.2  2000/04/01 17:38:57  dstotler
 % Added during merger with dps_2_6_changes.
 %
@@ -763,12 +766,12 @@ pick_output: continue
             else
                adddet='  '
             end if
-            write (diskout,*) ' Rank ',i,' : ',min_slice[i],max_slice[i],adddet
+            write (diskout,'(a,i1,a,i6,2x,i6,a)') '  Rank ',i,' : ',min_slice[i],max_slice[i],adddet
          end do
          if (tally_rank[jscore] == 2) then
-            write (diskout,*) ' Order ',i1,i2
+            write (diskout,'(a,i1,2x,i1)') '  Order ',i1,i2
          else if (tally_rank[jscore] == 3) then
-            write (diskout,*) ' Order ',i1,i2,i3
+            write (diskout,'(a,i1,2x,i1,2x,i1)') '  Order ',i1,i2,i3
          end if
       end if
       write (diskout,*) ' Dimension ',dim
