@@ -2,6 +2,12 @@
 \Title{statisticw}
 
 % $Log$
+% Revision 1.12  1998/09/04 17:23:49  dstotler
+% Reset wt[i]=0. in stat_wt_balance at the end. Zero the variance of the
+% increment as well as the mean in the uncompressed cases in
+% stat_acc. Moved the "-1" factor in the variance computations to
+% flighttest.
+%
 % Revision 1.11  1998/06/01 15:56:35  karney
 % MPI enabled version.
 %
@@ -240,7 +246,15 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
 
             stat[i][o_mean]*=wt[i]/wt_tot        // Must do |o_var| first!
          end if
+@#if 0
+/* 
+   Zero this explicitly in the calling routines at the top of the do loops
+   so its value can be retained elsewhere.
+*/
          wt[i]=zero
+@#else
+         wt[i]=wt_tot
+@#endif
       end do
 
       return
@@ -321,7 +335,7 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
    space provided by |output_grp|, disable allocation here and
    note changes required to permit compression if needed later.
 */
-      stat_wt_tot_fin=zero
+      stat_wt_tot_fin=zero           // Have really replaced with |weight_grp|
       if (stat_comp_fin == TRUE) then
          stat_size_fin=0
          stat_dim_fin=stat_mem_inc_fin
@@ -352,8 +366,8 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
       var_alloc(stat_ptr2full_fin)
       var_alloc(stat_ptr2short_fin)
       var_alloc(stat_wt_fin)
-      if (stat_comp_fin == FALSE) then
-         do i=0,stat_wt_dim_fin-1
+      if (stat_comp_fin == FALSE) then  
+         do i=0,stat_wt_dim_fin-1      
             stat_wt_fin[i]=zero
          end do
       end if
