@@ -2,6 +2,10 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.39  1999/04/20 20:16:51  dstotler
+% Use the plasma / vacuum zones for the sectors and not the solid / exit
+% zones. Add some diagnostic sectors for the UEDGE_RECT_SLAB case.
+%
 % Revision 1.38  1999/03/25 20:56:07  dstotler
 % Increased num_points to 200. Added some stuff to input documentation
 % (mostly for UEDGE case).
@@ -466,7 +470,7 @@ See the Examples section in the manual for additional examples of
 @m BOX 2              // A 1 by 1 box, e.g., from |boxgen|.
 @m WISING_CMOD 3      // Fred Wising's UEDGE simulation of C-Mod.
 
-@m GEOMETRY UEDGE_RECT_SLAB  // Pick one of the above.
+@m GEOMETRY GENERAL  // Pick one of the above.
 
 @m next_surface #:0     // Statement label
 
@@ -1615,15 +1619,14 @@ skip:          continue
               zn_type_set(zone,zn_solid)
               zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
               call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
-
-           else if (double_null && uedge) then          // {\bf DOUBLE NULL}
-
 /*
     Outer vacuum region. //
     Start at top (end) of outer wall segment (wall 2),
     go down to its beginning point, jump to right bottom of SOL. 
     Go up along right side of mesh to mirror point and finish at end of wall 2.
 */
+           else if (double_null && uedge) then          // {\bf DOUBLE NULL}
+
               zone++
 
               n=0
