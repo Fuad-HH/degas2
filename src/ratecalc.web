@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.3  1994/06/15 20:01:27  dstotler
+% Begin incorporating ALADDING routines.
+%
 % Revision 1.2  1994/06/14 21:29:13  dstotler
 % Continue typing in integration routines from Numerical Recipes.
 %
@@ -205,63 +208,43 @@ infinite (value passed not used). It is assumed that the function
 * up the cross section for hydrogen charge exchange and evaluates the
 * cross section at 10000 eV/amu.
 
-      program aladtest
-      implicit none
+      subroutine aladdin_read_coefs(filename,hsl,nhsl,basl,nbasl,
+      $                             bnsl,nbnsl,cf,n,bl(nbl))
+      implicit_none
+      integer lutin,lutout,ludf,luof,luqf,luef,nchlbl,nhsl,nbasl,nbnsl,
+     $        ncf,ncfmx
+      include 'ALCOM.FOR'  do we need this here?
       integer ncfmax,nhslmax
       parameter (ncfmax=100,nhslmax=10)
       logical eof,match
-      character*80 errmsg,file
+      character*80 errmsg,filename
       double precision cf(ncfmax),x,res
       character*40 hsl(nhslmax)
       integer nhsl,i,n,k
-c      data (hsl(i),i=1,6)/'CX', 'H', '[+1]', 'H', '[+0]', '(1s)'/
-      data nhsl /9/
-      data (hsl(i),i=1,9)/'EXC', 'e', 'H', '[+0]', '(1s)', 'e',
-     &     'H', '[+0]', '(n=4)'/
 
-* These declarations really belong in ALCOM.FOR
+* These declarations really belong in ALPCOM.FOR
       integer leseqn,neln,nhl,nbl,lcmptr,ncmln,lcfptr,ncfln,
      $     nelnmx,nhlmx,nblmx
       include 'ALPCOM.FOR'
 
 * Specify file
-      file='/u/aladdin/data/hneutral.dat'
-      write(6,*) 'Looking in file '//file
-      write(6,*) 'with hierarchical search labels:'
-      do i=1,nhsl
-         write(6,*) hsl(i)
-      end do
-c      open(20,file='/u/aladdin/data/heavyall.dat',status='old')
-      open(20,file='/u/aladdin/data/hneutral.dat',status='old')
+      open(20,file=filename,status='old')
 * Search for labels
       k=0
  5    call alread(20,k,eof,errmsg)
-      if (eof) stop
-      call alcomp(hsl,nhsl,errmsg,0,errmsg,0,match)
+      assert(!eof)
+      call alcomp(hsl,nhsl,basl,nbasl,bnsl,nbnsl,match)
       if (.not.match) goto 5
 
-* Found label; print out info
-      write(6,*) 'Found record at index: ',k
-      write(6,*) 'Error message: ',errmsg
-      write(6,*) 'Aladdin buffer:'
-      do i=1,neln
-         write(6,*) ebuff(i)
-      end do
-      write(6,*) 'Hierarchical labels:'
-      do i=1,nhl
-         write(6,*) hl(i)
-      end do
-      write(6,*) 'Boolean labels:'
-      do i=1,nbl
-         write(6,*) bl(i)
-      end do
-
 * Decode coefficients
+      assert(bl(1) = '$ ')
       call alrecf(cf,n,ncfmax,errmsg)
-      write(6,*) 'Coefficient array:'
-      do i=1,n
-         write(6,*) cf(i)
-      end do
+      return 
+      end
+
+      
+
+      subroutine cfeval....
 
 * At this point all you need to know is
 * cf(1..n) and bl(nbl)
