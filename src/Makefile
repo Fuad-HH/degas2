@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.72  2000/03/27 21:14:38  dstotler
+# A little clean up following merger with Randy's branch.
+#
 # Revision 1.71  2000/01/27 18:34:45  karney
 # Portability fixes and minor updates to random.
 #
@@ -12,6 +15,18 @@
 #
 # Revision 1.69.4.1  2000/03/27 15:18:32  dstotler
 # Brought up to date relative to version on dps_2_6_changes branch.
+#
+# Revision 1.69.2.2  2000/03/10 21:58:37  dstotler
+# Add a comment and stuff for definegeometry2d. This is rather involved
+# since the FWEB file contains both FORTRAN and C code and since we are
+# compiling and linking with the Triangle package residing outside of
+# the DEGAS 2 source directory. Added .c, .h, .g90 target "clean". Added
+# MPI to target "foof".
+#
+# Revision 1.69.2.1  1999/12/16 18:28:52  dstotler
+# Added outputputbrowser. Pick up some changes from Charles for
+# puffin. Noteable are separation of mpif77 & mpif90 and removal of
+# default -u flag for f77 (for undeclared variables; remains on Suns).
 #
 # Revision 1.69  1999/05/25 13:30:41  dstotler
 # Raise tangle's yn flag to 7000. Add yb flag = 100000. Added
@@ -251,6 +266,10 @@ NETCDFV2=no
 
 DEGASROOT=$(HOME)
 
+# Will instruct users to put Triangle here, but allow them to put elsewhere
+# if needed.
+TRIDIR=$(HOME)/Triangle
+
 # Default settings
 FCF77=f77
 FCF90=f90
@@ -279,7 +298,7 @@ LATEX=latex
 # TANGLEFLAGS=-mINLINE -W[ -ytt40000000 -yn8000 -ymb65536 -n/ -n')' -Tv -j
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000 -- it's a little stressed
 TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
-WEAVEFLAGS=-f -i! -W[ -ykw600 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
+WEAVEFLAGS=-f -i! -W[ -ykw700 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
 SYSDEPC=no
@@ -412,6 +431,7 @@ degas2.in: $(SOURCEDIR)/degas2.in
 # Cancel some built-in rules
 %: %.f
 %: %.c
+%: %.h
 %: %.mod
 %.c: %.l
 %.r: %.l
@@ -465,10 +485,12 @@ endif
 LD=$(FC)
 ifeq ($(DEBUG),yes)
   COMPFLAGS=$(DEBUGFLAGS)
-  CFLAGS=-g
+#  CFLAGS=-g -I. -I$(TRIDIR)
+  CFLAGS=-g -I. 
 else
   COMPFLAGS=$(OPTFLAGS)
-  CFLAGS=-O
+#  CFLAGS=-O -I. -I$(TRIDIR)
+  CFLAGS=-O -I. 
 endif
 
 ifeq ($(FORTRAN90),yes)
@@ -493,19 +515,51 @@ ifndef CROSSCOMPILE
 	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
 	$(FC) -c $(FFLAGS) $*.id.f
 	$(LD) $(FFLAGS) $(COMPFLAGS) $(PROFILE) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs) $(PROF_LD)
+ DG2D=definegeometry2d.o definegeometry2dc.o triangle.o
 else # We're cross compiling
   O=f
   %: %.o
   %: %.$O sysdep.$O string.$O idtof degas2.in
 	@echo Made $^
+  DG2D=definegeometry2d.f definegeometry2dc.c triangle.c
 endif
 
+# This stuff grabs the CVS keyword information from the source files
+# and appends it to the code files. Note that idtof separately takes the
+# information associated with the Id keyword and inserts it into a
+# common block in the .id.f files.
+
 IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
+
 .PRECIOUS: %.mweb %.tex %.dvi %.f %_mod.f %.cft %.o %.dum fweb.sty fweboptions.sty
 
 %.f: %.web
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
 	$(IDENTAPPEND)
+
+# Special rule for files containing both FORTRAN and C code
+# Could we use the commented out pattern rule as a more general
+# version of the above .f pattern rule? I don't think the added
+# switch has any impact on a pure FORTRAN file.
+# This dependency does appear to add to those in Makefile.depends
+
+# %.f %c.c: %.web
+
+ifeq ($(STANDALONE),yes)
+definegeometry2d.f definegeometry2dc.c: definegeometry2d.web triangle.h
+	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
+	$(IDENTAPPEND)
+else 
+TRIDIR=$(SOURCEDIR)
+definegeometry2dc.c : $(SOURCEDIR)/definegeometry2dc.c triangle.h
+	cp $< $@
+endif
+
+triangle.%: $(TRIDIR)/triangle.%
+	cp $< $@
+
+triangle.o: triangle.c triangle.h
+	cc -DTRILIBRARY -O -c $<
 
 ifeq ($(STANDALONE),yes)
 # include files
@@ -564,7 +618,7 @@ documentation: random.dvi randomtest.dvi geometry.dvi geomsetup.dvi \
   geomtest.dvi sysdep.dvi vector.dvi
 
 foof:
-	echo $(MACHINE) $(TARGET) $(SOURCEDIR) $(STANDALONE) $(FC) $(FORTRAN90) $(CROSSCOMPILE)
+	echo $(MACHINE) $(TARGET) $(SOURCEDIR) $(STANDALONE) $(FC) $(FORTRAN90) $(CROSSCOMPILE) $(MPI) 
 
 sysdeptest = sysdeptest.$O
 sysdeptest_libs = 
@@ -650,9 +704,13 @@ test = test.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O co
 test_libs = $(NETCDF)
 test: $(test) $(foreach arg,$(subst .$O,_mods,$(test)),$($(arg)))
 
-readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O pmimatread.$O dediagsetup.$O
+readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O pmimatread.$O dediagsetup.$O aux2dsetup.$O
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
+
+definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O 
+definegeometry2d_libs = $(NETCDF)
+definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
 boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O interpolate.$O random.$O
 boxgen_libs = $(CRAMD) $(NETCDF)
@@ -682,7 +740,7 @@ pmitest = pmitest.$O elementread.$O pmimatread.$O plate.$O readfilenames.$O rand
 pmitest_libs = $(NETCDF)
 pmitest: $(pmitest) $(foreach arg,$(subst .$O,_mods,$(pmitest)),$($(arg)))
 
-sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O interpolate.$O
+sourcetest = sourcetest.$O sources.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O interpolate.$O
 sourcetest_libs = $(CRAMD) $(NETCDF)
 sourcetest: $(sourcetest) $(foreach arg,$(subst .$O,_mods,$(sourcetest)),$($(arg)))
 
@@ -701,6 +759,10 @@ ratecalc: $(ratecalc) $(foreach arg,$(subst .$O,_mods,$(ratecalc)),$($(arg)))
 dataexam = dataexam.$O readfilenames.o elementread.o
 dataexam_libs = $(NETCDF)
 dataexam: $(dataexam) $(foreach arg,$(subst .$O,_mods,$(dataexam)),$($(arg)))
+
+outputbrowser = outputbrowser.$O readfilenames.o degasinit.$O pmimatread.$O elementread.$O geometry.$O
+outputbrowser_libs = $(NETCDF)
+outputbrowser: $(outputbrowser) $(foreach arg,$(subst .$O,_mods,$(outputbrowser)),$($(arg)))
 
 datamatch = datamatch.$O 
 datamatch_libs = $(NETCDF)
@@ -763,5 +825,6 @@ TAGS:
 .PHONY: clean %.view %.print TAGS depends
 
 clean:
-	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum *.M *.mweb *.T
+	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum *.M *.mweb *.T *.c *.h *.g90
+
 
