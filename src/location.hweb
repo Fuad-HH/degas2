@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1997/08/19 14:36:42  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.6  1995/10/12 21:42:51  karney
 % Finish the implementation of sectors.  Now track exits when encountering a
 % sector (on either side).  Sector and strata information is now part of the
@@ -35,15 +40,15 @@ A location is identified by a string tag.
 
 @m lc_args(x) lc_x(x)[1],lc_cell(x),lc_zone(x),
       lc_face(x),lc_cell_next(x),lc_zone_next(x),
-      lc_sector(x),lc_stratum(x),lc_sector_next(x),lc_stratum_next(x)
+      lc_sector(x),lc_sector_next(x)
 
 @m lc_dummy(x) lc_x(x),lc_cell(x),lc_zone(x),
       lc_face(x),lc_cell_next(x),lc_zone_next(x),
-      lc_sector(x),lc_stratum(x),lc_sector_next(x),lc_stratum_next(x)
+      lc_sector(x),lc_sector_next(x)
 
 @m lc_decl(x) real lc_x(x)[3]; integer lc_cell(x),lc_zone(x),
       lc_face(x),lc_cell_next(x),lc_zone_next(x),
-      lc_sector(x),lc_stratum(x),lc_sector_next(x),lc_stratum_next(x) @;
+      lc_sector(x),lc_sector_next(x) @;
 
 @m lc_decls external locate_point,check_location;
       integer locate_point;
@@ -56,9 +61,7 @@ A location is identified by a string tag.
       lc_cell_next(y)=lc_cell_next(x);
       lc_zone_next(y)=lc_zone_next(x);
       lc_sector(y)=lc_sector(x);
-      lc_sector_next(y)=lc_sector_next(x);
-      lc_stratum(y)=lc_stratum(x);
-      lc_stratum_next(y)=lc_stratum_next(x) @;
+      lc_sector_next(y)=lc_sector_next(x) @;
 
 @m lc_check(x) check_location(lc_args(x))
 
@@ -78,10 +81,6 @@ A location is identified by a string tag.
 @m lc_sector1(x) sector_##x
 @m lc_sector_next(x) lc_sector_next1(x)
 @m lc_sector_next1(x) sector_next_##x
-@m lc_stratum(x) lc_stratum1(x)
-@m lc_stratum1(x) stratum_##x
-@m lc_stratum_next(x) lc_stratum_next1(x)
-@m lc_stratum_next1(x) stratum_next_##x
 
 @ Some interface routines
 
@@ -93,7 +92,6 @@ A location is identified by a string tag.
       lc_cell(x) = lc_cell_next(x);
       lc_zone(x) = lc_zone_next(x);
       lc_sector(x) = lc_sector_next(x);
-      lc_stratum(x) = lc_stratum_next(x);
       end if @;
 
 @ Some constants for the geometry package.
