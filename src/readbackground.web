@@ -2,6 +2,10 @@
 \def\Wtitle{readbackground}
 
 % $Log$
+% Revision 1.2  1995/04/24 14:21:29  karney
+% Remove some unused variables.  Introduce a coordinate system for plasma
+% flow.
+%
 % Revision 1.1  1995/03/30 17:08:03  karney
 % Add readbackground
 %
@@ -31,7 +35,6 @@
       program readbackground
       implicit_none
       character*FILELEN degasfilename
-      real xmin,xmax,zmin,zmax
       sy_common
       zn_common
       pr_common
@@ -39,10 +42,7 @@
 
       call command_arg(1,degasfilename)
 
-      open(unit=diskin,file=degasfilename,status='old',form='formatted')
-      call inpt(diskin,xmin,xmax,zmin,zmax)
-      close(unit=diskin)
-      
+     
       call read_geometry
             
       call nc_read_elements
@@ -54,7 +54,7 @@
       var_alloc(background_v)
       var_alloc(background_temp)
 
-      call read_background
+      call read_degas_background(degasfilename)
       
       stop
       end
@@ -62,11 +62,13 @@
 @ Set the background data
 
 @<Functions...@>=
-      subroutine read_background
+      subroutine read_degas_background(file)
       implicit_none
 
       integer i,j1,j2 // Local
       real mindensity,minx,minz
+      real xmin,xmax,zmin,zmax
+      character*FILELEN file
 
       zn_common
       pr_common
@@ -86,6 +88,10 @@
       @<comsv.h@>
       @<comstat.h@>
       @<compar.h@>
+
+      open(unit=diskin,file=file,status='old',form='formatted')
+      call inpt(diskin,xmin,xmax,zmin,zmax)
+      close(unit=diskin)
 
       minx=0.995
       minz=0.18
@@ -110,8 +116,8 @@
             assert(i<=zone_type_num[zn_plasma])
             background_n[1,i]=denehvt[j1,j2,1]
             background_n[2,i]=denihvt[j1,j2,1,1]
-            background_temp[1,i]=tehvt[j1,j2,1]
-            background_temp[2,i]=tihvt[j1,j2,1,1]
+            background_temp[1,i]=electron_charge*tehvt[j1,j2,1]
+            background_temp[2,i]=electron_charge*tihvt[j1,j2,1,1]
             vc_set(background_v[1,i],zero,zero,zero)
             vc_set(background_v[2,i],zero,zero,zero)
 skip:       continue
