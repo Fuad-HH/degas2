@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.15  1995/05/31 19:22:46  dstotler
+% Numerous fixes to get documentation to remove TeX errors.
+%
 % Revision 1.14  1995/05/26 04:00:14  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -351,6 +354,9 @@ same. */
       $$DEFINE(pk##_ncread(fileid) temp(fileid); dimen_inq(fileid,name);)
       $UNDEF(temp)
       
+@m define_dummy_pk(pk,name,type,...) define_var(name,type,#.)
+      $IF(type == CHAR,define_common(pk,name,b),define_common(pk,name,a))
+
 @m define_var_pk(pk,name,type,...) define_var(name,type,#.)
       $IF(type == CHAR,define_common(pk,name,b),define_common(pk,name,a))
       $$DEFINE(temp(fileid) pk##_ncdef(fileid))

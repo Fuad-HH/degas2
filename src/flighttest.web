@@ -2,6 +2,10 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.12  1995/05/26 04:00:39  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.11  1995/05/22 22:05:36  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -132,15 +136,15 @@ PVM more straightforward.
          call next_seed(nfrag,seed,seed) // Advance the seed
       end do
 
-      open(unit=diskout,file='stat.dat')
+      open(unit=diskout,file='stat.dat',status='unknown')
       write(diskout,*) stat
       close(unit=diskout)
-      open(unit=diskout,file='density.out')
+      open(unit=diskout,file='density.out',status='unknown')
       do i=1,zn_num
          if (zone_type[i] == zn_plasma) then
             write(diskout,'(2i6,1p2e20.4)') zone_index[i][1],zone_index[i][2],
      $           stat[i][1]*source_total/zn_volume(i),
-     $           sqrt(stat[i][2]/weight)/max(stat[i][1],1.e-100)
+     $           sqrt(stat[i][2]/weight)/max(stat[i][1],const(1.0,-100))
          end if
       end do
       close(unit=diskout)

@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.31  1995/06/07 15:55:49  karney
+# Add profiling; fix bug in composite.web
+#
 # Revision 1.30  1995/06/06 13:37:40  csk
 # Permit printing at Garching.
 #
@@ -102,29 +105,33 @@ ifneq ($(TARGET),$(MACHINE))
 endif
 
 foof:
-	echo $(MACHINE) $(TARGET) $(SOURCEDIR)
+	echo $(TEMP)
 
 utils: idtof Makefile
 
 # Deal with location of things
 
+ifndef DEGASROOT
+    DEGASROOT=$(HOME)
+endif
+
 ifeq ($(MACHINE),CRAY)
-  SOURCEDIR=$(HOME)/degas2/$(MACHINE)
+  SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
 else
 ifeq ($(MACHINE),HP)
-  SOURCEDIR=$(HOME)/degas2/$(MACHINE)
+  SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
 else
-  SOURCEDIR=$(HOME)/degas2/src
+  SOURCEDIR=$(DEGASROOT)/degas2/src
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
 endif
 endif
 
-ALADIR=$(HOME)/degas2/Aladdin
+ALADIR=$(DEGASROOT)/degas2/Aladdin
 
 Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
@@ -136,9 +143,11 @@ Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
 
 # Set up librarys
-NETCDF=-L/usr/local/lib -lnetcdf
-HDF=-L/usr/local/lib -ldf
-PVM=-L/soft/pvm/lib/$(PVMARCH) -lfpvm3 -lpvm3
+LIBROOT=/usr/local
+
+NETCDF=-L$(LIBROOT)/lib -lnetcdf
+HDF=-L$(LIBROOT)/lib -ldf
+PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
 
 # Cancel some built-in rules
 %: %.f
@@ -161,9 +170,9 @@ FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
 ifeq ($(DEBUG),yes)
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv -j
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt4000000 -yn8000 -n/ -n')' -Tv -j
 else
-  TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv
+  TANGLEFLAGS=-mINLINE -W[ -ytt4000000 -yn8000 -n/ -n')' -Tv
 endif
 WEAVEFLAGS=-f -i -W[ -ykw600 -j -n/
 
@@ -187,17 +196,23 @@ else  # !CRAY
     LDFLAGS=
     CFLAGS=-g
   else
-    FFLAGS=-c -O -pg
-    LDFLAGS=-pg
+    FFLAGS=-c -O $(PROFILE)
+    LDFLAGS=$(PROFILE)
     CFLAGS=-O
   endif
+endif
+
+ifeq ($(MACHINE),IBM)
+  SYSDEPO=sysdep.$O sysdepc.$O
+else
+  SYSDEPO=sysdep.$O
 endif
 
 ifndef CROSSCOMPILE
   O=o
   %.o: %.f
 	$(FC) $(FFLAGS) $<
-  %: %.o sysdep.$O string.$O idtof
+  %: %.o $(SYSDEPO) string.$O idtof
 	idtof $(patsubst %.$O,%.f,$^) > $*.id.f
 	$(FC) $(FFLAGS) $*.id.f
 	$(LD) $(LDFLAGS) -o $@ $(filter-out idtof,$^) $*.id.o $($@_libs)
@@ -214,7 +229,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
-    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb segment.hweb \
+    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb strata.hweb \
     pmi.hweb pmiformat.hweb 
 
 %.f: %.web $(HEADERS)
@@ -268,7 +283,7 @@ programs: randomtest geomtest sysdeptest
 documentation: random.dvi randomtest.dvi geometry.dvi geomsetup.dvi \
   geomtest.dvi sysdep.dvi vector.dvi
 
-sysdeptest =
+sysdeptest = $(SYSDEPO)
 sysdeptest_libs = 
 sysdeptest: $(sysdeptest)
 
@@ -284,6 +299,9 @@ randomtest = random.$O randother.$O
 randomtest_libs =
 randomtest: $(randomtest)
 
+randomtest2 = random.$O randother.$O
+randomtest2_libs =
+randomtest2: $(randomtest2)
 
 pvmmaster = random.$O stat.$O geometry.$O
 pvmmaster_libs = $(NETCDF) $(PVM)
@@ -317,7 +335,7 @@ problemsetup = elementread.$O reaction.$O
 problemsetup_libs = $(NETCDF)
 problemsetup: $(problemsetup)
 
-geomread = geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composite.$O string.$O elementread.$O
+geomread = geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
 geomread_libs = $(NETCDF)
 geomread: $(geomread)
 
@@ -345,22 +363,19 @@ ratecalc = $(ALADIR)/aladdin_subr.o
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc)
 
-#elementread: sysdep.$O
-#test: sysdep.$O
-#sysdeptest: sysdep.$O string.$O
-array: sysdep.$O
-teststring: sysdep.$O string.$O
-geomtest: geometry.$O geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O composite.$O string.$O
-#geomtesta: geometry.$O sysdep.$O string.$O plotgeom.$O elementread.$O
-#geomread: geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composite.$O string.$O elementread.$O
-#pvmmaster: pvmmaster.$O sysdep.$O random.$O stat.$O geometry.$O
-#pvmslave: pvmslave.$O sysdep.$O random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O string.$O reaction.$O geomfront.$O
-elementlookup: sysdep.$O string.$O
-speciesetup: elementread.$O sysdep.$O string.$O
-#flighttest: sysdep.$O string.$O elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O
-ifeq ($(MACHINE),IBM)
-  sysdep: sysdep.$O sysdepc.$O
-endif
+#elementread: $(SYSDEPO)
+#test: $(SYSDEPO)
+#sysdeptest: $(SYSDEPO) string.$O
+array: $(SYSDEPO)
+teststring: $(SYSDEPO) string.$O
+geomtest: geometry.$O geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) composite.$O string.$O
+#geomtesta: geometry.$O $(SYSDEPO) string.$O plotgeom.$O elementread.$O
+#geomread: geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
+#pvmmaster: pvmmaster.$O $(SYSDEPO) random.$O stat.$O geometry.$O
+#pvmslave: pvmslave.$O $(SYSDEPO) random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O string.$O reaction.$O geomfront.$O
+elementlookup: $(SYSDEPO) string.$O
+speciesetup: elementread.$O $(SYSDEPO) string.$O
+#flighttest: $(SYSDEPO) string.$O elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O
 
 netcdf: netcdf.$O
 	$(FC) -o $@ $^ -lnetcdf
