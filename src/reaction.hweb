@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 
 \ID{$Id$}
 
@@ -32,33 +35,30 @@ reaction is identified by an integer indexing into these arrays.
 @ Variable definitions.
 
 @a
-      define_dimen(reaction_symbol_string,rc_sy_len)
-      define_dimen(reaction_name_string,rc_name_len)
-      define_dimen(reaction_ind,rc_num)
-      define_dimen(reagant_ind,rc_reagant_max)
-      define_dimen(product_ind,rc_product_max)
-      define_var(rc_num,INT)
-      define_var(reaction_name,CHAR,reaction_name_string,reaction_ind)
-      define_var(reaction_sy,CHAR,reaction_symbol_string,reaction_ind)
-      define_var(reaction_reagant_num,INT,reaction_ind)
-      define_var(reaction_product_num,INT,reaction_ind)
-      define_var(reaction_reagant,INT,reagant_ind,reaction_ind)
-      define_var(reaction_product,INT,product_ind,reaction_ind)
+      package_init(rc)
+      define_dimen_pk(rc,reaction_symbol_string,rc_sy_len)
+      define_dimen_pk(rc,reaction_name_string,rc_name_len)
+      define_dimen_pk(rc,reaction_ind,rc_num)
+      define_dimen_pk(rc,reagant_ind,rc_reagant_max)
+      define_dimen_pk(rc,product_ind,rc_product_max)
+      define_var_pk(rc,rc_num,INT)
+      define_varp_pk(rc,reaction_name,CHAR,reaction_name_string,reaction_ind)
+      define_varp_pk(rc,reaction_sy,CHAR,reaction_symbol_string,reaction_ind)
+      define_varp_pk(rc,reaction_reagant_num,INT,reaction_ind)
+      define_varp_pk(rc,reaction_product_num,INT,reaction_ind)
+      define_varp_pk(rc,reaction_reagant,INT,reagant_ind,reaction_ind)
+      define_varp_pk(rc,reaction_product,INT,product_ind,reaction_ind)
 
 @ Common blocks definitions.
 
 @f rc_common integer
 @m rc_common
-      declare_var(rc_num);
-      declare_varp(reaction_name);
-      declare_varp(reaction_sy);
-      declare_varp(reaction_reagant_num);
-      declare_varp(reaction_product_num);
-      declare_varp(reaction_reagant);
-      declare_varp(reaction_product);
-      common /com_reaction/ rc_num,ptr_reaction_name,ptr_reaction_sy,
-          ptr_reaction_reagant_num,ptr_reaction_product_num,
-          ptr_reaction_reagant,ptr_reaction_product;
+      rc_common_a;
       character*80 reaction_version;
       common /com_reaction_c/ reaction_version;
-      save /com_reaction/,/com_reaction_c/ @;
+      save /com_reaction_c/ @;
+
+@m rc_ncread(fileid)
+      rc_ncreada(fileid);
+      rc_ncreadb(fileid);
+      rc_ncreadc(fileid) @;

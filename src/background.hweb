@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 % Revision 1.1  1992/11/13  17:58:50  karney
 % Initial checkin
 %
@@ -33,26 +36,17 @@ these arrays.
 @ Variable definitions.
 
 @a
-      define_dimen(background_ind,bk_num)
-      define_dimen(plasma_ind,zn_plasma_num)
-      define_var(bk_num,INT)
-      define_var(background_sp,INT,background_ind)
-      define_var(background_n,INT,background_ind,plasma_ind)
-      define_var(background_v,INT,vc_ind,background_ind,plasma_ind)
-      define_var(background_temp,INT,background_ind,plasma_ind)
+      package_init(bk)
+      define_dimen_pk(bk,background_ind,bk_num)
+      define_dimen_pk(bk,plasma_ind,zn_plasma_num)
+      define_var_pk(bk,bk_num,INT)
+      define_varp_pk(bk,background_sp,INT,background_ind)
+      define_varp_pk(bk,background_n,INT,background_ind,plasma_ind)
+      define_varp_pk(bk,background_v,INT,vc_ind,background_ind,plasma_ind)
+      define_varp_pk(bk,background_temp,INT,background_ind,plasma_ind)
 
 @ Common blocks definitions.
 
 @f bk_common integer
 @m bk_common
-      declare_var(bk_num);
-      declare_varp(background_sp);
-      declare_varp(background_n);
-      declare_varp(background_v);
-      declare_varp(background_temp);
-      common /com_background/ bk_num,ptr_background_sp,
-          ptr_background_n,ptr_background_v,
-          ptr_background_temp;
-      character*80 background_version;
-      common /com_background_c/ background_version;
-      save /com_background/,/com_background_c/ @;
+      bk_common_a @;
