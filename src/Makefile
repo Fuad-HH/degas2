@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.38  1995/08/01 17:56:26  karney
+# Various changes to make compilation clean on ALPHA.
+#
 # Revision 1.37  1995/07/14 13:19:57  karney
 # Coding for strata added.
 # Switch \Wtitle to \Title.
@@ -379,7 +382,7 @@ readbackground = readdegas.$O geometry.$O elementread.$O readfilenames.$O
 readbackground_libs = $(NETCDF)
 readbackground: $(readbackground)
 
-reactiontest = reactiontest.$O elementread.$O reaction.$O readfilenames.$O
+reactiontest = reactiontest.$O elementread.$O reaction.$O readfilenames.$O random.$O randother.$O collide.$O
 reactiontest_libs = $(NETCDF)
 reactiontest: $(reactiontest)
 
