@@ -2,6 +2,11 @@
 \Title{score}
 
 % $Log$
+% Revision 1.9  1999/04/20 20:17:32  dstotler
+% Replace use of "idiag != 0" with sc_diag_check in
+% handle_diagnostics. Add new dependent variables for
+% direction-dependent scores of PMI - enforce in score_diagnostics.
+%
 % Revision 1.8  1998/09/29 13:17:22  dstotler
 % In score_reaction, return immediately if rate == 0.
 %
@@ -937,7 +942,8 @@ employed in the original DEGAS code.
 
       vc_decls
 
-      if (geometry_symmetry == geometry_symmetry_plane) then
+      if (geometry_symmetry == geometry_symmetry_plane ||
+     $     geometry_symmetry == geometry_symmetry_oned) then
          vc_set(xp,x[1],zero,x[3])
          vc_copy(v,vp)
       else if (geometry_symmetry == geometry_symmetry_cylindrical) then

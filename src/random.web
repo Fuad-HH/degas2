@@ -2,6 +2,10 @@
 \Title{random numbers}
 
 % $Log$
+% Revision 1.9  1998/04/28 19:53:46  karney
+% Include a kludge to prevent Sun's f77 -depend (implied by -fast) from
+% optimizing rand_axc into incorrectness.
+%
 % Revision 1.8  1997/09/02 21:14:38  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -132,17 +136,6 @@ a top-level routine, allocates space for them.
 
 The externally callable routines are:
 
-|call random_init_old(seed,rn_args(tag))| which initializes the random number
-using a two-element integer array |seed[0:1]|.  |seed| must satisfy
-|0<=seed[0]<2^24| and |0<=seed[1]<2^23|.
-
-|call random_seed_old(seed)| initializes a two-element integer array
-|seed[0:1]| ``randomly'', based on the current time and the processor id.
-The array |seed| is suitable for passing to |random_init_old|.
-
-|call next_seed_old(n,seed,newseed)| advances the seed $n$ step forward.  This
-allows independent threads of random numbers to be initialized.
-
 |call random_init(seed,rn_args(tag))| which initializes the random
 number using a four-element integer array |seed[0:3]|.  Each element of
 |seed| must satisfy |0<=seed[i]<2^14|.
@@ -150,6 +143,13 @@ number using a four-element integer array |seed[0:3]|.  Each element of
 |call set_random_seed(seed)| initializes a four-element integer array
 |seed[0:3]| ``randomly'', based on the current time and the processor id.
 The array |seed| is suitable for passing to |random_init|.
+
+|call string_to_seed(string,seed}| initializes the |seed| array from a
+|string| (which might be the decimal representation of a large number).
+
+|call seed_to_string(seed,string}| converted the |seed| array to a
+printable representation in |string| which should be at least 17
+characters long.
 
 |call next_seed(n,seed)| advances the seed $n$ step forward.  This
 allows independent threads of random numbers to be initialized.
@@ -180,8 +180,11 @@ like:
       integer ntasks,nflights,n,num
       rn_seed_decl(seed0)
       rn_seed_decl(seed[0:ntasks-1])
+      character*(17) string
       
-      call set_random_seed(seed0)   // Write out the seed!
+      call set_random_seed(seed0)
+      call seed_to_string(seed0,string)   // Write out the seed!
+      print *,'seed is ',string
 
       num=(nflights+ntasks-1)/ntasks // number of flights/task
 
@@ -245,7 +248,7 @@ $ASSERT(ran_k == RAN_K)   // Check that the header file set |RAN_K| correctly
 batches, placing the results into the array |ran_array|.  The routine to
 return a single random number, |random|, can then merely return the next
 array element.  It calls the routine to calculate the next batch if
-necessary.  |ran_count| points to the next element of |ran_array| to be
+necessary.  |ran_index| points to the next element of |ran_array| to be
 used.  |ran_max| points to the first invalid element of |ran_array|.  Thus
 the number of usable random numbers is |ran_max - ran_count|.  |ran_count|,
 |ran_max|, and |ran_array| together describe the state of the random number
@@ -257,7 +260,7 @@ generator.  The header file packages these together into a single argument
       implicit_none_f77
       implicit_none_f90
       real random               // Function
-      rn_decl(x)             // Input/output
+      rn_decl(x)                // Input/output
       external random_batch     // External
 
       if (rn_index(x) >= rn_max(x)) then
@@ -268,6 +271,31 @@ generator.  The header file packages these together into a single argument
       return
       end
 
+      subroutine random_array(arr,n,rn_dummy(x))
+      implicit_none_f77
+      implicit_none_f90
+      integer n                 // Input
+      real arr(0:n-1)           // Output
+      rn_decl(x)             // Input/output
+      integer i,k,j             // Local
+      external random_batch     // External
+      
+      if (n<=0) return
+      k=min(n,rn_max(x)-rn_index(x))
+      do i=0,k-1
+         arr[i]=rn_array(x)[i+rn_index(x)]
+      end do
+      rn_index(x)+=k
+      do j=k,n-1,ran_k
+         call random_batch(rn_args(x))
+         do i=j,min(j+ran_k,n)-1
+            arr[i]=rn_array(x)[i-j+rn_index(x)]
+         end do
+         rn_index(x)+=min(ran_k,n-j)
+      end do
+      return
+      end
+      
 @ Check that there are at least |n| random numbers available.  After this
 routine the next $n$ random numbers can be retrieved with |fast_random|.
 Because of the size of the batches in which the random numbers are
@@ -278,7 +306,7 @@ generated, we require $n\le k$.
       implicit_none_f77
       implicit_none_f90
       integer n                 // Input
-      rn_decl(x)             // Input/output
+      rn_decl(x)                // Input/output
       external random_batch     // External
 
       assert(0 <= n && n <= ran_k)
@@ -318,7 +346,7 @@ at any time by calling |random_check(n,rn_args(x))| for $n\le k$.
       real ran_epsilon
       parameter (ran_epsilon=const(0.5)^48)
       rn_decl(x)             // Input/output
-      integer i                 // Local
+      integer i,k                 // Local
       real tmp
 
       check(rn_max(x) == ran_k || rn_max(x) == 2*ran_k) // We assume |rn_max(x)| takes on one of these values
@@ -335,10 +363,15 @@ at any time by calling |random_check(n,rn_args(x))| for $n\le k$.
 
 /* Fill second half.  The compiler codes this as two safe short vectors of
 length |ran_j|, in order to avoid the recursion */
+      do k=1-1,0,-1
       do i=ran_k,2*ran_k-1
          tmp=rn_array(x)[i-ran_k]-rn_array(x)[i-ran_j]
          if (tmp < zero) tmp=one+tmp
          rn_array(x)[i]=tmp+ran_epsilon
+/*
+         tmp=rn_array(x)[i-ran_k]+rn_array(x)[i-ran_j]
+         rn_array(x)[i]=tmp-int(tmp)
+*/
       end do
 
       rn_max(x)=rn_max(x)+ran_k
@@ -347,6 +380,10 @@ length |ran_j|, in order to avoid the recursion */
       if (rn_index(x) >= ran_k) then // Shift array down
          @<Shift |rn_array(x)| down...@>
       end if
+      if (k>0) then
+         rn_index(x)+=ran_k
+      end if
+      end do
 
       check(rn_index(x) >= 0 && rn_index(x) < rn_max(x)) // Sanity check on |rn_index(x)|
 
@@ -363,272 +400,14 @@ the bottom half.
          rn_index(x)=rn_index(x)-ran_k
          rn_max(x)=rn_max(x)-ran_k
 
-@* Initialize random number generator.  This again follows from Knuth
-\cite{knuth2}, although the details are taken from the code for Metafont
-\cite{knuth86}.  The initialization uses a Fibonacci-like recursion,
-\begin{equation} Y_i = Y_{i-2} - Y_{i-1}. \end{equation}
-However, this doesn't grow fast enough to fill out all the bits in fraction
-of a floating-point number in $k$ iterations since $\phi^k < 2^{47}$
-($\phi=\frac12(\sqrt 5 + 1)$).  So we prime it with an extra $k$ iterations.
-
-|seed[i]| (for $i=0,1$) are integer seeds satisfying $0 \le s_0 < 2^{24}$,
-$0 \le s_1 < 2^{23}$.  These seeds are used by combining them into a single
-47-bit integer $s_0 + s_1 2^{24}$.
-
-@<Functions...@>=
-@#if 0
-      subroutine random_init_old(seed,rn_dummy(x))
-      implicit_none_f77
-      implicit_none_f90
-      real ran_delta,ran_epsilon
-      parameter (ran_delta=const(0.5)^47,ran_epsilon=const(0.5)^48)
-      integer seed[0:1]         // Input
-      rn_decl(x)             // Output
-      integer i                 // Local
-      real k,jj,j
-      external random_batch     // External
-
-      assert(0<=seed[0] && seed[0]<ran_m0)
-      assert(0<=seed[1] && seed[1]<ran_m1)
-      j=(areal(seed[1])*areal(ran_m0)+areal(seed[0]))*ran_delta // starting values
-      k=ran_delta
-      check(j>=zero && j<one)
-
-      do i=0,ran_k-1            // prime the sequence
-         jj=k
-         k=j-jj
-         if (k < zero) k=k+one
-         j=jj
-      end do
-
-      do i=0,ran_k-1            // repeat depositing results in |rn_array(x)|
-         jj=k
-         k=j-jj
-         if (k < zero) k=k+one
-         j=jj
-         rn_array(x)[mod(i*ran_d,ran_k)]=j+ran_epsilon // Shuffle the sequence
-      end do
-
-      rn_max(x)=ran_k
-      rn_index(x)=ran_k
-
-      do i=1,3                  // Warm up the generator
-         call random_batch(rn_args(x))
-         rn_index(x)=rn_index(x)+ran_k
-      end do
-
-      rn_count(x) = 0           // Initialize count of random numbers produced
-      rn_gauss_index(x) = 0     // Initialize the other generators
-      rn_iso_index(x) = 0
-      rn_cos_index(x) = 0
-
-      end
-@#endif
-
-@* Choose random seed depending on current time and processor id.  This
-returns the seed as two integers $s_i$ for $i=0,1$.  These seeds are to
-be combined into a single 47-bit integer $s = s_0+m s_1$.
-We begin by setting the seed to the 14-digit (decimal) number formed by
-concatenating the year (mod 100), month, day, hour, minute, second, and
-process id (mod 100).  (Note that $2^{47} > 10^{14}$.)
-
-The function |next_seed_old| is then called to randomize the result, so that
-successive runs have very different starting seeds.  Within a run,
-|next_seed_old| may be called repeatedly to generate a random sequence of
-starting seeds.
-
-@<Functions...@>=
-@#if 0
-      subroutine random_seed_old(seed)
-      implicit_none_f77
-      implicit_none_f90
-      integer seed[0:1]         // Output
-      integer temp[7],i,s[0:1] // Local
-      external date_time,get_pid // External
-      integer get_pid
-
-      call date_time(temp)
-      temp[7]=get_pid()
-      goto skip
-
-      entry random_seed_old_test(seed)
-      do i=1,7
-         temp[i]=99
-      end do
-
-skip: continue
-
-      s[0]=0
-      s[1]=0
-
-/* These multiplications by $100$ won't give overflow on a 32-bit computer
-because $2^{31}/|ran_m0|=128$. */
-
-      do i=1,7
-         s[0]=100*s[0]+mod(temp[i],100) // Use last two digits of year and PID
-         s[1]=100*s[1]+s[0]/ran_m0
-         s[0]=mod(s[0],ran_m0)
-         s[1]=mod(s[1],ran_m1)
-      end do
-
-      call next_seed_old(1,s,s)
-
-      seed[0]=s[0]
-      seed[1]=s[1]
-
-      return
-      end
-@#endif
-
-@* Generating a sequence of random seeds.  We use the simple linear
-congruential formula
-\begin{equation}\label{linear}
-X_{n+1}=(aX_n + c) \bmod 2^{47},
-\end{equation}
-See Knuth \cite{knuth2}, Sec.~3.2.1.  We also use the
-inverse of equation (\ref{linear})
-$$
-X_{n-1}=(bX_n + d) \bmod 2^{47},
-$$
-where $ab = 1 \bmod 2^{47}$ and $d=-bc \bmod 2^{47}$.  We choose $a =
-\mathrm{5DEECE66D}_{16} = 273673163155_8 = 25214903917$ and $c = \mathrm
-B_{16} = 13_8 = 11$ which are the default choices in the |drand48| library
-routine \cite{drand48}.  (|drand48| operates modulo $2^{48}$.  What we are
-doing is equivalent to dropping the leading bit.)  We then have $b =
-\mathrm{5FE05BCB1365}_{16} = 2776013362611545_8 = 105417217348453$ and $d =
-\mathrm{615C0E462AA9}_{16} = 3025601621425251_8 = 107048004364969$.  Since
-we want this to work on computers with 32-bit integers, we split up the
-47-bit integers into pieces such that $x_0$ holds the low 24 bits and $x_1$
-holds to the high 23 bits.
-
-@m ran_a0 0xECE66D
-@m ran_a1 0x5DE
-@m ran_c0 0xB
-@m ran_c1 0x0
-@m ran_b0 0xCB1365
-@m ran_b1 0x5FE05B
-@m ran_d0 0x462AA9
-@m ran_d1 0x615C0E
-
-@ |next_seed_old| steps the seed forward $n$ steps.  Thus, if $X_0 = x$, then
-we have $X_n = y$.  $n$ is decomposed in binary and $x$ is stepped forward
-by powers of 2.  We do this by composing equation (\ref{linear}) with
-itself to give, e.g.,
-$$
-X_{n+2}=(a'X_n + c') \bmod 2^{47}.
-$$
-where $a'=a^2 \bmod 2^{47}$ and $c'= (a+1)c \bmod 2^{47}$.  The cpu time is
-proportional to $\log n$.  Input and output can overlap.
-
-@<Functions...@>=
-@#if 0
-      subroutine next_seed_old(n,x,y)
-      implicit_none_f77
-      implicit_none_f90
-      integer n,x[0:1]          // Input
-      integer y[0:1]            // Output
-      integer a[0:1],c[0:1],t[0:1],m   // Local
-
-      check( 0 <= x[0] && x[0] < ran_m0 )
-      check( 0 <= x[1] && x[1] < ran_m1 )
-
-      y[0]=x[0]
-      y[1]=x[1]
-
-      if (n == 0) return
-
-      if (n > 0) then
-         m = n
-         a[0] = ran_a0
-         a[1] = ran_a1
-         c[0] = ran_c0
-         c[1] = ran_c1
-      else
-         m = -n
-         a[0] = ran_b0
-         a[1] = ran_b1
-         c[0] = ran_d0
-         c[1] = ran_d1
-      end if
-
-loop: continue
-      if (mod(m,2) > 0) then
-         call rand_mult(a,y,y)
-         call rand_add(y,c,y)
-      end if
-      m = int(m/2)
-      if (m == 0) return
-      t[0] = 1                  // Generate coefficients for the square of the mapping.
-      t[1] = 0
-      call rand_add(a,t,t)
-      call rand_mult(t,c,c)     // $c'=(a+1)c$
-      call rand_mult(a,a,a)     // $a'=a^2$
-      goto loop
-
-      end
-@#endif
-
-@ Add two 47-bit numbers, $z=x+y$.  Output can overlap with input.
-
-@<Functions...@>=
-@#if 0
-      subroutine rand_add(x,y,z)
-      implicit_none_f77
-      implicit_none_f90
-      integer x[0:1],y[0:1]     // Input
-      integer z[0:1]            // Ouput
-
-      z[0]=x[0]+y[0]
-      z[1]=mod(x[1]+y[1]+z[0]/ran_m0,ran_m1)
-      z[0]=mod(z[0],ran_m0)
-
-      return
-      end
-@#endif
-
-@ Multiply two 47-bit numbers, $z=xy$.  Output can overlap with input.
-
-@m ran_base 2^12                // The base used in |rand_mult|
-
-@<Functions...@>=
-@#if 0
-      subroutine rand_mult(x,y,z)
-      implicit_none_f77
-      implicit_none_f90
-      integer x[0:1],y[0:1]     // Input
-      integer z[0:1]            // Ouput
-      integer tx[0:3],ty[0:3],tz[0:3],i,j // Local
-
-      do i=0,1
-         tx[2*i]=mod(x[i],ran_base)
-         ty[2*i]=mod(y[i],ran_base)
-         tx[2*i+1]=x[i]/ran_base
-         ty[2*i+1]=y[i]/ran_base
-      end do
-
-      do i=0,3
-         tz[i]=0
-         do j=0,i
-            tz[i]=tz[i]+tx[j]*ty[i-j]
-         end do
-      end do
-
-      z[0] = tz[0] + ran_base*mod(tz[1],ran_base)
-      z[1] = tz[1]/ran_base + tz[2] + ran_base*mod(tz[3],ran_base)
-
-      z[1] = mod(z[1] + z[0]/ran_m0, ran_m1)
-      z[0] = mod(z[0], ran_m0)
-
-      return
-      end
-@#endif
-
-@* New versions of |random_init|, |set_random_seed|, and |next_seed|.
+@* Generating a sequence of random seeds.  
 
 This initializes the random number array using the high 47 bits of
 successive numbers from the |drand48| linear congruential converted to
 56 bits.  Define
-$$T(x)\equiv (a_1x+c_1) \bmod 2^{56},$$
+\begin{equation} \label{linear}
+T(x)\equiv (a_1x+c_1) \bmod 2^{56},
+\end{equation}
 and
 $$T^n(x)\equiv (a_nx+c_n) \bmod 2^{56}.$$
 Then we have
@@ -713,40 +492,6 @@ positions in |rn_array(x)|. */
       rn_cos_index(x) = 0
 
       end
-
-@* Set the seed from a decimal integer.  |decimal| is a positive decimal
-number of arbitrary length (as a character string).  |seed| is set by
-taking the low 56 bits of |decimal|.  This is now replaced by the more
-general |string_to_seed|.
-
-@<Functions...@>=
-@#if 0
-      subroutine decimal_to_seed(decimal,seed)
-      implicit_none_f77
-      implicit_none_f90
-      integer pow,decbase
-      parameter (pow=4,decbase=10^pow)
-      character*(*) decimal
-      rn_seed_decl(seed)
-      integer l,i,a[0:3],c[0:3],o
-      data a/decbase,3*0/
-      
-      l=int((len(decimal)+pow-1)/pow)
-      o=1-(pow*l-len(decimal))
-      
-      do i=0,3
-         seed[i]=0
-         c[i]=0
-      end do
-      
-      do i=0,l-1
-         read(decimal(max(1,o+pow*i):o+pow*(i+1)-1),'(i4)') c[0]
-         call rand_axc(a,seed,c)
-      end do
-         
-      return
-      end
-@#endif
 
 @* Set the seed from an arbitrary string |string| is a string arbitrary
 length.  |seed| is initialized to zero. Whitespace is ignored in the
@@ -879,10 +624,10 @@ we have $X_n = y$.  $n$ is decomposed in binary and $x$ is stepped forward
 by powers of 2.  We do this by composing equation (\ref{linear}) with
 itself to give, e.g.,
 $$
-X_{n+2}=(a'X_n + c') \bmod 2^{56}.
+T^2(x) \equiv (a_2 x + c_2) \bmod 2^{56}.
 $$
-where $a'=a^2 \bmod 2^{56}$ and $c'= (a+1)c \bmod 2^{56}$.  The cpu time is
-proportional to $\log n$.
+where $a_2=a_1^2 \bmod 2^{56}$ and $c_1= (a_1+1)c_1 \bmod 2^{56}$.  The
+cpu time is proportional to $\log n$.
 
 @<Functions...@>=
       subroutine next_seed(n,y)
@@ -953,7 +698,10 @@ loop: continue
 @#if SUN
 /* The Sun f77 compiler has an optimization bug where it moves the assignment
 |x=z| to the previous loop.  This conditional stops this from happening.
-Note the |z[0]| should always be non-negative. */
+Note the |z[0]| should always be non-negative.
+
+This bug in Sun f77 4.2 is fixed in f77 5.0
+*/
       if (z[0] >= 0) then
 @#endif
       do i=0,3
@@ -969,7 +717,7 @@ Note the |z[0]| should always be non-negative. */
 @* References.
 
 \bibliographystyle{report}
-\bibliography{../../degas}
+\bibliography{../../degas/papers/degas}
 
 @* INDEX.
 

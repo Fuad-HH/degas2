@@ -3,6 +3,11 @@
 \Title{Read old Degas' geometry}
 
 % $Log$
+% Revision 1.5  1997/08/19 14:37:01  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.4  1995/08/23 14:48:29  dstotler
 % Uses the geometry symmetry in subroutine inpt.
 %
@@ -123,7 +128,7 @@
   /* Convert to meters and for offset */
       if (symmetry == geometry_symmetry_cylindrical) then
          xoffset=(rmajor-half*xlen)*const(0.01)
-      else if (symmetry == geometry_symmetry_plane) then
+      else if (symmetry == geometry_symmetry_plane || symmetry == geometry_symmetry_oned) then
          xoffset=zero
       else
          assert('Unexpected symmetry value' == ' ')

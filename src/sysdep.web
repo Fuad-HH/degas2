@@ -2,6 +2,9 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.19  1998/06/01 15:56:36  karney
+% MPI enabled version.
+%
 % Revision 1.18  1998/04/16 15:31:13  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -542,12 +545,13 @@ int len;
 @#endif
       implicit_none_f90
       integer arg_count         // Function
-@#if !LINUX
-      integer iargc             // External
-@#endif
 @#if CRAY
       external ipxfargc
       integer ipxfargc
+@#else
+@#if !LINUX
+      integer iargc             // External
+@#endif
 @#endif
 
 @#if CRAY
@@ -2185,7 +2189,7 @@ memory leaks.
 
       do i=1,array_num
          if (mem_array_name[i]==' ') then
-            empty=i
+            if (empty==0) empty=i
          else if (namex==mem_array_name[i]) then
             return
          end if

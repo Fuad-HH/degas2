@@ -2,6 +2,10 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.22  1998/09/04 17:07:50  dstotler
+% Relax angle constraint in subr. convex_polygon to prevent cells with
+% too nearly colinear edges.
+%
 % Revision 1.21  1997/08/19 14:36:31  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -261,7 +265,8 @@ of the points.
 
       polygon_volume=zero
 
-      if (geometry_symmetry==geometry_symmetry_plane) then
+      if (geometry_symmetry==geometry_symmetry_plane ||
+     $     geometry_symmetry==geometry_symmetry_oned) then
          do i=0,n-1
             polygon_volume=polygon_volume+(x[1,i]+x[1,i+1])*(x[2,i]-x[2,i+1])
          end do
@@ -286,7 +291,7 @@ of the points.
 @ Decompose non-convex polygon.
 
 @<Functions...@>=
-      subroutine decompose_polygon(n,x,zone)
+      subroutine decompose_polygon(n,x,zonearray,mdiv,facearray)
 
       define_dimen(segment,2)
       define_dimen(vert,0,n)
@@ -296,7 +301,7 @@ of the points.
 
       implicit_none_f77
       implicit_none_f90
-      integer n,zone            // Input
+      integer n,zonearray[0:mdiv-1],mdiv,facearray[0:mdiv]            // Input
       real x[2,0:n]
       declare_varp(a)
       declare_varp(b)
@@ -305,7 +310,6 @@ of the points.
       @<Memory allocation interface@>
       external self_intersect,check_split,convex_polygon   // External
       logical self_intersect,check_split,convex_polygon
-
 
       check(n>=3)
       check(x[1,0] == x[1,n] && x[2,0] == x[2,n]) // Check end points
@@ -349,7 +353,7 @@ loop: continue
 @#endif
 
       if (convex_polygon(m,a)) then
-         call process_polygon(m,a,zone) 
+         call process_polygon(m,a,zonearray,mdiv,facearray)
          var_free(a)
          var_free(b)
          return
@@ -396,7 +400,7 @@ break2:continue
       b[2,size]=b[2,0]
       assert(check_split(m,a,start,size,b))
 
-      call process_polygon(size,b,zone)
+      call process_polygon(size,b,zonearray,mdiv,facearray)
 
 @#if 0
       write(stderr,*) 'Split off polygon:'
@@ -477,19 +481,22 @@ break: continue
 @ Process a convex polygon.
 
 @<Functions...@>=
-      subroutine process_polygon(n,x,zone)
+      subroutine process_polygon(n,x,zonearray,mdiv,facearray)
       implicit_none_f77
       gi_common
       implicit_none_f90
-      integer n,zone          // Input
+      integer n,zonearray[0:mdiv-1],mdiv,facearray[0:mdiv]          // Input
       real x[2,0:n]
       
-      assert(geometry_symmetry==geometry_symmetry_plane || geometry_symmetry==geometry_symmetry_cylindrical)
+      assert(geometry_symmetry==geometry_symmetry_plane ||
+     $     geometry_symmetry==geometry_symmetry_oned ||
+     $     geometry_symmetry==geometry_symmetry_cylindrical)
       
-      if (geometry_symmetry==geometry_symmetry_plane) then
-         call process_polygon_plane(n,x,zone)
+      if (geometry_symmetry==geometry_symmetry_plane ||
+     $     geometry_symmetry==geometry_symmetry_oned) then
+         call process_polygon_plane(n,x,zonearray,mdiv,facearray)
       else if (geometry_symmetry==geometry_symmetry_cylindrical) then
-         call process_polygon_cylindrical(n,x,zone)
+         call process_polygon_cylindrical(n,x,zonearray,mdiv,facearray)
       end if
       
       return
@@ -498,26 +505,42 @@ break: continue
 @ Process a convex polygon in plane geometry.
 
 @<Functions...@>=
-      subroutine process_polygon_plane(n,x,zone)
+      subroutine process_polygon_plane(n,x,zonearray,mdiv,facearray)
+
+      define_dimen(divs,0,mdiv-1)
+      define_varp(cella,FLOAT,divs)
+
       implicit_none_f77
       gi_common
       implicit_none_f90
-      integer n,zone          // Input
+      integer n,zonearray[0:mdiv-1],mdiv,facearray[0:mdiv]          // Input
       real x[2,0:n]
-      integer i,cell,face // Local
+      integer i,m,face // Local
       real coeff[NCOEFFS],x1[3],x2[3],x3[3],a[3]
+      declare_varp(cella)
+      @<Memory allocation interface@>
       external define_surface,start_cell,vector_compare,define_surface_a // External
       integer define_surface,start_cell,vector_compare,define_surface_a
-
-      cell=start_cell(zone)
-      vc_set(a,zero,one,zero)
-      call plane(universal_cell_min,a,coeff)
-      face=define_surface(coeff,.true.)
-      call add_surface(face,cell,.true.)
-      call plane(universal_cell_max,a,coeff)
-      face=define_surface(coeff,.true.)
-      call add_surface(-face,cell,.true.)
       
+      var_alloc(cella)
+      do m=0,mdiv-1
+         cella[m]=start_cell(zonearray[m])
+      end do
+      if (mdiv==1) then
+         vc_set(a,zero,one,zero)
+         call plane(universal_cell_min,a,coeff)
+         face=define_surface(coeff,.true.)
+         call add_surface(face,cella[0],.true.)
+         call plane(universal_cell_max,a,coeff)
+         face=define_surface(coeff,.true.)
+         call add_surface(-face,cella[0],.true.)
+      else
+         do m=0,mdiv-1
+            call add_surface(facearray[m],cella[m],.true.)
+            call add_surface(-facearray[m+1],cella[m],.true.)
+         end do
+      end if
+
       do i=0,n-1
          vc_set(x1,x[1,i],zero,x[2,i])
          vc_set(x2,x[1,i+1],zero,x[2,i+1])
@@ -529,7 +552,9 @@ break: continue
          end if
          call planea(x1,x3,x2,coeff)
          face=define_surface_a(coeff,x1,x2)
-         call add_surface(face,cell,.true.)
+         do m=1,mdiv-1
+            call add_surface(face,cella[m],.true.)
+         end do
          if (face>0) then
             vc_copy(x1,surface_points[0,face])
             vc_copy(x2,surface_points[1,face])
@@ -563,17 +588,21 @@ break: continue
          end if
          call planea(x1,x3,x2,coeff)
          face=define_surface(coeff,.true.)
-         call add_surface(face,cell,.true.)
+         do m=0,mdiv-1
+            call add_surface(face,cella[m],.true.)
+         end do
 @#endif
       end do
       
+      var_free(cella)
+
       return
       end
 
 @ Process a convex polygon in cylindrical geometry.
 
 @<Functions...@>=
-      subroutine process_polygon_cylindrical(n,x,zone)
+      subroutine process_polygon_cylindrical(n,x,zonearray,mdiv,facearray)
 
       define_var(k,INT,vert1)
       define_var(type,INT,vert1)
@@ -582,18 +611,19 @@ break: continue
       implicit_none_f77
       gi_common
       implicit_none_f90
-      integer n,zone          // Input
+      integer n,zonearray[0:mdiv-1],mdiv,facearray[0:mdiv]          // Input
       real x[2,0:n]
-      integer i,j,ia,ja,leftmin,leftmax,rightmin,rightmax,surf_type,cell,kdiv // Local
+      integer i,j,ia,ja,m,leftmin,leftmax,rightmin,rightmax,surf_type,kdiv // Local
       real zmin,zmax,zmina,zmaxa,ztarget,guardmin,guardmax,cutmin,cutmax,
      $     coeff[NCOEFFS],x1[3],x2[3],apex[3],a[3],x0[3]
       declare_varp(k)
       declare_varp(type)
       declare_varp(z)
+      declare_varp(cella)
       @<Memory allocation interface@>
       external define_surface,start_cell,define_surface_a // External
       integer define_surface,start_cell,define_surface_a
-
+      
       leftmin=0
       leftmax=0
       zmin=x[2,0]
@@ -647,11 +677,23 @@ break: continue
       i=leftmin
       kdiv=0                    // No dividing plane yet
 
+      var_alloc(cella)
+
 loop: continue                  // Loop over cells
 
-      cell = start_cell(zone) // Start a new cell
+      do m=0,mdiv-1
+         cella[m] = start_cell(zonearray[m]) // Start a new cell
+      end do
+      if (m>1) then
+         do m=0,mdiv-1
+            call add_surface(facearray[m],cella[m],.true.)
+            call add_surface(-facearray[m+1],cella[m],.true.)
+         end do
+      end if
       if (kdiv != 0) then
-         call add_surface(kdiv,cell,.true.)
+         do m=0,mdiv-1
+            call add_surface(kdiv,cella[n],.true.)
+         end do
          guardmin = guardmax
       else
          guardmin = -geom_infinity
@@ -670,7 +712,9 @@ loop1:continue                  // Loop over left segments
             x0[3] = x[2,ia]
             call plane(x0,a,coeff)
             kdiv=define_surface(coeff,.false.)
-            call add_surface(-kdiv,cell,.true.)
+            do m=0,mdiv-1
+               call add_surface(-kdiv,cella[m],.true.)
+            end do
             guardmax = x0[3]
          end if
          cutmax = geom_infinity
@@ -683,7 +727,9 @@ loop1:continue                  // Loop over left segments
      $           x[2,ja] > zmaxa && x[2,ja+1] >= zmaxa ||
      $           x[2,ja] >= zmaxa && x[2,ja+1] > zmaxa
      $           ) ) then
-               call add_surface(k[ja],cell,.true.)
+               do m=0,mdiv-1
+                  call add_surface(k[ja],cella[m],.true.)
+               end do
                if (type[ja] == 1) then
                   check( z[ja] > zmaxa || z[ja] < zmina )
                   if ( z[ja] > zmaxa ) then
@@ -704,12 +750,16 @@ loop1:continue                  // Loop over left segments
          if (cutmin > guardmin) then
             x0[3] = cutmin
             call plane(x0,a,coeff)
-            call add_surface(define_surface(coeff,.false.),cell,.false.)
+            do m=0,mdiv-1
+               call add_surface(define_surface(coeff,.false.),cella[m],.false.)
+            end do
          end if
          if (cutmax < guardmax) then
             x0[3] = cutmax
             call plane(x0,a,coeff)
-            call add_surface(-define_surface(coeff,.false.),cell,.false.)
+            do m=0,mdiv-1
+               call add_surface(-define_surface(coeff,.false.),cella[m],.false.)
+            end do
          end if
          if (i == leftmax) then
             check( zmaxa == zmax )
@@ -720,7 +770,9 @@ loop1:continue                  // Loop over left segments
       end if
             
       zmaxa=x[2,ia+1]
-      call add_surface(k[ia],cell,.true.)
+      do m=0,mdiv-1
+         call add_surface(k[ia],cella[m],.true.)
+      end do
       
       if (type[ia] == 0) then
          if (x[1,ia] > x[1,ia+1]) then
@@ -743,6 +795,8 @@ break:continue
       var_free(k)
       var_free(type)
       var_free(z)
+
+      var_free(cella)
 
       return
       end

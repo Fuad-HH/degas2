@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.13  1999/05/25 13:40:05  dstotler
+% Add bk_mx, bk_my.
+%
 % Revision 1.12  1999/03/25 20:45:59  dstotler
 % Move in attribute descriptions from classes.web file.
 %
@@ -87,7 +90,7 @@ these arrays.
 
 @ Move velocity from external reference plane to internal position.
 
-@m v_ext_to_int(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian) || (x[1]**2+x[2]**2 == zero)) then;
+@m v_ext_to_int(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || sym == geometry_symmetry_oned || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian) || (x[1]**2+x[2]**2 == zero)) then;
       vc_copy(v,v_t);
       else if (sym == geometry_symmetry_cylindrical || (sym == geometry_symmetry_none && coord == plasma_coords_cylindrical)) then;
       assert(x[1]**2+x[2]**2 > zero);
@@ -100,7 +103,7 @@ these arrays.
 
 @ Move velocity from internal position external reference plane.
 
-@m v_int_to_ext(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian)) then;
+@m v_int_to_ext(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || sym == geometry_symmetry_oned || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian)) then;
       vc_copy(v,v_t);
       else if (sym == geometry_symmetry_cylindrical || (sym == geometry_symmetry_none && coord == plasma_coords_cylindrical)) then; 
       assert(x[1]**2+x[2]**2 > zero);

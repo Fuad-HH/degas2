@@ -2,6 +2,9 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.17  1999/05/25 13:42:03  dstotler
+% Set up option for direct sampling in sample_sources.
+%
 % Revision 1.16  1999/04/20 20:20:21  dstotler
 % Change plasma sector calls to target sector. Eliminate use of xseg2 in
 % set_puff_source_v. Use sc_target_check & sc_wall_check in
@@ -185,8 +188,9 @@ using routines specific for the geometry of that source.
       
 /* Can only handle 2-D geometries here:
  */
-      assert(geometry_symmetry == geometry_symmetry_plane 
-     $     || geometry_symmetry == geometry_symmetry_cylindrical)
+      assert(geometry_symmetry == geometry_symmetry_plane ||
+     $     geometry_symmetry == geometry_symmetry_oned ||
+     $     geometry_symmetry == geometry_symmetry_cylindrical)
       if (so_geom(isource) == so_surface) then
          call set_surface_source_x(so_args(isource),xseg,rn_args(r),lc_args(x))
       else if (so_geom(isource) == so_volume) then
@@ -234,7 +238,8 @@ routine really just samples on a line.
          r1=sqrt(sector_points[xseg][1][1]**2+sector_points[xseg][1][2]**2)
          if (r1 != r0) urd=(sqrt(r0**2 + urd*(r1**2-r0**2)) - r0) / (r1 - r0)
       else
-         assert(geometry_symmetry == geometry_symmetry_plane)
+         assert(geometry_symmetry == geometry_symmetry_plane ||
+     $        geometry_symmetry == geometry_symmetry_oned)
       end if
 
 /* Interpolate along the surface according to |urd|:
@@ -297,7 +302,8 @@ loop: continue
          r1=sqrt(zone_max[xseg][1]**2+zone_max[xseg][2]**2)
          if (r1 != r0) urd_x=(sqrt(r0**2 + urd_x*(r1**2-r0**2)) - r0) / (r1 - r0)
       else
-         assert(geometry_symmetry == geometry_symmetry_plane)
+         assert(geometry_symmetry == geometry_symmetry_plane ||
+     $        geometry_symmetry == geometry_symmetry_oned)
       end if
       x=zone_min[xseg][1]+urd_x*(zone_max[xseg][1]-zone_min[xseg][1])
       y=zone_min[xseg][2]+urd_x*(zone_max[xseg][2]-zone_min[xseg][2])

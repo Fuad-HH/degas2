@@ -2,6 +2,10 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.12  1999/05/25 13:31:25  dstotler
+% Allocate & set default value for source_num_checkpoints. Add
+% so_set_run_flags macro call.
+%
 % Revision 1.11  1999/04/20 20:03:40  dstotler
 % Eliminate sectors based on solid zones. Divide source current for gas
 % puff by nz.
@@ -121,6 +125,9 @@ where |den_max| is computed.
 Three sides of the box are set up as ``mirrors''; the fourth (|x| = |x_max|)
 is an exit. 
 
+The (ignored) |y| direction may be split up into |ny| pieces for the
+purposes of scoring.
+
 @m den_min const(8.5,18)    // Frequently adjusted parameters, override
 @m temp_min one             // using blocks like below (as for |puff_species|)
 @m temp_max const(10.)      // so that these remain the defaults.
@@ -158,6 +165,9 @@ is an exit.
 @m x_max one
 @m z_min zero
 @m z_max one
+@m ny 1
+@m y_min -one
+@m y_max one
 
 @f box_localcommon integer
 @m box_localcommon save /boxgen_common/;
@@ -174,11 +184,13 @@ is an exit.
       implicit_none_f90
 
       real border_frac,guard_frac,                                // Local
-     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,recyc_coef
+     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,recyc_coef,y
       real z_grid[0:nz],univ_min[3],univ_max[3],
-     $     poly_corners[2,0:4],poly_points[2,0:nmax+3],point_1[3],point_2[3]
-      integer n,zone,i,j,stratum,sector1,sector2
+     $     poly_corners[2,0:4],poly_points[2,0:nmax+3],point_1[3],point_2[3],
+     $     coeff[NCOEFFS],a[3],b[3]
+      integer n,zone,i,j,k,stratum,sector1,sector2
       integer plasma_zones[0:nxtot-1,0:nz-1],boundary_zones[4]
+      integer zonearray[0:ny-1],facearray[0:ny]
       ma_decl(material)
 
       gi_ext                                                      // External
@@ -215,24 +227,43 @@ is an exit.
 /* Here's the only place the ``border'' variables are used. The
    y-range of the universal cell is arbitrary with the planar symmetry.
  */
-      vc_set(univ_min,x_min-x_border,-one,z_min-z_border)
-      vc_set(univ_max,x_max+x_border, one,z_max+z_border)
+      vc_set(univ_min,x_min-x_border,y_min,z_min-z_border)
+      vc_set(univ_max,x_max+x_border,y_max,z_max+z_border)
       call universal_cell(geometry_symmetry_plane,univ_min,univ_max,vol)
       write(stdout,*) vol
 
 /* Define plasma zones */
+      
+      vc_set(a,zero,one,zero)
+      vc_copy(univ_min,b)
+      do k=0,ny
+         if (k==0) then         // Avoid roundoff on end faces
+            y=y_min
+         else if (k==ny) then
+            y=y_max
+         else
+            y=y_min+areal(k)/areal(ny)*(y_max-y_min)
+         end if
+         b[2]=y
+         call plane(b,a,coeff)
+         facearray[k]=define_surface(coeff,.true.)
+      end do
 
       zone=0
       do j=0,nz-1
          do i=0,nxtot-1
             zone++
+/* Really should have different zone numbers here */
+            do k=0,ny-1
+               zonearray[k]=zone
+            end do
             n=0
             poly_corners[1,n]=x_grid[i];   poly_corners[2,n]=z_grid[j];   n++
             poly_corners[1,n]=x_grid[i];   poly_corners[2,n]=z_grid[j+1]; n++
             poly_corners[1,n]=x_grid[i+1]; poly_corners[2,n]=z_grid[j+1]; n++
             poly_corners[1,n]=x_grid[i+1]; poly_corners[2,n]=z_grid[j];   n++
             poly_corners[1,n]=x_grid[i];   poly_corners[2,n]=z_grid[j]
-            call decompose_polygon(n,poly_corners,zone)
+            call decompose_polygon(n,poly_corners,zonearray,ny,facearray)
             zn_type_set(zone,zn_plasma)
             zn_volume(zone)=polygon_volume(n,poly_corners)
             call set_zn_min_max(n,poly_corners,zone,.true.)
@@ -257,7 +288,7 @@ is an exit.
       end do
       poly_points[1,n]=univ_max[1]; poly_points[2,n]=univ_min[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone)
+      call decompose_polygon(n,poly_points,zone,1,0)
       zn_type_set(zone,zn_solid)
       zn_volume(zone)=polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
@@ -272,7 +303,7 @@ is an exit.
       end do
       poly_points[1,n]=univ_max[1]; poly_points[2,n]=univ_max[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone)
+      call decompose_polygon(n,poly_points,zone,1,0)
       zn_type_set(zone,zn_exit)
       zn_volume(zone)=polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
@@ -287,7 +318,7 @@ is an exit.
       end do
       poly_points[1,n]=univ_min[1]; poly_points[2,n]=univ_max[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone)
+      call decompose_polygon(n,poly_points,zone,1,0)
       zn_type_set(zone,zn_solid)
       zn_volume(zone)=polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
@@ -302,7 +333,7 @@ is an exit.
       end do
       poly_points[1,n]=univ_min[1]; poly_points[2,n]=univ_min[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone)
+      call decompose_polygon(n,poly_points,zone,1,0)
       zn_type_set(zone,zn_solid)
       zn_volume(zone)=polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)

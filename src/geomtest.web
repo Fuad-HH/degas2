@@ -2,6 +2,9 @@
 \Title{geomtest}
 
 % $Log$
+% Revision 1.14  1998/01/14 20:40:21  dstotler
+% Remove references to lc_stratum, lc_stratum_next.
+%
 % Revision 1.13  1997/08/21 01:46:18  karney
 % Convert rest of memory allocation to fortran 90 standard.
 %
@@ -120,7 +123,7 @@
             x[1,n]=i+1; x[2,n]=j+1; n++
             x[1,n]=i+1; x[2,n]=j; n++
             x[1,n]=i;   x[2,n]=j
-            call decompose_polygon(n,x,zone)
+            call decompose_polygon(n,x,zone,1,0)
             zn_type_set(zone,zn_plasma)
             zn_volume(zone)=polygon_volume(n,x)
          end do
@@ -138,7 +141,7 @@
       end do
       xa[1,n]=x2[1]; xa[2,n]=x1[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone)
+      call decompose_polygon(n,xa,zone,1,0)
       zn_type_set(zone,zn_vacuum)
       zn_volume(zone)=polygon_volume(n,xa)
 
@@ -150,7 +153,7 @@
       end do
       xa[1,n]=x1[1]; xa[2,n]=x2[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone)
+      call decompose_polygon(n,xa,zone,1,0)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
 
  /* Left */
@@ -161,7 +164,7 @@
       end do
       xa[1,n]=x1[1]; xa[2,n]=x1[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone)
+      call decompose_polygon(n,xa,zone,1,0)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
       
  /* Right */
@@ -172,7 +175,7 @@
       end do
       xa[1,n]=x2[1]; xa[2,n]=x2[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone)
+      call decompose_polygon(n,xa,zone,1,0)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
 
       call boundaries_neighbors
