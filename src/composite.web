@@ -2,6 +2,11 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.13  1995/07/14 13:20:01  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.12  1995/06/22 21:41:11  jshankar
 % corrected a few typos
 %
@@ -442,8 +447,8 @@ break: continue
       integer i,cell,face // Local
       real coeff[NCOEFFS],x1[3],x2[3],x3[3],a[3]
       gi_common
-      external define_surface,start_cell,vector_compare // External
-      integer define_surface,start_cell,vector_compare
+      external define_surface,start_cell,vector_compare,define_surface_a // External
+      integer define_surface,start_cell,vector_compare,define_surface_a
 
       cell=start_cell(zone)
       vc_set(a,zero,one,zero)
@@ -457,6 +462,16 @@ break: continue
       do i=0,n-1
          vc_set(x1,x[1,i],zero,x[2,i])
          vc_set(x2,x[1,i+1],zero,x[2,i+1])
+@#if 1
+         if (vector_compare(x1,x2)>0) then
+            vc_set(x3,x1[1],one,x1[3])
+         else
+            vc_set(x3,x2[1],one,x2[3])
+         end if
+         call planea(x1,x3,x2,coeff)
+         face=define_surface_a(coeff,x1,x2)
+         call add_surface(face,cell,.true.)
+@#else
          if (face>0) then
             vc_copy(x1,surface_points[0,face])
             vc_copy(x2,surface_points[1,face])
@@ -486,6 +501,7 @@ break: continue
          call planea(x1,x3,x2,coeff)
          face=define_surface(coeff,.true.)
          call add_surface(face,cell,.true.)
+#endif
       end do
       
       return
@@ -508,8 +524,8 @@ break: continue
       ptr_decl(z)
       sy_common
       gi_common
-      external define_surface,start_cell // External
-      integer define_surface,start_cell
+      external define_surface,start_cell,define_surface_a // External
+      integer define_surface,start_cell,defined_surface_a
 
       leftmin=0
       leftmax=0
@@ -549,7 +565,7 @@ break: continue
          x2[1]=x[1,i+1]
          x2[3]=x[2,i+1]
          call conea(x1,x2,coeff,surf_type,apex)
-         k[i]=define_surface(coeff,.true.)
+         k[i]=define_surface_a(coeff,x1,x2)
          if (k[i]>0) then
             vc_copy(x1,surface_points[0,k[i]])
             vc_copy(x2,surface_points[1,k[i]])

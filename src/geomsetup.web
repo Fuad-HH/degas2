@@ -3,6 +3,11 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.16  1995/07/14 13:20:18  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.15  1995/06/21 20:05:04  jshankar
 % updated to include readfilenames
 %
@@ -402,6 +407,37 @@ then search for duplicates and return the duplicate index if it exists.
       return
       end
 
+@ Register a new surface.  If |x1| and |x2| are possible values of
+|surface_points| and this routine only returns an existing surface if
+these values match.
+
+@<Functions...@>=
+      function define_surface_a(coeff,x1,x2)
+      implicit_none
+      integer define_surface_a    // Function
+      real coeff[NCOEFFS],x1[3],x2[3]       // Input
+      gi_common                 // Input/Output
+      integer k   // Local
+      external define_surface // External
+      integer define_surface
+
+      do k=1,nsurfaces
+         if (vc_equal(x1,surface_points[0,k]) &&
+     $        vc_equal(x2,surface_points[1,k])) then
+            define_surface_a = k
+            return
+         else if (vc_equal(x1,surface_points[1,k]) &&
+     $           vc_equal(x2,surface_points[0,k])) then
+            define_surface_a = -k
+            return
+         end if
+      end do
+      
+      define_surface_a=define_surface(coeff,.false.)
+         
+      return
+      end
+
 @ Start definition of a cell.
 
 @<Functions...@>=
@@ -597,13 +633,13 @@ break: continue
 break:      continue
          end do
          if (outer) then
-/* If the surface is face of the universal cell, then there's nothing on
-the other side and some other cell must be on the same side */
+ /* If the surface is face of the universal cell, then there's nothing on
+    the other side and some other cell must be on the same side */
             assert(surfaces[s_neg,s_count,k]==0 || surfaces[s_pos,s_count,k]==0)
             assert(surfaces[s_neg,s_count,k]>0 || surfaces[s_pos,s_count,k]>0)
          else                   // |!outer|
-/* Either the surface is a cut surface with nothing on either side or else
-there is at least one cell on each side */
+ /* Either the surface is a cut surface with nothing on either side or else
+    there is at least one cell on each side */
             if (surfaces[s_neg,s_count,k]==0) then
                if (surfaces[s_pos,s_count,k]!=0) then
                   write(stderr,*) 'This surface isn''t an outer surface, but there''s something on one side and not on the other'
