@@ -1,11 +1,79 @@
 #  -*- text -*-
 # $Header$
 # $Log$
+# Revision 1.1  1994/06/28 22:12:49  karney
+# Add reaction data, test out {element,species,reaction}setup.
+#
+
+General setup:
+
+To get an up-to-date source, do
+
+    setenv CVSROOT /soft/cvs
+    cd
+    cvs co degas2
+
+This will put the sources in ~/degas2.  (It's not essential that the
+sources be in this location.  But this is what the Makefile assumes)
+
+src/.emacs contains a couple of items to consider putting in ~/.emacs.
+
+To get woven documentation:
+
+    mkdir ~/degas2/tex
+    cd ~/degas2/tex
+    cp ../src/Makefile .
+    gmake geometry.print
+
+To compile the code on a Sun:
+
+    mkdir ~/degas2/SUN
+    cd ~/degas2/SUN
+    cp ../src/Makefile .
+    gmake randomtest
+
+To compile the code for the Crays (or HP):
+
+    (On Sun)
+    mkdir <some-afs-directory>/degas2/CRAY
+    ln -s <same-afs-directory>/degas2/CRAY ~/degas2/CRAY
+    cd ~/src/CRAY
+    cp ~/degas2/src/Makefile .
+    gmake randomtest
+
+    (On Cray)
+    ln -s <same-afs-directory>/degas2 ~/degas2
+    cd <some-work-directory>/CRAY
+    cp ~/degas2/CRAY/Makefile .
+    gmake randomtest
+
+To compile the code for CCF:
+
+    (On Sun)
+    mkdir ~/degas2/SGI
+    cd ~/degas2/SGI
+    cp ../src/Makefile .
+    gmake randomtest
+
+    (On CCF)
+    ln -s /n/lyman/u/<username>/degas2 ~/degas2
+    cd ~/degas2/SGI
+    gmake randomtest
+
+
 
 Description of the programs
 
+sysdeptest: a test of the various system dependent routines.
+
 elementsetup: converts elements.input to elements.nc
+
 speciesetup: converts species.input to species.nc (run after elementsetup)
+
 reactionwrite: converts cross-section data to REACTION.nc
+
 reactionsetup: converts reactions.input to reactions.nc (run after speciesetup and reactionwrite)
+
+randomtest: a simple test of the random number generator.  A good thing to
+try on new architechures.
 

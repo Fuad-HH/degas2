@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.12  1994/06/28 22:12:46  karney
+# Add reaction data, test out {element,species,reaction}setup.
+#
 # Revision 1.11  1994/06/28 19:44:21  karney
 # Get Makefiles working to update fixit, idtof when needed.
 
@@ -31,32 +34,33 @@ ifeq ($(findstring sn,$(SYSTEM)),sn)
 endif
 
 # Figure out target machine
-ifeq ($(MACHINE),CRAY)
-  TARGET=CRAY
-else
-  TARGET=$(notdir $(shell pwd))
-endif
+TARGET=$(notdir $(shell pwd))
 
 ifneq ($(TARGET),$(MACHINE))
   CROSSCOMPILE=yes
 endif
 
 foof:
-	echo $(MACHINE) $(TARGET)
-	echo $(SOURCEDIR)
+	echo $(MACHINE) $(TARGET) $(SOURCEDIR)
 
 utils: idtof fixit Makefile
 
 # Deal with location of things
 
 ifeq ($(MACHINE),CRAY)
-  SOURCEDIR=~/afs/degas2/CRAY
+  SOURCEDIR=$(HOME)/degas2/$(MACHINE)
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
 else
-  SOURCEDIR=/u/karney/degas/degas2/src
+ifeq ($(MACHINE),HP)
+  SOURCEDIR=$(HOME)/degas2/$(MACHINE)
+  %.f: $(SOURCEDIR)/%.f
+	cp $< $@
+else
+  SOURCEDIR=$(HOME)/degas2/src
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
+endif
 endif
 
 Makefile: $(SOURCEDIR)/Makefile
@@ -84,7 +88,11 @@ PVM=-L/soft/pvm/lib/$(PVMARCH) -lfpvm3 -lpvm3
 %.dvi: %.tex
 
 # Set up compilers etc.
-LPRFLAGS=-h
+ifeq ($(PRINTER),"")
+ LPRFLAGS=-h
+else
+ LPRFLAGS=-h -P$(PRINTER)
+endif
 FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
@@ -130,7 +138,7 @@ ifndef CROSSCOMPILE
 else # We're cross compiling
   O=f
   %: %.o
-  %: %.$O sysdep.$O string.$O
+  %: %.$O sysdep.$O string.$O idtof
 	@echo Made $^
 endif
 
@@ -170,11 +178,11 @@ endef
 
 %.print: %.dvi
 ifndef PAGES
-	dvips -f $^ | rsh leo.gat.com lp
-#	lpr $(LPRFLAGS) -d $^
+#	dvips -f $^ | rsh leo.gat.com lp
+	lpr $(LPRFLAGS) -d $^
 else
-#	dviselect $(PAGES) $^ | lpr $(LPRFLAGS) -d
-	dviselect $(PAGES) $^ | dvips-filter | rsh leo.gat.com lp
+	dviselect $(PAGES) $^ | lpr $(LPRFLAGS) -d
+#	dviselect $(PAGES) $^ | dvips-filter | rsh leo.gat.com lp
 endif
 
 %.view: %.dvi
