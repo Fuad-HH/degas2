@@ -2,6 +2,9 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.35  1999/04/20 20:12:31  dstotler
+% Replace "FALSE" with ".false.".
+%
 % Revision 1.34  1999/03/25 20:55:36  dstotler
 % Replace check on "tc" in read_indep with a more careful check for
 % integers; was getting foiled by "1st_random_number".  Permit I_l...,
@@ -269,7 +272,11 @@ section and is associated with momentum transport; its $n = 0$ moment
 is designated ``I\_1\_0'' to distinguish it from the reaction rate. 
 Higher moments are denoted by \verb+I_0_1*up+ or \verb+I_1_1*up+ 
 ($n = 0$, $\ell = 0$ or 1) and
-\verb+I_0_2*up^2+ or \verb+I_1_2*up^2+ ($n = 1$, $\ell = 0$ or 1). Note that
+\verb+I_0_2*up^2+ or \verb+I_1_2*up^2+ ($n = 1$, $\ell = 0$ or 1). 
+There is also \verb+I_2_4*up^4+ ($n = 4$, $\ell = 2$) that has thus far
+been used only outside of DEGAS 2 for the purpose of computing
+viscosity.
+Note that
 $I_{\ell, |n|}  u_{p}^{n}$ has
  the same dimensions as 
 $\langle \sigma v v^{n} \rangle$. In practice, moments $|n| > 0$ for
@@ -470,6 +477,9 @@ end_dep_var: continue
      $           || xs_var[0,i] == 'I_1_2*up^2') then
             xs_units[0,i]='cm^5/s^3'
             xs_mult[0,i]=const(1.,-10)
+         else if (xs_var[0,i] == 'I_2_4*up^4') then
+            xs_units[0,i]='cm^7/s^5'
+            xs_mult[0,i]=const(1.,-14)
          else if (xs_var[0,i] == 'sigv_max') then
             xs_units[0,i]='cm^3/s'
             xs_mult[0,i]=const(1.,-6)
@@ -1027,6 +1037,8 @@ index into the |xs| class variables for this dependent variable and
       else if (xs_var[0,j] == 'I_l_2*up^2' || xs_var[0,j] == 'I_0_2*up^2'
      $           || xs_var[0,j] == 'I_1_2*up^2') then
          moment_number=2
+      else if (xs_var[0,j] == 'I_2_4*up^4') then
+         moment_number=4
 @#if 0
       else if (xs_var[0,j] == 'sigv_max') then
             assert(xs_eval_name[j] == 'table_external')
@@ -1644,6 +1656,8 @@ passed in from the ALADDIN data files. The resulting value is returned as
          call SPTTH(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#ELCROSS') then
          call ELCROSS(pet, fit_coef, num_fit_coef, pfit, kermsg)
+      else if (leval == '#ELSPLINE') then
+         call ELSPLINE(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#INTERP2D') then
 /*
    |INTERP2D|, like other Aladdin routines explicitly uses double precision.
