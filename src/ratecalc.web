@@ -2,6 +2,10 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.25  1996/03/01 20:21:39  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.24  1995/08/09 17:56:59  dstotler
 % Install file-driven input routines. Also, reorganize main subroutine.
 % Define new data organization type: table_external.
@@ -215,10 +219,21 @@ $\ell$ is included to allow the treatment of elastic collisions
 $\langle \sigma v v^{n} \rangle$ because of the need to treat angular
 dependence in the integrand of Eq.~(\ref{source1}), e.g., for
 the momentum source rate. Quantities such as this can be found as a linear
-combination of the $I_{\ell, |n|}$. The result provided by
-this code is $I_{\ell, |n|} u_{p}^{n}$ and, thus, has
+combination of the $I_{\ell, |n|}$. The results provided by
+this code is $I_{\ell, |n|} u_{p}^{n}$. Note that $\ell = 0$ represents
+the ``total'' cross section for either inelastic or elastic collisions.
+In either case, its $n = 0$ moment is simply referred to as the ``reaction
+rate'', which is used in computing the local probability of the reaction.
+For inelastic collisions, $\ell = 1$ represents the diffusion cross
+section and is associated with momentum transport; its $n = 0$ moment
+is designated ``I\_1\_0'' to distinguish it from the reaction rate. 
+Higher moments of either $\ell$ are denoted by ``I\_l\_1*u'' and
+``I\_l\_2*u\^2''. Note that
+$I_{\ell, |n|}  u_{p}^{n}$ has
  the same dimensions as 
-$\langle \sigma v v^{n} \rangle$.
+$\langle \sigma v v^{n} \rangle$. In practice, moments $|n| > 0$ for
+$\langle \sigma v v^{n} \rangle$ (i.e., for electron background) are
+not used.
 
 In the expressions defining the neutral energy and plasma temperature,
 the mass $m_{1}$ used is 1 amu. The independent variable is referred to
@@ -390,6 +405,7 @@ end_dep_var: continue
 /*
    Utilize cgs assumptions for units. Multipliers are conversions to MKS.
 */
+
       do i=1,xs_num_dep_var
          if (xs_var[0,i] == 'cross_section') then
             xs_units[0,i]='cm^2'
@@ -397,15 +413,18 @@ end_dep_var: continue
          else if (xs_var[0,i] == 'reaction_rate') then
             xs_units[0,i]='cm^3/s'
             xs_mult[0,i]=const(1.,-6)
-         else if (xs_var[0,i] == '1st_rate_moment') then
+         else if (xs_var[0,i] == 'I_1_0') then
+            xs_units[0,i]='cm^3/s'
+            xs_mult[0,i]=const(1.,-6)
+         else if (xs_var[0,i] == 'I_l_1*u') then
             xs_units[0,i]='cm^4/s^2'
             xs_mult[0,i]=const(1.,-8)
-         else if (xs_var[0,i] == '2nd_rate_moment') then
+         else if (xs_var[0,i] == 'I_l_2*u^2') then
             xs_units[0,i]='cm^5/s^3'
             xs_mult[0,i]=const(1.,-10)
-         else if (xs_var[0,i] == '3rd_rate_moment') then
-            xs_units[0,i]='cm^6/s^4'
-            xs_mult[0,i]=const(1.,-12)
+         else if (xs_var[0,i] == 'sigv_max') then
+            xs_units[0,i]='cm^3/s'
+            xs_mult[0,i]=const(1.,-6)
          else
             xs_units[0,i]='unknown'
             xs_mult[0,i]=zero
@@ -448,11 +467,16 @@ end_dep_var: continue
       implicit_none
       integer unit                               // Input
       character*(*) line                         // Output
+      character*FILELEN tc                           // Test String
       integer length,p,b,e,i,idep,j              // Local
       integer dep_var[xs_dep_var_max]
 
       xs_common
       st_common
+
+      do i = 1 , xs_dep_var_max
+         xs_rank[i]=0
+      enddo
 
 next_line: continue                      // Labels are defined in ratecalc.hweb
 
@@ -466,15 +490,18 @@ next_line: continue                      // Labels are defined in ratecalc.hweb
 /*
    We need to differentiate between the lines which list the indices
    of the dependent variables and those which enumerate the corresponding
-   independent variables. As long as |xs_dep_var_max| < 10, the former
-   will begin with a single integer; the latter will likely begin with a
+   independent variables. The former
+   will begin with an integer; the latter will likely begin with a
    multi-character string. This is the criterion we use.
 */
-      assert(xs_dep_var_max < 10)
-      if (b == e) then    
+      tc = line(b:b)
+
+      if (tc == '0' || tc == '1' || tc == '2' || tc == '3' ||
+     &    tc == '4' || tc == '5' || tc == '6' || tc == '7' ||
+     &    tc == '8' || tc == '9') then
+
          idep=1                // Read in list of dependent variables
          dep_var[1]=read_integer(line(b:e))
-         xs_rank[dep_var[1]]=0
 
 next_dep_var:   continue                     
 
@@ -629,7 +656,12 @@ react_begin: continue               // Labels are defined in ratecalc.hweb
       assert(length<=len(line))
       ra_data_filename=line(:length)
 
-      assert(read_string(unit,line,length))    // Fourth line: hier. labels
+      assert(read_string(unit,line,length))    // Fourth line:data version
+      length=parse_string(line(:length))
+      assert(length<=len(line))
+      xsection_version=line(:length)
+
+      assert(read_string(unit,line,length))    // Fifth line: hier. labels
       length=parse_string(line(:length))
       assert(length<=len(line))
       p=0
@@ -736,6 +768,7 @@ fits) or via subroutine |table_value|.
       real ind_var_min[xs_table_rank_max],ind_var_delta[xs_table_rank_max],
      $   ind_var[xs_table_rank_max]
       character*FILELEN fileout
+      character*LINELEN description
 
       ra_common                                   // Commons and declarations
       xs_common
@@ -746,17 +779,7 @@ fits) or via subroutine |table_value|.
       ra_common_l                                 // Local common
       rf_common
 
-      var_alloc(xs_tab1)
-      var_alloc(xs_tab2)
-      var_alloc(xs_tab3)
-      var_alloc(xs_tab4)
-      var_alloc(xs_tab5)
-
-      xs_table1(0,0,0)=zero
-      xs_table2(0,0,0)=zero
-      xs_table3(0,0,0)=zero
-      xs_table4(0,0,0)=zero
-      xs_table5(0,0,0)=zero
+      xs_ragged_alloc(xs_data,xs_tab_index)
 
       do j=1,xs_num_dep_var            // Main loop
 
@@ -788,56 +811,36 @@ fits) or via subroutine |table_value|.
             do k=0,xs_tab_index[3,j]-1
                ind_var[3]=ind_var_min[3]+areal(k)*ind_var_delta[3]
                if (xs_spacing[3,j] == 'log') ind_var[3]=exp(ind_var[3])
+
                do l=0,xs_tab_index[2,j]-1
                   ind_var[2]=ind_var_min[2]+areal(l)*ind_var_delta[2]
                   if (xs_spacing[2,j] == 'log') ind_var[2]=exp(ind_var[2])
+
                   do m=0,xs_tab_index[1,j]-1
                      ind_var[1]=ind_var_min[1]+areal(m)*ind_var_delta[1]
                      if (xs_spacing[1,j] == 'log') ind_var[1]=exp(ind_var[1])
 
                      zsigma=table_value(j,ind_var)
-/*
-   Pay for efficiency in dimensioning |xs_table| differently for each |j|
-   with this ugly if-then-else block; again, |xs_dep_var_max| is
-   assumed to be = 5 here.
-*/
-                     if (j == 1) then
-                        xs_table1(m,l,k)=zsigma
-                     else if (j == 2) then
-                        xs_table2(m,l,k)=zsigma
-                     else if (j == 3) then
-                        xs_table3(m,l,k)=zsigma
-                     else if (j == 4) then
-                        xs_table4(m,l,k)=zsigma
-                     else if (j == 5) then
-                        xs_table5(m,l,k)=zsigma
-                     end if
-
+                     xs_data_table(m,l,k,j)=zsigma
+                     
                   end do
+                  
                end do
             end do        // End of ``do'' loops over |xs_table| indices
 
 /*
    For {\bf fits}, store name of evaluation function, number of fit
-   coefficients, and the coefficients themselves. As above, need an 
-   ugly if-then-else block to do this for the |xs_dep_var_max| = 5
-   arrays representing |xs_table|.
+   coefficients, and the coefficients themselves. 
 */
          else if (xs_organization[j] == 'fit') then
+
             xs_eval_name[j]=leval
             xs_tab_index[1,j]=num_fit_coef
+
             do m=0,xs_tab_index[1,j]-1
-               if (j == 1) then
-                  xs_table1(m,0,0)=fit_coef[m+1]
-               else if (j == 2) then
-                  xs_table2(m,0,0)=fit_coef[m+1]
-               else if (j == 3) then
-                  xs_table3(m,0,0)=fit_coef[m+1]
-               else if (j == 4) then
-                  xs_table4(m,0,0)=fit_coef[m+1]
-               else if (j == 5) then
-                  xs_table5(m,0,0)=fit_coef[m+1]
-               end if
+
+               xs_data_table(m,0,0,j)=fit_coef[m+1]
+
             end do
 /*
    For {\bf externally specified data}, fill table with the
@@ -847,17 +850,9 @@ fits) or via subroutine |table_value|.
             do k=0,xs_tab_index[3,j]-1
                do l=0,xs_tab_index[2,j]-1
                   do m=0,xs_tab_index[1,j]-1
-                     if (j == 1) then
-                        xs_table1(m,l,k)=zero
-                     else if (j == 2) then
-                        xs_table2(m,l,k)=zero
-                     else if (j == 3) then
-                        xs_table3(m,l,k)=zero
-                     else if (j == 4) then
-                        xs_table4(m,l,k)=zero
-                     else if (j == 5) then
-                        xs_table5(m,l,k)=zero
-                     end if
+
+                     xs_data_table(m,l,k,j)=zero
+
                   end do
                end do
             end do
@@ -872,18 +867,28 @@ fits) or via subroutine |table_value|.
 */
       p=0
       assert( next_token(xs_name,b,e,p) )
+
       fileout=xs_name(b:e) \/ '.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+
+      description = 
+     $  'Reference atomic physics data for a reaction in degas 2'
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(xsection_version),
+     $     xsection_version,nc_stat)
+      
       xs_ncdef(fileid)
       call ncendef(fileid,nc_stat)
       xs_ncwrite(fileid)
-      var_free(xs_tab1)
-      var_free(xs_tab2)
-      var_free(xs_tab3)
-      var_free(xs_tab4)
-      var_free(xs_tab5)
+
+      var_free(xs_data_tab)
+
       call ncclose(fileid,nc_stat)
-      
+
       return
       end
 
@@ -904,7 +909,8 @@ index into the |xs| class variables for this dependent variable and
 
       integer num_fit_coef_aladdin                // Local
       real norm_constant,infinite_integral,zsigma,zenergy,ztemperature
-      double precision zte_aladdin,zdpsigma 
+      double precision zte_aladdin,zdpsigma
+
       character*msg_length error
 
       external electron_rate_integrand,           // External
@@ -923,12 +929,14 @@ index into the |xs| class variables for this dependent variable and
          assert(xs_organization[j] == 'table_eval')
       else if (xs_var[0,j] == 'reaction_rate') then
          moment_number=0
-      else if (xs_var[0,j] == '1st_rate_moment') then
+      else if (xs_var[0,j] == 'I_1_0') then
+         moment_number=0
+      else if (xs_var[0,j] == 'I_l_1*u') then
          moment_number=1
-      else if (xs_var[0,j] == '2nd_rate_moment') then
+      else if (xs_var[0,j] == 'I_l_2*u^2') then
          moment_number=2
-      else if (xs_var[0,j] == '3rd_rate_moment') then
-         moment_number=3
+      else if (xs_var[0,j] == 'sigv_max') then
+         assert(xs_organization[j] == 'table_external')
       else
          assert('Unknown dependent variable' == ' ')
       end if
@@ -964,6 +972,7 @@ index into the |xs| class variables for this dependent variable and
             call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
      $           num_fit_coef,zdpsigma,error)
             zsigma=zdpsigma
+
          end if
       
 /*
@@ -985,7 +994,7 @@ index into the |xs| class variables for this dependent variable and
             assert('Unexpected values of xs_var' == ' ')
          end if
          if (xs_organization[j] == 'table_calc') then
-              
+           
             up=sqrt(two*ztemperature)
             u=sqrt(two*zenergy)
             num_evaluations=0  
@@ -999,7 +1008,6 @@ index into the |xs| class variables for this dependent variable and
      $           num_fit_coef_aladdin,zdpsigma,error)
             zsigma=areal(zdpsigma)
          end if
-
       else
          assert('Ranks higher than 2 not treated' == ' ')
       end if
@@ -1182,9 +1190,9 @@ integral has cgs units.
 
       real rel_velocity             // Input
 
-      real zbracket,multiplier,ze,exponent_minus,       // Local 
-     $   exponent_plus,zsigma     
-      real sigma                                        // External function
+      real zbracket,multiplier,ze,exponent_minus,     // Local 
+     $   exponent_plus,zsigma
+      real sigma                                      // External function
 
       ra_common                    // Common
       ra_common_l                  // Local common
@@ -1492,6 +1500,9 @@ passed in from the ALADDIN data files. The resulting value is returned as
          call SPTEK(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#SPTTH') then
          call SPTTH(pet, fit_coef, num_fit_coef, pfit, kermsg)
+      else if (leval == '#ELCROSS') then
+         call ELCROSS(pet, fit_coef, num_fit_coef, pfit, kermsg)
+
       end if
 
       return
