@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1996/05/24 18:48:54  dstotler
+% Moved pt_decl and pt_common lines.
+%
 % Revision 1.5  1996/03/01 20:20:29  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -30,18 +33,19 @@ An particle is identified by a string tag.
 @I species.hweb
 @I location.hweb
 @I problem.hweb
+@I sources.hweb
 @I vector.hweb
 
 @m pt_args(x) pt_sp(x),pt_test(x),pt_t(x),pt_w(x),
-      lc_args(pt_loc(x)),pt_v(x)[1],pt_type(x)
+      lc_args(pt_loc(x)),pt_v(x)[1],pt_type(x),pt_author(x)
 
 @m pt_dummy(x) pt_sp(x),pt_test(x),pt_t(x),pt_w(x),
-      lc_dummy(pt_loc(x)),pt_v(x),pt_type(x)
+      lc_dummy(pt_loc(x)),pt_v(x),pt_type(x),pt_author(x)
 
 @m pt_decl(x) sp_decl(pt_sp(x)); pr_test_decl(pt_test(x));
       real pt_t(x), pt_w(x), pt_v(x)[3];
       lc_decl(pt_loc(x));
-      integer pt_type(x) @;
+      integer pt_type(x), pt_author(x) @;
 
 @m pt_common
       external particle_track;
@@ -50,12 +54,14 @@ An particle is identified by a string tag.
 @m pt_copy(x,y) pt_sp(y)=pt_sp(x); pt_test(y)=pt_test(x);
       pt_t(y)=pt_t(x); pt_w(y)=pt_w(x);
       vc_copy(pt_v(x),pt_v(y)); lc_copy(pt_loc(x),pt_loc(y));
-      pt_type(y)=pt_type(x) @;
+      pt_type(y)=pt_type(x); pt_author(y)=pt_author(x) @;
 
 @m pt_check(x) (sp_check(pt_sp(x)) && pt_w(x) >= 0 &&
       lc_check(pt_loc(x))) &&
       pr_test_check(pt_test(x)) &&
-      pr_test(pt_test(x)) == pt_sp(x)
+      pr_test(pt_test(x)) == pt_sp(x) &&
+      (pt_author(x) > 0 && 
+           pt_author(x) <= so_type_num+pr_reaction_num+pr_pmi_num)
 
 @m pt_sp(x) pt_sp1(x)
 @m pt_sp1(x) species_##x
@@ -70,6 +76,7 @@ An particle is identified by a string tag.
 @m pt_v(x)  pt_v1(x)
 @m pt_v1(x)  velocity_##x
 @m pt_type(x) type_##x
+@m pt_author(x) author_##x
 
 @ Constant definitions of particle types.
 
@@ -86,17 +93,27 @@ An particle is identified by a string tag.
 @m pt_thru_face(x) lc_thru_face(pt_loc(x)) @;
 @m pt_specular(x) call surface_specular(lc_face(pt_loc(x)),lc_x(pt_loc(x))[1],pt_v(x)[1],pt_v(x)[1]) ;
       lc_face(pt_loc(x))=0 @;
-@m pt_init(x,sy) pt_sp(x)=sp_lookup(sy);
+
+@m pt_author_so(x,type) pt_author(x)=type
+
+@m pt_author_rc(x,reac) pt_author(x)=so_type_num+reac
+
+@m pt_author_pm(x,pmi) pt_author(x)=so_type_num+pr_reaction_num+pmi
+
+@m pt_init(x,sy,source) pt_sp(x)=sp_lookup(sy);
       pt_test(x)=pr_test_lookup(pt_sp(x));
       if (sp_m(pt_sp(x)) == 0) then;
          pt_type(x)=pt_geometry;
       else if (sp_z(pt_sp(x)) == 0) then;
          pt_type(x)=pt_neutral;
+         pt_author_so(x,so_type(source));
       else;
          pt_type(x)=pt_ion;
+         pt_author_so(x,so_type(source));
       end if;
       pt_t(x)=zero;
       pt_w(x)=one @;
 
 @m pt_scatter_thru(x,w) call surface_reflect(-lc_face(pt_loc(x)),lc_x(pt_loc(x))[1],pt_v(x)[1],w,pt_v(x)[1]);
       lc_thru_face(pt_loc(x)) @;
+
