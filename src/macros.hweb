@@ -1,6 +1,9 @@
 @* Header macros degas2.
 % $Id$
 % $Log$
+% Revision 1.2  1993/09/27  22:09:55  karney
+% Add more loop labels.
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -70,14 +73,17 @@
   @m INLINE 0
 @#endif
 
-@m assert(condition) if (!(condition)) then;
-    call error('Assertion failed ('\/FILE\/'): '\/#condition);
-end if @;
+@#if DEBUG
+@m assert(condition) if (!(condition)) call error_exit('Assertion failed ('\/FILE\/'): '\/#condition) @;
+@#else
+@m assert(condition) if (.false.) write(stdout,*) condition @;
+@#endif
+
 
 @#if DEBUG
     @m check(condition) assert(condition) @;
 @#else
-    @m check(condition) if (.false.) print *, condition @;
+    @m check(condition) if (.false.) write(stdout,*) condition @;
 @#endif
 
 @ Some labels.
