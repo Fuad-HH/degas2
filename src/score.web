@@ -1,7 +1,13 @@
+
 % $Id$
 \Title{score}
 
 % $Log$
+% Revision 1.2  1997/08/19 14:37:03  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.1  1997/08/07 20:25:01  dstotler
 % Initial version with near (hopefully) full functionality.
 %
@@ -11,6 +17,8 @@
 \ID{$Id$}
 
 @m FILE 'score.web'
+
+@m max_segments 10
 
 @I macros.hweb
 @I sysdep.hweb
@@ -30,9 +38,10 @@
 @I flight.hweb
 @I reaction.hweb
 @I materials.hweb
+@I sources.hweb
+@I background.hweb
+@I zone.hweb
 
-
-@m max_segments 10
 
 @ The main program
 
@@ -57,7 +66,7 @@
 
       integer back,i,jscore,num_scoring_data,pr_reac   // Local
       real scoring_data[scoring_data_max],
-     $     background_sources[ou_back_max][ou_coupling_max]
+     $     coupling_scores[ou_back_max][ou_coupling_max]
       real estimator_factors[0:*]                      // Scratch
       character*tl_tag_length scoring_data_label[scoring_data_max]
       logical need_scores
@@ -82,17 +91,17 @@
          end do
          do back=1,pr_background_num
             do i=1,ou_coupling_max
-               background_sources[back][i]=zero
+               coupling_scores[back][i]=zero
             end do
          end do
 
          call test_scoring_data(pt_args(p),num_scoring_data,
-     $        scoring_data,scoring_data_label,background_sources)
+     $        scoring_data,scoring_data_label,coupling_scores)
 
          pr_reac=0
          call add_scores(tl_type_test,pt_args(p),pr_reaction_args(pr_reac),
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,estimator_factors,
+     $        coupling_scores,estimator_factors,
      $        scores)
       end if
 
@@ -103,7 +112,7 @@
 
 @<Functions...@>=
       subroutine test_scoring_data(pt_dummy(p),num_scoring_data,
-     $     scoring_data,scoring_data_label,background_sources)
+     $     scoring_data,scoring_data_label,coupling_scores)
 
       implicit_none_f77
       sp_common                                     // Common
@@ -113,7 +122,7 @@
       integer num_scoring_data                      // Output
       real scoring_data[scoring_data_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
-      real background_sources[*][ou_coupling_max]
+      real coupling_scores[*][ou_coupling_max]
 
 
       num_scoring_data++
@@ -121,7 +130,7 @@
       scoring_data[num_scoring_data]=sp_m(pt_sp(p))
 
       num_scoring_data++
-      scoring_data_label[num_scoring_data]='momentum 1'
+      scoring_data_label[num_scoring_data]='momentum vector'
       scoring_data[num_scoring_data]=sp_m(pt_sp(p))*pt_v(p)[1]
 
       num_scoring_data++
@@ -158,7 +167,7 @@
 
       integer back,i,jscore,num_scoring_data,pr_reac   // Local
       real scoring_data[scoring_data_max],
-     $     background_sources[ou_back_max][ou_coupling_max]
+     $     coupling_scores[ou_back_max][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       logical need_scores
 
@@ -189,17 +198,17 @@
          end do
          do back=1,pr_background_num
             do i=1,ou_coupling_max
-               background_sources[back][i]=zero
+               coupling_scores[back][i]=zero
             end do
          end do
 
          call sector_scoring_data(pt_args(p),num_scoring_data,
-     $        scoring_data,scoring_data_label,background_sources)
+     $        scoring_data,scoring_data_label,coupling_scores)
 
          pr_reac=0
          call add_scores(tl_type_sector,pt_args(p),pr_reaction_args(pr_reac),
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,estimator_factors,
+     $        coupling_scores,estimator_factors,
      $        scores)
       end if
 
@@ -210,7 +219,7 @@
 
 @<Functions...@>=
       subroutine sector_scoring_data(pt_dummy(p),num_scoring_data,
-     $     scoring_data,scoring_data_label,background_sources)
+     $     scoring_data,scoring_data_label,coupling_scores)
 
       implicit_none_f77
       sp_common                                     // Common
@@ -220,10 +229,9 @@
       integer num_scoring_data                      // Output
       real scoring_data[scoring_data_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
-      real background_sources[*][ou_coupling_max]
+      real coupling_scores[*][ou_coupling_max]
 
       real cos_angle                                // Local
-
 
       external intersection_direction               // External
       real intersection_direction      
@@ -286,7 +294,7 @@ instances of the particle class.
       integer back,i,jscore,num_scoring_data
       real independent_parameters[xs_max_indep_params],
      $     scoring_data[scoring_data_max],
-     $     background_sources[ou_back_max][ou_coupling_max]
+     $     coupling_scores[ou_back_max][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
 
       st_decls
@@ -314,7 +322,7 @@ instances of the particle class.
          end do
          do back=1,pr_background_num
             do i=1,ou_coupling_max
-               background_sources[back][i]=zero
+               coupling_scores[back][i]=zero
             end do
          end do
 
@@ -327,13 +335,13 @@ instances of the particle class.
             call pick_track_reaction(pr_test_args(pt_test(prod[0])),
      $           pr_reaction_args(ts_reac),rate,independent_parameters,
      $           num_scoring_data,scoring_data,scoring_data_label,
-     $           background_sources,rn_args(x))
+     $           coupling_scores,rn_args(x))
          else if (est == tl_est_collision) then
             call pick_reaction(pr_test_args(pt_test(prod[0])),
      $           pr_reaction_args(ts_reac),rate,independent_parameters,
      $           nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $           pt_w(prod[1]),num_scoring_data,scoring_data,
-     $           scoring_data_label,background_sources,rn_args(x))
+     $           scoring_data_label,coupling_scores,rn_args(x))
          else
             assert('Unsupported estimator' == '')
          end if
@@ -341,7 +349,7 @@ instances of the particle class.
          call add_scores(tl_type_reaction,pt_args(prod[0]),
      $        pr_reaction_args(pr_ts_rc(pt_test(prod[0]),ts_reac)),
      $        num_scoring_data,
-     $        scoring_data,scoring_data_label,background_sources,
+     $        scoring_data,scoring_data_label,coupling_scores,
      $        estimator_factors,
      $        scores)
       end if
@@ -351,7 +359,7 @@ instances of the particle class.
 */
       if (nprod > 0) then
          do i=1,nprod
-            pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
+            pt_test(prod[i])=pr_test_lookup(pt_sp(prod[i]))
             lc_copy(pt_loc(prod[0]),pt_loc(prod[i]))
             pt_t(prod[i])=pt_t(prod[0])
             pt_w(prod[i])=pt_w(prod[0])*pt_w(prod[i])
@@ -441,7 +449,7 @@ For now it only handles recombination.
       integer jscore,back,i,num_scoring_data  // Local
       real independent_parameters[xs_max_indep_params],
      $     scoring_data[scoring_data_max],
-     $     background_sources[ou_back_max][ou_coupling_max]
+     $     coupling_scores[ou_back_max][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       logical need_scores
       pr_reaction_decl(pr_reac) 
@@ -471,7 +479,7 @@ For now it only handles recombination.
          end do
          do back=1,pr_background_num
             do i=1,ou_coupling_max
-               background_sources[back][i]=zero
+               coupling_scores[back][i]=zero
             end do
          end do
 
@@ -486,11 +494,11 @@ For now it only handles recombination.
      $        pr_reaction_args(bk_rc_is),est,
      $        rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
 
          call add_scores(tl_type_reaction,pt_args(p),pr_reaction_args(pr_reac),
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,estimator_factors,
+     $        coupling_scores,estimator_factors,
      $        scores)
 
       end if      // |need_scores|
@@ -509,7 +517,7 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
 @<Functions...@>=
       subroutine add_scores(type,pt_dummy(p),
      $   pr_reaction_dummy(pr_reac),num_scoring_data,
-     $   scoring_data,scoring_data_label,background_sources,
+     $   scoring_data,scoring_data_label,coupling_scores,
      $   estimator_factors,
      $   scores)
 
@@ -520,24 +528,28 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
       implicit_none_f90
       
       tl_decls
+      st_decls
 
       integer type,num_scoring_data              // Input
       pt_decl(p)
       pr_reaction_decl(pr_reac)
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max],estimator_factors[0:*]
+     $     coupling_scores[*][ou_coupling_max],estimator_factors[0:*]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       real scores[0:*][o_mean:o_var]             // Output
 
                                                  // Local
-      integer i,k,l,jscore,back,number_segments,geom_seg_label,geom_seg,
-     $     number_bins,bin_label,ibin,dep_index
+      integer i,j,k,jscore,back,number_segments,geom_seg_label,geom_seg,
+     $     number_bins,bin_label,ibin,dep_index,dep_index_back
       integer index_parameters[tl_index_unknown:tl_index_max],
      $     segments[max_segments],ind_val[tl_rank_max],bins[max_bins] 
-      real geom_mult[max_segments][max_bins]
-
-      integer match_back_source                   // External
-      external match_back_source
+      real geom_mult[max_segments][max_bins],converted_data[scoring_data_max]
+      character*tl_tag_length coupling_scores_label[ou_coupling_max]
+      data coupling_scores_label[ou_coupling_mass]/'back mass'/
+      data coupling_scores_label[ou_coupling_momentum_1]/'back momentum vector'/
+      data coupling_scores_label[ou_coupling_momentum_2]/'back momentum 2'/
+      data coupling_scores_label[ou_coupling_momentum_3]/'back momentum 3'/
+      data coupling_scores_label[ou_coupling_energy]/'back energy'/
 
       @<Memory allocation interface@>
 
@@ -552,32 +564,27 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
       index_parameters[tl_index_strata]=strata[lc_sector(pt_loc(p))]
       index_parameters[tl_index_strata_segment]=sector_strata_segment[lc_sector(pt_loc(p))]
 
+      assert(scoring_data_max >= ou_coupling_max) // Check for |converted_data|
+
       do i=1,tally_type_num[type]
          jscore=tally_type_base[type]+i-1
-         if (tally_dep_var[jscore]SP(1:4) == 'back') then
-            dep_index=match_back_source(tally_dep_var[jscore])
-         else
-            dep_index=0
+         dep_index=0
+         dep_index_back=0
+         if (num_scoring_data > 0) then
+            assert(num_scoring_data <= scoring_data_max)
+            dep_index=string_lookup(tally_dep_var[jscore],scoring_data_label,num_scoring_data)
+         end if
+         dep_index_back=string_lookup(tally_dep_var[jscore],coupling_scores_label,ou_coupling_max)
+
 /*
   The flip side of having the flexibility to specify |scoring_data| for
   some reactions and not for others is that |dep_index| is legitimately
   zero for the latter. Hence, we can't treat that as an error condition.
   Should we disable these scores (via |estimator_factors|) at a higher level?
 */
-            if (num_scoring_data > 0) then
-               assert(num_scoring_data <= scoring_data_max)
-               do l=1,num_scoring_data
-                  if (tally_dep_var[jscore] 
-     $                 == scoring_data_label[l]) then
-                     dep_index=l
-                     go to break
-                  end if
-               end do
-break:         continue
-            end if
-         end if
 
-         if (estimator_factors[jscore] > zero && dep_index > 0) then
+         if ((estimator_factors[jscore] > zero)  
+     $        && (dep_index > 0 || dep_index_back > 0)) then
 
             call handle_geometry(pt_args(p),tally_geometry[jscore],
      $           tally_geometry_ptr[jscore],tally_dep_var[jscore],
@@ -589,8 +596,8 @@ break:         continue
                index_parameters[geom_seg_label]=segments[geom_seg]
                do ibin=1,number_bins
                   index_parameters[bin_label]=bins[ibin]
-/*    Background scores: */
-                  if (tally_dep_var[jscore]SP(1:4) == 'back') then
+/*    Coupling scores: */
+                  if (dep_index_back > 0) then
                      do back=1,pr_background_num
                         index_parameters[tl_index_back]=back
                         do k=1,tl_rank_max
@@ -603,14 +610,25 @@ break:         continue
                               ind_val[k]=0
                            end if
                         end do
-                        out_array(scores,ind_val[1],ind_val[2],ind_val[3],
-     $                       ind_val[4],ind_val[5],jscore,o_mean)
-     $                       += background_sources[back][dep_index]
-     $                       *geom_mult[geom_seg][ibin]
-     $                       *estimator_factors[jscore]
+                        call track_conversions(tl_args(jscore),pt_args(p),
+     $                       ind_val,coupling_scores_label,ou_coupling_max,
+     $                       coupling_scores[back][1],converted_data)
+                        if (index(tally_name[jscore],'vector') > 0) then
+                           do j=1,3
+                              scores[out_array_vc_index(j,ind_val,jscore)][o_mean]
+     $                             += converted_data[dep_index_back+j-1]
+     $                             *geom_mult[geom_seg][ibin]
+     $                             *estimator_factors[jscore]
+                           end do
+                        else
+                           scores[out_array_index(ind_val,jscore)][o_mean]
+     $                          += converted_data[dep_index_back]
+     $                          *geom_mult[geom_seg][ibin]
+     $                          *estimator_factors[jscore]
+                        end if
                      end do
 
-                  else
+                  else if (dep_index > 0) then
 /*     Other scores:  */
                      do k=1,tl_rank_max
                         if (k <= tally_rank[jscore]) then
@@ -622,10 +640,22 @@ break:         continue
                            ind_val[k]=0
                         end if
                      end do
-                     out_array(scores,ind_val[1],ind_val[2],ind_val[3],
-     $                    ind_val[4],ind_val[5],jscore,o_mean)
-     $                    += scoring_data[dep_index]
-     $                    *geom_mult[geom_seg][ibin]*estimator_factors[jscore]
+                     call track_conversions(tl_args(jscore),pt_args(p),
+     $                    ind_val,scoring_data_label,num_scoring_data,
+     $                    scoring_data,converted_data)
+                     if (index(tally_name[jscore],'vector') > 0) then
+                        do j=1,3
+                           scores[out_array_vc_index(j,ind_val,jscore)][o_mean]
+     $                          += converted_data[dep_index+j-1]
+     $                          *geom_mult[geom_seg][ibin]
+     $                          *estimator_factors[jscore]
+                        end do
+                     else
+                        scores[out_array_index(ind_val,jscore)][o_mean]
+     $                       += converted_data[dep_index]
+     $                       *geom_mult[geom_seg][ibin]
+     $                       *estimator_factors[jscore]
+                     end if
                   end if
                end do     // |ibin|
             end do        // |geom_seg|
@@ -791,6 +821,7 @@ wavelength of emissions.
          iview=de_view_pointer(i,de_group)
          if (de_zone_frags[lc_zone(pt_loc(p))][iview] != zero) then
             number_segments++
+            assert(number_segments <= max_segments)
             segments[number_segments]=i
             if (detector_var[de_group] == de_var_wavelength) then
 /*
@@ -827,6 +858,7 @@ wavelength of emissions.
      $                 vc_args(de_view_points[iview][de_view_start]),lambda0)
                   delta_l_th=lambda0*vth/speed_of_light
                   number_bins=detector_tab_index[de_group]
+                  assert(number_bins <= max_bins)
                   do ibin=1,number_bins
                      bins[ibin]=ibin
                      lambda=detector_min[de_group]
@@ -909,37 +941,6 @@ employed in the original DEGAS code.
       return
       end
 
-@ Translates between integer and string labels for the background sources.
-
-@<Functions...@>=
-      function match_back_source(dep_var)
-      implicit_none_f77
-      implicit_none_f90
-
-      integer match_back_source            // Function
-      character*tl_tag_length dep_var      // Input
-
-      integer jdep                         // Local
-
-      if (dep_var == 'back mass') then
-         jdep=ou_coupling_mass
-      else if (dep_var == 'back 1 momentum') then
-         jdep=ou_coupling_momentum_1
-      else if (dep_var == 'back 2 momentum') then
-         jdep=ou_coupling_momentum_2
-      else if (dep_var == 'back 3 momentum') then
-         jdep=ou_coupling_momentum_3
-      else if (dep_var == 'back energy') then
-         jdep=ou_coupling_energy
-      end if
-      
-      assert(jdep > 0 && jdep <= ou_coupling_max)
-
-      match_back_source=jdep
-      
-      return
-      end
-
 @ Pick out the sectors involved in this score, and set the independent variable
 bins. The treated variables thus far are energy and angle of incicidence.
 
@@ -1003,6 +1004,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
             if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log
      $          || diagnostic_spacing[diag_grp] == sc_diag_spacing_linear) then
                number_bins++
+               assert(number_bins <= max_bins)
                bins[number_bins]=int((value-diagnostic_min[diag_grp])
      $              /diagnostic_delta[diag_grp]+one)
             else
@@ -1021,12 +1023,14 @@ break: continue
       idiag=sector_type_pointer[sector1][sc_diagnostic(diag_grp)]
       if (idiag != 0) then
          number_segments++
+         assert(number_segments <= max_segments)
          segments[number_segments]=idiag
       end if
 
       idiag=sector_type_pointer[sector2][sc_diagnostic(diag_grp)]
       if (idiag != 0) then
          number_segments++
+         assert(number_segments <= max_segments)
          segments[number_segments]=idiag
       end if
 
@@ -1047,10 +1051,201 @@ break: continue
       return
       end
 
+@ Moved post-processed scores from |flighttest| main routine to here.
+
+@<Functions...@>=
+      subroutine post_process_test_scores(is,scores,estimator_factors)
+
+      implicit_none_f77
+      tl_common                                         // Common 
+      zn_common
+      pr_common
+      sp_common
+      so_common
+      implicit_none_f90
+
+      integer is                                        // Input
+
+      real scores[0:*][o_mean:o_var]                    // Output
+
+      real estimator_factors[0:*]                       // Scratch
+      integer jscore,jscore_v,i,j,k,l,m,irank_test,irank_zone,test,zone,
+     $     ir,ic,nprod
+      integer index_parameters[tl_index_max],ind_val[tl_rank_max]
+      real est_fac,particle_no,rate
+      vc_decl(velocity)
+      lc_decl(zone_loc)
+      pt_decl(fake_prod[0:rc_product_max])
+      rn_decl(fake_rn)
+      
+      @<Memory allocation interface@>
+      tl_decls
+      st_decls
+      lc_decls
+      rn_decls
+
+      real find_rate                                      // External
+      external find_rate
+
+/*
+   Test particle scores - The procedure here involves going through all of
+   the test particle ``densities'' (more precisely, number since the 
+   volume is not divided out) and velocities and using them to define 
+   a ``fake'' test particle which can be run through the usual reaction
+   scoring routines.
+*/
+
+      jscore=string_lookup('particle number',tally_name,tl_num)
+      jscore_v=string_lookup('particle velocity vector',tally_name,tl_num)
+      assert(jscore > 0 && jscore_v > 0)
+      assert(tl_rank_max == 5)
+      do i=1,tl_rank_max     
+         if (tally_indep_var[jscore][i] == tl_index_test) irank_test=i
+         if (tally_indep_var[jscore][i] == tl_index_zone) irank_zone=i
+         assert(tally_indep_var[jscore][i] == tally_indep_var[jscore_v][i])
+      end do
+
+      do m=1,tally_tab_index[jscore][5]
+         index_parameters[tally_indep_var[jscore][5]]=m  // Do we need both?
+         ind_val[5]=m-1
+         do l=1,tally_tab_index[jscore][4]
+            index_parameters[tally_indep_var[jscore][4]]=l
+            ind_val[4]=l-1
+            do k=1,tally_tab_index[jscore][3]
+               index_parameters[tally_indep_var[jscore][3]]=k
+               ind_val[3]=k-1
+               do j=1,tally_tab_index[jscore][2]
+                  index_parameters[tally_indep_var[jscore][2]]=j
+                  ind_val[2]=j-1
+                  do i=1,tally_tab_index[jscore][1]
+                     index_parameters[tally_indep_var[jscore][1]]=i
+                     ind_val[1]=i-1
+
+                     test=index_parameters[tl_index_test]
+                     assert(pr_test_check(test))
+                     zone=index_parameters[tl_index_zone]
+                     assert(zn_check(zone))
+                     if (zn_type(zone) == zn_plasma) then
+                        vc_copy(zone_center[zone],lc_x(zone_loc))
+                        lc_set(zone_loc)
+                        assert(lc_zone(zone_loc) == zone)
+
+                        particle_no=scores[out_array_index(ind_val,jscore)][o_mean]
+                        do ic=1,3
+                           velocity[ic]=scores[out_array_vc_index(ic,ind_val,jscore_v)][o_mean]
+                        end do
+
+                        pt_init(fake_prod[0],sp_sy(pr_test(test)),is)
+                        lc_copy(zone_loc,pt_loc(fake_prod[0]))
+                        pt_w(fake_prod[0])=particle_no
+                        vc_copy(velocity,pt_v(fake_prod[0]))
+                        est_fac=one
+                        if (pr_rc_num(pt_test(fake_prod[0])) > 0 
+     $                       && (particle_no > 0)) then
+                           do ir=1,pr_rc_num(pt_test(fake_prod[0]))
+                              rate=find_rate(pt_args(fake_prod[0]),
+     $                             pr_background_args(pr_ts_bk(pt_test(fake_prod[0]),ir)),
+     $                             pr_reaction_args(pr_ts_rc(pt_test(fake_prod[0]),ir)),
+     $                             rn_args(fake_rn))
+                              call score_reaction(tl_est_post_process,est_fac,
+     $                             pr_reaction_args(ir),rate,nprod,pt_args(fake_prod[0]),
+     $                             scores,estimator_factors,
+     $                             rn_args(fake_rn))
+                           end do
+                        end if
+                     end if
+                  end do 
+               end do    
+            end do       
+         end do
+      end do
+
+      return
+      end
+
+@ Moved post-processed scores from |flighttest| main routine to here.
+
+@<Functions...@>=
+      subroutine post_process_back_scores(is,scores,estimator_factors)
+
+      implicit_none_f77
+      tl_common                                   // Common
+      pr_common
+      so_common
+      sp_common
+      bk_common
+      gi_common
+      zn_common
+      implicit_none_f90
+
+      tl_decls
+      st_decls
+
+      integer is                                  // Input
+
+      real scores[0:*][o_mean:o_var]              // Output
+
+      real estimator_factors[0:*]                 // Scratch
+
+      integer i,bk_rc_is,seg,seg_tot,zone         // Local
+      real est_fac,rate
+      lc_decl(zone_loc)
+      pt_decl(fake_pt)
+      rn_decl(fake_rn)
+
+      @<Memory allocation interface@>
+      lc_decls
+      rn_decls
+
+      real find_rate
+      external find_rate
+
+/*
+   Background particle scores - Same as above, but the ``fake'' particle is
+   now of a background species and the reactions scored are background
+   reactions. The only one of these presently implemented is recombination.
+   This code could be moved to yet another routine.
+   Catch reaction-post-process scores for recombination. Could be generalized
+   by removing the if-then and calling |score_sources| below.
+*/
+      bk_rc_is=0
+      do i=1,pr_bkrc_num
+         if (pr_bkrc_prod(i,1) == so_species(is)) then
+            assert(bk_rc_is == 0)
+            bk_rc_is=i
+         end if
+      end do
+      assert(bk_rc_is != 0)
+      est_fac=one
+
+      do seg=1,so_nseg(is) 
+         seg_tot=so_base(is)+seg-1
+         assert(so_geom(is) == so_volume)
+         zone=source_segment_ptr[seg_tot]
+         vc_copy(zone_center[zone],lc_x(zone_loc))
+         lc_set(zone_loc)
+         pt_init(fake_pt,sp_sy(so_species(is)),is)
+         lc_copy(zone_loc,pt_loc(fake_pt))
+         v_ext_to_int(lc_x(zone_loc),bk_v(pr_bkrc_rg(bk_rc_is,2),
+     $        lc_zone(zone_loc)),pt_v(fake_pt),geometry_symmetry,background_coords)
+         rate=find_rate(pt_args(fake_pt),
+     $        pr_background_args(pr_bkrc_rg(bk_rc_is,1)),
+     $        pr_reaction_args(pr_bk_rc(bk_rc_is)),rn_args(fake_rn))
+         pt_w(fake_pt)=so_scale(is)*source_current[so_base(is)+seg-1]
+     $        / rate       // i.e., weight $\rightarrow$ ion density*volume
+         call score_recombination(tl_est_post_process,est_fac,
+     $        pr_reaction_args(bk_rc_is),rate,
+     $        pt_args(fake_pt),scores,
+     $        estimator_factors,rn_args(fake_rn))
+      end do 
+
+      return
+      end
+
 @ Function to extract data from output arrays.
 
 @<Functions...@>=
-      function extract_output_datum(index_parameters,scores,name)
+      function extract_output_datum(index_parameters,icomp,scores,name)
 
       implicit_none_f77
       tl_common                                  // Common
@@ -1061,6 +1256,7 @@ break: continue
 
       real extract_output_datum                  // Function
       integer index_parameters[tl_index_max]     // Input
+      integer icomp
       real scores[0:*][o_mean:o_var]  
       character*(*) name
       integer tally_number,i                     // Local
@@ -1068,6 +1264,10 @@ break: continue
 
       st_decls
 
+      if (icomp > 0) then
+         assert(index(name,'vector') > 0)
+         assert(icomp <= 3)
+      end if
       tally_number=string_lookup(name,tally_name,tl_num)
       assert(tally_number > 0)
       
@@ -1081,8 +1281,11 @@ break: continue
          end if
       end do
 
-      extract_output_datum=out_array(scores,ind_val[1],ind_val[2],
-     $              ind_val[3],ind_val[4],ind_val[5],tally_number,o_mean)
+      if (icomp > 0) then
+         extract_output_datum=scores[out_array_vc_index(icomp,ind_val,tally_number)][o_mean]
+      else
+         extract_output_datum=scores[out_array_index(ind_val,tally_number)][o_mean]
+      end if
 
       return
       end
