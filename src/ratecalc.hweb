@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  1998/01/14 20:53:45  dstotler
+% Changed title to improve readability of classes.web.
+%
 % Revision 1.9  1997/08/19 14:36:56  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -67,7 +70,7 @@ Define a few macros for neatness sake.
 @m ra_data_filename_length 80        // Length of filename containing data
 @m ra_label_max 100                  // Maximum number of search labels for data
 @m ra_unit_string_length 12          // Length of unit specifications
-@m ra_fit_coef_max 200               // Maximum number of fit coefficients
+@m ra_fit_coef_max 13000             // Maximum number of fit coefficients
 
 
 @ variable definitions
@@ -125,4 +128,46 @@ Define a few macros for neatness sake.
       integer moment_number, num_fit_coef, num_evaluations;
       character*xs_eval_name_length leval;
       common u,up,temperature,fit_coef,moment_number,num_fit_coef,leval,num_evaluations @;
+
+@* Rate calculation class attribute descriptions.
+
+@ Data and local commons used in calculation of atomic physics rates.
+Prefix is |ra|
+
+The variables in this class specify the information required to retrieve
+data from external database files. Presently, the database is assumed
+to be ALADDIN. The specific variables used here reflect that assumption.
+A single file name and set of hierarchical search labels are used for
+all of the data to be associated with one particular instance of this
+class. However, as many as |xs_dep_var_max| different (index |j| below)
+sets of Boolean search labels may be specified. This allows different
+quantities (e.g., cross sections and reaction rates) to be included here,
+but forces them to be closely related. In this way, we hope to ensure
+overall consistency of the data.
+
+\begin{description}
+  \item[|ra_mass|] Mass to be used in relating energy and velocity when
+evaluating the argument of the function specified by this instance.
+
+  \item[|ra_mass_units|] Units of |ra_mass|.
+
+  \item[|ra_num_hier|] Number of search labels in array |ra_hier_label|.
+
+  \item[|ra_num_bool_and[j]|] Number of labels in |ra_bool_and_label|.
+
+  \item[|ra_num_bool_not[j]|] Number of labels in |ra_bool_not_label|.
+
+  \item[|ra_hier_label|] Array of of hierarchical search labels used to
+identify (e.g., for use with ALADDIN) data. 
+
+  \item[|ra_bool_and_label[j]|] Array of labels used to further identify
+information associated with dependent variable |j|; in searching the data
+files, entries which {\em contain} these strings are selected.
+
+  \item[|ra_bool_not_label[j]|] Array of labels used to further identify
+information assciated with dependent variable |j|; in searching the data files,
+entries which {\em do not contain} these strings are selected.
+
+  \item[|ra_data_filename|] File name from which data will be extracted.
+\end{description}
 
