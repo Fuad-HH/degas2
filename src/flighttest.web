@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.3  1993/10/25  22:31:18  karney
+% Add particle tracking macros.
+%
 % Revision 1.2  1993/10/11  19:06:59  karney
 % Fix various bugs: (a) move zn_common to make Cray happy.
 % (b) use flight's random number arrays
@@ -127,8 +130,7 @@ loop2: continue                 // Track to plasma
       done=pt_track(geom_infinity,t,x)
       assert(!done)
       assert( lc_cell(pt_loc(x)) != 0 )
-c      if (zn_type(lc_zone_next(pt_loc(x))) != zn_plasma) goto loop2
-      if (zn_type(lc_zone(pt_loc(x))) != zn_plasma) goto loop2
+      if (zn_type(lc_zone_next(pt_loc(x))) != zn_plasma) goto loop2
 
       rn_cos_next(w,fl_rand(x))
       pt_scatter_thru(x,w)
