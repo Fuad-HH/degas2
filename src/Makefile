@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.61  1998/04/16 15:30:57  karney
+# Various changes to clean up code in support of Linux.
+#
 # Revision 1.60  1998/03/11 14:53:11  dstotler
 # Add dependencies of pmiwrite on elementread and readfilenames.
 #
@@ -266,6 +269,12 @@ ifndef DEGASROOT
     DEGASROOT=$(HOME)
 endif
 
+ifeq ($(MACHINE),CRAY)
+  OPT=-O3
+else
+  OPT=-O -fast
+endif
+
 LIBROOT=/usr/local
 
 -include Makefile.local
@@ -303,7 +312,7 @@ ifeq ($(MACHINE),SUN)
   HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
 else
   NETCDF=-L$(LIBROOT)/lib -lnetcdf
-  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
+  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -lz
 endif
 PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
 
@@ -380,8 +389,8 @@ else  # !CRAY
     LDFLAGS=$(DEBUGFLG)
     CFLAGS=-g
   else
-    FFLAGS=-c -O -fast $(PROFILE)
-    LDFLAGS=$(PROFILE)
+    FFLAGS=-c $(OPT) $(PROFILE)
+    LDFLAGS=$(OPT) $(PROFILE)
     CFLAGS=-O
   endif
 endif
@@ -392,9 +401,9 @@ ifeq ($(FORTRAN90),yes)
       FFLAGS=-c $(DEBUGFLG)
     else
       ifeq ($(MACHINE),CRAY)
-        FFLAGS=-c -O3
+        FFLAGS=-c $(OPT)
       else
-        FFLAGS=-c -O -fast
+        FFLAGS=-c $(OPT)
       endif
     endif
 ifeq ($(MACHINE),SUN)
