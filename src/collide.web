@@ -2,6 +2,10 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.26  2000/04/01 17:31:24  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.25  2000/03/27 21:14:50  dstotler
 % A little clean up following merger with Randy's branch.
 %
@@ -686,14 +690,15 @@ loop: continue
       vc_decl(v_test)
       vc_decl(v_back)
       vc_decl(vb_flow)
-      vc_decl(vt_flow)
+      vc_decl(vbt_flow)
       vc_decl(v_diff)
       vc_decl(v_ave)
       vc_decl(vt_plasma_frame)
       vc_decl(vb_therm)
       vc_decl(vrel)
+      vc_decl(v_i)
 
-      integer i,nprod,back_test
+      integer i,nprod,back_test,psp_i
 
       real v_thermal,m_i,ran,rate
       real independent_parameters[xs_max_indep_params]
@@ -703,53 +708,71 @@ loop: continue
       nprod=rc_product_num(pr_reaction(pr_reac))
       back=pr_ts_bk(test,ts_reac)
 
-      if ( pr_test(test) == pr_background(back) ) then
-
-/*    If like-species collision - select thermal velocity from background distribution   */
-
+      if (pr_test(test) == pr_background(back)) then
+/*
+    Like-species collision 
+*/
          do i=1,3
             vb_flow[i]=independent_parameters[xs_var_v_flow_1+i-1]
          end do
          v_thermal=sqrt(independent_parameters[xs_var_sp_temperature])
-
       else
-
-/*    If unlike-species collision - select thermal velocity from average distribution   */
-
+/*    
+   Unlike-species: select thermal velocity from average distribution   
+*/
          m_total = sp_m(pr_test(test)) + sp_m(pr_background(back))
-         m_coef = 2.*sp_m(pr_test(test))*sp_m(pr_background(back))/m_total**2
+         m_coef = two*sp_m(pr_test(test))*sp_m(pr_background(back))/m_total**2
          back_test = pr_background_lookup(pr_test(test))
-
          do i=1,3
             vb_flow[i] = independent_parameters[xs_var_v_flow_1+i-1]
-            vt_flow[i] = background_v(i,back_test,int(independent_parameters[xs_var_zone]))
-            v_ave[i] = (sp_m(pr_background(back_test))*vt_flow[i]+sp_m(pr_background(back))*vb_flow[i])/m_total
+            vbt_flow[i] = independent_parameters[xs_var_v_flowb_1+i-1]
+       
+            v_ave[i] = (sp_m(pr_background(back_test))*vbt_flow[i]
+     $           + sp_m(pr_background(back))*vb_flow[i])/m_total
          end do
-
-         vc_difference(vb_flow,vt_flow,v_diff)
-         vc_copy(v_ave,vb_flow)
+         vc_difference(vb_flow,vbt_flow,v_diff)
+         vc_copy(v_ave,vb_flow)      // To match like-species expression
 
          temp_test = bk_temp(back_test,int(independent_parameters[xs_var_zone]))
          temp_back = bk_temp(back,int(independent_parameters[xs_var_zone]))
-
-         temp_ave = temp_test + m_coef*
-     &   ((temp_back-temp_test)+sp_m(pr_background(back))*vc_abs2(v_diff)/(6.))
-
+         temp_ave = temp_test 
+     $        +m_coef*((temp_back-temp_test)
+     $        +sp_m(pr_background(back))*vc_abs2(v_diff)/const(6.))
          v_thermal = sqrt( temp_ave / sp_m(pr_test(test)) )
-
       endif
-
-/*    Select Background Thermal Velocity   */
-
+/*    
+   Select Background Thermal Velocity   
+*/
       do i=1,3
          rn_gauss_next(ran,x)
          vb_therm[i]=v_thermal*ran
       end do
+/*    
+   End of Neutral Selection - set products and do scoring 
+*/
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+      end do
+      m_i=sp_m(pr_test(test))
+      psp_i=pr_problem_sp_test(test)
+      vc_copy(v_test,v_i)
+/*
+   Do scoring. Currently scoring only the test species. Background
+   species may follow later. Explicitly no mass exchange.
+*/
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
+     $     -m_i*v_i[1]*rate
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
+     $     -m_i*v_i[2]*rate
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_i)]+=
+     $     -m_i*v_i[3]*rate
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
+     $     -half*m_i*vc_abs2(v_i)*rate
 
-/*    End of Neutral Selection - set products */
-
+/*
+   Set products
+*/
       assert(pr_num_arrangements(test,ts_reac) == 1) 
-
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
          if ( i == 1 ) then
@@ -760,6 +783,16 @@ loop: continue
             vc_add(vb_therm,vb_flow,v_prod[i])
          endif
       end do
+
+      vc_copy(v_prod[2],v_i)
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
+     $     m_i*v_i[1]*rate
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
+     $     m_i*v_i[2]*rate
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_i)]+=
+     $     m_i*v_i[3]*rate
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
+     $     half*m_i*vc_abs2(v_i)*rate
       
       return
       end
@@ -2156,8 +2189,7 @@ actually done at the source point or as a post-processor.
 @m max_lines 3
 
 @<Functions...@>=
-      subroutine recombination_data(pr_test_dummy(test),
-     $   pr_reaction_dummy(bk_rc_is),est,rate,independent_parameters,
+      subroutine recombination_data(est,so_dummy(is),xseg,pt_dummy(p),
      $   scoring_data,rn_dummy(x))
 
       implicit_none_f77
@@ -2168,23 +2200,23 @@ actually done at the source point or as a post-processor.
       sp_common
       rd_common
       zn_common
-
+      so_common
       implicit_none_f90
 
       rd_decls
       lc_decls
       st_decls
-      pr_test_decl(test)                     // Input
-      pr_reaction_decl(bk_rc_is)
-      integer est
-      real rate
-      real independent_parameters[xs_max_indep_params]
+
+      integer est,xseg                      // Input
+      so_decl(is)
+      pt_decl(p)
 
       real scoring_data[scoring_data_max]   // Output
       rn_decl(x)                            // Input/output
 
       pr_background_decl(back_2)            // Local
       pr_background_decl(back_1)
+      pr_reaction_decl(bk_rc_is)
       pr_reaction_decl(pr_reac)
       rc_decl(reac)
       lc_decl(zone_loc)
@@ -2192,14 +2224,18 @@ actually done at the source point or as a post-processor.
       vc_decl(v_src)
       integer i,i_e_loss,i_e_src,num_lines,i_e_rate,i_gen_rate,psp_1,psp_2
       integer lines[max_lines],e_rates[max_lines]
-      real e_loss,e_e_loss,e_e_src
+      real rate,e_loss,e_e_loss,e_e_src
+      real independent_parameters[xs_max_indep_params]
       character*tl_tag_length line
       logical init
 
-      external eval_data                    // External
-      real eval_data
+      external eval_data,find_rate          // External
+      real eval_data,find_rate
       save init,i_e_loss,i_e_src,num_lines,lines,e_rates,i_gen_rate
       data init/.true./
+
+      @<Memory allocation interface@>
+      rn_decls
 
       if (init) then
          i_e_loss=string_lookup('background_energy_loss_rate',pr_var0_list,
@@ -2225,6 +2261,15 @@ actually done at the source point or as a post-processor.
          init=.false.
       end if
 
+      bk_rc_is=0
+      do i=1,pr_bkrc_num
+         if (pr_bkrc_prod(i,1) == so_species(is)) then
+            assert(bk_rc_is == 0)
+            assert(pr_background_lookup(so_root_sp(is)) == pr_bkrc_rg(i,2))
+            bk_rc_is=i
+         end if
+      end do
+      assert(bk_rc_is != 0)
 /*
    By convention, the second reagent is the one which will give
    rise to the velocity of the product test particle. The first
@@ -2235,6 +2280,12 @@ actually done at the source point or as a post-processor.
       back_2=pr_bkrc_rg(bk_rc_is,2)
       pr_reac=pr_bk_rc(bk_rc_is)
       reac=pr_reaction(pr_reac)
+      rate=find_rate(pt_args(p),pr_background_args(back_1),
+     $     pr_reaction_args(pr_bk_rc(bk_rc_is)),rn_args(x))
+      assert(rate > zero)
+      call set_indep_params(pt_args(p),pr_background_args(back_1),
+     $     reaction_rate_num_rand[pr_reac],
+     $     rn_args(x),independent_parameters)
 
 /*
    Set data for line emission. For post-processing, compute spectrum
@@ -2245,10 +2296,10 @@ actually done at the source point or as a post-processor.
 */
       if (rc_emitter(reac) != 0) then
          assert(rc_emitter(reac) == 1)
-         independent_parameters[xs_var_m_emitter]=sp_m(pr_test(test))
+         independent_parameters[xs_var_m_emitter]=sp_m(pt_sp(p))
          if (est == tl_est_post_process) then
-            vc_copy(zone_center[int(independent_parameters[xs_var_zone])],
-     $           lc_x(zone_loc))
+            assert(xseg == int(independent_parameters[xs_var_zone]))
+            vc_copy(zone_center[xseg],lc_x(zone_loc))
             lc_set(zone_loc)
             v_ext_to_int(lc_x(zone_loc),bk_v(back_2,lc_zone(zone_loc)),vb_flow,geometry_symmetry,background_coords)
             scoring_data[pr_var_emitter_vf_Maxwell_vector]=vb_flow[1]
@@ -2309,8 +2360,17 @@ actually done at the source point or as a post-processor.
             if (scoring_data[lines[i]] > zero) then
                assert(scoring_data[e_rates[i]] == zero)
                assert(rc_emitter(reac) != 0)
+@#if 0
                scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
      $              *independent_parameters[xs_var_density]
+@#else
+/*
+   Remove rate factor here. Future data should do this directly in
+   the data file.
+*/
+               scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
+     $              *independent_parameters[xs_var_density]/rate
+@#endif
             end if
          end do
       end if
@@ -2320,6 +2380,7 @@ actually done at the source point or as a post-processor.
 */
       psp_1=pr_problem_sp_back(back_1)
       psp_2=pr_problem_sp_back(back_2)
+@#if 0
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_1)]+=
      $  -sp_m(pr_background(back_1))*rate
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
@@ -2346,6 +2407,37 @@ actually done at the source point or as a post-processor.
      $     sp_m(pr_test(test))*v_src[3]*rate 
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
      $     e_loss*rate    // Assuming all goes from back to test.
+@#else
+/*
+   Remove |rate| factors
+*/
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_1)]+=
+     $  -sp_m(pr_background(back_1))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
+     $     -sp_m(pr_background(back_2))
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_2)]+=
+     $     -sp_m(pr_background(back_2))*v_src[1] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_2)]+=
+     $     -sp_m(pr_background(back_2))*v_src[2] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_2)]+=
+     $     -sp_m(pr_background(back_2))*v_src[3] 
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_1)]+=
+     $     (e_e_src-e_e_loss)/rate
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
+     $     -e_loss
+
+      psp_2=pr_problem_sp_test(pt_test(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
+     $  sp_m(pt_sp(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_2)]+=
+     $     sp_m(pt_sp(p))*v_src[1] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_2)]+=
+     $     sp_m(pt_sp(p))*v_src[2] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_2)]+=
+     $     sp_m(pt_sp(p))*v_src[3] 
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
+     $     e_loss    // Assuming all goes from back to test.
+@#endif
       
       return
       end
