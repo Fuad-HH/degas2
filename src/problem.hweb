@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.13  1996/10/30 18:13:56  dstotler
+% Add new arrays and variables to deal with "background reactions"
+% (i.e., recombination).
+%
 % Revision 1.12  1996/05/24 18:55:08  dstotler
 % Add arrays for handling PMI and their products.
 %
@@ -130,12 +134,17 @@ problem is identified by an integer indexing into these arrays.
 @m pr_background_lookup(sp) int_lookup(sp,problem_background_sp,pr_background_num)
 @m pr_reaction_lookup(rc) int_lookup(rc,problem_rc,pr_reaction_num)
 
+@m pr_score_check(x) (x > 0 && x <= pr_score_num)
+
+@m problem_score_rank(x) problem_score_indep_vars[x](0)
+
 @ Length specifications.
 
 @m pr_reaction_max 8
 @m pr_arrangement_max 4
 @m pr_pmi_max 8
 @m pr_max_equiv 8
+@m pr_score_rank_max 5    // Matches tl_rank_man in score.hweb
 @m pr_bkrc_reagent_max 2
 
 @ Variable definitions.
@@ -149,7 +158,8 @@ problem is identified by an integer indexing into these arrays.
       define_var_pk(pr,pr_bkrc_dim,INT)
       define_var_pk(pr,pr_materials_num,INT)
       define_var_pk(pr,pr_pmi_num,INT)
-      define_dummy_pk(pr,pr_ignore,INT)
+      define_var_pk(pr,pr_score_num,INT)
+/*    define_dummy_pk(pr,pr_ignore,INT) */
 
       define_dimen_pk(pr,problem_test_ind,pr_test_num)
       define_dimen_pk(pr,problem_background_ind,pr_background_num)
@@ -165,6 +175,8 @@ problem is identified by an integer indexing into these arrays.
       define_dimen_pk(pr,problem_pmi_ind0,pr_pmi_max)
       define_dimen_pk(pr,problem_product_ind,rc_product_max)
       define_dimen_pk(pr,problem_arr_ind,pr_arrangement_max)
+      define_dimen_pk(pr,problem_scores,0,pr_score_num)
+      define_dimen_pk(pr,problem_score_rank_ind,0,pr_score_rank_max)
 
       define_varp_pk(pr,problem_species_test,INT,problem_species_ind)
       define_varp_pk(pr,problem_species_background,INT,problem_species_ind)
@@ -194,6 +206,8 @@ problem is identified by an integer indexing into these arrays.
       define_varp_pk(pr,problem_pmi_num_arrange,INT,problem_pmi_ind0,problem_test_ind)
       define_varp_pk(pr,problem_pmi_products,INT,problem_product_ind,problem_arr_ind,problem_pmi_ind0,problem_test_ind)
       define_varp_pk(pr,problem_pmi_prod_mult,FLOAT,problem_arr_ind,problem_pmi_ind0,problem_test_ind)
+      define_varp_pk(pr,problem_score,INT,problem_scores)
+      define_varp_pk(pr,problem_score_indep_vars,INT,problem_score_rank_ind,problem_scores)
 
 @ Common blocks definitions.
 

@@ -1,0 +1,144 @@
+@* Score definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+Scoring can happen at one of three points within degas 2: (a) when a
+track crosses a sector (e.g., to compute a flux), (b) when a track
+travels through a zone (e.g., to compute a track length estimator), and
+(c) at a collision event (e.g., to compute a collision estimator).
+
+There are two issues to address: how to specify what needs to be scored
+and how to store the results in a convenient form.
+
+To accomodate the first, a list of scores to compute can be attached to
+(a) a particular (signed) sector,
+(b) a particular zone (for track length quantities),
+(c) a particular zone (for collision quantities).
+For simplicity we restrict the number of scores for each sector or zone
+(in each category) to |tl_max_score|.  It would be possible to eliminate
+this arbitrary limit fairly easily.
+
+When defining what needs to be scored, we need routines to allow, e.g.,
+a particular quantity to be scored on all plasma zones or all exit
+sectors, etc.
+
+For each quantity that needs to be stored, we define a dimensionality
+which is the number of dimensions used to index into the scoring array.
+This can be |tl_rank_max|.  These indices index on the various
+independent variables.  The various dimensions are given numeric labels
+(similar to netcdf), which give pointers to information about that
+variable.
+
+@I zone.hweb
+@I sector.hweb
+
+@f tl_decl integer
+
+@m tl_args(x) x
+
+@m tl_dummy(x) x
+
+@m tl_decl(x) integer x @;
+
+@m tl_copy(x,y) y=x @;
+
+@m tl_check(x) (x > 0 && x <= tl_num && 
+      tl_type(x) > 0 && tl_type(x) <= tl_type_max)
+
+@m tl_type(x) score_type[x]
+@m tl_pointer(x) score_pointer[x]
+
+@ Constant specifications.
+
+@m tl_type_max 3                // Types of different score
+@m tl_type_sector 1
+@m tl_type_track 2
+@m tl_type_collision 3
+@m tl_max_score 20              // Number of scores per sector/zone
+@m tl_rank_max 5
+
+/* Need to keep this synchronized with problemsetup.web */
+
+@m tl_indep_unknown 0             // Indices for the independent variables
+@m tl_indep_zone 1
+@m tl_indep_plasma_zone 2
+@m tl_indep_test 3
+@m tl_indep_background 4
+@m tl_indep_velocity 5            // velocity to a diagnostic
+@m tl_indep_ray 6                 // a ray to a diagnostic
+@m tl_indep_reaction 7
+@m tl_indep_pmi 8
+@m tl_indep_material 9
+@m tl_indep_source 10             // a source group
+@m tl_indep_sector 11
+@m tl_indep_stratum 12
+@m tl_indep_energy 13
+@m tl_indep_max 100               // An arbitrary limit
+
+@m tl_int_spacing 1
+@m tl_linear_spacing 2
+
+@m tl_dep_mass 1              // Dependent variables
+@m tl_dep_momentum 2
+@m tl_dep_energy 3
+
+@m tl_name_len 16               // For dep and indep variable names
+
+@ Variable definitions. |score_ind| is dimensioned from zero to
+accomodate netcdf.  The 0 index is unused.
+
+@m tl_data5(x,i,j,k,l,m) score_table[score_base[x]+i+score_tab_index[x][1]*(j+score_tab_index[x][2]*(k+score_tab_index[x][3]*(l+score_tab_index[x][4]*m)))]
+
+@m tl_int_index(i,j) min(score_indep_size[j],max(0,(i)-score_indep_min[j]))
+@m tl_real_index(x,j) min(score_indep_size[j],max(0,((x)-score_indep_xmin[j])/score_indep_dx[j]))
+
+@a
+      package_init(tl)
+      define_var_pk(tl,tl_num,INT) // The number of scores
+      define_var_pk(tl,tl_var_num,INT) // The number of independent variables used
+      define_var_pk(tl,score_table_size,INT) // The size of a big table to store the scores
+      define_dimen_pk(tl,score_type_ind,tl_type_max) // Index for the different types of scores
+      define_dimen_pk(tl,score_ind,0,tl_num) // Index for the scores
+      define_dimen_pk(tl,score_rank_ind,0,tl_rank_max) // Index for the ranks of a score arry
+      define_dimen_pk(tl,score_table_ind,0,score_table_size-1) // Index for that big table
+      define_dimen_pk(tl,score_name_string,tl_name_len) // Index of strings
+      define_dimen_pk(tl,score_var_ind,tl_indep_max) // Index of the arrays with info about indep. vars.
+      define_dimen_pk(tl,score_zone_ind,tl_max_score) // Index into zone arrays
+      define_dimen_pk(tl,score_sector_ind,tl_max_score) // Index into sector arrays
+/* Not sure we need this */
+      define_var_pk(tl,score_type_num,INT,score_type_ind) // The number of scores of each type
+      define_dummy_pk(tl,tl_ignore,INT) // Pad to 8-byte boundary
+      define_varp_pk(tl,score_type,INT,score_ind) // The type of each score
+      define_varp_pk(tl,score_base,INT,score_ind) // The base in the scoring table for each score
+      define_varp_pk(tl,score_rank,INT,score_ind) // The rank for each score
+      define_varp_pk(tl,score_indep_var,INT,score_rank_ind,score_ind) // An index of indep vars.
+      define_varp_pk(tl,score_table,FLOAT,score_table_ind) // The scoring table
+      define_varp_pk(tl,score_tab_index,FLOAT,score_rank_ind,score_ind)
+      define_varp_pk(tl,score_name,CHAR,score_name_string,score_ind) // Name of each score
+      define_var_pk(tl,score_var_name,CHAR,score_name_string,score_var_ind) // Name of each indep var
+      define_var_pk(tl,score_var_type,INT,score_var_ind) // Type of access
+      define_var_pk(tl,score_var_size,INT,score_var_ind) // How many elements
+      define_var_pk(tl,score_var_min,INT,score_var_ind) // The minimum (only used for |tl_int_spacing|)
+      define_var_pk(tl,score_var_xmin,FLOAT,score_var_ind) // The minimum (only used for |tl_linear_spacing|)
+      define_var_pk(tl,score_var_dx,FLOAT,score_var_ind) // The delta (only used for |tl_linear_spacing|)
+      define_varp_pk(tl,zone_score,INT,score_ind,zone_ind)
+      define_varp_pk(tl,sector_score,INT,score_ind,sector_ind)
+
+@ Common blocks definitions.
+
+@f tl_common integer
+@m tl_common
+      tl_common_a;
+      character*LINELEN score_version;
+      common /com_score_c/ score_version;
+      save /com_score_c/ @;
+
+@ Setting up score information.
+
+@m tl_type_set(score,type) tl_type(score)=type;
+      score_type_num[type]=score_type_num[type]+1;
+      tl_pointer(score)=strata_type_num[type] @;

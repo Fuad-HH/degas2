@@ -2,6 +2,11 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.17  1996/10/30 18:15:31  dstotler
+% Extensive changes  to deal with "background reactions" (i.e.,
+% recombination) in check_problem. Moved species_add_check and el_count
+% to elementread.web. Add elastic scattering setup routine from Randy.
+%
 % Revision 1.16  1996/05/24 18:55:41  dstotler
 % Add routines to set products for PMI; do problemsetup for PMI.
 %
@@ -84,6 +89,7 @@ collated accordingly and written to the single output netCDF file
 @I reactiondata.hweb
 @I pmidata.hweb
 @I element.hweb
+@I score.hweb
 
 /* The following variables are required in a number of these routines, but
 not in any outside of |problemsetup|; hence, they exist only in this local
@@ -183,6 +189,8 @@ loop1: continue
          call read_materials(diskin,line)
       else if (line == 'PMI') then
          call read_pmi(diskin,line)
+      else if (line == 'SCORES') then
+         call read_pmi(diskin,line)
       end if
       
       goto loop1
@@ -217,6 +225,7 @@ eof:  continue
       pr_reaction_num=0
       pr_materials_num=0
       pr_pmi_num=0
+      pr_score_num=0
 
       num_generics=0
       int_alloc(generics,sp_num)
@@ -250,7 +259,7 @@ arrays.
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
      $     goto eof
       assert(length<=len(line))
       length=parse_string(line(:length))
@@ -311,7 +320,7 @@ arrays.
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
      $     goto eof
       
       assert(length<=len(line))
@@ -357,7 +366,7 @@ eof:  return
       
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
      $     goto eof
       
       assert(length<=len(line))
@@ -396,7 +405,7 @@ eof:  return
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
      $     goto eof
       
       assert(length<=len(line))
@@ -437,7 +446,7 @@ eof:  return
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
      $     goto eof
       
       assert(length<=len(line))
@@ -1380,6 +1389,86 @@ reagents. */
       end do
       assert(pr_num_arrangements(ts,pr_rc_num(ts)) > 0)
       return
+      end
+
+@ Read in score labels.
+      
+@<Functions...@>=
+      subroutine read_scores(unit,line)
+      implicit_none
+      integer unit              // Input
+      character*(*) line        // Output
+      integer length,p,b,e,i    // Local
+
+      pr_common                 // Common
+      sy_common
+      st_common
+      tl_common
+      
+loop1: continue
+      if ( ! read_string(unit,line,length) ) line='END'
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
+     $     goto eof
+      
+      assert(length<=len(line))
+      length=parse_string(line)
+      
+      p=0
+
+      assert(next_token(line(:length),b,e,p))
+      pr_score_num++
+      var_realloca(problem_score)
+      var_realloca(problem_score_indep_vars)
+/* Need to keep this synchronized with score.hweb */
+      if (line(b:e) == 'mass') then
+         i=1
+      else if (line(b:e) == 'momentum') then
+         i=2
+      else if (line(b:e) == 'energy') then
+         i=3
+      else
+         assert(len("Unknown score dep variable") < 0)
+      end if
+      problem_score[pr_score_num]=i
+      problem_score_rank(pr_score_num)=0
+loop3: continue
+      if (! next_token(line(:length),b,e,p)) goto loop1
+      problem_score_rank(pr_score_num)++
+      assert( problem_score_rank(pr_score_num) <= tl_rank_max )
+/* Need to keep this synchronized with score.hweb */
+      if (line(b:e) == 'zone') then
+         i=1
+      else if (line(b:e) == 'plasma_zone') then
+         i=2
+      else if (line(b:e) == 'test') then
+         i=3
+      else if (line(b:e) == 'background') then
+         i=4
+      else if (line(b:e) == 'velocity') then
+         i=5
+      else if (line(b:e) == 'ray') then
+         i=6
+      else if (line(b:e) == 'reaction') then
+         i=7
+      else if (line(b:e) == 'pmi') then
+         i=8
+      else if (line(b:e) == 'material') then
+         i=9
+      else if (line(b:e) == 'source') then
+         i=10
+      else if (line(b:e) == 'sector') then
+         i=11
+      else if (line(b:e) == 'stratum') then
+         i=12
+      else if (line(b:e) == 'energy') then
+         i=13
+      else
+         assert(len("Unknown score indep variable") < 0)
+      end if
+      problem_score_indep_vars[pr_score_num][problem_score_rank(pr_score_num)]=i
+      goto loop3
+         
+eof:  return
       end
 
 @* References.
