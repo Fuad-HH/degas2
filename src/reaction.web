@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.10  1995/03/30 17:07:47  karney
+% Add readbackground
+%
 % Revision 1.9  1995/03/02 18:45:52  karney
 % Change layout of xs_tablen arrays to be 1-d (called xs_tabn).  Define
 % macros to access like a 3-d array.
@@ -123,13 +126,15 @@ uses the old hardwired scheme.
       rc_common
       bk_common
       sp_common
+      pr_common
       external reaction_rate_a
       real reaction_rate_a
       
-      reaction_rate=reaction_rate_a(pt_sp(p),pt_v(p),bk_sp(b),
+      reaction_rate=reaction_rate_a(pt_sp(p),pt_v(p),pr_target(b),
      $     bk_n(b,lc_zone(pt_loc(p))),
      $     bk_v(b,lc_zone(pt_loc(p)))[1],
-     $     bk_temp(b,lc_zone(pt_loc(p))))
+     $     bk_temp(b,lc_zone(pt_loc(p))),
+     $     pr_reaction(r))
       
       return
       end
@@ -419,6 +424,38 @@ constant.
       end do
       xs_base_max=xs_base_max+size
 
+      return
+      end
+
+@ Read in stuff.
+
+@<Functions...@>=
+      subroutine init_reaction
+      implicit_none
+      integer i                 // Local
+      pr_common
+      rd_common
+      sy_common
+            
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+      call nc_read_problem
+
+      xs_base_max=0
+      var_alloc(reaction_organization)
+      var_alloc(reaction_xs_min)
+      var_alloc(reaction_xs_delta)
+      var_alloc(reaction_xs_rank)
+      var_alloc(reaction_xs_spacing)
+      var_alloc(reaction_xs_base)
+      var_alloc(reaction_xs_tab_index)
+      var_alloc(reaction_xs_var)
+
+      do i=1,pr_reaction_num
+         write(stdout,*) pr_reaction(i)
+         call reaction_read(i)
+      end do
       return
       end
 

@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.8  1994/08/24 15:02:49  karney
+% Added degasgeom to read in old degas' geometry spec.
+%
 % Revision 1.7  1994/02/14 22:22:49  karney
 % Use LINELEN.  Use read_integer.
 %
@@ -49,7 +52,7 @@
       nflights=100000
       nfrag=-1
       
-      do i=1,max(2,arg_count())
+      do i=1,min(2,arg_count())
          call command_arg(i,arg)
          if (i == 1) nflights=read_integer(arg)
          if (i == 2) nfrag=read_integer(arg)
@@ -75,8 +78,9 @@
       call nc_read_elements
       call nc_read_species
       call nc_read_background
-      call nc_read_test
+      call nc_read_problem
       call nc_read_reactions
+      call init_reaction
       
       return
       end

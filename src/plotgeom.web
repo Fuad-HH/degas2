@@ -2,6 +2,9 @@
 \def\Wtitle{plot geometry}
 
 % $Log$
+% Revision 1.5  1995/03/30 17:07:42  karney
+% Add readbackground
+%
 % Revision 1.4  1995/03/28 20:37:40  jshankar
 % Initial version of readgeometry.
 %
@@ -70,7 +73,7 @@ b$.  Size of the image is |alen| by |blen|.
       real x0[3],a[3],b[3],alen,blen
       gi_common            // Input
       integer min_char,max_char,pixsize // Parameters
-      parameter (min_char=2,max_char=255,pixsize=400000)
+      parameter (min_char=3,max_char=255,pixsize=400000)
       integer DFTAG_RLE,DFTAG_IMC
       parameter (DFTAG_RLE=11, DFTAG_IMC=12)
       integer na,nb,i,j,ind,direction,ret,istart,istop,val // Local
@@ -79,7 +82,7 @@ b$.  Size of the image is |alen| by |blen|.
       real dx,v[3],vy[3],tmax,t,xpos
       logical done,ok
       character*1 ch[0:pixsize-1]
-      character*1 palette(3,256)
+      character*1 palette[0:255][3]
       vc_common
       external DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal // External
       integer DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal
@@ -171,9 +174,15 @@ loop1:   continue
 
       if (first) then
          ret = DFPgetpal('../output/rainbow.pal',palette)
-         palette(1,256)=char(220)
-         palette(2,256)=char(220)
-         palette(3,256)=char(220)
+         palette[255][1]=char(220)
+         palette[255][2]=char(220)
+         palette[255][3]=char(220)
+         palette[1][1]=char(255)
+         palette[1][2]=char(255)
+         palette[1][3]=char(255)
+         palette[2][1]=char(0)
+         palette[2][2]=char(0)
+         palette[2][3]=char(0)
          ret = DFR8setpalette(palette)
          ret = DFR8putimage(hdffile,ch,na,nb,DFTAG_RLE)
       else
@@ -210,6 +219,8 @@ loop1:   continue
       
       if (zn_type(lc_zone(x)) == zn_vacuum) then
          density_func=1
+      else if (zn_type(lc_zone(x)) == zn_exit) then
+         density_func=2
       else if (zn_type(lc_zone(x)) == zn_solid) then
          density_func=max_char
       else
@@ -237,6 +248,8 @@ loop1:   continue
       
       if (zn_type(lc_zone(x)) == zn_vacuum) then
          te_func=1
+      else if (zn_type(lc_zone(x)) == zn_exit) then
+         te_func=2
       else if (zn_type(lc_zone(x)) == zn_solid) then
          te_func=max_char
       else
@@ -264,6 +277,8 @@ loop1:   continue
       
       if (zn_type(lc_zone(x)) == zn_vacuum) then
          ti_func=1
+      else if (zn_type(lc_zone(x)) == zn_exit) then
+         ti_func=2
       else if (zn_type(lc_zone(x)) == zn_solid) then
          ti_func=max_char
       else
@@ -292,12 +307,12 @@ loop1:   continue
       real stat[2,zn_num],smin,smax
       common /stat_com/ smin,smax,ptr_stat
       
-      if (zn_type(lc_zone(x)) == zn_vacuum) then
-         stat_func=1
+      if (zn_type(lc_zone(x)) == zn_exit) then
+         stat_func=2
       else if (zn_type(lc_zone(x)) == zn_solid) then
          stat_func=max_char
       else
-         assert(zn_type(lc_zone(x)) == zn_plasma)
+         assert(zn_type(lc_zone(x)) == zn_plasma || zn_type(lc_zone(x)) == zn_vacuum )
          if (stat[1,lc_zone(x)] <= zero) then
             stat_func=min_char
          else

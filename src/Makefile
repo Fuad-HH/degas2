@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.21  1995/03/30 17:07:04  karney
+# Add readbackground
+#
 # Revision 1.20  1995/03/28 20:37:26  jshankar
 # Initial version of readgeometry.
 #
@@ -152,6 +155,7 @@ else  # !CRAY
   LD=$(FC)
   ifdef DEBUG
     FFLAGS=-c -g -u
+    LDFLAGS=
     CFLAGS=-g
   else
     FFLAGS=-c -O

@@ -2,6 +2,9 @@
 \def\Wtitle{readgeometry}
 
 % $Log$
+% Revision 1.4  1995/03/30 17:08:12  karney
+% Add readbackground
+%
 % Revision 1.3  1995/03/29 18:57:17  jshankar
 % added some explanation for keywords i had missed out last time
 %
@@ -74,7 +77,7 @@ boundary.
      $     grid_starth,grid_stoph,steph,stepv,h,v,num
       character*LINELEN line,keyword
       logical complete
-      real x[2,0:5000],xmin,xmax,zmin,zmax,vol
+      real x[2,0:5000],xmin,xmax,zmin,zmax,vol,vola
       real x1[3],x2[3],coeff[NCOEFFS],apex[3],mindensity,minx,minz
       character*100 plot
       sy_common
@@ -149,6 +152,8 @@ loop2: continue
          assert(next_token(line,b,e,p))
          if (line(b:e) == 'solid') then
             zn_type_set(zone,zn_solid)
+         else if (line(b:e) == 'exit') then
+            zn_type_set(zone,zn_exit)
          else if (line(b:e) == 'vacuum') then
             zn_type_set(zone,zn_vacuum)
          else if (line(b:e) == 'plasma') then
@@ -323,10 +328,12 @@ eof:  continue
       call check_geometry
       call write_geometry
       call print_geometry(stdout)
+      vola=zero
       do i=1,zn_num
          assert(zn_volume(i)>0)
          vola=vola+zn_volume(i)
       end do
+      write(stderr,*) vol,vola
       call erase_geometry
       stop
       end

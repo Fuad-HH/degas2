@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.11  1995/04/11 15:15:41  jshankar
+% added some documentation for the layman.
+%
 % Revision 1.10  1995/03/13 19:31:13  dstotler
 % Added more complete documentation to the end of this file.
 %
@@ -243,11 +246,12 @@ and ``on''	*/
 @ Macros to accomodate growing arrays.  
 
 @m mem_inc 100
+
 /* |mem_size(x)| returns the size in the nearest unit of |mem_inc| for a
 given size x. eg.. |mem_size(1)|, |mem_size(2)| ... |mem_size(100)| all
 return 100, but |mem_size(101)| ...|mem_size(200)| = 200 etc. */
 
-@m mem_size(x) (((x)+mem_inc-1)/mem_inc)*mem_inc // $\lceil x/|mem_inc| \rceil |mem_inc|$
+@m mem_size(x) (int(((x)+mem_inc-1)/mem_inc)*mem_inc) // $\lceil x/|mem_inc| \rceil |mem_inc|$
 
 /*| array_sizea(x)| gives the size of an array x using the nearest
 multiple of |mem_inc| as the last range. for eg.. if |mem_inc| =5, then
@@ -348,15 +352,10 @@ same. */
       _UNDEF(pk##_ncwrite)
       _DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
       _UNDEF(temp)
-      _IF(rank_##name == 0, 
-        _DEFINE(temp(fileid) pk##_ncread(fileid))
-        _UNDEF(pk##_ncread)
-        _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
-        _UNDEF(temp),
-        _DEFINE(temp(fileid) pk##_ncread(fileid))
-        _UNDEF(pk##_ncread)
-        _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
-        _UNDEF(temp))
+      _DEFINE(temp(fileid) pk##_ncread(fileid))
+      _UNDEF(pk##_ncread)
+      _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
+      _UNDEF(temp)
       _DEFINE(temp pk##_pvmput)
       _UNDEF(pk##_pvmput)
       _DEFINE(pk##_pvmput temp; pvm_put(name))

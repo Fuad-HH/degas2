@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.2  1995/03/30 17:07:59  karney
+% Add readbackground
+%
 % Revision 1.1  1995/01/30 21:06:55  karney
 % Merge in my changes with Daren's
 %
@@ -38,6 +41,8 @@
 
 
       call init_reaction
+      call reaction_data_write
+
 loop: continue
       write(stdout,*) 'Enter symbols for test particle, target particle, reaction'
 
@@ -86,39 +91,9 @@ eof:  continue
       end
       @<Functions and Subroutines@>
 
-@ Read in stuff.
+@* The other subroutines.
 
 @<Functions...@>=
-      subroutine init_reaction
-      implicit_none
-      integer i                 // Local
-      pr_common
-      rd_common
-      sy_common
-            
-      call nc_read_elements
-      call nc_read_species
-      call nc_read_reactions
-      call nc_read_problem
-
-      xs_base_max=0
-      var_alloc(reaction_organization)
-      var_alloc(reaction_xs_min)
-      var_alloc(reaction_xs_delta)
-      var_alloc(reaction_xs_rank)
-      var_alloc(reaction_xs_spacing)
-      var_alloc(reaction_xs_base)
-      var_alloc(reaction_xs_tab_index)
-      var_alloc(reaction_xs_var)
-
-      do i=1,pr_reaction_num
-         write(stdout,*) pr_reaction(i)
-         call reaction_read(i)
-      end do
-      call reaction_data_write
-      return
-      end
-
       subroutine reaction_data_write
       implicit_none
       integer fileid            // Local
