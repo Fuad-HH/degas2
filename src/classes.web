@@ -2,6 +2,10 @@
 \Title{classes}
 
 % $Log$
+% Revision 1.15  1995/07/19 20:17:02  dstotler
+% Revise documentation on problem class. Additional variables defined
+% for handling isotopes.
+%
 % Revision 1.14  1995/07/14 13:19:59  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -164,6 +168,44 @@ integer variable.
 |rc_product_max|).
 |rc_product(reaction,i)| is the species of the $i$th product.
 
+@ Materials class. Prefix is |ma|. The identifier |material| is an integer
+variable. The properties of the materials are implicitly defined through
+the physical behavior of the plasma-material interactions. As a result,
+this class is really just an arbitary label; a given instance of the
+class is generated only in conjunction with one or more PMI which refer
+to it.
+
+\begin{description}
+  \item[|ma_num|] Number of material instances.
+  \item[|ma_name(material)|] Returns the long name (length |ma_name_len|).
+  \item[|ma_sy(material)|] Returns the symbolic name (length |ma_sy_len|).
+\end{description}
+
+@ Plasma-Material Interaction (PMI) class. Prefix is |pm|. 
+The identifier |pmi| is
+an integer variable.
+
+\begin{description}
+  \item[|pm_num|] Number of PMI in the reference database.
+  \item[|pm_name(pmi)|] Returns the long name (length |pm_name_len|).
+  \item[|pm_pmi_type(pmi)|] Returns the type of plasma-material interaction 
+(length |pm_type_len|).
+  \item[|pm_sy(pmi)|] Returns the symbolic name (length |pm_sy_len|).
+  \item[|pm_reagent(pmi)|] Returns the species index (class |sp|)
+of the incident projectile.
+  \item[|pm_materials(pmi)|] Returns the materials index (class |ma|) of the 
+target material.
+  \item[|pm_gen(pmi)|] Contains the value |pmi_generic_yes| if this |pmi|
+(and its data) can be applied to species
+isotopically equivalent to |pm_reagent(pmi)|; the value |pmi_generic_no|
+indicates that the |pmi| is species-specific.
+  \item[|pm_product_num(pmi)|] Number of product particles.
+  \item[|pm_product(pmi,i)|] Species index (class |sp|) of the |i|th product
+particle, |i|$ = 1 \rightarrow$ |pm_product_num(pmi)|.
+  \item[|pm_filename(pmi)|] Name of netCDF file containing the data 
+(class |pf|) for this |pmi|.
+\end{description}
+
 @ Background class.  Prefix is |bk|.  The identifier |background| is an
 integer variable.
 
@@ -181,6 +223,90 @@ indices of the zone.
 |zn_pointer(zone)| is a pointer into arrays specific for different types
 of zones: plasma, solid, etc.
 |zn_volume(zone)| is the volume of the zone.
+
+@ Sector class. Prefix is |sc|.
+A stratum
+is identified by a positive integer |sector|.  This
+gives information about the properties of the sector.  Each
+sector is defined by a zone and a (directed) surface number. The array
+providing the map from surface indices back to the sector indices
+is held within the sector common
+block.  
+
+A set of sector subclasses are defined here as well for the purpose of
+providing clearly defined arrays for storing sector-related properties.
+With the exception of the ``diagnostic'' subclass, the subclass type
+is the same as the sector's zone type. However, during tracking the stratum
+type is used to infer the sector subclass since it is based on the zone 
+type and also indicates whether or not the sector is of ``diagnostic''
+type. The intention is that the number of these subclasses will change
+infrequently; with new properties added occasionally. Hence, we have
+opted, for clarity, to make the subclass and property names explicit
+rather than store all of this information in some flexible array
+structure.
+
+\begin{description}
+  \item[|nsectors|] Total number of sectors in the problem.
+  \item[|strata[sector]|] Index of the stratum (class |sr|) to which |sector|
+belongs.
+  \item[|sectors[pointer]|] Array pointed to by |surface_sectors| (see
+|geometry.web|) via the integer index |pointer|. The array |sectors| provides
+the sector(s) index |sector| associated with a given surface. Need to use a
+pointer here rather than a direct array with a |surface| index since there
+may indeed be more than one |sector| associated with a given |surface|.
+Nonetheless, because of the fact that a sector is defined by a single
+(and only one) surface, the number of elements in |sectors| is just
+|nsectors|.
+  \item[|sector_zone[sector]|] Returns the zone (class |zn|)
+associated with |sector|.
+  \item[|sector_surface[sector]|] Returns the surface (see |geomint.hweb|)
+associated with |sector|.
+  \item[|sector_points|[sector][end][i]] Returns the
+|i|th component of the position
+vector at one |end| (i.e., |end| = 0 or 1) of |sector|.
+  \item[|sc_vacuum_num|] Number of sectors in the vacuum subclass.
+  \item[|sector_vacuum[sector]|] Returns the integer index into the |vacuum|
+property arrays for |sector|; returns 0 if |sector| is not of vacuum type.
+  \item[|sc_plasma_num|] Number of sectors in the plasma subclass.
+  \item[|sector_plasma[sector]|] Returns the integer index into the |plasma|
+property arrays for |sector|; returns 0 if |sector| is not of plasma type.
+  \item[|sc_solid_num|] Number of sectors in the solid subclass.
+  \item[|sector_solid[sector]|] Returns the integer index into the |solid|
+property arrays for |sector|; returns 0 if |sector| is not of solid type.
+  \item[|sc_solid_mat(solid)|] Material (class |ma|)
+of the |solid|th solid-sector.
+  \item[|sc_solid_temp(solid)|] Floating point temperature (in eV) of the 
+|solid|th solid-sector.
+  \item[|sc_exit_num|] Number of sectors in the exit (includes pump) subclass.
+  \item[|sector_exit[sector]|] Returns the integer index into the |exit|
+property arrays for |sector|; returns 0 if |sector| is not of exit type.
+\end{description}
+
+@ Strata class. Prefix is |sr|. A stratum
+is identified by a positive integer |strata|.  This
+gives information about the properties of the stratum.  Information
+about the location of the strata is held within the sector common
+block.  Each stratum is made up of the union of one or more sectors,
+with a sector defined by a zone and a surface number.  This defines
+a directed surface element; a stratum may include one or both directions.
+Each sector may belong only to one stratum.  (We may want to relax
+this restriction at some point.)
+A rudimentary procedure for automatically defining strata (and sectors) has
+been incorporated into |readgeometry.web|. As presently configured, the
+sectors on either side of a two-sided stratum must have identical
+end points. This is not a limitation on the main code, but just on the
+present user interface.
+
+The initial need for strata (and sectors) is as a place to store information
+about materials; more generally they may be viewed as boundary conditions. 
+Another potential use is as a surface diagnostic.
+
+\begin{description}
+  \item[|sr_num|] Total number of strata in the problem.
+  \item[|sr_type(strata)|] Returns an integer denoting the stratum type (e.g.,
+|sr_wall|, |sr_pump|, etc.).
+  \item[|strata_type_num[i]|] Number of strata with |sr_type| = |i|.
+\end{description}
 
 @ Random class.  Prefix is |rn|.  The identifier |random| is a string.
 
@@ -226,60 +352,6 @@ index.
 |ts_rc(test,i)| is the number of the $i$th reaction.
 |ts_tg(test,i)| is the target number for the $i$th reaction.
 |ts_bk(test,i)| is the background number for the $i$th reaction.
-
-@ Problem class. Prefix is |pr|. 
-
-These properties characterize the
-interactions between the various aspects of the problem: test particles,
-background species, and reactions. The integer indices and array values
-noted below correspond
-to entries into one of several lists associated with a specific problem.
-For clarity, we will associate with each list a different subscript to
-be used in the subsequent definitions.
-Among these are:
-\begin{enumerate}
-  \item Global list of species (input, class |sp|) (subscript: $s$),
-  \item Global list of reactions (input, class |rc|) (subscript: $r$),
-  \item List of test species (problem input) (subscript: $t$),
-  \item List of background species (problem input) (subscript: $b$),
-  \item List of problem reactions (problem input) (subscript: $pr$),
-  \item List of generic species represented in the test and background 
-species lists (subscript: $g$).
-\end{enumerate}
-
-The common variables are:
-\begin{description}
-  \item{|pr_test_num|} Number of test species in the problem.
-  \item{|pr_background_num|} Number of background species in the problem.
-  \item{|pr_reaction_num|} Number of reactions in the problem.
-  \item{|pr_num_generics|} Total number of generic species represented
-in the lists of test and background species.
-  \item{|pr_test($i_{t}$)|} Species index of test species $i_{t}$.
-  \item{|pr_background($i_{b}$)|} Species index of background species $i_{b}$.
-  \item{|pr_gen($i_{s}$)|} Index into the list of generic species for 
-species $i_{s}$ in the global species list.
-  \item{|pr_num_eq($i_{g}$)|} Total number of entries in the test and background 
-species lists which are equivalent to generic species $i_{g}$.
-  \item{|pr_eq($i_{g}$,$j_{t}$)|} Index into the overall species list of the
-$j_{t}$th test particle equivalent to generic species $i_{g}$.
-  \item{|pr_reaction($i_{pr}$)|} Index into the global list of reactions for
-problem reaction $i_{pr}$.
-  \item{|pr_rc_num($i_{t}$)|} Number of reactions for test species $i_{t}$.
-  \item{|pr_ts_rc($i_{t}$,$j_{pr}$)|} Index into the list of problem reactions
-for the $j_{pr}$th reaction involving test species $i_{t}$.
-  \item{|pr_ts_bk($i_{t}$,$j_{pr}$)|} Index into the list of background 
-species for the $j_{pr}$th reaction involving test species $i_{t}$.
-  \item{|pr_num_arrangements($i_{t}$,$j_{pr}$)|} Number of arrangements of
-products (which may or may not be truly different) for  the $j_{pr}$th 
-reaction involving test species $i_{t}$.
-  \item{|pr_ts_prod($i_{t}$,$j_{pr}$,$k$,$l$)|} The $l$th product (equivalent
-to the $l$th generic species in |rc_product|) for the $k$th arrangement of
-the $j_{pr}$th reaction involving test species $i_{t}$.
-  \item{|pr_prod_mult($i_{t}$,$j_{pr}$,$k$)|} Relative weight or 
-multiplicity of the $k$th
-arrangement of  the $j_{pr}$th reaction involving test species $i_{t}$. This
-quantity is the probability of obtaining arrangement $k$ in this reaction.
-\end{description}
 
 @ Cross section class. Prefix is |xs|.
 
@@ -389,6 +461,465 @@ files, entries which {\em contain} these strings are selected.
 information assciated with dependent variable |j|; in searching the data files,
 entries which {\em do not contain} these strings are selected.
   \item[|ra_num_bool_not[j]|] Number of labels in |ra_bool_not_label|.
+\end{description}
+
+@ PMI format class. Prefix is |pf|.
+
+This class provides a format for external storage of data which deal
+with PMI. Here, the subscript |j| denotes the index
+for dependent variables, while 
+the nonzero values of the subscript |i| represent the independent
+variables needed to determine a particular value of variable |j|.
+
+\begin{description}
+  \item[|pf_name|] String (length |pm_sy_len| naming the PMI.
+Same as the name of the PMI in the |pm| class; that is, it should match
+|pm_sy|.
+  \item[|pf_min[j][i]|] Floating point minimum value to be used for the 
+|i|th independent variable of the |j|the dependent variable.
+It will be combined with the maximum and the number
+of values to actually define the array of independent variable values.
+  \item[|pf_max[j][i]|] Floating point maximum value to be used for 
+the |i|th independent of the |j|th depdendent variable.
+  \item[|pf_mult[j][i]|] Floating point multipier for the |i|th
+independent variable of the |j|th dependent variable. |i| = 0 refers
+to the dependent variable itself.
+It should provide the conversion factor from |pf_units[j][i]| to the 
+MKS system.
+  \item[|pf_num_dep_var|] Number of dependent variables associated with 
+PMI |pf_name|.
+  \item[|pf_rank[j]|] Integer number of independent variables for 
+the |j|th dependent variable.
+  \item[|pf_spacing[j][i]|] String (length |pf_tag_string_length|
+describing the way the data are to be
+interpolated. Examples are `linear', `log', and 'nonuniform'; 
+applies to tabular data only.
+  \item[|pf_var[j][i]|] String (length |pf_tag_string_length|)
+describing the |i|th independent variable of the |j|th dependent variable.
+|i| = 0 refers to the dependent variable itself.
+Examples are 'yield', 'energy\_in', etc.; see |pmiformat.hweb| for a
+complete list.
+  \item[|pf_units[j][i]|] String (length |pf_eval_string_length|) 
+providing the units for the |i|th independent variable
+|i|. String providing the units for this quantity; 
+may be in any system.
+  \item[|pf_eval_name[j]|] String 
+(length |pf_eval_string_length|) identifying the means for
+evaluating the |j|th dependent variable. 
+The most prevalent value is ``table''; other
+values must correspond to the name of a fitting subroutine. See 
+|plate.web| and the description of the |pd| class
+for more details. Note that in some instances, the appropriate
+dependent ``variable'' is really a vector (i.e., velocity); in this case,
+tabular evaluation (which can return only a single scalar) makes no sense.
+factor from |pf_units[0,j]| to the MKS system.
+  \item[|pf_tab_index[j][i]|] Integer
+number of values used for the |i|th independent variable of the |j|th 
+dependent variable.
+  \item[|pf_indep_var_base[j][i]|] Index in 
+|pf_indep_var_tab| at which the |i|th independent variable values for the
+|j|th variable begin. 
+This array is set by the macros associated with
+|pf_ragged_alloc| and |pf_ragged_realloc|.
+  \item[|pf_indep_var_tab[macro_index]|] Is the actual object which
+holds the values of the independent variables.
+This is a
+1-D array; its size is |pf_indep_var_size|, an integer variable
+set by the macros |pf_ragged_alloc| and |pf_ragged_realloc|.
+  \item[|pf_indep_var_table(h,i,j)|] The programmer's 
+representation of the independent variable values for the |i|th rank of the 
+|j|th dependent variable for |pr_pmi|.
+Note that |h| = 0 $\rightarrow$ |pf_tab_index[j][i]| - 1.
+  \item[|pf_data_base[j]|] Index in |pf_data_tab|
+at which the data for the |j|th dependent variable begin.
+This array is set by the macros associated with |pf_ragged_alloc| and
+|pf_ragged_realloc|.
+  \item[|pf_data_inc[j]|] Is the number of elements in |pf_data_table|
+required for the |j|th dependent variable. 
+This array is set by the macros associated with |pf_ragged_alloc| and
+|pf_ragged_realloc|.
+  \item[|pf_data_tab[macro_index]|] is the actual data object which
+holds the data. As described above, this
+is a 1-D array; its size is |pf_data_size|, an integer variable set
+by the macros |pf_ragged_alloc| and |pf_ragged_realloc|.
+  \item[|pd_handling(k,l,m,n,o,j)|] The programmer's 
+representation of the handling data.
+|k|, |l|, |m|, |n|, and |o| represent the up-to-five
+dimensional dependency of the |j|th dependent variable on its 
+independent variables.
+|k| ranges from 0 $\rightarrow$ |pf_tab_index[j][1]| - 1;
+similarly for |l| with |i|=2, |m|, |i|=3, etc.
+\end{description}
+
+@ Problem class. Prefix is |pr|. 
+
+These properties characterize the
+interactions between the various aspects of the problem: test particles,
+background species, reactions, materials, and plasma-material interactions.
+The integer indices and array values
+noted below correspond
+to entries into one of several lists.
+For clarity, we will associate with each list a different subscript to
+be used in the subsequent definitions.
+These are:
+\begin{enumerate}
+  \item Reference list of species (input, class |sp|) (subscript: $s$),
+  \item Reference list of reactions (input, class |rc|) (subscript: $r$),
+  \item List of test species (problem input) (subscript: $t$),
+  \item List of background species (problem input) (subscript: $b$),
+  \item List of problem reactions (problem input) (subscript: $pr$),
+  \item Reference list of materials (input, class |ma|) (subscript: $m$),
+  \item List of problem materials (subset of the reference list, specified
+in problem input) (subscript: $ms$),
+  \item Reference list of plasma-materials interactions (input, class |pm|) 
+(subscript: $p$),
+  \item List of problem PMI (subset of the reference list, specified
+in problem input) (subscript: $ps$),
+\end{enumerate}
+The index $i$ below refers to an element of each of these lists. Once we've got
+the subset lists specified in the ``problem input'', we can identify the
+reactions and PMI in which particular test species participates. Indices
+for these sub-subset lists are denoted by $j$ below.
+
+The common variables are:
+\begin{description}
+  \item{|pr_test_num|} Number of test species in the problem.
+  \item{|pr_background_num|} Number of background species in the problem.
+  \item{|pr_reaction_num|} Number of reactions in the problem.
+  \item{|pr_materials_num|} Number of materials in the problem.
+  \item{|pr_pmi_num|} Number of plasma-material interactions in the problem.
+  \item{|pr_test|($i_{t}$)} Species index of test species $i_{t}$.
+  \item{|problem_species_test|[$i_{s}$]} Test index of reference species 
+$i_{s}$.
+  \item{|pr_background|($i_{b}$)} Species index of background species $i_{b}$.
+  \item{|problem_species_background|[$i_{s}$]} Background index of reference 
+species $i_{s}$.
+  \item{|pr_mat_ref|($i_{ms}$)} Reference materials index of the $i_{ms}$ 
+entry in the problem materials subset.
+  \item{|pr_materials_sub|[$i_{m}$]} Problem index of reference material
+$i_{m}$.
+  \item{|pr_reaction|($i_{pr}$)} Index into the reference list of reactions for
+problem reaction $i_{pr}$.
+  \item{|pr_rc_num|($i_{t}$)} Number of reactions in which test species 
+$i_{t}$ participates.
+  \item{|pr_ts_rc|($i_{t}$,$j_{pr}$)} Index of the problem (subset) reaction
+for the $j_{pr}$th reaction involving test species $i_{t}$,$j_{pr} = 1 
+\rightarrow |pr_rc_num|(i_{t})$.
+  \item{|pr_ts_bk|($i_{t}$,$j_{pr}$)} Index into the list of (problem) 
+background species for the $j_{pr}$th reaction involving test species $i_{t}$.
+  \item{|pr_num_arrangements|($i_{t}$,$j_{pr}$)} Number of arrangements of
+products (which may or may not be truly different) for  the $j_{pr}$th 
+reaction involving test species $i_{t}$.
+  \item{|pr_ts_prod|($i_{t}$,$j_{pr}$,$k$,$l$)} The $l$th product (equivalent
+to the $l$th generic species in |rc_product|) for the $k$th arrangement of
+the $j_{pr}$th reaction involving test species $i_{t}$.
+  \item{|pr_prod_mult|($i_{t}$,$j_{pr}$,$k$)} Relative weight or 
+multiplicity of the $k$th
+arrangement of  the $j_{pr}$th reaction involving test species $i_{t}$. This
+quantity is the probability of obtaining arrangement $k$ in this reaction.
+  \item{|pr_pm_ref|($i_{ps}$)} Index into the reference list of PMI for
+problem (subset) PMI $i_{ps}$.
+  \item{|problem_pmi_sub|[$i_{p}$]} Index of the problem (subset) PMI 
+corresponding to reference PMI $i_{p}$.
+  \item{|pr_pm_case_num|($i_{t}$)} Number of PMI in which test species 
+$i_{t}$ participates.
+  \item{|pr_pm_cases|($i_{t}$,$j_{ps}$)} Index of the problem (subset) PMI
+for the $j_{ps}$th reaction involving test species $i_{t}$, $j_{ps} = 1
+\rightarrow |pr_pm_case_num|(i_{t})$.
+
+  \item{|pr_pm_num_arrange|($i_{t}$,$j_{ps}$)} Number of arrangements of
+products (which may or may not be truly different) for  the $j_{ps}$th 
+PMI involving test species $i_{t}$.
+  \item{|pr_pm_prod|($i_{t}$,$j_{ps}$,$k$,$l$)} The $l$th product 
+for the $k$th arrangement of
+the $j_{ps}$th PMI involving test species $i_{t}$.
+  \item{|pr_prod_mult|($i_{t}$,$j_{ps}$,$k$)} Relative weight or 
+multiplicity of the $k$th
+arrangement of  the $j_{ps}$th PMI involving test species $i_{t}$. This
+quantity is the probability of obtaining arrangement $k$ in this PMI.
+
+\end{description}
+
+@ Reaction Data class. Prefix is |rd|. 
+
+A given reaction is identified
+by an integer index |pr_reac| (``problem reaction'').
+This is the internal class corresponding to the 
+``cross section'' class |xs|. It contains all of the data required to
+deal with the reactions in the problem. These arrays are basically broken
+into two very similar subclasses. The first has names which begin with
+|reaction_data|; these arrays are used only to contain the reaction
+rate and cross section (when needed) information for a particular |pr_reac|.
+The second subclass has names starting with |reaction_misc| and is used
+for just about everything else. Namely, it will contain the genuinely
+miscellaneous data needed to process a particular reaction. The nature
+and name of these data objects can vary not only with the reaction, but
+with the model used to represent a given reaction.
+
+The representation of the data in memory is crucial to efficiency. Since the
+main data tables here are five dimensional objects of very ``ragged''
+structure, we have opted for an internal representation as single dimensional
+arrays. To simplify coding, macros have been developed to simulate the
+familiar multi-dimensional array functionality. The downside of this
+is the addition of new bookkeeping arrays (here, the |data_base| arrays),
+the unwieldy-ness of the macros themselves, and the difficulty in extracting
+data from the 1-D array during debugging or while perusing the netCDF files.
+At least this last issue may be addressed by the construction of a small
+browser code to allow multi-dimensional netCDF data to be viewed and 
+plotted in a straightforward manner. The macros used in |pmidata.hweb| are
+more general than these; an attempt at documenting their operation can be
+found in that file.
+
+\begin{description}
+  \item[|reaction_organization[pr_reac][j]|] Integer identifying the manner
+in which the data for the |j|th dependent variable of |pr_reac| arranged;
+examples are |xs_organization_fit| and |xs_organization_table|.
+  \item[|reaction_data_min[pr_reac][j][i]|] Floating point minimum value of
+the |i|th independent variable for the |j|th dependent variable in |pr_reac|.
+  \item[|reaction_data_delta[pr_reac][j][i]|] Floating point increment in
+the |i|th independent variable for the |j|th dependent variable in |pr_reac|.
+  \item[|reaction_data_rank[pr_reac][j]|] Integer number of independent
+variables for the |j|th dependent variable in |pr_reac|.
+  \item[|reaction_data_spacing[pr_reac][j][i]|] Integer identifying the way
+the |i|th variable for the |j|th dependent variable (|i| = 0 refers to the
+dependent variable itself) are to be interpolated. Examples are
+|xs_spacing_linear| and |xs_spacing_log|. Namely, in the latter case the
+log of the independent variable (or dependent if |i| = 0) is interpolated
+linearly.
+  \item[|reaction_data_tab_index[pr_reac][j][i]|] Number of values used for
+the |i|th independent variable of the |j|th dependent variable.
+  \item[|reaction_data_base[pr_reac][j]|] Index in |reaction_data_table|
+at which the data for the |j|th dependent variable of |pr_reac| begin.
+This array is set by the macros associated with |rd_ragged_alloc| and
+|rd_ragged_realloc|.
+  \item[|reaction_data_var[pr_reac][j][i]|] Integer identifying the |i|th
+independent variable for the |j|th dependent variable. Again, |i| = 0
+refers to the dependent variable itself; only the reaction rate
+|xs_var_rate| or cross section |xs_var_cross_section| are included here.
+For definiteness, the reaction rate data are assigned |j| = |rd_rate| and
+cross section data |j| = |rd_xs| in the |reaction_data| arrays. The 
+independent variables are typically temperature, density, or energy; see
+|xsection.hweb| for a full list.
+  \item[|reaction_data_table[macro_index]|] is the actual data object which
+holds the reaction rate and cross section data. As described above, this
+is a 1-D array; its size is |reaction_data_size|, an integer variable set
+by the macros |rd_ragged_alloc| and |rd_ragged_realloc|.
+  \item[|rd_data3(pr_reac,j,k,l,m)|] The programmer's representation of the
+reaction rate and cross section data for |pr_reac|. As above, |j| denotes
+the dependent variable. Now, |k|, |l|, and |m| represent the up-to-three
+dimensional dependency of that variable on its independent variables.
+|k| ranges from 0 $\rightarrow$ |reaction_data_tab_index[pr_reac][j][1]| - 1;
+similarly for |l| with |i|=2, and |m|, |i|=3.
+  \item[|reaction_misc_organization[pr_reac][j]|] Integer identifying the 
+manner in which the data for the |j|th dependent variable of |pr_reac| 
+arranged; examples are |xs_organization_fit| and |xs_organization_table|.
+  \item[|reaction_misc_min[pr_reac][j][i]|] Floating point minimum value of
+the |i|th independent variable for the |j|th dependent variable in |pr_reac|.
+  \item[|reaction_misc_delta[pr_reac][j][i]|] Floating point increment in
+the |i|th independent variable for the |j|th dependent variable in |pr_reac|.
+  \item[|reaction_misc_rank[pr_reac][j]|] Integer number of independent
+variables for the |j|th dependent variable in |pr_reac|.
+  \item[|reaction_misc_spacing[pr_reac][j][i]|] Integer identifying the way
+the |i|th variable for the |j|th dependent variable (|i| = 0 refers to the
+dependent variable itself) are to be interpolated. Examples are
+|xs_spacing_linear| and |xs_spacing_log|. Namely, in the latter case the
+log of the independent variable (or dependent if |i| = 0) is interpolated
+linearly.
+  \item[|reaction_misc_tab_index[pr_reac][j][i]|] Number of values used for
+the |i|th independent variable of the |j|th dependent variable.
+  \item[|reaction_misc_base[pr_reac][j]|] Index in |reaction_misc_table|
+at which the data for the |j|th dependent variable of |pr_reac| begin.
+This array is set by the macros associated with |rd_ragged_alloc| and
+|rd_ragged_realloc|.
+  \item[|reaction_misc_var_dep[pr_reac][j]|] String 
+(length |xs_tag_string_length|) identifying the |j|th dependent variable. 
+A string is used here since the nature of the miscellaneous data varies
+from one reaction to the next.
+  \item[|reaction_misc_var_indep[pr_reac][j][i]|] Integer identifying the
+|i|th independent variable for the |j|th dependent variable. The
+independent variables are typically temperature, density, or energy; see
+|xsection.hweb| for a full list.
+  \item[|reaction_misc_table[macro_index]|] is the actual data object which
+holds the miscellaneous data. As described above, this
+is a 1-D array; its size is |reaction_misc_size|, an integer variable set
+by the macros |rd_ragged_alloc| and |rd_ragged_realloc|.
+  \item[|rd_misc_data3(pr_reac,j,k,l,m)|] The programmer's 
+representation of the miscellaneous data for |pr_reac|. As above, |j| denotes
+the dependent variable. Now, |k|, |l|, and |m| represent the up-to-three
+dimensional dependency of that variable on its independent variables.
+|k| ranges from 0 $\rightarrow$ |reaction_misc_tab_index[pr_reac][j][1]| - 1;
+similarly for |l| with |i|=2, and |m|, |i|=3.
+\end{description}
+
+@ PMI data class. Prefix is |pd|.
+
+A given PMI is identified by an integer index |pr_pmi| (``problem PMI''). This
+is the internal class corresponding to the ``PMI format'' class |pf|. It 
+contains all of the data required to deal with the PMI in the problem. Not
+by accident, the elements of this class closely resemble those of the
+reaction data class |rd|. Nonetheless, there are some significant 
+differences. The biggest of these is the allowance for non-uniformly spaced
+independent variables. The consequent burden is the addition of a new
+array to store all of the independent variables. Like the main data
+table (see the above discussion on the |rd| class), 
+this is a ragged array and is stored in a 1-D array, but represented
+as a multi-dimensional object through macros. Also, data ``fits'' as well
+as tables are being used to evaluate the data in this class. As a result
+of this practical experience, the class variables have been massaged 
+somewhat to improve the similarities between the two treatments. The
+hope is that the reaction data will be refitted to provide the same 
+functionality.
+
+For clarity, here are the assumptions made about fit data:
+\begin{enumerate}
+  \item |rank| provides the number of independent variables required to
+evaluate the fit; their identity is stored in the corresponding |var| array
+just as for tables.
+  \item The data table passed is considered to be strictly 1-D with 
+|tab_index[1]| elements.
+  \item No spacing or value information is stored for the independent 
+variables. Since this information is at least 
+likely to be peculiar to each fit and at most irrelevant, it is assumed to
+reside within the fit function.
+  \item Eventually, we would like to store the fit function along with the
+data so that the data could be completely described by a single package,
+as can now be done with tables.
+\end{enumerate}
+
+The PMI data class is divided into two similar subclasses. The first 
+represents a single dependent variable, the ``yield'' of the PMI (e.g.,
+the reflection coefficient, adsorption rate, sputtering yield, etc.; 
+in effect, the probability of the process taking place). Hence, this
+sub-class lacks any explicit ``dependent variable'' dimension in the arrays.
+The |pmi_handling| arrays contain the data required to process or ``handle''
+|pr_pmi|.
+
+\begin{description}
+  \item[|pmi_yield_min[pr_pmi][i]|] Floating point minimum value of
+the |i|th independent variable of the yield in |pr_pmi|.
+  \item[|pmi_yield_delta[pr_pmi][i]|] Floating point increment in
+the |i|th independent variable of the yield in |pr_pmi|.
+  \item[|pmi_yield_rank[pr_pmi]|] Integer number of independent
+variables for the yield in |pr_pmi|.
+  \item[|pmi_yield_spacing[pr_pmi][i]|] Integer identifying the way
+the |i|th variable for the yield (|i| = 0 refers to the
+yield itself) are to be interpolated. Examples are
+|pf_spacing_linear|, |pf_spacing_log|, and |pf_spacing_nonuniform|.
+ Namely, in the log case the
+log of the independent variable (or dependent if |i| = 0) is interpolated
+linearly. In the nonuniform case, the independent variable values are
+stored in detail.
+  \item[|pmi_yield_eval_name[pr_pmi]|] String 
+(length |pf_eval_string_length|) identifying the means for
+evaluating the yield data. The most prevalent value is ``table''; other
+values must correspond to the name of a fitting subroutine. See 
+|plate.web| for more details.
+  \item[|pmi_yield_tab_index[pr_pmi][i]|] Number of values used for
+the |i|th independent variable of the yield.
+  \item[|pmi_yield_var[pr_pmi][i]|] Integer identifying the |i|th
+independent variable for the yield. The |i| = 0 entry is redundant and
+should always have the value |pf_var_yield|. The 
+independent variables are typically incident energy, and incident 
+poloidal angle; see |pmiformat.hweb| for a full list.
+  \item[|pmi_yield_num_random[pr_pmi]|] Integer number of uniform 
+random variates
+required to evaluate the yield for a single interaction of |pr_pmi|.
+This is provided essentially for compatibility with the |pmi_handling|
+variables.
+  \item[|pmi_yield_base[pr_pmi]|] Index in |pmi_yield_table|
+at which the data for the yield of |pr_pmi| begin.
+This array is set by the macros associated with |pd_ragged_alloc| and
+|pd_ragged_realloc|.
+  \item[|pmi_yield_tab[macro_index]|] Is the actual data object which
+holds the yield data. As described above, this
+is a 1-D array; its size is |pmi_yield_size|, an integer variable set
+by the macros |pd_ragged_alloc| and |pd_ragged_realloc|.
+  \item[|pd_yield(k,l,m,n,o,pr_pmi)|] The programmer's representation of the
+yield data for |pr_pmi|. |k|, |l|, |m|, |n|, and |o| represent the up-to-five
+dimensional dependency of the yield on its independent variables.
+|k| ranges from 0 $\rightarrow$ |pmi_yield_tab_index[pr_pmi][1]| - 1;
+similarly for |l| with |i|=2, |m|, |i|=3, etc.
+  \item[|pmi_yield_indep_var_base[pr_pmi][i]|] Index in 
+|pmi_yield_indep_var_tab| at which the independent variable values for the
+|i|th rank 
+of the |pr_pmi| yield begin. This array is set by the macros associated with
+|pd_ragged_alloc| and |pd_ragged_realloc|.
+  \item[|pmi_yield_indep_var_tab[macro_index]|] Is the actual object which
+holds the values of the independent variables for the yield. This is a
+1-D array; its size is |pmi_yield_indep_var_size|, an integer variable
+set by the macros |pd_ragged_alloc| and |pd_ragged_realloc|.
+  \item[|pd_yield_indep_var(h,i,pr_pmi)|] The programmer's representation of
+the independent variable values for the |i|th rank of the yield for |pr_pmi|.
+Note that |h| = 0 $\rightarrow$ |pd_yield_tab_index[pr_pmi][i]| - 1.
+  \item[|pmi_handling_min[pr_pmi][j][i]|] Floating point minimum value of
+the |i|th independent variable for the |j|th dependent variable in |pr_pmi|.
+  \item[|pmi_handling_delta[pr_pmi][j][i]|] Floating point increment in
+the |i|th independent variable for the |j|th dependent variable in |pr_pmi|.
+  \item[|pmi_handling_rank[pr_pmi][j]|] Integer number of independent
+variables for the |j|th dependent variable in |pr_pmi|.
+  \item[|pmi_handling_spacing[pr_pmi][j][i]|] Integer identifying the way
+the |i|th variable for the |j|th dependent variable (|i| = 0 refers to the
+dependent variable itself) are to be interpolated. Examples are
+|pf_spacing_linear| and |pf_spacing_log|. Namely, in the log case the
+log of the independent variable (or dependent if |i| = 0) is interpolated
+linearly. In the nonuniform case, the independent variable values
+are stored in detail.
+  \item[|pmi_handling_eval_name[pr_pmi][j]|] String 
+(length |pf_eval_string_length|) identifying the means for
+evaluating the |j|th dependent variable. 
+The most prevalent value is ``table''; other
+values must correspond to the name of a fitting subroutine. See 
+|plate.web| for more details. Note that in some instances, the appropriate
+dependent ``variable'' is really a vector (i.e., velocity); in this case,
+tabular evaluation (which can return only a single scalar) makes no sense.
+  \item[|pmi_handling_tab_index[pr_pmi][j][i]|] Number of values used for
+the |i|th independent variable of the |j|th dependent variable.
+  \item[|pmi_handling_var0[pr_pmi][j]|] String 
+(length |pf_tag_string_length|) identifying the |j|th dependent variable. 
+A string is used here since the nature of the handling data varies
+from one PMI to the next.
+  \item[|pmi_handling_var[pr_pmi][j][i]|] Integer identifying the
+|i|th independent variable for the |j|th dependent variable. 
+The 
+independent variables are typically incident energy, and incident 
+poloidal angle; see |pmiformat.hweb| for a full list.
+  \item[|pmi_handling_num_random[pr_pmi]|] Integer number of uniform 
+random variates
+required to handle a single interaction of |pr_pmi|.
+The need for this became apparent when implementing the Bateman format.
+In this case, the {\em same random number} is needed to evaluate more than
+one dependent variable. |pmi_handling_num_random| lets the code 
+maintain them through all of the required dependent variable evaluations.
+  \item[|pmi_handling_base[pr_pmi][j]|] Index in |pmi_handling_table|
+at which the data for the |j|th dependent variable of |pr_pmi| begin.
+This array is set by the macros associated with |pd_ragged_alloc| and
+|pd_ragged_realloc|.
+  \item[|pmi_handling_tab[macro_index]|] is the actual data object which
+holds the handling data. As described above, this
+is a 1-D array; its size is |pmi_handling_size|, an integer variable set
+by the macros |pd_ragged_alloc| and |pd_ragged_realloc|.
+  \item[|pd_handling(k,l,m,n,o,j,pr_pmi)|] The programmer's 
+representation of the handling data for |pr_pmi|. 
+|k|, |l|, |m|, |n|, and |o| represent the up-to-five
+dimensional dependency of the |j|th dependent variable on its 
+independent variables.
+|k| ranges from 0 $\rightarrow$ |pmi_handling_tab_index[pr_pmi][j][1]| - 1;
+similarly for |l| with |i|=2, |m|, |i|=3, etc.
+  \item[|pmi_handling_indep_var_base[pr_pmi][j][i]|] Index in 
+|pmi_handling_indep_var_tab| at which the |i|th 
+independent variable values for the
+|j|th handling variable of |pr_pmi| begin. 
+This array is set by the macros associated with
+|pd_ragged_alloc| and |pd_ragged_realloc|.
+  \item[|pmi_handling_indep_var_tab[macro_index]|] Is the actual object which
+holds the values of the independent variables for the handling variables. 
+This is a
+1-D array; its size is |pmi_handling_indep_var_size|, an integer variable
+set by the macros |pd_ragged_alloc| and |pd_ragged_realloc|.
+  \item[|pd_handling_indep_var(h,i,j,pr_pmi)|] The programmer's 
+representation of the independent variable values for the |i|th rank of the 
+|j|th dependent variable for |pr_pmi|.
+Note that |h| = 0 $\rightarrow$ |pd_handling_tab_index[pr_pmi][j][i]| - 1.
 \end{description}
 
 @i classes.hweb
