@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.17  1999/03/25 20:47:13  dstotler
+% Move in attribute descriptions from classes.web file.
+%
 % Revision 1.16  1998/03/11 15:15:20  dstotler
 % Allow for pr_reaction_num=0; includes also doing dummy allocation of
 % reaction_rate_tab and reaction_handling_tab.
@@ -69,6 +72,10 @@
 reaction is identified by an integer indexing into these arrays.
 
 @f rc_decl integer
+
+@m rc_generic_no 0
+@m rc_generic_yes 1
+
 @m rc_args(x) x
 @m rc_dummy(x) x
 @m rc_decl(x) integer x @;
@@ -78,6 +85,7 @@ reaction is identified by an integer indexing into these arrays.
 @m rc_sy(x)   reaction_sy[x]
 @m rc_emitter(x) reaction_emitter[x]
 @m rc_reagent_num(x) reaction_reagent_num[x]
+@m rc_gen(x) reaction_generic[x]
 @m rc_product_num(x) reaction_product_num[x]
 @m rc_reagent(x,i)   reaction_reagent[i,x]
 @m rc_product(x,i)   reaction_product[i,x]
@@ -110,6 +118,7 @@ reaction is identified by an integer indexing into these arrays.
       define_varp_pk(rc,reaction_sy,CHAR,reaction_symbol_string,reaction_ind)
       define_varp_pk(rc,reaction_emitter,INT,reaction_ind)
       define_varp_pk(rc,reaction_reagent_num,INT,reaction_ind)
+      define_varp_pk(rc,reaction_generic,INT,reaction_ind)
       define_varp_pk(rc,reaction_product_num,INT,reaction_ind)
       define_varp_pk(rc,reaction_reagent,INT,reagent_ind,reaction_ind)
       define_varp_pk(rc,reaction_product,INT,product_ind,reaction_ind)
@@ -138,6 +147,11 @@ integer variable.
 (maximum value |rc_reagent_max|).
 
   \item[|rc_reagent(reaction,i)|] Is the $i$th species reagent in the reaction.
+
+  \item[|rc_gen(reaction)|] Contains the value |rc_generic_yes| is this
+reaction (and its data) can be applied to species isotopically
+equivalent to |rc_reagent(reaction,i)|; the value |rc_generic_no|
+indicates that the reaction is species-specific.
 
   \item[|rc_product_num(reaction)|] Is the number of products (maximum value
 |rc_product_max|).
