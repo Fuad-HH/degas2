@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1999/03/25 20:46:11  dstotler
+% Move in attribute descriptions from classes.web file.
+%
 % Revision 1.3  1998/01/14 20:33:34  dstotler
 % Change title phrase to aid readability of classes.web.
 %
@@ -93,7 +96,7 @@ intended to be represented by the diagnostic sub-class of sectors.
 
       define_varp_pk(de,de_view_base,INT,de_grp_ind)         
       define_var_pk(de,de_view_size,INT)                     
-      define_dimen_pk(de,de_view_ind,0,de_view_size)       
+      define_dimen_pk(de,de_view_ind,0,de_view_size-1)       
       define_varp_pk(de,de_view_tab,INT,de_view_ind)
       package_end(de)
 
@@ -167,7 +170,9 @@ made from volume scores (during or after the run).
   \item[|de_view_base[group_ind]|] Index into |de_view_tab| for the
 first viewing chord of |group_ind|.
 
-  \item[|de_view_size|] Length of |de_view_tab|.
+  \item[|de_view_size|] Length of |de_view_tab|. Note: should be set = 1
+if there are no detectors to ensure |de_view_tab| can be allocated
+and written to the netCDF file.
 
   \item[|de_view_tab[i]|] List coordinating the |de_grps| groups with
 their constituent 
