@@ -2,6 +2,10 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.10  2000/04/01 17:35:21  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.9  2000/03/27 21:15:42  dstotler
 % A little clean up following merger with Randy's branch.
 %
@@ -58,6 +62,7 @@ Introduction\ldots
 @I macros.hweb
 @I readfilenames.hweb
 @I netcdf.hweb
+@I element.hweb
 @I species.hweb
 @I sysdep.hweb
 @I string.hweb
@@ -105,8 +110,8 @@ Introduction\ldots
       st_decls
       @<Memory allocation interface@>
 
-      external lookup_sector,inc_ion_energy      // External
-      integer lookup_sector
+      external lookup_sector,inc_ion_energy,neutralize_species      // External
+      integer lookup_sector,neutralize_species
       real inc_ion_energy
       
       call init_uedge_background(file,nx,ny,rm,zm,ni,vr,vz,vphi,
@@ -131,6 +136,7 @@ Introduction\ldots
       var_alloc(source_num_flights)
       var_alloc(source_num_checkpoints)
       var_alloc(source_species)
+      var_alloc(source_root_species)
       var_alloc(source_total_current)
       var_alloc(source_weight_norm)
       var_alloc(source_scale_factor)
@@ -167,7 +173,8 @@ Introduction\ldots
 @#if 0
          so_species(i)=pr_test(test)
 @#endif
-         so_species(i)=sp_lookup('D+')
+         so_root_sp(i)=sp_lookup('D+')
+         so_species(i)=neutralize_species(so_root_sp(i))
          so_nseg(i)=ny
          so_geom(i)=so_surface
          so_scale(i)=one
@@ -260,27 +267,28 @@ Introduction\ldots
       read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
 @#endif
 
-      do sp_back = 1 , bk_num
+      do sp_back=1,bk_num
          i=0
          do j1=1,nx
             do j2=1,ny
                i++
                assert(i<=zone_type_num[zn_plasma])
                assert(j1==zn_index(i,1) && j2==zn_index(i,2))
-               if ( sp_z(pr_background(sp_back)) == 0 ) then
-                  background_n[sp_back,i] = zero
-                  background_temp[sp_back,i] = zero
-                  vc_set(background_v[sp_back,i],zero,zero,zero)
-               else
-                  background_n[sp_back,i] = ni[j1,j2]
-                  if(sp_back == 1) background_temp[sp_back,i] = te[j1,j2]
-                  if(sp_back == 2) background_temp[sp_back,i] = ti[j1,j2]
-                  vc_set(background_v[sp_back,i],vr[j1,j2],vphi[j1,j2],vz[j1,j2])
+               if (sp_z(pr_background(sp_back)) != 0) then
+                  bk_n(sp_back,i)=ni[j1,j2]
+                  if(sp_back == 1) bk_temp(sp_back,i)=te[j1,j2]
+                  if(sp_back == 2) bk_temp(sp_back,i)=ti[j1,j2]
+                  vc_set(bk_v(sp_back,i),vr[j1,j2],vphi[j1,j2],vz[j1,j2])
                endif
             enddo
          enddo
       enddo
+@#if 0
+/*
+   This is no longer necessarily true when we relabel the vacuum zones.
+*/
       assert(i==zone_type_num[zn_plasma])
+@#endif
       background_coords=plasma_coords_cylindrical
 
       flux1_tot=zero
@@ -375,6 +383,7 @@ Introduction\ldots
          var_realloc(source_num_flights,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_num_checkpoints,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_species,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_root_species,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_total_current,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_weight_norm,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_scale_factor,so_grps,so_grps+pr_bkrc_num)
@@ -387,9 +396,11 @@ Introduction\ldots
             so_base(so_grps)=so_seg_tot+1
             so_type(so_grps)=so_recomb
 /* In |set_prod_recomb|, assumed that these reactions had just one product:
-   the test species being sourced.
+   the test species being sourced. The ``root'' ion was also assumed to be
+   the second reagent.
  */
             so_species(so_grps)=pr_bkrc_prod(jr,1)
+            so_root_sp(so_grps)=pr_background(pr_bkrc_rg(jr,2))
             so_nseg(so_grps)=0
             so_geom(so_grps)=so_volume
             so_nflights(so_grps)=100
@@ -556,6 +567,9 @@ Introduction\ldots
       integer dirn,j2,i_seg                             // Local
       vc_decl(x1)
       vc_decl(x2)
+@#if 0
+      vc_decl(xdiff)
+@#endif
       vc_decl(v_bdy)
       sc_decl(sector)
       sc_target_decl(target_sc_ptr)
@@ -582,6 +596,15 @@ Introduction\ldots
                sector=lookup_sector(x2,x1)
             end if
             source_segment_ptr[i_seg]=sector
+/*
+   Compute and print out area of each sector
+*/
+@#if 0
+            if (grp == 2) then
+               vc_difference(x1,x2,xdiff)
+               write(40,*) j2, PI*(x1[1]+x2[1])*vc_abs(xdiff)
+            end if
+@#endif            
          end if
 @#if !OLD_UEDATA
          target_sc_ptr=sector_type_pointer[sector][sc_target]
@@ -617,6 +640,141 @@ one applied by EIRENE in the benchmark runs.
       phi_sheath=-log(sqrt(two*PI)*vc_abs(vi)/ce)
 
       inc_ion_energy=const(3.0)*ti+(half+phi_sheath)*te
+
+      return
+      end
+
+@ Allocate and initialize background arrays. This routine also checks for
+overlap between the test and background species (i.e., for BGK neutrals).
+If present, vacuum zones are relabeled as plasma zones to permit 
+collisions in them.
+@<Functions...@>=
+      subroutine setup_back_arrays
+
+      implicit_none_f77
+      rc_common
+      zn_common
+      bk_common
+      pr_common
+      implicit_none_f90
+
+      integer i,bgk
+      zn_decl(zone)
+
+      @<Memory allocation interface@>
+
+      bk_num=pr_background_num
+/*
+   This is the test used in |do_flights_master|. We need to store
+   the background values in the vacuum zones if and only if these
+   reactions are present in this problem.
+*/
+      bgk=FALSE
+      do i=1,pr_reaction_num
+         if (rc_reaction_type(pr_reaction(i)) == 'bgk_elastic') bgk=TRUE
+      end do
+
+      if (bgk == TRUE && zone_type_num[zn_vacuum] > 0) then
+         do zone=1,zn_num
+            if (zn_type(zone) == zn_vacuum) then
+               zn_type_set(zone,zn_plasma)
+            end if
+         end do
+         zone_type_num[zn_vacuum]=0
+      end if
+      
+      var_alloc(background_n)
+      var_alloc(background_v)
+      var_alloc(background_temp)
+
+      call zero_back_arrays
+
+      return
+      end
+
+@ Zero background arrays.
+@<Functions...@>=
+      subroutine zero_back_arrays
+
+      implicit_none_f77
+      bk_common
+      zn_common
+      implicit_none_f90
+
+      zn_decl(zone)
+      bk_decl(back)
+
+      do zone=1,zn_num
+         if (zn_type(zone) == zn_plasma) then
+            do back=1,bk_num
+               bk_n(back,zone)=zero
+               bk_temp(back,zone)=zero
+               vc_set(bk_v(back,zone),zero,zero,zero)
+            end do
+         end if
+      end do
+
+      return
+      end
+
+
+@ Test species corresponding to background. Uses the fact that all charge in
+a species arises from electrons along with the |species_add_check| function
+to find the first entry the test list which matches the background species
+with no electrons in its elements list.
+
+@<Functions...@>=
+      function neutralize_species(sp_dummy(s))
+      implicit_none_f77
+      el_common                          // Common
+      sp_common
+      pr_common
+      implicit_none_f90
+      st_decls
+      integer neutralize_species         // Function
+      sp_decl(s)                         // Input
+
+      integer i,num_elec,num1,num2       // Local
+      sp_decl(e_sp)
+      sp_decl(test_sp)
+      sp_decl(list1[sp_ncomp_max])
+      sp_decl(list2[sp_ncomp_max])
+
+      
+      external species_add_check         // External
+      logical species_add_check
+
+      num_elec=0
+      do i=1,sp_ncomp(s)
+         if (el_z(sp_el(s,i)) == -1) then
+            num_elec+=sp_count(s,i)
+         end if
+      end do
+
+      list1[1]=s
+      num1=1
+      num2=1
+      e_sp=sp_lookup('e')
+      do i=1,abs(num_elec)
+         if (num_elec < 0) then
+            list1[i+1]=e_sp
+            num1++
+         else
+            list2[i+1]=e_sp
+            num2++
+         end if
+      end do
+
+
+      do i=1,pr_test_num
+         test_sp=pr_test(i)
+         list2[1]=test_sp
+         if (species_add_check(num1,sp_args(list1),num2,sp_args(list2))) go to break
+      end do
+      assert("No matching neutral species" == " ")
+break: continue
+
+      neutralize_species=test_sp
 
       return
       end
