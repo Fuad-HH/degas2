@@ -2,6 +2,9 @@
 \def\Wtitle{plot geometry}
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 % Revision 1.3  1993/06/01  22:15:57  karney
 % Redo pre-Albuquerque checkin
 %
@@ -51,7 +54,7 @@ with the $x$ exis parallel to $\vect a$ and the $y$ axis parallel to $\vect
 b$.  Size of the image is |alen| by |blen|.
 
 @<Functions...@>=
-      subroutine output_slice(hdffile,first,x0,a,b,alen,blen)
+      subroutine output_slice(hdffile,first,x0,a,b,alen,blen,func)
       implicit_none
       character*(*) hdffile     // File
       logical first             // Input
@@ -61,16 +64,18 @@ b$.  Size of the image is |alen| by |blen|.
       parameter (min_char=2,max_char=255,pixsize=400000)
       integer DFTAG_RLE,DFTAG_IMC
       parameter (DFTAG_RLE=11, DFTAG_IMC=12)
-      integer na,nb,cell,cell1,face,i,j,ind,direction,ret,istart,istop,val,zone // Local
-      real dx,x[3],v[3],vy[3],tmax,t,xpos
+      integer na,nb,i,j,ind,direction,ret,istart,istop,val // Local
+      lc_decl(xx)
+      lc_common
+      real dx,v[3],vy[3],tmax,t,xpos
       logical done,ok
       character*1 ch[0:pixsize-1]
       character*1 palette(3,256)
       vc_common
       external DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal // External
       integer DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal
-      external locate_point,track
-      integer locate_point
+      external locate_point,track,func
+      integer locate_point,func
       logical track
 
       assert(alen > 0 && blen > 0)
@@ -84,10 +89,10 @@ b$.  Size of the image is |alen| by |blen|.
       end do
 
       vc_unit(b,vy)
-      vc_xvt(x0,vy,half*dx,x)
-      cell=locate_point(x,zone)
+      vc_xvt(x0,vy,half*dx,lc_x(xx))
+      lc_set(xx)
 
-      assert(cell > 0)
+      assert(lc_cell(xx) > 0)
 
       vc_unit(a,v)
       direction=1
@@ -96,7 +101,11 @@ b$.  Size of the image is |alen| by |blen|.
       do j=0,nb-1
          tmax=areal(na)*dx              // Go |alen| horizontally
 loop:    continue
-         done=track(TRACK_BASIC,tmax,x,v,cell,t,x,cell1,face,cell)
+         done=track(TRACK_BASIC,tmax,lc_x(xx),v,lc_cell(xx),t,
+     $      lc_x(xx),lc_cell(xx),lc_face(xx),lc_cell_next(xx))
+         if (lc_face(xx) != 0) then
+            lc_zone_next(xx)=cells[c_zone,lc_cell_next(xx)]
+         end if
          istart=int(xpos/dx+half)
          xpos=xpos+direction*t
          istop=int(xpos/dx+half)
@@ -105,24 +114,30 @@ loop:    continue
          else
             istart = istart-1
          end if
-         val=min_char+mod(97*cells[c_zone,cell1],max_char-min_char)
+         val=func(lc_args(xx),min_char,max_char)
 
          do i=istart,istop,direction
             ind=(nb-1-j)*na+i
             ch[ind]=char(val)
          end do
          tmax=tmax-t
+         lc_thru_face(xx)
          if (!done) then         // Still more to go
-            assert(cell != 0)
+            assert(lc_cell(xx) != 0)
             goto loop
          end if
          assert(tmax == zero)
          tmax=dx                // Go |dx| vertically
 loop1:   continue
-         done=track(TRACK_BASIC,tmax,x,vy,cell,t,x,cell1,face,cell)
+         done=track(TRACK_BASIC,tmax,lc_x(xx),vy,lc_cell(xx),t,
+     $      lc_x(xx),lc_cell(xx),lc_face(xx),lc_cell_next(xx))
+         if (lc_face(xx) != 0) then
+            lc_zone_next(xx)=cells[c_zone,lc_cell_next(xx)]
+         end if
          tmax=tmax-t
+         lc_thru_face(xx)
          if (!done) then
-            assert(cell != 0)
+            assert(lc_cell(xx) != 0)
             goto loop1
          end if
          assert(tmax == zero)
@@ -134,9 +149,7 @@ loop1:   continue
             assert(abs(xpos-areal(na)*dx) <= geom_epsilon)
             xpos = areal(na)*dx
          end if
-         do i=1,3
-            v[i]=-v[i]
-         end do
+         vc_scale(-one,v,v)
       end do
 
       ok=.true.
@@ -147,16 +160,115 @@ loop1:   continue
 
       if (first) then
          ret = DFPgetpal('../output/rainbow.pal',palette)
-@#if 0
          palette(1,256)=char(220)
          palette(2,256)=char(220)
          palette(3,256)=char(220)
-@#endif
          ret = DFR8setpalette(palette)
          ret = DFR8putimage(hdffile,ch,na,nb,DFTAG_RLE)
       else
          ret = DFR8addimage(hdffile,ch,na,nb,DFTAG_RLE)
       end if
+
+      return
+      end
+
+@ The zone value.
+
+@<Functions...@>=
+      function zone_func(lc_dummy(x),min_char,max_char)
+      implicit_none
+      integer zone_func         // Function
+      integer min_char,max_char // Input
+      lc_decl(x)
+      
+      zone_func=min_char+mod(97*lc_zone(x),max_char-min_char)
+      
+      return
+      end
+
+@ The zone value.
+
+@<Functions...@>=
+      function density_func(lc_dummy(x),min_char,max_char)
+      implicit_none
+      integer density_func         // Function
+      integer min_char,max_char // Input
+      lc_decl(x)
+      zn_common
+      bk_common
+      
+      if (zn_type(lc_zone(x)) == zn_vacuum) then
+         density_func=1
+      else if (zn_type(lc_zone(x)) == zn_solid) then
+         density_func=max_char
+      else
+         assert(zn_type(lc_zone(x)) == zn_plasma)
+         density_func=min_char+
+     $        int((log( bk_n(1,lc_zone(x)) )-
+     $        log(const(3.0,16)))/
+     $        (log(const(5.0,20))-log(const(3.0,16)))*
+     $        (max_char-min_char))
+      end if
+
+      return
+      end
+
+@ The stat value.
+
+@<Functions...@>=
+      function stat_func(lc_dummy(x),min_char,max_char)
+      implicit_none
+      integer stat_func         // Function
+      integer min_char,max_char // Input
+      lc_decl(x)
+      zn_common
+      bk_common
+      ptr_decl(stat)
+      real stat[2,zn_num],smin,smax
+      common /stat_com/ smin,smax,ptr_stat
+      
+      if (zn_type(lc_zone(x)) == zn_vacuum) then
+         stat_func=1
+      else if (zn_type(lc_zone(x)) == zn_solid) then
+         stat_func=max_char
+      else
+         assert(zn_type(lc_zone(x)) == zn_plasma)
+         if (stat[1,lc_zone(x)] <= zero) then
+            stat_func=min_char
+         else
+            stat_func=min_char+
+     $           int((log( stat[1,lc_zone(x)] )-
+     $           log(smin))/
+     $           (log(smax)-log(smin))*
+     $           (max_char-min_char))
+         end if
+      end if
+
+      return
+      end
+
+      subroutine stat_read
+      implicit_none
+      zn_common
+      sy_common
+      integer j
+      ptr_decl(stat)
+      real stat[2,zn_num],smin,smax
+      common /stat_com/ smin,smax,ptr_stat
+
+      real_alloc(stat,2*zn_num)
+      open(unit=diskin,file='stat.dat')
+      read(diskin,*) stat
+      close(diskin)
+      smin=one
+      smax=zero
+      do j=1,zn_num
+         stat[1,j]=stat[1,j]/zn_volume(j)
+         if (stat[1,j]>0) then
+            smin=min(smin,stat[1,j])
+            smax=max(smax,stat[1,j])
+         end if
+      end do
 
       return
       end

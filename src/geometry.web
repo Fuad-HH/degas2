@@ -2,6 +2,9 @@
 \def\Wtitle{geometry}
 
 % $Log$
+% Revision 1.5  1993/09/28  15:00:04  karney
+% Fix \cup -> \cap typo.
+%
 % Revision 1.4  1993/09/28  14:37:09  karney
 % Fix bug in new version of locate_point.
 %
@@ -936,7 +939,7 @@ cells, it checks that the cells are neighbors.
       return
       end
 
-@* A simple consistency checker for locatations
+@* A simple consistency checker for locatations.
 
 @<Functions...@>=
       function check_location(lc_dummy(x))
@@ -974,16 +977,43 @@ cells, it checks that the cells are neighbors.
       subroutine read_geometry
       implicit_none
       gi_common             // Common
+      zn_common
       nc_common               // Local
-      netcdf_geometry_decls
+      gi_ncdecl
+      zn_ncdecl
       integer fileid
       sy_common
       
 
       fileid = ncopen('geometry.nc',NC_NOWRITE,nc_stat)
-      netcdf_read_geometry(fileid)
+      gi_ncread(fileid)
+      zn_ncread(fileid)
       call ncclose(fileid,nc_stat)
 
+      return
+      end
+
+@* Location routines.
+
+@<Functions...@>=
+      function lc_track(type,tmax,lc_dummy(x0),v,lc_dummy(x),t)
+      implicit_none
+      logical lc_track          // Function
+      real tmax,v[3]            // Input
+      integer type
+      lc_decl(x0)
+      real t                    // Output
+      lc_decl(x)
+      gi_common
+      external track            // Exteral
+      logical track
+
+      lc_track=track(type,tmax,lc_x(x0),v,lc_cell(x0),
+     $     t,lc_x(x),lc_cell(x),lc_face(x),lc_cell_next(x))
+      if (lc_face(x) != 0) then
+         lc_zone_next(x) = cells[c_zone,lc_cell_next(x)]
+      end if
+      
       return
       end
 

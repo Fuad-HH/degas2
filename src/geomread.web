@@ -2,6 +2,9 @@
 \def\Wtitle{geomread}
 
 % $Log$
+% Revision 1.3  1993/09/27  22:03:22  karney
+% Update and include zone information
+%
 % Revision 1.2  1993/09/23  12:34:48  karney
 % Change netcdf file extension from .cdf to .nc
 %
@@ -31,7 +34,6 @@ netcdf file.
       implicit_none
 
       call new_input_geometry
-c      call input_b2_geometry
 
       stop
       end
@@ -83,21 +85,6 @@ break: continue
       return
       end
 
-@ Read B2-degas geometry
-
-@<Functions...@>=
-      subroutine input_b2_geometry
-      implicit_none
-      integer nx,ny
-      open(unit=20,file='../data/b2specss',status='old',form='formatted')
-      read(20,*) nx,ny
-      read(20,*)
-      read(20,*)
-      call input_b2_geometry_a(nx,ny)
-      close(unit=20)
-      return
-      end
-
 @ Secondary function to make memory allocation work
       
 @<Functions...@>=
@@ -106,29 +93,44 @@ break: continue
       integer nx,ny             // Input
       gi_common                 // Common
       zn_common
+      vc_common
+      bk_common
+      sy_common
       integer ix,iy,i,j,n1,n2   // Local
       integer face,surf_type,zone
-      real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99],a[3],x0[3]
+      real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99],a[3],x0[3],vol
       ptr_decl(ccr)
       ptr_decl(ccz)
-      real ccr[0:4,nx,ny],ccz[0:4,nx,ny],r0[0:4],z0[0:4]
+      ptr_decl(ne)
+      ptr_decl(te)
+      ptr_decl(ti)
+      ptr_decl(vi)
+      real ccr[0:4,nx,ny],ccz[0:4,nx,ny],r0[0:4],z0[0:4],
+     $     ne[nx,ny],te[nx,ny],ti[nx,ny],vi[3,nx,ny],dummyr,vol,vola
       character dummy
       external init_geometry,start_cell,sphere,define_surface,
      $     add_surface,plane,end_geometry,check_geometry,print_geometry,
-     $     erase_geometry,mem_alloc       // External
-      integer define_surface,start_cell,mem_alloc
+     $     erase_geometry,polygon_volume // External
+      integer define_surface,start_cell
+      real polygon_volume
 
       
       real_alloc(ccr,nx*ny*5)
       real_alloc(ccz,nx*ny*5)
+      real_alloc(ne,nx*ny)
+      real_alloc(te,nx*ny)
+      real_alloc(ti,nx*ny)
+      real_alloc(vi,3*nx*ny)
       do j=1,nx*ny
          read(20,'(a11,2i3)') dummy,ix,iy
          read(20,*)
-         read(20,*) SP (ccr(i,ix,iy),ccz(i,ix,iy),i=0,4)
+         read(20,*) SP (ccr[i,ix,iy],ccz[i,ix,iy],i=0,4)
          read(20,*)
+         read(20,*) SP te[ix,iy],ne[ix,iy],ti[ix,iy]
          read(20,*)
-         read(20,*)
-         read(20,*)
+         read(20,*) SP dummyr,(vi[i,ix,iy],i=1,3)
+         te[ix,iy]=te[ix,iy]/electron_charge
+         ti[ix,iy]=ti[ix,iy]/electron_charge
       end do
 
       call init_geometry
@@ -147,6 +149,8 @@ break: continue
          face=define_surface(coeff,.true.)
          call add_surface(face,0,.true.)
       end do
+      
+      vol=PI*(r0[2]^2-r0[0]^2)*(z0[2]-z0[0])
 
  /* Plasma zones */
       do iy=1,ny
@@ -164,14 +168,20 @@ break: continue
             x[2,4]=ccz[1,ix,iy]
             call decompose_polygon(4,x,zone)
             zn_type_set(zone,zn_plasma)
+            zn_volume(zone)=polygon_volume(4,x)
             zn_index(zone,1)=ix
             zn_index(zone,2)=ix
+            bk_n(1,zone)=ne(ix,iy)
+            bk_n(2,zone)=bk_n(1,zone)
+            vc_copy(vi(ix,iy),bk_v(2,zone))
+            vc_set(bk_v(1,zone),zero,zero,zero)
+            bk_temp(1,zone)=te(ix,iy)
+            bk_temp(2,zone)=ti(ix,iy)
          end do
       end do
 
  /* Central plasma region */
       zone=zone+1
-      zn_type_set(zone,zn_plasma)
       i=0
       do ix=1,nx/2
          x[1,i]=ccr[1,ix,1]; x[2,i]=ccz[1,ix,1]; i=i+1
@@ -181,10 +191,18 @@ break: continue
       x[1,i]=x[1,0]
       x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_type_set(zone,zn_plasma)
+      zn_volume(zone)=polygon_volume(i,x)
+      bk_n(1,zone)=const(5.0,20)
+      bk_n(2,zone)=bk_n(1,zone)
+      vc_set(bk_v(1,zone),zero,zero,zero)
+      vc_set(bk_v(2,zone),zero,zero,zero)
+      bk_temp(1,zone)=const(9.0,-17)
+      bk_temp(2,zone)=const(9.0,-17)
+      
 
  /* Divertor plate */
       zone=zone+1
-      zn_type_set(zone,zn_solid)
       i=0
       x[1,i]=ccr[2,nx,1]; x[2,i]=-const(2.1); i=i+1
       do iy=1,ny
@@ -195,10 +213,11 @@ break: continue
       x[1,i]=x[1,0]
       x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=polygon_volume(i,x)
 
  /* Excluded region */
       zone=zone+1
-      zn_type_set(zone,zn_solid)
       i=0
       x[1,i]=r0[0]; x[2,i]=z0[0]; i=i+1
       x[1,i]=r0[1]; x[2,i]=z0[1]; i=i+1
@@ -224,10 +243,11 @@ break: continue
       x[1,i]=x[1,0]
       x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=polygon_volume(i,x)
 
  /* The wall */
       zone=zone+1
-      zn_type_set(zone,zn_solid)
       i=0
       x[1,i]=r0[2]-const(0.1); x[2,i]=ccz[3,1,ny]; i=i+1
       x[1,i]=r0[2]; x[2,i]=z0[2]; i=i+1
@@ -238,6 +258,7 @@ break: continue
       x[1,i]=const(3.6); x[2,i]=ccz[3,1,ny]; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_volume(zone)=polygon_volume(i,x)
 
       i=0
       x[1,i]=r0[2]; x[2,i]=-1.7; i=i+1
@@ -246,6 +267,8 @@ break: continue
       x[1,i]=3.5; x[2,i]=-1.7; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=zn_volume(zone)+polygon_volume(i,x)
 
       n1=start_cell(zone+1)     // The vertical cylinder
       n2=start_cell(zone+1)     // The horizontal cylinder
@@ -276,6 +299,7 @@ break: continue
       x[1,i]=3.5; x[2,i]=-1.7; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_volume(zone)=zn_volume(zone)+polygon_volume(i,x)
 
       vc_set(x0,zero,zero,-1.95)
       vc_set(a,one,zero,zero)
@@ -299,12 +323,15 @@ break: continue
       x[1,i]=2.7; x[2,i]=-2.2; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_volume(zone)=zn_volume(zone)+polygon_volume(i,x)
 
       zone=zone+1
+      zn_type_set(zone,zn_vacuum)
+      zn_volume(zone)=const(0.1)
+      zn_volume(zone-1)=zn_volume(zone-1)-zn_volume(zone)
 
  /* Vacuum region */
       zone=zone+1
-      zn_type_set(zone,zn_vacuum)
       i=0
       x[1,i]=const(3.6); x[2,i]=ccz[3,1,ny]; i=i+1
 
@@ -321,6 +348,8 @@ break: continue
       x[1,i]=ccr[3,1,ny]; x[2,i]=ccz[3,1,ny]; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
+      zn_type_set(zone,zn_vacuum)
+      zn_volume(zone)=polygon_volume(i,x)
 
       call end_geometry
 @#if DEBUG
@@ -329,7 +358,13 @@ break: continue
       close(unit=20)
       
       call write_geometry
+      do i=1,zn_num
+         assert(zn_volume(i)>0)
+         vola=vola+zn_volume(i)
+      end do
+      write(stdout,*) vol,vola
       call erase_geometry
+      call write_background
       return
       end
 
@@ -344,13 +379,134 @@ break: continue
       read(20,*) nx,ny
       read(20,*)
       read(20,*)
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+      call init_background(nx,ny)
+      call init_test
       call input_b2_geometry_a(nx,ny)
+      call write_test
       close(unit=20)
 
 
       return
       end
 
+@ Set up the background information.
+
+@<Functions...@>=
+      subroutine init_background(nx,ny)
+      implicit_none
+      integer nx,ny
+      bk_common
+      zn_common
+      sp_common
+      st_common
+      sy_common
+      vc_common
+      
+      bk_num=2
+      var_alloc(background_sp)
+      bk_sp(1)=sp_lookup('e')
+      assert(bk_sp(1) > 0)
+      bk_sp(2)=sp_lookup('H+')
+      assert(bk_sp(2) > 0)
+      
+      return
+      end
+
+@ Write out background information.
+
+@<Functions...@>=
+      subroutine write_background
+      implicit_none
+      integer fileid
+      bk_common
+      bk_ncdecl
+      vc_ncdecl
+      zn_common
+      nc_common
+
+      integer fileid
+
+      fileid = nccreate('background.nc',NC_CLOBBER,nc_stat)
+      vc_ncdef(fileid)
+      bk_ncdef(fileid)
+      call ncendef(fileid,nc_stat);
+      vc_ncwrite(fileid)
+      bk_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
 
       
+@ Set up test particle information.
+      
+@<Functions...@>=
+      subroutine init_test
+      implicit_none
+      ts_common
+      sp_common
+      st_common
+      sy_common
+      rc_common
+      bk_common
+      zn_common
+      integer i,j,k
+      
+      ts_num=1
+      var_alloc(test_sp)
+      var_alloc(test_reaction_num)
+      var_alloc(test_reaction)
+      var_alloc(test_background)
+      
+      ts_sp(1)=sp_lookup('H')
+      assert(ts_sp(1) > 0)
+      
+      do i=1,ts_num
+         ts_rc_num(i)=0
+         do j=1,rc_num
+            if (rc_reagant_num(j) == 2) then
+               do k=1,bk_num
+                  if ( (rc_reagant(j,1)==ts_sp(i) && rc_reagant(j,2)==bk_sp(k))
+     $                 || (rc_reagant(j,2)==ts_sp(i) && rc_reagant(j,1)==bk_sp(k)) ) then
+                     ts_rc_num(i)=ts_rc_num(i)+1
+                     ts_rc(i,ts_rc_num(i))=j
+                     ts_bk(i,ts_rc_num(i))=k
+                     goto break
+                  end if
+               end do
+break:         continue
+            end if
+         end do
+      end do
+      
+      return
+      end
+
+@ Write out test particle information.
+
+@<Functions...@>=
+      subroutine write_test
+      implicit_none
+      integer fileid
+      ts_common
+      ts_ncdecl
+      nc_common
+
+      integer fileid
+
+      fileid = nccreate('test.nc',NC_CLOBBER,nc_stat)
+      ts_ncdef(fileid)
+      call ncendef(fileid,nc_stat);
+      ts_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+      
+      
+
 @* Index.

@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.3  1993/09/24  21:35:01  karney
+% Correct definition of zn_type_set.
+%
 % Revision 1.2  1993/09/24  21:22:10  karney
 % Include netcdf macros.
 %
@@ -34,6 +37,7 @@ identified by an integer indexing into these arrays.
 @m zn_type(x) zone_type[x]
 @m zn_index(x,i) zone_index[i,x]
 @m zn_pointer(x) zone_pointer[x]
+@m zn_volume(x) zone_volume[x]
 
 @ Length specifications.
 
@@ -47,41 +51,42 @@ identified by an integer indexing into these arrays.
 @ Variable definitions.
 
 @a
-      define_dimen(zone_type_ind,zn_type_max)
-      define_dimen(zone_index_ind,zn_index_max)
-      define_dimen(zone_ind,zn_num)
-      define_var(zn_num,INT)
-      define_var(zone_type_num,INT,zone_type_ind)
-      define_var(zone_type,INT,zone_ind)
-      define_var(zone_index,INT,zone_index_ind,zone_ind)
-      define_var(zone_pointer,INT,zone_ind)
+      package_init(zn)
+      define_dimen_pk(zn,zone_type_ind,zn_type_max)
+      define_dimen_pk(zn,zone_index_ind,zn_index_max)
+      define_dimen_pk(zn,zone_ind,zn_num)
+      define_var_pk(zn,zn_num,INT)
+      define_var_pk(zn,zone_type_num,INT,zone_type_ind)
+      define_varp_pk(zn,zone_type,INT,zone_ind)
+      define_varp_pk(zn,zone_index,INT,zone_index_ind,zone_ind)
+      define_varp_pk(zn,zone_pointer,INT,zone_ind)
+      define_varp_pk(zn,zone_volume,FLOAT,zone_ind)
 
 @ Common blocks definitions.
 
 @f zn_common integer
 @m zn_common
-      declare_var(zn_num);
-      declare_var(zone_type_num);
-      declare_varp(zone_type);
-      declare_varp(zone_index);
-      declare_varp(zone_pointer);
-      common /com_zone/ zn_num,zone_type_num,
-          ptr_zone_type,ptr_zone_index,ptr_zone_pointer;
+      zn_common_a;
       character*80 zone_version;
       common /com_zone_c/ zone_version;
-      save /com_zone/,/com_zone_c/ @;
+      save /com_zone_c/ @;
 
 @ Setting up zone information.
 
 @m zn_type_set(zone,type) zn_type(zone)=type;
       zone_type_num[type]=zone_type_num[type]+1;
-      zn_pointer(zone)=zone_type_num[type] @;
+      zn_pointer(zone)=zone_type_num[type];
+      if (type==zn_plasma) then;
+         var_realloca(background_n);
+         var_realloca(background_v);
+         var_realloca(background_temp);
+      end if @;
 
 @ NETCDF read/write of geometry.
 
+@#if 0
 @m netcdf_zone_decls
       integer zn_num_id,zone_type_id,zone_index_id,zone_pointer_id,zone_index_ind_id,zone_ind_id,zone_type_num_id,zone_type_ind_id @;
-
 
 @m netcdf_write_zone(fileid)
       var_def(fileid,zn_num);
@@ -116,3 +121,10 @@ identified by an integer indexing into these arrays.
       var_read(fileid,zone_type);
       var_read(fileid,zone_index);
       var_read(fileid,zone_pointer)@;
+
+@#endif
+
+@m zn_ncread(fileid)
+      zn_ncreada(fileid);
+      zn_ncreadb(fileid);
+      zn_ncreadc(fileid) @;

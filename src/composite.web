@@ -2,6 +2,9 @@
 \def\Wtitle{composite}
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 % Revision 1.3  1993/06/01  22:15:11  karney
 % Redo pre-Albuquerque checkin
 %
@@ -168,12 +171,33 @@ direction in the $(x,z)$ plane.
       return
       end
     
+@ Compute the volume of a non-convex polygon of revolution.
+
+@<Functions...@>=
+      function polygon_volume(n,x)
+      implicit_none
+      real polygon_volume       // Function
+      integer n                 // Input
+      real x[2,0:n]
+      integer i                 // Local
+
+      polygon_volume=zero
+      do i=0,n-1
+         polygon_volume=polygon_volume+(x[1,i]^2+x[1,i]*x[1,i+1]+x[1,i+1]^2)*(x[2,i]-x[2,i+1])
+      end do
+      
+      polygon_volume=PI*polygon_volume/const(3.0)
+      assert(polygon_volume > zero)
+      
+      return
+      end
+
 @ Decompose non-convex polygon.
 
 @<Functions...@>=
       subroutine decompose_polygon(n,x,zone)
       implicit_none
-      integer n,zone          // Input
+      integer n,zone            // Input
       real x[2,0:n]
       real a[2,0:n],b[2,0:n-1]  // Local
       ptr_decl(a)

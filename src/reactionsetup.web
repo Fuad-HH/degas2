@@ -2,6 +2,9 @@
 \def\Wtitle{reactionsetup}
 
 % $Log$
+# Revision 1.1  1993/09/27  22:06:07  karney
+# Initial revision
+#
 % Revision 1.2  1993/09/27  13:11:49  karney
 % First working version.
 %
@@ -45,7 +48,7 @@ Introduction\ldots
       implicit_none
       rc_common                 // Common
       sp_common
-      integer length,p,b,e      // Local
+      integer length,p,b,e,i,j      // Local
       character*80 line
       sy_common
       st_common
@@ -66,6 +69,8 @@ loop1: continue
       var_realloca(reaction_product_num)
       var_realloca(reaction_reagant)
       var_realloca(reaction_product)
+      var_realloca(tn_cross_section_table)
+      var_realloca(te_cross_section_table)
 
       length=parse_string(line(:length))
       reaction_name[rc_num]=line(:length)
@@ -94,6 +99,28 @@ loop3: continue
       if ( next_token(line,b,e,p) ) then
          assert( line(b:e) == '+' )
          goto loop3
+      end if
+      if (rc_sy(rc_num)=='hionize') then
+         open(unit=diskin+1,file='../data/eh.dat',form='formatted',status='old')
+         read(diskin+1,*) SP ((tn_cross_section_table[i,j,rc_num],i=0,rc_energy_num),j=0,rc_density_num)
+         close(unit=diskin+1)
+         do j=0,rc_density_num
+            do i=0,rc_energy_num
+               tn_cross_section_table[i,j,rc_num]=tn_cross_section_table[i,j,rc_num]*const(1.0,-6)
+            end do
+         end do
+      else if (rc_sy(rc_num)=='hchex') then
+         open(unit=diskin+1,file='../data/atmc.dat',form='formatted',status='old')
+loop:    continue
+         read(diskin+1,'(a)') line
+         if (line != 'h0 + h+ -> h+ + h0') goto loop
+         read(diskin+1,*) SP ((te_cross_section_table[i,j,rc_num],i=0,rc_energy_num),j=0,rc_energy_num)
+         close(unit=diskin+1)
+         do j=0,rc_energy_num
+            do i=0,rc_energy_num
+               te_cross_section_table[i,j,rc_num]=te_cross_section_table[i,j,rc_num]*const(1.0,-6)
+            end do
+         end do
       end if
       goto loop1
 eof:  continue

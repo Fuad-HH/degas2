@@ -1,0 +1,55 @@
+@* Test particle definitions.
+
+% $Id$
+
+% $Log$
+%
+
+\ID{$Id$}
+
+Information about test particles is held in arrays in common blocks.  An
+test is identified by an integer indexing into these arrays.
+
+@f ts_decl integer
+
+@m ts_args(x) x
+
+@m ts_dummy(x) x
+
+@m ts_decl(x) integer x @;
+
+@m ts_copy(x,y) y=x @;
+
+@m ts_check(x) (x > 0 && x <= ts_num)
+
+@m ts_sp(x) test_sp[x]
+@m ts_rc_num(x) test_reaction_num[x]
+@m ts_rc(x,i) test_reaction[i,x]
+@m ts_bk(x,i) test_background[i,x]
+
+@ Length specifications.
+
+@m ts_rc_max 5
+
+@ Variable definitions.
+
+@a
+      package_init(ts)
+      define_dimen_pk(ts,test_ind,ts_num)
+      define_dimen_pk(ts,test_reaction_ind,ts_rc_max)
+      define_var_pk(ts,ts_num,INT)
+      define_varp_pk(ts,test_sp,INT,test_ind)
+      define_varp_pk(ts,test_reaction_num,INT,test_ind)
+      define_varp_pk(ts,test_reaction,INT,test_reaction_ind,test_ind)
+      define_varp_pk(ts,test_background,INT,test_reaction_ind,test_ind)
+
+@ Common blocks definitions.
+
+@f ts_common integer
+@m ts_common
+      ts_common_a @;
+
+@m ts_ncread(fileid)
+      ts_ncreada(fileid);
+      ts_ncreadb(fileid);
+      ts_ncreadc(fileid) @;

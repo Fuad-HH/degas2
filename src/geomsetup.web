@@ -3,6 +3,9 @@
 \def\Wtitle{geometry setup}
 
 % $Log$
+% Revision 1.4  1993/09/27  22:03:51  karney
+% Update netcdf handling
+%
 % Revision 1.3  1993/09/24  21:21:54  karney
 % Include netcdf_write_zone.
 %
@@ -202,6 +205,7 @@ then search for duplicates and return the duplicate index if it exists.
       var_reallocc(zone_type,zn_num,max(zn_num,zone))
       var_reallocc(zone_index,zn_num,max(zn_num,zone))
       var_reallocc(zone_pointer,zn_num,max(zn_num,zone))
+      var_reallocc(zone_volume,zn_num,max(zn_num,zone))
       zn_num=max(zn_num,zone)
 
       return
@@ -384,16 +388,16 @@ break1:        continue
       gi_common
       zn_common
       nc_common
-      netcdf_geometry_decls
-      netcdf_zone_decls
+      gi_ncdecl
+      zn_ncdecl
       integer fileid
-      external nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
-      integer nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
 
       fileid = nccreate('geometry.nc',NC_CLOBBER,nc_stat)
-      netcdf_write_geometry(fileid)
-      call ncredef(fileid,nc_stat)
-      netcdf_write_zone(fileid)
+      gi_ncdef(fileid)
+      zn_ncdef(fileid)
+      call ncendef(fileid,nc_stat);
+      gi_ncwrite(fileid)
+      zn_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
 
       return

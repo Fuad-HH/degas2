@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 
 \ID{$Id$}
 
@@ -11,28 +14,37 @@ An particle is identified by a string tag.
 @f pt_decl integer
 @f pt_common integer
 
-@m pt_args(x) pt_sp(x),pt_t(x),pt_w(x),
+@m pt_args(x) pt_sp(x),pt_test(x),pt_t(x),pt_w(x),
       lc_args(pt_loc(x)),pt_v(x)[1]
 
-@m pt_dummy(x) pt_sp(x),pt_t(x),pt_w(x),
+@m pt_dummy(x) pt_sp(x),pt_test(x),pt_t(x),pt_w(x),
       lc_dummy(pt_loc(x)),pt_v(x)
 
-@m pt_decl(x) sp_decl(pt_sp(x));
+@m pt_decl(x) sp_decl(pt_sp(x)); ts_decl(pt_test(x));
       real pt_t(x), pt_w(x), pt_v(x)[3];
       lc_decl(pt_loc(x)) @;
 
 @m pt_common
 
-@m pt_copy(x,y) pt_sp(y)=pt_sp(x); pt_t(y)=pt_t(x);
-      pt_w(y)=pt_w(x);
+@m pt_copy(x,y) pt_sp(y)=pt_sp(x); pt_test(y)=pt_test(x);
+      pt_t(y)=pt_t(x); pt_w(y)=pt_w(x);
       vc_copy(pt_v(x),pt_v(y)); lc_copy(pt_loc(x),pt_loc(y)) @;
 
 @m pt_check(x) (sp_check(pt_sp(x)) && pt_w(x) >= 0 &&
-      lc_check(pt_loc(x)))
+      lc_check(pt_loc(x))) &&
+      ts_check(pt_test(x)) &&
+      ts_sp(pt_test(x)) == pt_sp(x)
 
-@m pt_sp(x) species_##x
-@m pt_t(x) time_##x
-@m pt_w(x) weight_##x
-@m pt_loc(x)  x
-@m pt_v(x)  velocity_##x
+@m pt_sp(x) pt_sp1(x)
+@m pt_sp1(x) species_##x
+@m pt_test(x) pt_test1(x)
+@m pt_test1(x) test_##x
+@m pt_t(x) pt_t1(x)
+@m pt_t1(x) time_##x
+@m pt_w(x) pt_w1(x)
+@m pt_w1(x) weight_##x
+@m pt_loc(x)  pt_loc1(x)
+@m pt_loc1(x)  x
+@m pt_v(x)  pt_v1(x)
+@m pt_v1(x)  velocity_##x
 @m pt_type(x) type_##x

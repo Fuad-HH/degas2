@@ -1,0 +1,85 @@
+% $Id$
+\def\Wtitle{reaction}
+
+% $Log$
+
+@n/
+
+@* A test program for the geometry routines.
+
+\ID{$Id$}
+
+@m FILE 'reaction.web'
+
+@I macros.hweb
+
+@ The main program.
+
+@a
+      @<Functions and Subroutines@>
+
+@ Return the reaction rate for a particular location and reaction.
+      
+@<Functions...@>=
+      function reaction_rate(pt_dummy(p),rc_dummy(r),bk_dummy(b))
+      implicit_none
+      real reaction_rate        // Function
+      pt_decl(p)                // Input
+      rc_decl(r)
+      bk_decl(b)
+      rc_common
+      bk_common
+      zn_common
+      sp_common
+      integer itemp,iden,ien    // Local
+      real temp,den,en,ftemp,fden,fen,c00,c01,c10,c11,c0,c1,cross_section
+      
+      if (r == 1) then          // hionize
+         den=log10(bk_n(b,lc_zone(pt_loc(p))))
+         temp=log10(bk_temp(b,lc_zone(pt_loc(p))))
+         den=(den-rc_logdensity_min)/rc_logdensity_delta
+         den=min(max(zero,den),areal(rc_density_num))
+         temp=(temp-rc_logenergy_min)/rc_logenergy_delta
+         temp=min(max(zero,temp),areal(rc_energy_num))
+         iden=min(rc_density_num-1,int(den))
+         fden=den-areal(iden)
+         itemp=min(rc_energy_num-1,int(temp))
+         ftemp=temp-areal(itemp)
+         c00=tn_cross_section_table[itemp,iden,r]
+         c01=tn_cross_section_table[itemp,iden+1,r]
+         c10=tn_cross_section_table[itemp+1,iden,r]
+         c11=tn_cross_section_table[itemp+1,iden+1,r]
+         c0=c00+fden*(c01-c00)
+         c1=c10+fden*(c11-c10)
+         cross_section=c0+ftemp*(c1-c0)
+c         write(stdout,*) 'ionize',temp,den,cross_section
+      else if (r == 2) then     // hchex
+         en=half*sp_m(pt_sp(p))*atomic_mass_unit/electron_charge*vc_abs(pt_v(p))
+         temp=log10(bk_temp(b,lc_zone(pt_loc(p))))
+         en=(en-rc_logenergy_min)/rc_logenergy_delta
+         en=min(max(zero,en),areal(rc_energy_num))
+         temp=(temp-rc_logenergy_min)/rc_logenergy_delta
+         temp=min(max(zero,temp),areal(rc_energy_num))
+         ien=min(rc_energy_num-1,int(en))
+         fen=en-areal(ien)
+         itemp=min(rc_energy_num-1,int(temp))
+         ftemp=temp-areal(itemp)
+         c00=te_cross_section_table[itemp,ien,r]
+         c01=te_cross_section_table[itemp,ien+1,r]
+         c10=te_cross_section_table[itemp+1,ien,r]
+         c11=te_cross_section_table[itemp+1,ien+1,r]
+         c0=c00+fen*(c01-c00)
+         c1=c10+fen*(c11-c10)
+         cross_section=c0+ftemp*(c1-c0)
+c         write(stdout,*) 'cx',temp,en,cross_section
+      end if
+      reaction_rate=cross_section*bk_n(b,lc_zone(pt_loc(p)))
+      
+      return
+      end
+      
+      
+      
+
+      
+@* Index.

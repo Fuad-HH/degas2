@@ -2,6 +2,9 @@
 \def\Wtitle{element lookup}
 
 % $Log$
+% Revision 1.3  1993/09/27  13:12:54  karney
+% Comment out test program.
+%
 % Revision 1.2  1993/09/26  23:33:32  karney
 % Convert to 'package' support
 %
@@ -35,16 +38,9 @@ table of elements or zero if no such symbol.
       integer element_lookup    // Function
       character*(*) symbol      // Input
       el_common                 // Common
-      integer i                 // Local
+      st_common
       
-      do i=1,el_num
-         if (element_sy[i]==symbol) then
-            element_lookup=i
-            return
-         end if
-      end do
-      
-      element_lookup=0
+      element_lookup=string_lookup(symbol,element_sy,el_num)
 
       return
       end
@@ -82,31 +78,6 @@ eof:  continue
       stop
       end
 @#endif
-
-@ Read in data from netcdf file \verb+elements.nc+
-      
-@<Functions...@>=
-      subroutine nc_read_elements
-      implicit_none
-      el_common
-      decl_netcdf
-      integer fileid
-      el_ncdecl
-      external mem_alloc,ncopen,ncvarid,ncdimid
-      integer mem_alloc,ncopen,ncvarid,ncdimid
-
-      fileid = ncopen('../data/elements.nc',NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     element_version,len(element_version),nc_stat)
-
-      el_ncreada(fileid)
-      el_ncreadb(fileid)
-      el_ncreadc(fileid)
-      
-      call ncclose(fileid,nc_stat)
-
-      return
-      end
 
 @* References.
 

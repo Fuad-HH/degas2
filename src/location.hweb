@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 
 \ID{$Id$}
 
@@ -32,14 +35,25 @@ A location is identified by a string tag.
 
 @m lc_check(x) check_location(lc_args(x))
 
-@m lc_x(x) pos_##x
+@m lc_x(x) lc_x1(x)
+@m lc_x1(x) pos_##x
 @m lc_cell(x) cell_##x
-@m lc_zone(x) zone_##x
-@m lc_face(x) surface_##x
-@m lc_cell_next(x) cell_next_##x
-@m lc_zone_next(x) zone_next_##x
+@m lc_zone(x) lc_zone1(x)
+@m lc_zone1(x) zone_##x
+@m lc_face(x) lc_face1(x)
+@m lc_face1(x) surface_##x
+@m lc_cell_next(x) lc_cell_next1(x)
+@m lc_cell_next1(x) cell_next_##x
+@m lc_zone_next(x) lc_zone_next1(x)
+@m lc_zone_next1(x) zone_next_##x
 
 @ Some interface routines
 
 @m lc_set(x) lc_cell(x)=locate_point(lc_x(x),lc_zone(x));
       lc_face(x)=0 @;
+
+@m lc_thru_face(x) if (lc_face(x) != 0) then;
+      lc_face(x) = 0;
+      lc_cell(x) = lc_cell_next(x);
+      lc_zone(x) = lc_zone_next(x);
+      end if @;

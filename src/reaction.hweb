@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1993/09/27  22:09:06  karney
+% Update for package.
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -31,6 +34,12 @@ reaction is identified by an integer indexing into these arrays.
 @m rc_name_len 32
 @m rc_reagant_max 2
 @m rc_product_max 4
+@m rc_energy_num 47
+@m rc_density_num 10
+@m rc_logenergy_min zero
+@m rc_logdensity_min const(16.0)
+@m rc_logenergy_delta const(0.1)
+@m rc_logdensity_delta const(0.5)
 
 @ Variable definitions.
 
@@ -41,6 +50,8 @@ reaction is identified by an integer indexing into these arrays.
       define_dimen_pk(rc,reaction_ind,rc_num)
       define_dimen_pk(rc,reagant_ind,rc_reagant_max)
       define_dimen_pk(rc,product_ind,rc_product_max)
+      define_dimen_pk(rc,energy_ind,0,rc_energy_num)
+      define_dimen_pk(rc,density_ind,0,rc_density_num)
       define_var_pk(rc,rc_num,INT)
       define_varp_pk(rc,reaction_name,CHAR,reaction_name_string,reaction_ind)
       define_varp_pk(rc,reaction_sy,CHAR,reaction_symbol_string,reaction_ind)
@@ -48,6 +59,8 @@ reaction is identified by an integer indexing into these arrays.
       define_varp_pk(rc,reaction_product_num,INT,reaction_ind)
       define_varp_pk(rc,reaction_reagant,INT,reagant_ind,reaction_ind)
       define_varp_pk(rc,reaction_product,INT,product_ind,reaction_ind)
+      define_varp_pk(rc,tn_cross_section_table,FLOAT,energy_ind,density_ind,reaction_ind)
+      define_varp_pk(rc,te_cross_section_table,FLOAT,energy_ind,energy_ind,reaction_ind)
 
 @ Common blocks definitions.
 
