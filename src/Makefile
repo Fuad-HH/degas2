@@ -12,6 +12,9 @@ endif
 ifeq ($(SYSTEM),AIX)
   MACHINE=IBM
 endif
+ifeq ($(SYSTEM),OSF1)
+  MACHINE=ALPHA
+endif
 ifeq ($(SYSTEM),HP-UX)
   MACHINE=HP
 endif
@@ -32,6 +35,9 @@ ifeq ($(MACHINE),SUN)
 endif
 ifeq ($(MACHINE),IBM)
   IBM=on
+endif
+ifeq ($(MACHINE),ALPHA)
+  ALPHA=on
 endif
 ifeq ($(MACHINE),HP)
   HP=on
@@ -141,8 +147,12 @@ else
 ifdef CRAY
   LOADLIBES=-L/usr/local/lib -lnetcdf
 else
+ifdef ALPHA
+  LOADLIBES=
+else
   LOADLIBES=-L/usr/local/lib -L$(SOFT)/pvm/lib/$(PVMARCH) -ldf -lfpvm3 -lpvm3 -lnetcdf
 #  LOADLIBES=-L/usr/local/lib -lnetcdf -ldf
+endif
 endif
 endif
 

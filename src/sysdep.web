@@ -2,6 +2,9 @@
 \def\Wtitle{system dependent routines}
 
 % $Log$
+% Revision 1.4  1993/10/26  22:22:40  karney
+% Add set_cwd.
+%
 % Revision 1.3  1993/10/25  22:36:13  karney
 % Change name of error to error_exit.
 %
@@ -148,6 +151,9 @@ day, hour, minute, second.
       character*8 temp          // Local
 @#else
       integer itemp[3]          // Local
+@#endif
+@#if ALPHA
+      external idate
 @#endif
 
 @#if CRAY
@@ -414,7 +420,7 @@ overflow until 2068.
 
 @<Functions...@>=
       function mem_alloc(size)
-      integer mem_alloc         // Function
+      address mem_alloc         // Function
       integer size              // Input
       integer sizea             // Local
       real data
@@ -423,7 +429,7 @@ overflow until 2068.
       integer i
 @#endif
 @#if !CRAY
-      integer malloc           // External
+      address malloc           // External
 @#else
       integer stat              // Local
 @#endif
@@ -470,8 +476,9 @@ overflow until 2068.
 
 @<Functions...@>=
       function mem_realloc(oldptr,oldsize,newsize)
-      integer mem_realloc       // Function
-      integer oldptr,oldsize,newsize // Input
+      address mem_realloc       // Function
+      address oldptr            // Input
+      integer oldsize,newsize
       integer newsizea,oldsizea // Local
       real odata,ndata
       pointer (optr,odata(*)),(nptr,ndata(*))
@@ -479,11 +486,12 @@ overflow until 2068.
       integer i
 @#endif
 @#if !CRAY
-      integer malloc            // External
+      address malloc            // External
 @#else
       integer stat              // Local
 @#endif
-      integer mem_alloc        // External
+      external mem_alloc        // External
+      address mem_alloc
 
       assert(oldsize >=0 && newsize > 0)
 
@@ -544,7 +552,8 @@ overflow until 2068.
 
 @<Functions...@>=
       subroutine mem_free(oldptr,size)
-      integer oldptr,size       // Input
+      address oldptr       // Input
+      integer size
       integer sizea             // Local
       real data
       pointer (optr,data(*))

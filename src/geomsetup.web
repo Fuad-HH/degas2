@@ -3,6 +3,9 @@
 \def\Wtitle{geometry setup}
 
 % $Log$
+% Revision 1.5  1993/09/30  18:43:22  karney
+% Pre PET checkin
+%
 % Revision 1.4  1993/09/27  22:03:51  karney
 % Update netcdf handling
 %
@@ -46,8 +49,7 @@ Geometry setup routines for degas.
       subroutine init_geometry
       gi_common                 // Output
       zn_common
-      external mem_alloc,mem_realloc        // External
-      integer mem_alloc,mem_realloc
+      sy_common
 
       ncells=0
       var_realloca(cells)
@@ -76,8 +78,7 @@ Geometry setup routines for degas.
       integer surf_list[*],cell_list[*] // Pointee
       ptr_decl(surf_list)
       ptr_decl(cell_list)
-      external mem_alloc,mem_realloc // External
-      integer mem_alloc,mem_realloc
+      sy_common
 
       /* Pack |cells| and |surfaces| */
 
@@ -149,9 +150,9 @@ then search for duplicates and return the duplicate index if it exists.
       logical duplicate
       gi_common                 // Input/Output
       integer i,k,orientation   // Local
-      external surface_normalize,surface_equal,mem_realloc // External
+      sy_common
+      external surface_normalize,surface_equal // External
       logical surface_equal
-      integer mem_realloc
 
       call surface_normalize(coeff)
       if (duplicate) then
@@ -188,8 +189,7 @@ then search for duplicates and return the duplicate index if it exists.
       integer zone            // Input
       gi_common                 // Input/Output
       zn_common
-      external mem_realloc      // External
-      integer mem_realloc
+      sy_common
       
 
       ncells=ncells+1
@@ -221,8 +221,7 @@ then search for duplicates and return the duplicate index if it exists.
       integer i,surface_count,cell_count // Local
       integer surf_list[*],cell_list[*] // Pointee
       pointer (ptr_surf_list,surf_list),(ptr_cell_list,cell_list)
-      external mem_realloc      // External
-      integer mem_realloc
+      sy_common
 
       ptr_surf_list=cells[c_start,cell]
       surface_count=cells[c_surfaces,cell]

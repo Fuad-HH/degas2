@@ -1,6 +1,9 @@
 @* Macros for machine dependencies.
 % $Id$
 % $Log$
+% Revision 1.2  1993/10/26  22:22:20  karney
+% Add set_cwd.
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -11,6 +14,7 @@
     @m CRAY 1
     @m SUN 0
     @m IBM 0
+    @m ALPHA 0
     @m HP 0
     @m SGI 0
     @m VAX 0
@@ -18,6 +22,7 @@
     @m CRAY 0
     @m SUN 1
     @m IBM 0
+    @m ALPHA 0
     @m HP 0
     @m SGI 0
     @m VAX 0
@@ -25,6 +30,15 @@
     @m CRAY 0
     @m SUN 0
     @m IBM 1
+    @m ALPHA 0
+    @m HP 0
+    @m SGI 0
+    @m VAX 0
+@#elif defined(ALPHA)
+    @m CRAY 0
+    @m SUN 0
+    @m IBM 0
+    @m ALPHA 1
     @m HP 0
     @m SGI 0
     @m VAX 0
@@ -32,6 +46,7 @@
     @m CRAY 0
     @m SUN 0
     @m IBM 0
+    @m ALPHA 0
     @m HP 1
     @m SGI 0
     @m VAX 0
@@ -39,6 +54,7 @@
     @m CRAY 0
     @m SUN 0
     @m IBM 0
+    @m ALPHA 0
     @m HP 0
     @m SGI 1
     @m VAX 0
@@ -46,6 +62,7 @@
     @m CRAY 0
     @m SUN 0
     @m IBM 0
+    @m ALPHA 0
     @m HP 0
     @m SGI 0
     @m VAX 1
@@ -54,7 +71,7 @@
 @ Define precision.
 
 @f single_precision real
-@f short_integer integer
+@f address integer
 
 @#if CRAY                       // Use single precision on the Cray
   @m real     REAL
@@ -71,6 +88,12 @@
   @m single_precision REAL      // Declare single precision
   @m single   REAL              // Coerce to single precision
 @#endif
+
+@#if ALPHA                      // Pointers are 64-bits on Alphas
+  @m address INTEGER*8
+@#else
+  @m address INTEGER
+@#endif 
 
 @ The sizes of integers and characters in terms of reals.
 
@@ -96,5 +119,6 @@
 @m sy_common
       external get_env,wall_time,cpu_time,get_pid,arg_count,mem_alloc,mem_realloc,set_cwd;
       logical get_env,set_cwd;
-      integer wall_time,get_pid,arg_count,mem_alloc,mem_realloc;
+      integer wall_time,get_pid,arg_count;
+      address mem_alloc,mem_realloc;
       real cpu_time @;
