@@ -2,6 +2,11 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.1  1996/10/30 17:18:10  dstotler
+% This example compares DEGAS 2 with an analytic fluid neutral transport
+% model. Several non-DEGAS 2 routines used to compute the analytic
+% solution are in this file as well.
+%
 
 @* Generate a box geometry and plasma. This should serve as a simpler example
 than |readgeometry| and |readbackground| of how to manually set up 
@@ -23,12 +28,12 @@ extraneous material should be stripped out.
 @I zone.hweb
 @I vector.hweb
 @I materials.hweb
-@I strata.hweb
 @I sector.hweb
 @I string.hweb
 @I background.hweb
 @I sources.hweb
 @I species.hweb
+@I detector.hweb
 
 @ The main program.
 
@@ -38,7 +43,10 @@ extraneous material should be stripped out.
 
       call readfilenames
       call nc_read_species
+      call nc_read_reactions
       call nc_read_materials
+      call nc_read_pmi
+      call nc_read_problem
 
       call setup_box_geometry
 
@@ -89,7 +97,7 @@ is an exit.
       implicit_none
 
       real z_min,z_max,border_frac,guard_frac,                // Local
-     $     x_border,z_border,delta_guard,delta_x,delta_z,vol
+     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,albedo
       real z_grid[0:nz],univ_min[3],univ_max[3],
      $     poly_corners[2,0:4],poly_points[2,0:nmax+3],point_1[3],point_2[3]
       integer n,zone,i,j,stratum,sector1,sector2
@@ -101,7 +109,6 @@ is an exit.
       box_common                                             // Common
       zn_common
       sy_common
-      sr_common
       sc_common
       ma_common
       st_common
@@ -254,55 +261,58 @@ is an exit.
       do i=0,nxtot-1
          vc_set(point_1,x_grid[i],zero,z_grid[0])
          vc_set(point_2,x_grid[i+1],zero,z_grid[0])
-         sector1=define_sector(stratum,lookup_surface(point_1,point_2),
+         sector1=define_sector(stratum,i,lookup_surface(point_1,point_2),
      $                         boundary_zones[stratum])
-         define_sector_solid(sector1,material,temp_min*electron_charge)
-         sector2=define_sector(stratum,lookup_surface(point_2,point_1),
+         define_sector_target(sector1,material,temp_min*electron_charge)
+         sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
      $                         plasma_zones[i,0])
          define_sector_plasma(sector2)
       end do
-      sr_type_set(stratum,sr_target)
 
       stratum=2
+      albedo=zero
       do j=0,nz-1                                          // Right
          vc_set(point_1,x_grid[nxtot],zero,z_grid[j])
          vc_set(point_2,x_grid[nxtot],zero,z_grid[j+1])
-         sector1=define_sector(stratum,lookup_surface(point_1,point_2),
+         sector1=define_sector(stratum,j,lookup_surface(point_1,point_2),
      $                         boundary_zones[stratum])
-         define_sector_exit(sector1)
-         sector2=define_sector(stratum,lookup_surface(point_2,point_1),
+         define_sector_exit(sector1,albedo)
+         sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
      $                         plasma_zones[nxtot-1,j])
          define_sector_plasma(sector2)
       end do
-      sr_type_set(stratum,sr_exit)
 
       stratum=3
       do i=nxtot,1,-1                                       // Top
          vc_set(point_1,x_grid[i],zero,z_grid[nz])
          vc_set(point_2,x_grid[i-1],zero,z_grid[nz])
-         sector1=define_sector(stratum,lookup_surface(point_1,point_2),
+         sector1=define_sector(stratum,i,lookup_surface(point_1,point_2),
      $                         boundary_zones[stratum])
-         define_sector_solid(sector1,material,temp_min*electron_charge)
-         sector2=define_sector(stratum,lookup_surface(point_2,point_1),
+         define_sector_target(sector1,material,temp_min*electron_charge)
+         sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
      $                         plasma_zones[i-1,nz-1]) 
          define_sector_plasma(sector2)
       end do
-      sr_type_set(stratum,sr_target)
 
       stratum=4
       do j=nz,1,-1                                           // Left
          vc_set(point_1,x_grid[0],zero,z_grid[j])
          vc_set(point_2,x_grid[0],zero,z_grid[j-1])
-         sector1=define_sector(stratum,lookup_surface(point_1,point_2),
+         sector1=define_sector(stratum,j,lookup_surface(point_1,point_2),
      $                         boundary_zones[stratum])
-         define_sector_solid(sector1,material,temp_min*electron_charge)
-         sector2=define_sector(stratum,lookup_surface(point_2,point_1),
+         define_sector_target(sector1,material,temp_min*electron_charge)
+         sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
      $                         plasma_zones[0,j-1]) 
          define_sector_plasma(sector2)
       end do
-      sr_type_set(stratum,sr_target)
+
+      call diag_sector_setup
 
       call end_sectors
+
+      call detector_setup
+
+      call end_detectors
 
       call check_geometry
 
@@ -358,7 +368,6 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       zn_common                       
       bk_common
       so_common
-      sr_common
       sc_common
       sy_common
       sp_common
@@ -397,11 +406,11 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_type(so_grps)=so_puff
       so_geom(so_grps)=so_surface
       so_nflights(so_grps)=100       // Should be reset manually prior to run
-      so_species(so_grps)=sp_lookup('H')
+      so_species(so_grps)=sp_lookup('H2')
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
       do sector=1,nsectors
-         if (strata[sector]==4 && sector_plasma[sector]!=0) then
+         if (strata[sector]==4 && plasma_lookup(sector)!=0) then
             so_seg_tot++
             var_realloca(source_current)
             var_realloca(source_segment_ptr)
@@ -423,6 +432,8 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
      $     source_segment_prob_alias[so_base(so_grps)],
      $     source_segment_ptr_alias[so_base(so_grps)],
      $     so_wt_norm(so_grps))
+
+      call set_background_sources
 
       call write_background
 
@@ -489,6 +500,74 @@ from the corresponding function. This is all strictly 1-D.
      
       n_of_x = temp_max * den_min / t_of_x(x)
 
+      return
+      end
+
+@ Set up detectors for unit box geometry. {\em Note: this routine is
+geometry-specific!}
+
+@m total_views 5   // To be used as a local dimension
+@<Functions...@>=
+      subroutine detector_setup
+
+      implicit_none
+
+      integer view,num,var,tab_index,spacing,i
+      integer grp_views[total_views]
+      real var_min,var_max,mult
+
+      de_common
+      sy_common
+      zn_common
+
+      detector_total_views=total_views
+      var_alloc(de_view_points)
+      var_alloc(de_view_algorithm)
+      var_alloc(de_view_halfwidth)
+      var_alloc(de_zone_frags)
+      
+      do view=1,detector_total_views
+         de_view_algorithm[view]=de_algorithm_uniform
+         de_view_halfwidth[view]=const(3.)*PI/const(1.8,2)  // arbitary
+         vc_set(de_view_points[view][de_view_start],one,zero,half)
+      end do
+      
+      vc_set(de_view_points[1][de_view_end],half,zero,zero)
+      vc_set(de_view_points[2][de_view_end],zero,zero,const(0.25))
+      vc_set(de_view_points[3][de_view_end],zero,zero,half)
+      vc_set(de_view_points[4][de_view_end],zero,zero,const(0.75))
+      vc_set(de_view_points[5][de_view_end],half,zero,one)
+
+      call detector_view_setup
+
+      de_grps=0
+      de_view_size=0
+      var_alloc(de_view_tab)
+
+      num=detector_total_views
+      var=de_var_unknown
+      tab_index=zero
+      var_min=zero
+      var_max=zero
+      mult=zero
+      spacing=de_spacing_unknown
+      do i=1,num
+         grp_views[i]=i
+      end do
+      call de_grp_init('Chord integrals',num,var,tab_index,var_min,var_max,
+     $     mult,spacing,grp_views)
+
+      num=1
+      var=de_var_wavelength
+      tab_index=200
+      var_min=const(6558.)
+      var_max=const(6564.)
+      mult=const(1.,-10)
+      spacing=de_spacing_linear
+      grp_views[1]=3
+      call de_grp_init('Halpha spectrum',num,var,tab_index,var_min,var_max,
+     $     mult,spacing,grp_views)
+      
       return
       end
 
@@ -1827,7 +1906,7 @@ c note..  vnorm, isamax, sdot, and r1mach are function routines.
 c all the others are subroutines.
 c
 c the intrinsic and external routines used by lsode are..
-c abs, amax1, amin1, float, max0, min0, mod, sign, sqrt, and write.
+c abs, max, min, float, max0, min0, mod, sign, sqrt, and write.
 c
 c-----------------------------------------------------------------------
 c the following card is for optimized compilation on llnl compilers.
@@ -2057,25 +2136,25 @@ c the sign of h0 is inferred from the initial values of tout and t.
 c-----------------------------------------------------------------------
       if (h0 .ne. 0.0e0) go to 180
       tdist = abs(tout - t)
-      w0 = amax1(abs(t),abs(tout))
+      w0 = max(abs(t),abs(tout))
       if (tdist .lt. 2.0e0*uround*w0) go to 622
       tol = rtol(1)
       if (itol .le. 2) go to 140
       do 130 i = 1,n
- 130    tol = amax1(tol,rtol(i))
+ 130    tol = max(tol,rtol(i))
  140  if (tol .gt. 0.0e0) go to 160
       atoli = atol(1)
       do 150 i = 1,n
         if (itol .eq. 2 .or. itol .eq. 4) atoli = atol(i)
         ayi = abs(y(i))
-        if (ayi .ne. 0.0e0) tol = amax1(tol,atoli/ayi)
+        if (ayi .ne. 0.0e0) tol = max(tol,atoli/ayi)
  150    continue
- 160  tol = amax1(tol,100.0e0*uround)
-      tol = amin1(tol,0.001e0)
+ 160  tol = max(tol,100.0e0*uround)
+      tol = min(tol,const(1.,-3))
       sum = vnorm (n, rwork(lf0), rwork(lewt))
       sum = 1.0e0/(tol*w0*w0) + tol*sum**2
       h0 = 1.0e0/sqrt(sum)
-      h0 = amin1(h0,tdist)
+      h0 = min(h0,tdist)
       h0 = sign(h0,tout-t)
 c adjust h0 if necessary to meet hmax bound. ---------------------------
  180  rh = abs(h0)*hmxi
@@ -2667,10 +2746,10 @@ c-----------------------------------------------------------------------
       ddn = vnorm (n, savf, ewt)/tesco(1,l)
       exdn = 1.0e0/float(l)
       rhdn = 1.0e0/(1.3e0*ddn**exdn + 0.0000013e0)
-      rh = amin1(rhdn,1.0e0)
+      rh = min(rhdn,const(1.))
       iredo = 3
       if (h .eq. hold) go to 170
-      rh = amin1(rh,abs(h/hold))
+      rh = min(rh,abs(h/hold))
       h = hold
       go to 175
 c-----------------------------------------------------------------------
@@ -2697,9 +2776,9 @@ c-----------------------------------------------------------------------
       h = hold
       iredo = 3
       go to 175
- 170  rh = amax1(rh,hmin/abs(h))
- 175  rh = amin1(rh,rmax)
-      rh = rh/amax1(1.0e0,abs(h)*hmxi*rh)
+ 170  rh = max(rh,hmin/abs(h))
+ 175  rh = min(rh,rmax)
+      rh = rh/max(const(1.),abs(h)*hmxi*rh)
       r = 1.0e0
       do 180 j = 2,l
         r = r*rh
@@ -2782,8 +2861,8 @@ c-----------------------------------------------------------------------
 c test for convergence.  if m.gt.0, an estimate of the convergence
 c rate constant is stored in crate, and this is used in the test.
 c-----------------------------------------------------------------------
- 400  if (m .ne. 0) crate = amax1(0.2e0*crate,del/delp)
-      dcon = del*amin1(1.0e0,1.5e0*crate)/(tesco(2,nq)*conit)
+ 400  if (m .ne. 0) crate = max(0.2e0*crate,del/delp)
+      dcon = del*min(const(1.),1.5e0*crate)/(tesco(2,nq)*conit)
       if (dcon .le. 1.0e0) go to 450
       m = m + 1
       if (m .eq. maxcor) go to 410
@@ -2920,7 +2999,7 @@ c-----------------------------------------------------------------------
  610  ialth = 3
       go to 700
  620  if ((kflag .eq. 0) .and. (rh .lt. 1.1e0)) go to 610
-      if (kflag .le. -2) rh = amin1(rh,0.2e0)
+      if (kflag .le. -2) rh = min(rh,const(2.,-1))
 c-----------------------------------------------------------------------
 c if there is a change of order, reset nq, l, and the coefficients.
 c in any case h is reset according to rh and the yh array is rescaled.
@@ -2942,7 +3021,7 @@ c until it succeeds or h reaches hmin.
 c-----------------------------------------------------------------------
  640  if (kflag .eq. -10) go to 660
       rh = 0.1e0
-      rh = amax1(hmin/abs(h),rh)
+      rh = max(hmin/abs(h),rh)
       h = h*rh
       do 645 i = 1,n
  645    y(i) = yh(i,1)
@@ -3177,7 +3256,7 @@ c if miter = 2, make n calls to f to approximate j. --------------------
       j1 = 2
       do 230 j = 1,n
         yj = y(j)
-        r = amax1(srur*abs(yj),r0/ewt(j))
+        r = max(srur*abs(yj),r0/ewt(j))
         y(j) = y(j) + r
         fac = -hl0/r
         call f (neq, tn, y, ftem)
@@ -3243,13 +3322,13 @@ c if miter = 5, make mband calls to f to approximate j. ----------------
       do 560 j = 1,mba
         do 530 i = j,n,mband
           yi = y(i)
-          r = amax1(srur*abs(yi),r0/ewt(i))
+          r = max(srur*abs(yi),r0/ewt(i))
  530      y(i) = y(i) + r
         call f (neq, tn, y, ftem)
         do 550 jj = j,n,mband
           y(jj) = yh(jj,1)
           yjj = y(jj)
-          r = amax1(srur*abs(yjj),r0/ewt(jj))
+          r = max(srur*abs(yjj),r0/ewt(jj))
           fac = -hl0/r
           i1 = max0(jj-mu,1)
           i2 = min0(jj+ml,n)
