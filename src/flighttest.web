@@ -2,6 +2,16 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.38  2001/07/16 20:53:27  dstotler
+% Now contains the "program" routine, BGK loop (including management of
+% seeds) and BGK test.  Add call to write_background for BGK. Set
+% vel_test to particle velocity vector (explicitly divided by density
+% since divide_number conversion is broken). Replaced background_n with
+% bk_n, etc. and redefined back_pres correspondingly. Add volume factors
+% to BGK convergence parameters. Subtract drift energy in computing BGK
+% background temperature. Incorporated changes for Couette flow, mostly
+% set of by a macro parameter, except for an overall density scaling.
+%
 % Revision 1.37  2000/04/01 17:36:42  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved. Explicitly set iter_count to 0 in non-BGK case.
@@ -192,11 +202,22 @@ its original purpose as a geometry test routine.
 
 @m FILE 'flighttest.web'
 
-@m bgk_max 6
-@m bgk_cvg_dens const(5.,-2)
-@m bgk_cvg_pres const(5.,-2)
-
 @m COUETTE 0
+
+@#if (COUETTE == 1)
+
+@m bgk_max 10
+@m bgk_cvg_dens const(1.,-8)
+@m bgk_cvg_pres const(1.,-8)
+
+@#else
+
+@m bgk_max 5
+@m bgk_cvg_dens const(5.,-3)
+@m bgk_cvg_pres const(5.,-3)
+
+@#endif
+
 
 @I macros.hweb
 @I sysdep.hweb
