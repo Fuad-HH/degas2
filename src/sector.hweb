@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1999/03/25 20:47:28  dstotler
+% Move in attribute descriptions from classes.web file.
+%
 % Revision 1.8  1999/02/02 15:07:51  dstotler
 % Added recycling coefficient to list of target and wall properties.
 %
@@ -46,18 +49,26 @@
 @m sc_decl(x) integer x @;
 
 @m sc_plasma_decl(x) integer x @;
+@m sc_target_decl(x) integer x @;
+@m sc_wall_decl(x) integer x @;
 
 @m sc_copy(x,y) y=x @;
 
 @m sc_check(x) (x > 0 && x <= nsectors)
 
 @m sc_plasma_check(x) (x > 0 && x <= sc_plasma_num)
+@m sc_target_check(x) (x > 0 && x <= sc_target_num)
+@m sc_wall_check(x) (x > 0 && x <= sc_wall_num)
+@m sc_exit_check(x) (x > 0 && x <= sc_exit_num)
+@m sc_diag_check(x,g) (x > 0 && x <= diagnostic_num_sectors[g])
 
 // Define these to work around the [0] element.
 
 @m diag_lookup(name) string_lookup(name,diagnostic_grp_name[1],sc_diagnostic_grps)
 
 @m plasma_lookup(sector) int_lookup(sector,plasma_sector[1],sc_plasma_num)
+@m target_lookup(sector) int_lookup(sector,target_sector[1],sc_target_num)
+@m wall_lookup(sector) int_lookup(sector,wall_sector[1],sc_wall_num)
 
 @m sc_unknown 0      // Sector types
 @m sc_vacuum 1
@@ -122,9 +133,6 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_var_pk(sc,sc_plasma_num,INT)
       define_dimen_pk(sc,plasma_ind,0,sc_plasma_num)
       define_varp_pk(sc,plasma_sector,INT,plasma_ind)
-      define_varp_pk(sc,plasma_e_ion_delta,FLOAT,plasma_ind)
-      define_varp_pk(sc,plasma_e_ion_mult,FLOAT,plasma_ind)
-          // Properties: field-line-angle-of-incidence, for example
 
 /* |target| subclass */
       define_var_pk(sc,sc_target_num,INT)
@@ -133,6 +141,9 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_varp_pk(sc,target_material,INT,target_ind)
       define_varp_pk(sc,target_temperature,FLOAT,target_ind)
       define_varp_pk(sc,target_recyc_coef,FLOAT,target_ind)
+      define_varp_pk(sc,target_e_ion_delta,FLOAT,target_ind)
+      define_varp_pk(sc,target_e_ion_mult,FLOAT,target_ind)
+          // Properties: field-line-angle-of-incidence, for example
 
 /* |wall| subclass */
       define_var_pk(sc,sc_wall_num,INT)
@@ -146,7 +157,9 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_var_pk(sc,sc_exit_num,INT)
       define_dimen_pk(sc,exit_ind,0,sc_exit_num)
       define_varp_pk(sc,exit_sector,INT,exit_ind)
+@#if 0
       define_varp_pk(sc,exit_albedo,FLOAT,exit_ind)
+@#endif
 
 /* |diagnostic| subclass */
       define_var_pk(sc,sc_diagnostic_grps,INT)               
@@ -188,23 +201,23 @@ starting them at $0$, the dimensions have a length of at least $1$.
 @m define_sector_plasma(sc)
       sc_plasma_num=sc_plasma_num+1;
       var_realloca(plasma_sector);
-      var_realloca(plasma_e_ion_delta);
-      var_realloca(plasma_e_ion_mult);
       plasma_sector[sc_plasma_num]=sc;
-      sector_type_pointer[sc][sc_plasma]=sc_plasma_num; 
-      plasma_e_ion_delta[sc_plasma_num]=zero;       // Simple default values,
-      plasma_e_ion_mult[sc_plasma_num]=one @;       // Reset with background
+      sector_type_pointer[sc][sc_plasma]=sc_plasma_num @; 
 @m define_sector_target(sc,mat,temp,recyc)
       sc_target_num=sc_target_num+1;
       var_realloca(target_sector);
       var_realloca(target_material);
       var_realloca(target_temperature);
       var_realloca(target_recyc_coef);
+      var_realloca(target_e_ion_delta);
+      var_realloca(target_e_ion_mult);
       target_sector[sc_target_num]=sc;
       sector_type_pointer[sc][sc_target]=sc_target_num;
       target_material[sc_target_num]=mat;
       target_temperature[sc_target_num]=temp;
-      target_recyc_coef[sc_target_num]=recyc @; 
+      target_recyc_coef[sc_target_num]=recyc; 
+      target_e_ion_delta[sc_target_num]=zero;       // Simple default values,
+      target_e_ion_mult[sc_target_num]=one @;       // Reset with background
 @m define_sector_wall(sc,mat,temp,recyc)
       sc_wall_num=sc_wall_num+1;
       var_realloca(wall_sector);
@@ -216,13 +229,14 @@ starting them at $0$, the dimensions have a length of at least $1$.
       wall_material[sc_wall_num]=mat;
       wall_temperature[sc_wall_num]=temp;
       wall_recyc_coef[sc_wall_num]=recyc @;
-@m define_sector_exit(sc,alb)
+@m define_sector_exit(sc)
       sc_exit_num=sc_exit_num+1;
       var_realloca(exit_sector);
-      var_realloca(exit_albedo);
       exit_sector[sc_exit_num]=sc;
-      sector_type_pointer[sc][sc_exit]=sc_exit_num;
+      sector_type_pointer[sc][sc_exit]=sc_exit_num @;
+@#if 0
       exit_albedo[sc_exit_num]=alb @;
+@#endif
 
 @* Sector class attribute descriptions.
 
@@ -232,12 +246,12 @@ A sector is identified by a positive integer |sector|.  This
 gives information about the properties of the sector.  Each
 sector is defined by a zone and a (directed) surface number. The array
 providing the map from surface indices back to the sector indices
-is held within the sector common block.  
+is held within the sector common block.  The primary purpose of sectors
+is to signal the tracking routine that some additional processing
+is required when a flight crosses this surface.
 
 A set of sector subclasses are defined here as well for the purpose of
 providing clearly defined arrays for storing sector-related properties.
-With the exception of the ``diagnostic'' subclass, the subclass type
-is the closely related to the sector's zone type.
 The intention is that the number of these subclasses will change
 infrequently; with new properties added occasionally. Hence, we have
 opted, for clarity, to make the subclass and property names explicit
@@ -250,20 +264,44 @@ intention is to use them in the same way as the |zn_index| for
 individual zones. For historical reasons, a single stratum is used to
 for sectors on both sides of a boundary (e.g., plasma-surface interface).
 
-Note that separate |target| and |wall| subclasses are being maintained,
-although currently the distinction between them is largely artificial
-since they have the same properties. The anticipation is that at some
-point the distinction will prove useful in separating sectors experiencing
-(in most problems) both ion and neutral fluxes from those receiving just
-neutral fluxes.
+The original usage of sectors had separate subclasses for |plasma|,
+|vacuum|, |target|, and |wall|. All of these designations still exist.
+However, experience with a few practical situations led to a re-evaluation
+in which these four were essentially merged into the surviving 
+|target| and |wall| subclasses. {\bf For now, the |plasma| and |vacuum|
+subclasses will be considered deprecated and may eventually be
+removed.} The |exit| and |diagnostic| subclasses have not been altered
+by these changes. However, the never-implemented |albedo| property
+of the exits has been replaced with the recycling coefficients of the
+|wall| and |target| subclasses. The reason for this is that non-exiting
+particles will need to undergo a PMI (i.e., involve a {\tt material}
+for which reflection, desorption, or some other process is available).
+
+A |target| sector is assumed to exist at the interface between a plasma
+and a solid zone. The properties |target_e_ion_delta| and |target_e_ion_mult|
+are used to specify the sheath potential used in conjunction with a
+plate source at these sectors. The plasma zone is used in defining the
+sector with the orientation of the surface chosen so that it is one of the
+bounding surfaces for the cells comprising that zone. Since most problems 
+require properties such as the sheath information and recycling
+coefficient to vary from one sector to another, these properties must be
+stored with the sectors. The solid zones are usually problem-size objects,
+encompassing many of the surfaces used in defining these sectors.
+Having made this decision, the original practice of defining a second 
+sector based on the solid zone and the oppositely 
+oriented surface is superfluous and has been dropped for simplicity.
+
+The |wall| sectors exist at the interface between vacuum and solid
+zones. They currently differ from the |target| zones only by the
+absence of the above-mentioned sheath properties.
 
 The diagnostic subclass (distinct from the separate, but also arbitrarily
 named, |detector| class) properties permit sectors to record information
-about sector-crossing flights. As presently envisioned and utilized, these
-sectors are also members of the |target| or |wall| subclasses.
-Related diagnostic sectors with identical properties may be collectively
-``grouped'' together. There may be several groups of diagnostics in
-a given problem: one to measure particle current to each sector,
+about sector-crossing flights. Default diagnostic sectors are set up 
+using the declared |target|, |wall|, and |exit| sectors. Associated tallies
+are defined from these. Related diagnostic sectors with identical properties 
+may be collectively ``grouped'' together. There may be several groups of 
+diagnostics in a given problem: one to measure particle current to each sector,
 one to collect an energy spectrum of arriving particles, etc.
 Each sector (a given surface and zone) may belong to one of the 
 non-diagnostic subclasses (this is only a logical restriction and is
@@ -365,9 +403,6 @@ sector |wall_ind|.
 
   \item[|exit_sector[exit_ind]|] Returns the sector index corresponding
 to index |exit_ind| in the exit subclass list.
-
-  \item[|exit_albedo[exit_ind]|] Floating value for the albedo of
-the exit sector |exit_ind|.
 \end{description}
 
 {\bf diagnostic subclass}
@@ -417,10 +452,39 @@ set up the |diagnostic_sector| macro.
 @ Routines using sectors.
 
 \begin{description}
+
+  \item[|sc_check(sector)|] Verifies that this is a valid sector.
+
+  \item[|sc_plasma_check(p_sector)|] Verifies that |p_sector| is a
+valid identifier for a member of the plasma subclass (i.e., |p_sector|
+is {\em not} a sector number).
+
+  \item[|sc_target_check(t_sector)|] Verifies that |t_sector| is a
+valid identifier for a member of the target subclass (i.e., |t_sector|
+is {\em not} a sector number).
+
+  \item[|sc_wall_check(w_sector)|] Verifies that |w_sector| is a
+valid identifier for a member of the wall subclass (i.e., |w_sector|
+is {\em not} a sector number).
+
+  \item[|sc_exit_check(e_sector)|] Verifies that |e_sector| is a
+valid identifier for a member of the exit subclass (i.e., |e_sector|
+is {\em not} a sector number).
+
+  \item[|sc_diag_check(d_sector,grp)|] Verifies that |d_sector| is a
+valid identifier for a member of the diagnostic subclass in diagnostic
+group |grp| (i.e., |d_sector| is {\em not} a sector number).
+
   \item[|diag_lookup(name)|] Returns the integral diagnostic group number
 associated with |name|.
 
   \item[|plasma_lookup(sector)|] Retrieves the index in the plasma subclass
+list corresponding to sector.
+
+  \item[|target_lookup(sector)|] Retrieves the index in the target subclass
+list corresponding to sector.
+
+  \item[|wall_lookup(sector)|] Retrieves the index in the wall subclass
 list corresponding to sector.
 
   \item[|sc_diagnostic(group)|] Provides the integral sector type 
@@ -439,13 +503,14 @@ subclass.
 Adds |sector| to the 
 target sector subclass. It is assumed to made of |material| (member of the
 material class |ma|) at temperature |temp|, with recycling coefficient |recyc|.
+Default values |target_e_ion_delta| = 0 and |target_e_ion_mult| = 1 are
+assigned at this point; they may be explicitly changed.
 
   \item[|define_sector_wall(sector,material,temp,recyc)|] Adds |sector| to the 
 wall sector subclass. It is assumed to made of |material| (member of the
 material class |ma|) at temperature |temp|, with recycling coefficient |recyc|.
 
-  \item[|define_sector_exit(sector,albedo)|] Adds |sector| to the exit
-sector subclass. An albedo value of |albedo| is assigned (not implemented at
-present).
+  \item[|define_sector_exit(sector)|] Adds |sector| to the exit
+sector subclass. 
 \end{description}
   
