@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.33  1995/06/13 21:19:40  jshankar
+# changed to compile readfilenames.
+#
 # Revision 1.32  1995/06/12 13:06:59  karney
 # Add in dummy elements into common blocks to avoid complaints from
 # Alpha.
@@ -179,13 +182,7 @@ ifeq ($(DEBUG),yes)
 else
   TANGLEFLAGS=-mINLINE -W[ -ytt4000000 -yn8000 -n/ -n')' -Tv
 endif
-<<<<<<< Makefile
-WEAVEFLAGS=-f -i -W[ -ykw600 -n/
-||||||| 1.26
-WEAVEFLAGS=-f -i -W[ -ykw600
-=======
 WEAVEFLAGS=-f -i -W[ -ykw600 -j -n/
->>>>>>> 1.32
 
 ifeq ($(MACHINE),CRAY)
   FC=cft77
