@@ -81,9 +81,9 @@ FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex2e
 ifdef DEBUG
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt500000
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt1000000
 else
-  TANGLEFLAGS=-mINLINE -W[ -ytt500000
+  TANGLEFLAGS=-mINLINE -W[ -ytt1000000
 endif
 WEAVEFLAGS=-f -i -W[
 
@@ -131,7 +131,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
-    background.hweb zone.hweb vector.hweb reaction.hweb
+    background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb
 
 %.f: %.web $(HEADERS)
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -209,6 +209,14 @@ geomtesta = geometry.$O plotgeom.$O elementread.$O
 geomtesta_libs = $(HDF) $(NETCDF)
 geomtesta: $(geomtesta)
 
+reactionwrite = 
+reactionwrite_libs = $(NETCDF)
+reactionwrite: $(reactionwrite)
+
+reactionsetup = elementread.$O
+reactionsetup_libs = $(NETCDF)
+reactionsetup: $(reactionsetup)
+
 #elementread: sysdep.$O
 #test: sysdep.$O
 #sysdeptest: sysdep.$O string.$O
@@ -222,7 +230,6 @@ geomread: geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composite
 elementlookup: sysdep.$O string.$O
 speciesetup: elementread.$O sysdep.$O string.$O
 #flighttest: sysdep.$O string.$O elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O
-reactionsetup: elementread.$O sysdep.$O string.$O
 ifeq ($(MACHINE),IBM)
   sysdep: sysdep.$O sysdep.c.$O
 endif
