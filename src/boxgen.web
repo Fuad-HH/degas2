@@ -2,6 +2,9 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.6  1997/09/29 17:17:37  karney
+% Implement mem_check.
+%
 % Revision 1.5  1997/09/02 21:14:20  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -99,7 +102,7 @@ where |den_max| is computed.
 Three sides of the box are set up as ``mirrors''; the fourth (|x| = |x_max|)
 is an exit. 
 
-@m nx 100
+@m nx 5
 @m nz 1
 @m nxtot nx+2
 @m nmax nxtot
@@ -450,6 +453,16 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
          end if
       end do
       so_nseg(so_grps)=so_seg_tot
+
+      var_reallocb(source_base_ptr)
+      var_reallocb(source_num_segments)
+      var_reallocb(source_type)
+      var_reallocb(source_geometry)
+      var_reallocb(source_num_flights)
+      var_reallocb(source_species)
+      var_reallocb(source_total_current)
+      var_reallocb(source_weight_norm)
+      var_reallocb(source_scale_factor)
 
       call set_prob_alias(so_nseg(so_grps),
      $     source_current[so_base(so_grps)],
