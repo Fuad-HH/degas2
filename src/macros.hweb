@@ -1,0 +1,105 @@
+@* Header macros degas2.
+% $Id$
+% $Log$
+
+% Revision 1.13  1993/06/01  22:15:45  karney
+% Redo pre-Albuquerque checkin
+%
+% Revision 1.13  1993/04/24  23:16:16  karney
+% Pre-Albuquerque checkin
+%
+% Revision 1.12  1993/03/17  20:35:12  karney
+% Prior to array reorganization
+%
+% Revision 1.11  1992/11/13  18:00:22  karney
+% Pre-APS checkin
+%
+% Revision 1.10  1992/10/08  18:51:02  karney
+% More changes
+%
+% Revision 1.9  1992/08/20  14:54:02  karney
+% Convert to LaTeX/NFSS
+%
+% Revision 1.8  1992/07/15  21:43:46  karney
+% Finish implementing geometry setup routines.  Split geomsetup into geomsetup
+% geomutils and geomfaces.
+%
+% Revision 1.7  1992/07/06  17:33:52  karney
+% Implement other distributions of random numbers
+%
+% Revision 1.6  1992/06/27  21:04:51  karney
+% Support other machines besides Sun and Cray
+%
+
+\ID{$Id$}
+
+@I sysdep.hweb
+
+@ Define some constants.
+
+@m zero const(0.0)
+@m one const(1.0)
+@m half const(0.5)
+@m two const(2.0)
+@m PI atan2(zero,-one)
+@m FALSE 0
+@m TRUE 1
+
+@ File units.
+
+@m stdin 5
+@m stdout 6
+@m stderr 0
+@m diskin 20
+@m diskout 21
+
+@ Error checking.
+
+@#if defined(DEBUG)
+  @m DEBUG 1
+@#else
+  @m DEBUG 0
+@#endif
+
+@#if defined(INLINE)
+  @m INLINE 1
+@#else
+  @m INLINE 0
+@#endif
+
+@m assert(condition) if (!(condition)) then;
+    call error('Assertion failed ('\/FILE\/'): '\/#condition);
+end if @;
+
+@#if DEBUG
+    @m check(condition) assert(condition) @;
+@#else
+    @m check(condition) if (.false.) print *, condition @;
+@#endif
+
+@ Some labels.
+
+@m loop #:0
+@m loop1 #:0
+@m loop2 #:0
+@m eof #:0
+@m eof1 #:0
+@m eof2 #:0
+@m break #:0
+@m break1 #:0
+@m break2 #:0
+@m cont #:0
+@m cont1 #:0
+@m cont2 #:0
+
+@ The lengths of some character variables.
+
+@m LINELEN 136
+@m FILELEN 52
+
+@ Include other definitions.
+
+@I array.hweb
+@I vector.hweb
+@I classes.hweb
+@I constants.hweb

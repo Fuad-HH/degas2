@@ -1,0 +1,58 @@
+@* Background definitions.
+
+% $Id$
+
+% $Log$
+% Revision 1.1  1992/11/13  17:58:50  karney
+% Initial checkin
+%
+
+\ID{$Id$}
+
+Information about background species is held in arrays in
+common blocks.  An background is identified by an integer indexing into
+these arrays.
+
+@f bk_decl integer
+
+@m bk_args(x) x
+
+@m bk_dummy(x) x
+
+@m bk_decl(x) integer x @;
+
+@m bk_copy(x,y) y=x @;
+
+@m bk_check(x) (x > 0 && x <= bk_num)
+
+@m bk_sp(x) background_sp[x]
+@m bk_n(x,i) background_n[x,zn_pointer(i)]
+@m bk_temp(x,i) background_temp[x,zn_pointer(i)]
+@m bk_v(x,i) background_v[x,zn_pointer(i)]
+
+@ Variable definitions.
+
+@a
+      define_dimen(background_ind,bk_num)
+      define_dimen(plasma_ind,zn_plasma_num)
+      define_var(bk_num,INT)
+      define_var(background_sp,INT,background_ind)
+      define_var(background_n,INT,background_ind,plasma_ind)
+      define_var(background_v,INT,vc_ind,background_ind,plasma_ind)
+      define_var(background_temp,INT,background_ind,plasma_ind)
+
+@ Common blocks definitions.
+
+@f bk_common integer
+@m bk_common
+      declare_var(bk_num);
+      declare_varp(background_sp);
+      declare_varp(background_n);
+      declare_varp(background_v);
+      declare_varp(background_temp);
+      common /com_background/ bk_num,ptr_background_sp,
+          ptr_background_n,ptr_background_v,
+          ptr_background_temp;
+      character*80 background_version;
+      common /com_background_c/ background_version;
+      save /com_background/,/com_background_c/ @;

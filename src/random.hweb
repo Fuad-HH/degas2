@@ -1,0 +1,131 @@
+@* Random definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+A random number sequence is idenified by a string tag.
+
+@f rn_decl integer
+@f rn_common integer
+
+@m rn_args(x) rn_index(x),rn_max(x),rn_count(x),rn_array(x)[0],
+      rn_gauss_index(x),rn_gauss_array(x)[0],
+      rn_iso_index(x),rn_iso_array(x)[1][0],
+      rn_cos_index(x),rn_cos_array(x)[1][0]
+
+@m rn_dummy(x) rn_index(x),rn_max(x),rn_count(x),rn_array(x),
+      rn_gauss_index(x),rn_gauss_array(x),
+      rn_iso_index(x),rn_iso_array(x),
+      rn_cos_index(x),rn_cos_array(x)
+
+@m rn_decl(x) integer rn_index(x),rn_max(x),rn_count(x),
+      rn_gauss_index(x),rn_cos_index(x),rn_iso_index(x);
+      real rn_array(x)[0:2*RAN_K-1], rn_gauss_array(x)[0:RAN_G-1],
+        rn_iso_array(x)[3,0:RAN_I-1],rn_cos_array(x)[3,0:RAN_C-1] @;
+
+@m rn_common integer ran_temp;
+      real rand_gauss,random,fast_random;
+      external rand_gauss,random,fast_random @;
+
+@m rn_copy(x,y)
+      rn_index(y)=rn_index(x);
+      rn_max(y)=rn_max(x);
+      rn_count(y)=rn_count(x);
+      rn_gauss_index(y)=rn_gauss_index(x);
+      rn_iso_index(y)=rn_iso_index(x);
+      rn_cos_index(y)=rn_cos_index(x);
+      do ran_temp=min(rn_index(x),rn_max(x)-RAN_K),rn_max(y)-1;
+         rn_array(y)[ran_temp]=rn_array(x)[ran_temp];
+      end do;
+      do ran_temp=0,rn_gauss_index(x)-1;
+         rn_gauss_array(y)[ran_temp]=rn_gauss_array(x)[ran_temp];
+      end do;
+      do ran_temp=0,rn_iso_index(x)-1;
+         vc_copy(rn_iso_array(x)[ran_temp],rn_iso_array(y)[ran_temp]);
+      end do;
+      do ran_temp=0,rn_cos_index(x)-1;
+         vc_copy(rn_cos_array(x)[ran_temp],rn_cos_array(y)[ran_temp]);
+      end do @;
+
+@m rn_index(x)  ran_index_##x	// Accessor routines
+@m rn_max(x)    ran_max_##x
+@m rn_count(x)  ran_count_##x
+@m rn_array(x)  ran_array_##x
+@m rn_gauss_index(x) ran_gauss_index_##x
+@m rn_gauss_array(x) ran_gauss_array_##x
+@m rn_iso_index(x) ran_iso_index_##x
+@m rn_iso_array(x) ran_iso_array_##x
+@m rn_cos_index(x) ran_cos_index_##x
+@m rn_cos_array(x) ran_cos_array_##x
+
+@ Length specifications.
+
+@m RAN_K 63		// The size of the batch of random numbers
+@m RAN_G _EVAL(2*(RAN_K/2))     // Size of batches for Gaussian random numbers
+@m RAN_I _EVAL(RAN_K/2)         // Size of batches of isotropically distributed numbers
+@m RAN_C _EVAL(RAN_K/2)         // Size of batches of cosine distributed numbers
+
+@ Inline calling routines.
+
+@m ran_epsilon const(2.0)^(-48) // A constant to add to the random numbers to get them in the range $(0,1)$.
+
+/* An inline version of |y=random(rn_args(x))| */
+@#if INLINE
+@m rn_next(y,x)
+      if (rn_index(x) >= rn_max(x)) call random_batch(rn_args(x));
+      y=rn_array(x)[rn_index(x)]+ran_epsilon;
+      rn_index(x)=rn_index(x)+1 @;
+@#else
+@m rn_next(y,x)
+      y=random(rn_args(x)) @;
+@#endif
+
+/* An inline version of |y=fast_random(rn_args(x))| */
+@#if INLINE
+@m rn_fast_next(y,x)
+      y=rn_array(x)[rn_index(x)]+ran_epsilon;
+      rn_index(x)=rn_index(x)+1 @;
+@#else
+@m rn_fast_next(y,x)
+      y=fast_random(rn_args(x)) @;
+@#endif
+
+/* An inline version of |y=rand_gauss(rn_args(x))| */
+@#if INLINE
+@m rn_gauss_next(y,x)
+      if ( rn_gauss_index(x) <= 0 ) call gauss_batch(rn_args(x));
+      rn_gauss_index(x) = rn_gauss_index(x) - 1;
+      y = rn_gauss_array(x)[rn_gauss_index(x)] @;
+@#else
+@m rn_gauss_next(y,x)
+      y=rand_gauss(rn_args(x)) @;
+@#endif
+
+/* An inline version of |call rand_cosdist(v,rn_args(x))| */
+@#if INLINE
+@m rn_cos_next(v,x)
+      if ( rn_cos_index(x) <= 0 ) call cosdist_batch(rn_args(x));
+      rn_cos_index(x) = rn_cos_index(x) - 1;
+      vc_copy(rn_cos_array(x)[rn_cos_index(x)],v) @;
+@#else
+@m rn_cos_next(v,x)
+      call rand_cosdist(v,rn_args(x)) @;
+@#endif
+
+/* An inline version of |call rand_isodist(v,rn_args(x))| */
+@#if INLINE
+@m rn_iso_next(v,x)
+      if ( rn_iso_index(x) <= 0 ) call isodist_batch(rn_args(x));
+      rn_iso_index(x) = rn_iso_index(x) - 1;
+      vc_copy(rn_iso_array(x)[rn_iso_index(x)],v) @;
+@#else
+@m rn_iso_next(v,x)
+      call rand_isodist(v,rn_args(x)) @;
+@#endif
+
+@m rn_init(seed,x) call random_init(seed,rn_args(x)) @;
+
+@m rn_check(n,x) call random_check(n,rn_args(x)) @;

@@ -1,0 +1,64 @@
+@* Reaction definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+Information about reactions is held in arrays in common blocks.  An
+reaction is identified by an integer indexing into these arrays.
+
+@f rc_decl integer
+@m rc_args(x) x
+@m rc_dummy(x) x
+@m rc_decl(x) integer x @;
+@m rc_copy(x,y) y=x @;
+@m rc_check(x) assert(x > 0 && x <= rc_num) @;
+@m rc_name(x) reaction_name[x]
+@m rc_sy(x)   reaction_sy[x]
+@m rc_reagant_num(x) reaction_reagant_num[x]
+@m rc_product_num(x) reaction_product_num[x]
+@m rc_reagant(x,i)   reaction_reagant[i,x]
+@m rc_product(x,i)   reaction_product[i,x]
+
+@ Length specifications.
+
+@m rc_sy_len 24
+@m rc_name_len 32
+@m rc_reagant_max 2
+@m rc_product_max 4
+
+@ Variable definitions.
+
+@a
+      define_dimen(reaction_symbol_string,rc_sy_len)
+      define_dimen(reaction_name_string,rc_name_len)
+      define_dimen(reaction_ind,rc_num)
+      define_dimen(reagant_ind,rc_reagant_max)
+      define_dimen(product_ind,rc_product_max)
+      define_var(rc_num,INT)
+      define_var(reaction_name,CHAR,reaction_name_string,reaction_ind)
+      define_var(reaction_sy,CHAR,reaction_symbol_string,reaction_ind)
+      define_var(reaction_reagant_num,INT,reaction_ind)
+      define_var(reaction_product_num,INT,reaction_ind)
+      define_var(reaction_reagant,INT,reagant_ind,reaction_ind)
+      define_var(reaction_product,INT,product_ind,reaction_ind)
+
+@ Common blocks definitions.
+
+@f rc_common integer
+@m rc_common
+      declare_var(rc_num);
+      declare_varp(reaction_name);
+      declare_varp(reaction_sy);
+      declare_varp(reaction_reagant_num);
+      declare_varp(reaction_product_num);
+      declare_varp(reaction_reagant);
+      declare_varp(reaction_product);
+      common /com_reaction/ rc_num,ptr_reaction_name,ptr_reaction_sy,
+          ptr_reaction_reagant_num,ptr_reaction_product_num,
+          ptr_reaction_reagant,ptr_reaction_product;
+      character*80 reaction_version;
+      common /com_reaction_c/ reaction_version;
+      save /com_reaction/,/com_reaction_c/ @;

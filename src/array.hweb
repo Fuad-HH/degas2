@@ -1,0 +1,175 @@
+@* Header macros for arrays.
+% $Id$
+
+% $Log$
+# Revision 1.2  1993/06/01  22:15:07  karney
+# Redo pre-Albuquerque checkin
+#
+% Revision 1.2  1993/04/24  23:15:36  karney
+% Pre-Albuquerque checkin
+%
+% Revision 1.1  1993/03/17  20:34:52  karney
+% Prior to array reorganization
+%
+% Revision 1.1  1992/11/13  17:58:50  karney
+% Initial checkin
+%
+
+@ Macro definitions.
+
+\ID{$Id$}
+
+@m MAX_DIM 5
+@m MAX_VARS 9
+@m CHAR 0
+@m INT 1
+@m FLOAT 2
+
+@ Declaring dimensions and variables.
+
+@f define_dimen integer
+@m define_dimen(name,...)
+      _ASSERT( #0 == 1 || #0 == 2)
+      _IF(#0 == 1, _DEFINE(min_##name 1),_DEFINE(min_##name #1))
+      _IF(#0 == 1, _DEFINE(max_##name #1),_DEFINE(max_##name #2))
+
+@m range(name) range_min(name):range_max(name)
+@m range_min1(name) min_##name
+@m range_min(name) (range_min1(name))
+@m range_mina(name) range_min1(name)
+@m range_max1(name) max_##name
+@m range_max(name) (range_max1(name))
+@m range_size(name) (range_max(name)-range_min(name)+1)
+@m var_type1(name) type_##x
+@m var_type(name) var_type1(name)
+
+@f define_var integer
+@m define_var(x,type,...) _ASSERT( #0 <= MAX_DIM && #0 >= 0)
+      _ASSERT( type >= CHAR && type <= FLOAT )
+      _DEFINE(type_##x type)
+      _DEFINE(rank_##x #0)
+      _IF(#0 >= 1, _DEFINE(ind_##x##_1 #1),)
+      _IF(#0 >= 2, _DEFINE(ind_##x##_2 #2),)
+      _IF(#0 >= 3, _DEFINE(ind_##x##_3 #3),)
+      _IF(#0 >= 4, _DEFINE(ind_##x##_4 #4),)
+      _IF(#0 >= 5, _DEFINE(ind_##x##_5 #5),)
+      _DEFINE(ind_##x##_m _IFCASE(#0,0,#1,#2,#3,#4,#5))
+
+@f declare_var integer
+@m declare_var(x)
+      _IFCASE(type_##x, character, integer, real)
+      _IF(type_##x == CHAR,
+          *range_max(ind_##x##_1)
+          _IFCASE(rank_##x,,x,
+          x(range(ind_##x##_2)),
+          x(range(ind_##x##_2),range(ind_##x##_3)),
+          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
+          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5))),
+          _IFCASE(rank_##x,x,x(range(ind_##x##_1)),
+          x(range(ind_##x##_1),range(ind_##x##_2)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5)))) @;
+
+@f declare_varp integer
+@m declare_varp(x)
+      _IF(rank_##x > 1 || (type_##x != CHAR && rank_##x > 0),ptr_decl(x);,)
+      declare_var(x) @;
+
+@m array_size(x)
+      _IFCASE(rank_##x,1,(range_size(ind_##x##_1)),
+      (range_size(ind_##x##_1)*range_size(ind_##x##_2)),
+      (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
+      (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)),
+      (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)*range_size(ind_##x##_5)))
+      
+@m array_unit(x)
+      _IFCASE(rank_##x,,1,
+      (range_size(ind_##x##_1)),
+      (range_size(ind_##x##_1)*range_size(ind_##x##_2)),
+      (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
+      (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)))
+
+@m array_sizev(x,y) array_unit(x)*((y)-range_min(ind_##x##_m)+1)
+
+@ Macros to simplify memory allocation
+
+@f ptr_decl integer
+@m ptr_decl(x) pointer (ptr_##x,x)
+
+@m real_alloc(x,n) ptr_##x=mem_alloc(n) @;
+@m real_realloc(x,on,n) ptr_##x=mem_realloc(ptr_##x,on,n) @;
+@m real_free(x,n) call mem_free(ptr_##x,n) @;
+
+@m int_alloc(x,n) real_alloc(x,int_mem(n)) @;
+@m int_realloc(x,on,n) real_realloc(x,int_mem(on),int_mem(n)) @;
+@m int_free(x,n) real_free(x,int_mem(n)) @;
+
+@m char_alloc(x,n) real_alloc(x,char_mem(n)) @;
+@m char_realloc(x,on,n) real_realloc(x,char_mem(on),char_mem(n)) @:
+@m char_free(x,n) real_free(x,char_mem(n)) @;
+
+@m var_alloc(x) _IFCASE(type_##x,
+      char_alloc(x,array_size(x)),
+      int_alloc(x,array_size(x)),
+      real_alloc(x,array_size(x)))
+
+@m var_realloc(x,on,n) _IFCASE(type_##x,
+      char_realloc(x,array_sizev(x,on),array_sizev(x,n)),
+      int_realloc(x,array_sizev(x,on),array_sizev(x,n)),
+      real_realloc(x,array_sizev(x,on),array_sizev(x,n)))
+
+@m var_free(x) _IFCASE(type_##x,
+      char_free(x,array_size(x)),
+      int_free(x,array_size(x)),
+      real_free(x,array_size(x)))
+
+@ Macros to accomodate growing arrays.  
+
+@m mem_inc 100
+@m mem_size(x) (((x)+mem_inc-1)/mem_inc)*mem_inc // $\lceil x/|mem_inc| \rceil |mem_inc|$
+
+@m array_sizea(x) array_unit(x)*mem_size(range_size(ind_##x##_m))
+@m array_sizeb(x) array_unit(x)*(mem_size(range_size(ind_##x##_m))-mem_inc)
+
+@m var_realloca(x) if (mod(range_size(ind_##x##_m),mem_inc) == 1) then;
+      _IFCASE(type_##x,
+      char_realloc(x,array_sizeb(x),array_sizea(x)),
+      int_realloc(x,array_sizeb(x),array_sizea(x)),
+      real_realloc(x,array_sizeb(x),array_sizea(x)));
+      end if @;
+
+@m var_reallocb(x) if (mod(range_size(ind_##x##_m),mem_inc) != 0) then;
+      _IFCASE(type_##x,
+      char_realloc(x,array_sizea(x),array_size(x)),
+      int_realloc(x,array_sizea(x),array_size(x)),
+      real_realloc(x,array_sizea(x),array_size(x)));
+      end if @;
+
+@* External interface to array.  These macros aid in defining array
+operations.
+
+Dimension ranges are defined by |define_dimen(dimname,min,max)|.
+Arrays are defined by |define_var(array,dimname1,dimname2,...)|.
+These don't produce any code.
+
+A pointer declaration is produce by |pointer(array)|.  The
+convention is that the pointer name is produced by a |ptr_| prefix.
+
+To declare a defined array, use, e.g., |declare_var(array)|.  If it
+is a point array use |declare_varp(array)|.  The size of an array is
+given by |array_size(array)|.  The size with the upper limit of the
+last index set to |m| is given by |array_sizev(array,m)|.
+
+To allocate space for an array, assuming the dimensions have all been
+defined, use |var_alloc(array)|.  If an array is growing, because of a
+change in its last dimension, then use
+|var_realloc(array,oldmax,newmax)| where |oldmax| and |newmax| are the
+old and new values of the upper limit of the last dimension.
+|var_free(array)| deallocates the memory.
+
+If the last dimension of an array is growing by increments of one, then
+use |var_realloca(array)| to reallocate the space each time.  The
+allocation will only take place every |mem_inc| steps.  Once the final
+size is reached use |var_reallocb(array)| to repack the array in the
+smallest possible space.

@@ -1,0 +1,72 @@
+@* Zone definitions.
+
+% $Id$
+
+% $Log$
+% Revision 1.1  1992/11/13  17:58:50  karney
+% Initial checkin
+%
+
+\ID{$Id$}
+
+Information about zones is held in arrays in common blocks.  An zone is
+identified by an integer indexing into these arrays.
+
+@f zn_decl integer
+
+@m zn_args(x) x
+
+@m zn_dummy(x) x
+
+@m zn_decl(x) integer x @;
+
+@m zn_copy(x,y) y=x @;
+
+@m zn_check(x) (x > 0 && x <= zn_num && 
+      zn_type(x) > 0 && zn_type(x) <= zn_type_max)
+
+@m zn_type(x) zone_type[x]
+@m zn_index(x,i) zone_index[i,x]
+@m zn_pointer(x) zone_pointer[x]
+
+@ Length specifications.
+
+@m zn_index_max 2
+@m zn_type_max 3
+@m zn_undefined 0
+@m zn_vacuum 1
+@m zn_plasma 2
+@m zn_solid 3
+
+@ Variable definitions.
+
+@a
+      define_dimen(zone_type_ind,zn_type_max)
+      define_dimen(zone_index_ind,zn_index_max)
+      define_dimen(zone_ind,zn_num)
+      define_var(zn_num,INT)
+      define_var(zn_vacuum_num,INT)
+      define_var(zn_plasma_num,INT)
+      define_var(zn_solid_num,INT)
+      define_var(zone_type,INT,zone_ind)
+      define_var(zone_index,INT,zone_index_ind,zone_ind)
+      define_var(zone_pointer,INT,zone_ind)
+
+@ Common blocks definitions.
+
+@f zn_common integer
+@m zn_common
+      declare_var(zn_num);
+      declare_var(zn_vacuum_num);
+      declare_var(zn_plasma_num);
+      declare_var(zn_solid_num);
+      declare_var(zn_num);
+      declare_varp(zone_type);
+      declare_varp(zone_index);
+      declare_varp(zone_pointer);
+      common /com_zone/ zn_num,zn_vacuum_num,zn_plasma_num,zn_solid_num,
+          ptr_zone_type,ptr_zone_index,ptr_zone_pointer;
+      character*80 zone_version;
+      common /com_zone_c/ zone_version;
+      save /com_zone/,/com_zone_c/ @;
+

@@ -1,0 +1,48 @@
+@* Flight definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+@* Flight definitions.  An flight is identified by a string tag.
+
+@f fl_decl integer
+@f fl_common integer
+
+@m fl_args(x) fl_number(x),pt_args(fl_origin(x)),rn_args(fl_rand(x)),
+      pt_args(fl_stack(x)[1]),fl_pointer(x) @;
+
+@m fl_dummy(x) fl_number(x),pt_dummy(fl_origin(x)),rn_dummy(fl_rand(x)),
+      pt_dummy(fl_stack(x)),fl_pointer(x) @;
+
+@m fl_decl(x) integer fl_number(x),fl_pointer(x);
+      pt_decl(fl_origin(x)); 
+      rn_decl(fl_rand(x));
+      pt_decl(fl_stack(x)[fl_stack_max]) @;
+
+@m fl_common integer fl_temp @;
+
+@m fl_copy(x,y) 
+      fl_number(y)=fl_number(x);
+      pt_copy(fl_origin(x),fl_origin(y));
+      rn_copy(fl_rand(x),fl_rand(y));
+      fl_pointer(x)=fl_pointer(y);
+      do fl_temp=1,fl_pointer(x);
+         pt_copy(fl_stack(x)[fl_temp],fl_stack(y)[fl_temp]);
+      end do @;
+
+@m fl_check(x) (fl_number(x) >= 0 && 
+      fl_pointer(x) > 0 && fl_pointer(x) <= fl_stack_max)
+
+@m fl_number(x) number_##x
+@m fl_origin(x) origin_##x
+@m fl_rand(x) x
+@m fl_stack(x) stack_##x
+@m fl_pointer(x) pointer_##x
+@m fl_current(x) fl_stack(x)[fl_pointer(flight)]
+
+@ Length specifications.
+
+@m fl_stack_max 20

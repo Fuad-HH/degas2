@@ -1,0 +1,389 @@
+% $Id$
+\def\Wtitle{geometry setup}
+
+% $Log$
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Store information about zone
+
+@m FILE 'zone.web'
+
+@I macros.hweb
+
+@i geomint.hweb
+@i netcdf.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+@* Initialize data structures for geometry.  |nboundaries|, |ptr_boundaries|,
+|nneighbors|, and |ptr_neighbors| are left uninitialized; these are set in
+|end_geometry|.
+
+@m mem_inc 100
+@m mem_size(x) (((x)+mem_inc-1)/mem_inc)*mem_inc
+@m mem_delta 10
+@m mem_frag(x) (((x)+mem_delta-1)/mem_delta)*mem_delta
+
+@<Functions...@>=
+      subroutine init_geometry
+      gi_common                 // Output
+      zn_common
+      external mem_alloc,mem_realloc        // External
+      integer mem_alloc,mem_realloc
+
+      var_realloc(cells,-1,mem_inc-1)
+      ncells=0
+      cells[c_start,0]=0
+      cells[c_faces,0]=0
+      cells[c_surfaces,0]=0
+      cells[c_zone,0]=0
+
+      nsurfaces=0
+      ptr_surfaces=0
+      ptr_surface_coeffs=0
+      zn_num=0
+
+      return
+      end
+
+@ End geometry definitions.
+
+@<Functions...@>=
+      subroutine end_geometry
+      gi_common                 // Input/Output
+      integer j,k,i,base,sigma  // Local
+      integer surf_list[*],cell_list[*] // Pointee
+      ptr_decl(surf_list)
+      ptr_decl(cell_list)
+      external mem_alloc,mem_realloc // External
+      integer mem_alloc,mem_realloc
+
+      /* Pack |cells| and |surfaces| */
+
+      var_realloc(cells,mem_size(ncells+1)-1,ncells)
+      var_realloc(surfaces,mem_size(nsurfaces),nsurfaces)
+      var_realloc(surface_coeffs,mem_size(nsurfaces),nsurfaces)
+
+      nboundaries=0
+      do j=0,ncells
+         nboundaries=nboundaries+cells[c_surfaces,j]
+      end do
+      var_alloc(boundaries)
+
+      base=0
+      do j=0,ncells
+         ptr_surf_list=cells[c_start,j]
+         do i=1,cells[c_surfaces,j]
+            boundaries[base+i]=surf_list[i]
+         end do
+         int_free(surf_list,mem_frag(cells[c_surfaces,j]))
+         cells[c_start,j]=base+1
+         base=base+cells[c_surfaces,j]
+      end do
+
+      check(base == nboundaries)
+
+      nneighbors=ncells
+      do k=1,nsurfaces
+         do sigma=s_neg,s_pos
+            if (surfaces[sigma,s_count,k]>1)
+     $           nneighbors=nneighbors+surfaces[sigma,s_count,k]
+         end do
+      end do
+      var_alloc(neighbors)
+
+      do i=0,ncells
+         neighbors[i]=i
+      end do
+
+      base=ncells
+      do k=1,nsurfaces
+         do sigma=s_neg,s_pos
+            ptr_cell_list=surfaces[sigma,s_start,k]
+            if (surfaces[sigma,s_count,k]==1) then
+               surfaces[sigma,s_start,k]=cell_list[1]
+            else
+               do i=1,surfaces[sigma,s_count,k]
+                  neighbors[base+i]=cell_list[i]
+               end do
+               surfaces[sigma,s_start,k]=base+1
+               base=base+surfaces[sigma,s_count,k]
+            end if
+            int_free(cell_list,mem_frag(surfaces[sigma,s_count,k]))
+         end do
+      end do
+
+      check(base == nneighbors)
+         
+      return
+      end
+
+@* Defining surfaces and volumes.  Register a new surface.  If |duplicate|,
+then search for duplicates and return the duplicate index if it exists.
+
+@<Functions...@>=
+      function define_surface(coeff,duplicate)
+      integer define_surface    // Function
+      real coeff[NCOEFFS]       // Input
+      logical duplicate
+      gi_common                 // Input/Output
+      integer i,k,orientation   // Local
+      external surface_normalize,surface_equal,mem_realloc // External
+      logical surface_equal
+      integer mem_realloc
+
+      call surface_normalize(coeff)
+      if (duplicate) then
+         do k=1,nsurfaces
+            if (surface_equal(coeff,surface_coeffs[1,k],orientation)) then
+               define_surface=orientation*k
+               return
+            end if
+         end do
+      end if
+
+      if (mod(nsurfaces,mem_inc) == 0) then
+         var_realloc(surfaces,nsurfaces,nsurfaces+mem_inc)
+         var_realloc(surface_coeffs,nsurfaces,nsurfaces+mem_inc)
+      end if
+      nsurfaces=nsurfaces+1
+
+      do i=1,NCOEFFS
+         surface_coeffs[i,nsurfaces]=coeff[i]
+      end do
+      surfaces[s_neg,s_start,nsurfaces] = 0
+      surfaces[s_neg,s_count,nsurfaces] = 0
+      surfaces[s_pos,s_start,nsurfaces] = 0
+      surfaces[s_pos,s_count,nsurfaces] = 0
+
+      define_surface=nsurfaces
+
+      return
+      end
+
+@ Start definition of a cell.
+
+@<Functions...@>=
+      function start_cell(zone)
+      integer start_cell        // Function
+      integer zone            // Input
+      gi_common                 // Input/Output
+      zn_common
+      external mem_realloc      // External
+      integer mem_realloc
+      
+
+      ncells=ncells+1
+      if (mod(ncells,mem_inc) == 0) then
+         var_realloc(cells,ncells-1,ncells+mem_inc-1)
+      end if
+
+      cells[c_zone,ncells]=zone
+      cells[c_start,ncells]=0
+      cells[c_faces,ncells]=0
+      cells[c_surfaces,ncells]=0
+
+      start_cell=ncells
+      zn_num=max(zn_num,zone)
+
+
+      return
+      end
+      
+@ Add a surface $k$ to a cell $j$.  If |face|, then this surface is a face.
+
+@<Functions...@>=
+      subroutine add_surface(surface,cell,face)
+      integer surface,cell      // Input
+      logical face
+      gi_common                 // Input/Output
+      integer i,surface_count,cell_count // Local
+      integer surf_list[*],cell_list[*] // Pointee
+      pointer (ptr_surf_list,surf_list),(ptr_cell_list,cell_list)
+      external mem_realloc      // External
+      integer mem_realloc
+
+      ptr_surf_list=cells[c_start,cell]
+      surface_count=cells[c_surfaces,cell]
+      if (mod(surface_count,mem_delta) == 0) then
+         int_realloc(surf_list,
+     $        surface_count,surface_count+mem_delta)
+         cells[c_start,cell]=ptr_surf_list
+      end if
+      cells[c_surfaces,cell]=surface_count+1
+
+      if (face) then            // We have to move the cut surfaces up one
+         cells[c_faces,cell]=cells[c_faces,cell]+1
+         do i=cells[c_surfaces,cell],cells[c_faces,cell]+1,-1
+            surf_list[i]=surf_list[i-1]
+         end do
+         surf_list[cells[c_faces,cell]]=surface
+      else                      // |! face| --- it's a cut surface
+         surf_list[cells[c_surfaces,cell]]=surface
+      end if
+
+      if (face) then            // Register the cell for this face
+         ptr_cell_list=surfaces[s_sign(surface),s_start,abs(surface)]
+         cell_count=surfaces[s_sign(surface),s_count,abs(surface)]
+
+         if (mod(cell_count,mem_delta) == 0) then
+            int_realloc(cell_list,cell_count,cell_count+mem_delta)
+         end if
+         cell_count=cell_count+1
+         cell_list[cell_count]=cell
+
+         surfaces[s_sign(surface),s_start,abs(surface)]=ptr_cell_list
+         surfaces[s_sign(surface),s_count,abs(surface)]=cell_count
+      end if
+            
+      return
+      end
+
+@* Simple check of geometry.
+
+@<Functions...@>=
+      subroutine check_geometry
+      gi_common             // Input
+      integer n,j,k,sigma       // Local
+      logical outer
+
+      assert(ncells>0)
+      assert(nboundaries>0)
+      assert(nsurfaces>0)
+      assert(nneighbors>0)
+
+      do j=0,ncells
+         assert(cells[c_faces,j]>0) // Each cell needs a faces
+         assert(cells[c_surfaces,j]>=cells[c_faces,j]) // and as many surfaces as faces
+         assert(cells[c_start,j]>0) // Pointers to |boundaries| need to be reasonable
+         assert(cells[c_start,j]+cells[c_surfaces,j]-1<=nboundaries)
+      end do
+
+      do k=1,nboundaries
+         assert(boundaries[k]!=0 && abs(boundaries[k])<=nsurfaces) // Check |boundaries| is in bounds
+      end do
+
+      do j=0,nneighbors
+         assert(neighbors[j]>=0 && neighbors[j]<=ncells) // Also check |neighbors|
+      end do
+
+      do k=1,nsurfaces
+         outer=.false.
+         do sigma=s_neg,s_pos
+            assert(surfaces[sigma,s_count,k]>=0)
+            assert(surfaces[sigma,s_start,k]>=0) // Check pointers to |neighbors| are in bounds
+            assert(surfaces[sigma,s_start,k]+surfaces[sigma,s_count,k]-1<=nneighbors)
+            do j=surfaces[sigma,s_start,k],surfaces[sigma,s_start,k]+surfaces[sigma,s_count,k]-1
+               if (neighbors[j]==0) then 
+                  outer=.true.
+                  goto break
+               end if
+            end do
+break:      continue
+         end do
+         if (outer) then
+/* If the surface is face of the universal cell, then there's nothing on
+the other side and some other cell must be on the same side */
+            assert(surfaces[s_neg,s_count,k]==0 || surfaces[s_pos,s_count,k]==0)
+            assert(surfaces[s_neg,s_count,k]>0 || surfaces[s_pos,s_count,k]>0)
+         else                   // |!outer|
+/* Either the surface is a cut surface with nothing on either side or else
+there is at least one cell on each side */
+            if (surfaces[s_neg,s_count,k]==0) then
+               assert(surfaces[s_pos,s_count,k]==0)
+               do j=0,ncells
+                  do n=cells[c_faces,j]+1,cells[c_surfaces,j]
+                     if (abs(boundaries[cells[c_start,j]-1+n])==k) goto break1
+                  end do
+               end do
+               assert(.false.)  // An orphan face
+break1:        continue
+            else
+               assert(surfaces[s_pos,s_count,k]>0)
+            end if
+         end if
+      end do
+
+      return
+      end
+      
+@ Print out geometry.
+
+@<Functions...@>=
+      subroutine print_geometry(unit)
+      implicit_none
+      integer unit              // Input
+      gi_common
+      integer i,j,k             // Local
+
+      write(unit,*) ncells
+      do i=0,ncells
+         write(unit,*) i,(cells[j,i],j=1,4)
+      end do
+      write(unit,*) nboundaries
+      do i=1,nboundaries
+         write(unit,*) i,boundaries[i]
+      end do
+      write(unit,*) nsurfaces
+      do i=1,nsurfaces
+         write(unit,*) i,((surfaces[j,k,i],j=0,1),k=0,1)
+      end do
+      do i=1,nsurfaces
+         write(unit,'(i4,10f7.2)') i,(surface_coeffs[j,i],j=1,NCOEFFS)
+      end do
+      write(unit,*) nneighbors
+      do i=0,nneighbors
+         write(unit,*) i,neighbors[i]
+      end do
+
+      return
+      end
+
+@ Erase geometry.
+
+@<Functions...@>=
+      subroutine erase_geometry
+      gi_common                 // Input/Output
+
+      var_free(cells)
+      var_free(surfaces)
+      var_free(surface_coeffs)
+      var_free(boundaries)
+      var_free(neighbors)
+      ncells=-1
+      nsurfaces=0
+      nboundaries=0
+      nneighbors=-1
+      ntransforms=0
+
+      return
+      end
+
+@ Write the geometry to a netcdf file.
+
+@<Functions...@>=
+      subroutine write_geometry
+      implicit_none
+      gi_common
+      decl_netcdf
+      netcdf_geometry_decls
+      integer fileid
+      external nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
+      integer nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
+
+      fileid = nccreate('geometry.cdf',NC_CLOBBER,nc_stat)
+      netcdf_write_geometry(fileid)
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+      
+@* Index.

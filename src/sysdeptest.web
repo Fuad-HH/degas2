@@ -1,0 +1,105 @@
+% $Id$
+\def\Wtitle{sysdeptest}
+
+% $Log$
+% Revision 1.1  1993/03/17  20:35:26  karney
+% Prior to array reorganization
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Introduction\ldots
+
+@m FILE 'sysdeptest.web'
+
+@I macros.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+@* Main program.
+      
+@<Functions...@>=
+      program sysdep_test
+      implicit_none
+      character cwd*80,user*8,host*20,arg*20 // Local
+      integer time[6],pid,i,x[1],wall
+      ptr_decl(x)
+      real y[1]
+      ptr_decl(y)
+      real t0
+      sy_common
+      st_common
+c      external date_time,get_cwd,get_pid,user_name,host_name // External
+c      external cpu_time,string_length,arg_count,command_arg
+c      external mem_alloc,mem_realloc,mem_free
+c      integer get_pid,string_length,arg_count,mem_alloc,mem_realloc,wall_time
+c      real cpu_time
+
+      t0=cpu_time()
+      call date_time(time)
+      wall=wall_time()
+      pid=get_pid()
+      call get_cwd(cwd)
+      call user_name(user)
+      call host_name(host)
+      write(stdout,
+     $     '(a,i4.4,''/'',i2.2,''/'',i2.2,'' '',i2.2,'':'',i2.2,'':'',i2.2)')
+     $     'Date: ',time
+      write(stdout,'(a,i5)') 'Pid: ',pid
+      write(stdout,'(a,a,1x,i3)') 'CWD: ',trim(cwd),string_length(cwd)
+      write(stdout,'(a,a,1x,i2)') 'USER: ',trim(user),string_length(user)
+      write(stdout,'(a,a,1x,i2)') 'HOST: ',trim(host),string_length(host)
+      write(stdout,'(a,1x,i9)') 'time to 2000: ',-wall
+      do i=0,arg_count()
+         call command_arg(i,arg)
+         write(stdout,'(i2,1x,a,1x,i2)') i,trim(arg),string_length(arg)
+      end do
+
+      int_alloc(x,10)
+      do i=1,10
+         x(i)=i
+      end do
+      int_realloc(x,10,30)
+      do i=1,10
+         assert(x(i)==i)
+      end do
+      do i=11,30
+         x(i)=i
+      end do
+      int_realloc(x,30,20)
+      do i=1,20
+         assert(x(i)==i)
+      end do
+      int_free(x,20)
+
+      real_alloc(y,10)
+      do i=1,10
+         y(i)=areal(i)
+      end do
+      real_realloc(y,10,30)
+      do i=1,10
+         assert(y(i)==areal(i))
+      end do
+      do i=11,30
+         y(i)=areal(i)
+      end do
+      real_realloc(y,30,20)
+      do i=1,20
+         assert(y(i)==areal(i))
+      end do
+      real_free(y,20)
+
+      write(stdout,'(a,f10.6)') 'CPU: ',cpu_time()-t0
+      write(stdout,'(a,i9)') 'Elasped: ',wall_time()-wall
+      stop
+      end
+
+@* Index.
+

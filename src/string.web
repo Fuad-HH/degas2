@@ -1,0 +1,241 @@
+% $Id$
+\def\Wtitle{system dependent routines}
+
+% $Log$
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+System dependent routines for degas.
+
+@m FILE 'string.web'
+
+@I macros.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+      
+@* Some string utilities. Return the length of a string with trailing
+blanks truncated.
+
+@m NULL char(0)
+@m TAB  char(9)
+@m BACKSLASH char(92)
+@m whitespace(c) (c == ' ' || c == TAB)
+	
+@<Functions...@>=
+      function string_length(string)
+      implicit_none
+      integer string_length       // Function
+      character*(*) string      // Input
+      integer i,k                 // Local
+
+      k=index(string,NULL)
+      if (k>0) then
+         k=k-1
+      else
+         k=len(string)
+      end if
+      do i=k,1,-1
+         if (string(i:i) != ' ') then
+            string_length=i
+            return
+         end if
+      end do
+
+      string_length=0
+
+      return
+      end
+      
+@ Pad NULL-delimited string with blanks
+
+@<Functions...@>=
+      subroutine string_pad(string)
+      implicit_none
+      character*(*) string      // Input/Output
+      integer k                 // Local
+
+      k=index(string,NULL)
+      if (k>0) then
+         string(k:) = ' '
+      end if
+
+      return
+      end
+
+@ NULL-terminate a string.
+
+@<Functions...@>=
+      subroutine null_terminate(string)
+      implicit_none
+      character*(*) string      // Input/Output
+      integer k               // Local
+      integer string_length     // External
+
+      k=string_length(string)
+      if (k<len(string)) then
+         string(k+1:k+1) = NULL
+      end if
+
+      return
+      end
+
+@ Read in a line from a file.  Lines beginning with \# and blank lines
+are ignored.  If a line ends in \\ then this, the newline, and leading
+white space on the next line are skipped and reading continues.  Returns
+|.false.| on the end of file.  |length| is the length of the resulting
+line read (which may be greater than the length of |string|).
+
+@<Functions...@>=
+      function read_string(unit,string,length)
+      implicit_none
+      logical read_string       // Function
+      integer unit              // Input
+      character*(*) string      // Output
+      integer length
+      integer i,p,l,lb,pb       // Local
+      character*LINELEN buffer
+      logical start,more
+      external string_length    // External
+      integer string_length
+
+      l=len(string)
+      p=1
+      start=.true.
+      more=.false.
+      read_string=.true.
+      string=' '
+loop: continue
+      read(unit,'(a)',end=eof) buffer
+      if (start && (buffer(1:1)=='#' || buffer==' ')) goto loop
+      start=.false.
+      lb=string_length(buffer)
+      if (! more) then
+         pb=1
+      else                      // Skip whitespace
+         do i=1,lb
+            if (! whitespace(buffer(i:i))) then
+               pb=i
+               goto break1
+            end if
+         end do
+         pb=lb+1
+break1:  continue
+      end if
+      more = buffer(lb:lb) == BACKSLASH
+      if (more) lb=lb-1
+      if (pb <= lb && p <= l) string(p:)=buffer(pb:lb)
+      p=p+(lb-pb+1)
+      if (more && read_string) goto loop
+      length=p-1
+
+      return
+
+eof:  continue
+      read_string=.false.
+      length=p-1
+
+      return
+      end
+
+@ Parse line.  This steps through the line compacting whitespace into a
+single space, and deleting leading whitespace.  The parsing is done in
+place.  the length of the resulting string is returned as the function
+value.
+
+@<Functions...@>=
+      function parse_string(string)
+      implicit_none
+      integer parse_string      // Function
+      character*(*) string
+      integer l,i,k,p,offset  // Local
+      logical start
+      
+      l=len(string)
+      p=1
+loop: continue
+      k=index(string(p:),TAB)
+      if (k>0) then
+         string(k+p-1:k+p-1)=' '
+         p=k+p
+         if (p <= l) goto loop
+      end if
+      offset=0
+      start=.true.
+      do i=1,l
+         if (string(i:i)==' ') then
+            offset=offset+1     // Skip leading blanks
+         else
+            goto break
+         end if
+      end do
+break: continue
+      p=1+offset
+loop1:continue
+      k=index(string(p:),' ')
+      if (k>0) then
+         if (offset > 0) string(p-offset:p-offset+k-1)=string(p:p+k-1)
+         p=p+k
+         do i=p,l
+            if (string(i:i)==' ') then
+               offset=offset+1
+               p=p+1
+            else
+               goto break1
+            end if
+         end do
+break1:  continue
+      else
+         if (offset > 0) string(p-offset:l-offset)=string(p:)
+         p=l+1
+      end if
+      if (p<=l) goto loop1
+      
+      if (p-offset<=l) string(p-offset:)=' '
+      parse_string=p-offset-1
+      if (parse_string > 0 && string(parse_string:parse_string) == ' ')
+     $     parse_string=parse_string-1
+      
+      return
+      end
+
+@ Find next space-delimited token in a string.  Token is given by
+|string(b:e)|.  |next_token| keeps track of where it is with the integer
+variable |p|; on the first call |p| should be set to zero.  Returns
+|.false.| if no next token.
+
+@<Functions...@>=
+      function next_token(string,b,e,p)
+      implicit_none
+      logical next_token        // Function
+      character*(*) string      // Input
+      integer b,e               // Output
+      integer p                 // Input/output
+      integer k,l               // Local
+      
+      p=p+1
+      l=len(string)
+      next_token=.false.
+      if (p>l) return
+      if (string(p:p)==' ') return
+      next_token=.true.
+      b=p
+      k=index(string(p:),' ')
+      if (k>0) then
+         e=b+k-2
+      else
+         e=l
+      end if
+      p=e+1                     // Point to delimiter
+      
+      return
+      end
+
+         

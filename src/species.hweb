@@ -1,0 +1,67 @@
+@* Species definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+Information about species is held in arrays in common blocks.  An
+species is identified by an integer indexing into these arrays.
+
+@f sp_decl integer
+
+@m sp_args(x) x
+
+@m sp_dummy(x) x
+
+@m sp_decl(x) integer x @;
+
+@m sp_copy(x,y) y=x @;
+
+@m sp_check(x) (x > 0 && x <= sp_num)
+
+@m sp_name(x) species_name[x]
+@m sp_sy(x)   species_sy[x]
+@m sp_m(x)    species_m[x]
+@m sp_z(x)    species_z[x]
+@m sp_ncomp(x) species_ncomp[x]
+@m sp_el(x,i) species_el[i,x]
+@m sp_count(x,i) species_count[i,x]
+
+@ Length specifications.
+
+@m sp_sy_len 8
+@m sp_name_len 16
+@m sp_ncomp_max 10
+
+@ Variable definitions.
+
+@a
+      define_dimen(species_symbol_string,sp_sy_len)
+      define_dimen(species_name_string,sp_name_len)
+      define_dimen(species_ind,sp_num)
+      define_dimen(species_comp_ind,sp_ncomp_max)
+      define_var(sp_num,INT)
+      define_var(species_name,CHAR,species_name_string,species_ind)
+      define_var(species_sy,CHAR,species_symbol_string,species_ind)
+      define_var(species_z,INT,species_ind)
+      define_var(species_m,FLOAT,species_ind)
+      define_var(species_el,INT,species_comp_ind,species_ind)
+      define_var(species_count,INT,species_comp_ind,species_ind)
+
+@ Common blocks definitions.
+
+@f sp_common integer
+@m sp_common
+      declare_var(sp_num);
+      declare_varp(species_name);
+      declare_varp(species_sy);
+      declare_varp(species_z);
+      declare_varp(species_m);
+      declare_varp(species_el);
+      declare_varp(species_count);
+      common /com_species/ sp_num,ptr_species_m,ptr_species_z,ptr_species_name,ptr_species_sy,ptr_species_el,ptr_species_count;
+      character*80 elements_version;
+      common /com_species_c/ elements_version;
+      save /com_species/,/com_species_c/ @;

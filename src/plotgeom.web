@@ -1,0 +1,170 @@
+% $Id$
+\def\Wtitle{plot geometry}
+
+% $Log$
+% Revision 1.3  1993/06/01  22:15:57  karney
+% Redo pre-Albuquerque checkin
+%
+% Revision 1.4  1993/04/24  23:34:34  karney
+% Fixed some weave problems
+%
+% Revision 1.3  1993/04/24  23:16:29  karney
+% Pre-Albuquerque checkin
+%
+% Revision 1.2  1993/03/17  20:35:18  karney
+% Prior to array reorganization
+%
+% Revision 1.1  1992/11/13  17:55:20  karney
+% Initial checkin
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Introduction\ldots
+
+@m FILE 'plotgeom.web'
+
+@I macros.hweb
+
+@I geomint.hweb
+
+@ Long forms of the HDF names.
+
+@m DFR8putimage  d8pimg
+@m DFR8addimage  d8aimg
+@m DFR8setpalette d8spal
+@m DFPgetpal     dpgpal
+
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+@ Output a slice through the geometry to an HDF file, |hdffile|.  |first|
+is |.true.| if this is the first image output.  Slice starts at $\vect x_0$
+with the $x$ exis parallel to $\vect a$ and the $y$ axis parallel to $\vect
+b$.  Size of the image is |alen| by |blen|.
+
+@<Functions...@>=
+      subroutine output_slice(hdffile,first,x0,a,b,alen,blen)
+      implicit_none
+      character*(*) hdffile     // File
+      logical first             // Input
+      real x0[3],a[3],b[3],alen,blen
+      gi_common            // Input
+      integer min_char,max_char,pixsize // Parameters
+      parameter (min_char=2,max_char=255,pixsize=400000)
+      integer DFTAG_RLE,DFTAG_IMC
+      parameter (DFTAG_RLE=11, DFTAG_IMC=12)
+      integer na,nb,cell,cell1,face,i,j,ind,direction,ret,istart,istop,val,zone // Local
+      real dx,x[3],v[3],vy[3],tmax,t,xpos
+      logical done,ok
+      character*1 ch[0:pixsize-1]
+      character*1 palette(3,256)
+      vc_common
+      external DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal // External
+      integer DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal
+      external locate_point,track
+      integer locate_point
+      logical track
+
+      assert(alen > 0 && blen > 0)
+      dx = sqrt(alen*blen/areal(pixsize))
+      na = int(alen/dx)
+      nb = int(blen/dx)
+      assert(na*nb <= pixsize)
+
+      do j=0,na*nb-1
+         ch(j)=char(0)
+      end do
+
+      vc_unit(b,vy)
+      vc_xvt(x0,vy,half*dx,x)
+      cell=locate_point(x,zone)
+
+      assert(cell > 0)
+
+      vc_unit(a,v)
+      direction=1
+      xpos=zero
+      
+      do j=0,nb-1
+         tmax=areal(na)*dx              // Go |alen| horizontally
+loop:    continue
+         done=track(TRACK_BASIC,tmax,x,v,cell,t,x,cell1,face,cell)
+         istart=int(xpos/dx+half)
+         xpos=xpos+direction*t
+         istop=int(xpos/dx+half)
+         if (direction > 0) then
+            istop = istop-1
+         else
+            istart = istart-1
+         end if
+         val=min_char+mod(97*cells[c_zone,cell1],max_char-min_char)
+
+         do i=istart,istop,direction
+            ind=(nb-1-j)*na+i
+            ch[ind]=char(val)
+         end do
+         tmax=tmax-t
+         if (!done) then         // Still more to go
+            assert(cell != 0)
+            goto loop
+         end if
+         assert(tmax == zero)
+         tmax=dx                // Go |dx| vertically
+loop1:   continue
+         done=track(TRACK_BASIC,tmax,x,vy,cell,t,x,cell1,face,cell)
+         tmax=tmax-t
+         if (!done) then
+            assert(cell != 0)
+            goto loop1
+         end if
+         assert(tmax == zero)
+         direction=-direction   // Reversion horizontal direction
+         if (direction > 0) then
+            assert(abs(xpos) <= geom_epsilon)
+            xpos = zero
+         else
+            assert(abs(xpos-areal(na)*dx) <= geom_epsilon)
+            xpos = areal(na)*dx
+         end if
+         do i=1,3
+            v[i]=-v[i]
+         end do
+      end do
+
+      ok=.true.
+      do j=0,na*nb-1
+         ok=ok && ch(j) != char(0)
+      end do
+      assert(ok)
+
+      if (first) then
+         ret = DFPgetpal('../output/rainbow.pal',palette)
+@#if 0
+         palette(1,256)=char(220)
+         palette(2,256)=char(220)
+         palette(3,256)=char(220)
+@#endif
+         ret = DFR8setpalette(palette)
+         ret = DFR8putimage(hdffile,ch,na,nb,DFTAG_RLE)
+      else
+         ret = DFR8addimage(hdffile,ch,na,nb,DFTAG_RLE)
+      end if
+
+      return
+      end
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* Index.
+

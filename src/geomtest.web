@@ -1,0 +1,92 @@
+% $Id$
+\def\Wtitle{geomtest}
+
+% $Log$
+
+@n/
+
+@* A test program for the geometry routines.
+
+\ID{$Id$}
+
+@m FILE 'geomtest.web'
+@m SP _UNQUOTE(' ')
+@I macros.hweb
+
+@I geomint.hweb
+
+@ The main program.
+
+@a
+      program geometry_test
+      implicit_none
+
+      call exercise_setup
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Exercise the setup functions
+
+@<Functions...@>=
+      subroutine exercise_setup
+      implicit_none
+      integer nzones,nproc
+      parameter (nzones=1158,nproc=8)
+      real coeff[NCOEFFS],x[3] // Local
+      integer face,cell1,cell2
+      external init_geometry,start_cell,sphere,define_surface,
+     $     add_surface,plane,end_geometry,check_geometry,print_geometry,
+     $     erase_geometry       // External
+      integer define_surface,start_cell
+
+      call init_geometry
+      cell1 = start_cell(1) // A sphere at the origin
+      cell2 = start_cell(2) // Everything else
+      vc_set(x,zero,zero,zero)
+      call sphere(x,one,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,cell1,.true.)
+      call add_surface(face,cell2,.true.)
+      vc_set(x,two,zero,zero)
+      call plane(x,x,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,0,.true.)
+      call add_surface(-face,cell2,.true.)
+      vc_set(x,-two,zero,zero)
+      call plane(x,x,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,0,.true.)
+      call add_surface(-face,cell2,.true.)
+      vc_set(x,zero,two,zero)
+      call plane(x,x,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,0,.true.)
+      call add_surface(-face,cell2,.true.)
+      vc_set(x,zero,-two,zero)
+      call plane(x,x,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,0,.true.)
+      call add_surface(-face,cell2,.true.)
+      vc_set(x,zero,zero,two)
+      call plane(x,x,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,0,.true.)
+      call add_surface(-face,cell2,.true.)
+      vc_set(x,zero,zero,-two)
+      call plane(x,x,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,0,.true.)
+      call add_surface(-face,cell2,.true.)
+      call end_geometry
+      call print_geometry(stdout)
+      call check_geometry
+      call write_geometry
+      call erase_geometry
+
+      return
+      end
+
+@* Index.

@@ -1,0 +1,170 @@
+% $Id$
+\def\Wtitle{classes}
+
+% $Log$
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+We define the various classes here and the methods to access the
+components.  Each class has a two-letter abbreviation which is used to
+prefix the accessor functions.  Each class has 5 standard methods:
+
+|CL_args(inst)| is how to pass a instance of a class to a subroutine.
+|CL_dummy(inst)| is the dummy argument for a subroutine.
+|CL_common| will declare common variable for this class.
+|CL_decl(inst)| is how to declare a member of a class in a subroutine.
+|CL_copy(inst1,inst2)| is how to copy one instance of a class to
+another instance of the same class.
+|CL_check(inst)| will check the consistency of the instance.
+
+The instance above is designated in one of two ways.
+
+For some classes, the information is held in global common blocks.  In
+this case, the instance is denoted by an integer variable which is a
+pointer into the common block arrays.  Examples of these classes are
+elements, species, and reactions.
+
+For the other classes, the instance is tagged with an arbitrary string.
+The various components are obtained by constructing variable names from
+that string.
+
+In both cases, the instance can be an array reference and an array of
+instances can be constructed in a natural manner; e.g.,
+|CL_args(inst[3])| or |CL_decl(inst[0:5])|.
+
+These combine in a natural way.  Thus if we are dealing with flight |f|,
+then |fl_current(f)| is the current particle being tracked.  Its species
+is |pt_sp(fl_current(f))|.  The first component of this species is
+|sp_el(pt_sp(fl_current(f)),1)|, and so on.
+
+@m FILE 'classes.web'
+
+@ Element class.  This defines elements.  Prefix is |el|.  The
+identifier |element| is an integer variable.
+
+|el_name(element)| returns the long name (length |el_name_len|).
+|el_sy(element)| returns the symbolic name (length |el_sy_len|).
+|el_z(element)| returns the charge number.
+|el_m(element)| returns the mass number (in amu).
+
+@ Species class.  Prefix is |sp|.  The identifier |species| is an
+integer variable.
+
+|sp_name(species)| returns the long name (length |sp_name_len|).
+|sp_sy(species)| returns the symbolic name (length |sp_sy_len|).
+|sp_z(species)| returns the charge number.
+|sp_m(species)| returns the mass number (in amu).
+|sp_ncomp(species)| returns the number of components in a species
+(maximum size |sp_ncomp_max|).
+|sp_el(species,i)| returns the element for the $i$th component.
+|sp_count(species,i)| returns the count of the $i$th component.
+
+@ Particle class.  Prefix is |pt|.  The identifier |particle| is a
+string tag.
+
+|pt_sp(particle)| is the species of the particle.
+|pt_t(particle)| is the time for this particle.
+|pt_w(particle)| is the statistical weight of the particle.
+|pt_v(particle)| is the velocity of the particle.
+|pt_loc(particle)| is the location of the particle (see below).
+|pt_type(particle)| is the type of tracking to be done for the particle.
+
+@ Routines involving particles.
+
+@ Location class.  Prefix is |lc|.  The identifier |location| is a
+string tag.
+
+|lc_x(location)| is the position.
+|lc_cell(location)| is the cell number.
+|lc_zone(location)| is the zone number.
+|lc_face(location)| is the face of the cell if at a face (else 0).
+|lc_cell_next(location)| is the next cell number.
+|lc_zone_next(location)| is the next zone number.
+
+@ Routines using locations.
+
+|lc_set(x)| sets other fields given the position.
+
+@ Flight class. Prefix is |fl|.  The identifier |flight| is a string tag.
+
+|fl_number(flight)| is the flight number.
+|fl_origin(flight)| is the particle initiating the flight.
+|fl_rand(flight)| is the random number information for the flight.
+|fl_stack(flight)| is the stack of particles being processed.
+|fl_pointer(flight)| is the pointer to the current particle (maximum size
+|fl_stack_max|).
+|fl_current(flight)| is the current particle (same as
+|fl_stack(flight)[fl_pointer(flight)]|).
+
+@ Reaction class.  Prefix is |rc|.  The identifier |reaction| is an
+integer variable.
+
+|rc_name(reaction)| is the name of the reaction (length |rc_name_len|).
+|rc_sy(reaction)| is the symbolic name of the reaction (length |rc_sy_len|).
+|rc_reagant_num(reaction)| is the number of reagants in the reaction
+(maximum value |rc_reagant_max|).
+|rc_reagant(reaction,i)| is the $i$th species reagant in the reaction.
+|rc_product_num(reaction)| is the number of products (maximum value
+|rc_product_max|).
+|rc_product(reaction,i)| is the species of the $i$th product.
+
+@ Background class.  Prefix is |bk|.  The identifier |background| is an
+integer variable.
+
+|bk_sp(background)| is the species of the background.
+|bk_n(background,i)| is the density in the $i$th zone.
+|bk_v(background,i)| is the velocity in the $i$th zone.
+|bk_temp(background,i)| is the temperature in the $i$th zone.
+
+@ Zone class.  Prefix is |zn|.  The identifier |zone| is an integer variable.
+
+|zn_type(zone)| is one of |zn_vacuum|, |zn_plasma|, |zn_solid|
+indicating the type of zone.
+|zn_index_i(zone,l)| for $l=1,$|zn_index_max| gives the fluid code
+indices of the zone.
+|zn_pointer(zone)| is a pointer into arrays specific for different types
+of zones: plasma, solid, etc.
+
+@ Random class.  Prefix is |rn|.  The identifier |random| is a string.
+
+|rn_index(random)| index to next random number.
+|rn_max(random)| maximum index computed.
+|rn_count(random)| count of random numbers computed.
+|rn_array(random)| array of random numbers.
+|rn_gauss_index(random)| index to next gaussion random number.
+|rn_gauss_array(random)| array of gaussian random numbers.
+|rn_iso_index(random)| index to next isotropically distributed vectors.
+|rn_iso_array(random)| array of isotropically distributibuted vectors.
+|rn_cos_index(random)| index to next cosine distributed vectors.
+|rn_cos_array(random)| array of cosine distributibuted vectors.
+
+@ Routines using the random numbers.
+
+|rn_init(seed,random)| initialize random numbers from 2-element integer array
+|seed|.
+
+|rn_next(x,random)| next random number into $x$ (inline available).
+
+|rn_fast_next(x,random)| fast version of this (inline available).
+
+|rn_check(n,random)| check |n| numbers available for |rn_fast_next|.
+
+|rn_gauss_next(x,random)| next gaussian number in $x$ (inline availble).
+
+|rn_iso_next(v,random)| next isotropic vector number into $\vect v$
+(inline availble).
+
+|rn_cos_next(v,random)| next cosine vector number into $\vect v$
+(inline availble).
+
+|call random_seed(seed)| initialize seed from current time, etc.
+
+|cell next_seed(n,seed,newseed)| advance |seed| forward $n$ steps.
+
+@i classes.hweb
+@* Index.

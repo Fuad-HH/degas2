@@ -1,0 +1,45 @@
+@* Location definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+A location is identified by a string tag.
+
+@f lc_decl integer
+@f lc_common integer
+
+@m lc_args(x) lc_x(x)[1],lc_cell(x),lc_zone(x),
+      lc_face(x),lc_cell_next(x),lc_zone_next(x)
+
+@m lc_dummy(x) lc_x(x),lc_cell(x),lc_zone(x),
+      lc_face(x),lc_cell_next(x),lc_zone_next(x)
+
+@m lc_decl(x) real lc_x(x)[3]; integer lc_cell(x),lc_zone(x),
+      lc_face(x),lc_cell_next(x),lc_zone_next(x) @;
+
+@m lc_common external locate_point;
+      integer locate_point @;
+
+@m lc_copy(x,y) vc_copy(lc_x(x),lc_x(y));
+      lc_cell(y)=lc_cell(x);
+      lc_zone(y)=lc_zone(x);
+      lc_face(y)=lc_face(x);
+      lc_cell_next(y)=lc_cell_next(x);
+      lc_zone_next(y)=lc_zone_next(x) @;
+
+@m lc_check(x) check_location(lc_args(x))
+
+@m lc_x(x) pos_##x
+@m lc_cell(x) cell_##x
+@m lc_zone(x) zone_##x
+@m lc_face(x) surface_##x
+@m lc_cell_next(x) cell_next_##x
+@m lc_zone_next(x) zone_next_##x
+
+@ Some interface routines
+
+@m lc_set(x) lc_cell(x)=locate_point(lc_x(x),lc_zone(x));
+      lc_face(x)=0 @;

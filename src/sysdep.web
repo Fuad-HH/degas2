@@ -1,0 +1,568 @@
+% $Id$
+\def\Wtitle{system dependent routines}
+
+% $Log$
+% Revision 1.7  1993/03/17  20:35:25  karney
+% Prior to array reorganization
+%
+% Revision 1.6  1992/11/13  18:00:28  karney
+% Pre-APS checkin
+%
+% Revision 1.5  1992/10/08  18:51:07  karney
+% More changes
+%
+% Revision 1.4  1992/08/20  14:54:20  karney
+% Convert to LaTeX/NFSS
+%
+% Revision 1.3  1992/07/15  21:43:48  karney
+% Finish implementing geometry setup routines.  Split geomsetup into geomsetup
+% geomutils and geomfaces.
+%
+% Revision 1.2  1992/06/27  21:44:28  karney
+% Make work on other machines.
+%
+% Revision 1.1  1992/06/10  21:11:55  karney
+% Initial implementation of system dependent routine
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+System dependent routines for degas.
+
+@m FILE 'sysdep.web'
+
+@i macros.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+@#if IBM
+@c
+#include <stdio.h>
+#include <strings.h>
+#include <time.h>
+#include <sys/time.h>
+      @<C Functions@>
+@#endif
+      
+@* Handling floating point errors.
+
+This is from \verb&f77/f77_floatingpoint.h&.
+@m SIGFPE_DEFAULT  %val(0)      // default exception handling
+@m SIGFPE_IGNORE   %val(1)      // ignore exception
+@m SIGFPE_ABORT    %val(2)      // abort on exception
+
+@<Functions...@>=
+@#if SUN
+      subroutine float_abort
+      integer ieeer             // Local
+      integer ieee_handler     // External
+      ieeer = ieee_handler( 'set', 'common', SIGFPE_ABORT )
+      assert(ieeer != 0)
+      return
+      end
+@#endif
+
+@ Get value of environmental variable.
+
+@<Functions...@>=
+@#if !IBM
+      function get_env(var,val)
+      logical get_env           // Function
+      character*(*) var         // Input
+      character*(*) val         // Output
+@#if CRAY
+      integer getenv
+@#endif
+
+@#if CRAY
+      get_env=getenv(var,val)==1
+@#else
+      call getenv(var,val)
+      get_env = val != ' '
+@#endif
+      return
+      end
+@#endif
+
+@ C-wrapper routine for IBM.
+
+@#if IBM
+  @m TRUE 1
+  @m FALSE 0
+@#endif
+
+@<C Functions@>=
+@#if IBM
+int get_env(var,val,var_len,val_len)
+     char *var,*val;
+     int var_len,val_len;
+{
+  char *var_a,*val_a;
+  int i;
+
+  var_a = (char *)malloc(var_len + 1);
+  strncpy(var_a,var,var_len);
+  var_a[var_len] = '\0';
+
+  val_a = (char *)getenv(var_a);
+  free(var_a);
+
+  if (val_a == (char *)NULL)
+    return FALSE;
+  else {
+    strncpy(val,val_a,val_len);
+    string_pad(val,val_len);
+    return TRUE;
+  }
+}
+
+@#endif
+
+@* Return date and time.  Returned elements are year, month,
+day, hour, minute, second.
+@#if HP
+ nostandard system
+@#endif
+
+@<Functions...@>=
+@#if !IBM
+      subroutine date_time(date_array)
+      implicit_none
+      integer date_array[6]     // Output
+@#if CRAY || HP
+      character*8 temp          // Local
+@#else
+      integer itemp[3]          // Local
+@#endif
+
+@#if CRAY
+      call date(temp)
+      read(temp,'(i2,1x,i2,1x,i2)')
+     $     date_array[2],date_array[3],date_array[1]
+      if (date_array[1]>90) then
+         date_array[1]=date_array[1]+1900
+      else
+         date_array[1]=date_array[1]+2000
+      end if
+      call clock(temp)
+      read(temp,'(i2,1x,i2,1x,i2)')
+     $     date_array[4],date_array[5],date_array[6]
+@#elif HP
+      call idate(date_array[2],date_array[3],date_array[1])
+      if (date_array[1]>90) then
+         date_array[1]=date_array[1]+1900
+      else
+         date_array[1]=date_array[1]+2000
+      end if
+      call time(temp)
+      read(temp,'(i2,1x,i2,1x,i2)')
+     $     date_array[4],date_array[5],date_array[6]
+@#elif SGI
+      call idate(date_array[2],date_array[3],date_array[1])
+      if (date_array[1]>90) then
+         date_array[1]=date_array[1]+1900
+      else
+         date_array[1]=date_array[1]+2000
+      end if
+      call itime(date_array[4])
+@#else
+      call idate(itemp)
+      date_array[1]=itemp[3]
+      date_array[2]=itemp[2]
+      date_array[3]=itemp[1]
+      call itime(date_array[4])
+@#endif
+
+      return
+      end
+@#endif
+
+@ C function for time for IBM
+
+@<C Functions@>=
+@#if IBM
+void
+date_time(date_array)
+     int *date_array;
+{
+  struct timeval *tp;
+  struct tm *time;
+  int s;
+
+  tp=(struct timeval*)malloc(sizeof tp);
+  s=gettimeofday(tp,NULL);
+  time=localtime(&tp->tv_sec);
+  free(tp);
+
+  date_array[0] = time->tm_year+1900;
+  date_array[1] = time->tm_mon+1;
+  date_array[2] = time->tm_mday;
+  date_array[3] = time->tm_hour;
+  date_array[4] = time->tm_min;
+  date_array[5] = time->tm_sec;
+
+  return;
+}
+  
+@#endif
+
+@ Return wall clock time as the number of seconds since 00:00, January 1,
+2000.  Use the standard rule for the Gregorian calendar---leap years every
+multiple of 4, unless it's a multiple of 100 and not a muliple of 400.
+Arithmetic is simplified by moving January and February to the previous
+year.  The pattern of month lengths from March thru January is regular with
+a 5-month period---31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 31.  The 5-month
+period is 153 days long.  On a computer with 32-bit integers this won't
+overflow until 2068.
+
+@<Functions...@>=
+      function wall_time()
+      implicit_none
+      integer wall_time         // Function
+      integer time[6],y,m,d     // Local
+
+      call date_time(time)
+      y=time[1]+int((time[2]+9)/12)-1 // Move January and February to previous year
+      m=mod(time[2]+9,12)             // March is now month 0
+      d=365*y+int(y/4)-int(y/100)+int(y/400)+int((m+4)*153/5)+time[3]-730548 // January 1, 2000 is day 0
+      wall_time=60*(60*(24*d+time[4])+time[5])+time[6]
+
+      return
+      end
+
+@ Return elapsed CPU time.
+
+@<Functions...@>=
+      function cpu_time()
+      implicit_none
+      real cpu_time             // Function
+@#if HP || IBM
+      integer clock             // External
+@#elif CRAY
+      real second               // External
+@#else
+      single_precision tarray[2] // Local
+      single_precision etime    // External
+@#endif
+
+@#if HP || IBM
+      cpu_time=const(1.0,-6)*areal(clock())
+@#elif CRAY
+      cpu_time=second()
+@#else
+      cpu_time=areal(etime(tarray))
+@#endif
+
+      return
+      end
+
+@* Various system information.  Return process ID.
+
+@<Functions...@>=
+      function get_pid()
+      implicit_none
+      integer get_pid           // Function
+      integer getpid           // External
+
+      get_pid=getpid()
+
+      return
+      end
+
+@ Return current working directory.
+
+@<Functions...@>=
+      subroutine get_cwd(cwd)
+      implicit_none
+      character*(*) cwd         // Local
+      integer getcwd            // External
+
+@#if CRAY
+      if (getcwd(cwd) <= 0) cwd='UNKNOWN'
+@#elif SGI || HP || IBM
+      if (getcwd(cwd) == 0) then
+         cwd='UNKNOWN'
+      else
+         call string_pad(cwd)
+      end if
+@#else
+      if (getcwd(cwd) != 0) cwd='UNKNOWN'
+@#endif
+      if (cwd == ' ') cwd='UNKNOWN'
+
+      return
+      end
+
+@ Get user name.
+
+@<Functions...@>=
+      subroutine user_name(user)
+      implicit_none
+      character*(*) user       // Output
+      logical get_env          // External
+
+      if (!get_env('LOGNAME',user)) then
+         if (!get_env('USER',user)) then
+            user='UNKNOWN'
+         end if
+      end if
+
+      return
+      end
+
+@ Return host name.
+
+@#if HP || IBM
+  @m hostnm gethostname
+@#endif
+
+@<Functions...@>=
+      subroutine host_name(host)
+      implicit_none
+      character*20 host         // Local
+@#if CRAY
+      character dummy[4]        // Local
+@#endif
+@#if CRAY
+      integer uname            // External
+@#else
+      integer hostnm           // External
+@#endif
+
+@#if CRAY
+      if (uname(dummy[1],host,dummy[2],dummy[3],dummy[4]) == -1) host='UNKNOWN'
+@#else
+      if (hostnm(host) != 0) host='UNKNOWN'
+@#if HP || IBM
+      call string_pad(host)
+@#endif
+@#endif
+      if (host==' ') host='UNKNOWN'
+
+      return
+      end
+
+@* Get command line arguments.  Return argument count in |arg_count()|.
+
+@<Functions...@>=
+      function arg_count()
+      implicit_none
+      integer arg_count         // Function
+      integer iargc             // External
+
+      arg_count=iargc()
+
+      return
+      end
+
+@ Return $i$th argument in |call command_arg(i,arg)|.
+
+@<Functions...@>=
+      subroutine command_arg(i,arg)
+      implicit_none
+      integer i                 // Input
+      character*(*) arg         // Output
+      integer j            // Local
+
+      j=i
+@#if HP
+      call igetarg(j,arg,len(arg))
+@#else
+      call getarg(j,arg)
+@#endif
+
+      return
+      end
+
+@* Memory allocation.  Allocate memory.
+
+@m magic const(314159.0)
+
+@#if CRAY
+  @m mem_unit 1
+@#else
+  @m mem_unit 8
+@#endif
+
+@<Functions...@>=
+      function mem_alloc(size)
+      integer mem_alloc         // Function
+      integer size              // Input
+      integer sizea             // Local
+      real data
+      pointer (ptr,data(*))
+@#if DEBUG
+      integer i
+@#endif
+@#if !CRAY
+      integer malloc           // External
+@#else
+      integer stat              // Local
+@#endif
+
+      assert(size >= 0)
+
+      if (size == 0) then
+         mem_alloc=0
+         return
+      end if
+      
+@#if DEBUG
+      sizea=size+2
+@#else
+      sizea=size
+@#endif
+
+@#if !CRAY
+@#if IBM
+      ptr=malloc(%val(mem_unit*sizea))
+@#else
+      ptr=malloc(mem_unit*sizea)
+@#endif
+      assert(ptr != 0)
+@#else
+      call hpalloc(ptr,mem_unit*sizea,stat,0)
+      assert(stat == 0)
+@#endif
+
+@#if DEBUG
+      do i=1,sizea
+         data(i)=magic
+      end do
+
+      mem_alloc=ptr+mem_unit
+@#else
+      mem_alloc=ptr
+@#endif
+      
+      return
+      end
+
+@ Reallocate memory.
+
+@<Functions...@>=
+      function mem_realloc(oldptr,oldsize,newsize)
+      integer mem_realloc       // Function
+      integer oldptr,oldsize,newsize // Input
+      integer newsizea,oldsizea // Local
+      real odata,ndata
+      pointer (optr,odata(*)),(nptr,ndata(*))
+@#if DEBUG || !CRAY
+      integer i
+@#endif
+@#if !CRAY
+      integer malloc            // External
+@#else
+      integer stat              // Local
+@#endif
+      integer mem_alloc        // External
+
+      assert(oldsize >=0 && newsize > 0)
+
+      if (oldsize == 0) then
+         mem_realloc = mem_alloc(newsize)
+         return
+      end if
+
+@#if DEBUG
+      optr=oldptr-mem_unit
+      newsizea=newsize+2
+      oldsizea=oldsize+2
+      assert(odata(1) == magic && odata(oldsizea) == magic)
+@#else
+      optr=oldptr
+      newsizea=newsize
+      oldsizea=oldsize
+@#endif
+
+      if (oldsize == newsize) then
+         mem_realloc=oldptr
+         return
+      end if
+
+
+@#if !CRAY
+@#if IBM
+      nptr=malloc(%val(mem_unit*newsizea))
+@#else
+      nptr=malloc(mem_unit*newsizea)
+@#endif
+      assert(nptr != 0)
+
+      do i=1,min(newsizea,oldsizea)
+         ndata(i)=odata(i)
+      end do
+      call free(optr)
+@#else
+      call hpclmove(optr,mem_unit*newsizea,stat,0)
+      assert(stat == 0 || stat == 1)
+      nptr = optr
+@#endif
+
+@#if DEBUG
+      do i=min(newsizea,oldsizea),newsizea
+         ndata(i)=magic
+      end do
+
+      mem_realloc=nptr+mem_unit
+@#else
+      mem_realloc=nptr
+@#endif
+
+      return
+      end
+
+@ Free memory
+
+@<Functions...@>=
+      subroutine mem_free(oldptr,size)
+      integer oldptr,size       // Input
+      integer sizea             // Local
+      real data
+      pointer (optr,data(*))
+@#if CRAY
+      integer stat              // Local
+@#endif
+      
+      assert(size >= 0)
+      if (size == 0) return
+
+@#if DEBUG
+      optr=oldptr-mem_unit
+      sizea = size + 2
+      assert(data(1) == magic && data(sizea) == magic)
+@#else
+      optr=oldptr
+      sizea = size
+@#endif
+      
+@#if !CRAY
+      call free(optr)
+@#else
+      call hpdeallc(optr,stat,0)
+      assert(stat == 0)
+@#endif
+
+      return
+      end
+
+@* Error handling.
+
+@<Functions...@>=
+      subroutine error(message)
+      implicit_none
+      character*(*) message
+
+      write(stderr,*) message
+      pause
+
+      return
+      end
+
+@* Index.

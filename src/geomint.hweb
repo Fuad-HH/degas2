@@ -1,0 +1,223 @@
+@* Header macros for the geometry routines.
+
+% $Id$
+% $Log$
+
+\ID{$Id$}
+
+@ Define the dimensions and variables used by the geometry routines.
+
+@a
+      define_dimen(cell_info_ind,c_start,c_zone)
+      define_dimen(cell_ind,0,ncells)
+      define_dimen(surface_ind,nsurfaces)
+      define_dimen(boundary_ind,nboundaries)
+      define_dimen(neighbor_ind,0,nneighbors)
+      define_dimen(neg_pos,s_neg,s_pos)
+      define_dimen(surface_info_ind,s_start,s_count)
+      define_dimen(coeff_ind,NCOEFFS)
+      define_var(ncells,INT)
+      define_var(nsurfaces,INT)
+      define_var(nboundaries,INT)
+      define_var(nneighbors,INT)
+      define_var(ntransforms,INT)
+      define_var(cells,INT,cell_info_ind,cell_ind)
+      define_var(surfaces,INT,neg_pos,surface_info_ind,surface_ind)
+      define_var(boundaries,INT,boundary_ind)
+      define_var(neighbors,INT,neighbor_ind)
+      define_var(surface_coeffs,FLOAT,coeff_ind,surface_ind)
+
+@ Geometry declaration for geometry routines.
+
+@f gi_common integer
+@m gi_common
+      declare_var(ncells);
+      declare_var(nsurfaces);
+      declare_var(nboundaries);
+      declare_var(nneighbors);
+      declare_var(ntransforms);
+      declare_varp(cells);
+      declare_varp(surfaces);
+      declare_varp(boundaries);
+      declare_varp(neighbors);
+      declare_varp(surface_coeffs);
+      common /com_geom_int/ ncells,nsurfaces,nboundaries,nneighbors,ntransforms,ptr_cells,ptr_surfaces,ptr_boundaries,ptr_neighbors,ptr_surface_coeffs;
+      save /com_geom_int/ @;
+
+@ Indices into the surface coefficient array.
+
+The expression for the $k$th surface is
+$$ f_k(x,y,x) = c_0+c_{x} x+c_{y} y+c_{z} z+c_{xx} x^2+c_{yy} y^2+c_{zz} z^2
+   +c_{xy} x y+c_{yz} y z+c_{xz} x z =0$$
+where the $c$'s are coefficients given by |coeff|.
+
+@m NCOEFFS 10
+@m c0 1
+@m cx 2
+@m cy 3
+@m cz 4
+@m cxx 5
+@m cyy 6
+@m czz 7
+@m cxy 8
+@m cyz 9
+@m cxz 10
+
+@ Indices into |cells| and |surface|.
+
+@m c_start 1                    // Indices in |cells|
+@m c_faces 2
+@m c_surfaces 3
+@m c_zone 4
+
+@m s_neg 0                  // Indices into |surfaces|
+@m s_pos 1
+@m s_start 0
+@m s_count 1
+@m s_sign(k) (sign(1,k)+1)/2
+
+@ Passing information about surfaces.
+
+@m surface_info(k) surface_coeffs[1,abs(k)],sign(1,k) // Information on the $k$th surface
+@m surface_args coeff,sigma     // Same thing as dummy arguments
+@f decl_surface_args integer
+@m decl_surface_args real coeff[NCOEFFS];
+      integer sigma @;
+
+@ Passing information about cells.
+
+@m cell_info(j) cells[c_faces,j],cells[c_surfaces,j],nsurfaces,boundaries[cells[c_start,j]],surface_coeffs // All the informaion on the $j$th cell
+@m cell_args nface,nsurface,nsurfaces,surf_list,surface_coeffs // as dummy arguments
+@f decl_cell_args integer
+@m decl_cell_args integer nface,nsurface,nsurfaces,surf_list[nsurface];
+      real surface_coeffs[NCOEFFS,nsurfaces] @;
+
+@ Some macros to simplify processing of faces in functions which deal with
+faces.
+
+@m cell_surface_info(n) surface_info(surf_list[n])
+@f dofaces do
+@m dofaces(n) do n=1,nface
+@f docuts do
+@m docuts(n) do n=nface+1,nsurface
+@f dosurfaces do
+@m dosurfaces(n) do n=1,nsurface
+@m first_face(i) cells[i]
+@m last_face(i) (cells[(i)+1]-1)
+
+@ Some constants.
+
+@m geom_epsilon const(1.0,-8) // A small distance $10\,\rm nm$.
+@m geom_infinity const(1.0,16) // A large distance---about a light year.  Also a long time---about a billion years.
+@m geom_large const(1000.0) // A largish (non-infinite) distance $1\,\rm km$.
+@m epsilon_angle const(1.0,-10) // A small angle.
+
+@ Definitions of the tracking types.
+
+@m TRACK_BASIC 0           // Tracking in straight lines no transformations
+@m TRACK_NEUTRAL 1    // Observe transformations
+@m TRACK_ODE 2        // Track according to an ODE
+
+@ NETCDF read/write of geometry.
+
+@m netcdf_geometry_decls
+      integer cell_info_ind_id,cell_ind_id,surface_ind_id,boundary_ind_id,neighbor_ind_id,neg_pos_id,surface_info_ind_id,coeff_ind_id,ncells_id,nsurfaces_id,nboundaries_id,nneighbors_id,ntransforms_id,cells_id,surfaces_id,boundaries_id,neighbors_id,surface_coeffs_id @;
+
+
+@m netcdf_write_geometry(fileid)
+      dimen_def(fileid,cell_info_ind);
+      dimen_def(fileid,cell_ind);
+      dimen_def(fileid,surface_ind);
+      dimen_def(fileid,boundary_ind);
+      dimen_def(fileid,neighbor_ind);
+      dimen_def(fileid,neg_pos);
+      dimen_def(fileid,surface_info_ind);
+      dimen_def(fileid,coeff_ind);
+      var_def(fileid,ncells);
+      var_def(fileid,nsurfaces);
+      var_def(fileid,nboundaries);
+      var_def(fileid,nneighbors);
+      var_def(fileid,ntransforms);
+      var_def(fileid,cells);
+      var_def(fileid,surfaces);
+      var_def(fileid,boundaries);
+      var_def(fileid,neighbors);
+      var_def(fileid,surface_coeffs);
+      call ncendef(fileid,nc_stat);
+      var_write(fileid,ncells);
+      var_write(fileid,nsurfaces);
+      var_write(fileid,nboundaries);
+      var_write(fileid,nneighbors);
+      var_write(fileid,ntransforms);
+      var_write(fileid,cells);
+      var_write(fileid,surfaces);
+      var_write(fileid,boundaries);
+      var_write(fileid,neighbors);
+      var_write(fileid,surface_coeffs) @;
+      
+@m netcdf_read_geometry(fileid)
+      var_inq(fileid,ncells);
+      var_inq(fileid,nsurfaces);
+      var_inq(fileid,nboundaries);
+      var_inq(fileid,nneighbors);
+      var_inq(fileid,ntransforms);
+      var_read(fileid,ncells);
+      var_read(fileid,nsurfaces);
+      var_read(fileid,nboundaries);
+      var_read(fileid,nneighbors);
+      var_read(fileid,ntransforms);
+      dimen_inq(fileid,cell_info_ind);
+      dimen_inq(fileid,cell_ind);
+      dimen_inq(fileid,surface_ind);
+      dimen_inq(fileid,boundary_ind);
+      dimen_inq(fileid,neighbor_ind);
+      dimen_inq(fileid,neg_pos);
+      dimen_inq(fileid,surface_info_ind);
+      dimen_inq(fileid,coeff_ind);
+      var_inq(fileid,cells);
+      var_inq(fileid,surfaces);
+      var_inq(fileid,boundaries);
+      var_inq(fileid,neighbors);
+      var_inq(fileid,surface_coeffs);
+      var_alloc(cells);
+      var_alloc(surfaces);
+      var_alloc(boundaries);
+      var_alloc(neighbors);
+      var_alloc(surface_coeffs);
+      var_read(fileid,cells);
+      var_read(fileid,surfaces);
+      var_read(fileid,boundaries);
+      var_read(fileid,neighbors);
+      var_read(fileid,surface_coeffs)@;
+
+@ Define PVM transmission routines
+
+@m pvm_geometry_put
+      pvm_put(ncells);
+      pvm_put(nsurfaces);
+      pvm_put(nboundaries);
+      pvm_put(nneighbors);
+      pvm_put(ntransforms);
+      pvm_put(cells);
+      pvm_put(surfaces);
+      pvm_put(boundaries);
+      pvm_put(neighbors);
+      pvm_put(surface_coeffs)@;
+
+@m pvm_geometry_get
+      pvm_get(ncells);
+      pvm_get(nsurfaces);
+      pvm_get(nboundaries);
+      pvm_get(nneighbors);
+      pvm_get(ntransforms);
+      var_alloc(cells);
+      var_alloc(surfaces);
+      var_alloc(boundaries);
+      var_alloc(neighbors);
+      var_alloc(surface_coeffs);
+      pvm_get(cells);
+      pvm_get(surfaces);
+      pvm_get(boundaries);
+      pvm_get(neighbors);
+      pvm_get(surface_coeffs)@;
+

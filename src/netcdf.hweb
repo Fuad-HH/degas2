@@ -1,0 +1,121 @@
+@* Header macros for netcdf.
+% $Id$
+
+% $Log$
+Revision 1.4  1993/06/01  22:15:47  karney
+Redo pre-Albuquerque checkin
+
+Revision 1.4  1993/04/24  23:16:18  karney
+Pre-Albuquerque checkin
+
+Revision 1.3  1993/03/17  20:35:15  karney
+Prior to array reorganization
+
+Revision 1.2  1992/08/20  14:54:05  karney
+Convert to LaTeX/NFSS
+
+% Revision 1.1  1992/07/18  22:20:24  karney
+% Initial checkin
+%
+
+@ Macro definitions from \verb/netcdf.inc/
+
+\ID{$Id$}
+
+@m nccreate nccre               // Longer versions of subroutine names
+@m ncopen ncopn
+@m ncredef nccredf
+@m ncendef ncendf
+@m ncclose ncclos
+@m ncattput ncapt
+@m ncattputc ncaptc
+@m ncattget ncagt
+@m ncattgetc ncagtc
+@m ncdimdef ncddef
+@m ncvardef ncvdef
+@m ncvarput ncvpt
+@m ncvarputc ncvptc
+@m ncvarget ncvgt
+@m ncvargetc ncvgtc
+@m ncdimid ncdid
+@m ncdiminq ncdinq
+@m ncvarid ncvid
+@m ncvarinq ncvinq
+@m ncvarget ncvgt
+@m ncvargetc ncvgtc
+
+@m NC_CHAR 2
+@m NC_BYTE 1
+@m NC_SHORT 3
+@m NC_LONG 4
+@m NC_FLOAT 5
+@m NC_DOUBLE 6
+@m NC_CLOBBER 11
+@m NC_NOCLOBBER 15
+@m NC_WRITE 1
+@m NC_NOWRITE 0
+@m NC_GLOBAL 0
+
+@m NC_REAL NC_DOUBLE
+@m NC_INT NC_LONG
+@m MAX_NC_NAME 128
+
+@ Routines to declare the dimensions.
+
+@f decl_netcdf integer
+@m decl_netcdf integer nc_dims(MAX_DIM),nc_corner(MAX_DIM),nc_edge(MAX_DIM),nc_stat,nc_size,nc_rank,nc_attr,nc_type;
+      character*MAX_NC_NAME nc_dummy @;
+
+@m dimid1(name) name##_id
+@m dimid(name) dimid1(name)
+
+@m dimen_def(fileid,name)
+      dimid(name) = ncdimdef(fileid,#name,range_size(name),nc_stat) @;
+
+@m var_def(fileid,name)
+      _IF(rank_##name >= 1, nc_dims(1)=dimid(ind_##name##_1);,)
+      _IF(rank_##name >= 2, nc_dims(2)=dimid(ind_##name##_2);,)
+      _IF(rank_##name >= 3, nc_dims(3)=dimid(ind_##name##_3);,)
+      _IF(rank_##name >= 4, nc_dims(4)=dimid(ind_##name##_4);,)
+      _IF(rank_##name >= 5, nc_dims(5)=dimid(ind_##name##_5);,)
+      name##_id = ncvardef(fileid,#name,
+      _IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL),
+      rank_##name,nc_dims,nc_stat) @;
+
+@m var_write(fileid,name)
+      _IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
+      _IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
+      _IF(rank_##name >= 3, nc_corner(3)=1; nc_edge(3)=range_size(ind_##name##_3);,)
+      _IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
+      _IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
+      _IF(type_##name == CHAR,
+        call ncvarputc(fileid,name##_id,nc_corner,nc_edge,name,array_size(name),nc_stat),
+        call ncvarput(fileid,name##_id,nc_corner,nc_edge,name,nc_stat)) @;
+
+@m dimen_inq(fileid,name)
+      dimid(name) = ncdimid(fileid,#name,nc_stat);
+      call ncdiminq(fileid,dimid(name),nc_dummy,nc_size,nc_stat);
+      assert(nc_size == range_size(name)) @;
+
+@m var_inq(fileid,name)
+      name##_id = ncvarid(fileid,#name,nc_stat);
+      call ncvarinq(fileid,name##_id,nc_dummy,nc_type,nc_rank,nc_dims,nc_attr,nc_stat);
+      assert(nc_rank >= 0 && nc_rank <= MAX_DIM);
+      assert(nc_rank == rank_##name);
+      _IF(rank_##name >= 1, assert( nc_dims(1) == dimid(ind_##name##_1) );,)
+      _IF(rank_##name >= 2, assert( nc_dims(2) == dimid(ind_##name##_2) );,)
+      _IF(rank_##name >= 3, assert( nc_dims(3) == dimid(ind_##name##_3) );,)
+      _IF(rank_##name >= 4, assert( nc_dims(4) == dimid(ind_##name##_4) );,)
+      _IF(rank_##name >= 5, assert( nc_dims(5) == dimid(ind_##name##_5) );,)
+      assert( _IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL) == nc_type ) @;
+
+@m var_read(fileid,name)
+      _IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
+      _IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
+      _IF(rank_##name >= 3, nc_corner(3)=1; nc_edge(3)=range_size(ind_##name##_3);,)
+      _IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
+      _IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
+      _IF(type_##name == CHAR,
+        call ncvargetc(fileid,name##_id,nc_corner,nc_edge,name,array_size(name),nc_stat),
+        call ncvarget(fileid,name##_id,nc_corner,nc_edge,name,nc_stat)) @;
+

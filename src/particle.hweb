@@ -1,0 +1,38 @@
+@* Particle definitions.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+An particle is identified by a string tag.
+
+@f pt_decl integer
+@f pt_common integer
+
+@m pt_args(x) pt_sp(x),pt_t(x),pt_w(x),
+      lc_args(pt_loc(x)),pt_v(x)[1]
+
+@m pt_dummy(x) pt_sp(x),pt_t(x),pt_w(x),
+      lc_dummy(pt_loc(x)),pt_v(x)
+
+@m pt_decl(x) sp_decl(pt_sp(x));
+      real pt_t(x), pt_w(x), pt_v(x)[3];
+      lc_decl(pt_loc(x)) @;
+
+@m pt_common
+
+@m pt_copy(x,y) pt_sp(y)=pt_sp(x); pt_t(y)=pt_t(x);
+      pt_w(y)=pt_w(x);
+      vc_copy(pt_v(x),pt_v(y)); lc_copy(pt_loc(x),pt_loc(y)) @;
+
+@m pt_check(x) (sp_check(pt_sp(x)) && pt_w(x) >= 0 &&
+      lc_check(pt_loc(x)))
+
+@m pt_sp(x) species_##x
+@m pt_t(x) time_##x
+@m pt_w(x) weight_##x
+@m pt_loc(x)  x
+@m pt_v(x)  velocity_##x
+@m pt_type(x) type_##x

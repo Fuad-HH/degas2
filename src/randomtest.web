@@ -1,0 +1,142 @@
+% $Id$
+\def\Wtitle{randomtest}
+
+% $Log$
+% Revision 1.7  1993/03/17  20:35:22  karney
+% Prior to array reorganization
+%
+% Revision 1.6  1992/08/20  14:54:15  karney
+% Convert to LaTeX/NFSS
+%
+% Revision 1.5  1992/07/15  17:23:45  karney
+% Split nonuniform random distributions into a separate file
+%
+% Revision 1.4  1992/07/06  17:33:50  karney
+% Implement other distributions of random numbers
+%
+% Revision 1.3  1992/06/27  21:06:47  karney
+% Farting around with Id keywords
+%
+% Revision 1.2  1992/06/10  21:17:08  karney
+% Switch to 47-bit seed
+%
+% Revision 1.1  1992/06/03  13:16:46  karney
+% Break out randomtest.  Standardize variable declarations.
+%
+
+@n/
+
+@* A test program for the random number routines.
+
+\ID{$Id$}
+
+This random number generator is portable as long as no bits are lost in the
+additions and subtractions in |random_batch|.  As a check, with
+|seed[0]=1234| and |seed[1]=5678|, the zeroth and thousandth random numbers
+are $53744947432387/2^{48} \approx 0.1909404099094552$ and
+$80023218797819/2^{48} \approx 0.2842995840446569$.
+
+@m FILE 'randomtest.web'
+
+@i macros.hweb
+
+@I random.hweb
+
+@ The main program.
+
+@a
+      program random_test
+      implicit_none
+      integer seed[0:1]   // Local
+      integer i,j,k
+      real x
+      rn_decl(tag)              // Local for random number routines
+      rn_common
+
+      do k=1,3
+         if (k == 1) then
+            write(stdout,'(a)') 'Test with seeds 1234 5678'
+            seed[0]=1234
+            seed[1]=5678
+         else if (k == 2) then
+            write(stdout,'(a)') 'Test with seed 99999999999999'
+            call random_seed(seed)
+         else
+            write(stdout,'(a)') 'Advance seed 23'
+            call next_seed(23,seed,seed)
+         end if
+         write(stdout,'(a,2i9)') 'Seeds: ',seed
+         call random_init(seed,rn_args(tag))
+
+/* Write out the zeroth random number */
+         rn_next(x,tag)
+         write(stdout,*) x
+
+/* Here's how to use |fast_random| */
+         do i=1,10*RAN_K,RAN_K
+            call random_check(RAN_K,rn_args(tag)) // Check |RAN_K| numbers are available
+            do j=i,i-1+RAN_K    // This loop can vectorize
+               rn_fast_next(x,tag)
+            end do
+         end do
+
+/* Here's how to use |random| */
+         do i=10*RAN_K+1,999       // This loop won't vectorize
+            rn_next(x,tag)
+         end do
+
+/* Write out the thousandth random number */
+         rn_next(x,tag)
+         write(stdout,*) x
+
+/* Write out the zeroth and thousandth gaussian random numbers */
+         rn_gauss_next(x,tag)
+         write(stdout,*) x
+         do i=1,999
+            rn_gauss_next(x,tag)
+         end do
+         rn_gauss_next(x,tag)
+         write(stdout,*) x
+
+      end do
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Dummy versions of routines called by |random_seed|
+
+@<Functions...@>=
+      subroutine date_time(time)
+      implicit_none
+      integer time[6]           // Output
+      integer i                 // Local
+
+      do i=1,6
+         time[i]=99
+      end do
+
+      return
+      end
+
+      function get_pid()
+      implicit_none
+      integer get_pid
+
+      get_pid=99
+
+      return
+      end
+
+      subroutine error(message)
+      implicit_none
+      character*(*) message
+
+      write(stderr,*) message
+      pause
+
+      return
+      end
+
+@* Index.
