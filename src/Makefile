@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.28  1995/06/02 09:10:13  karney
+# Test of CVS under AFS.
+#
 # Revision 1.27  1995/05/31 19:20:56  dstotler
 # Add in pmi files and programs.
 #
@@ -95,7 +98,7 @@ endif
 foof:
 	echo $(MACHINE) $(TARGET) $(SOURCEDIR)
 
-utils: idtof fixit Makefile
+utils: idtof Makefile
 
 # Deal with location of things
 
@@ -199,7 +202,7 @@ else # We're cross compiling
 endif
 
 IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
-.PRECIOUS: %.tex %.dvi %.f %.cft %.o %.dum fweb.sty fweboptions.sty fixit fixit.el
+.PRECIOUS: %.tex %.dvi %.f %.cft %.o %.dum fweb.sty fweboptions.sty
 
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
@@ -207,9 +210,8 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb segment.hweb \
     pmi.hweb pmiformat.hweb 
 
-%.f: %.web $(HEADERS) fixit
+%.f: %.web $(HEADERS)
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
-#	fixit $@
 	$(IDENTAPPEND)
 
 # include files
@@ -360,10 +362,6 @@ idtof: idtof.sh
 	cp $< $@
 	chmod a+x $@
 
-fixit: fixit.sh fixit.el
-	cp $< $@
-	chmod a+x $@
-	
 etags: etags.c getopt.c getopt1.c getopt.h
 	gcc -o etags -g -DETAGS -Demacs etags.c getopt.c getopt1.c
 
