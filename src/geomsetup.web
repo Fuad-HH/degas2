@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.34  1998/09/04 17:13:35  dstotler
+% Minor changes to satisfy FWEAVE and TeX.
+%
 % Revision 1.33  1998/05/08 13:51:45  dstotler
 % Initialize unused (index = 0) elements in sector and detector arrays.
 %
@@ -228,6 +231,8 @@ uninitialized; these are set in |boundaries_neighbors|.
       target_material[sc_target_num]=int_unused
       var_realloca(target_temperature)
       target_temperature[sc_target_num]=real_unused
+      var_realloca(target_recyc_coef)
+      target_recyc_coef[sc_target_num]=real_unused
 
       sc_wall_num=0
       var_realloca(wall_sector)
@@ -236,6 +241,8 @@ uninitialized; these are set in |boundaries_neighbors|.
       wall_material[sc_wall_num]=int_unused
       var_realloca(wall_temperature)
       wall_temperature[sc_wall_num]=real_unused
+      var_realloca(wall_recyc_coef)
+      wall_recyc_coef[sc_wall_num]=real_unused
 
       sc_exit_num=0
       var_realloca(exit_sector)
@@ -506,10 +513,12 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(target_sector)
       var_reallocb(target_material)
       var_reallocb(target_temperature)
+      var_reallocb(target_recyc_coef)
 
       var_reallocb(wall_sector)
       var_reallocb(wall_material)
       var_reallocb(wall_temperature)
+      var_reallocb(wall_recyc_coef)
 
       var_reallocb(exit_sector)
       var_reallocb(exit_albedo)
@@ -1062,9 +1071,11 @@ break1:        continue
       var_free(target_sector)
       var_free(target_material)
       var_free(target_temperature)
+      var_free(target_recyc_coef)
       var_free(wall_sector)
       var_free(wall_material)
       var_free(wall_temperature)
+      var_free(wall_recyc_coef)
       var_free(exit_sector)
       var_free(exit_albedo)
       var_free(diagnostic_grp_name)
