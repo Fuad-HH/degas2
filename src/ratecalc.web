@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.17  1995/06/21 20:06:02  jshankar
+% updated to include readfilenames
+%
 % Revision 1.16  1995/05/31 19:26:10  dstotler
 % Add new Aladdin subroutine calls to aladdin_eval_fit.
 %
@@ -180,15 +183,42 @@ this code is $I_{\ell, |n|} u_{p}^{n}$ and, thus, has
 $\langle \sigma v v^{n} \rangle$.
 
 In the expressions defining the neutral energy and plasma temperature,
-the mass $m_{1}$ used is 1 amu. This allows the results to be easily 
-rescaled for different isotopes. To facilitate numerical integration,
+the mass $m_{1}$ used is 1 amu. The independent variable is referred to
+as ``specific energy'' or ``specific temperature'' to indicate this.
+This allows the results to be easily 
+rescaled for different isotopes. 
+It is crucial to note the asymmetry between
+the neutral and plasma variables. The rates computed by this code are intended
+to be used primarily in Monte Carlo neutral transport codes. The objective of
+these codes is to, in some approximation, compute the neutral particle 
+distribution function. Hence, this information is not known until the end of
+the calculation; in a Monte Carlo code, however, one will know the 
+instantaneous {\em energy} of a test neutral particle. To carry out the 
+kinetic calculation, the distribution of the target background species must
+be known. This is usually assumed to be Maxwellian; the characteristic
+parameter in this case is the plasma {\em temperature}. So, it is usually
+the case that the independent variable ``specific temperature'' is to be
+associated with a plasma ion species, ``specific energy'' with a neutral
+species, and ``temperature'' with plasma electrons. 
+
+To facilitate numerical integration,
 the units used for the various velocities
 are $\sqrt{{\rm eV}/{\rm amu}}$; neither |u| nor $u_{p}$ should be $\leq 0$.
 However, the energy used as the 
 argument for $\sigma$ must have a specific mass. Its value (specified by
 |ra_mass| here) varies, depending
 on the origin of the cross section data; it is assumed to be in grams.
+The independent variable to
+be used with cross sections in these reactions should be ``specific_energy''.
+This will eliminate any confusion in subsequent uses of the data. An
+independent variable of ``energy'' should be used for electron impact
+processes, or other reactions in which the mass to use is clear.
 
+For example, for the data described in Ref.~\citenum{Jane87} one would need
+to take |ra_mass| to be that of the charged reagent (electron or ion). On 
+the other hand, the data in Ref.~\citenum{Jane93} use a mass of 1 amu
+for ``heavy'' particle reactions and the electron mass for electron
+impact processes.
 @m FILE 'ratecalc.web'
 
 @I macros.hweb
@@ -292,6 +322,7 @@ on the origin of the cross section data; it is assumed to be in grams.
                         assert(xs_units[1,j] == 'eV')
 
                         if (xs_organization[j] == 'table_calc') then
+                           assert(xs_var[1,j] == 'temperature')
                            temperature=ind_var[1]   // {\bf Calculate} integral
                            norm_constant=
      $                        infinite_integral(electron_norm_integrand)
@@ -300,7 +331,14 @@ on the origin of the cross section data; it is assumed to be in grams.
                            zsigma=zsigma/norm_constant
 
 			else                        // {\bf Evaluate} fit
+                           if (xs_var[1,j] == 'energy') then
                            zte_aladdin=dble(ind_var[1])  // It expects double
+                           else if (xs_var[1,j] == 'specific_energy') then
+                              assert(ra_mass_units == 'g')
+                              zte_aladdin=dble(ind_var[1]*ra_mass/atomic_mass_unit_g)
+                           else
+                              assert('Unexpected value of xs_var[1,j]' == ' ')
+                           end if
                            zsigma=zero                   // Doesn't initialize 
                            call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
      $                        num_fit_coef,zsigma,error)
@@ -313,12 +351,12 @@ on the origin of the cross section data; it is assumed to be in grams.
                         assert(xs_units[1,j] == 'eV')
                         assert(xs_units[2,j] == 'eV')
                         assert(ra_mass_units == 'g')
-                        if ((xs_var[1,j] == 'energy') 
-     $                     && (xs_var[2,j] == 'temperature')) then
+                        if ((xs_var[1,j] == 'specific_energy') 
+     $                     && (xs_var[2,j] == 'specific_temperature')) then
                            zenergy=ind_var[1]
                            ztemperature=ind_var[2]
-                        else if ((xs_var[1,j] == 'temperature')
-     $                     && (xs_var[2,j] == 'energy')) then
+                        else if ((xs_var[1,j] == 'specific_temperature')
+     $                     && (xs_var[2,j] == 'specific_energy')) then
                            ztemperature=ind_var[1]
                            zenergy=ind_var[2]
                         else
@@ -551,16 +589,20 @@ coefficients since the user will not know this in general.
       xs_units[1,1]='eV'
       xs_var[0,2]='reaction_rate'
       xs_units[0,2]='cm^3/s'
+      xs_var[1,2]='temperature'
+      xs_units[1,2]='eV'
+      xs_var[2,2]='energy'
+      xs_units[2,2]='eV'
       xs_var[0,3]='1st_rate_moment'
       xs_units[0,3]='cm^4/s^2'
       xs_var[0,4]='2nd_rate_moment'
       xs_units[0,4]='cm^5/s^3'
       xs_var[0,5]='3rd_rate_moment'
       xs_units[0,5]='cm^6/s^4'
-      do j=2,xs_num_dep_var
-         xs_var[1,j]='temperature'
+      do j=3,xs_num_dep_var
+         xs_var[1,j]='specific_temperature'
          xs_units[1,j]='eV'
-         xs_var[2,j]='energy'
+         xs_var[2,j]='specific_energy'
          xs_units[2,j]='eV'
       end do
 
@@ -1865,6 +1907,12 @@ that interval at which $|f_of_x| \neq 0$.
 \bibitem{Reit93} D. Reiter, in {\em Atomic and Plasma-Material Interaction
 Processes in Controlled Thermonuclear Fusion}, R. K. Janev and H. W. Drawin,
 Eds. (Elsevier, New York, 1993), p. 243.
+\bibitem{Jane87} R. K. Janev, W. D. Langer, K. Evans, Jr., and D. E. Post, Jr.,
+{\em Elementary Processes in Hydrogen-Helium Plasmas} (Springer-Verlag,
+New York, 1987).
+\bibitem{Jane93} R. K. Janev and J. J. Smith, {\em Atomic and Plasma-Material
+Interaction Data for Fusion} (Supplement to the journal Nuclear Fusion) 
+{\bf 4} (IAEA, Vienna, 1993).
 \bibitem{Davi84} P. J. Davis and P. Rabinowitz, {\em Methods of Numerical
 Integration} (Academic Press, New York, 1984).
 \bibitem{deBo71} C. de Boor, in {\em Mathematical Software}, J. R. Rice, Ed.

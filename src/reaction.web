@@ -2,6 +2,10 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.16  1995/05/26 04:01:34  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.15  1995/05/22 22:05:55  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -137,8 +141,13 @@ once per point. */
          else if (reaction_data_var[r][rd_rate][i] == xs_var_energy) then
             vc_difference(vt,vb,vrel)
             fvar[i] = half*sp_m(t)*vc_abs2(vrel)
+         else if (reaction_data_var[r][rd_rate][i] == xs_var_sp_energy) then
+            vc_difference(vt,vb,vrel)
+            fvar[i] = half*atomic_mass_unit*vc_abs2(vrel)
          else if (reaction_data_var[r][rd_rate][i] == xs_var_temperature) then
             fvar[i] = tb
+         else if (reaction_data_var[r][rd_rate][i] == xs_var_sp_temperature) then
+            fvar[i] = tb*atomic_mass_unit/sp_m(b)
          else
             assert('Unknown variable' == ' ')
          end if
@@ -195,6 +204,8 @@ once per point. */
       do i=1,reaction_data_rank[r][rd_xs]
          if (reaction_data_var[r][rd_xs][i] == xs_var_energy) then
             fvar[i] = half*sp_m(t)*vr**2
+         else if (reaction_data_var[r][rd_xs][i] == xs_var_sp_energy) then
+            fvar[i] = half*atomic_mass_unit*vr**2
          else
             assert('Unknown variable' == ' ')
          end if
@@ -362,7 +373,21 @@ constant.
       assert(xs_name==rc_sy(pr_reaction(num)))
 
       do j=1,xs_dep_var_max
-         reaction_data_var[num][j][0]=xs_var_unknown
+         reaction_organization[num][j]=xs_organization_unknown
+         reaction_data_rank[num][j]=0
+         reaction_data_base[num][j]=0
+         do i=0,xs_table_rank_max
+            reaction_data_var[num][j][i]=xs_var_unknown
+            reaction_data_spacing[num][j][i]=xs_spacing_unknown
+         end do
+      end do
+
+      do j=1,xs_dep_var_max
+         do i=1,xs_table_rank_max
+            reaction_data_min[num][j][i]=zero
+            reaction_data_delta[num][j][i]=zero
+            reaction_data_tab_index[num][j][i]=zero
+         end do
       end do
 
       do jdep=1,xs_num_dep_var
@@ -396,6 +421,10 @@ constant.
             reaction_data_var[num][rd_ind][i]=xs_var_temperature
          else if (xs_var[i,jdep] == 'energy') then
             reaction_data_var[num][rd_ind][i]=xs_var_energy
+         else if (xs_var[i,jdep] == 'specific_temperature') then
+            reaction_data_var[num][rd_ind][i]=xs_var_sp_temperature
+         else if (xs_var[i,jdep] == 'specific_energy') then
+            reaction_data_var[num][rd_ind][i]=xs_var_sp_energy
          else if (xs_var[i,jdep] == 'cross_section') then
             reaction_data_var[num][rd_ind][i]=xs_var_cross_section
          end if
@@ -416,6 +445,10 @@ constant.
                reaction_data_var[num][rd_ind][i]=xs_var_temperature
             else if (xs_var[i,jdep] == 'energy') then
                reaction_data_var[num][rd_ind][i]=xs_var_energy
+            else if (xs_var[i,jdep] == 'specific_temperature') then
+               reaction_data_var[num][rd_ind][i]=xs_var_sp_temperature
+            else if (xs_var[i,jdep] == 'specific_energy') then
+               reaction_data_var[num][rd_ind][i]=xs_var_sp_energy
             end if
             size=size*reaction_data_tab_index[num][rd_ind][i]
             if (reaction_data_spacing[num][rd_ind][i] == xs_spacing_linear) then

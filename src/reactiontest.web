@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.7  1995/06/21 20:06:29  jshankar
+% updated to include readfilenames
+%
 % Revision 1.6  1995/05/26 04:01:38  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -71,16 +74,20 @@ loop: continue
       assert(test == rc_reagent(reaction,1))
       assert(target == rc_reagent(reaction,2))
       
+      write(stdout,*) '     Test species is:   ',sp_name(test)
+      write(stdout,*) '     Target species is: ',sp_name(target)
+      write(stdout,*) '     Reaction name is:  ',rc_name(reaction)
+
 loop1: continue
 
-      write(stdout,*) 'Enter test energy, target density, temperature'
+      write(stdout,'(/a)') 'Enter test energy, target density, temperature'
       
       if (! read_string(stdin,line,length)) goto loop
       assert(length<=len(line))
       length=parse_string(line(:length))
       p=0
       assert(next_token(line,b,e,p))
-      energy=electron_chargeread_real(line(b:e))
+      energy=electron_charge*read_real(line(b:e))
       assert(next_token(line,b,e,p))
       density=read_real(line(b:e))
       assert(next_token(line,b,e,p))
@@ -90,9 +97,11 @@ loop1: continue
       vc_set(vt,vrel,zero,zero)
       vc_set(vb,zero,zero,zero)
       
-      rate=reaction_rate_a(sp_args(test),vt,sp_args(target),density,vb,temperature,rc_dummy(reaction))
-
-      write(stdout,*) rate
+      rate=reaction_rate_a(sp_args(test),vt,sp_args(target),density,vb,temperature,rc_args(reaction))
+      write(stdout,*) '    Test energy = ',energy,' J'
+      write(stdout,*) '    Target density = ',density,' m**-3'
+      write(stdout,*) '    Target temperature = ',temperature,' J'
+      write(stdout,*) '      => Reaction rate = ',rate,' m**3/s'
       
       goto loop1
 
