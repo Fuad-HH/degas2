@@ -2,6 +2,10 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.10  1999/02/02 14:54:18  dstotler
+% Modified calls defining targets to include recycling coefficient (=
+% 1).
+%
 % Revision 1.9  1998/09/04 17:05:25  dstotler
 % Generalized detector_setup to use dimensions for the box specified as
 % macro parameters.
@@ -166,7 +170,7 @@ is an exit.
       implicit_none_f90
 
       real border_frac,guard_frac,                                // Local
-     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,albedo,recyc_coef
+     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,recyc_coef
       real z_grid[0:nz],univ_min[3],univ_max[3],
      $     poly_corners[2,0:4],poly_points[2,0:nmax+3],point_1[3],point_2[3]
       integer n,zone,i,j,stratum,sector1,sector2
@@ -306,7 +310,7 @@ is an exit.
    into strata for convenience. Three of the 4 boundary sectors will be 
    ``mirrors'' (a solid made of the material 'mirror'); one will be an exit
    (no additional sector-dependent properties are used for exit or
-   plasma sectors presently). We will be using a gas puff source in the
+   plasma sectors). We will be using a gas puff source in the
    runs. Set the wall temperature everywhere to be |temp_min|, the 
    desired energy of this gas puff.
 
@@ -316,6 +320,11 @@ is an exit.
    of this routine does things in 2-D (x-z) because of the ignorable
    y-coordinate. The path around the geometry is the same as used above
    for the boundary zones.
+
+   Contrary to previous usage, only one sector is defined at each
+   interface. The plasma zone and its bounding surface are used for
+   this purpose. The zone number for the adjoining solid zone is passed
+   to |define_sector| as a check.
  */
 
       material=ma_lookup('mirror')
@@ -325,52 +334,59 @@ is an exit.
       do i=0,nxtot-1
          vc_set(point_1,x_grid[i],zero,z_grid[0])
          vc_set(point_2,x_grid[i+1],zero,z_grid[0])
-         sector1=define_sector(stratum,i,lookup_surface(point_1,point_2),
-     $                         boundary_zones[stratum])
+         sector1=define_sector(stratum,i,lookup_surface(point_2,point_1),
+     $                         plasma_zones[i,0],boundary_zones[stratum])
          define_sector_target(sector1,material,temp_min*electron_charge,
      $        recyc_coef)
+@#if 0
          sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
      $                         plasma_zones[i,0])
          define_sector_plasma(sector2)
+@#endif
       end do
 
       stratum=2
-      albedo=zero
       do j=0,nz-1                                          // Right
          vc_set(point_1,x_grid[nxtot],zero,z_grid[j])
          vc_set(point_2,x_grid[nxtot],zero,z_grid[j+1])
-         sector1=define_sector(stratum,j,lookup_surface(point_1,point_2),
-     $                         boundary_zones[stratum])
-         define_sector_exit(sector1,albedo)
+         sector1=define_sector(stratum,j,lookup_surface(point_2,point_1),
+     $                         plasma_zones[nxtot-1,j],boundary_zones[stratum])
+         define_sector_exit(sector1)
+@#if 0
          sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
      $                         plasma_zones[nxtot-1,j])
          define_sector_plasma(sector2)
+@#endif
       end do
 
       stratum=3
       do i=nxtot,1,-1                                       // Top
          vc_set(point_1,x_grid[i],zero,z_grid[nz])
          vc_set(point_2,x_grid[i-1],zero,z_grid[nz])
-         sector1=define_sector(stratum,i,lookup_surface(point_1,point_2),
-     $                         boundary_zones[stratum])
+         sector1=define_sector(stratum,i,lookup_surface(point_2,point_1),
+     $                         plasma_zones[i-1,nz-1],boundary_zones[stratum])
          define_sector_target(sector1,material,temp_min*electron_charge,
      $        recyc_coef)
+@#if 0
          sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
      $                         plasma_zones[i-1,nz-1]) 
          define_sector_plasma(sector2)
+@#endif
       end do
 
       stratum=4
       do j=nz,1,-1                                           // Left
          vc_set(point_1,x_grid[0],zero,z_grid[j])
          vc_set(point_2,x_grid[0],zero,z_grid[j-1])
-         sector1=define_sector(stratum,j,lookup_surface(point_1,point_2),
-     $                         boundary_zones[stratum])
+         sector1=define_sector(stratum,j,lookup_surface(point_2,point_1),
+     $                         plasma_zones[0,j-1],boundary_zones[stratum])
          define_sector_target(sector1,material,temp_min*electron_charge,
      $        recyc_coef)
+@#if 0
          sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
      $                         plasma_zones[0,j-1]) 
          define_sector_plasma(sector2)
+@#endif
       end do
 
       call diag_sector_setup
@@ -479,14 +495,18 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
       do sector=1,nsectors
+@#if 0
          if (strata[sector]==4 && plasma_lookup(sector)!=0) then
+@#endif
+         if (strata[sector]==4 
+     $     && int_lookup(sector,target_sector[1],sc_target_num)) then
             so_seg_tot++
             var_realloca(source_current)
             var_realloca(source_segment_ptr)
             var_realloca(source_segment_rel_wt)
             var_realloca(source_segment_prob_alias)
             var_realloca(source_segment_ptr_alias)
-            source_current[so_seg_tot]=const(1.,19)
+            source_current[so_seg_tot]=const(1.,19)/areal(nz)
             so_tot_curr(so_grps)+=source_current[so_seg_tot]
             source_segment_ptr[so_seg_tot]=sector
             source_segment_rel_wt[so_seg_tot]=one
