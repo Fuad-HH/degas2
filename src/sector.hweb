@@ -3,28 +3,14 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1996/03/01 20:39:08  dstotler
+% Add to repository (largely moved over from geomint.hweb).
+%
 
 \ID{$Id$}
 
-Information about sectors is held in arrays in common blocks.  A stratum
-is identified by a positive integer indexing into these arrays.  This
-gives information about the properties of the sector.  Each
-sector is defined by a zone and a (directed) surface number. The array
-providing the map from surface indices back to the sector indices
-is held within the sector common
-block.  
-
-A set of sector subclasses are defined here as well for the purpose of
-providing clearly defined arrays for storing sector-related properties.
-With the exception of the ``diagnostic'' subclass, the subclass type
-is the same as the sector's zone type. However, during tracking the stratum
-type is used to infer the sector subclass since it is based on the zone 
-type and also indicates whether or not the sector is of ``diagnostic''
-type. The intention is that the number of these subclasses will change
-infrequently; with new properties added occasionally. Hence, we have
-opted, for clarity, to make the subclass and property names explicit
-rather than store all of this information in some flexible array
-structure.
+A stratum
+is identified by a positive integer.
 
 @I vector.hweb
 
@@ -44,7 +30,8 @@ structure.
 @m sc_solid_temp(x) sector_solid_temperature[x]
 
 @ Define the dimensions and variables used by the geometry routines.
-Note that the dimensions in this file begin at 0. However, the 0 index 
+Note that the dim
+ensions in this file begin at 0. However, the 0 index 
 isn't really used.  They are defined this way to
 accomodate netcdf's wish to say that a zero length dimension is
 unlimited. Namely, until sectors are in wide use, |nsectors|, |sc_vacuum_num|,
@@ -58,11 +45,12 @@ starting them at $0$, the dimensions have a length of at least $1$.
       package_init(sc)
       define_var_pk(sc,nsectors,INT)
       define_dimen_pk(sc,sector_ind,0,nsectors)
+      define_dimen_pk(sc,sector_neg_pos_ind,sc_neg,sc_pos)
       define_varp_pk(sc,strata,INT,sector_ind)
       define_varp_pk(sc,sectors,INT,sector_ind)
       define_varp_pk(sc,sector_zone,INT,sector_ind)
       define_varp_pk(sc,sector_surface,INT,sector_ind)
-      define_varp_pk(sc,sector_points,FLOAT,vc_ind,neg_pos,sector_ind)
+      define_varp_pk(sc,sector_points,FLOAT,vc_ind,sector_neg_pos_ind,sector_ind)
       define_dummy_pk(sc,sc_ignore,INT)
 
 /* Subclasses; first |vacuum| */
@@ -97,6 +85,11 @@ starting them at $0$, the dimensions have a length of at least $1$.
 @f sc_common integer
 @m sc_common
       sc_common_a;
+
+@ Indices
+
+@m sc_neg 0
+@m sc_pos 1
 
 /* Constructors (really?) for sector subclasses.
    Any real reason for not doing these as subroutines? */
