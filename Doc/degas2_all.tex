@@ -1,11 +1,14 @@
 % $Id$
 % $Log$
+% Revision 1.1  2001/07/16 20:30:17  dstotler
+% Adding documentation directory to CVS.
+%
 % To process this file:
 % 
 % (in tex directory), do the following with 
 % codefile = ratecalc, readgeometry, random, classes, geometry, tallysetup,
 % elementsetup, speciesetup, reactionsetup, materialsetup, pmisetup,
-% problemsetup, outputbrowser:
+% problemsetup, outputbrowser, definegeometry2d, defineback:
 %   gmake codefile.tex
 %   pdflatex codefile.tex
 %   mv codefile.pdf ../Doc
@@ -54,10 +57,14 @@
 % \input epsf
 \title{\includegraphics{degas2d}
 User's Guide for DEGAS 2 \\
-Edition 2.0\thanks{This file is written in \TeX. A hyper-linked PDF
-file is generated from that source using {\tt pdflatex}. The ``2.0'' 
-version number is a placeholder which will be superseded by the overall version
-number of the code in the near future. Copyright \copyright 1999 PPPL.
+CVS $Revision$
+\thanks{This file is written in \TeX. 
+A hyper-linked PDF
+file is generated from that source using {\tt pdflatex}. The version number 
+here is the CVS version number for the User's Manual itself.  This document
+is now distributed as part of the DEGAS 2 code. The user can be best assured
+of concurrence between code and manual by referring to the version of the manual
+that came with the code. Copyright \copyright 2001 PPPL.
 Permission is granted to make and distribute verbatim copies of this manual
 provided the copyright and permission notice is preserved on all copies.
 Permission is granted to copy and distribute modified versions of this
@@ -70,18 +77,19 @@ into another language, under the above conditions for modified versions.}}
 Laboratory} \\ Randall Kanzleiter \\ {\em Rensselaer Polytechnic Institute} \\
 Jaishankar S. \\ {\em Institute for Plasma Research, India}}
 \begin{abstract}
-This is version 2.0 of the user's manual for DEGAS 2 - A
+This is the user's manual for DEGAS 2 - A
 Monte Carlo code for the study of neutral atom and molecular transport 
 in confined plasmas. It is intended to cover all aspects of DEGAS 2 from the
 user's point-of-view: obtaining
 the files, compiling them, setting up the input files, executing the
-code,  and interpreting the output. 
+code, and interpreting the output. 
 References will be provided for the underlying physics, but the
 essential aspects will be highlighted. Information for programmers
 interested in modifying DEGAS 2 can be found within the source code
 itself. Links to some of the more useful ones are provided.
 \end{abstract}
 \maketitle
+
 \chapter{Introduction}
 
 \section{Purpose of Monte Carlo Neutral Transport}
@@ -184,7 +192,8 @@ and internal \TeX\ documentation.
 Other significant features of DEGAS 2 include:
 \begin{itemize}
 \item Dynamic memory allocation for optimal performance in large problems,
-\item Operation on a number of UNIX platforms,
+\item Operation on a number of UNIX platforms, compilable with both 
+FORTRAN 77 and FORTRAN 90,
 \item Input and output data stored in self-describing, platform-independent 
 binary files.
 Presently, the main code uses exclusively
@@ -515,6 +524,7 @@ distribution function:
 \begin{equation}
 I(g) \equiv \int d^{3}r d^{3}v f(\vec{r},\vec{v})
 g(\vec{r},\vec{v}).
+\label{gestimator}
 \end{equation}
 For example, if we wish to estimate a reaction rate 
 $\rho \equiv \Sigma |\vec{v}|$,
@@ -600,6 +610,7 @@ For formal proofs that these expectation values do indeed yield $I(\rho)$,
 see Spanier and Gelbard\cite{Span69}.
 
 \subsection{Generalized Collision and Tracklength Estimators}
+\label{generalest}
 
 Two principal
 estimators are used in DEGAS 2. One is a generalization of the 
@@ -725,6 +736,7 @@ suppressed absorption. The collision estimator is then given by
 $\rho_{t,\delta} = 0$,
 \begin{equation}
 \xi_{c} \equiv \frac{\rho}{\rho_{s}} \exp(- \rho_{a} t) w \chi_{V},
+\label{ce}
 \end{equation}
 where $w$ is the weight of the particle at the beginning of timestep
 $t$ and we have inserted the characteristic function of $V$ $\chi_{V}$ 
@@ -744,6 +756,7 @@ The track-length estimator is obtained with $\rho_{t,\delta} \rightarrow
 \infty$,
 \begin{equation}
 \xi_{t} \equiv \rho \frac{1 - \exp(- \rho_{a} t)}{\rho_{a}} w \chi_{V}.
+\label{tle}
 \end{equation}
 Note that Eq.~(\ref{nocollision}) yields this same result in the case
 of no collisions. The same weight reduction, Eq.~(\ref{weightfactor})
@@ -764,10 +777,116 @@ and
 There is no weight reduction in this case, and $w$ retains its initial
 value for the duration of the flight.
 
+\subsection{Specification of Tallies}
+\label{tallies}
+
+This section briefly covers the practical implementation of the estimators
+described in the previous subsection.
+DEGAS 2 currently features three primary types of estimators. These estimators
+are used in accumulating three types of tallies. The tally types are
+\begin{enumerate}
+  \item test,
+  \item reaction,
+  \item sector.
+\end{enumerate}
+These designations can also be viewed as characterizing the nature of the
+information contained in the function $g$ of Eq.~(\ref{gestimator}).
+The following discussion of the three estimators applies to the first
+two of these; there is only one estimator for the sector tallies.
+ 
+The first estimator, associated with the accumulating
+test particle information, is just the track length estimator (see also
+Sec.~\ref{generalest}),
+\begin{equation}
+\xi_{g}^{\rm TLE} = w \, \frac{1 - \exp(-\sigma_{i} t_{V})}{\sigma_{i}} g,
+\end{equation}
+where  $t_{V}$ is the time the particle track spent in volume V,
+$w =$ weight at start of the time step. Compare this with Eq.~(\ref{tle}).
+The function $g$ can be a test particle attribute, such as
+mass, momentum, energy, or reaction-related, e.g., ion 
+momentum source due to charge exchange. The latter $g$ quantity
+enter the track-length estimator as averages over the background 
+distribution\cite{Reit93}.
+
+The second type of estimator is the collision estimator,
+\begin{equation}
+\xi_{g}^{\rm CE} = \sum_{m_{s}} w_{m_{s}} 
+\frac{g}{\sigma_{s}},
+\end{equation}
+where the sum is over $m_{s}$, all scattering collisions within $V$.
+The quantity $w_{m_{s}}$ is the weight at $m_{s}$th collision (by using the
+instantaneous weight rather than the initial weight, 
+the exponential weight reduction factor that appears explicitly in
+Eq.~(\ref{ce}) is incorporated automatically). 
+Again, $g$ is a test particle attribute.
+
+There is an analogous expression for the collision estimator associated
+with a particular reaction,
+\begin{equation}
+\xi_{g}^{\rm CE} = \sum_{m_{j}} w_{m_{j}} \frac{g}{\sigma_{j}},
+\end{equation}
+where the sum is now over $m_{j}$ collisions of reaction $j$ within $V$,
+The function $g$ is some quantity related to the reaction and is likely
+something known only at collisions. One example of such a quantity would
+be the energy source due to H$_{2}$ dissociation (i.e., the energy
+exchange is determined only once the product velocities have been 
+determined).
+
+The third type of estimator arises from the observation that 
+many integrals of interest can be written as:
+\begin{equation}
+I(g) \equiv \int d^{3}r g(\vec{r}) \int d^{3}v f(\vec{r},\vec{v}) = 
+\int d^{3} r g(\vec{r}) n(\vec{r}).
+\end{equation}
+This leads to the post-processing estimator. The requirement is that 
+$g$ not depend upon the test or background velocities. An example of
+this is the H$_{\alpha}$ emission rate.
+
+Information accumulated when a flight crosses a diagnostic sector (surface)
+is compiled in the sector tallies. The
+stimator is just $w g$, where
+$w =$ is the weight when the track hits the sector.
+Examples of the $g =$ functions include mass, incident angle, and energy.
+This is effectively a collision estimator.
+
+There is also a ``null'' or ``none''
+estimator that can be used, say, to eliminate the
+contribution of a particular reaction to a tally without having to 
+remove that reaction from the problem.
+
+For each tally, we need to specify
+\begin{enumerate}
+  \item A descriptive label,
+  \item The type of tally (test, reaction, or sector),
+  \item Its geometry, [volume (per zone), surface (diagnostic sector),
+or detector (e.g., chord-integrated)],
+  \item The dependent variable (e.g., energy, background momentum,
+H$_{\alpha}$ emission rate). The requested variables 
+are matched directly against the labels in the atomic physics data files.
+If a new reaction and data file containing a new variable are added to
+the code, that variable can be used as the basis for a corresponding tally
+without having to modify the code.
+  \item The rank (or dimensionality) of the tally,
+  \item Its independent variables (1 $\rightarrow$ rank) [e.g.,
+zone, test particle species, energy bin (diagnostic sector),
+wavelength bin (detector).
+  \item The estimator to be used (track-length, collision, post-processed,
+or null). For reaction tallies, the estimator chosen can vary with
+reaction. It may be advantageous to combine results 
+from than one estimator, but no effort to implement such a capability
+has been made yet.
+  \item Any conversions that must be performed on the tally prior to
+output.
+Usually, these conversion will do some sort of scaling, e.g., by
+mass or volume. An important example is 
+converting $\vec{v}$ from Cartesian
+to cylindrical coordinates when scoring.
+\end{enumerate}
+
 \section{Tracking Procedure}
 \label{TrackingProcedure}
 
-The two previous sections are tied together with an outline of the
+The two previous subsections are tied together with an outline of the
 DEGAS 2 subroutine for following flights in Fig.~\ref{flightflowchart}.
 
 \begin{figure}
@@ -835,6 +954,23 @@ in no neutral species; particles which DEGAS 2 has been instructed
 to track are called ``test'' particles), the flight is terminated.
 Test particles resulting from the collision are tracked in the same
 manner, starting with the computation of the reaction rates.
+
+\section{Random Numbers}
+\label{Randomnumbers}
+
+The concepts behind the random number generator used in DEGAS 2 are
+described in the file {\tt random.web}. The 
+\href{random.pdf#page.1}{documentation} at the top of the file
+provides a nice introduction.
+
+\section{Geometry}
+\label{Geometry}
+
+The introduction to {\tt geometry.web} provides a concise description
+of the fundamental elements of the DEGAS 2 geometry. Here's a 
+\href{geometry.pdf#page.1}{link} to the PDF version of this file.
+Note that most users will define geometries at a higher level,
+such as that provided by {\tt readgeometry} and {\tt boxgen}. 
 
 \section{Atomic Physics}
 \label{AtomicPhysics}
@@ -994,7 +1130,7 @@ itself distributed with DEGAS 2, it can be obtained from the DEGAS 2
 authors (see Sec.~\ref{help}).
 
 The output data from {\tt collrad} are contained in the file {\tt ehr2.dat}.
-(contains...) Earlier versions of this same file, {\tt eh.dat} 
+Earlier versions of this same file, {\tt eh.dat} 
 (as generated by Weisheit's original code) and {\tt ehr1.dat}
 [generated with Weisheit's code modified to use Eq.~(\ref{crnm})] are
 also included in the DEGAS 2 distribution since they were both used 
@@ -1230,8 +1366,198 @@ $D^{+} + D$ elastic collisions.}
 \end{center}
 \end{figure}
 
+The addition of these data present the user with yet another option for 
+handling hydrogen charge exchange in DEGAS 2. Figure~\ref{cxsummary} 
+compares the new CFADC data (labeled ``Krstic'') with previous 
+versions and with experimental data. The cross sections have been
+plotted as a function of the relative velocity so that both the
+hydrogen and deuterium data can be included. The Krstic cross sections
+are the ``spin exchange'' cross sections described in Ref.~\cite{Krst98}.
+They are thus {\em smaller} than the total elastic scattering
+cross sections that are to be used in DEGAS 2. This underscores the point
+that these new elastic scattering cross sections are intended to
+{\em replace} the existing charge exchange data, not used in addition to
+them.
+
+The default data used heretofore
+in DEGAS 2 have been computed from the ``Janev-Smith'' fit\cite{Jane93}.
+This fit was derived from older data published by Barnett\cite{Barn90}.
+Barnett's data were a compilation of various experimental results. 
+Included was the work by Newman\cite{Newm82}. Why the
+Barnett compilation diverges slightly from the 
+Newman data at the lowest energies is
+not clear. The Reviere\cite{Revi71} curve in Fig.~\ref{cxsummary} represents the
+charge exchange cross section employed in the original DEGAS code. Not
+surprisingly, they are used in DEGAS 2 in the {\tt Degas\_box\_bench}
+example. Note that Reviere's intended application was neutral beam
+penetration. Hence, the lack of agreement at divertor-relevant 
+velocities is not surprising.
+
+\begin{figure}
+\begin{center}
+\leavevmode
+\includegraphics[width=5in]{CX_Summary_Data}
+\caption{Comparison of various charge exchange cross sections. The curve 
+labeled ``Janev-Smith'' represents the default data used in DEGAS 2
+prior to the addition of the newer CFADC elastic scattering data,
+labeled here by ``Krstic'' (one curve for H, one for D).}
+\label{cxsummary}
+\end{center}
+\end{figure}
+
 \subsection{Neutral-Neutral Elastic Scattering}
 \label{NeutralNeutral}
+
+% Do these Include: statement regarding cross species rates, 
+% pointer to balance checks.
+% Convergence criterion.
+
+Low temperature (a few eV or less) plasma conditions may result in
+neutral densities that are comparable to the plasma density. In such
+cases, collisions amongst the neutral species can be important in 
+determining the exchange of momentum and energy in the system. For example, hydrogen
+molecules generated at a surface typically have energies comparable to 
+room temperature, say, $0.03$ eV. Yet, these molecules may be surrounded
+by much more energetic atoms, say 3 to 5 eV,  resulting from molecular
+dissociation or charge exchange. Elastic collisions between the two
+species can significantly increase the molecules' energy, enabling them
+to penetrate much further into the plasma before becoming dissociated
+or ionized.
+
+When the neutral-neutral mean free path is very short, 
+$K_{n} = \lambda_{\rm mfp} / d \ll 1$ ($d$ is a measure of the 
+system size or of gradient scale lengths; $K_{n}$ is the 
+Knudsen number) cases, 
+the most efficient approach would be to use a fluid model
+for the neutral species. This regime is also known as the ``viscous
+flow'' regime\cite{OHan89}. However, $K_{n}$ is usually close to one in most
+fusion problems, even in vacuum regions. In that case, a kinetic
+treatment is required. Fortunately, such ``transition regime'' cases
+can be handled effectively with a Monte Carlo code. When $K_{n} \gg 1$,
+the ``molecular flow'' regime, neutral-neutral collisions can be
+neglected. For a practical discussion
+of these three regimes as they apply to the tokamak divertor, see
+Ref.~\cite{Niem95}.
+
+The great difficulty with treating neutral-neutral collisions is that they
+make the problem nonlinear.  Namely, the collision kernel is then a 
+quadratic function of the neutral distribution function rather than a 
+linear one. The exact problem is very difficult to solve, and one is
+forced to resort to approximations. Reiter et al. addressed this issue
+first with the EIRENE code and concluded that an iterative ``BGK'' approach
+(referring to the original algorithm developed by Bhatnagar,
+Gross, and Krook\cite{Bhat54}; proposed independently by 
+Welander\cite{Wela54}) was sufficient\cite{Mayxx,Reit97}. The BGK
+approximation replaces the collision integral with a much simpler 
+expression in which the distribution function relaxes to a Maxwellian
+distribution
+with a velocity independent collision time. A physically relevant result
+is ensured by determining the parameters of the Maxwellian distribution so as
+to enforce conservation of mass, momentum, and energy in the collisions.
+The collision time remains arbitrary and is chosen so as to reproduce
+measured viscosity and diffusion rates; this procedure is discussed in
+greater detail in Sec.~\ref{BGKRates}.
+
+Neutral-neutral collisions are included in DEGAS 2 in exactly the same
+way as in EIRENE. While more details on nature of the BGK algorithm
+are provided in Kanzleiter's thesis\cite{Kanz99}, the essential elements
+and references are covered in the more readily available Ref.~\cite{Reit97}.
+The BGK algorithm approximates the binary collision integral for species $i$ as
+\begin{equation}
+\frac{\partial f_{i}}{\partial t} \approx \frac{M_{i} - f_{i}}{\tau_{i}}
++ \sum_{j \neq i} \frac{M_{ij} - f_{i}}{\tau_{ij}},
+\label{bgk}
+\end{equation}
+where the $M$ represent Maxwellian distributions,
+\begin{equation}
+M_{\alpha} \equiv n_{\alpha} \left( \frac{m_{\alpha}}{2 \pi k T_{\alpha}}
+\right)^{3/2} \exp \left[ - \frac{m_{\alpha} 
+(\vec{v}_{\alpha} - \vec{U}_{\alpha})^{2}}{2 k T_{\alpha}} \right].
+\label{bgkMax}
+\end{equation}
+Here, the individual particle velocity is $\vec{v}_{\alpha}$; the mass
+$m_{\alpha}$ is always that of the species represented on the
+left-hand side of Eq.~(\ref{bgk}).
+In Eq.~(\ref{bgk}), a single subscript refers to a physical species. 
+Dual subscripts below refer to fictitious, ``mixed'' species introduced
+for the purpose of handling binary collisions between unlike neutral
+species. 
+
+Conservation of mass, momentum, and energy in the self-collision case
+yields
+\begin{eqnarray}
+n_{i} & = & \int_{-\infty}^{+\infty} d^{3}v f_{i}(\vec{v}), \\
+\label{nmoment}
+n_{i} m_{i} \vec{U}_{i} & = & \int_{-\infty}^{+\infty} d^{3}v m_{i} 
+\vec{v} f_{i}(\vec{v}), \\
+\label{vmoment}
+\frac{3}{2} n_{i} k T_{i} & = & \int_{-\infty}^{+\infty} d^{3}v 
+\frac{1}{2} m_{i} v^{2} f_{i}(\vec{v}).
+\label{tmoment}
+\end{eqnarray}
+
+Conservation of mass, momentum, and energy are also enforced in the
+the mixed-species case to determine the $M_{ij}$. Additional constraints
+are obtained by requiring that the ratio of the momentum and energy
+relaxation rates is the same as for the full collision integral.
+The results are\cite{Mayxx,Reit97,Kanz99} are
+\begin{eqnarray}
+\vec{U}_{ij} & = & \vec{U}_{ji} = \frac{m_{i} \vec{U}_{i} + m_{j} \vec{U}_{j}}
+{m_{i} + m_{j}}, \\
+k T_{ij} & = & k T_{i}  - \frac{2 m_{i} m_{j}}{(m_{i} + m_{j})^{2}}
+\left[ (k T_{i} - k T_{j} ) - \frac{m_{i}}{6} (\vec{U}_{i} - \vec{u}_{j})^{2}
+\right].
+\end{eqnarray}
+One additional important constraint on the collision times is obtained,
+\begin{equation}
+n_{j} \tau_{ij} = n_{i} \tau_{ji}.
+\end{equation}
+With $\tau_{ij} \equiv (n_{j} \langle \sigma v \rangle_{ij})^{-1}$
+representing the typical time between physical species $i$ and 
+the fictitious species represented by $M_{ij}$,
+this becomes just
+\begin{equation}
+\langle \sigma v \rangle_{ij} = \langle \sigma v \rangle_{ji}.
+\label{sigvconstraint}
+\end{equation}
+May\cite{Mayxx,Reit97} sets the values of the reaction rates for
+mixed collisions using empirical diffusion coefficients; 
+the rates for self-collisions
+come from measured viscosity coefficients. The end result is that
+in both cases the reaction rate $\langle \sigma v \rangle_{i}
+\propto T_{i}^{1/4}$ 
+or $\langle \sigma v \rangle_{ij}
+\propto T_{ij}^{1/4}$.  The validity of these expressions is examined in the 
+next subsection.
+
+The practical implementation of the algorithm is iterative. By default, the
+initial iteration of the code proceeds without neutral-neutral collisions.
+The reason for this is that the neutral ``background'' with which the 
+test species collide initially has zero density. A nonzero density
+could be specified during the setup of the background, if desired.
+The fluid moments of Eqs.~(\ref{nmoment}), (\ref{vmoment}), and (\ref{tmoment})
+are computed at the end of the iteration and inserted into the background
+density, velocity, and temperature arrays for the neutral background 
+species. The calculation is then restarted; this time the test neutral
+species scatter against the neutral background. At the end of the run,
+the fluid moments are again updated. The iterations continue either a
+specified number of times or until some convergence criterion is
+satisfied. 
+
+Accurately simulating neutral-neutral scattering requires greater care
+in setting up the geometry and deciding on the number of flights than
+is exercised in linear runs. First,
+the entire problem space must be divided up finely enough to resolve all
+anticipated spatial variations of the neutral density. In comparison, 
+without neutral-neutral
+scattering, the vacuum regions can be treated as large monolithic zones.
+The variation of the neutral parameters between iterations is asymptotically
+limited by Monte Carlo noise. In other words, if too few flights are used,
+the background densities are not accurately determined, causing the
+elastic scattering of the test species to be doubly inaccurate.
+The variations in neutral density, etc. in a given simulation will be more
+effectively reduced by increasing the number of flights than by 
+carrying out more iterations.
 
 \subsection{Validation of BGK Model and Rates}
 \label{BGKRates}
@@ -1243,7 +1569,7 @@ $D^{+} + D$ elastic collisions.}
 
 As described by May\cite{Mayxx}, the reaction rates for the BGK algorithm
 can be determined by matching physical quantities, the viscosity and
-diffusion cofficients, against measured values. However, since the May's
+diffusion cofficients, against measured values. However, since May's thesis
 work and the publication of Reiter\cite{Reit97}, the ORNL 
 CFADC has
 computed \href{http://www-cfadc.phy.ornl.gov/elastic/elastic0.html}{differential scattering cross sections} \cite{Krst98}, analogous to those
@@ -1253,11 +1579,11 @@ consistent, at least near room temperature.
 
 We proceed in a manner analogous to May. Namely, we will obtain from the
 CFADC differential cross sections values for the viscosity and diffusion
-coefficients. Using the same expressions as May, these will be transformed
+coefficients. These will be transformed
 into reaction rates that can be compared with those described in 
 Sec.~\ref{NeutralNeutral}.
 
-For self-collisions, we consider the viscosity. The general expression 
+For self-collisions, consider the viscosity. The general expression 
 derived in Chapman and Cowling\cite{Chap70} [their Eq.~(10.1,4)] is
 \begin{equation}
 \mu_{1} = \frac{5}{8} \frac{k T}{\Omega_{1}^{(2)}(2)},
@@ -1284,7 +1610,7 @@ cross sections over Maxwellian distributions for both species. The
 a single Maxwellian distribution,
 namely, the $I_{l,n}$ described in Reiter\cite{Reit93}
 and the \href{ratecalc.pdf#page.3}{documentation} for {\tt ratecalc}.
-Fortunately, the double integral can be found as a limiting case of 
+Fortunately, the double integral we need here can be found as a limiting case of 
 the single integral:
 \begin{equation}
 \langle I_{l,n} \rangle(u_{p},u_{n}) = \lim_{u^{\prime} \rightarrow 0} 
@@ -1397,7 +1723,8 @@ May's expressions are also consistent with the CFADC data. However,
 in the 1 to 10 eV range, they are considerably larger than the
 CFADC values,
 suggesting that the values used in DEGAS 2 (and EIRENE) may be too
-large.
+large. We will demonstrate in Sec.~\ref{cmod1d} that the temperature dependence
+ascribed to these rates by May is inconsistent with Eq.~(\ref{sigvconstraint}).
 
 \begin{figure}
 \begin{center}
@@ -1415,51 +1742,247 @@ rates computed from the CFADC data are shown.}
 \leavevmode
 \includegraphics[width=5in]{viscosity_plot}
 \caption{Comparison of viscosity formulas from May\cite{Mayxx}, 
-Reid{Reid87} (the ``Chung'' and ``Lewis'' expressions), and the CRC
+Reid\cite{Reid87} (the ``Chung'' and ``Lewis'' expressions), and the CRC
 Handbook\cite{CRC}.}
 \label{viscosities}
 \end{center}
 \end{figure}
 
-\chapter{Structure of DEGAS 2}
+\chapter{Running DEGAS 2}
 
-The essential inputs to a Monte Carlo neutral transport code are:
+\section{Getting DEGAS 2}
 
-\begin{itemize}
-\item The neutral or test species which are of interest,
-\item The species and phase space distribution of the background 
-species with which
-the test species will interact, 
-\item The interaction processes between the test and background species. 
-The relative probability of these processes as a function of the 
-test and local background properties are required as well as a 
-prescription for specifying the outcome of each interaction.
-\item The simulation geometry, including a framework for
-holding the background species data, as well as a means for tracking
-the test species through the background.
-\item The boundaries of the geometry, including a prescription
-for specifying the outcome of interactions between the test species and
-these boundaries.
-\end{itemize}
+DEGAS 2 can be obtained from the anonymous FTP site at Princeton Plasma
+Physics Labs (PPPL). It can be found in the directory
+{\tt /pub/degas2}. The procedure for getting it is:
 
-In this chapter we will familiarize the user with way these inputs are 
-defined and specified for DEGAS 2, as well as provide an overview 
-of the rest of the code. More
-detailed information on running DEGAS 2 will follow in later chapters.
+\begin{verbatim}
+ftp ftp.pppl.gov
+user: anonymous 
+Password: < your email adress > 
+ftp> cd pub/degas2 
+ftp> binary 
+ftp> get degas2.tar 
+ftp> bye 
+\end{verbatim}
 
-\section{Structure of the File System}
+If you want to download DEGAS 2 through your browser
+now, \href{ftp://ftp.pppl.gov/pub/degas2}{here's a link} to it.
+Currently, there are three forms: 
+\begin{enumerate}
+\item {\tt degas2.tar} An uncompressed tar file (extract with:
+\begin{verbatim}
+tar xf degas2.tar
+\end{verbatim}
+\item {\tt degas2.tar.Z} The tar file compressed with the {\tt compress}
+utility. To extract the code,
+\begin{verbatim}
+uncompress degas2.tar.Z
+tar xf degas2.tar
+\end{verbatim}
+\item {\tt degas2.tar.gz} The tar file compressed with the {\tt gzip}
+utility. To extract the code,
+\begin{verbatim}
+gunzip degas2.tar.gz
+tar xf degas2.tar
+\end{verbatim}
+\end{enumerate}
+
+There are a number of older versions of the code in this directory. The most
+recent is always linked to the names listed above. Please consult with the
+authors if you think you need an earlier version.
+
+\section{Getting Supporting Tools}
+
+DEGAS 2 relies on several pieces of utility software.  In some cases (netCDF),
+these utilities are absolutely required. These utilities 
+can be obtained from the indicated sites. You
+will probably want to have your system administrator download, compile,
+and install these packages system-wide for your convenience.
+
+
+\subsection{GNU Software}
+\label{gnu}
+\index{gmake}
+\index{emacs}
+\index{Tags}
+\index{make}
+\index{Makefile}
+
+The DEGAS 2 Makefile automates several chores, including generating and compiling
+FORTRAN code, as well as weaving \TeX\ files from from the FWEB source,
+The Makefile also controls the application of platform-specific lines of code
+and compilation options.  Although not completely necessary, using DEGAS 2
+without using GNU Make to run this Makefile would be extraordinarily inconvenient.
+The {\tt gmake} (the GNU Make utility) can be found at
+\href{ftp://prep.ai.mit.edu/gnu/make/}{ftp://prep.ai.mit.edu/gnu/make/}
+
+Likewise, the Emacs editor is not essential, but
+its use simplifies a number of tasks.
+For instance, Emacs provides a facility which allows the user to search for variable
+and routine names across many files. For example, say you're
+editing {\tt randomtest.web} and you'd like to see the source
+code for {\tt subroutine next\_seed} called there. All you
+have to do is execute the Emacs command \verb+M-. next_seed+ (it
+will ask for the name of the tags file; the default value of {\tt TAGS}
+is correct and you just need to hit {\tt Enter} here). All of DEGAS 2
+source and header files are included in this list of tags. Additional
+facilities such as a tag-query-replace  (e.g., to change {\em all} 
+occurences of a variable name) are available. See the Emacs Info
+file under the node ``Tags'' for more information.
+
+% Insert URL for Emacs
+
+\subsection{netCDF}
+\label{netcdf}
+\index{netCDF}
+\index{Emacs}
+\index{ncgen}
+\index{ncdum}
+\index{ncgen-filter}
+\index{ncdump-filter}
+
+netCDF provides a device-independent binary file
+format. Furthermore, these files are self-describing. Most of the effort
+required to read and write these files is handled by macros. These are
+documented in the file {\tt netcdf.hweb}. By adding the commands 
+in {\tt src/.emacs} to
+your .emacs file, Emacs will be able to convert automatically these files
+to text and back to binary for perusal and editing.
+netCDF is fully documented in the Info facility of Emacs. The netCDF
+libraries are required to run DEGAS 2 since virtually all of the input
+data is stored in netCDF files. The associated netCDF utilities {\tt ncdump}
+(for translating a netCDF file into human-readable text) and {\tt ncgen}
+(for generating a netCDF binary file from a text file) are useful for
+reading and making minor changes to DEGAS 2 input files.
+Two short scripts, {\tt ncdump-filter} and {\tt ncgen-filter}, allow
+Emacs to invoke these utilities via the commands in the .emacs file.
+These are not part of the netCDF distribution and are included amongst
+the DEGAS 2 source files for your convenience. These should be copied
+to a directory which is covered by your shell's {\tt PATH} variable.
+
+An additional note: if you use {\tt ncgen}, be sure to either specify
+the \verb+-b+ or \verb+-o netcdf_filename+ option to let the utility know
+that you want it to generate a netCDF file (see: {\tt man ncgen}).
+
+netCDF (see Sec.~\ref{netcdf}) can be obtained from  
+\href{ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z}{ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z}
+Other compression formats and files are also present in this same directory.
+See the link to ``FAQ'' for the answers to frequently asked questions.
+
+\subsection{FWEB}
+\label{fweb}
+\index{FWEB}
+\index{ftangle}
+\index{fweave}
+\index{TeX}
+\index{LaTeX}
+
+The FWEB package provides a facility for code documentation as well
+as a powerful preprocessor. The typesetting abilities of FWEB allow authors
+to insert \TeX\ (or \LaTeX) comments into their code. In DEGAS 2, the
+preprocessor is utilized extensively for writing macros which allow the
+code seen by the user to be significantly more powerful than pure FORTRAN.
+In fact, the code can be processed into FORTRAN 77 or FORTRAN 90 as
+needed. However, FWEB is {\em not optional}. The user must have access
+to at least its {\tt ftangle} executable on some system in order to
+generate compilable FORTRAN files (once generated, these can be copied
+to other systems for compilation).
+For examples of the overall structure of FWEB programs, see the *.web
+files; most of the macros are located in the header *.hweb files.
+FWEB is fully documented in the Info facility of Emacs. 
+
+FWEB (version 1.62) (see Sec.~\ref{fweb}) is available at
+\href{ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz}{ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz}
+
+To typeset DEGAS 2 source code in ``human-readable'' formats such as DVI,
+PostScript, or PDF, the user will need FWEB's {\tt fweave} utility and
+a version of \TeX\ or \LaTeX.
+
+\LaTeX\  is available in lots of places. To begin with, see the
+official CTAN \TeX\ network page at  
+\href{http://www.tex.ac.uk/ctan}{http://www.tex.ac.uk/ctan}. The 
+distribution in use at PPPL is called \verb+teTeX+,
+\href{ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources}{ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources}.
+
+\subsection{Concurrent Version System}
+\label{cvs}
+\index{CVS}
+\index{Pcl-cvs}
+
+The UNIX CVS (Concurrent Version System) utility 
+is used to coordinate work on a
+code by a number of authors. 
+The central DEGAS 2 source code is maintained 
+in a CVS repository.  Users planning to coordinate with the code authors should
+become familiar with CVS. Users who will do extensive code development on their
+own will find CVS a valuable tool in tracking their work. The average end-user
+should be able to work effectively without ever dealing with CVS.
+
+The CVS repository is a central, safe version
+of the code; authors check out copies in their own disk space in order to
+work on the code. By doing a {\tt cvs update}, a given author can update his
+local sources to incorporate changes others have saved to the central
+repository. The cvs commit command allows him to save his own changes to
+the repository.
+
+The Info page for CVS is the best reference for commands. The manual
+page is complete, but lengthy. The man page for
+{\tt rcsintro} may also be helpful as an introduction. Many cvs commands
+may be executed from within Emacs. See the Emacs Info page on
+{\tt Pcl-cvs} for more details.
+
+\subsection{HDF}
+\label{hdf}
+\index{HDF}
+
+HDF is another device-independent binary file format. At present, HDF files are
+used only by the {\tt geomtesta} utility as a convenient format for transferring
+the code results in graphical form for processing by commercial products.
+
+The HDF libraries can be obtained from \\
+\href{ftp://ftp.ncsa.uiuc.edu}{ftp://ftp.ncsa.uiuc.edu}
+Note that as of HDF version 4, some of the netCDF functionality is 
+implemented in HDF. To avoid conflicts with the official netCDF libraries,
+do not install the netCDF portion of the HDF distribution.
+
+\subsection{Triangle}
+\label{triangle}
+\index{Triangle}
+\index{definegeometry2d}
+
+Jonathan Shewchuck's 
+{\tt Triangle} program is used by the {\tt definegeometry2d}
+code to break polygons up into triangles. The home for {\tt Triangle}
+is \href{http://www.cs.cmu.edu/~quake/triangle.html}{http://www.cs.cmu.edu/~quake/triangle.html} 
+The {\tt Triangle} V. 1.3 was used in writing {\tt definegeometry2d}.
+Anyone downloading a more recent version should notify the {\tt DEGAS 2}
+authors. The {\tt DEGAS 2} {\tt Makefile} will expect to find
+the {\tt Triangle} files, \verb+triangle.c+, \verb+triangle.h+, etc., 
+in \verb+$HOME/Triangle+. If your copy is installed elsewhere, you can
+either create an appropriate link or modify {\tt Makefile}.
+
+\section{Structure of the DEGAS 2 File System}
+\label{structure}
+\index{directories}
+\index{HOME}
+\index{Makefile.local}
 
 Here is an example structure of the directories under the top-level 
 {\tt degas2} directory. Those labeled with ``(D)'' represent
 source and data directories maintained with CVS. The others are created
-by the user as described in the compiling section.
+by the user as described in the compiling section. Note that the Makefile 
+assumes that this {\tt degas2} directory sits in the directory pointed to
+be the \verb+$HOME$+ 
+environment variable on your workstation. If you have installed
+the code elsewhere, see Sec.~\ref{adjustments}. 
 
 \begin{description}
 \item[data] Input atomic and surface physics data and information (D)
 \item[src] All source code (D)
 \item[Doc] Location of the various formats of this document and ancilliary
-files (needs to be established in archive)
-\item[examples] Input and output files from example and benchmark runs 
+files (D)
+\item[examples] Input and output files from example and benchmark runs (D)
 \item[Aladdin] Source code and data for use with IAEA Aladdin package (D)
 \item[ALPHA] Object and executable files for Dec Alpha machines
 \item[SUN] Object and executable files for Sun Solaris and SunOS machines
@@ -1467,6 +1990,10 @@ files (needs to be established in archive)
 \item[tex] Intermediate files and final DVI documentation files generated 
 from source code
 \end{description}
+
+If you need to have multiple run directories for a given system (e.g., focussed
+on different problems or using different compilers), you can create additional
+directories with names like \verb+SUN-foo+ where ``foo'' is any string you like.
 
 \section{Components of the Code}
 \label{components}
@@ -1486,6 +2013,9 @@ mention here.
 \index{tallysetup}
 \index{flighttest}
 \index{geomtesta}
+\index{definegeometry2d}
+\index{defineback}
+
 
 Virtually every user will be running these executables,
 usually in this order.
@@ -1496,11 +2026,25 @@ materials, atomic, and surface physics required for the
 current problem. The code
 accesses the required "reference" data, and compiles them
 into a netCDF file (the {\tt problem.nc} file).
+\item[definegeometry2d] Generates a DEGAS 2 netCDF geometry file from from a text
+input file. Input files for simple geometries may be
+generated manually; more complex geometries can be specified via other computer
+generated text files
+files referenced by the input file. For example, {\tt definegeometry2d} is
+able to read data produced by the {\tt DG} package (part of the {\tt B2-Eirene} or
+{\tt SOLPS} distribution) or by UEDGE. Of the three tools for setting up
+DEGAS 2 geometries {\tt definegeometry2d} is the most flexible. 
 \item[readgeometry] Generates a DEGAS 2 netCDF geometry file from an
-existing DEGAS, UEDGE, or SONNET geometry description. Hopefully, this
-package will be superseded by other more general means of generating
-geometries (and backgrounds). A short text input file helps readgeometry
+existing DEGAS, UEDGE, or SONNET geometry description. This package has
+largely been superseded by {\tt definegeometry2d}.  However, users with legacy
+input files for the old DEGAS code will still want to use {\tt readgeometry}.
+A short text input file helps readgeometry
 through the transformation process.
+\item[defineback] Uses a short text input file to control the mapping of plasma
+data in external text files onto the DEGAS 2 geometry. Designed to be used in
+conjunction with {\tt definegeometry2d}, {\tt defineback} can utilize data
+produced by other codes. However, {\tt defineback} is not yet mature
+and is, consequently, a little ``rough around the edges''.
 \item[readbackground] Plasma data in an external file is mapped onto
 the zones of the DEGAS 2 geometry. Presently, only DEGAS and UEDGE files
 can be used; readgeometry and readbackground read the same data
@@ -1584,9 +2128,16 @@ describable without external data are also included. This code can be used,
 in a somewhat clumsy manner, to add new plasma-material interaction data
 to DEGAS 2 using either one of these three existing data bases or via
 a new datafile (with the rest of the code serving as an example).
-\item[boxgen] Is intended to serve as an example of how to generate
-geometry and background files from scratch. As the name implies, boxgen
-sets up a simple box geometry with a linearly varying plasma.
+\item[boxgen] Is the third of geometry / background generation tool provided 
+with DEGAS 2.  It is intended to serve as an example of how to generate
+geometry and background files from scratch. As the name implies, {\tt boxgen}
+sets up a simple box geometry with a linearly varying plasma. However, 
+no input file for {\tt boxgen} has been developed; all modifications have to
+be effected through direct source code modification. The typical user
+in search of a simple linear geometry to study can be overwhelmed by the
+complexity of the code encountered there. For this reason, the 
+{\tt definegeometry2d} / {\tt defineback} pair may be more suitable for
+setting up simple problems.
 \end{description}
 
 \subsection{Test Routines}
@@ -1637,23 +2188,67 @@ same!).
 \label{miscroutines}
 \index{matchout}
 \index{matcheir}
+\index{datamatch}
 
 \begin{description}
 \item[matchout] Is used to compare the current DEGAS 2 output netCDF
 file with another from an equivalent run (i.e., all of the arrays must
-be exactly the same size). The most frequent use
+be exactly the same size) on the command line. The most frequent use
 of {\tt matchout} is to verify that two separate runs have yielded 
 results which are the same to within roundoff error. Because of the size of 
 the ouptut netCDF file, verifying this by visually comparing the files 
 is impractical.  
 \item[matcheir] Is specifically designed for comparing with output from
-the EIRENE code. See Sec.(the same physics benchmark).
+the EIRENE code. The name of the EIRENE file is specified on the command
+line.See Sec.(the same physics benchmark).
+\item[datamatch] Provides a means for comparing the contents of the two
+netCDF data files specified on the command line.
 \end{description} 
 
 \section{Input Files}
 
+The essential inputs to a Monte Carlo neutral transport code are:
+
+\begin{itemize}
+\item The identity of the ``test'' species (usually neutral in plasma problems)
+that are of interest,
+\item The identity and phase space distributions of the ``background''
+(typically electrically charged in plasma problems)
+species with which
+the test species will interact, 
+\item The interaction processes between the test and background species. 
+The relative probability of these processes as a function of the 
+test and local background properties are required as well as a 
+prescription for specifying the outcome of each interaction.
+\item The simulation geometry, including a framework for
+holding the background species data, as are a means for tracking
+the test species through the background.
+\item The boundaries of the geometry, including a prescription
+for specifying the outcome of interactions between the test species and
+these boundaries.
+\end{itemize}
+
 DEGAS 2 utilizes several text based input files for controlling the actions
-of its component executables (see Sec.~\ref{components}).
+of its component executables (see Sec.~\ref{components}). 
+In this section we will discuss a few of these input files. The more complex
+input files are described in their respective codes; links to the documentation
+for those files will be given instead. 
+More
+detailed information on running DEGAS 2 will follow in later sections.
+
+These text input files are, for the most part, 
+read with the same set of text processing utilities that adhere to the following
+guidelines. In some cases, particularly
+those involving files generated by other codes, the files are read directly
+with formatted FORTRAN read statements.
+
+\begin{enumerate}
+  \item Spacing and blank lines are ignored. The user is free to utilize white
+space in whatever way facilitates reading and maintaining the input file.
+  \item Comments, either a complete line or at the end of a line, are begun
+with a \verb+#+ sign.
+  \item File names can be a relative or full path name.
+\end{enumerate}
 
 \subsection{degas2.in}
 \label{degas2in}
@@ -1664,12 +2259,11 @@ input files. Each line consists of DEGAS 2's symbolic name for the
 file (this can be changed only by modifying {\tt readfilenames.hweb}
 and {\tt readfilenames.web}) followed by the path name for the file
 to be used in the current problem. The order of the lines in this file
-is unimportant. Comments (beginning with \#) and spaces are ignored.
+is unimportant. 
 
 \begin{verbatim}
 elementsfile  ../data/elements.nc 
 backgroundfile bk_uers.nc 
-testfile  test.nc 
 geometryfile ge_uers.nc 
 problemfile pr_uers.nc
 reactionfile reactions.nc
@@ -1745,6 +2339,23 @@ second task would be to write subroutines for setting up the products and
 handling collisions (see Sec.~\ref{reactionprocessing}). 
 This would be necessary only if a new reaction type
 were being added.
+
+\subsection{ratecalc Input}
+\label{ratecalcinput}
+
+The {\tt ratecalc} code is used to compute atomic physics reaction
+rates from cross section data, as well as a few other tasks. 
+The code is documented internally. Follow this
+% To get this to work, had to add some stuff to fweb.sty (the hyperref
+% package). Can then do: pdflatex ratecalc.tex. 
+% Note that this page
+% number is the one TeX assigns; not the one acroread uses.
+% pdflatex will complain occasionally about ``non-pdf special'', but
+% I don't see any deleterious effects so far (appears to have something
+% to do with section headers).
+\href{ratecalc.pdf#page.1}{link} to
+the introductory section to learn more.
+
 
 \subsection{materials\_infile}
 \label{materialsinfile}
@@ -1823,6 +2434,24 @@ of this manual, here's a
 \href{readgeometry.pdf#page.1}{link} to the
 corresponding PDF file.
 
+\subsection{definegeometry2d Input}
+\index{definegeometry2d input}
+
+The documentation for {\tt definegeometry2d} input is maintained in the
+source code, {\tt definegeometry2d.web}. For readers of the PDF version
+of this manual, here's a 
+\href{definegeometry2d.pdf#page.1}{link} to the
+corresponding PDF file.
+
+\subsection{defineback Input}
+\index{defineback input}
+
+The documentation for {\tt defineback} input is maintained in the
+source code, {\tt defineback.web}. For readers of the PDF version
+of this manual, here's a 
+\href{defineback.pdf#page.1}{link} to the
+corresponding PDF file.
+
 \subsection{readbackground Input}
 \index{readbackground input}
 
@@ -1894,163 +2523,6 @@ going to be as in the example. In general, though, one could take a
 slice which goes in the third direction as well. The vectors do not 
 need to be orthogonal.
 
-\section{Data Files}
-
-\subsection{Radiation Data}
-
-
-\section{Other Tools}
-
-\subsection{Concurrent Version System}
-\label{cvs}
-\index{CVS}
-\index{Pcl-cvs}
-
-The UNIX CVS (Concurrent Version System) utility 
-is used to coordinate work on a
-code by a number of authors. CVS maintains a central, safe version
-of the code; authors check out copies in their own disk space in order to
-work on the code. By doing a {\tt cvs update}, a given author can update his
-local sources to incorporate changes others have saved to the central
-repository. The cvs commit command allows him to save his own changes to
-the repository.
-
-The Info page for CVS is the best reference for commands. The manual
-page is complete, but lengthy. The man page for
-{\tt rcsintro} may also be helpful as an introduction. Many cvs commands
-may be executed from within Emacs. See the Emacs Info page on
-{\tt Pcl-cvs} for more details.
-
-\subsection{FWEB}
-\label{fweb}
-\index{FWEB}
-
-The FWEB package provides a tool for code documentation as well
-as a powerful preprocessor. The typesetting abilities of FWEB allow authors
-to insert \TeX (or \LaTeX) comments into their code. In DEGAS 2, the
-preprocessor is utilized extensively for writing macros which allow the
-code seen by the user to be significantly more powerful than pure FORTRAN.
-In fact, the code can be processed into FORTRAN 77 or FORTRAN 90 as
-needed. However, FWEB is {\em not optional}. The user must have access
-to at least its {\tt ftangle} executable on some system in order to
-generate compilable FORTRAN files (once generated, these can be copied
-to other systems for compilation).
-For examples of the overall structure of FWEB programs, see the *.web
-files; most of the macros are located in the header *.hweb files.
-FWEB is fully documented in the Info facility of Emacs. 
-
-\subsection{netCDF}
-\label{netcdf}
-\index{netCDF}
-
-netCDF provides a device-independent binary file
-format. Furthermore, these files are self-describing. Most of the effort
-required to read and write these files is handled by macros. These are
-documented in the file netcdf.hweb. By adding the commands 
-in {\tt src/.emacs} to
-your .emacs file, Emacs will be able to convert automatically these files
-to text and back to binary for perusal and editing.
-netCDF is fully documented in the Info facility of Emacs. The netCDF
-libraries are required to run DEGAS 2 since virtually all of the input
-data is stored in netCDF files. The associated netCDF utilities {\tt ncdump}
-(for translating a netCDF file into human-readable text) and {\tt ncgen}
-(for generating a netCDF binary file from a text file) are useful for
-reading and making minor changes to DEGAS 2 input files.
-Two short scripts, {\tt ncdump-filter} and {\tt ncgen-filter}, allow
-Emacs to invoke these utilities via the commands in the .emacs file.
-These are not part of the netCDF distribution and are included amongst
-the DEGAS 2 source files for your convenience. These should be copied
-to a directory which is covered by your shell's {\tt PATH} variable.
-
-An additional note: if you use {\tt ncgen}, be sure to either specify
-the \verb+-b+ or \verb+-o netcdf_filename+ option to let the utility know
-that you want it to generate a netCDF file (see: {\tt man ncgen}).
-
-\subsection{Emacs Tags}
-\label{tags}
-\index{Tags}
-
-Emacs provides a facility which allows the user to search for variable
-and routine names across many files. For example, say you're
-editing {\tt randomtest.web} and you'd like to see the source
-code for {\tt subroutine next\_seed} called there. All you
-have to do is execute the Emacs command \verb+M-. next_seed+ (it
-will ask for the name of the tags file; the default value of {\tt TAGS}
-is correct and you just need to hit {\tt Enter} here). All of DEGAS 2
-source and header files are included in this list of tags. Additional
-facilities such as a tag-query-replace  (e.g., to change {\em all} 
-occurences of a variable name) are available. See the Emacs Info
-file under the node ``Tags'' for more information.
-
-\chapter{Using DEGAS 2}
-
-\section{Getting DEGAS 2 and Associated Tools via FTP}
-
-DEGAS 2 can be obtained from the anonymous FTP site at Princeton Plasma
-Physics Labs (PPPL). It can be found in the directory
-{\tt /pub/degas2}. The procedure for getting it is:
-
-\begin{verbatim}
-ftp ftp.pppl.gov
-user: anonymous 
-Password: < your email adress > 
-ftp> cd pub/degas2 
-ftp> binary 
-ftp> get degas2.tar 
-ftp> bye 
-\end{verbatim}
-
-If you want to download DEGAS 2 through your browser
-now, \href{ftp://ftp.pppl.gov/pub/degas2}{here's a link} to it.
-Currently, there are three forms: 
-\begin{enumerate}
-\item {\tt degas2.tar} An uncompressed tar file (extract with:
-\begin{verbatim}
-tar xf degas2.tar
-\end{verbatim}
-\item {\tt degas2.tar.Z} The tar file compressed with the {\tt compress}
-utility. To extract the code,
-\begin{verbatim}
-uncompress degas2.tar.Z
-tar xf degas2.tar
-\end{verbatim}
-\item {\tt degas2.tar.gz} The tar file compressed with the {\tt gzip}
-utility. To extract the code,
-\begin{verbatim}
-gunzip degas2.tar.gz
-tar xf degas2.tar
-\end{verbatim}
-\end{enumerate}
-
-There are a number of older versions of the code in this directory. The most
-recent is always linked to the names listed above. Please consult with the
-authors if you think you need an earlier version.
-
-The other requisite utilities can be obtained from the following sites. You
-will probably want to have your system administrator download, compile,
-and install these packages system-wide for your convenience.
-\begin{itemize}
-\item FWEB (version 1.62) (see Sec.~\ref{fweb}) is available at
-\href{ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz}{ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz}
-\item \LaTeX\  is available in lots of places. To begin with, see the
-official CTAN \TeX\ network page at  
-\href{http://www.tex.ac.uk/ctan}{http://www.tex.ac.uk/ctan}. The 
-distribution in use at PPPL is called \verb+teTeX+,
-\href{ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources}{ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources}.
-\item netCDF (see Sec.~\ref{netcdf}) can be obtained at from  
-\href{ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z}{ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z}
-Other compression formats and files are also present in this same directory.
-See the link to ``FAQ'' for the answers to frequently asked questions.
-\item The HDF libraries can be obtained from 
-\href{ftp://ftp.ncsa.uiuc.edu}{ftp://ftp.ncsa.uiuc.edu}
-Note that as of HDF version 4, some of the netCDF functionality is 
-implemented in HDF. To avoid conflicts with the official netCDF libraries,
-do not install the netCDF portion of the HDF distribution.
-\item The {\tt gmake} (the GNU Make utility) can be found at
-\href{ftp://prep.ai.mit.edu/gnu/make/}{ftp://prep.ai.mit.edu/gnu/make/}
-\end{itemize}
-
-
 \section{Compiling DEGAS 2}
 
 The Makefile has been written to compile on  a variety of architectures
@@ -2061,7 +2533,10 @@ symbols (in brackets) are:
 \item IBM AIX [{\tt IBM}],
 \item Digital OSF1 [{\tt ALPHA}],
 \item Silicon Graphics IRIX [{\tt SGI}],
-\item Linux, NAG F90 compiler [{\tt LINUX}],
+\item Linux, NAG F95, Portland Group F90, and Lahey-Fujitsu F95 compilers 
+[{\tt LINUX}], (The code will work with the Lahey-Fujitsu compiler, but
+may run very slowly. This will likely be remedied in a subsequent version
+of the compiler.)
 \item Others (e.g., [{\tt CRAY}]) are available for cross-compilation.
 \end{enumerate}
 
@@ -2132,6 +2607,14 @@ In fact, the Makefile also provides additional ``targets'', e.g.,
 can generate woven documents for all of the ``{\tt .web}'' source files.
 For some of the more useful ones, see Sec.~\ref{otherdoc}.
 
+You could also just generate the \TeX\ file (again, from the \verb+degas2\tex+
+directory),
+\begin{verbatim}
+gmake randomtest.tex
+\end{verbatim}
+You could then use {\tt latex}, {\tt pdflatex}, or whatever other \TeX\ application
+you wished. 
+
 \subsection{Adjustments to Makefile}
 \label{adjustments}
 
@@ -2144,7 +2627,10 @@ changed variables are:
 is required for debugging.
   \item {\tt DEGASROOT=somedir} will tell Makefile to find the main
 DEGAS 2 directory at {\tt somedir/degas2}. {\tt somedir} should be an
-absolute path name.
+absolute path name. E.g.,
+\begin{verbatim}
+DEGASROOT = /u/somedir
+\end{verbatim}
   \item {\tt FORTRAN90=yes} switches from using the default FORTRAN 77 
 compiler to FORTRAN 90. Be aware that only some of the FORTRAN 90
 compilers available work satisfactorily. Some will compile the code,
@@ -2234,7 +2720,7 @@ see the Makefile for more details.
 \begin{itemize}
   \item {\tt clean} removes source, object, and other unessential
 files. This is pretty thorough and indescriminate; use with caution.
-  \item {\tt TAGS} updates the Emacs tags table (see Sec.~\ref{tags}).
+  \item {\tt TAGS} updates the Emacs tags table (see Sec.~\ref{gnu}).
 You may need to do this if you subtstantially altered any of the source
 files or have other reason to believe that the tags table is out-of-date.
 You would run \verb+gmake TAGS+ from the {\tt src} directory only.
@@ -2272,7 +2758,6 @@ the primary authors of DEGAS 2. Contact them if you feel that you can
 contribute to the DEGAS 2 source code
 (see Sec.~\ref{help}).
 
-
 \section{Examples}
 
 The {\tt examples} directory contains several documented DEGAS 2 examples,
@@ -2287,7 +2772,7 @@ Sec.~\ref{help}).
 \subsection{Analytic\_fluid\_bench}
 \label{analyticfluidbench}
 
-This simple run demonstrates that DEGAS 2 matches the results of analytic
+This simple run demonstrates that DEGAS 2 matches the results of an analytic
 model in the fluid limit. More information on this comparison can be
 found in the IAEA proceedings\cite{Stot96} or on the Web as a 
 \href{http://www-local.pppl.gov/pppl/services/pub_report/1997/PPPL-3221.ps}{PostScript}
@@ -2399,6 +2884,696 @@ zeroes.
 \end{enumerate}
 \end{enumerate}
 
+\subsection{Neutral-Neutral Scattering Examples}
+
+The initial implementation of the BGK algorithm for handling neutral-neutral
+collisions (see Sec.~\ref{NeutralNeutral}) in EIRENE 
+has been tested by comparison
+with analytic expressions for the time dependence of the relaxation of 
+a distribution function (both in self-collision and
+mixed-species collision systems) and against models describing the
+Couette flow problem.\cite{Mayxx} The relaxation benchmarks have been
+repeated with DEGAS 2, but have not been formally made into an example
+run and will not be discussed here. 
+Further details can be provided upon request. However, the Couette flow
+problem can be set up with only a few minor modifications to the code and
+does make a suitable example.
+
+\subsubsection{Couette Flow}
+\label{couetteflow}
+
+The Couette flow problem of fluid mechanics involves the flow of fluid between
+two parallel, sliding plates. The fluid is assumed to have ``no slip''
+boundary condition at the plates. The viscosity of the fluid drags
+along adjacent fluid elements, resulting in a velocity gradient
+between the boundary velocities represented by the two plates.
+
+In this example, two semi-infinite plates are a distance $d$ apart 
+in the $x$ direction. At present, the plates have a finite extent in the $z$ 
+direction with mirror boundary conditions at $z_{\rm min}$ and $z_{\rm max}$.
+Periodic boundary conditions are enforced in the $y$ direction so that
+the problem is effectively infinite in that direction. Eventually, the
+$z$ direction will also have periodic boundary conditions. Particles
+are initialized at the $x = 0$ plate with a thermally distributed
+velocity to which a constant velocity in the $y$ direction, 
+$v_{y0}$,
+is added; this represents the velocity of the plate. The second plate
+at $x = d$ is treated as stationary. Particles striking it are assumed to be
+re-emitted with a thermal distribution pointed in the $-x$ direction.
+Particles striking the $x = 0$ plate are absorbed. Hence, in the no
+collision limit, particles make only one round trip across the box.
+
+The choice of the distributions used at the plates is crucial
+to reproducing the analytic models. In particular, the ``Maxwell flux''
+distribution \cite{Reit92} must be used. This distribution describes a 
+recycling thermal flux
+of particles moving in a particular direction (in this case, perpendicularly
+away from the wall). This is the distribution used in some of the
+PMI data files, such as in \verb+h2_des_maxw_mo+. In this example, however,
+the distributions of the particles coming off of the two plates 
+are enforced through hardwired code,
+not through the data files. 
+
+The initial velocity is chosen from the distribution
+\begin{equation}
+Q(\vec{v}) \propto v_{x}  
+\exp \left\{ - \frac{m}{2 k T} 
+[v_{x}^{2} + (v_{y} - v_{y0})^{2} + v_{z}^{2}] \right\}.
+\label{maxflux}
+\end{equation}
+Note the plate velocity $v_{y0}$ in the exponent. For particles 
+``reflected'' at the $x = d$ surface, $v_{y0} \equiv 0$. This is just a
+thermal (Maxwellian) distribution multiplied by $v_{x}$, the velocity in the
+direction normal to the surface and is required for describing sources that
+simulate a recycling process. 
+
+A brief digression will clarify the relationship between this {\em source} 
+distribution and the thermal distribution that characterizes the 
+particles in the volume of the fluid. Consider the number of particles
+of arbitrary volume distribution $f$
+that recycle at, say, the $x = 0$ surface in a time interval $\Delta t$
+(a source distribution specifies a density in phase space per unit time).
+For particles in the velocity interval $v_{x} \rightarrow v_{x} + dv_{x}$,
+this is $f dv_{x} A \Delta x$, where $A$ is the area of the recycling surface
+and $\Delta x = v_{x} \Delta t$ is the distance over which particles with
+velocity $v_{x}$ can reach $x = 0$ in $\Delta t$. So, the phase space
+density of the recycling particles per unit time (dividing this number
+by $\Delta t$ and $dv_{x}$) is $\propto v_{x} f$. Another way of saying this
+same thing is that the source needs to emphasize the faster particles
+in the distribution since more of them will reach the recycling surface in
+a given time interval. One upshot is that the average energy of the
+source particles is $\langle E \rangle_{\rm source} = 2 T$ while the
+average energy in the volume (for $v_{y0} = 0$) is the familiar $3/2 T$.
+
+For clarity, we note that the volume distribution function in the
+free-molecular limit is
+\begin{eqnarray}
+f(\vec{v}) & = & f_{+}(\vec{v}) + f_{-}(\vec{v}), \\
+\label{fmax}
+f_{+}(\vec{v}) & = & \frac{n}{2} 2 \left( \frac{m}{2 \pi T} \right)^{3/2}
+\exp \left \{ - \frac{m}{2T} [v_{x}^{2} + (v_{y} - v_{y0})^{2} + v_{z}^{2}]
+\right \}, \; v_{x} > 0 \\
+f_{-}(\vec{v}) & = & \frac{n}{2} 2 \left( \frac{m}{2 \pi T} \right)^{3/2}
+\exp \left [ - \frac{m}{2T} (v_{x}^{2} + v_{y}^{2} + v_{z}^{2})
+\right ], \; v_{x} < 0 
+\end{eqnarray}
+
+With this distribution, one can show that the fluid pressure is
+\begin{equation}
+P = \frac{2}{3} \langle n E \rangle = nT + \frac{1}{6}mv_{y0}^{2}.
+\end{equation}
+The fluid velocity is
+\begin{eqnarray}
+\langle \vec{v} \rangle & = & \langle \vec{v} \rangle_{+} 
++ \langle \vec{v} \rangle_{-} \nonumber \\
+& = & \frac{1}{2} v_{y0} \hat{y} + 0,
+\end{eqnarray} 
+so that $| \langle \vec{v} \rangle | = v_{y0} / 2$.
+To compute the fluid temperature used in the BGK distributions, we need
+to subtract the drift energy,
+\begin{eqnarray} 
+T & = & \frac{P}{n} - \frac{1}{3} m \langle \vec{v} \rangle^{2}  \\
+\label{tdrift}
+  & = & T + \frac{1}{12} v_{y0}^{2}.
+\label{tcouette}
+\end{eqnarray}
+
+The primary physical quantity appearing in the analytic 
+models\cite{Will62,Cerc69,Cerc75} of Couette
+flow is the x-y component of the stress tensor,
+\begin{equation}
+\Pi_{xy} \equiv \int d^{3} v \: m v_{x} v_{y} f(\vec{v})
+- n m U_{x} U_{y},
+\end{equation}
+where $\vec{U}$ is the first (velocity) moment of $f$ (the flow 
+velocity). Note that while we should have $U_{y} \neq 0$, $U_{x}$ should
+be identically 0 since there is no net flow in the $x$ direction.
+In the molecular-flow regime, the distribution function is not changed by
+collisions as the particles move across the box. Furthermore, particles
+coming from the $x = d$ side of the box make no net contribution to
+$\Pi_{xy}$ (since the integrand is an odd function of $v_{y}$). 
+Inserting Eq.~(\ref{fmax}), we find
+\begin{equation}
+\Pi_{xy}^{\rm fm} = \frac{n m}{4} \left( \frac{8 T}{\pi m} \right)^{1/2} v_{y0}.
+\label{fmstress}
+\end{equation}
+As collisions become more important, 
+the plate velocity information is
+dissipated into random motions of the fluid to a greater and greater
+extent, and $\Pi_{xy}$ falls below $\Pi_{xy}^{\rm fm}$.
+
+The variational theory of Cercignani\cite{Cerc69,Cerc75} yields a 
+relatively compact formula for $\Pi_{xy}$ that matches the 
+numerical results of Willis\cite{Will62} to within $0.5 \%$.
+With $\delta = 1 / K_{n}$,
+\begin{equation}
+\frac{\Pi_{xy}}{\Pi_{xy}^{\rm fm}} = \frac{a + \sqrt{\pi} \delta}
+{a + b \delta + c \delta^{2}},
+\end{equation}
+where for the case of a BGK collision operator,
+\begin{eqnarray}
+a & = & \frac{4 - \pi}{\pi - 2} \nonumber \\
+b & = & \frac{\pi^{3/2}}{2(\pi - 2)} \nonumber \\
+c & = & 1.
+\label{cercig}
+\end{eqnarray}
+
+The $x$-$y$ component of the stress tensor is computed along with other
+test particle data during tracking. However, final processing of that
+information into a usable form is only done when the \verb+COUETTE+
+macro is enabled in {\tt flighttest.web}.
+
+The Couette flow problem can be simulated in DEGAS 2 with only a few
+code modifications to set up the required boundary conditions (at the moment,
+the required particle distributions cannot be specified completely
+by input or data files). Because the problem is relatively simple, it
+represents a good starting point for learning how to use 
+neutral-neutral collisions in DEGAS 2.
+
+Most of these changes are invoked with  a \verb+COUETTE+ 
+FWEB macro inserted into the files
+
+To run this example, follow these steps:
+\begin{enumerate}
+  \item {\bf Set source code switches.} The source code file {\tt boxgen.web}
+has within it a few different settings available which can be selected
+by changing the value of the flag \verb+BOXRUN+. With this file open in
+an editor, change the line
+\begin{verbatim}
+@m BOXRUN 0
+\end{verbatim}
+so that it now reads
+\begin{verbatim}
+@m BOXRUN 41
+\end{verbatim}
+Save the file and exit the editor. 
+The files {\tt plate.web}, {\tt sources.web}, and {\tt flighttest.web} each
+have the line
+\begin{verbatim}
+@m COUETTE 0
+\end{verbatim}
+near the top. Edit these files, changing the ``0'' to a ``1'' in each case
+(be sure to revert to the default setting of ``0'' before running other 
+problems).
+  \item {\bf Switch to the example directory.} If the main DEGAS 2 
+directory sits within your home directory:
+\begin{verbatim}
+cd ~/degas2/examples/Couette_flow
+\end{verbatim}
+  \item {\bf Copy the} {\tt degas2.in} {\bf file into your working
+directory.} E.g., if you are working on a Sun, 
+\begin{verbatim}
+cp degas2.in ../../SUN/degas2.in
+cd ../../SUN
+\end{verbatim}
+(overwriting any {\tt degas2.in} file you may have had there already!).
+  \item {\bf Prepare reference data.} This example uses some nonstandard
+data files so, unlike the previous example, {\tt datasetup}
+must be run. Note that the {\tt degas2.in} file points back to
+the {\tt examples} directory for the input files needed here and in 
+subsequent steps.
+\begin{verbatim}
+gmake datasetup
+./datasetup
+\end{verbatim}
+  \item {\bf Prepare problem data.}
+\begin{verbatim}
+gmake problemsetup
+./problemsetup
+\end{verbatim}
+If you look at the problem input file, you will see that there is only
+one reaction, that for the neutral-neutral collisions. Note also that
+the test species \verb+D2+ also appears in the list of background species
+(the usual background species \verb+e+ and \verb-D+- appear here just because
+{\tt boxgen} expects them to be there; they are not used in this simulation).
+  \item {\bf Generate geometry and background files.} The {\tt boxgen}
+program takes care of both of these (be sure that the \verb+BOXRUN+ macro
+has been set to 41):
+\begin{verbatim}
+gmake boxgen
+./boxgen
+\end{verbatim}
+  \item {\bf Set the number of flights.} The background file {\tt bk\_boxgen.nc}
+contains the specification of the number of flights to be run. Open this
+file in an editor (Emacs will be the most convenient) and find the line
+\begin{verbatim}
+ source_num_flights = 100 ;
+\end{verbatim}
+The results in this directory were obtained with 10 BGK iterations of
+4000000 flights each. Such a run could easily require
+more than a day if run on a single processor (this run was executed
+in about an hour using 14 400 MHz Pentium PCs). You can probably run a smaller
+number of flights (say, 100000) and still get reasonable results.
+Save the file and exit the editor.
+  \item {\bf Set up the tallies.} 
+\begin{verbatim}
+gmake tallysetup
+./tallysetup
+\end{verbatim}
+  \item {\bf Run the code.}
+\begin{verbatim}
+gmake flighttest
+./flighttest
+\end{verbatim}
+The number of BGK iterations is controlled by the value of the 
+\verb+bgk_max+ macro in flighttest.web. The value used here is 10. If you just
+want to get an idea of how the calculation proceeds, you can choose a
+smaller number. Note that the macro parameters controlling the convergence
+tests, \verb+bgk_cvg_dens+ and \verb+bgk_cvg_pres+, 
+are set to ridiculously small
+values ($10^{-8}$) to ensure that all 10 iterations are completed.
+  \item {\bf Check the text output.} At each iteration, the code writes out the 
+test species density and other data in a file with a name of the form
+{\tt densityxx.out} where {\tt xx} is replaced by the iteration number. 
+The contents of these files are analogous to those of the other examples
+(the density and pressure for each zone are in the third and fifth
+columns, respectively; 
+see the description in Sec.~\ref{analyticfluidbench}), except for the
+last two columns. These are normally not used; here, they contain the
+values and standard deviations of the $x$-$y$ stress tensor, $\Pi_{xy}$.
+The comparison of those values with theory will be discussed below.
+ 
+At the end of
+each iteration, the background netCDF file ({\tt bk\_bgktest.nc}) is 
+also updated (overwritten) with
+the density, velocity, and temperature of the neutral background species.
+A third file, {\tt cvg\_global.txt}, will provide information on the
+global progress of the BGK iterations towards convergence. The four columns are:
+\begin{enumerate}
+  \item Iteration number,
+  \item Test species number,
+  \item Global fractional change in density (dimensionless); this is compared
+with \verb+bgk_cvg_dens+ to decide whether or not to stop the iterations.
+  \item Global fractional change in pressure. (dimensionless); this is compared
+with \verb+bgk_cvg_pres+ to decide whether or not to stop the iterations.
+\end{enumerate}
+Note that on most machines this file 
+does not appear until the unit is closed at the end of the run.
+
+These files can be directly 
+compared with the corresponding files in the {\tt examples} directory.
+If you have repeated the run at the above-described length, you should
+be able to match the text files exactly. The level of agreement in the
+netCDF file should be several digits (perhaps as many as 10).
+If a satisfactory match is not obtained, something is
+amiss. Please contact the code authors (see Sec.~\ref{help}) if you feel
+that a problem exists with the code as you downloaded it. 
+  \item {\bf Check the binary output.} You can use the {\tt matchout}
+utility (see Sec.~\ref{miscroutines}) to do this. Again, you should expect
+the largest differences to be $\sim 10^{-8}$ or better.
+  \item {\bf Compare with the analytic solution.} The rightmost set of data
+in the {\tt densityxx.out} file are the stress tensor values, $\Pi_{xy}$. 
+Ideally, these are constant across the problem space. Some deviation
+exists here due to Monte Carlo noise. You
+can compute the free molecular value from Eq.~(\ref{fmstress}). With both of
+these numbers in hand, you can compare with Eq.~(\ref{cercig}). To do that, you
+need to know $\delta$. The explicit formula used is
+\begin{equation}
+\delta = \frac{n \langle \sigma v \rangle d}{\sqrt{2 T / m}},
+\end{equation}
+where $n = 10^{20}$ m$^{-3}$ (enforced in {\tt flighttest.web} by code 
+enabled with the \verb+COUETTE+ macro), $\langle \sigma v \rangle = 1.1
+\times 10^{-16}$ m$^{3}/$s (from the {\tt d2d2\_bgktest.nc} file), $d = 0.1$ m
+(set in {\tt boxgen.web}), and $m = m_{{\rm D}_{2}} = 6.689 \times 10^{-27}$ kg
+(also from {\tt boxgen.web}). One would expect the temperature $T$ of the
+fluid to be equal to that of the wall by virtue of the initial conditions. 
+However, in cases where the energy associated with the plate velocity 
+$v_{y0}$ is significant compared with $T_{\rm wall}$, the actual temperature
+of the fluid is slightly higher than that of the wall as is indicated
+by Eq.~(\ref{tcouette}). 
+In fact, 
+this example with $v_{y0} = 1000$ m/s 
+shows better agreement with the theoretical result Eq.~(\ref{cercig})
+if $T$ is set to the simulated fluid temperature (e.g., from the  
+the {\tt bk\_bgktest.nc} file). 
+
+With $T = T_{\rm wall} = 0.0258 {\rm eV} = 4.1336 \times 10^{-21}$ J, we find 
+$\delta_{\rm wall} = 0.9894$.  Plugging this into Eq.~(\ref{cercig}),
+\begin{equation}
+\left( \frac{\Pi_{xy}}{\Pi_{xy}^{\rm fm}} \right)_{\rm c}(\delta_{\rm wall}) = 
+0.6047.
+\end{equation}
+The free-molecular stress, Eq.~(\ref{fmstress}), is 
+$\Pi_{xy}^{\rm fm}(T_{\rm wall}) = 0.20978$ Pa.
+If we average the 10 values for $\Pi_{xy}$ in the {\tt density10.out} file, we
+get $\Pi_{xy, {\rm sim}} = 0.13051$ Pa and 
+\begin{equation}
+\left( \frac{\Pi_{xy}}{\Pi_{xy}^{\rm fm}} \right)_{\rm sim} = 0.6215.
+\end{equation}
+
+This would qualify as pretty good agreement. However, if we average the fluid 
+temperature values in the {\tt bk\_bgktest.nc} file, we get $T_{\rm sim} =
+4.5866 \times 10^{-21}$ J. Then, $\delta_{\sim} = 0.9393$, and
+\begin{equation}
+\left( \frac{\Pi_{xy}}{\Pi_{xy}^{\rm fm}} \right)_{\rm c}(\delta_{\rm sim}) = 
+0.6157,
+\end{equation}
+about a factor of two better agreement. Now, one might argue that we should 
+also use
+$T_{\rm sim}$ in computing $\Pi_{xy}^{\rm fm}$. However, the 
+free-molecular stress, Eq.~(\ref{fmstress}) was computed directly
+from the general distribution function for arbitrary $v_{y0}$ so that
+$T = T_{\rm wall}$ in that formula, without any ambiguity. 
+Qualitatively speaking, for small
+$\delta$ the character of the source distribution dominates. As $\delta$
+approaches or exceeds $1$, the temperature of the fluid in the volume,
+$T_{\rm sim}$ 
+computed from Eq.~(\ref{tdrift}), better describes the distribution.
+The better agreement is shown over a range of inverse Knudsen 
+numbers and two values of $v_{y0}$ in Fig.~\ref{couetteplot}.
+\end{enumerate}
+
+\begin{figure}
+\begin{center}
+\leavevmode
+\includegraphics[width=5in]{Couette_flow}
+\caption{Comparison of 8 DEGAS 2 simulations (symbols) 
+of the Couette flow problem
+with the analytic expression for the normalized shear stress 
+Eq.~(\ref{cercig}) obtained by Cercignani\cite{Cerc69,Cerc75}. Two
+different plate velocities $V = v_{y0}$ were used in the simulations. 
+For the higher velocity, better agreement with the analytic expression
+is obtained if the inverse Knudsen parameter is computed from the
+actual fluid temperature from the simulation, $T_{\rm sim}$, rather
+than the wall temperature, $T_{\rm wall}$.}
+\label{couetteplot}
+\end{center}
+\end{figure}
+
+
+
+\subsubsection{C-Mod 1-D: Conservation Checks}
+\label{cmod1d}
+
+This example demonstrates a run with complete hydrogen physics in a simple
+geometry. In particular, this run includes both neutral-ion and neutral-
+neutral elastic scattering processes. The complexity of the physics also
+makes for a good demonstration of DEGAS 2's conservation checks.
+
+Experiments by Pitcher et al. \cite{Pitc00,Pitc01} on the Alcator C-Mod tokamak
+indicated that the flow of neutral gas through material structures around
+the plasma was being limited by its diffusion rate through the divertor plasma.
+Pitcher \cite{Pitc01} developed a semi-analytic model that reproduced this
+behavior. An attempt was made to precisely reproduce the
+results of that model with DEGAS 2. The overall effort consisted of several
+simulations in which the model assumptions were gradually relaxed towards those
+consistent with normal DEGAS 2 operation. This example is from a simulation in
+having atomic and surface physics assumptions more like a normal DEGAS 2 run.
+The remaining difference from a ``full physics'' DEGAS 2 run (apart from the
+greatly simplified geometry) is that the neutral source is a gas puff rather
+than a recycling source. The full physics and geometry simulations are described 
+in Ref.~\cite{Stot01}.
+
+To run this example, follow these steps:
+\begin{enumerate}
+  \item {\bf Set source code switch.} The source code file {\tt boxgen.web}
+has within it a few different settings available which can be selected
+by changing the value of the flag {\tt BOXRUN}. With this file open in
+an editor, change the lines
+\begin{verbatim}
+@m BOXRUN 0
+@m SOLN 1
+\end{verbatim}
+so that they now read
+\begin{verbatim}
+@m BOXRUN 40
+@m SOLN 0
+\end{verbatim}
+Save the file and exit the editor. The second parameter disables the
+analytic solutions that are used in the original boxgen
+example (Sec.~\ref{analyticfluidbench}).
+  \item {\bf Switch to the example directory.} If the main DEGAS 2 
+directory sits within your home directory:
+\begin{verbatim}
+cd ~/degas2/examples/CMod-1D
+\end{verbatim}
+  \item {\bf Copy the} {\tt degas2.in} {\bf file into your working
+directory.} E.g., if you are working on a Sun, 
+\begin{verbatim}
+cp degas2.in ../../SUN/degas2.in
+cd ../../SUN
+\end{verbatim}
+(overwriting any {\tt degas2.in} file you may have had there already!).
+  \item {\bf Prepare reference data.} This example uses some nonstandard
+data files so, unlike the previous example, {\tt datasetup}
+must be run. Note that the {\tt degas2.in} file points back to
+the {\tt examples} directory for the input files needed here and in 
+subsequent steps.
+\begin{verbatim}
+gmake datasetup
+./datasetup
+\end{verbatim}
+  \item {\bf Prepare problem data.}
+\begin{verbatim}
+gmake problemsetup
+./problemsetup
+\end{verbatim}
+  \item {\bf Generate geometry and background files.} The {\tt boxgen}
+program takes care of both of these. Be sure the \verb+BOXRUN+ macro was
+set to 40:
+\begin{verbatim}
+gmake boxgen
+./boxgen
+\end{verbatim}
+  \item {\bf Set the number of flights.} The background file {\tt bk\_boxgen.nc}
+contains the specification of the number of flights to be run. Open this
+file in an editor (Emacs will be the most convenient) and find the line
+\begin{verbatim}
+ source_num_flights = 40000 ;
+\end{verbatim}
+Save the file and exit the editor.
+  \item {\bf Set up the tallies.} 
+\begin{verbatim}
+gmake tallysetup
+./tallysetup
+\end{verbatim}
+  \item {\bf Run the code.}
+\begin{verbatim}
+gmake flighttest
+./flighttest
+\end{verbatim}
+The code will execute 5 iterations automatically, each with 40,000 flights.
+The number of BGK iterations is controlled
+by the parameter \verb+bgk_max+ in flighttest.web; the default setting is 5. The
+BGK iterations can alternatively be controlled by the convergence parameters
+\verb+bgk_cvg_dens+ and \verb+bgk_cvg_pres+. 
+The corresponding tests monitor global measures
+of the changes in the density and pressure of the BGK species. Note that
+these can be satisfied only if there are sufficiently many flights
+to achieve a correspondingly high precision in the local density and
+pressure values, no matter how many BGK iterations are run. In this example,
+the parameters chosen are such that
+\verb+bgk_max+ will be governing the number of iterations.
+
+  \item {\bf Check the text output.} At each iteration, the code writes out the 
+test species density and other data in a file with a name of the form
+{\tt densityxx.out} where {\tt xx}
+is replaced by the iteration number. 
+The contents of these files are analogous to those of the other examples
+(the density and pressure for each zone are in the third and fifth
+columns, respectively; 
+see the description in Sec.~\ref{analyticfluidbench}).
+
+At the end of
+each iteration, the background netCDF file ({\tt bk\_oned.nc}) is 
+also updated with
+the density, velocity, and temperature of the neutral background species.
+This file can be used to restart the BGK iterations, e.g., with an increased 
+number of flights. 
+A third file, {\tt cvg\_global.txt}, providea information on the
+global progress of the BGK iterations towards convergence. The four columns are:
+\begin{enumerate}
+  \item Iteration number,
+  \item Test species number,
+  \item Global fractional change in density (dimensionless); this is compared
+with \verb+bgk_cvg_dens+ to decide whether or not to stop the iterations.
+  \item Global fractional change in pressure. (dimensionless); this is compared
+with \verb+bgk_cvg_pres+ to decide whether or not to stop the iterations.
+\end{enumerate}
+Note that on most 
+machines this file does not appear until the unit is closed at the end of 
+the run. The output netCDF file from this run is included as well.
+
+These files can be directly
+compared with the corresponding files in the {\tt examples} directory.
+The numbers in the text files have only five
+digits of precision and should be matched exactly. The level of agreement
+in the netCDF file should be several digits (perhaps as many as 10).
+If a satisfactory match is not obtained, something is
+amiss. Please contact the code authors (see Sec.~\ref{help}) if you feel
+that a problem exists with the code as you downloaded it. 
+  \item {\bf Check the binary output.} You can use the {\tt matchout}
+utility (see Sec.~\ref{miscroutines}) to do this. Again, you should expect
+the largest differences to be $\sim 10^{-8}$ or better.
+  \item {\bf Examine test particle balances} To simplify examination 
+of the conservation 
+checks, an input script for the {\tt outputbrowser} code is included,
+{\tt bgkbalances}. The results are in {\tt bgkbalances.out}. The checks can be 
+performed for the density, momentum, and energy of each of the test
+species. Since \verb-D2+- does not move, the checks on it are satisfied
+trivially and are not considered further.\footnote{In fact, the 
+values of the ``total'' tallies
+for D2+ are all determined by roundoff errors. For this reason,
+you will not likely match these values exactly. You should convince
+yourself that they are numerically much smaller than the other totals. If you
+use {\tt matchout} to compare with the reference output netCDF file, these
+D2+ totals will also stand out as apparently significant discrepancies.}
+For each quantity, the
+procedure consists of totaling the negative of the quantity lost to the
+walls (the "current out" tally), the quantity coming in from the
+walls (the "current in" tally), and the "source rate" tally.  The
+last item is further 
+broken down by reaction (or source) to provide an indication of the
+relative importance of each process.  For this example, we consider only
+the $X$-component of the momentum (dimension \#1) since the problem does not vary
+in the other two directions.  
+
+For this case, the following totals are obtained:
+
+\begin{description}
+  \item[particles] \ \\ 
+  \begin{tabbing}
+       D$_{2}$ \= $3 \times 10^{15}$ \kill
+       D \>  $5 \times 10^{16}$  \\
+       D$_{2}$ \> $3 \times 10^{15}$ \\
+  \end{tabbing}
+  \item[momentum 1] \ \\
+  \begin{tabbing}
+       D$_{2}$ \= $3 \times 10^{15}$ \kill
+       D  \> $-4 \times 10^{-7}$ \\
+       D$_{2}$ \> $-2 \times 10^{-8}$ \\
+  \end{tabbing}
+  \item[energy] \ \\
+  \begin{tabbing}
+       D$_{2}$ \= $3 \times 10^{15}$ \kill
+       D \> $4 \times 10^{-2}$ \\
+       D$_{2}$ \> $-4 \times 10^{-3}$ \\
+  \end{tabbing}
+\end{description}
+
+In addition, a global check involving the background particle number can 
+be performed:
+
+\begin{eqnarray*}
+  &+& \mbox{Total source of deuterium atoms (the puff source),} \\
+  & &    +4.0 \times 10^{21} \\
+  & &  \\
+  &-& \mbox{Total number of deuterium atoms lost to the walls,} \\
+  & &   -(3.36841 \times 10^{22} + 2. \times 3.95601 \times 10^{21}) \\
+  & & + (3.12591 \times 10^{22} + 2. \times 4.58939 \times 10^{21}) \\
+  & &  \\
+  &-& \mbox{Total number of deuterium atoms lost to the plasma (D+ source rate),} \\
+  & & - 2.84170 \times 10^{21}  \\
+  & &  \\
+  & & = 6. \times 10^{16} \\
+\end{eqnarray*}
+
+There should always be a small remainder in the energy and momentum balances; 
+its magnitude appears to roughly coincide with the accuracy provided by
+{\tt outputbrowser}. This remainder results from the enforcement of a minimum
+weight via Russian roulette in subroutine {\tt follow}. By default, that 
+minimum weight is $10^{-3}$ of the initial weight. The Russian roulette 
+procedure is set up so as to not lose mass. However, it will conserve
+momentum and energy only on the average (i.e., after many flights).
+You can demonstrate this effect by reducing the minimum weight (\verb+WMIN+ in 
+{\tt flight.web}) to, say, $10^{-7}$. 
+Doing so will make the run substantially longer.
+To see the difference in the conservation checks, you may
+need to examine the output netCDF file directly (hint: run {\tt outputbrowser}
+first to get ``rough'' values for these quantities and then use the 
+search facility in Emacs to locate the corresponding data in the output
+netCDF file).
+
+  \item {\bf Transfers between BGK species.} In looking at the energy and 
+momentum
+transfers between BGK species, you should notice that no sources 
+appear for the background partners. The reason for this is that the transfers
+to and from these species do not have a clear physical meaning; all 
+relevant information can be obtained from the corresponding test species.
+
+However, the transfers between BGK test species, say between \verb+D+ and 
+\verb+D2+
+here, are significant. The process \verb+d2d_neut+ (see the ``momentum
+source vector by reaction'' and ``energy source by reaction'' sections
+of {\tt bgkbalances.out} under reaction 11) transfers
+energy and momentum between the background \verb+D2+ and the test \verb+D+
+(problem species, ``\verb+problem_sp+'', number 6); likewise, 
+\verb+dd2_neut+ (reaction number 12) connects the
+background \verb+D+ and test \verb+D2+ (\verb+problem_sp+ 7). 
+One would expect that in a
+converged state these two transfer rates would be equal (this actually
+goes into the derivation of the algorithm). In this example, they are
+(to within the error bars),
+\begin{tabbing}
+  mom. 1 to \verb+D+: \= xx $-9.39835 \times 10^{-3}$ xx \=  
+mom. 1 to \verb+D2+: \= xx $+9.19450 \times 10^{-3}$ \kill
+  mom. 1 to \verb+D+: \> $-9.39835 \times 10^{-3}$ \>  
+mom. 1 to \verb+D2+: \> $+9.19450 \times 10^{-3}$ \\
+  energy to \verb+D+: \> $-4.21074 \times 10^{2}$ \>
+   energy to \verb+D2+: \> $+4.13512 \times 10^{2}$ \\
+\end{tabbing}
+(The molecules come off the wall at low energy and are being heated by the
+warmer atoms that arise from elastic scattering with the plasma ions and
+from dissociation.)
+
+For this to occur, the reaction rate for these two processes must
+be numerically identical. The original implementation of the BGK
+algorithm in EIRENE had the same temperature dependent expression for
+the two rates. However, because the temperatures of \verb+D2+ and 
+\verb+D+ species are different
+in general, the resulting rates had different numerical values. The
+initial implementation of the BGK algorithm in DEGAS 2 repeats this same mistake.
+
+To see the difference, you can modify the {\tt degas2.in} file to point to
+the {\tt reactions.input} and {\tt reactions.nc} files in the data directory.
+When you run the code again (you at least need to rerun {\tt problemsetup}
+first), you will find something like the results contained in 
+{\tt bgkbalances\_default.out}:
+\begin{tabbing}
+  mom. 1 to \verb+D+: \= xx $-9.39835 \times 10^{-3}$ xx \=  
+mom. 1 to \verb+D2+: \= xx $+9.19450 \times 10^{-3}$ \kill
+  mom. 1 to \verb+D+: \> $-4.71320 \times 10^{-3}$ \>  
+mom. 1 to \verb+D2+: \> $+7.04233 \times 10^{-3}$ \\
+  energy to D: \> $-2.04504 \times 10^{2}$ \>  
+  energy to D2: \> $+3.36294 \times 10^{2}$ \\
+\end{tabbing}
+
+This error in the default rates will be corrected in a subsequent 
+version of the code.
+
+  \item {\bf Other results.} For reference purposes, 
+this directory contains output files from a 
+single iteration (on a Sun with \verb+DEBUG=yes+) with 1000 flights. These
+output files contain the string \verb+1K+. 
+The primary purpose of these files
+is to serve as a known, reproducible point of contact for testing
+subsequent code modifications. It also demonstrates that these
+conservation checks hold even if the code is run with relatively few
+flights. To duplicate these files, you will need to stop the BGK iteration
+process after the first (zeroth, actually) iteration. The easiest way
+to do this is to insert the line:
+\begin{verbatim}
+      bgk_iteration=FALSE
+\end{verbatim}
+as the last executable statement in subroutine {\tt bgk\_test} near the end
+of {\tt flighttest.web}.
+
+You may notice that the tallies used for the conservation checks 
+predominantly utilize collision estimators while the standard (zone-resolved)
+tallies are based on track length estimators.  The reason is that the
+former will explicitly demonstrate conservation of mass, momentum, and
+energy since they are computed using the instantaneous test particle
+attributes. The track length estimators will generally provide more
+accurate values for the code output, but will exhibit conservation only
+in a statistical sense.  You can demonstrate this by replacing the
+estimator lists in each of the ``total'' tallies with the lists from the
+corresponding zone-resolved tallies.
+\end{enumerate}
+
+
+
+
+
 \section{Run Control Parameters}
 
 Several run control parameters are contained in the 
@@ -2409,6 +3584,7 @@ The following subsections describe the features, roughly in order of usefulness
 to the average user:
 
 \subsection{Checkpoints}
+\label{checkpoints}
 
 By default, the DEGAS 2 output netCDF file is written only at the end of
 the run. Each source group can be broken up into an integral number
@@ -2481,7 +3657,7 @@ seed (and, hence, the entire random number chain) via
 The preferred mechanism for specifying the initial seed is as a
 character string. This is transformed into the appropriate integer
 representation using routines in {\tt random.web} 
-(see Sec.~\ref{randomnumbers}). The default value is ``12''. Reasons
+(see Sec.~\ref{Randomnumbers}). The default value is ``12''. Reasons
 to use different values include
 \begin{enumerate}
   \item An unexpected, but perhaps not statistically significant, result
@@ -2877,8 +4053,9 @@ sector definition, the sectors have access to the properties of both the
 material and plasma at the interface between the two. The particular
 properties required may vary with the model used process the flights
 as they strike the interface. The existing geometry setup routines
-({\tt readgeometry} and {\tt boxgen}) define take care of the definition of
-these sectors. In the case of {\tt readgeometry}, little or no input is
+({\tt definegeometry2d}, 
+{\tt readgeometry} and {\tt boxgen}) define take care of the definition of
+these sectors. In the first two cases, little or no input is
 required from the user. 
 
 Sectors can also be defined for purely diagnostic use. The zones adjacent
@@ -2940,180 +4117,38 @@ dependent. For instance, the particle current leaving and entering
 a zone may be specified separately. Details will be given in 
 Sec.~\ref{tallies}.
 
-\section{Estimators and Specification of Tallies}
-\label{tallies}
+\section{Output File}
+\label{outputformat}
 
-\begin{itemize}
-  \item Introduce first two types of $g$'s: ``test particle'' and 
-``reaction'',
-  \item Corresponding DEGAS 2 estimators:
-  \begin{enumerate}
-    \item $\eta_{g}^{\rm TLE} = w \, \frac{1 - \exp(-\sigma_{i} t_{V})}{\sigma_{i}} g$,
-    \begin{itemize}
-      \item {\bf Track Length Estimator,}
-      \item $t_{V} =$ time track spent in volume V,
-      \item $w =$ weight at start of time step.
-      \item $g$ can be a test particle attribute: 
-mass, momentum, energy,
-      \item or reaction-related, e.g., ion 
-momentum source due to charge exchange,
-      \item Latter $g$'s enter TLE as averages over background 
-distribution [Reiter, 1993].
-    \end{itemize}
-    \item $\eta_{g}^{\rm CE} = \sum_{m_{s}} w_{m_{s}} \frac{g}{\sigma_{s}}$,
-    \begin{itemize}
-      \item {\bf Collision Estimator,}
-      \item Summed over $m_{s}$ all scattering collisions within $V$,
-      \item $w_{m_{s}} = $ weight at $m_{s}$th collision,
-      \item $g$ is test particle attribute.
-    \end{itemize}
-    \item $\eta_{g}^{\rm CE} = \sum_{m_{j}} w_{m_{j}} \frac{g}{\sigma_{j}}$,
+The output netCDF file (\verb+outputfile+ in {\tt degas2.in}) contains 
+the tally data in four arrays:
+\begin{enumerate}
+  \item Sorted by the neutral source group, prior to post-processing,
+  \item Summed over neutral sources, prior to post-processing,
+  \item Sorted by neutral sources, after post-processing,
+  \item Summed over neutral sources, after post-processing.
+\end{enumerate}
+All have standard deviation data, but their interpretation is not
+guaranteed for the latter two since the impact of post-processing
+(especially the addition of post-processed scores to a tally) is not
+accounted for. If the output file is the result of a checkpoint
+dump (Sec.~\ref{checkpoints}), keep in mind that post-processing
+has not been done. Navigating these large arrays is extremely
+tedious and not recommended except as a last resort. Instead,
+the user should utilize {\tt outputbrowser}.
+There is a separate output array for data to be passed to
+2-D fluid plasma code.
 
-    \begin{itemize}
-      \item {\bf Collision Estimator for Reaction $j$,}
-      \item Summed over $m_{j}$ collisions of reaction $j$ within $V$,
-      \item $g$ is reaction-related, 
-      \begin{itemize}
-        \item Likely something known only at collisions,
-        \item E.g., energy source due to H$_{2}$ dissociation.
+A couple of text output files, largely of historical origin, are generated.
+The {\tt density.out} file has been described already in 
+Sec.~\ref{analyticfluidbench}. The {\tt sources.out} and
+{\tt testdata.out} files are unformatted files used to transfer
+data to the UEDGE code. All of the information in them is 
+accessible through {\tt outputbrowser}, so no further 
+description of them will be given.
 
-      \end{itemize}
-    \end{itemize}
-    \item Many integrals of interest can be written as:
-\[
-I(g) \equiv \int d^{3}r g(\vec{r}) \int d^{3}v f(\vec{r},\vec{v}) = 
-\int d^{3} r g(\vec{r}) n(\vec{r}),
-\]
-    \begin{itemize}
-      \item {\bf Post-Process Estimator,}
-      \item For $g$'s not dependent upon test or background velocities,
-      \item E.g., H$_{\alpha}$ emission rate.
-    \end{itemize}
-  \end{enumerate}
-  \item Third type of score is diagnostic sector  (surface),
-  \begin{itemize}
-    \item Estimator is just $w g$,
-    \item $w =$ weight when track hits sector,
-    \item $g =$ mass, incident angle, or energy,
-    \item Labeled as a {\bf collision estimator}
-  \end{itemize}
-  \item In summary, DEGAS 2 has:
-  \begin{itemize}
-    \item Three types of scores or ``tallies'' according to nature of $g$
-    \begin{enumerate}
-      \item Test,
-      \item Reaction,
-      \item Sector.
-    \end{enumerate}
-    \item Three estimators:
-    \begin{enumerate}
-      \item Track Length,
-      \item Collision,
-      \item Post Process.
-    \end{enumerate}
-  \end{itemize}
-\end{itemize}
-
-
-\begin{itemize}
-  \item Specify for each tally:
-  \begin{enumerate}
-    \item Descriptive label,
-    \item Type for $g$,
-    \item Geometry,
-    \begin{itemize}
-      \item Volume (per zone),
-      \item Surface (diagnostic sector),
-      \item detector (chord-integrated).
-    \end{itemize}
-    \item Dependent variable, e.g.,
-    \begin{itemize}
-      \item Energy,
-      \item Background momentum,
-      \item H$_{\alpha}$ emission rate.
-      \item Matched directly against labels in atomic physics data files \\
-$\Rightarrow$ easily score new variables.
-    \end{itemize}
-    \item Rank,
-    \item Independent variables (1 $\rightarrow$ Rank), e.g.,
-    \begin{itemize}
-      \item Zone,
-      \item Test particle species,
-      \item Energy bin (diagnostic sector),
-      \item Wavelength bin (detector).
-    \end{itemize}
-    \item Estimator,
-    \begin{itemize}
-      \item For reaction types, may vary with reaction.
-      \item May be advantageous to combine results from than one estimator, but
-not implemented now.
-    \end{itemize}
-    \item {Conversions} to be performed on tally,
-    \begin{itemize}
-      \item Usually to do some {scaling prior to output}, e.g., by
-      \begin{itemize}
-        \item mass,
-        \item volume.
-      \end{itemize}
-      \item {Important example: converting $\vec{v}$ from Cartesian
-to cylindrical coordinates when scoring.}
-    \end{itemize}
-  \end{enumerate}
-\end{itemize}
-
-\newpage
-
-\section*{ \protect \Huge{\bf {OUTPUT FORMAT}}}
-
-\begin{itemize}
-  \item {On output, tally data appear in four arrays:}
-  \begin{enumerate}
-    \item Sorted by neutral sources, prior to post-processing,
-    \item Summed over neutral sources, prior to post-processing,
-    \begin{itemize}
-      \item Only these have standard deviation data.
-    \end{itemize}
-    \item Sorted by neutral sources, after post-processing,
-    \item Summed over neutral sources, after post-processing.
-  \end{enumerate}
-  \item {Separate output array for data to be passed to
-2-D fluid plasma code.}
-  \item {All output data written to a netCDF file.}
-  \item Example text output data are written by main code.
-  \item {A separate code which reads output netCDF file \\ and generates 
-HDF data and images provided as an example.}
-\end{itemize}
-
-
-\chapter{Other Documentation}
+\section{Other Documentation}
 \label{otherdoc}
-
-(Provide links to significant inline documentation sections; e.g.,)
-
-\section{Random Numbers}
-\label{randomnumbers}
-
-The concepts behind the random number generator used in DEGAS 2 are
-described in the file {\tt random.web}. The 
-\href{random.pdf#page.1}{documentation} at the top of the file
-provides a nice introduction.
-
-\section{Atomic Physics Rate Calculation}
-
-The {\tt ratecalc} code is used to compute atomic physics reaction
-rates from cross section data, as well as a few other tasks. 
-The code is documented internally. Follow this
-% To get this to work, had to add some stuff to fweb.sty (the hyperref
-% package). Can then do: pdflatex ratecalc.tex. 
-% Note that this page
-% number is the one TeX assigns; not the one acroread uses.
-% pdflatex will complain occasionally about ``non-pdf special'', but
-% I don't see any deleterious effects so far (appears to have something
-% to do with section headers).
-\href{ratecalc.pdf#page.1}{link} to
-the introductory section to learn more.
-
-\section{Code Variables}
 
 The file {\tt classes.web} contains an extensive description of what
 the code looks like internally. Most of the common variables (i.e.,
@@ -3121,14 +4156,6 @@ the contents of the {\tt hweb} header files) are documented here
 as well. Try following this 
 \href{classes.pdf#page.1}{link} if
 you want to have a look at it now.
-
-\section{Geometry Details}
-
-The introduction to {\tt geometry.web} provides a concise description
-of the fundamental elements of the DEGAS 2 geometry. Here's a 
-\href{geometry.pdf#page.1}{link} to the PDF version of this file.
-Note that most users will define geometries at a higher level,
-such as that provided by {\tt readgeometry} and {\tt boxgen}. 
 
 \chapter{EIRENE Benchmark}
 
@@ -4361,9 +5388,23 @@ Plasma-Material Data for Fusion} {\bf 8}, 1 (1998).
 {\bf 250}, 426 (1958).
 \bibitem{Hols52} T. Holstein, {\em J. Phys. Chem.} {\bf 56}, 832 (1952).
 \bibitem{Wade79} J. M. Wadehra, {\em Phys. Rev. A} {\bf 20}, 1859 (1979).
+\bibitem{Barn90}C. F. Barnett, {\em Atomic Data for Fusion}, Oak Ridge
+National Laboratory Report ORNL-6086, Vol. 1 (1990).
+\bibitem{Newm82} J. H. Newman, J. D. Cogan, D. L. Ziegler et al., {\em Phys.
+Rev. A} {\bf 25}, 2976 (1982).
+\bibitem{Revi71} A. C. Reviere, {\em Nucl. Fusion} {\bf 11}, 363 (1971). 
+\bibitem{OHan89}J. F. O'Hanlon, {\em A User's Guide to Vacuum Technology}
+(John Wiley \& Sons, New York, 1989).
+\bibitem{Niem95} A. Niemczewski, Ph. D. Thesis, Massachusetts Institute
+of Technology, Plasma Fusion Center Report PFC/RR-95-8 (1995).
+\bibitem{Bhat54} P. L. Bhatnagar, E. P. Gross, and M. Krook, {\em Phys.
+Rev.} {\bf 94}, 511 (1954).
+\bibitem{Wela54} P. Welander, {\em Arkiv Fysik} {\bf 7}, 507 (1954).
 \bibitem{Mayxx} Chr. May, Ph. D. Thesis. 
 \bibitem{Reit97} D. Reiter, Chr. May,
 M. Baelmans, and P. B\"{o}rner, {\em J. Nucl. Mater.} {\bf 241}, 342 (1997).
+\bibitem{Kanz99} R. J. Kanzleiter, Ph. D. Thesis, Rensselaer Polytechnic
+Institute (1999).
 \bibitem{Chap70} S. Chapman and T. G. Cowling, {\em The Mathematical
 Theory of Non-Uniform Gases} (Cambridge University Press, 1970).
 \bibitem{Mors63} T. F. Morse, {\em Phys. Fluids} {\bf 6}, 1420 (1963).
@@ -4371,6 +5412,10 @@ Theory of Non-Uniform Gases} (Cambridge University Press, 1970).
 Properties of Liquids and Gases} (McGraw-Hill Book Company, New York, 1987).
 \bibitem{CRC} {\em CRC Handbook of Chemistry and Physics, 75th Edition,
 1913--1995}, D. R. Lide, Ed., p. 6-239 (CRC Press, Boca Raton, 1994).
+\bibitem{Will62} D. R. Willis, {\em Phys. Fluids} {\bf 5}, 127 (1962).
+\bibitem{Cerc69} C. Cercignani, {\em J. Stat. Phys.} {\bf 1}, 297 (1969).
+\bibitem{Cerc75} C. Cercignani, {\em Theory and Application of the Boltzmann
+Equation} (Scottish Academic Press, New York, 1975).
 \bibitem{Bevi69} P. R. Bevington, {\em Data Reduction and Error Analysis
 for the Physical Sciences} (McGraw-Hill Book Company, New York, 1969).
 \bibitem{Ecks91} W. Eckstein, {\em Computer Simulation of Ion-Solid
@@ -4382,6 +5427,12 @@ A Wall'', PPPL Applied Physics Division Report \# 1 (1980).
 \bibitem{Span66} J. Spanier, {\em SIAM J. Appl. Math.} {\bf 14}, 702 (1966).
 \bibitem{Knuth97} D. E. Knuth, {\em The Art of Computer Programming} 
 (Addison-Wesley, Reading, MA, 1997).
+\bibitem{Pitc00} C. S. Pitcher, C. J. Boswell, J. A. Goetz et al., {\em Phys.
+Plasmas} {\bf 7}, 1894 (2000).
+\bibitem{Pitc01} C. S. Pitcher, C. J. Boswell, T. Chung
+et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
+\bibitem{Stot01} D. P. Stotler, C. S. Pitcher, C. J. Boswell et al.,
+{\em J. Nucl. Mater.} {\bf 290-293}, 967 (2001).
 \end{thebibliography}
 
 
@@ -4389,154 +5440,179 @@ A Wall'', PPPL Applied Physics Division Report \# 1 (1980).
 
 \begin{theindex}
 
-  \item adsorption, \hyperpage{41}
+  \item adsorption, \hyperpage{53}
   \item Allocation, memory, \hyperpage{2}
-  \item Atomic physics, \hyperpage{18}
+  \item Atomic physics, \hyperpage{21}
 
   \indexspace
 
-  \item background species, \hyperpage{41}
-  \item BGK, \hyperpage{27}
+  \item background species, \hyperpage{53}
+  \item BGK, \hyperpage{35}
   \item Boltzmann equation, \hyperpage{1}
-  \item boxgen, \hyperpage{37}
+  \item boxgen, \hyperpage{48}
 
   \indexspace
 
-  \item Charge exchange, \hyperpage{22}
-  \item chargex, \hyperpage{40}
-  \item collisional-radiative, \hyperpage{18}
-  \item CVS, \hyperpage{3}, \hyperpage{43}
+  \item Charge exchange, \hyperpage{25}
+  \item chargex, \hyperpage{52}
+  \item collisional-radiative, \hyperpage{21}
+  \item CVS, \hyperpage{3}, \hyperpage{44}
 
   \indexspace
 
-  \item dataexam, \hyperpage{38}
-  \item datasetup, \hyperpage{37}
+  \item dataexam, \hyperpage{49}
+  \item datamatch, \hyperpage{50}
+  \item datasetup, \hyperpage{48}
+  \item defineback, \hyperpage{46}
+  \item defineback input, \hyperpage{54}
+  \item definegeometry2d, \hyperpage{45, 46}
+  \item definegeometry2d input, \hyperpage{54}
   \item DEGAS, \hyperpage{2}
-  \item desorption, \hyperpage{41}
-  \item Differential cross section, \hyperpage{22}
-  \item Diffusion, \hyperpage{27}
-  \item Diffusion cross section, \hyperpage{22}
-  \item dissoc, \hyperpage{40}
-  \item dissoc\_rec, \hyperpage{40}
+  \item desorption, \hyperpage{53}
+  \item Differential cross section, \hyperpage{25}
+  \item Diffusion, \hyperpage{35}
+  \item Diffusion cross section, \hyperpage{25}
+  \item directories, \hyperpage{45}
+  \item dissoc, \hyperpage{52}
+  \item dissoc\_rec, \hyperpage{52}
   \item Distribution, probability, \hyperpage{5}
 
   \indexspace
 
-  \item elastic, \hyperpage{40}
-  \item Elastic scattering, \hyperpage{22}
-  \item elements\_infile, \hyperpage{40}
-  \item elementsfile, \hyperpage{40}
+  \item elastic, \hyperpage{52}
+  \item Elastic scattering, \hyperpage{25}
+  \item elements\_infile, \hyperpage{52}
+  \item elementsfile, \hyperpage{52}
+  \item Emacs, \hyperpage{43}
+  \item emacs, \hyperpage{42}
 
   \indexspace
 
-  \item flighttest, \hyperpage{35}
-  \item FWEB, \hyperpage{2}, \hyperpage{44}
+  \item flighttest, \hyperpage{46}
+  \item ftangle, \hyperpage{43}
+  \item fweave, \hyperpage{43}
+  \item FWEB, \hyperpage{2}, \hyperpage{43}
 
   \indexspace
 
   \item Generators, random number, \hyperpage{5}
-  \item generic, \hyperpage{40}
-  \item generic PMI, \hyperpage{41}
-  \item generic reactions, \hyperpage{40}
-  \item geometry.inp, \hyperpage{42}
-  \item geomtesta, \hyperpage{35}
+  \item generic, \hyperpage{52}
+  \item generic PMI, \hyperpage{53}
+  \item generic reactions, \hyperpage{52}
+  \item geometry.inp, \hyperpage{55}
+  \item geomtesta, \hyperpage{46}
+  \item gmake, \hyperpage{42}
 
   \indexspace
 
-  \item HDF, \hyperpage{3}
+  \item HDF, \hyperpage{3}, \hyperpage{44}
+  \item HOME, \hyperpage{45}
 
   \indexspace
 
-  \item ionization, \hyperpage{18}
-  \item ionize, \hyperpage{40}
-  \item ionize\_suppress, \hyperpage{40}
+  \item ionization, \hyperpage{21}
+  \item ionize, \hyperpage{52}
+  \item ionize\_suppress, \hyperpage{52}
+
+  \indexspace
+
+  \item LaTeX, \hyperpage{43}
 
   \indexspace
 
   \item Macros, \hyperpage{2}
-  \item matcheir, \hyperpage{39}
-  \item matchout, \hyperpage{39}
-  \item materials\_infile, \hyperpage{41}
-  \item materialsfile, \hyperpage{41}
-  \item Maxwell molecules, \hyperpage{27}
+  \item make, \hyperpage{42}
+  \item Makefile, \hyperpage{42}
+  \item Makefile.local, \hyperpage{45}
+  \item matcheir, \hyperpage{50}
+  \item matchout, \hyperpage{50}
+  \item materials\_infile, \hyperpage{53}
+  \item materialsfile, \hyperpage{53}
+  \item Maxwell molecules, \hyperpage{35}
   \item Monte Carlo, \hyperpage{5}
 
   \indexspace
 
+  \item ncdum, \hyperpage{43}
+  \item ncdump-filter, \hyperpage{43}
+  \item ncgen, \hyperpage{43}
+  \item ncgen-filter, \hyperpage{43}
   \item NetCDF, \hyperpage{3}
-  \item netCDF, \hyperpage{44}
+  \item netCDF, \hyperpage{43}
   \item Neutral Transport, \hyperpage{1}
-  \item Neutral-ion scattering, \hyperpage{22}
-  \item Neutral-neutral scattering, \hyperpage{27}
-  \item non-generic PMI, \hyperpage{41}
-  \item non-generic reactions, \hyperpage{40}
+  \item Neutral-ion scattering, \hyperpage{25}
+  \item Neutral-neutral scattering, \hyperpage{35}
+  \item non-generic PMI, \hyperpage{53}
+  \item non-generic reactions, \hyperpage{52}
 
   \indexspace
 
   \item Object oriented programming, \hyperpage{2}
-  \item outputscript, \hyperpage{42}
+  \item outputscript, \hyperpage{55}
 
   \indexspace
 
-  \item Pcl-cvs, \hyperpage{43}
-  \item PMI, \hyperpage{41}
-  \item pmi\_infile, \hyperpage{41}
-  \item pmitest, \hyperpage{38}
-  \item pmiwrite, \hyperpage{37}
-  \item problem\_infile, \hyperpage{41}
-  \item problemfile, \hyperpage{41}
-  \item problemsetup, \hyperpage{35}
+  \item Pcl-cvs, \hyperpage{44}
+  \item PMI, \hyperpage{53}
+  \item pmi\_infile, \hyperpage{53}
+  \item pmitest, \hyperpage{49}
+  \item pmiwrite, \hyperpage{48}
+  \item problem\_infile, \hyperpage{53}
+  \item problemfile, \hyperpage{53}
+  \item problemsetup, \hyperpage{46}
   \item Processing, parallel, \hyperpage{3}
 
   \indexspace
 
   \item Random, \hyperpage{5}
-  \item randomtest, \hyperpage{38}
-  \item ratecalc, \hyperpage{37}
-  \item rates, atomic physics, \hyperpage{18}
-  \item reaction type, \hyperpage{40}
-  \item reaction\_infile, \hyperpage{40}
-  \item reactionfile, \hyperpage{40}
-  \item reactiontest, \hyperpage{38}
-  \item reactionwrite, \hyperpage{37}
-  \item readbackground, \hyperpage{35}
-  \item readbackground input, \hyperpage{42}
-  \item readgeometry, \hyperpage{35}
-  \item readgeometry input, \hyperpage{42}
-  \item recombination, \hyperpage{18}, \hyperpage{40}
-  \item reference level, \hyperpage{41}
-  \item reflection, \hyperpage{41}
+  \item randomtest, \hyperpage{49}
+  \item ratecalc, \hyperpage{48}
+  \item rates, atomic physics, \hyperpage{21}
+  \item reaction type, \hyperpage{52}
+  \item reaction\_infile, \hyperpage{52}
+  \item reactionfile, \hyperpage{52}
+  \item reactiontest, \hyperpage{49}
+  \item reactionwrite, \hyperpage{48}
+  \item readbackground, \hyperpage{46}
+  \item readbackground input, \hyperpage{54}
+  \item readgeometry, \hyperpage{46}
+  \item readgeometry input, \hyperpage{54}
+  \item recombination, \hyperpage{21}, \hyperpage{52}
+  \item reference level, \hyperpage{53}
+  \item reflection, \hyperpage{53}
 
   \indexspace
 
-  \item Scattering angle, \hyperpage{22}
+  \item Scattering angle, \hyperpage{25}
   \item Scoring, \hyperpage{5}
-  \item sourcetest, \hyperpage{38}
-  \item species, \hyperpage{40}
-  \item species\_infile, \hyperpage{40}
-  \item speciesfile, \hyperpage{40}
-  \item Spin exchange, \hyperpage{22}
-  \item subset data, \hyperpage{41}
-  \item symbolic name, \hyperpage{39}
-  \item sysdeptest, \hyperpage{38}
+  \item sourcetest, \hyperpage{49}
+  \item species, \hyperpage{52}
+  \item species\_infile, \hyperpage{52}
+  \item speciesfile, \hyperpage{52}
+  \item Spin exchange, \hyperpage{25}
+  \item subset data, \hyperpage{53}
+  \item symbolic name, \hyperpage{51}
+  \item sysdeptest, \hyperpage{49}
 
   \indexspace
 
-  \item Tags, \hyperpage{45}
-  \item tally, \hyperpage{42}
-  \item tally\_infile, \hyperpage{42}
-  \item tallyfile, \hyperpage{42}
-  \item tallysetup, \hyperpage{35}, \hyperpage{42}
-  \item test species, \hyperpage{41}
+  \item Tags, \hyperpage{42}
+  \item tally, \hyperpage{54}
+  \item tally\_infile, \hyperpage{54}
+  \item tallyfile, \hyperpage{54}
+  \item tallysetup, \hyperpage{46}, \hyperpage{54}
+  \item test species, \hyperpage{53}
+  \item TeX, \hyperpage{43}
   \item Theory, transport, \hyperpage{1}
-  \item Total cross section, \hyperpage{22}
+  \item Total cross section, \hyperpage{25}
   \item Tracking, \hyperpage{5}
   \item Transport codes, \hyperpage{1}
+  \item Triangle, \hyperpage{45}
 
   \indexspace
 
-  \item Viscosity, \hyperpage{27}
-  \item Viscosity cross section, \hyperpage{22}
+  \item Viscosity, \hyperpage{35}
+  \item Viscosity cross section, \hyperpage{25}
 
 \end{theindex}
  
