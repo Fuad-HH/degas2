@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.14  1996/10/31 09:06:56  karney
+% Define scoring arrays.
+%
 % Revision 1.13  1996/10/30 18:13:56  dstotler
 % Add new arrays and variables to deal with "background reactions"
 % (i.e., recombination).
@@ -147,6 +150,8 @@ problem is identified by an integer indexing into these arrays.
 @m pr_score_rank_max 5    // Matches tl_rank_man in score.hweb
 @m pr_bkrc_reagent_max 2
 
+@m SCORING 0
+
 @ Variable definitions.
 
 @a
@@ -205,9 +210,12 @@ problem is identified by an integer indexing into these arrays.
 
       define_varp_pk(pr,problem_pmi_num_arrange,INT,problem_pmi_ind0,problem_test_ind)
       define_varp_pk(pr,problem_pmi_products,INT,problem_product_ind,problem_arr_ind,problem_pmi_ind0,problem_test_ind)
+      define_varp_pk(pr,problem_species_testaa,INT,problem_species_ind)
+@#if SCORING
       define_varp_pk(pr,problem_pmi_prod_mult,FLOAT,problem_arr_ind,problem_pmi_ind0,problem_test_ind)
       define_varp_pk(pr,problem_score,INT,problem_scores)
       define_varp_pk(pr,problem_score_indep_vars,INT,problem_score_rank_ind,problem_scores)
+@#endif
 
 @ Common blocks definitions.
 
