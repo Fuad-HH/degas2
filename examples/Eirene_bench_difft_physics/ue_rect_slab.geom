@@ -19,10 +19,8 @@
 #lines with a "#" in col 1 are comments, empty lines are ignored.
 #all inputs below this line
 
-#uedgefile /u/rensink/test1
-#uedgefile /afs/pppl.gov/u/karney/uedata.8g
 symmetry plane
-uedgefile ../examples/Eirene_bench_difft_physics/uedata_rect_slab.u
+uedgefile ../examples/Eirene_bench_difft_physics/uedata_rs_recom.u
 null_type 1
 material mo
 mesh -0.015 0.045 -0.01 1.1 0.0 1.0
