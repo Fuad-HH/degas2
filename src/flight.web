@@ -2,6 +2,9 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.28  1998/05/08 13:50:04  dstotler
+% Add compression of intermediate scoring arrays.
+%
 % Revision 1.27  1998/03/11 14:58:24  dstotler
 % Add pf_var_cos_polar_angle_in to independent_parameters. Allow
 % pr_rc_num(test)=0. Removed assert which prevented two sectors having
@@ -157,7 +160,8 @@
       so_decl(isource)
       @<Memory allocation interface@>
       real estimator_factors[*]          // Scratch
-      integer i,j,mult,new_dim           // Local 
+      integer i,j,new_dim           // Local 
+      real mult
       rn_seed_decl(seed)
       fl_decl(x)
       real rel_wt
@@ -181,8 +185,8 @@
 
          if (min(stat_size_frag+stat_size_flt,tally_size)>stat_dim_frag
      $        && stat_comp_frag == TRUE) then
-            mult=max(1,stat_size_flt/stat_mem_inc_frag)
-            new_dim=min(stat_dim_frag+mult*stat_mem_inc_frag,tally_size)
+            mult=max(one,areal(stat_size_flt)/areal(stat_mem_inc_frag))
+            new_dim=min(stat_dim_frag+int(mult*stat_mem_inc_frag),tally_size)
             var_realloc(stat_frag,stat_dim_frag-1,new_dim-1)
             var_realloc(stat_ptr2full_frag,stat_pf_dim_frag-1,new_dim-1)
             var_realloc(stat_wt_frag,stat_wt_dim_frag-1,new_dim-1)

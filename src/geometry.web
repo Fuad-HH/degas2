@@ -3,6 +3,9 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.29  1998/04/16 15:31:02  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.28  1997/09/02 21:14:30  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -204,6 +207,7 @@ After the geometry is set up, information about the geometry is held in
 @I location.hweb
 @I particle.hweb
 @I detector.hweb
+@I mpi.hweb
 
 @* External interface to geometry routines.
 
@@ -1263,26 +1267,34 @@ cells, it checks that the cells are neighbors.
       rf_common
       sc_common
       de_common
+      mp_common
       implicit_none_f90
       nc_decls               // Local
       gi_ncdecl
       zn_ncdecl
       cm_ncdecl
+      mp_decls
       @<Memory allocation interface@>
       sc_ncdecl
       de_ncdecl
       integer fileid
       character*FILELEN tempfile    //local
 
-      tempfile = filenames_array[geometryfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      cm_ncread(fileid)
-      gi_ncread(fileid)
-      zn_ncread(fileid)
-      sc_ncread(fileid)
-      de_ncread(fileid)
-      call ncclose(fileid,nc_stat)
-
+      if (mpi_master) then
+         tempfile = filenames_array[geometryfile]
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+         cm_ncread(fileid)
+         gi_ncread(fileid)
+         zn_ncread(fileid)
+         sc_ncread(fileid)
+         de_ncread(fileid)
+         call ncclose(fileid,nc_stat)
+      endif
+      cm_mpibcast
+      gi_mpibcast
+      zn_mpibcast
+      sc_mpibcast
+      de_mpibcast
       return
       end
 

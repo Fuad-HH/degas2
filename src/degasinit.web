@@ -2,6 +2,11 @@
 \Title{DEGAS Initialization Routine}
 
 % $Log$
+% Revision 1.3  1997/08/19 14:36:35  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.2  1997/08/07 19:38:48  dstotler
 % Add call to nc_read_tally.
 %
@@ -29,6 +34,7 @@
 @I sysdep.hweb
 @I reaction.hweb
 @I pmiformat.hweb
+@I mpi.hweb
 
 @ The main program.
 
@@ -40,8 +46,10 @@
 @<Functions...@>=
       subroutine degas_init
       implicit_none_f77
+      mp_common
       implicit_none_f90
-      
+      mp_decls
+
       call read_geometry
       call nc_read_elements
       call nc_read_species

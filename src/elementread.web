@@ -2,6 +2,11 @@
 \Title{elementread}
 
 % $Log$
+% Revision 1.18  1997/08/19 14:36:36  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.17  1997/08/07 19:41:22  dstotler
 % Remove strata.hweb.
 %
@@ -79,6 +84,7 @@ Introduction\ldots
 @I background.hweb
 @I sources.hweb
 @I vector.hweb
+@I mpi.hweb
 
 @ The unnamed module.
 
@@ -92,21 +98,25 @@ Introduction\ldots
       implicit_none_f77
       el_common
       rf_common
+      mp_common
       implicit_none_f90
       nc_decls
       el_ncdecl
+      mp_decls
       integer fileid
       character *FILELEN tempfile  //local
       @<Memory allocation interface@>
 
-      tempfile = filenames_array[elementsfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     element_version,len(element_version),nc_stat)
+      if (mpi_master) then
+         tempfile = filenames_array[elementsfile]
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+         call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $        element_version,len(element_version),nc_stat)
+         el_ncread(fileid)
+         call ncclose(fileid,nc_stat)
+      endif
 
-      el_ncread(fileid)
-      
-      call ncclose(fileid,nc_stat)
+      el_mpibcast
 
       return
       end
@@ -118,21 +128,27 @@ Introduction\ldots
       implicit_none_f77
       sp_common
       rf_common
+      mp_common
       implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
       sp_ncdecl
       nc_decls
+      mp_decls
       @<Memory allocation interface@>
 
-      tempfile =  filenames_array[speciesfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     species_version,len(species_version),nc_stat)
+      if (mpi_master) then
+         tempfile =  filenames_array[speciesfile]
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+         call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $        species_version,len(species_version),nc_stat)
 
-      sp_ncread(fileid)
+         sp_ncread(fileid)
       
-      call ncclose(fileid,nc_stat)
+         call ncclose(fileid,nc_stat)
+      endif
+
+      sp_mpibcast
 
       return
       end
@@ -144,21 +160,27 @@ Introduction\ldots
       implicit_none_f77
       rc_common
       rf_common
+      mp_common
       implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
       rc_ncdecl
       nc_decls
+      mp_decls
       @<Memory allocation interface@>
 
-      tempfile =  filenames_array[reactionfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     reaction_version,len(reaction_version),nc_stat)
+      if (mpi_master) then
+         tempfile =  filenames_array[reactionfile]
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+         call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $        reaction_version,len(reaction_version),nc_stat)
 
-      rc_ncread(fileid)
+         rc_ncread(fileid)
       
-      call ncclose(fileid,nc_stat)
+         call ncclose(fileid,nc_stat)
+      end if
+      
+      rc_mpibcast
 
       return
       end
@@ -172,24 +194,32 @@ Introduction\ldots
       bk_common
       so_common
       rf_common
+      mp_common
       implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
       bk_ncdecl
       nc_decls
       cm_ncdecl
+      mp_decls
       @<Memory allocation interface@>
       so_ncdecl
       vc_decls
 
-      tempfile =  filenames_array[backgroundfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+      if (mpi_master) then
+         tempfile =  filenames_array[backgroundfile]
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
 
-      cm_ncread(fileid)
-      bk_ncread(fileid)
-      so_ncread(fileid)
+         cm_ncread(fileid)
+         bk_ncread(fileid)
+         so_ncread(fileid)
 
-      call ncclose(fileid,nc_stat)
+         call ncclose(fileid,nc_stat)
+      end if
+      
+      cm_mpibcast
+      bk_mpibcast
+      so_mpibcast
 
       return
       end

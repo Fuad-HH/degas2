@@ -2,6 +2,9 @@
 \Title{pmimattread}
 
 % $Log$
+% Revision 1.5  1998/05/08 13:55:54  dstotler
+% Add nc_read_output from readgeometry.
+%
 % Revision 1.4  1997/08/19 14:36:49  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -43,6 +46,7 @@ Introduction\ldots
 @I output.hweb
 @I reaction.hweb
 @I pmiformat.hweb
+@I mpi.hweb
 
 @ The unnamed module.
 
@@ -56,21 +60,27 @@ Introduction\ldots
       implicit_none_f77
       ma_common
       rf_common
+      mp_common
       implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
       ma_ncdecl
       nc_decls
+      mp_decls
       @<Memory allocation interface@>
 
-      tempfile =  filenames_array[materialsfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     materials_version,len(materials_version),nc_stat)
+      if (mpi_master) then
+         tempfile =  filenames_array[materialsfile]
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+         call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $        materials_version,len(materials_version),nc_stat)
 
-      ma_ncread(fileid)
+         ma_ncread(fileid)
       
-      call ncclose(fileid,nc_stat)
+         call ncclose(fileid,nc_stat)
+      end if
+      
+      ma_mpibcast
 
       return
       end
@@ -82,21 +92,28 @@ Introduction\ldots
       implicit_none_f77
       pm_common
       rf_common
+      mp_common
       implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
       pm_ncdecl
       nc_decls
+      mp_decls
       @<Memory allocation interface@>
 
-      tempfile =  filenames_array[pmifile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     pmi_version,len(pmi_version),nc_stat)
+      if (mpi_master) then
+         tempfile =  filenames_array[pmifile]
 
-      pm_ncread(fileid)
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+         call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $        pmi_version,len(pmi_version),nc_stat)
+
+         pm_ncread(fileid)
       
-      call ncclose(fileid,nc_stat)
+         call ncclose(fileid,nc_stat)
+      end if
+         
+      pm_mpibcast
 
       return
       end
@@ -113,6 +130,7 @@ Introduction\ldots
       pm_common
       sp_common
       rf_common
+      mp_common
       implicit_none_f90
       rd_decls
       integer fileid
@@ -121,18 +139,25 @@ Introduction\ldots
       rd_ncdecl
       pd_ncdecl
       nc_decls
+      mp_decls
       @<Memory allocation interface@>
 
-      tempfile =  filenames_array[problemfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     problem_version,len(problem_version),nc_stat)
+      if (mpi_master) then
+         tempfile =  filenames_array[problemfile]
+         fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+         call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $        problem_version,len(problem_version),nc_stat)
 
-      pr_ncread(fileid)
-      rd_ncread(fileid)
-      pd_ncread(fileid)
+         pr_ncread(fileid)
+         rd_ncread(fileid)
+         pd_ncread(fileid)
       
-      call ncclose(fileid,nc_stat)
+         call ncclose(fileid,nc_stat)
+      end if
+      
+      pr_mpibcast
+      rd_mpibcast
+      pd_mpibcast
 
       return
       end
@@ -145,26 +170,33 @@ Introduction\ldots
       pr_common
       tl_common                  // Common
       rf_common
+      mp_common
       implicit_none_f90
       nc_decls
       st_decls
       tl_decls
+      mp_decls
       @<Memory allocation interface@>
       integer fileid             // Local
       tl_ncdecl
       character*FILELEN tempfile
 
-      tempfile=filenames_array[tallyfile]
-      fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'tally_version',
-     $     tally_version,len(tally_version),nc_stat)
+      if (mpi_master) then
+         tempfile=filenames_array[tallyfile]
+         fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
+         call ncattgetc(fileid,NC_GLOBAL,'tally_version',
+     $        tally_version,len(tally_version),nc_stat)
 
-      tl_ncread(fileid)
+         tl_ncread(fileid)
 
-      call ncclose(fileid,nc_stat)
+         call ncclose(fileid,nc_stat)
+      end if
+      
+      tl_mpibcast
 
       return
       end
+
 
 @ Read in data from netcdf file \verb+output.nc+ 
 
@@ -203,9 +235,11 @@ Introduction\ldots
       pr_common
       rd_common
       rf_common
+      mp_common
       implicit_none_f90
 
       rd_decls
+      mp_decls
       integer pr_reac
       logical have_cramd_data
       character*FILELEN tempfile

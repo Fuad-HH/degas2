@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.63  1998/05/08 13:43:59  dstotler
+# Added local PROF_LD flag (for "-ldl" on Sun); executable matchout.
+#
 # Revision 1.62  1998/04/27 17:25:59  karney
 # Reorder common block includes to avoid complaints from DEC compilers.
 # Remove spurious -R load flag from Makefile.
@@ -206,10 +209,37 @@ NETCDFV2=no
 # The "root" of the degas2 tree, by default this is $HOME, so the .f files
 # are in ~/degas2/MACHINE.
 
-#DEGASROOT
+DEGASROOT=$(HOME)
 
-# End of variables to be overridden
-#######################################################
+# Default settings
+FCF77=f77
+FCF90=f90
+FCMPI=mpif77
+LDF77=$(FCF77)
+LDF90=$(FCF90)
+LDMPI=$(FCMPI)
+FFLAGS=
+F77FLAGS=-u
+DEBUGFLAGS=-g
+OPTFLAGS=-O
+LIBROOT=/usr/local
+PROFILE=
+PROF_LD=
+NETCDF=-L$(LIBROOT)/lib -lnetcdf
+MPILIBS=
+HDF=-L$(LIBROOT)/lib -ldf -ljpeg -lz
+PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
+FTANGLE=ftangle
+FWEAVE=fweave
+LATEX=latex
+# These are the old tangle flags -- not needed any more since we
+# now don't stress tangle so much
+# TANGLEFLAGS=-mINLINE -W[ -ytt40000000 -yn8000 -ymb65536 -n/ -n')' -Tv -j
+TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000
+WEAVEFLAGS=-f -i! -W[ -ykw600 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
+F90MODS=-I.
+F90FLAGS=
+SYSDEPC=no
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -217,12 +247,20 @@ SYSTEM:=$(shell uname)
 ifeq ($(SYSTEM),SunOS)
   MACHINE=SUN
   PVMARCH=SUN4
+  NETCDF=-L$(LIBROOT)/lib -lnetcdf -lnsl
+  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
+  F90MODS=-M.
+  FCMPI=hf77
+  OPTFLAGS=-fast
 endif
 ifeq ($(SYSTEM),AIX)
   MACHINE=IBM
+  FCF77=xlf
+  SYSDEPC=yes
 endif
 ifeq ($(SYSTEM),OSF1)
   MACHINE=ALPHA
+  OPTFLAGS=-fast
 endif
 ifeq ($(SYSTEM),HP-UX)
   MACHINE=HP
@@ -230,22 +268,35 @@ endif
 ifeq ($(SYSTEM),IRIX)
   MACHINE=SGI
   PVMARCH=SGI
+  OPTFLAGS=-O3
 endif
 ifeq ($(SYSTEM),IRIX64)
   MACHINE=SGI
   PVMARCH=SGI
+  FFLAGS=-64
+  OPTFLAGS=-O3
 endif
 ifeq ($(SYSTEM),Linux)
   MACHINE=LINUX
   PVMARCH=LINUX
+  DEBUGFLAGS=-g90
+  F90FLAGS=-mismatch_all
+  SYSDEPC=yes
 endif
 ifeq ($(findstring sn,$(SYSTEM)),sn)
   MACHINE=CRAY
   PVMARCH=CRAY
+  FTANGLE=/afs/pppl.gov/@sys/usr/local/bin/ftangle
+  F90MODS=-p.
+  F90FLAGS=-Ca
+  OPTFLAGS=-O3
 endif
-
 # Figure out target machine
 TARGET=$(notdir $(shell pwd))
+
+ifeq ($(TARGET),SGI)
+  MPI=yes
+endif
 
 ifneq ($(TARGET),$(MACHINE))
   CROSSCOMPILE=yes
@@ -267,19 +318,8 @@ utils: makemodule idtof Makefile
 %.f: %.F
 %.o: %.F
 
-# Deal with location of things
-
-ifndef DEGASROOT
-    DEGASROOT=$(HOME)
-endif
-
-ifeq ($(MACHINE),CRAY)
-  OPT=-O3
-else
-  OPT=-O -fast
-endif
-
-LIBROOT=/usr/local
+# End of variables to be overridden
+#######################################################
 
 -include Makefile.local
 
@@ -310,16 +350,6 @@ Makefile.depends: $(SOURCEDIR)/Makefile.depends
 degas2.in: $(SOURCEDIR)/degas2.in
 	cp $< $@
 
-# Set up libraries
-ifeq ($(MACHINE),SUN)
-  NETCDF=-L$(LIBROOT)/lib -lnetcdf -lnsl
-  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
-else
-  NETCDF=-L$(LIBROOT)/lib -lnetcdf
-  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -lz
-endif
-PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
-
 ifeq ($(MACHINE),ALPHA)
 	CRAMD=$(CRAMDIR)/LIB/CRAMDlib.a $(CRAMDIR)/LIB/cramd_lib.a $(CRAMDIR)/LIB/lc_sig.a $(CRAMDIR)/LIB/lc_std.a
 endif
@@ -342,109 +372,54 @@ ifeq ($(PRINTER),)
 else
  LPRFLAGS=-h -P$(PRINTER)
 endif
-ifeq ($(MACHINE),CRAY)
- FTANGLE=/afs/pppl.gov/@sys/usr/local/bin/ftangle
-else
- FTANGLE=ftangle
-endif
-FWEAVE=fweave
-LATEX=latex
-# These are the old tangle flags -- not needed any more since we
-# now don't stress tangle so much
-# TANGLEFLAGS=-mINLINE -W[ -ytt40000000 -yn8000 -ymb65536 -n/ -n')' -Tv -j
-TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000
+
 ifeq ($(DEBUG),yes)
   TANGLEFLAGS+=-mDEBUG
 endif
 
-ifeq ($(FORTRAN90),yes)
-  TANGLEFLAGS+=-mFORTRAN90
-endif
+FC=$(FCF77)
 
 ifeq ($(NETCDFV2),yes)
   TANGLEFLAGS+=-mNETCDFV2
 endif
 
-WEAVEFLAGS=-f -i! -W[ -ykw600 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
-
-ifeq ($(MACHINE),LINUX)
-  DEBUGFLG=-g90
-else
-  DEBUGFLG=-g
+ifeq ($(MPI),yes)
+  TANGLEFLAGS+=-mMPI
+  FC=$(FCMPI)
+  MPILIBSA=$(MPILIBS)
 endif
 
-ifeq ($(MACHINE),CRAY)
-  FC=cft77
-  ifeq ($(DEBUG),yes)
-    FFLAGS=-e m -e z -a stack -o off
-  else
-    FFLAGS=-e m -e z -a stack
-  endif
-  LD=segldr
-else  # !CRAY
-  ifneq ($(MACHINE),IBM)
-    FC=f77
-  else
-    FC=xlf
-  endif
-  LD=$(FC)
-  ifeq ($(DEBUG),yes)
-    FFLAGS=-c $(DEBUGFLG) -u
-    LDFLAGS=$(DEBUGFLG)
-    CFLAGS=-g
-  else
-    FFLAGS=-c $(OPT) $(PROFILE)
-    LDFLAGS=$(OPT) $(PROFILE) $(PROF_LD)
-    CFLAGS=-O
-  endif
+LD=$(FC)
+ifeq ($(DEBUG),yes)
+  COMPFLAGS=$(DEBUGFLAGS)
+  CFLAGS=-g
+else
+  COMPFLAGS=$(OPTFLAGS)
+  CFLAGS=-O
 endif
 
 ifeq ($(FORTRAN90),yes)
-    FC=f90
-    ifeq ($(DEBUG),yes)
-      FFLAGS=-c $(DEBUGFLG)
-    else
-      ifeq ($(MACHINE),CRAY)
-        FFLAGS=-c $(OPT)
-      else
-        FFLAGS=-c $(OPT)
-      endif
-    endif
-ifeq ($(MACHINE),SUN)
-    F90MODS=-M.
-endif
-ifeq ($(MACHINE),CRAY)
-    F90MODS=-p.
-    FFLAGS+=-Ca
-    LD=$(FC)
-endif
-ifeq ($(MACHINE),ALPHA)
-    F90MODS=-I.
-endif
-ifeq ($(MACHINE),LINUX)
-    F90MODS=-I.
-    FC+=-mismatch_all
-endif
+  TANGLEFLAGS+=-mFORTRAN90
+  FC=$(FCF90)
+  COMPFLAGS+=$(F90MODS)
+else
+  COMPFLAGS+=$(F77FLAGS)
 endif
 
-ifeq ($(MACHINE),IBM)
-  SYSDEPO=sysdep.$O sysdepc.$O
-else
-ifeq ($(MACHINE),LINUX)
+ifeq ($(SYSDEPC),yes)
   SYSDEPO=sysdep.$O sysdepc.$O
 else
   SYSDEPO=sysdep.$O
-endif
 endif
 
 ifndef CROSSCOMPILE
   O=o
   %.o: %.f
-	$(FC) $(F90MODS) $(FFLAGS) $<
+	$(FC) -c $(FFLAGS) $(COMPFLAGS) $(PROFILE) $<
   %: %.o $(SYSDEPO) string.$O idtof degas2.in
 	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
-	$(FC) $(FFLAGS) $*.id.f
-	$(LD) $(LDFLAGS) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs)
+	$(FC) -c $(FFLAGS) $*.id.f
+	$(LD) $(FFLAGS) $(COMPFLAGS) $(PROFILE) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs) $(PROF_LD)
 else # We're cross compiling
   O=f
   %: %.o
@@ -469,13 +444,7 @@ endif
 %_mod.f: %.mweb array.hweb sysdep.hweb
 	$(FTANGLE) -I$(SOURCEDIR) $(TANGLEFLAGS) -m$(TARGET) -=n=#_mod.f $<
 
-ifeq ($(TARGET),IBM)
-  sysdep.f sysdepc.c: sysdep.web macros.hweb
-	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
-	$(IDENTAPPEND)
-endif
-
-ifeq ($(TARGET),LINUX)
+ifeq ($(SYSDEPC),yes)
   sysdep.f sysdepc.c: sysdep.web macros.hweb
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
 	$(IDENTAPPEND)
@@ -549,7 +518,7 @@ pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave) $(foreach arg,$(subst .$O,_mods,$(pvmslave)),$($(arg)))
 
 flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O
-flighttest_libs = $(NETCDF)
+flighttest_libs = $(NETCDF) $(MPILIBSA)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
 geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O dediagsetup.$O
@@ -686,7 +655,7 @@ aladdin_subr.f: $(ALADIR)/aladdin_subr.f
 	cp $< $@
 
 aladdin_subr.o: aladdin_subr.f ALPCOM.FOR ALCOM.FOR
-	$(FC) -c $(DEBUGFLG) aladdin_subr.f
+	$(FC) -c $(DEBUGFLAGS) aladdin_subr.f
 
 %.FOR: $(ALADIR)/%.FOR
 	cp $< $@

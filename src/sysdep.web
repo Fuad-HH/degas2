@@ -2,6 +2,9 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.18  1998/04/16 15:31:13  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.17  1997/09/29 18:39:49  karney
 % Typo in Makefile
 % SGI fix in sysdep.web
@@ -100,7 +103,7 @@ System dependent routines for degas.
 
 @ The unnamed module.
 
-@#if CRAY || SUN || SGI
+@#if SUN || SGI
 @m CHARPOINTERBUG 1
 @#else
 @m CHARPOINTERBUG 0
@@ -154,11 +157,12 @@ This is from \verb&f77/f77_floatingpoint.h&.
       character*(*) var         // Input
       character*(*) val         // Output
 @#if CRAY
-      integer getenv
+      integer length,ierr
 @#endif
 
 @#if CRAY
-      get_env=getenv(var,val)==1
+      call pxfgetenv(var,0,val,length,ierr)
+      get_env= ierr == 0
 @#else
       call getenv(var,val)
       get_env = val != ' '
@@ -168,11 +172,6 @@ This is from \verb&f77/f77_floatingpoint.h&.
 @#endif
 
 @ C-wrapper routine for IBM.
-
-@#if IBM
-  @m TRUE 1
-  @m FALSE 0
-@#endif
 
 @<C Functions@>=
 @#if IBM
@@ -433,8 +432,16 @@ int len;
       logical set_cwd
       character*(*) dir         // Input
       integer chdir             // External
+@#if CRAY
+      integer ierr
+@#endif
 
+@#if CRAY
+      call pxfchdir(dir,0,ierr)
+      set_cwd = ierr == 0
+@#else
       set_cwd = chdir(dir) == 0
+@#endif
 
       return
       end
@@ -462,6 +469,7 @@ int len;
       implicit_none_f90
       character*(*) user       // Output
       logical get_env          // External
+      external get_env
 
       if (!get_env('LOGNAME',user)) then
          if (!get_env('USER',user)) then
@@ -482,18 +490,25 @@ int len;
       subroutine host_name(host)
       implicit_none_f77
       implicit_none_f90
-      character*20 host         // Local
+      character*(*) host         // Output
 @#if CRAY
       character dummy[4]        // Local
-@#endif
-@#if CRAY
-      integer uname            // External
+      integer junam, ierr, ilen, stat
 @#else
       integer hostnm           // External
 @#endif
 
 @#if CRAY
-      if (uname(dummy[1],host,dummy[2],dummy[3],dummy[4]) == -1) host='UNKNOWN'
+      stat=0
+      call pxfstructcreate('utsname',junam,ierr)
+      stat=+abs(ierr)
+      call pxfuname(junam,ierr)
+      stat=+abs(ierr)
+      ilen=0
+      call pxfstrget(junam,'nodename',host,ilen,ierr)
+      stat=+abs(ierr)
+      call pxfstructfree(junam,ierr)
+      if (stat!=0) host='UNKNOWN'
 @#else
       if (hostnm(host) != 0) host='UNKNOWN'
 @#if HP || IBM
@@ -530,9 +545,16 @@ int len;
 @#if !LINUX
       integer iargc             // External
 @#endif
+@#if CRAY
+      external ipxfargc
+      integer ipxfargc
+@#endif
 
+@#if CRAY
+      arg_count=ipxfargc()
+@#else
       arg_count=iargc()
-
+@#endif
       return
       end
 
@@ -548,10 +570,15 @@ int len;
       integer i                 // Input
       character*(*) arg         // Output
       integer j            // Local
+@#if CRAY
+      integer len,ierr
+@#endif
 
       j=i
 @#if HP
       call igetarg(j,arg,len(arg))
+@#elif CRAY
+      call pxfgetarg(j,arg,len,ierr)
 @#else
       call getarg(j,arg)
 @#endif

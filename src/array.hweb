@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.25  1998/04/16 15:30:58  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.24  1998/03/11 14:54:33  dstotler
 % Change offending comment.
 %
@@ -619,6 +622,9 @@ same. */
       $DEFINE(pk##_ncdecl process_pk(pk,ncdecl))
       $DEFINE(pk##_pvmput process_pk(pk,pvmput))
       $DEFINE(pk##_pvmget process_pk(pk,pvmget))
+      $DEFINE(pk##_mpibcast process_pk(pk,mpibcast))
+      $DEFINE(pk##_mpisend(dest,tag) process_pk(pk,mpisend,dest,tag))
+      $DEFINE(pk##_mpireceive(source,tag) process_pk(pk,mpireceive,source,tag))
 
 @m package_end(pk)
 
@@ -811,6 +817,78 @@ invoking a macro for entity.
         )
 
 @m end_pvmget(pk)
+
+@m start_mpibcast(pk)
+
+@#if MPI
+@m do_mpibcast(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        mpi_broadcast(var);,
+        if (mpi_rank != mpi_root) then; var_alloc(var); endif;mpi_broadcast(var);,
+        )
+@#else
+@m do_mpibcast(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        ,
+        ,
+        )
+@#endif
+
+@m end_mpibcast(pk)
+
+@m start_mpisend(pk,dest,tag)
+
+@#if MPI
+@m do_mpisend(pk,var,cat,dest,tag)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        mpi_send(var,dest,tag);,
+        mpi_send(var,dest,tag);,
+        )
+@#else
+@m do_mpisend(pk,var,cat,dest,tag)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        ,
+        ,
+        )
+@#endif
+
+@m end_mpisend(pk,dest,tag)
+
+@m start_mpireceive(pk,source,tag)
+
+@#if MPI
+@m do_mpireceive(pk,var,cat,source,tag)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        mpi_receive(var,source,tag);,
+        var_alloc(var); mpi_receive(var,source,tag);,
+        )
+@#else
+@m do_mpireceive(pk,var,cat,source,tag)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        ,
+        ,
+        )
+@#endif
+
+@m end_mpireceive(pk,source,tag)
 
 @m do_netcdfa(pk,var,cat)
       $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )

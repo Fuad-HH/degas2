@@ -2,6 +2,10 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.26  1998/05/08 13:50:53  dstotler
+% Update arguments to extract_output_datum. Add "abs" to rel. std. dev.
+% calculation for output_grp as well.
+%
 % Revision 1.25  1998/04/27 17:26:00  karney
 % Reorder common block includes to avoid complaints from DEC compilers.
 % Remove spurious -R load flag from Makefile.
@@ -119,35 +123,48 @@
 @I readfilenames.hweb
 @I problem.hweb
 @I random.hweb
+@I mpi.hweb
 
 @ The main program.
 
 @a
       program flight_test
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
       integer nflights,nfrag,i
       character*LINELEN arg
       sy_decls
       st_decls
+
+      mpi_init
 
 /* NOTE: nflights now coming in through source class! */
 
       nflights=100000
       nfrag=-1
       
+@#if 0
+      if (mpi_master) then
       do i=1,min(2,arg_count())
          call command_arg(i,arg)
          if (i == 1) nflights=read_integer(arg)
          if (i == 2) nfrag=read_integer(arg)
       end do
+      end if
+@#endif
       
       if (nfrag <= 0) nfrag=nflights
 
-      call readfilenames
+      if (mpi_master) call readfilenames
       call degas_init
-      call do_flights_master(nflights,nfrag)
-
+      if (mpi_master) then
+         call do_flights_master(nflights,nfrag)
+      else
+         call do_flights_slave
+      end if
+      
       stop
       end
 
@@ -160,9 +177,11 @@ PVM more straightforward.
 @<Functions...@>=
       subroutine do_flights_master(nflights,nfrag)
 
-//      define_varp(output_frag,FLOAT,output_moments_ind,output_tab_ind)
-//      define_varp(output_flt,FLOAT,output_moments_ind,output_tab_ind)
-//      define_varp(estimator_factors,FLOAT,output_tab_ind)   ??????? WHY??
+@#if 0
+      define_varp(output_frag,FLOAT,output_moments_ind,output_tab_ind)
+      define_varp(output_flt,FLOAT,output_moments_ind,output_tab_ind)
+      define_varp(estimator_factors,FLOAT,output_tab_ind)   // WHY??
+@#endif
       define_varp(estimator_factors,FLOAT,tally_ind)
       define_varp(weight_grp,FLOAT,output_grps_ind)
 
@@ -173,6 +192,7 @@ PVM more straightforward.
       tl_common
       ou_common
       sa_common
+      mp_common
       implicit_none_f90
 
       integer nflights,nfrag                                // Input
@@ -181,6 +201,7 @@ PVM more straightforward.
       real mult,tot_scale_curr,prob,density,dummy,
      $     dens_rsd,pressure,pres_rsd
       logical init,need_scores,have_pressure
+      integer nparcel,num,nstart,nslaves,slave
       rn_seed_decl(seed)
 
       @<Memory allocation interface@>
@@ -190,13 +211,17 @@ PVM more straightforward.
       real find_rate,extract_output_datum                   // External
       external find_rate,extract_output_datum
 
- //     declare_varp(output_frag)
- //     declare_varp(output_flt)
+@#if 0
+      declare_varp(output_frag)
+      declare_varp(output_flt)
+@#endif
       declare_varp(estimator_factors)
       declare_varp(weight_grp)
 
-//      var_alloc(output_frag)
-//      var_alloc(output_flt)
+@#if 0
+      var_alloc(output_frag)
+      var_alloc(output_flt)
+@#endif
       var_alloc(estimator_factors)
       var_alloc(weight_grp)
 
@@ -220,7 +245,7 @@ PVM more straightforward.
       end do
 
       stat_comp_flt=TRUE
-      stat_comp_frag=FALSE // Set using |nfrag| and |nflights|?
+      stat_comp_frag=TRUE // Set using |nfrag| and |nflights|?
       stat_comp_fin=FALSE  // Additional code changes required if set = TRUE
 
       call stat_init
@@ -230,41 +255,59 @@ PVM more straightforward.
       do is=1,so_grps
          nflights=so_nflights(is)
          nfrag=nflights                      // Temporary fudge!
+         nfrag=nflights/100
 
          weight_grp[is]=zero
-         do j=0,nflights-1,nfrag
-                                             // Calculate the flights
-            call do_flights(j,min(nfrag,nflights-j),so_args(is),seed,
-     $                                            estimator_factors) 
 
-            assert(stat_comp_frag == FALSE ||       // In lieu of checking all
-     $         (stat_wt_frag[0]==stat_wt_tot_frag 
-     $           && stat_wt_frag[stat_size_frag-1]==stat_wt_tot_frag))
+         nparcel=(nflights+nfrag-1)/nfrag // The number of chunks
+@#if MPI
+         nslaves=mpi_size-1
+@#else
+         nslaves=0
+@#endif
 
-            if (min(stat_size_fin+stat_size_frag,tally_size)>stat_dim_fin) then
-               assert(stat_comp_fin == TRUE) 
-               mult=max(1,stat_size_flt/stat_mem_inc_fin)
-               new_dim=min(stat_dim_fin+mult*stat_mem_inc_fin,tally_size)
-               var_realloc(stat_fin,stat_dim_fin-1,new_dim-1)
-               var_realloc(stat_ptr2full_fin,stat_pf_dim_fin-1,new_dim-1)
-               var_realloc(stat_wt_fin,stat_wt_dim_fin-1,new_dim-1)
-               stat_dim_fin=new_dim
-               stat_pf_dim_fin=new_dim
-               stat_wt_dim_fin=new_dim
-            end if
-                                  // Accumulating directly into |output_grp|! 
-            assert(stat_comp_fin == FALSE && stat_dim_fin == tally_size) 
-            call stat_acc(stat_comp_frag,stat_wt_tot_frag,stat_size_frag,
-     $           stat_dim_frag,stat_frag,stat_pf_dim_frag,stat_ptr2full_frag,
-     $           stat_ps_dim_frag,stat_ptr2short_frag,
-     $           stat_comp_fin,stat_wt_tot_fin,stat_size_fin,stat_dim_fin,
-     $           output_grp[is][0][o_mean],
-     $           stat_pf_dim_fin,stat_ptr2full_fin,
-     $           stat_ps_dim_fin,stat_ptr2short_fin,stat_wt_dim_fin,
-     $           stat_wt_fin)
-
-            call next_seed(nfrag,seed) // Advance the seed
+@#if MPI
+         do j=0,min(nparcel,nslaves)-1 // Send out the initial chunks
+            nstart=j*nfrag
+            num=min(nfrag,nflights-nstart)
+            slave=j+1
+            write(stderr,*) 'Send initial batch to slave ',slave
+            call slave_send(slave,nstart,num,so_args(is),seed)
+            call next_seed(num,seed) // Advance random number seed
          end do
+@#endif
+
+         do j=min(nparcel,nslaves),nparcel-1 // Loop reading results and making additional requests
+            nstart=j*nfrag
+            num=min(nfrag,nflights-nstart)
+            
+                                             // Calculate the flights
+@#if MPI
+            if (nslaves>0) then
+               call slave_receive(slave)
+               write(stderr,*) 'Received batch back from slave ',slave
+               write(stderr,*) 'Send initial batch to slave ',slave
+               call slave_send(slave,nstart,num,so_args(is),seed)
+            else
+               call do_flights(nstart,num,so_args(is),seed,estimator_factors)
+            end if
+            
+@#else
+            call do_flights(nstart,num,so_args(is),seed,estimator_factors) 
+@#endif
+            
+            @<Merge results@>
+
+            call next_seed(num,seed) // Advance the seed
+         end do
+         
+@#if MPI
+         do j=0,min(nparcel,nslaves)-1 // Do the final reads
+            call slave_receive(slave)
+            write(stderr,*) 'Received batch back from slave ',slave
+            @<Merge results@>
+         end do
+@#endif
          
          if (stat_comp_frag == TRUE)   // |output_grp| here, too!
      $    call stat_wt_balance(stat_wt_tot_fin,stat_size_fin,stat_dim_fin,
@@ -287,8 +330,8 @@ PVM more straightforward.
    currents are specified, making the total current derived. Hence, the 
    relative contribution to the sum over source groups can be more 
    efficiently altered via the scale factor. The expressions for 
-   the total sample mean (stat_tot[1]) and variance of the sample
-   mean (stat_tot[2]) are taken from Brandt.
+   the total sample mean (|stat_tot[1]|) and variance of the sample
+   mean (|stat_tot[2]|) are taken from Brandt.
 */
       do is=1,so_grps
          do i=0,tally_size-1
@@ -376,6 +419,13 @@ PVM more straightforward.
          end do
       end do       // is
 
+@#if MPI
+      do j=0,nslaves-1          // Kill off the slaves
+         slave=j+1
+         call slave_send(slave,0,0,so_args(0),seed)
+      end do
+@#endif
+
 /*
    Need to determine these parameters here since they are used in defining
    a local array in |fill_coupling_arrays|.
@@ -442,13 +492,240 @@ PVM more straightforward.
 
       call clear_stat
 
-//      var_free(output_frag)
-//      var_free(output_flt)
+@#if 0
+      var_free(output_frag)
+      var_free(output_flt)
+@#endif
       var_free(estimator_factors)
       var_free(weight_grp)
 
       return
       end
+
+@ Merge results from a fragment.
+
+@<Merge results@>=
+@#if 0
+  // Not really useful if we zero out stat_wt_frag in stat_wt_balance
+            assert(stat_comp_frag == FALSE ||       // In lieu of checking all
+     $         (stat_wt_frag[0]==stat_wt_tot_frag 
+     $           && stat_wt_frag[stat_size_frag-1]==stat_wt_tot_frag))
+@#endif
+
+            if (min(stat_size_fin+stat_size_frag,tally_size)>stat_dim_fin) then
+               assert(stat_comp_fin == TRUE) 
+               mult=max(one,areal(stat_size_flt)/areal(stat_mem_inc_fin))
+               new_dim=min(stat_dim_fin+int(mult*stat_mem_inc_fin),tally_size)
+               var_realloc(stat_fin,stat_dim_fin-1,new_dim-1)
+               var_realloc(stat_ptr2full_fin,stat_pf_dim_fin-1,new_dim-1)
+               var_realloc(stat_wt_fin,stat_wt_dim_fin-1,new_dim-1)
+               stat_dim_fin=new_dim
+               stat_pf_dim_fin=new_dim
+               stat_wt_dim_fin=new_dim
+            end if
+                                  // Accumulating directly into |output_grp|! 
+            assert(stat_comp_fin == FALSE && stat_dim_fin == tally_size) 
+            call stat_acc(stat_comp_frag,stat_wt_tot_frag,stat_size_frag,
+     $           stat_dim_frag,stat_frag,stat_pf_dim_frag,stat_ptr2full_frag,
+     $           stat_ps_dim_frag,stat_ptr2short_frag,
+     $           stat_comp_fin,stat_wt_tot_fin,stat_size_fin,stat_dim_fin,
+     $           output_grp[is][0][o_mean],
+     $           stat_pf_dim_fin,stat_ptr2full_fin,
+     $           stat_ps_dim_fin,stat_ptr2short_fin,stat_wt_dim_fin,
+     $           stat_wt_fin)
+
+@ Send data to slave.
+
+@<Functions...@>=
+@#if MPI
+      subroutine slave_send(slave,nstart,nflights,so_dummy(isource),seed)
+      implicit_none_f77
+      mp_common
+      sa_common
+      implicit_none_f90
+      mp_decls
+      integer slave,nstart,nflights
+      so_decl(isource)
+      rn_seed_decl(seed)
+      integer tag
+      @<Memory allocation interface@>
+
+      tag=100
+      call MPI_send(nflights,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      if (nflights == 0) goto break
+      tag++
+      call MPI_send(nstart,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(isource,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(seed,4,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      
+break:  continue
+      return
+      end
+@#endif
+
+@ Receive data from slave.
+
+@<Functions...@>=
+@#if MPI
+      subroutine slave_receive(slave)
+      implicit_none_f77
+      mp_common
+      sa_common
+      implicit_none_f90
+      mp_decls
+      integer slave,nstart,nflights
+      integer tag,new_dim
+      @<Memory allocation interface@>
+
+      tag=200
+      call MPI_recv(stat_comp_frag,1,mpi_int,MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      slave=mpi_status(MPI_SOURCE);
+      tag++
+      call MPI_recv(stat_wt_tot_frag,1,mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      tag++
+      call MPI_recv(stat_size_frag,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+      tag++
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      if (new_dim>stat_dim_frag) then
+         var_realloc(stat_frag,stat_dim_frag-1,new_dim-1)
+         stat_dim_frag=new_dim
+      end if
+      tag++
+      call MPI_recv(stat_frag,array_size(stat_frag),mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+      tag++
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      if (new_dim>stat_pf_dim_frag) then
+         var_realloc(stat_ptr2full_frag,stat_pf_dim_frag-1,new_dim-1)
+         stat_pf_dim_frag=new_dim
+      end if
+      tag++
+      call MPI_recv(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+      tag++
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      if (new_dim>stat_ps_dim_frag) then
+         var_realloc(stat_ptr2short_frag,stat_ps_dim_frag-1,new_dim-1)
+         stat_ps_dim_frag=new_dim
+      end if
+      tag++
+      call MPI_recv(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+      tag++
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      if (new_dim>stat_wt_dim_frag) then
+         var_realloc(stat_wt_frag,stat_wt_dim_frag-1,new_dim-1)
+         stat_wt_dim_frag=new_dim
+      end if
+      tag++
+      call MPI_recv(stat_wt_frag,array_size(stat_wt_frag),mpi_real,MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+
+break:  continue
+      return
+      end
+@#endif
+
+@ The slave routine.  This loops waiting for work and sending the
+results back to the master.  It's only defined for MPI.
+
+@<Functions...@>=
+@#if MPI
+      subroutine do_flights_slave
+      implicit_none_f77
+      mp_common
+      sa_common
+      pr_common
+      tl_common
+      implicit_none_f90
+      mp_decls
+      integer nstart,nflights,tag
+      so_decl(isource)
+      rn_seed_decl(seed)
+      @<Memory allocation interface@>
+      tl_decls
+      declare_varp(estimator_factors)
+      integer i
+      
+      var_alloc(estimator_factors)
+
+      stat_comp_flt=TRUE
+      stat_comp_frag=TRUE // Set using |nfrag| and |nflights|?
+      stat_comp_fin=FALSE  // Additional code changes required if set = TRUE
+
+      call stat_init
+
+loop: continue
+      tag=100
+      call MPI_recv(nflights,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      if (nflights == 0) goto break
+      tag++
+      call MPI_recv(nstart,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      tag++
+      call MPI_recv(isource,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      tag++
+      call MPI_recv(seed,4,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+      call do_flights(nstart,nflights,so_args(isource),seed,
+     $     estimator_factors)
+
+      tag=200
+
+      call MPI_send(stat_comp_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_size_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_ps_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+
+// Reinitialize |stat_frag|.
+      stat_wt_tot_frag=zero
+      if (stat_comp_frag == TRUE) then
+         stat_size_frag=0
+         do i=0,stat_ps_dim_frag-1
+            stat_ptr2short_frag[i]=int_uninit
+         end do
+      end if
+      if (stat_comp_frag == FALSE) then 
+         do i=0,stat_dim_frag-1
+            stat_frag[i][o_mean]=zero
+            stat_frag[i][o_var]=zero
+         end do
+         do i=0,stat_wt_dim_frag-1
+            stat_wt_frag[i]=zero
+         end do
+      end if
+
+
+      goto loop
+break:  continue
+      call clear_stat
+      var_free(estimator_factors)
+      return
+      end
+@#endif
 
 @ Fill coupling arrays. This needs to be in a separate subroutine since
 we don't set the dimensions until just before the call.
