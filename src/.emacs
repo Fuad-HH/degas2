@@ -11,3 +11,19 @@
 output to a *cvs* buffer and run cvs-mode on it.
 If optional prefix argument LOCAL is non-nil, 'cvs update -l' is run."
 	  t)
+
+;; The jka-compr package causes automatic decompression
+(load "jka-compr")
+
+;; The following get jka-compr to invoke ncdump on netcdf files.
+(setq jka-compr-compression-info-list
+      (cons '["\\.nc~?\\'"
+	      "running ncgen"   "ncgen-filter"         nil
+	      "running ncdump"  "ncdump-filter"        nil
+	      nil nil]
+	    jka-compr-compression-info-list))
+
+(and (jka-compr-installed-p)
+     (jka-compr-uninstall))
+
+(jka-compr-install)

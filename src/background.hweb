@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1995/03/30 17:07:10  karney
+% Add readbackground
+%
 % Revision 1.4  1994/11/21 15:49:38  dstotler
 % Interim update associated with ratecalc. ratecalc.hweb and
 % xsection.hweb have undergone substantial revision, but should be
@@ -47,6 +50,9 @@ these arrays.
 @m bk_temp(x,i) background_temp[x,zn_pointer(i)]
 @m bk_v(x,i) background_v[x,zn_pointer(i)]
 
+@m plasma_coords_cartesian 1    // |v| holds the $x$, $y$, and $z$ components.
+@m plasma_coords_cylindrical 2  // |v| holds the $R$, $\phi$, and $z$ components.
+
 @ Variable definitions.
 
 @a
@@ -54,6 +60,7 @@ these arrays.
       define_var_pk(bk,bk_num,INT)
       define_dimen_pk(bk,background_ind,bk_num)
       define_dimen_pk(bk,plasma_ind,zone_type_num[zn_plasma])
+      define_var_pk(bk,background_coords,INT)
       define_varp_pk(bk,background_n,FLOAT,background_ind,plasma_ind)
       define_varp_pk(bk,background_v,FLOAT,vc_ind,background_ind,plasma_ind)
       define_varp_pk(bk,background_temp,FLOAT,background_ind,plasma_ind)
