@@ -1,4 +1,4 @@
-% $Id$
+ $Id$
 \Title{collide}
 
 % $Log$
@@ -60,184 +60,129 @@
 @I reactiondata.hweb
 @I location.hweb
 @I xsection.hweb
+@I output.hweb
 
 @ The main program.
 
 @a
       @<Functions and Subroutines@>
 
-@ Subroutine to process a reaction. The arguments here are |p|, the particle
-index, |ts_reac|, the reaction index into the list of reactions participated
-in by the test species corresponding to |p|, |nprod|, the number of products,
-|prod|, their corresponding particle tags, and |x|, the current random
-number thread. This routine uses |p| to pull together all of the more
-specific information required by the lower level routines. The individual
-pieces of data about the products they produce are incorporated into 
-instances of the particle class.
-      
+@ Pick a reaction to process.
 @<Functions...@>=
-      subroutine process_reaction(pt_dummy(p),pr_reaction_dummy(ts_reac),
-     $   nprod,pt_dummy(prod),rn_dummy(x))
+      subroutine pick_reaction(pr_test_dummy(test),
+     $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),
+     $     w_prod,num_scoring_data,scoring_data,
+     $     scoring_data_label,background_sources,rn_dummy(x))
 
       implicit_none
 
-      pt_decl(p)                           // Input
+      pr_test_decl(test)                                // Input
       pr_reaction_decl(ts_reac)
-      integer nprod                        // Output
-      pt_decl(prod[rc_product_max])
-      rn_decl(x)                           // Input/output
+      real rate
+      real independent_parameters[xs_max_indep_params]
 
-      bk_decl(back)                        // Local
-      vc_decl(vb_flow)
-      real rr  
-      integer i
+      integer nprod,num_scoring_data                    // Output
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max],scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                        // Input/output
 
-      zn_common                            // Common
-      bk_common
-      sp_common
+      pr_reaction_decl(pr_reac)                         // Local  
+
+      rc_common                                         // Common
       pr_common
-      st_common
-      rc_common
 
-      back=pr_ts_bk(pt_test(p),ts_reac)
-      if (background_coords == plasma_coords_cartesian) then
-         vc_copy(bk_v(back,lc_zone(pt_loc(p))),vb_flow)
-      else if (background_coords == plasma_coords_cylindrical) then
-         rr=sqrt(lc_x(pt_loc(p))[1]**2+lc_x(pt_loc(p))[2]**2)
-         vb_flow[1]=(bk_v(back,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[1]-
-     $        bk_v(back,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[2])/rr
-         vb_flow[2]=(bk_v(back,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[2]+
-     $        bk_v(back,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[1])/rr
-         vb_flow[3]=bk_v(back,lc_zone(pt_loc(p)))[3]
-      else
-         assert(.false.)
-      end if
-      
+      pr_reac=pr_ts_rc(test,ts_reac) 
 /* 
    Split up into different reaction types. Note that for now types |dissoc|
    and |dissoc_rec| use the same processing routine; the distinction between
    the two currently exists because different logic is required during the
    ``set products'' phase of |problemsetup|.
 */
-      if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'chargex') then
-         call chargex(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
-     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
-     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
-     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $     pt_w(prod[1]),rn_args(x))
-      else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'elastic') then
-         call elastic(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
-     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
-     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
-     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $     pt_w(prod[1]),rn_args(x))
-      else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc') then
-         call dissoc(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
-     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
-     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
-     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $     pt_w(prod[1]),rn_args(x))
-         else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc_rec') then
-         call dissoc(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
-     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
-     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
-     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $     pt_w(prod[1]),rn_args(x))
-         else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc_cramd') then
-         call dissoc_cramd(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
-     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
-     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
-     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $     pt_w(prod[1]),rn_args(x))
-      else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'ionize') then
-         call ionize(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
-     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
-     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     lc_zone(pt_loc(p)),pr_reaction_args(ts_reac),
-     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $     pt_w(prod[1]),rn_args(x))
+      if (rc_reaction_type(pr_reaction(pr_reac)) == 'chargex') then
+         call chargex(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'elastic') then
+         call elastic(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc') then
+         call dissoc(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_rec') then
+         call dissoc(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_cramd') then
+         call dissoc_cramd(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') then
+         call ionize(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_args(x))
       else
          assert('Unsupported reaction type' == ' ')
       end if
 
-/*
-   Create particle instances from products. 
-*/
-      do i=1,nprod
-         pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
-         lc_copy(pt_loc(p),pt_loc(prod[i]))
-         pt_t(prod[i])=pt_t(p)
-  //       if (pt_test(prod[i]) > 0) then    DO THIS IN sub. follow
-            pt_w(prod[i])=pt_w(p)*pt_w(prod[i])
-            if (sp_z(pt_sp(prod[i])) == 0) then
-               pt_type(prod[i])=pt_neutral
-            else
-               pt_type(prod[i])=pt_ion
-            end if
-  //       end if
-      end do
-
       return
       end
 
-@ Process a charge exchange reaction. The arguments here are:
-\begin{description}
-  \item[|test|] test particle index,
-  \item[|v_test|] its velocity,
-  \item[|back|] background particle index,
-  \item[|nb|] its density,
-  \item[|vb_flow|] its flow velocity,
-  \item[|tb|] and its temperature,
-  \item[|ts_reac|] reaction index into the list of reactions participated 
-in by |test|,
-  \item[|nprod|] number of products,
-  \item[|prod|] array of product species indices,
-  \item[|v_prod|] array of product velocity vectors,
-  \item[|w_prod|] array of product weight fractions (relative to |test|),
-  \item[|x|] current random number thread.
-\end{description}
-The intention here is to make these variables as ``physical'' as possible
-so this routine can easily be used in standalone codes, 
-such as |reaction_test|.
+@ Process a charge exchange reaction.
 
 @<Functions...@>=
-      subroutine chargex(pr_test_dummy(test),vc_dummy(v_test),
-     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     zone,pr_reaction_dummy(ts_reac),
+      subroutine chargex(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
-     $     rn_dummy(x))
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
 
       implicit_none
 
       pr_test_decl(test)                               // Input
-      vc_decl(v_test)
-      pr_background_decl(back)
-      real nb,tb
-      integer zone
-      vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
 
-      integer nprod                                    // Output
+      integer nprod,num_scoring_data                   // Output
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
-      real w_prod[rc_product_max]
-      rn_decl(x)                                       // Input/Output
+      real w_prod[rc_product_max],scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
 
       pr_reaction_decl(pr_reac)                        // Local
-      integer i,count
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      integer i,i_cx,count
+      vc_decl(v_test)
+      vc_decl(v_back)
+      vc_decl(vb_flow)
       vc_decl(vt_plasma_frame)
       vc_decl(vb_therm)
-      real v_thermal,ran,sgvmax,cx  
-      save sgvmax
-      data sgvmax/zero/
+      vc_decl(vrel)
+      real v_thermal,ran,sgvmax,cx,cx_v,m_i  
 
-      external cross_section_a                         // External
-      real cross_section_a
+      external eval_data                              // External
+      real eval_data
       real tempmax
       save tempmax
       data tempmax/zero/
@@ -250,46 +195,62 @@ such as |reaction_test|.
 
       pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
       count=0
-/*
-  If not done already, extract |sgvmax| from |rd_misc_data3|
-*/
-      if (sgvmax == zero) then
-         do i=1,xs_dep_var_max
-            if (reaction_misc_var_dep[pr_reac][i] == 'sigv_max') then
-               assert(reaction_misc_rank[pr_reac][i] == 0)
-               sgvmax=rd_misc_data3(pr_reac,i,0,0,0)
-               goto break
-            end if
-         end do
-break:   continue
-      end if
+
+      sgvmax=zero
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'sigv_max') then
+            sgvmax=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'cross_section') then
+            i_cx=i
+         end if
+      end do
 
 /*
    Transform to frame moving with the local background flow velocity
 */
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+         vb_flow[i]=independent_parameters[xs_var_v_flow_1+i-1]
+      end do
       vc_difference(v_test,vb_flow,vt_plasma_frame)
 
 loop: continue
       count++
  /* Pick a background particle */
-      v_thermal=sqrt(tb/sp_m(pr_background(back)))
+      v_thermal=sqrt(independent_parameters[xs_var_sp_temperature])
       do i=1,3
          rn_gauss_next(ran,x)
          vb_therm[i]=v_thermal*ran
       end do
 
-@#if 1     
-      cx=cross_section_a(pr_test_args(test),vc_args(vt_plasma_frame),
-     $    pr_background_args(back),nb,vc_args(vb_therm),tb,
-     $    pr_reaction_args(ts_reac))
-      assert(cx<=sgvmax)
-      if (cx > tempmax) then
-         tempmax=cx
+/*
+  Now evaluate velocity {\em relative} to this particular particle
+  (we need to transform to the frame moving at |vb_flow| ahead of
+  time since the average of |vb_therm| is 0.).
+*/
+      vc_difference(vt_plasma_frame,vb_therm,vrel)
+
+/*
+  And re-evaluate the |independent_parameters| associated with the
+  relative test energy.
+*/
+      independent_parameters[xs_var_energy]
+     $     =half*independent_parameters[xs_var_m_test]*vc_abs2(vrel)
+      independent_parameters[xs_var_sp_energy]=half*vc_abs2(vrel)
+
+      cx=eval_data(rd_data_args(reaction_handling,[pr_reac][i_cx]),
+     $    independent_parameters,rn_args(x))
+      cx_v=cx*vc_abs(vrel)
+
+      assert(cx_v<=sgvmax)
+      if (cx_v > tempmax) then
+         tempmax=cx_v
       end if
       rn_next(ran,x)
-      if (cx < ran*sgvmax) goto loop
-@#endif
+      if (cx_v < ran*sgvmax) goto loop
 
 /*
    Assume that the background particle becomes the test species and
@@ -301,41 +262,77 @@ loop: continue
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
          if (problem_species_test(prod[i]) != 0) then
             w_prod[i]=one
-            vc_add(vb_therm,vb_flow,v_prod[i])
+            vc_add(vb_therm,vb_flow,v_back)
+            vc_copy(v_back,v_prod[i])
          else
-            w_prod[i]=zero
+            w_prod[i]=one                        // Was zero - check
             vc_copy(v_test,v_prod[i])
          end if
       end do
-      
+
+/*
+   Collision scoring - only background sources expected here.
+*/
+      background_sources[back][ou_coupling_mass]+=
+     $     -sp_m(pr_background(back))*rate
+      background_sources[back][ou_coupling_momentum_1]+=
+     $     -sp_m(pr_background(back))*v_back[1]*rate
+      background_sources[back][ou_coupling_momentum_2]+=
+     $     -sp_m(pr_background(back))*v_back[2]*rate
+      background_sources[back][ou_coupling_momentum_3]+=
+     $     -sp_m(pr_background(back))*v_back[3]*rate
+      background_sources[back][ou_coupling_energy]+=
+     $     -half*sp_m(pr_background(back))*vc_abs2(v_back)*rate
+      do i=1,nprod
+         back_i=problem_species_background[prod[i]]
+         if (back_i != 0) then
+            m_i=sp_m(pr_background(back_i))
+            background_sources[back_i][ou_coupling_mass]+=m_i*rate
+            background_sources[back_i][ou_coupling_momentum_1]+=
+     $           m_i*v_prod[i][1]*rate 
+            background_sources[back_i][ou_coupling_momentum_2]+=
+     $           m_i*v_prod[i][2]*rate
+            background_sources[back_i][ou_coupling_momentum_3]+=
+     $           m_i*v_prod[i][3]*rate
+            background_sources[back_i][ou_coupling_energy]+=
+     $           half*m_i*vc_abs2(v_prod[i])*rate
+         end if
+      end do
+
       return
       end
 
 @ Process an elastic collision. Arguments are the same as for |chargex|.
 
 @<Functions...@>=
-      subroutine elastic(pr_test_dummy(test),vc_dummy(v_test),
-     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     zone,pr_reaction_dummy(ts_reac),
+      subroutine elastic(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
-     $     rn_dummy(x))
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
 
       implicit_none
 
       pr_test_decl(test)                               // Input
-      vc_decl(v_test)
-      pr_background_decl(back)
-      real nb,tb
-      integer zone
-      vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
 
-      vc_decl(v_prod[rc_product_max])
+      integer nprod,num_scoring_data                   // Output
       sp_decl(prod[rc_product_max])
-      real w_prod[rc_product_max]
-      rn_decl(x)                                       // Input/Output
-      pr_reaction_decl(pr_reac)                        // Local
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max],scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
 
+      pr_reaction_decl(pr_reac)                        // Local
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+
+      vc_decl(v_test)
+      vc_decl(v_back)
+      vc_decl(vb_flow)
       vc_decl(vt_plasma_frame)
       vc_decl(vb_therm)
       vc_decl(vrel)
@@ -343,44 +340,24 @@ loop: continue
       vc_decl(vb_cm)
       vc_decl(vt_cm)
 
-/*
-   This is the test declarations
-
-      vc_decl(p_initial)
-      vc_decl(p_final)
-      vc_decl(pi_h2)
-      vc_decl(pi_h)
-      vc_decl(pf_h2)
-      vc_decl(pf_h)
-
-      real initial_energy,final_energy
-
-   This is the end of the test declarations
-*/
-
       integer nprod
-      integer rm_prob_max,rm_mu_prob
-      integer i,count,itest
+      integer rm_mu_prob
+      integer i,i_cx,count
 
-      real cross_section_a
-      real v_thermal,ran,sigvmax,tempmax,cx
-      real rel_energy,rel_energy_bin
-      real reaction_prob_max,reaction_prob_ran,mu_angle
-      real interpolate1
+      real eval_data
+      real v_thermal,ran,sigvmax,tempmax,cx,cx_v,m_i
+      real mu_angle
       real vcm_sq,vb_cmsq,vt_cmsq
       real vcm_sqrt,vbcm_sqrt,vtcm_sqrt
       real lab_energy,vb_lab,vt_lab
-      real lab_angle,vb_langle,vt_langle,min_scat_angle
+      real lab_angle,vb_langle,vt_langle
 
       save tempmax
 
-      data min_scat_angle / 0.86602539649921 /         // PI / 6.
       data sigvmax / zero /
       data tempmax / zero /
-      data itest / 0 /
 
-      external cross_section_a                         // External
-      external interpolate1
+      external eval_data                               // External
       external lab_angle,lab_energy
 
       pr_common                                        // Common
@@ -390,25 +367,28 @@ loop: continue
 
       pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
       count=0
 
-/*
-  If not done already, extract |sgvmax| from |rd_misc_data3|
-*/
-      if (sigvmax == zero) then
-         do i=1,xs_dep_var_max
-            if (reaction_misc_var_dep[pr_reac][i] == 'sigv_max') then
-               assert(reaction_misc_rank[pr_reac][i] == 0)
-               sigvmax=rd_misc_data3(pr_reac,i,0,0,0)
-               goto break
-            end if
-         end do
-break:   continue
-      end if
+      sigvmax=zero
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'sigv_max') then
+            sigvmax=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'cross_section') then
+            i_cx=i
+         else if  (reaction_handling_var0[pr_reac][i] == 'cos_scattering_angle') then
+            rm_mu_prob=i
+         end if
+      end do
 
 /*     
       Transform to frame moving with the local background flow velocity
 */
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+         vb_flow[i]=independent_parameters[xs_var_v_flow_1+i-1]
+      end do
       vc_difference(v_test,vb_flow,vt_plasma_frame)
 
 loop: continue
@@ -416,108 +396,56 @@ loop: continue
 /*    
       Pick a background particle 
 */
-      v_thermal=sqrt(tb/sp_m(pr_background(back)))
+      v_thermal=sqrt(independent_parameters[xs_var_sp_temperature])
       do i=1,3
          rn_gauss_next(ran,x)
          vb_therm[i]=v_thermal*ran
       end do
 
-@#if 1 
+/*
+  Now evaluate velocity {\em relative} to this particular particle
+  (we need to transform to the frame moving at |vb_flow| ahead of
+  time since the average of |vb_therm| is 0.).
+*/
+      vc_difference(vt_plasma_frame,vb_therm,vrel)
 
-      cx=cross_section_a(pr_test_args(test),vc_args(vt_plasma_frame),
-     $    pr_background_args(back),nb,vc_args(vb_therm),tb,
-     $    pr_reaction_args(ts_reac))
-      assert(cx<=sigvmax)
-      if (cx > tempmax) then
-         tempmax=cx
+/*
+  And re-evaluate the |independent_parameters| associated with the
+  relative test energy.
+*/
+      independent_parameters[xs_var_energy]
+     $     =half*independent_parameters[xs_var_m_test]*vc_abs2(vrel)
+      independent_parameters[xs_var_sp_energy]=half*vc_abs2(vrel)
+
+      cx=eval_data(rd_data_args(reaction_handling,[pr_reac][i_cx]),
+     $    independent_parameters,rn_args(x))
+
+      cx_v=cx*vc_abs(vrel)
+
+      assert(cx_v<=sigvmax)
+      if (cx_v > tempmax) then
+         tempmax=cx_v
       end if
       rn_next(ran,x)
-      if(cx < ran*sigvmax) goto loop
-
-@#endif
+      if(cx_v < ran*sigvmax) goto loop
 
 /*
-      After selection of a random probability, interpolate the tabulated
-      values of scattering.
+  Interpolate the scattering angle:
 */
-
-      rn_next(reaction_prob_ran,x)
-
-      if ( itest == 0 ) then
-         itest = 1
-         do i = 1 , xs_dep_var_max
-	    if (reaction_misc_var_dep[pr_reac][i] == 'c_probability') then
-	       rm_prob_max = i
-	    else if  (reaction_misc_var_dep[pr_reac][i] == 'mu_probability') then
-	       rm_mu_prob=i
-	    endif
-         end do
-      endif
+      mu_angle=eval_data(rd_data_args(reaction_handling,[pr_reac][rm_mu_prob]),
+     $ independent_parameters,rn_args(x))
 
 /*
-      
-      Assertions are used only for a test durin setup.
-
-      assert(reaction_misc_var_indep[pr_reac][rm_prob_max][1] == xs_var_sp_energy )
-      assert(reaction_misc_var_indep[pr_reac][rm_mu_prob][1] == xs_var_bin )
-      assert(reaction_misc_var_indep[pr_reac][rm_mu_prob][2] == xs_var_sp_energy )
-      assert(reaction_misc_organization[pr_reac][rm_prob_max] == xs_organization_table)
-      assert(reaction_misc_organization[pr_reac][rm_mu_prob] == xs_organization_table)
-
+   Do the scattering:
 */
-
       do i = 1 , 3
-         vcm(i) = (sp_m(pr_test(test))*vt_plasma_frame(i)+
-     $             sp_m(pr_background(back))*vb_therm(i))/
-     $            (sp_m(pr_test(test))+sp_m(pr_background(back)))
+         vcm(i) = (independent_parameters[xs_var_m_test]*vt_plasma_frame(i)+
+     $        independent_parameters[xs_var_m_back]*vb_therm(i))/
+     $        (independent_parameters[xs_var_m_test]+independent_parameters[xs_var_m_back])
          vb_cm(i) = vb_therm(i) - vcm(i)
 	 vt_cm(i) = vt_plasma_frame(i) - vcm(i)
       end do
 
-      vc_difference(vt_plasma_frame,vb_therm,vrel)
-      rel_energy=half*vc_abs2(vrel)
-
-      if(reaction_misc_spacing[pr_reac][rm_prob_max][1] == xs_spacing_log) 
-     $     rel_energy = log(rel_energy)
-
-/*    Following lines are a fix for the occasional problem of low energy collisions.
-
-      if ( rel_energy < 11.46989581 .or. rel_energy > 25.285 ) then
-        write(6,*) rel_energy
-        goto loop
-      endif
-      assert( rel_energy > 11.46989581 )
-      assert( rel_energy < 25.285 )
-*/
-
-      if ( rel_energy < 11.4698958 ) then
-         rel_energy = 11.469896 
-      elseif ( rel_energy > 25.28 ) then
-         rel_energy = 25.285
-      endif 
- 
-      rel_energy_bin=(rel_energy-reaction_misc_min[pr_reac][rm_prob_max][1])/
-     $     reaction_misc_delta[pr_reac][rm_prob_max][1]
-
-      reaction_prob_max=one-interpolate1(rel_energy_bin,
-     $     reaction_misc_table[reaction_misc_base[pr_reac][rm_prob_max]],
-     $     reaction_misc_tab_index[pr_reac][rm_prob_max][1])
-
-      if( reaction_prob_ran >= reaction_prob_max ) then
-/*
-      use minimum scattering angle
-*/
-
-         mu_angle = min_scat_angle
-      
-      else
-/*    
-      use interpolated scattering angle
-*/
-         call elastic_angle(rel_energy_bin,reaction_prob_ran,mu_angle,
-     $                      rm_prob_max,rm_mu_prob,pr_reac)
-
-      end if
 /*    
       convert to laboratory frame from center-of-mass frame
 */
@@ -533,6 +461,9 @@ loop: continue
       vb_langle=lab_angle(mu_angle,vcm_sqrt,vbcm_sqrt,vb_lab)
       vt_langle=lab_angle(mu_angle,vcm_sqrt,-vtcm_sqrt,vt_lab)
 
+/*
+   This assume a certain order for the products; see |set_prod_elastic|.
+*/
       call new_direct(vc_args(vcm),vb_lab,vb_langle,vc_args(v_prod[1]),
      $                1,rn_args(x))
       call new_direct(vc_args(vcm),vt_lab,vt_langle,
@@ -542,52 +473,86 @@ loop: continue
 
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
-         if (sp_name(prod[i]) == 'molecular hydrogen' ||
-     $       sp_name(prod[i]) == 'atomic hydrogen' ) then
+@#if 0
+         if (sp_name(prod[i]) == 'molecular hydrogen') then   // ?????
             w_prod[i]=one
          else
             w_prod[i]=zero
          end if
+@#endif
+         w_prod[i]=one
          vc_add(v_prod[i],vb_flow,v_prod[i])
       end do
       
+      vc_add(vb_therm,vb_flow,v_back)
+/*
+   Collision scoring - only background sources expected here.
+*/
+      background_sources[back][ou_coupling_mass]+=
+     $     -sp_m(pr_background(back))*rate
+      background_sources[back][ou_coupling_momentum_1]+=
+     $     -sp_m(pr_background(back))*v_back[1]*rate
+      background_sources[back][ou_coupling_momentum_2]+=
+     $     -sp_m(pr_background(back))*v_back[2]*rate
+      background_sources[back][ou_coupling_momentum_3]+=
+     $     -sp_m(pr_background(back))*v_back[3]*rate
+      background_sources[back][ou_coupling_energy]+=
+     $     -half*sp_m(pr_background(back))*vc_abs2(v_back)*rate
+      do i=1,nprod
+         back_i=problem_species_background[prod[i]]
+         if (back_i != 0) then
+            m_i=sp_m(pr_background(back_i))
+            background_sources[back_i][ou_coupling_mass]+=m_i*rate
+            background_sources[back_i][ou_coupling_momentum_1]+=
+     $           m_i*v_prod[i][1]*rate 
+            background_sources[back_i][ou_coupling_momentum_2]+=
+     $           m_i*v_prod[i][2]*rate
+            background_sources[back_i][ou_coupling_momentum_3]+=
+     $           m_i*v_prod[i][3]
+            background_sources[back_i][ou_coupling_energy]+=
+     $           half*m_i*vc_abs2(v_prod[i])*rate
+         end if
+      end do
+
       return
       end
 
 @ Process a dissociation. Arguments are the same as for |chargex|.
 
 @<Functions...@>=
-      subroutine dissoc(pr_test_dummy(test),vc_dummy(v_test),
-     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     zone,pr_reaction_dummy(ts_reac),
+      subroutine dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
-     $     rn_dummy(x))
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
 
       implicit_none
 
       pr_test_decl(test)                               // Input
-      vc_decl(v_test)
-      pr_background_decl(back)
-      real nb,tb
-      integer zone
-      vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
 
-      integer nprod                                    // Output
+      integer nprod,num_scoring_data                   // Output
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
-      real w_prod[rc_product_max]
-      rn_decl(x)                                       // Input/Output
+      real w_prod[rc_product_max],scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
 
       pr_reaction_decl(pr_reac)                        // Local
-      integer i,num_heavy_products,i_ediss,i_elediss,j_arr
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      integer i,num_heavy_products,j_arr
       integer product_index[2]
+      vc_decl(v_test)
       vc_decl(v_iso)
-      real sum,ran,indep_var,ediss,elediss,v_diss1,v_diss2
+      real sum,ran,ediss,elediss,v_diss1,v_diss2,m_i
       real mass[2]
 
-      external interpolate1                            // External
-      real interpolate1
+      external eval_data                               // External
+      real eval_data
       
       pr_common                                        // Common
       rc_common
@@ -597,6 +562,7 @@ loop: continue
 
       pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
 
 /*
    Randomly select from the various product arrangements available for this
@@ -620,10 +586,6 @@ break:continue
 */
       rn_iso_next(v_iso,x)
 
-/*
-   Count the number of ``heavy'' products (i.e., not electrons) and store
-   their masses.
-*/
       num_heavy_products=0
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,j_arr,i)
@@ -634,50 +596,17 @@ break:continue
          end if
       end do
       
-/*
-   Search through the list of miscellaneous dependent
-   variables to find |ediss|, the dissociation energy, and |elediss|, the
-   energy lost by the dissociating agent. 
-*/
-      do i=1,xs_dep_var_max
-         if (reaction_misc_var_dep[pr_reac][i] == 'ediss') then
-            i_ediss=i
-         else if (reaction_misc_var_dep[pr_reac][i] == 'elediss') then
-            i_elediss=i
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'dissociation_energy') then
+            ediss=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'background_energy_loss_rate') then
+            elediss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
          end if
       end do
 
-/*
-   Using the indices found above, obtain the values of |ediss| and |elediss|.
-   Note that we need to do this every call since these quantities are 
-   functions of electron temperature for some cases.
-*/
-      if (reaction_misc_rank[pr_reac][i_ediss] == 0) then
-         ediss=rd_misc_data3(pr_reac,i_ediss,0,0,0)
-      else if (reaction_misc_rank[pr_reac][i_ediss] == 1) then
-         assert(reaction_misc_var_indep[pr_reac][i_ediss][1] == xs_var_temperature)
-         indep_var=tb
-         if (reaction_misc_spacing[pr_reac][i_ediss][1] == xs_spacing_log) indep_var=log(indep_var)
-         indep_var=(indep_var-reaction_misc_min[pr_reac][i_ediss][1])/
-     $        reaction_misc_delta[pr_reac][i_ediss][1]
-         ediss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_ediss]],reaction_misc_tab_index[pr_reac][i_ediss][1])
-         if (reaction_misc_spacing[pr_reac][i_ediss][0] == xs_spacing_log)
-     $        ediss=exp(ediss)
-      end if
-
-      if (reaction_misc_rank[pr_reac][i_elediss] == 0) then
-         elediss=rd_misc_data3(pr_reac,i_elediss,0,0,0)
-      else if (reaction_data_rank[pr_reac][i_elediss] == 1) then
-         assert(reaction_misc_var_indep[pr_reac][i_elediss][1] == xs_var_temperature)
-         indep_var=tb
-         if (reaction_misc_spacing[pr_reac][i_elediss][1] == xs_spacing_log) indep_var=log(indep_var)
-         indep_var=(indep_var-reaction_misc_min[pr_reac][i_elediss][1])/
-     $        reaction_misc_delta[pr_reac][i_elediss][1]
-         elediss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_elediss]],reaction_misc_tab_index[pr_reac][i_elediss][1])
-         if (reaction_misc_spacing[pr_reac][i_elediss][0] == xs_spacing_log)
-     $        elediss=exp(elediss)
-      end if
-      
 /*
    Set speeds of products so as to conserve momentum. This routine is 
    equipped to deal with only two heavy products.
@@ -690,7 +619,12 @@ break:continue
    Set product velocities by transforming back into the lab frame (from the
    test particle frame). Set weight fractions.
 */
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+      end do
+
       do i=1,nprod
+
          if (product_index[1] == i) then
             vc_xvt(v_test,v_iso,v_diss1,v_prod[i])
             w_prod[i]=one
@@ -703,43 +637,69 @@ break:continue
          end if
       end do
 
+/*
+   Collision scoring. Will be adding some H-alpha detection and scoring.
+   Note: assume background is an electron so that no reagent background
+   momentum is lost.
+*/
+      background_sources[back][ou_coupling_mass]+=
+     $  -sp_m(pr_background(back))*rate
+      background_sources[back][ou_coupling_energy]+=-elediss
+      do i=1,nprod
+         back_i=problem_species_background(prod[i])
+         if (back_i != 0) then
+            m_i=sp_m(pr_background(back_i))
+            background_sources[back_i][ou_coupling_mass]+=m_i*rate
+            background_sources[back_i][ou_coupling_momentum_1]+=
+     $           m_i*v_prod[i][1]*rate
+            background_sources[back_i][ou_coupling_momentum_2]+=
+     $           m_i*v_prod[i][2]*rate
+            background_sources[back_i][ou_coupling_momentum_3]+=
+     $           m_i*v_prod[i][3]*rate
+            background_sources[back_i][ou_coupling_energy]+=
+     $           half*m_i*vc_abs2(v_prod[i])*rate
+         end if
+      end do
+
       return
       end
 
 @ Process a dissociation for CRAMD. Arguments are the same as for |chargex|.
 
 @<Functions...@>=
-      subroutine dissoc_cramd(pr_test_dummy(test),vc_dummy(v_test),
-     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     zone,pr_reaction_dummy(ts_reac),
+      subroutine dissoc_cramd(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
-     $     rn_dummy(x))
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
 
       implicit_none
 
       pr_test_decl(test)                               // Input
-      vc_decl(v_test)
-      pr_background_decl(back)
-      real nb,tb
-      integer zone
-      vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
 
-      integer nprod                                    // Output
+      integer nprod,num_scoring_data                   // Output
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
-      real w_prod[rc_product_max]
-      rn_decl(x)                                       // Input/Output
+      real w_prod[rc_product_max],scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
 
       pr_reaction_decl(pr_reac)                        // Local
-      integer i,num_heavy_products,i_eloss,i_iloss,i_hfrac,j_arr
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      integer i,num_heavy_products,j_arr
       integer product_index[2]
+      vc_decl(v_test)
       vc_decl(v_iso)
-      real sum,ran,indep_var,eloss,iloss,hfrac,ediss,v_diss1,v_diss2
+      real sum,ran,eloss,iloss,hfrac,ediss,v_diss1,v_diss2,m_i
       real mass[2]
 
-      external interpolate1                            // External
-      real interpolate1
+      external eval_data                               // External
+      real eval_data
       
       pr_common                                        // Common
       rc_common
@@ -772,69 +732,30 @@ break:continue
 */
       rn_iso_next(v_iso,x)
 
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'background_energy_loss_rate') then
+            eloss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'proton_energy_loss_rate') then
+
 /*
-   Search through the list of miscellaneous dependent
-   variables to find |ediss|, the dissociation energy, and |elediss|, the
-   energy lost by the dissociating agent. 
+   The multiplier here should really be the ion density. The existing
+   CRAMD data assume equal electron and ion densities anyway, so do the
+   convenient thing here. If that condition is relaxed, should factor the
+   density ratio into the externally computed value of |iloss|; this would
+   keep its usage consistent with the present definition of the dissociation
+   reaction.
 */
-      do i=1,xs_dep_var_max
-         if (reaction_misc_var_dep[pr_reac][i] == 'elec_e_loss_rate') then
-            i_eloss=i
-         else if (reaction_misc_var_dep[pr_reac][i] == 'ion_e_loss_rate') then
-            i_iloss=i
-         else if (reaction_misc_var_dep[pr_reac][i] == 'hfrac') then
-            i_hfrac=i
+            iloss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'H_fraction') then
+            hfrac=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
          end if
       end do
 
-/*
-   Using the indices found above, obtain the loss rates and H-fractions.
-   Note that we need to do this every call since these quantities are 
-   functions of location.
-*/
-      if (reaction_misc_rank[pr_reac][i_eloss] == 0) then
-         eloss=rd_misc_data3(pr_reac,i_eloss,0,0,0)
-      else if (reaction_misc_rank[pr_reac][i_eloss] == 1) then
-         assert(reaction_misc_var_indep[pr_reac][i_eloss][1] == xs_var_zone)
-         indep_var=zone
-         if (reaction_misc_spacing[pr_reac][i_eloss][1] == xs_spacing_log) indep_var=log(indep_var)
-         indep_var=(indep_var-reaction_misc_min[pr_reac][i_eloss][1])/
-     $        reaction_misc_delta[pr_reac][i_eloss][1]
-         eloss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_eloss]],reaction_misc_tab_index[pr_reac][i_eloss][1])
-         if (reaction_misc_spacing[pr_reac][i_eloss][0] == xs_spacing_log)
-     $        eloss=exp(eloss)
-      end if
-
-      if (reaction_misc_rank[pr_reac][i_iloss] == 0) then
-         iloss=rd_misc_data3(pr_reac,i_iloss,0,0,0)
-      else if (reaction_misc_rank[pr_reac][i_iloss] == 1) then
-         assert(reaction_misc_var_indep[pr_reac][i_iloss][1] == xs_var_zone)
-         indep_var=zone
-         if (reaction_misc_spacing[pr_reac][i_iloss][1] == xs_spacing_log) indep_var=log(indep_var)
-         indep_var=(indep_var-reaction_misc_min[pr_reac][i_iloss][1])/
-     $        reaction_misc_delta[pr_reac][i_iloss][1]
-         iloss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_iloss]],reaction_misc_tab_index[pr_reac][i_iloss][1])
-         if (reaction_misc_spacing[pr_reac][i_iloss][0] == xs_spacing_log)
-     $        iloss=exp(iloss)
-      end if
-
-      if (reaction_misc_rank[pr_reac][i_hfrac] == 0) then
-         hfrac=rd_misc_data3(pr_reac,i_hfrac,0,0,0)
-      else if (reaction_misc_rank[pr_reac][i_hfrac] == 1) then
-         assert(reaction_misc_var_indep[pr_reac][i_hfrac][1] == xs_var_zone)
-         indep_var=zone
-         if (reaction_misc_spacing[pr_reac][i_hfrac][1] == xs_spacing_log) indep_var=log(indep_var)
-         indep_var=(indep_var-reaction_misc_min[pr_reac][i_hfrac][1])/
-     $        reaction_misc_delta[pr_reac][i_hfrac][1]
-         hfrac=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_hfrac]],reaction_misc_tab_index[pr_reac][i_hfrac][1])
-         if (reaction_misc_spacing[pr_reac][i_hfrac][0] == xs_spacing_log)
-     $        hfrac=exp(hfrac)
-      end if
-
-/*
-   Count the number of ``heavy'' products (i.e., not electrons) and store
-   their masses.
-*/
       num_heavy_products=0
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,j_arr,i)
@@ -870,6 +791,9 @@ break:continue
    Set product velocities by transforming back into the lab frame (from the
    test particle frame). Set weight fractions.
 */
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+      end do
       do i=1,nprod
          if (product_index[1] == i) then
             vc_xvt(v_test,v_iso,v_diss1,v_prod[i])
@@ -880,39 +804,76 @@ break:continue
          end if
       end do
 
+/*
+   Collision scoring. This isn't done yet. There remain the MAR and 
+   H-alpha data to implement.
+*/
+      background_sources[back][ou_coupling_mass]+=
+     $  -sp_m(pr_background(back))*rate
+      background_sources[back][ou_coupling_energy]+=-eloss
+      do i=1,nprod
+         back_i=problem_species_background(prod[i])
+         if (back_i != 0) then
+            m_i=sp_m(pr_background(back_i))
+            if (sp_sy(prod[i]) == 'e') then
+               background_sources[back_i][ou_coupling_mass]+=
+     $              m_i*(const(3.)-two*hfrac)*rate
+            else
+               background_sources[back_i][ou_coupling_mass]+=
+     $              m_i*two*(one-hfrac)*rate
+               background_sources[back_i][ou_coupling_momentum_1]+=
+     $              m_i*v_prod[i][1]*two*(one-hfrac)*rate
+               background_sources[back_i][ou_coupling_momentum_2]+=
+     $              m_i*v_prod[i][2]*two*(one-hfrac)*rate
+               background_sources[back_i][ou_coupling_momentum_3]+=
+     $              m_i*v_prod[i][3]*two*(one-hfrac)*rate
+               background_sources[back_i][ou_coupling_energy]+=
+     $              half*m_i*vc_abs2(v_prod[i])*two*(one-hfrac)*rate-iloss
+            end if
+         end if
+      end do
+
       return
       end
 
 @ Process an ionization. Arguments are the same as for |chargex|. This
 routine is required for ionizations which are not treated by the method
-of reduced absorption.
+of suppressed absorption.
 
 @<Functions...@>=
-      subroutine ionize(pr_test_dummy(test),vc_dummy(v_test),
-     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $     zone,pr_reaction_dummy(ts_reac),
+      subroutine ionize(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
-     $     rn_dummy(x))
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
 
       implicit_none
 
       pr_test_decl(test)                               // Input
-      vc_decl(v_test)
-      pr_background_decl(back)
-      real nb,tb
-      integer zone
-      vc_decl(vb_flow)
       pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
 
-      integer nprod                                    // Output
+      integer nprod,num_scoring_data                   // Output
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
-      real w_prod[rc_product_max]
-      rn_decl(x)                                       // Input/Output
+      real w_prod[rc_product_max],scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
 
       pr_reaction_decl(pr_reac)                        // Local
-      integer i
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      rc_decl(reac)
+      integer i,e_rate_ind,line_ind
       real eioniz
+      vc_decl(v_test)
+      vc_decl(v_emitter)
+
+      external eval_data,species_add_check             // External
+      real eval_data
+      logical species_add_check
       
       pr_common
       rc_common
@@ -921,24 +882,27 @@ of reduced absorption.
 
       pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
       assert(pr_num_arrangements(test,ts_reac) == 1)
 
 /*
-   Get ionization energy |eioniz| from |rd_misc_data3|
+   Trying this approach here; may want to propagate into the other
+   scoring routines: loop through the ``handling'' dependent variables.
+   Grab everything which is explicitly needed for this routine to work.
+   Dump everything else into |scoring_data| along with its name. This
+   will allow: 
+   \begin{enumerate}
+     \item This code to not keep track of which emission lines (if
+           any at all) are present in the data.
+     \item Any data which are special to a particular reaction of this
+           type to be scored simply by setting |tally_dep_var| to the
+           same label. {\em This code would not require modification.}
+   \end{enumerate}
 */
-      do i=1,xs_dep_var_max
-         if (reaction_misc_var_dep[pr_reac][i] == 'eioniz') then
-            assert(reaction_misc_rank[pr_reac][i] == 0)
-            eioniz=rd_misc_data3(pr_reac,i,0,0,0)
-            goto break
-         end if
-      end do
-break:   continue
 
-/*
-   Note: the following assumes {\bf electron} impact ionization. It should
-   easy to generalize.
-*/
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+      end do
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
          if (sp_sy(prod[i]) != 'e') then
@@ -950,127 +914,110 @@ break:   continue
          end if
       end do
 
-      return
-      end 
+      reac=pr_reaction(pr_reac)
+      if (rc_emitter(reac) != 0) then
+         if (rc_emitter(reac) > 0) then
+            vc_copy(v_prod[rc_emitter(reac)],v_emitter)
+            independent_parameters[xs_var_m_emitter]=sp_m(prod[rc_emitter(reac)])
+/* Don't really recall which reagent is which. Should be able to tell
+   test from a back just with |sp_generic|.
+*/
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_test(test))) then
+            vc_copy(v_test,v_emitter)
+            independent_parameters[xs_var_m_emitter]=sp_m(pr_test(test))
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_background(back))) then
+            assert('background velocity not set' == ' ')
+         end if
+         scoring_data_label[num_scoring_data+1]='emitter_v_1'
+         scoring_data[num_scoring_data+1]=v_emitter[1]
+         scoring_data_label[num_scoring_data+2]='emitter_v_2'
+         scoring_data[num_scoring_data+2]=v_emitter[2]
+         scoring_data_label[num_scoring_data+3]='emitter_v_3'
+         scoring_data[num_scoring_data+3]=v_emitter[3]
+         num_scoring_data+=3
+      end if
 
-@ Calculate the elasctic scattering angle from tabulated data.
-
-@<Functions...@>=
-
-      subroutine elastic_angle(rel_energy_bin,mu_prob,mu_angle,
-     $                         rm_prob_max,rm_mu_prob,pr_reac)
-      implicit_none
-      real rel_energy_bin,mu_prob_var(0:2),mu_angle,mu_angle_var(1:2)
-      real prob_var_delta(0:1),prob_var_bin(0:1),mu_prob
-      real max_probability,elastic_probability,boundry_angle,mu_interpolation
-      integer rm_prob_max,rm_mu_prob,pr_reac
-      integer i,j,ip,p_bin(0:1)
-      external max_probability,elastic_probability,boundry_angle
-      external mu_interpolation
-      
-      rd_common
-
-      mu_prob_var(0) = mu_prob
-      ip = int(rel_energy_bin)
-      if ( rel_energy_bin < areal(ip) ) ip = ip - 1
-
-      do i = 0 , 1
-
-         prob_var_delta(i) = (1. - max_probability(ip,
-     $        reaction_misc_table[reaction_misc_base[pr_reac][rm_prob_max]],
-     $        reaction_misc_tab_index[pr_reac][rm_prob_max][1]))/
-     $        (reaction_misc_tab_index[pr_reac][rm_mu_prob][1]-1.)
-         prob_var_bin(i) = mu_prob_var(0) / prob_var_delta(i)
-
-         p_bin(i) = int(prob_var_bin(i))
-         p_bin(i) = min(max(0,p_bin(i)),
-     $        reaction_misc_tab_index[pr_reac][rm_prob_max][1]-1)
-
-         ip = ip + 1
-
+/*
+   ``In general'' the emission rate and wavelength variables should both
+   have the name of the line appended to the variable names. For the case
+   of greatest interest, this would entail carrying around 3 sets of 
+   (usually) identical data - one for each hydrogen isotope. This
+   is a compromise : since we assume only one emitter, we can give it a
+   generic name without confusion. Below we look for the nonzero wavelength
+   and upon finding it reset the emission rate variable to have the 
+   corresponding line name.
+*/
+      e_rate_ind=0
+      line_ind=0
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'background_energy_loss_rate') then
+            eioniz=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] != 'unknown') then
+            num_scoring_data++
+            scoring_data_label[num_scoring_data]
+     $           =reaction_handling_var0[pr_reac][i]
+            scoring_data[num_scoring_data]
+     $           =eval_data(rd_data_args(reaction_handling,
+     $           [pr_reac][i]),independent_parameters,rn_args(x))
+            if (scoring_data_label[num_scoring_data] == 'emission_rate') then
+                e_rate_ind=num_scoring_data
+                scoring_data[e_rate_ind]*=independent_parameters[xs_var_density]
+             end if
+            if (scoring_data_label[num_scoring_data]SP(1:10) == 'wavelength' 
+     $           && scoring_data[num_scoring_data] > zero) 
+     $           line_ind=num_scoring_data
+         end if
       end do
 
-      do i = 1 , 2
+      if (e_rate_ind != 0 && line_ind != 0) then 
+         scoring_data_label[e_rate_ind]=
+     $        'emission_rate'\/scoring_data_label[line_ind]SP(11:)
+         assert(rc_emitter(reac) != 0)
+      end if
 
-         mu_prob_var(i) = elastic_probability(p_bin,prob_var_delta,
-     $       rel_energy_bin)
-
-         mu_angle_var(i) = boundry_angle(p_bin,rel_energy_bin,
-     $        reaction_misc_table[reaction_misc_base[pr_reac][rm_mu_prob]],
-     $        reaction_misc_tab_index[pr_reac][rm_mu_prob][1])
-
-         do j = 0 , 1
-            p_bin(j) = p_bin(j) + 1
-         end do
-
+/*
+   Collision scoring of |background_sources|
+*/
+      background_sources[back][ou_coupling_mass]+=
+     $  -sp_m(pr_background(back))*rate
+      background_sources[back][ou_coupling_energy]+=-eioniz
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,1,i)
+         back_i=problem_species_background[prod[i]]
+         if (back_i != 0) then
+            background_sources[back_i][ou_coupling_mass]+=
+     $           sp_m(prod[i])*rate
+            if (i == 2) then         // See assertion below
+               vc_copy(v_test,v_prod[i])
+               background_sources[back_i][ou_coupling_momentum_1]+=
+     $              sp_m(prod[i])*v_prod[i][1]*rate 
+               background_sources[back_i][ou_coupling_momentum_2]+=
+     $              sp_m(prod[i])*v_prod[i][2]*rate
+               background_sources[back_i][ou_coupling_momentum_3]+=
+     $              sp_m(prod[i])*v_prod[i][3]*rate
+               background_sources[back_i][ou_coupling_energy]+=
+     $              half*sp_m(prod[i])*vc_abs2(v_prod[i])*rate
+            else if (i == 3) then
+               vc_set(v_prod[i],zero,zero,zero)
+            end if
+         end if
       end do
+            
+/*
+  Verify that second product (plus an electron, the third product) corresponds
+  to the test species, as should have been checked in problemsetup and is 
+  assumed above.
 
-      mu_angle = mu_interpolation(mu_angle_var,mu_prob_var)
+  This check turns out to be inordinately time consuming. Comment out for
+  now. This is the same check which is used in |set_prod_ionize|
+  during problemsetup.
 
-      return
-      end
-
-@     Function to determine the probability of a minimum scatter
-
-@<Functions...@>=
-      function max_probability (ip,array,n)
-      implicit_none
-      real array[0:*],max_probability
-      integer if,ip,n
-      
-      assert ( ip < n )
-      if = min(max(0,ip),n-1)
-      max_probability=array(if)
-
-      return
-      end
-
-@     Function to interpolate a boundry probability
-
-@<Functions...@>=
-      function elastic_probability (p_bin,dp,f)
-      implicit_none
-      real elastic_probability,f,fx,dp(0:1)
-      integer ia,p_bin(0:1)
-      
-      ia = int(f)
-      if ( f < areal(ia) ) ia = ia -1
-      fx = f - areal(ia)
-    
-      elastic_probability = p_bin(0)*dp(0)*(one-fx)+p_bin(1)*dp(1)*fx
-
-      return
-      end
-
-@ The two-dimensional version.
-
-@m array2b(i,j) array[i*n+j]
-
-@<Functions...@>=
-      function boundry_angle(p_bin,f,array,n)
-      implicit_none
-      real boundry_angle,f,fx,array(0:*)
-      integer p_bin(0:1),n,ia,ib
-      
-      ia = int(f)
-      if ( f < areal(ia)) ia = ia-1
-      ib=ia+1
-      fx = f - areal(ia)
-
-      boundry_angle=array2b(ia,p_bin(0))*(one-fx)+array2b(ib,p_bin(1))*fx
-
-      return
-      end
-
-@     function to calculate the actual scattering angle
-
-@<Functions...@>=
-      function mu_interpolation ( mu , prob )
-      implicit_none
-      real mu_interpolation,mu(1:2),prob(0:2)
-
-      mu_interpolation=mu(2)-(mu(2)-mu(1))*(prob(2)-prob(0))/(prob(2)-prob(1))
-
+      assert(species_add_check(2,sp_args(prod[2]),1,sp_args(pr_test(test))))
+*/
       return
       end
 
@@ -1174,6 +1121,702 @@ loop: continue
       real mu_angle,lab_angle
 
       lab_angle=(vcm_sqrt+vxcm_sqrt*mu_angle)/vx_lab
+
+      return
+      end
+
+@ Pick a reaction to score by track length estimator.
+
+@<Functions...@>=
+      subroutine pick_track_reaction(pr_test_dummy(test),
+     $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                                // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      integer num_scoring_data                          // Output
+      real scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                        // Input/output
+
+      pr_reaction_decl(pr_reac)                         // Local  
+
+      rc_common                                         // Common
+      pr_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
+
+      if (rc_reaction_type(pr_reaction(pr_reac)) == 'chargex') then
+         call track_chargex(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        num_scoring_data,scoring_data,scoring_data_label,
+     $        background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'elastic') then
+         call track_elastic(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        num_scoring_data,scoring_data,scoring_data_label,
+     $        background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc') then
+         call track_dissoc(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        num_scoring_data,scoring_data,scoring_data_label,
+     $        background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_rec') then
+         call track_dissoc(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        num_scoring_data,scoring_data,scoring_data_label,
+     $        background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac))=='dissoc_cramd') then
+         call track_dissoc_cramd(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        num_scoring_data,scoring_data,scoring_data_label,
+     $        background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') then
+         call track_ionize(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        num_scoring_data,scoring_data,scoring_data_label,
+     $        background_sources,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress') then
+         call track_ionize(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        num_scoring_data,scoring_data,scoring_data_label,
+     $        background_sources,rn_args(x))
+      else
+         assert('Unsupported reaction type' == ' ')
+      end if
+
+      return
+      end
+
+@ Compute scoring data for charge exchange track-length estimator.
+
+@<Functions...@>=
+      subroutine track_chargex(pr_test_dummy(test),
+     $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                                // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      integer num_scoring_data                          // Output
+      real scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                        // Input/output
+
+      pr_reaction_decl(pr_reac)                         // Local  
+      pr_background_decl(back)
+      integer i,nprod,back_i
+      real i_1up,i_2up2,up2,up,u_abs,uprime_abs,mom_src,m_i
+      vc_decl(u)
+      vc_decl(uprime)
+      vc_decl(vb_flow)
+
+      external eval_data                                // External
+      real eval_data
+
+      rc_common                                         // Common
+      rd_common
+      pr_common
+      sp_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'I_l_1*up') then
+            i_1up=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'I_l_2*up^2') then
+            i_2up2=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         end if
+      end do
+
+      do i=1,3
+         u[i]=independent_parameters[xs_var_v_test_1+i-1]
+         vb_flow[i]=independent_parameters[xs_var_v_flow_1+i-1]
+      end do
+
+      up2=two*independent_parameters[xs_var_sp_temperature]
+      up=sqrt(up2)
+      u_abs=vc_abs(u)
+      vc_difference(u,vb_flow,uprime)
+      uprime_abs=vc_abs(uprime)
+
+      background_sources[back][ou_coupling_mass]+=
+     $     -sp_m(pr_background(back))*rate
+      mom_src=sp_m(pr_background(back))*(-half*up2*rate/uprime_abs**2
+     $     +i_1up/uprime_abs)
+      background_sources[back][ou_coupling_momentum_1]
+     $     +=-sp_m(pr_background(back))*rate*u[1]
+     $     + mom_src*uprime[1]
+      background_sources[back][ou_coupling_momentum_2]
+     $     +=-sp_m(pr_background(back))*rate*u[2]
+     $     + mom_src*uprime[2]
+      background_sources[back][ou_coupling_momentum_3]
+     $     +=-sp_m(pr_background(back))*rate*u[3]
+     $     + mom_src*uprime[3]
+      background_sources[back][ou_coupling_energy] 
+     $     +=sp_m(pr_background(back))*(
+     $     -half*u_abs**2*rate
+     $     +vc_product(u,uprime)*i_1up/uprime_abs
+     $     -half*(up2*vc_product(u,uprime)*rate/uprime_abs**2+i_2up2))
+      do i=1,nprod
+         back_i=problem_species_background(pr_ts_prod(test,ts_reac,1,i))
+         if (back_i != 0) then
+            m_i=sp_m(pr_background(back_i))
+            background_sources[back_i][ou_coupling_mass]+=m_i*rate
+            background_sources[back_i][ou_coupling_momentum_1]+=m_i*rate*u[1]
+            background_sources[back_i][ou_coupling_momentum_2]+=m_i*rate*u[2]
+            background_sources[back_i][ou_coupling_momentum_3]+=m_i*rate*u[3]
+            background_sources[back_i][ou_coupling_energy]+=
+     $           half*m_i*rate*u_abs**2
+         end if
+      end do
+
+      return
+      end
+
+@ Compute scoring data for elastic scattering track-length estimator.
+
+@<Functions...@>=
+      subroutine track_elastic(pr_test_dummy(test),
+     $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                                // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      integer num_scoring_data                          // Output
+      real scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                        // Input/output
+
+      pr_reaction_decl(pr_reac)                         // Local  
+      pr_background_decl(back)
+      integer i
+      real i_0,i_1up,i_2up2,up2,up,m_test,m_back,mom_src,uprime_abs
+      vc_decl(u)
+      vc_decl(uprime)
+      vc_decl(vb_flow)
+
+      external eval_data                                // External
+      real eval_data
+
+      rc_common                                         // Common
+      rd_common
+      pr_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
+      back=pr_ts_bk(test,ts_reac)
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'I_l_0') then
+            i_0=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'I_l_1*up') then
+            i_1up=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'I_l_2*up^2') then
+            i_2up2=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         end if
+      end do
+
+      do i=1,3
+         u[i]=independent_parameters[xs_var_v_test_1+i-1]
+         vb_flow[i]=independent_parameters[xs_var_v_flow_1+i-1]
+      end do
+
+      up2=two*independent_parameters[xs_var_sp_temperature]
+      up=sqrt(up2)
+      vc_difference(u,vb_flow,uprime)
+      uprime_abs=vc_abs(uprime)
+      m_test=independent_parameters[xs_var_m_test]
+      m_back=independent_parameters[xs_var_m_back]
+
+      background_sources[back][ou_coupling_mass]+=zero // NO CHANGE in species
+      mom_src=(m_test*m_back/(m_test+m_back))*(-half*up2*i_0/uprime_abs**2
+     $     +i_1up/uprime_abs)
+      background_sources[back][ou_coupling_momentum_1]
+     $     +=mom_src*uprime[1]
+      background_sources[back][ou_coupling_momentum_2]
+     $     +=mom_src*uprime[2]
+      background_sources[back][ou_coupling_momentum_3]
+     $     +=mom_src*uprime[3]
+      background_sources[back][ou_coupling_energy] 
+     $     +=(two*m_test*m_back/(m_test+m_back)**2)
+     $     *(half*m_back*i_2up2
+     $     +half*(m_test+m_back)*vc_product(u,uprime)
+     $     *(i_1up/uprime_abs-half*up2*i_0/uprime_abs**2))
+      // No product terms!
+
+      return
+      end
+
+@ Compute scoring data for dissociation track-length estimator.
+
+@<Functions...@>=
+      subroutine track_dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                               // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[*]
+
+      integer num_scoring_data                         // Output
+      real scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
+
+      pr_reaction_decl(pr_reac)                        // Local
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      sp_decl(prod[rc_product_max])
+      integer i,nprod,num_heavy_products,j_arr,k
+      integer product_index[2]
+      vc_decl(v_test)
+      real ediss,elediss,mass_total
+      real mass[2]
+
+      external eval_data                               // External
+      real eval_data
+      
+      pr_common                                        // Common
+      rc_common
+      sp_common
+      rn_common
+      rd_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
+      back=pr_ts_bk(test,ts_reac)
+      nprod=rc_product_num(pr_reaction(pr_reac))
+
+/*
+   Search through the list of miscellaneous dependent
+   variables to find |ediss|, the dissociation energy, and |elediss|, the
+   energy lost by the dissociating agent. 
+*/
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'dissociation_energy') then
+            ediss=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'background_energy_loss_rate') then
+            elediss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         end if
+      end do
+/*
+   TLE scoring:
+   This may work for MASS ONLY. The product momentum and energy expressions 
+   are provisional; they assume that the isotropic component of the 
+   dissociated velocities has been averaged out. Note: this may not work at 
+   all for a time-dependent case.
+*/
+      background_sources[back][ou_coupling_mass]+=-sp_m(pr_background(back))*rate
+      background_sources[back][ou_coupling_energy]+=-elediss
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+      end do
+      do j_arr=1,pr_num_arrangements(test,ts_reac)
+         num_heavy_products=0
+         mass_total=zero
+         do i=1,nprod
+            prod[i]=pr_ts_prod(test,ts_reac,j_arr,i)
+            back_i=problem_species_background[prod[i]]
+            if (back_i != 0) then
+               background_sources[back_i][ou_coupling_mass]+=
+     $              sp_m(prod[i])*rate*pr_prod_mult(test,ts_reac,j_arr)
+            end if
+            if (sp_sy(prod[i])  != 'e') then
+               num_heavy_products++
+               mass[num_heavy_products]=sp_m(prod[i])
+               mass_total+=sp_m(prod[i])
+               product_index[num_heavy_products]=i
+            end if
+         end do
+         assert(num_heavy_products == 2)
+         do k=1,num_heavy_products
+            back_i=problem_species_background[pr_ts_prod(test,ts_reac,j_arr,product_index[k])]
+            if (back_i != 0) then
+               background_sources[back_i][ou_coupling_momentum_1]+=
+     $              mass[k]*v_test[1]*rate*pr_prod_mult(test,ts_reac,j_arr)
+               background_sources[back_i][ou_coupling_momentum_2]+=
+     $              mass[k]*v_test[2]*rate*pr_prod_mult(test,ts_reac,j_arr)
+               background_sources[back_i][ou_coupling_momentum_3]+=
+     $              mass[k]*v_test[3]*rate*pr_prod_mult(test,ts_reac,j_arr)
+               background_sources[back_i][ou_coupling_energy]+=
+     $              (half*mass[k]*vc_abs2(v_test)+two*ediss*(one-mass[k]/mass_total))
+     $              *rate*pr_prod_mult(test,ts_reac,j_arr)
+            end if
+         end do
+      end do
+
+      return
+      end
+
+@ Comput scoring data for CRAMD dissociation track-length estimator.
+
+@<Functions...@>=
+      subroutine track_dissoc_cramd(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                               // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[*]
+
+      integer num_scoring_data                         // Output
+      real scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
+
+      pr_reaction_decl(pr_reac)                        // Local
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      sp_decl(prod[rc_product_max])
+      integer i,num_heavy_products,j_arr,k,nprod
+      integer product_index[2]
+      vc_decl(v_test)
+      real eloss,iloss,hfrac,ediss,mass_total
+      real mass[2]
+
+      external eval_data                               // External
+      real eval_data
+      
+      pr_common                                        // Common
+      rc_common
+      sp_common
+      rn_common
+      rd_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
+
+/*
+   Search through the list of miscellaneous dependent
+   variables to find |ediss|, the dissociation energy, and |elediss|, the
+   energy lost by the dissociating agent. 
+*/
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == 'background_energy_loss_rate') then
+            eloss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'proton_energy_loss_rate') then  // See comment in |dissoc_cramd|
+            iloss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == 'H_fraction') then
+            hfrac=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         end if
+      end do
+
+/* 
+   For the time being, the actual dissocation energy is hardwired at 3 eV.
+   Doing better will require significant improvements to CRAMD.
+*/
+      ediss=const(3.)*electron_charge    
+
+/*
+   TLE Scoring:
+  We cannot pretend to be able to do mixed isotope dissociations anymore. 
+  We would need a more complete species breakdown of the particle and 
+  energy transfer rates. The same caveats apply to the momentum and
+  energy exchanges as in |track_dissoc|.
+*/
+      assert(sp_ncomp(pr_test(test)) == 1)
+      assert(sp_count(pr_test(test),1) == 2)
+
+      assert(sp_sy(pr_background(back)) == 'e')
+      background_sources[back][ou_coupling_mass]+=-sp_m(pr_background(back))*rate
+      background_sources[back][ou_coupling_energy]+=-eloss
+      do j_arr=1,pr_num_arrangements(test,ts_reac)
+         num_heavy_products=0
+         mass_total=zero
+         do i=1,nprod
+            back_i=problem_species_background[pr_ts_prod(test,ts_reac,j_arr,i)]
+            if (back_i != 0) then
+               if (sp_sy(prod[i]) == 'e') then
+                  background_sources[back_i][ou_coupling_mass]+=
+     $                 sp_m(pr_background(back_i))
+     $                 *rate*(const(3.)-two*hfrac)*pr_prod_mult(test,ts_reac,j_arr)
+               else
+                  background_sources[back_i][ou_coupling_mass]+=
+     $                 sp_m(pr_background(back_i))
+     $                 *rate*two*(one-hfrac)*pr_prod_mult(test,ts_reac,j_arr)
+               end if
+            end if
+            prod[i]=pr_ts_prod(test,ts_reac,j_arr,i)
+            if (sp_sy(prod[i])  != 'e') then
+               num_heavy_products++
+               mass[num_heavy_products]=sp_m(prod[i])
+               mass_total+=sp_m(prod[i])
+               product_index[num_heavy_products]=i
+            end if
+         end do
+         assert(num_heavy_products == 2)
+         do k=1,num_heavy_products
+            back_i=problem_species_background[product_index[k]]
+            if (back_i != 0) then
+               background_sources[back_i][ou_coupling_momentum_1]+=
+     $              mass[k]*v_test[1]*rate*two*(one-hfrac)
+     $              *pr_prod_mult(test,ts_reac,j_arr)
+               background_sources[back_i][ou_coupling_momentum_2]+=
+     $              mass[k]*v_test[2]*rate*two*(one-hfrac)
+     $              *pr_prod_mult(test,ts_reac,j_arr)
+               background_sources[back_i][ou_coupling_momentum_3]+=
+     $              mass[k]*v_test[3]*rate*two*(one-hfrac)
+     $              *pr_prod_mult(test,ts_reac,j_arr)
+               background_sources[back_i][ou_coupling_energy]+=
+     $              (half*mass[k]*vc_abs2(v_test)
+     $              +two*ediss*(one-mass[k]/mass_total))
+     $              *rate*two*(one-hfrac)*pr_prod_mult(test,ts_reac,j_arr)
+     $              -iloss
+            end if
+         end do
+      end do
+
+      return
+      end
+
+@ Compute scoring data for ionization track-length estimator.
+
+@<Functions...@>=
+      subroutine track_ionize(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_dummy(x))
+
+      pr_test_decl(test)                               // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      integer num_scoring_data                         // Output
+      real scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                                       // Input/output
+
+      integer nprod                                    // Local (dummies)
+      real w_prod[rc_product_max]
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+
+/*
+   The code we need here looks so much like the corresponding reaction
+   processing routine that we might as well just call it.
+*/
+      call ionize(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     num_scoring_data,scoring_data,scoring_data_label,
+     $     background_sources,rn_args(x))
+
+      return
+      end
+
+@ Set scoring data for recombinations. Recombination scoring is
+actually done at the source point or as a post-processor.
+
+@<Functions...@>=
+      subroutine recombination_data(pr_test_dummy(test),
+     $   pr_reaction_dummy(bk_rc_is),est,rate,independent_parameters,
+     $   num_scoring_data,scoring_data,scoring_data_label,
+     $   background_sources,rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                     // Input
+      pr_reaction_decl(bk_rc_is)
+      integer est
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      integer num_scoring_data              // Output
+      real scoring_data[scoring_data_max],
+     $     background_sources[*][ou_coupling_max]
+      character*tl_tag_length scoring_data_label[scoring_data_max]
+      rn_decl(x)                            // Input/output
+
+      pr_background_decl(back_2)            // Local
+      pr_background_decl(back_1)
+      pr_reaction_decl(pr_reac)
+      rc_decl(reac)
+      lc_decl(zone_loc)
+      vc_decl(vb_flow)
+      vc_decl(v_src)
+      integer i,e_rate_ind,line_ind
+      real e_src,e_e_loss,e_e_src
+
+      external eval_data                    // External
+      real eval_data
+
+      pr_common                             // Common
+      bk_common
+      rc_common
+      sp_common
+      rd_common
+      zn_common
+      lc_common
+
+/*
+   By convention, the second reagent is the one which will give
+   rise to the velocity of the product test particle. The first
+   background reagent is taken to be a pure background particle and
+   enters here through the data in |independent_parameters|.
+*/
+      back_1=pr_bkrc_rg(bk_rc_is,1)
+      back_2=pr_bkrc_rg(bk_rc_is,2)
+      pr_reac=pr_bk_rc(bk_rc_is)
+      reac=pr_reaction(pr_reac)
+
+/*
+   Set data for line emission. For post-processing, compute spectrum
+   based on locally Maxwellian distributed ions. If scoring is 
+   instead done at the source, take the actual sourced test particle
+   velocity. Set the background momentum and energy sinks in an
+   analogous way.
+*/
+      if (rc_emitter(reac) != 0) then
+         assert(rc_emitter(reac) == 1)
+         independent_parameters[xs_var_m_emitter]=sp_m(pr_test(test))
+         if (est == tl_est_post_process) then
+            vc_copy(zone_center[independent_parameters[xs_var_zone]],
+     $           lc_x(zone_loc))
+            lc_set(zone_loc)
+            call transform_v(pr_background_args(back_2),
+     $           lc_args(zone_loc),vc_args(vb_flow))
+            scoring_data_label[num_scoring_data+1]='emitter_vf-Maxwell_1'
+            scoring_data[num_scoring_data+1]=vb_flow[1]
+            scoring_data_label[num_scoring_data+2]='emitter_vf-Maxwell_2'
+            scoring_data[num_scoring_data+2]=vb_flow[2]
+            scoring_data_label[num_scoring_data+3]='emitter_vf-Maxwell_3'
+            scoring_data[num_scoring_data+3]=vb_flow[3]
+            scoring_data_label[num_scoring_data+4]='emitter_vth-Maxwell'
+            scoring_data[num_scoring_data+4]=
+     $           sqrt(bk_temp(back_2,lc_zone(zone_loc))
+     $           /sp_m(pr_background(back_2)))
+            num_scoring_data+=4
+            vc_copy(vb_flow,v_src)
+            e_src=const(1.5)*bk_temp(back_2,lc_zone(zone_loc))
+         else if (est == tl_est_collision) then
+            do i=1,3
+               v_src[i]=independent_parameters[xs_var_v_test_1+i-1]
+            end do
+            scoring_data_label[num_scoring_data+1]='emitter_v_1'
+            scoring_data[num_scoring_data+1]=v_src[1]
+            scoring_data_label[num_scoring_data+2]='emitter_v_2'
+            scoring_data[num_scoring_data+2]=v_src[2]
+            scoring_data_label[num_scoring_data+3]='emitter_v_3'
+            scoring_data[num_scoring_data+3]=v_src[3]
+            num_scoring_data+=3
+            e_src=half*sp_m(pr_background(back_2))*vc_abs2(v_src)
+         end if
+      end if
+
+      e_rate_ind=0
+      line_ind=0
+      e_e_loss=zero
+      e_e_src=zero
+      do i=1,rd_dep_var_max
+
+/* 
+   Grab background energy loss and source rates (radiation and ``ionization''
+   energy).
+*/
+         if (reaction_handling_var0[pr_reac][i] 
+     $        == 'background_energy_loss_rate') then
+            e_e_loss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] 
+     $           == 'background_energy_source_rate') then
+            e_e_src=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+
+/* 
+   Evaluate everything else nontrivial
+*/
+         else if (reaction_handling_var0[pr_reac][i] != 'unknown') then
+            num_scoring_data++
+            scoring_data_label[num_scoring_data]
+     $           =reaction_handling_var0[pr_reac][i]
+            scoring_data[num_scoring_data]
+     $           =eval_data(rd_data_args(reaction_handling,
+     $           [pr_reac][i]),independent_parameters,rn_args(x))
+            if (scoring_data_label[num_scoring_data] == 'emission_rate') then
+               e_rate_ind=num_scoring_data
+               scoring_data[e_rate_ind]*=independent_parameters[xs_var_density]
+            end if
+            if (scoring_data_label[num_scoring_data]SP(1:10)=='wavelength' 
+     $           && scoring_data[num_scoring_data] > zero) 
+     $           line_ind=num_scoring_data
+         end if
+      end do
+
+      if (e_rate_ind != 0 && line_ind != 0) then 
+         scoring_data_label[e_rate_ind]=
+     $        'emission_rate'\/scoring_data_label[line_ind]SP(11:)
+         assert(rc_emitter(reac) != 0)
+      end if
+
+/*
+   Collision scoring of |background_sources|
+*/
+      background_sources[back_1][ou_coupling_mass]+=
+     $  -sp_m(pr_background(back_1))*rate
+      background_sources[back_2][ou_coupling_mass]+=
+     $     -sp_m(pr_background(back_2))*rate
+      background_sources[back_2][ou_coupling_momentum_1]+=
+     $     sp_m(pr_background(back_2))*v_src[1]*rate 
+      background_sources[back_2][ou_coupling_momentum_2]+=
+     $     sp_m(pr_background(back_2))*v_src[2]*rate 
+      background_sources[back_2][ou_coupling_momentum_3]+=
+     $     sp_m(pr_background(back_2))*v_src[3]*rate 
+      background_sources[back_1][ou_coupling_energy]+=
+     $     e_e_src-e_e_loss
+      background_sources[back_2][ou_coupling_energy]+=
+     $     e_src*rate
 
       return
       end
