@@ -3,6 +3,10 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.40  2001/11/16 15:50:07  dstotler
+% Add location.hweb to include list (for geom_epsilon). Replace absolute
+% equality test on max_corner(2) with a fuzzy one.
+%
 % Revision 1.39  2000/04/01 17:32:27  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -1027,10 +1031,11 @@ break: continue
       define_varp(outer_surfaces,INT,outer_surf_ind)
 
       implicit_none_f77
-      gi_common             // Input
+      gi_common                                           // Input
+      sc_common
       implicit_none_f90
       @<Memory allocation interface@>
-      integer n,j,k,sigma       // Local
+      integer n,j,k,sigma,type,real_sector,type_ptr       // Local
       logical outer
       declare_varp(outer_surfaces)
       integer num_outer_surfaces,orientation
@@ -1072,6 +1077,22 @@ break: continue
                end if
             end do
 break:      continue
+/*
+   In the case of multiple sectors at a surface, verify that the first
+   one is of non-diagnostic type, i.e., that PMIs can be processed using
+   it. This test was copied from |score_sectors|.
+*/
+            if (surface_sectors[sigma,s_count,k] > 1) then
+               real_sector=FALSE
+               do type=1,sc_diagnostic(0)
+                  type_ptr=sector_type_pointer[sectors[surface_sectors[sigma,s_start,k]]][type]
+                  if ((type_ptr != int_unused) 
+     $                 && (type_ptr != int_undef)) then
+                     real_sector=TRUE
+                  end if
+               end do
+               assert(real_sector == TRUE)
+            end if
          end do
          if (outer) then
  /* If the surface is face of the universal cell, then there's nothing on
