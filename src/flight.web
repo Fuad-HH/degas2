@@ -2,6 +2,12 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.34  1999/02/04 19:11:53  dstotler
+% Previous implementation of absorption was not consistent with simpler
+% PMI cases, e.g., as in some of the examples. Rearrange choice between
+% PMI in process_pmi in a better way. End up choosing a random number
+% every time; this was not the case before.
+%
 % Revision 1.33  1999/02/02 14:58:02  dstotler
 % Commented out line putting a minimum on |sum| in choosing the
 % PMI. Rather than make absorption a specific PMI, make it a surface
@@ -589,6 +595,7 @@ break1:     continue
             end if
          end do
       else                                           // Use absorption!
+         assert(yield[0] > zero)      // Be sure absorption is nonzero.
          fl_pointer(x)--                        
       end if
 @#if 0
