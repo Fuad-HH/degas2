@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1993/09/30  18:38:05  karney
+% Pre-PET checkin
+%
 % Revision 1.3  1993/09/26  23:32:16  karney
 % Add 'package' support (automatic generation of common blocks, etc.)
 %
@@ -161,6 +164,10 @@
       _DEFINE(pk##_ncreadb(fileid))
       _DEFINE(pk##_ncreadc(fileid))
       _DEFINE(pk##_ncdecl)
+      _DEFINE(pk##_pvmput)
+      _DEFINE(pk##_pvmgeta)
+      _DEFINE(pk##_pvmgetb)
+
 
 @m define_dimen_pk(pk,name,...) define_dimen(name,#.)
       _DEFINE(temp(fileid) pk##_ncdef(fileid))
@@ -202,7 +209,14 @@
         _UNDEF(pk##_ncreadc)
         _DEFINE(pk##_ncreadc(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
         _UNDEF(temp))
-
+      _DEFINE(temp pk##_pvmput)
+      _UNDEF(pk##_pvmput)
+      _DEFINE(pk##_pvmput temp; pvm_put(name))
+      _UNDEF(temp)
+      _DEFINE(temp pk##_pvmgeta)
+      _UNDEF(pk##_pvmgeta)
+      _DEFINE(pk##_pvmgeta temp; pvm_get(name))
+      _UNDEF(temp)
 
 @m define_varp_pk(pk,name,...) define_var(name,#.)
       _DEFINE(temp pk##_common_a)
@@ -224,6 +238,14 @@
       _DEFINE(temp(fileid) pk##_ncreadc(fileid))
       _UNDEF(pk##_ncreadc)
       _DEFINE(pk##_ncreadc(fileid) temp(fileid); var_inq(fileid,name); var_alloc(name); var_read(fileid,name);)
+      _UNDEF(temp)
+      _DEFINE(temp pk##_pvmput)
+      _UNDEF(pk##_pvmput)
+      _DEFINE(pk##_pvmput temp; pvm_put(name))
+      _UNDEF(temp)
+      _DEFINE(temp pk##_pvmgeta)
+      _UNDEF(pk##_pvmgeta)
+      _DEFINE(pk##_pvmgeta temp; var_alloc(name); pvm_get(name))
       _UNDEF(temp)
 
 @* External interface to array.  These macros aid in defining array
