@@ -2,6 +2,9 @@
 \def\Wtitle{randomtest}
 
 % $Log$
+% Revision 1.2  1993/10/25  22:35:30  karney
+% Change name of error to error_exit.
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -63,7 +66,7 @@ $80023218797819/2^{48} \approx 0.2842995840446569$.
             seed[1]=5678
          else if (k == 2) then
             write(stdout,'(a)') 'Test with seed 99999999999999'
-            call random_seed(seed)
+            call random_seed_test(seed)
          else
             write(stdout,'(a)') 'Advance seed 23'
             call next_seed(23,seed,seed)
@@ -104,42 +107,6 @@ $80023218797819/2^{48} \approx 0.2842995840446569$.
       end do
 
       stop
-      end
-
-      @<Functions and Subroutines@>
-
-@ Dummy versions of routines called by |random_seed|
-
-@<Functions...@>=
-      subroutine date_time(time)
-      implicit_none
-      integer time[6]           // Output
-      integer i                 // Local
-
-      do i=1,6
-         time[i]=99
-      end do
-
-      return
-      end
-
-      function get_pid()
-      implicit_none
-      integer get_pid
-
-      get_pid=99
-
-      return
-      end
-
-      subroutine error_exit(message)
-      implicit_none
-      character*(*) message
-
-      write(stderr,*) message
-      pause
-
-      return
       end
 
 @* Index.
