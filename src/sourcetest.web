@@ -2,6 +2,10 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.4  1998/01/14 21:08:37  dstotler
+% Update usage to flight (mainly to include fl_source) and arguments for
+% call to sample_sources.
+%
 % Revision 1.3  1997/09/02 21:14:44  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -60,11 +64,14 @@
 
 @ Routine to actually do tests.
 
+@m max_num_chis 10
+
 @<Functions...@>=
       subroutine do_src_tests
       define_varp(stat,FLOAT,zone_ind)
       define_varp(zone_segment,INT,zone_ind)
       define_varp(segment_zone,INT,source_seg_ind)
+      define_varp(prob_seg,FLOAT,source_seg_ind)
 
       implicit_none_f77
       zn_common
@@ -73,8 +80,11 @@
       so_common
       implicit_none_f90
       real rel_wt,weight_tot,energy,fr,vsrc_mag,vnorm_mag,cos_theta,
-     $     deltax_mag,vpar1,vpar2,vplane2_mag
-      integer num,i,xseg,nsample,zone,nseg
+     $     deltax_mag,vpar1,vpar2,vplane2_mag,
+     $     min_prob,max_prob
+      real chi_sqd(max_num_chis)
+      integer num,i,xseg,nsample,zone,nseg,j,num_chis
+      integer num_points(max_num_chis)
       rn_seed_decl(seed)
       integer length,p,b,e
       character*LINELEN line
@@ -102,13 +112,12 @@
       declare_varp(zone_segment)
       declare_varp(stat)
       declare_varp(segment_zone)
-c      real stat(zn_num)
-c      integer zone_segment(zn_num)
-c      integer segment_zone(so_seg_tot)
+      declare_varp(prob_seg)
 
       var_alloc(zone_segment)
       var_alloc(stat)
       var_alloc(segment_zone)   // Upper bound on size
+      var_alloc(prob_seg)
 
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
 
@@ -132,23 +141,25 @@ loop1: continue
          zone_segment[i]=0
       end do
 
-      if (so_geom(isource) == so_surface) then
-         do i=1,so_nseg(isource)
+      min_prob=one
+      max_prob=zero
+      do i=1,so_nseg(isource)
+         if (so_geom(isource) == so_surface) then
             zone=sector_zone[source_segment_ptr[so_base(isource)+i-1]]
-            assert(zone_segment[zone] == 0)
-            zone_segment[zone]=i
-            segment_zone[i]=zone
-         end do
-      else if (so_geom(isource) == so_volume) then
-         do i=1,so_nseg(isource)
+         else if (so_geom(isource) == so_volume) then
             zone=source_segment_ptr[so_base(isource)+i-1]
-            assert(zone_segment[zone] == 0)
-            zone_segment[zone]=i
-            segment_zone[i]=zone
-         end do
-      else
-         assert("Unsupported source geometry" == " ")
-      end if
+         else
+            assert("Unsupported source geometry" == " ")
+         end if
+         assert(zone_segment[zone] == 0)
+         zone_segment[zone]=i
+         segment_zone[i]=zone
+         prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
+         min_prob=min(min_prob,prob_seg[i])
+         max_prob=max(max_prob,prob_seg[i])
+      end do
+      assert(min_prob > zero)
+      assert(max_prob < one)
 
       do i=1,zn_num
          stat[i]=zero
@@ -158,9 +169,17 @@ loop1: continue
 
       do num=1,nsample
          fl_label(x,num,isource)
-         call sample_sources(fl_args(x),rel_wt)
+         call sample_sources(fl_args(x),rel_wt) 
          stat[lc_zone(pt_loc(fl_origin(x)))]+=rel_wt
          weight_tot+=rel_wt
+      end do
+
+      min_prob=const(1.,1)**max(int(log10(min_prob))-1,-10)
+      num_chis=int(log10(max_prob/min_prob))+1
+      assert(num_chis <= max_num_chis)
+      do j=1,num_chis
+         chi_sqd[j]=zero
+         num_points[j]=0
       end do
 
       write(diskout,*)
@@ -171,7 +190,21 @@ loop1: continue
         write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
      $        i,source_segment_ptr[so_base(isource)+i-1],
      $        stat[segment_zone[i]],stat[segment_zone[i]]/weight_tot,
-     $        source_current[so_base(isource)+i-1]/so_tot_curr(isource)
+     $        prob_seg[i]
+        do j=1,num_chis
+           if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
+              num_points[j]++
+              chi_sqd[j]+=(stat[segment_zone[i]]-weight_tot*prob_seg[i])**2
+     $             /(weight_tot*prob_seg[i])
+           end if
+        end do
+      end do
+
+      write(diskout,*) ' Min. Prob.  Num. Points    Chi Sqd./Num.Pts.'
+      do j=1,num_chis
+         assert(num_points[j] > 0)
+         write(diskout,'(2x,1pe8.1,7x,i5,11x,0pf9.6)') min_prob*const(1.,1)**(j-1),num_points[j],
+     $        chi_sqd[j]/num_points[j]
       end do
 
 break:  continue
@@ -179,6 +212,7 @@ break:  continue
       var_free(stat)
       var_free(zone_segment)
       var_free(segment_zone)
+      var_free(prob_seg)
 
 loop2: continue
 
@@ -278,4 +312,4 @@ eof: continue
       return
       end
 
-@*INDEX
+@* INDEX.
