@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.13  1998/03/11 15:17:10  dstotler
+% Add macro to do a dummy allocation of reaction_rate_tab and
+% reaction_handling_tab for case pr_reaction_num=0.
+%
 % Revision 1.12  1998/01/14 20:34:41  dstotler
 % Change title phrase to aid readability of classes.web.
 %
@@ -115,7 +119,7 @@ $d$th dependent variable for the $r$th reaction.
       define_varp_pk(rd,reaction_handling_spacing,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_handling_eval_name,CHAR,rd_eval_string,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_handling_tab_index,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_handling_var0,CHAR,rd_tag_string,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_var0,INT,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_handling_var,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_handling_num_rand,INT,problem_reaction_ind)
 
@@ -141,6 +145,7 @@ $d$th dependent variable for the $r$th reaction.
 @m rd_ragged_alloc(x) 
       x##_size=0;
       var_alloc(x##_base);
+      call init_base(x##_base,array_size(x##_base)) @;
 
 @m rd_ragged_realloc(x,y,subs)
       rd_set_baseinc(x,y,subs);
