@@ -2,6 +2,10 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.20  1995/07/24 19:14:52  dstotler
+% Change units and multipliers for specific_energy and
+% specific_temperature variables.
+%
 % Revision 1.19  1995/07/14 13:20:41  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -367,14 +371,16 @@ constant.
       return
       end
 
-@ Copy cross-section information into reaction arrays.
+@ Copy cross-sections and other dependent variable
+information into reaction data and miscellaneous arrays.
 
 @<Functions...@>=
       subroutine xs_copy(num)
       implicit_none
-      integer num                     // Input
-      integer i,j,jdep,k,size,rd_ind        // Local
-      real table_entry
+      integer num                                         // Input
+      integer i,j,jdep,k,rd_ind,rm_ind,organization       // Local
+      integer spacing[0:xs_dep_var_max],var[xs_dep_var_max]
+      real table_entry,min[xs_dep_var_max],delta[xs_dep_var_max]
       xs_common
       pr_common
       rc_common
@@ -383,104 +389,150 @@ constant.
       
       assert(xs_name==rc_sy(pr_reaction(num)))
 
+/* Initialize */
+      rm_ind=0
       do j=1,xs_dep_var_max
          reaction_organization[num][j]=xs_organization_unknown
+         reaction_misc_organization[num][j]=xs_organization_unknown
          reaction_data_rank[num][j]=0
-         reaction_data_base[num][j]=0
-         do i=0,xs_table_rank_max
-            reaction_data_var[num][j][i]=xs_var_unknown
-            reaction_data_spacing[num][j][i]=xs_spacing_unknown
-         end do
-      end do
-
-      do j=1,xs_dep_var_max
+         reaction_misc_rank[num][j]=0
+         reaction_data_var[num][j][0]=xs_var_unknown
+         reaction_misc_var_dep[num][j]='unknown'
+         reaction_data_spacing[num][j][0]=xs_spacing_unknown
+         reaction_misc_spacing[num][j][0]=xs_spacing_unknown
          do i=1,xs_table_rank_max
+            reaction_data_var[num][j][i]=xs_var_unknown
+            reaction_misc_var_indep[num][j][i]=xs_var_unknown
+            reaction_data_spacing[num][j][i]=xs_spacing_unknown
+            reaction_misc_spacing[num][j][i]=xs_spacing_unknown
             reaction_data_min[num][j][i]=zero
+            reaction_misc_min[num][j][i]=zero
             reaction_data_delta[num][j][i]=zero
-            reaction_data_tab_index[num][j][i]=zero
+            reaction_misc_delta[num][j][i]=zero
+            reaction_data_tab_index[num][j][i]=0
+            reaction_misc_tab_index[num][j][i]=0
          end do
       end do
 
+/* Main loop over dependent variables in this data file. First use local
+   variables to store internal representations of data. */
       do jdep=1,xs_num_dep_var
-         if (xs_var[0,jdep] == 'rate' || xs_var[0,jdep] == 'reaction_rate' ) then
-            rd_ind=rd_rate
-         else if (xs_var[0,jdep] == 'cross_section') then
-            rd_ind=rd_xs
-         else
-            goto skip
-         end if
 
          assert(xs_organization[jdep]SP(1:5)=='table')
          if (xs_organization[jdep]SP(1:5)=='table') then
-            reaction_organization[num][rd_ind]=xs_organization_table
+            organization=xs_organization_table
          end if
-         assert(xs_rank[jdep] > 0 && xs_rank[jdep] <= xs_table_rank_max)
-         reaction_data_rank[num][rd_ind]=xs_rank[jdep]
-         i=0
-         assert(xs_spacing[i,jdep] == 'linear' || xs_spacing[i,jdep] == 'log')
 
+         i=0
          if (xs_spacing[i,jdep] == 'linear') then
-            reaction_data_spacing[num][rd_ind][i]=xs_spacing_linear
+            spacing[i]=xs_spacing_linear
          else if (xs_spacing[i,jdep] == 'log') then
-            reaction_data_spacing[num][rd_ind][i]=xs_spacing_log
+            spacing[i]=xs_spacing_log
+         else if (xs_spacing[i,jdep] == 'unknown') then
+            spacing[i]=xs_spacing_unknown
          end if
-         if (xs_var[i,jdep] == 'rate' || xs_var[i,jdep] == 'reaction_rate') then
-            reaction_data_var[num][rd_ind][i]=xs_var_rate
-         else if (xs_var[i,jdep] == 'density') then
-            reaction_data_var[num][rd_ind][i]=xs_var_density
-         else if (xs_var[i,jdep] == 'temperature') then
-            reaction_data_var[num][rd_ind][i]=xs_var_temperature
-         else if (xs_var[i,jdep] == 'energy') then
-            reaction_data_var[num][rd_ind][i]=xs_var_energy
-         else if (xs_var[i,jdep] == 'specific_temperature') then
-            reaction_data_var[num][rd_ind][i]=xs_var_sp_temperature
-         else if (xs_var[i,jdep] == 'specific_energy') then
-            reaction_data_var[num][rd_ind][i]=xs_var_sp_energy
-         else if (xs_var[i,jdep] == 'cross_section') then
-            reaction_data_var[num][rd_ind][i]=xs_var_cross_section
+         if (xs_rank[jdep] > 0) then
+            do i=1,xs_rank[jdep]
+            
+               if (xs_spacing[i,jdep] == 'linear') then
+                  spacing[i]=xs_spacing_linear
+               else if (xs_spacing[i,jdep] == 'log') then
+                  spacing[i]=xs_spacing_log
+               else if (xs_spacing[i,jdep] == 'unknown') then
+                  spacing[i]=xs_spacing_unknown
+               end if
+        
+               if (xs_var[i,jdep] == 'density') then
+                  var[i]=xs_var_density
+               else if (xs_var[i,jdep] == 'temperature') then
+                  var[i]=xs_var_temperature
+               else if (xs_var[i,jdep] == 'energy') then
+                  var[i]=xs_var_energy
+               else if (xs_var[i,jdep] == 'specific_temperature') then
+                  var[i]=xs_var_sp_temperature
+               else if (xs_var[i,jdep] == 'specific_energy') then
+                  var[i]=xs_var_sp_energy
+               end if
+
+               if (spacing[i] == xs_spacing_linear) then
+                  min[i]=xs_min[i,jdep]*xs_mult[i,jdep]
+                  delta[i]=
+     $                 (xs_max[i,jdep]-xs_min[i,jdep])*xs_mult[i,jdep]/
+     $                 areal(xs_tab_index[jdep][i]-1)
+               else if (spacing[i] == xs_spacing_log) then
+                  min[i]=log(xs_min[i,jdep]*xs_mult[i,jdep])
+                  delta[i]=
+     $                 log(xs_max[i,jdep]/xs_min[i,jdep])/
+     $                 areal(xs_tab_index[jdep][i]-1)
+               else
+                  min[i]=zero
+                  delta[i]=zero
+               end if
+            end do
          end if
-         size=1
-         do i=1,xs_rank[jdep]
-            reaction_data_tab_index[num][rd_ind][i] = xs_tab_index[i,jdep]
-            assert(reaction_data_tab_index[num][rd_ind][i] > 1)
-            if (xs_spacing[i,jdep] == 'linear') then
-               reaction_data_spacing[num][rd_ind][i]=xs_spacing_linear
-            else if (xs_spacing[i,jdep] == 'log') then
-               reaction_data_spacing[num][rd_ind][i]=xs_spacing_log
-            end if
-            if (xs_var[i,jdep] == 'rate' || xs_var[i,jdep] == 'reaction_rate') then
-               reaction_data_var[num][rd_ind][i]=xs_var_rate
-            else if (xs_var[i,jdep] == 'density') then
-               reaction_data_var[num][rd_ind][i]=xs_var_density
-            else if (xs_var[i,jdep] == 'temperature') then
-               reaction_data_var[num][rd_ind][i]=xs_var_temperature
-            else if (xs_var[i,jdep] == 'energy') then
-               reaction_data_var[num][rd_ind][i]=xs_var_energy
-            else if (xs_var[i,jdep] == 'specific_temperature') then
-               reaction_data_var[num][rd_ind][i]=xs_var_sp_temperature
-            else if (xs_var[i,jdep] == 'specific_energy') then
-               reaction_data_var[num][rd_ind][i]=xs_var_sp_energy
-            end if
-            size=size*reaction_data_tab_index[num][rd_ind][i]
-            if (reaction_data_spacing[num][rd_ind][i] == xs_spacing_linear) then
-               reaction_data_min[num][rd_ind][i]=xs_min[i,jdep]*xs_mult[i,jdep]
-               reaction_data_delta[num][rd_ind][i]=
-     $              (xs_max[i,jdep]-xs_min[i,jdep])*xs_mult[i,jdep]/
-     $              areal(reaction_data_tab_index[num][rd_ind][i]-1)
-            else if (reaction_data_spacing[num][rd_ind][i] == xs_spacing_log) then
-               reaction_data_min[num][rd_ind][i]=log(xs_min[i,jdep]*xs_mult[i,jdep])
-               reaction_data_delta[num][rd_ind][i]=
-     $              log(xs_max[i,jdep]/xs_min[i,jdep])/
-     $              areal(reaction_data_tab_index[num][rd_ind][i]-1)
+
+/* 
+   Now treat separately two types of dependent variables: (1) reaction rates
+   and cross-sections, (2) miscellaneous (variable labels retained) data.
+   Here we segregate the |xs| data (some stored in the local variables above)
+   into the |reaction_data| and |reaction_misc| arrays, respectively. 
+*/
+         if (xs_var[0,jdep] == 'rate' || xs_var[0,jdep] == 'reaction_rate' 
+     $        || xs_var[0,jdep] == 'cross_section') then
+            if (xs_var[0,jdep] == 'cross_section') then
+               rd_ind=rd_xs
+               reaction_data_var[num][rd_ind][0]=xs_var_cross_section
             else
-               assert('Unknown spacing type' == ' ')
+               rd_ind=rd_rate
+               reaction_data_var[num][rd_ind][0]=xs_var_rate
             end if
-         end do
-         do i=xs_rank[jdep]+1,xs_table_rank_max
-            reaction_data_tab_index[num][rd_ind][i]=1
-         end do
-         reaction_data_base[num][rd_ind]=rd_table_size
-         var_reallocc(reaction_data_table,rd_table_size-1,rd_table_size-1+size)
+                                                              // Reaction rates
+            reaction_organization[num][rd_ind]=organization
+            reaction_data_rank[num][rd_ind]=xs_rank[jdep]
+            assert(xs_rank[jdep] > 0 || xs_rank[jdep] <= xs_table_rank_max)
+            reaction_data_spacing[num][rd_ind][0]=spacing[0]
+            do i=1,xs_rank[jdep]
+               reaction_data_tab_index[num][rd_ind][i]=xs_tab_index[jdep][i]
+               reaction_data_spacing[num][rd_ind][i]=spacing[i]
+               reaction_data_var[num][rd_ind][i]=var[i]
+               reaction_data_min[num][rd_ind][i]=min[i]
+               reaction_data_delta[num][rd_ind][i]=delta[i]
+            end do
+            if (xs_rank[jdep] < xs_table_rank_max) then
+               do i=xs_rank[jdep]+1,xs_table_rank_max
+                  reaction_data_tab_index[num][rd_ind][i]=1
+               end do
+            end if
+            rd_ragged_realloc(reaction_data,reaction_data_tab_index,rd_ind,num)
+
+         else if (xs_var[0,jdep] == 'unknown') then
+            goto skip
+         else
+            rm_ind++                                          // Miscellaneous
+            reaction_misc_var_dep[num][rm_ind]=xs_var[0,jdep]
+            reaction_misc_organization[num][rm_ind]=organization
+            reaction_misc_rank[num][rm_ind]=xs_rank[jdep]
+            reaction_misc_spacing[num][rm_ind][0]=spacing[0]
+            if (xs_rank[jdep] > 0) then
+               do i=1,xs_rank[jdep]
+                  reaction_misc_tab_index[num][rm_ind][i]=xs_tab_index[jdep][i]
+                  reaction_misc_spacing[num][rm_ind][i]=spacing[i]
+                  reaction_misc_var_indep[num][rm_ind][i]=var[i]
+                  reaction_misc_min[num][rm_ind][i]=min[i]
+                  reaction_misc_delta[num][rm_ind][i]=delta[i]
+               end do
+            end if
+            if (xs_rank[jdep] < xs_table_rank_max) then
+               do i=xs_rank[jdep]+1,xs_table_rank_max
+                  reaction_misc_tab_index[num][rm_ind][i]=1
+               end do
+            end if
+            rd_ragged_realloc(reaction_misc,reaction_misc_tab_index,rm_ind,num)
+         end if
+
+/*
+   Now retrieve the tabular data for this dependent variable...
+*/
          do k=0,xs_tab_index[3,jdep]-1
             do j=0,xs_tab_index[2,jdep]-1
                do i=0,xs_tab_index[1,jdep]-1
@@ -495,15 +547,25 @@ constant.
                   else if (jdep == 5) then
                      table_entry=xs_table5(i,j,k)
                   end if
-                  if (reaction_data_spacing[num][rd_ind][0] == xs_spacing_linear) then
-                     rd_data3(num,rd_ind,i,j,k)=table_entry*xs_mult[0,jdep]
+                  if (spacing[0] == xs_spacing_log) then
+                     table_entry=log(table_entry*xs_mult[0,jdep])
                   else
-                     rd_data3(num,rd_ind,i,j,k)=log(table_entry*xs_mult[0,jdep])
+                     table_entry=table_entry*xs_mult[0,jdep]
+                  end if
+                
+/*
+   And store in the appropriate |rd| data table again distinguishing reaction
+   rate / cross section from miscellaneous data.
+*/
+                  if (xs_var[0,jdep] == 'rate' || xs_var[0,jdep] == 'reaction_rate' 
+     $                 || xs_var[0,jdep] == 'cross_section') then
+                     rd_data3(num,rd_ind,i,j,k)=table_entry
+                  else
+                     rd_misc_data3(num,rm_ind,i,j,k)=table_entry
                   end if
                end do
             end do
          end do
-         rd_table_size=rd_table_size+size
 skip: continue
       end do
 
@@ -520,15 +582,24 @@ skip: continue
       rd_common
       sy_common
             
-      rd_table_size=0
+      rd_ragged_alloc(reaction_data)
       var_alloc(reaction_organization)
       var_alloc(reaction_data_min)
       var_alloc(reaction_data_delta)
       var_alloc(reaction_data_rank)
       var_alloc(reaction_data_spacing)
-      var_alloc(reaction_data_base)
       var_alloc(reaction_data_tab_index)
       var_alloc(reaction_data_var)
+
+      rd_ragged_alloc(reaction_misc)
+      var_alloc(reaction_misc_organization)
+      var_alloc(reaction_misc_min)
+      var_alloc(reaction_misc_delta)
+      var_alloc(reaction_misc_rank)
+      var_alloc(reaction_misc_spacing)
+      var_alloc(reaction_misc_tab_index)
+      var_alloc(reaction_misc_var_dep)
+      var_alloc(reaction_misc_var_indep)
 
       do i=1,pr_reaction_num
          write(stdout,*) pr_reaction(i)
