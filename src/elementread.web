@@ -2,6 +2,9 @@
 \Title{elementread}
 
 % $Log$
+% Revision 1.12  1995/11/03 15:06:13  karney
+% Clean up for release.
+%
 % Revision 1.11  1995/07/14 13:20:07  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -106,6 +109,31 @@ Introduction\ldots
       return
       end
 
+@ Read in data from netcdf file \verb+materials.nc+
+      
+@<Functions...@>=
+      subroutine nc_read_materials
+      implicit_none
+      integer fileid
+      character *FILELEN tempfile  //local
+      ma_common
+      ma_ncdecl
+      nc_common
+      sy_common
+      rf_common
+
+      tempfile =  filenames_array[materialsfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     materials_version,len(materials_version),nc_stat)
+
+      ma_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
 @ Read in data from netcdf file \verb+reactions.nc+
       
 @<Functions...@>=
@@ -125,6 +153,31 @@ Introduction\ldots
      $     reaction_version,len(reaction_version),nc_stat)
 
       rc_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Read in data from netcdf file \verb+pmi.nc+
+      
+@<Functions...@>=
+      subroutine nc_read_pmi
+      implicit_none
+      integer fileid
+      character *FILELEN tempfile  //local
+      pm_common
+      pm_ncdecl
+      nc_common
+      sy_common
+      rf_common
+
+      tempfile =  filenames_array[pmifile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     pmi_version,len(pmi_version),nc_stat)
+
+      pm_ncread(fileid)
       
       call ncclose(fileid,nc_stat)
 
