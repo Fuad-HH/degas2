@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1996/05/24 18:51:11  dstotler
+% Redefine constants.
+%
 % Revision 1.3  1996/03/01 20:30:56  dstotler
 % Use "yield" instead of "reflection_coef".
 %
@@ -25,7 +28,6 @@ Information about data used to define plasma-material interactions
 @m pf_spacing_unknown 0          // Types of spacing of data and
 @m pf_spacing_linear 1           // independent variable arrays
 @m pf_spacing_log 2
-@m pf_spacing_nonuniform 3
 
 @m pf_var_unknown 0             // Indices for the independent variables;
 @m pf_var_energy_in 1           // These double as the indices for the
@@ -41,10 +43,6 @@ Information about data used to define plasma-material interactions
 @m pf_max_random 3
 @m pf_max_indep_params 9
 
-@m pf_var_fit_coef 20           // Leave room for expansion
-@m pf_var_yield 21              // Indices for dependent variables
-@m pf_var_energy_out 22
-
 @m pf_unit_string_length 12     // The length of the unit specifications
 @m pf_tag_string_length 20      // The length of variable names and spacings
 @m pf_eval_string_length 40     // Routine used to evaluate data
@@ -54,9 +52,7 @@ Information about data used to define plasma-material interactions
 
 @   Accessor functions to make main tables look like multi-dimensional arrays
 
-@m pf_indep_var_table(i,j,k) pf_indep_var_tab[i+pf_indep_var_base[j,k]]
-
-@m pf_data_table(i,j,k,l,m,n) pf_data_tab[i+pf_tab_index[1,n]*(j+pf_tab_index[2,n]*(k+pf_tab_index[3,n]*(l+pf_tab_index[4,n]*m)))+pf_data_base[n]]
+@m pf_data_table(i,j,k,l,m,n) pf_data_tab[i+pf_tab_index[n][1]*(j+pf_tab_index[n][2]*(k+pf_tab_index[n][3]*(l+pf_tab_index[n][4]*m)))+pf_data_base[n]]
 
 @ variable definitions.
 
@@ -72,33 +68,25 @@ Information about data used to define plasma-material interactions
       define_dimen_pk(pf,pf_eval_string,pf_eval_string_length)
 
 /* The ``size'' variables get used in the table allocation macros. */
-      define_var_pk(pf,pf_indep_var_size,INT)
-      define_dimen_pk(pf,pf_indep_var_ind,0,pf_indep_var_size-1)
-
       define_var_pk(pf,pf_data_size,INT)
       define_dimen_pk(pf,pf_data_ind,0,pf_data_size-1)
 
-      define_var_pk(pf,pf_name,CHAR,pf_symbol_string)
-      define_var_pk(pf,pf_min,FLOAT,pf_rank_ind,pf_dep_var_ind)
-      define_var_pk(pf,pf_max,FLOAT,pf_rank_ind,pf_dep_var_ind)
-      define_var_pk(pf,pf_mult,FLOAT,pf_rank_ind0,pf_dep_var_ind)
       define_var_pk(pf,pf_num_dep_var,INT)
       define_var_pk(pf,pf_rank,INT,pf_dep_var_ind)
+      define_var_pk(pf,pf_tab_index,INT,pf_rank_ind,pf_dep_var_ind)
+      define_var_pk(pf,pf_data_base,INT,pf_dep_var_ind)
+      define_var_pk(pf,pf_data_inc,INT,pf_dep_var_ind)
 
+      define_var_pk(pf,pf_name,CHAR,pf_symbol_string)
       define_var_pk(pf,pf_spacing,CHAR,pf_tag_string,pf_rank_ind0,pf_dep_var_ind)
       define_var_pk(pf,pf_var,CHAR,pf_tag_string,pf_rank_ind0,pf_dep_var_ind)
       define_var_pk(pf,pf_units,CHAR,pf_unit_string,pf_rank_ind0,pf_dep_var_ind)
       define_var_pk(pf,pf_eval_name,CHAR,pf_eval_string,pf_dep_var_ind)
-/*
-   Main table variable definitions
-*/
-      define_var_pk(pf,pf_tab_index,INT,pf_rank_ind,pf_dep_var_ind)
 
-      define_var_pk(pf,pf_indep_var_base,INT,pf_rank_ind,pf_dep_var_ind)
-      define_varp_pk(pf,pf_indep_var_tab,FLOAT,pf_indep_var_ind)
+      define_var_pk(pf,pf_min,FLOAT,pf_rank_ind,pf_dep_var_ind)
+      define_var_pk(pf,pf_max,FLOAT,pf_rank_ind,pf_dep_var_ind)
+      define_var_pk(pf,pf_mult,FLOAT,pf_rank_ind0,pf_dep_var_ind)
 
-      define_var_pk(pf,pf_data_base,INT,pf_dep_var_ind)
-      define_var_pk(pf,pf_data_inc,INT,pf_dep_var_ind)
       define_varp_pk(pf,pf_data_tab,FLOAT,pf_data_ind)
 
 @ Common blocks definitions.
@@ -115,55 +103,25 @@ Information about data used to define plasma-material interactions
 @ Other macros
 
 /*
-   |set_base1(x,y)| is used to set the array |x_base(i)| which points to the
+   |set_base(x,y)| is used to set the array |x_base(i)| which points to the
    first element of the |i|th slice of the rank 1 array |x_tab|. The length
-   of each slice is provided by the input array |y(i)|. The total size of
-   |x_tab| is stored in |x_size|.
+   of each slice is provided by the input array |inc(i)| (set up via |set_inc|). 
+   The total size of |x_tab| is stored in |x_size|.
 */
-@m set_base1(x,y)
-      $ASSERT( range_min(ind_##x##_base_1) == range_min(ind_##y##_1) && range_max(ind_##x##_base_1) == range_max(ind_##y##_1)) 
+@m set_base(x,inc)
+      $ASSERT( range_min(ind_##x##_base_1) == range_min(ind_##inc##_1) && range_max(ind_##x##_base_1) == range_max(ind_##inc##_1)) 
       x##_base[range_min(ind_##x##_base_1)]=0;
       $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
-         x##_base[I]=x##_base[I-1]+y[I-1];
+         x##_base[I]=x##_base[I-1]+inc[I-1];
       }
-      x##_size=x##_base[range_max(ind_##x##_base_1)]+y[range_max(ind_##y##_1)] @;
+      x##_size=x##_base[range_max(ind_##x##_base_1)]+inc[range_max(ind_##inc##_1)] @;
 
 /*
-   |set_base2(x,y)| is used to set the array |x_base(i,j)| which points to the
-   first element of the |(i,j)|th slice of the rank 1 array |x_tab|. The length
-   of each slice is provided by the input array |y(i,j)|. The total size of
-   |x_tab| is stored in |x_size|.
-*/
-@m set_base2(x,y) 
-      $ASSERT( range_min(ind_##x##_base_1) == range_min(ind_##y##_1) && range_max(ind_##x##_base_1) == range_max(ind_##y##_1))
-      $ASSERT( range_min(ind_##x##_base_2) == range_min(ind_##y##_2) && range_max(ind_##x##_base_2) == range_max(ind_##y##_2)) 
-      x##_base[range_min(ind_##x##_base_1),range_min(ind_##x##_base_2)]=0;
-      $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
-         x##_base[I,range_min(ind_##x##_base_2)]=x##_base[I-1,range_min(ind_##x##_base_2)]+y[I-1,range_min(ind_##y##_2)];
-      }
-      $DO(J,range_min(ind_##x##_base_2)+1,range_max(ind_##x##_base_2)) {
-         x##_base[range_min(ind_##x##_base_1),J]=x##_base[pf_table_rank_max,J-1]+y[range_max(ind_##y##_1),J-1];
-         $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
-            x##_base[I,J]=x##_base[I-1,J]+y[I-1,J];
-         }
-      }
-      x##_size=x##_base[range_max(ind_##x##_base_1),range_max(ind_##x##_base_2)]+y[range_max(ind_##y##_1),range_max(ind_##y##_2)] @;
-
-/*
-   Present applications for |pf_ragged_alloc| are for rank 1
-   and rank 2 arrays |x_base|. Hence, only those options are
-   treated here. 
-*/
-@m set_base(x,y)
-      $IFCASE(rank_##x##_base,,set_base1(x,y),set_base2(x,y),)
-
-/*
-   |set_inc| is presently set up to only handle the case where
-   the input array |y| is of rank 2 (this is the point of the
-   initial ASSERT macro which is presently disabled due to bugs
-   in FTANGLE). From the array |y(m,n)|, |set_inc| computes
+   From the array |y(m,n)|, |set_inc| computes
    the number of elements implied in the |m|th dimensional
    object represented by each |n| and stores it in |x_inc(n)|.
+   The first loop is over the the dependent variables;
+   the second is over the rank of each dependent variable.
 */
 @m set_inc(x,y)
 /*  \begin{verbatim}     $ASSERT( rank##y == 2) \end{verbatim}  */
@@ -175,23 +133,21 @@ Information about data used to define plasma-material interactions
       }
 
 /*
-   |pf_ragged_alloc| is a prototype macro for automatically setting
-   up and allocating memory for ``ragged'' arrays. The first argument
+   |pf_ragged_alloc| automatically sets
+   up and allocates memory for ``ragged'' arrays used to store
+   the main tabular data. The first argument
    is intended to be a root name. A family of arrays sharing that root
    name are required for this macro. These are |x_base| (pointer to
    the starting point of individual array slices), |x_tab| (the 1-D
    array which will actually be allocated), |x_size| (scalar which
    contains the total number of elements), and |x_inc| (number of 
-   elements in a given array slice; i.e., the increment). In the
-   case when the rank of |y| is the same as |x_base|, it is assumed
-   that |y| provides the increment; in this case, |x_inc| is just
-   a dummy label used only inside the macro. Otherwise, the macro
-   |set_inc| is called to set |x_inc|, which must be defined. A separate
+   elements in a given array slice; i.e., the increment). The macro
+   |set_inc| is called to set |x_inc|. A separate
    accessor macro is used to equivalence |x_tab| to the apparently
    multi-rank array seen by the user.
 */
 @m pf_ragged_alloc(x,y)
-      $IF( rank_##x##_base == rank_##y, $DEFINE( x##_inc y), set_inc(x,y) )
+      set_inc(x,y);
       set_base(x,x##_inc);
       var_alloc(x##_tab) @;
 
@@ -204,7 +160,7 @@ Information about data used to define plasma-material interactions
 */
 @m pf_ragged_realloc(x,y)
       old_size=x##_size;
-      $IF( rank_##x##_base == rank_##y, $DEFINE( x##_inc y), set_inc(x,y) )
+      set_inc(x,y);
       set_base(x,x##_inc);
       var_realloc(x##_tab,old_size-1,x##_size-1) @;      
 
