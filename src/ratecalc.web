@@ -2,6 +2,9 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.23  1995/07/27 20:18:09  jshankar
+% fixed a typo
+%
 % Revision 1.22  1995/07/27 20:10:07  jshankar
 % fixed a few typos
 %
@@ -129,6 +132,19 @@ corresponding independent variables. At each set of independent
 variables, the dependent variable (cross section,
 reaction rate, or higher moment) is evaluated and sent to the output file.
 
+More specifically, there are now three types of tabular organizations:
+\begin{description}
+  \item[table\_calc] Is of the type described above. Cross sections are averaged
+over a distribution function to obtain reaction rates and higher moments.
+  \item[table\_eval] Is used to simply evaluate the ALADDIN fit and store
+the data (for, e.g., transferring cross section data or ALADDIN reaction
+rates).
+  \item[table\_external] Is used to handle extraneous (usually constants)
+data which cannot be obtained from ALADDIN or which might be peculiar to a
+specific reaction. Placeholders are generated in the netCDF files; the user
+can later insert manually the required data.
+\end{description}
+
 The integral in Eq.~(\ref{source1}) is evaluated here in two different
 regimes. The first is applicable to situations in which
 a neutral atom (``test'')
@@ -227,14 +243,14 @@ argument for $\sigma$ must have a specific mass. Its value (specified by
 |ra_mass| here) varies, depending
 on the origin of the cross section data; it is assumed to be in grams.
 The independent variable to
-be used with cross sections in these reactions should be ``specific_energy''.
+be used with cross sections in these reactions should be ``specific\_energy''.
 This will eliminate any confusion in subsequent uses of the data. An
 independent variable of ``energy'' should be used for electron impact
 processes, or other reactions in which the mass to use is clear.
 
-For example, for the data described in Ref.~\citenum{Jane87} one would need
+For example, for the data described in Ref.~\cite{Jane87} one would need
 to take |ra_mass| to be that of the charged reagent (electron or ion). On 
-the other hand, the data in Ref.~\citenum{Jane93} use a mass of 1 amu
+the other hand, the data in Ref.~\cite{Jane93} use a mass of 1 amu
 for ``heavy'' particle reactions and the electron mass for electron
 impact processes.
 @m FILE 'ratecalc.web'
@@ -242,43 +258,504 @@ impact processes.
 @I macros.hweb
 @I readfilenames.hweb
 
-@ The unnamed module
+@ The unnamed module. This subroutine just extracts the input filename from
+the argument line and passes it along to the reading subroutine.
 
 @a
       program ratecalc
       implicit_none
-      integer fileid,j,k,l,m,num_fit_coef_aladdin  // Local
-      double precision zte_aladdin,zsigma
-      real norm_constant,infinite_integral,zenergy,ztemperature
+      character*LINELEN arg
+      character*FILELEN filename
+
+      sy_common
+      
+      assert(arg_count() == 1)
+      call command_arg(1,arg)
+      filename=arg
+      call read_input(filename)
+
+      stop 
+      end
+
+      @<Functions and subroutines@>
+
+@* Input for RATECALC. Read input data into common variables and set up 
+defaults. The format of the input file is described in the examples. Note that
+some quantities are either determined locally or assumed to have
+specific values. Those variables are:
+\begin{description}
+  \item[|ra_num|*] Set by counting the corresponding labels.
+  \item[|xs_num_dep_var|] Set by counting the number of 
+dependent variables specified.
+  \item[|xs_rank|] Set by counting the number of independent variables.
+  \begin{itemize}
+    \item Note that when the organization is ``fit'', the |xs_table| array will
+effectively be of rank one, i.e., containing the fit coefficients.
+    \item Also in this case |xs_tab_index| is set temporarily
+to the parameter used to specify the maximum number of fit
+coefficients since the user will not know this in general.
+    \end{itemize}
+  \item[|xs_units|] Are assumed to be cgs or eV for temperature and energy.
+  \item[|xs_multiplier|] Are then the corresponding MKS conversion factors.
+\end{description}
+
+@<Functions...@>=
+      subroutine read_input(filename)
+      implicit_none
+
+      character*FILELEN filename    // Input
+
+      integer length                // Local
+      character*LINELEN line
+
+      ra_common
+      xs_common
+      st_common
+
+      open(unit=diskin,file=filename,
+     $     form='formatted',status='old')
+      
+      if ( ! read_string(diskin,line,length) ) then
+         line = 'END'
+      end if
+      length=parse_string(line(:length))
+
+loop1: continue
+
+      if ( line == 'END' ) goto eof
+      if (line == 'DEPENDENT VARIABLES') then
+         call read_dependent(diskin,line)
+      else if (line == 'INDEPENDENT VARIABLES') then
+         call read_indep(diskin,line)
+      else if(line == 'REACTIONS') then
+         call read_reaction_list(diskin,line)
+      end if
+
+      goto loop1
+
+eof: continue
+
+      return
+      end
+
+@ Read in data for dependent variables.
+
+@<Functions...@>=
+      subroutine read_dependent(unit,line)
+      implicit_none
+      integer unit                             // Input
+      character*(*) line                       // Output
+      integer length,p,b,e,i,j                 // Local
+
+      xs_common
+      st_common
+
+      xs_num_dep_var=0
+
+next_dep_var: continue      // Label macros are defined in ratecalc.hweb
+
+      assert( read_string(unit,line,length) )
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      if ( line == 'INDEPENDENT VARIABLES' ) goto end_dep_var
+
+      p=0                                          // For each dep. var.:
+      assert( next_token(line(:length),b,e,p) )              // Read name
+      xs_num_dep_var++
+      assert(xs_num_dep_var <= xs_dep_var_max)
+      read(line(b:e),'(a)') xs_var[0,xs_num_dep_var]
+
+      assert( next_token(line(:length),b,e,p) )
+      read(line(b:e),'(a)') xs_organization[xs_num_dep_var]  // Organization
+
+      if ( next_token(line(:length),b,e,p) ) then
+         read(line(b:e),'(a)') xs_spacing[0,xs_num_dep_var]  // And spacing
+      else
+         xs_spacing[0,xs_num_dep_var]='unknown'
+      end if
+
+      goto next_dep_var
+
+end_dep_var: continue
+
+/*
+   Utilize cgs assumptions for units. Multipliers are conversions to MKS.
+*/
+      do i=1,xs_num_dep_var
+         if (xs_var[0,i] == 'cross_section') then
+            xs_units[0,i]='cm^2'
+            xs_mult[0,i]=const(1.,-4)
+         else if (xs_var[0,i] == 'reaction_rate') then
+            xs_units[0,i]='cm^3/s'
+            xs_mult[0,i]=const(1.,-6)
+         else if (xs_var[0,i] == '1st_rate_moment') then
+            xs_units[0,i]='cm^4/s^2'
+            xs_mult[0,i]=const(1.,-8)
+         else if (xs_var[0,i] == '2nd_rate_moment') then
+            xs_units[0,i]='cm^5/s^3'
+            xs_mult[0,i]=const(1.,-10)
+         else if (xs_var[0,i] == '3rd_rate_moment') then
+            xs_units[0,i]='cm^6/s^4'
+            xs_mult[0,i]=const(1.,-12)
+         else
+            xs_units[0,i]='unknown'
+            xs_mult[0,i]=zero
+         end if
+         xs_eval_name[i]='unknown'
+      end do
+
+/*
+   Set defaults for unused dependent variables
+*/
+      if (xs_num_dep_var < xs_dep_var_max) then
+         do j=xs_num_dep_var+1,xs_dep_var_max
+
+            xs_rank[j]=1
+            xs_organization[j]='unknown'
+            xs_eval_name[j]='unknown'
+            xs_var[0,j]='unknown'
+            xs_spacing[0,j]='unknown'
+            xs_units[0,j]='unknown'
+            xs_mult[0,j]=zero
+            do i=1,xs_table_rank_max
+               xs_tab_index[i,j]=1
+               xs_var[i,j]='unknown'
+               xs_spacing[i,j]='unknown'
+               xs_units[i,j]='unknown'
+               xs_mult[i,j]=zero
+               xs_min[i,j]=zero
+               xs_max[i,j]=zero
+            end do
+         end do
+      end if
+
+      return
+      end
+
+@ Read in data for independent variables.
+
+@<Functions...@>=
+      subroutine read_indep(unit,line)
+      implicit_none
+      integer unit                               // Input
+      character*(*) line                         // Output
+      integer length,p,b,e,i,idep,j              // Local
+      integer dep_var[xs_dep_var_max]
+
+      xs_common
+      st_common
+
+next_line: continue                      // Labels are defined in ratecalc.hweb
+
+      assert( read_string(unit,line,length) )
+      if ( line == 'REACTIONS') goto end_indep_var
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      
+      p=0
+      assert( next_token(line(:length),b,e,p) ) 
+/*
+   We need to differentiate between the lines which list the indices
+   of the dependent variables and those which enumerate the corresponding
+   independent variables. As long as |xs_dep_var_max| < 10, the former
+   will begin with a single integer; the latter will likely begin with a
+   multi-character string. This is the criterion we use.
+*/
+      assert(xs_dep_var_max < 10)
+      if (b == e) then    
+         idep=1                // Read in list of dependent variables
+         dep_var[1]=read_integer(line(b:e))
+         xs_rank[dep_var[1]]=0
+
+next_dep_var:   continue                     
+
+         if ( ! next_token(line(:length),b,e,p) ) goto next_line
+         idep++
+         dep_var[idep]=read_integer(line(b:e))
+         goto next_dep_var
+
+      else                     // And their corresponding independent variables
+         xs_rank[dep_var[1]]++
+         assert(xs_rank[dep_var[1]] <= xs_table_rank_max)
+         read(line(b:e),'(a)') xs_var[xs_rank[dep_var[1]],dep_var[1]]
+         if (xs_var[xs_rank[dep_var[1]],dep_var[1]] == 'none') then
+            xs_rank[dep_var[1]]=0                      // Constant
+         else
+                                                       // Its minimum
+            if ( next_token(line(:length),b,e,p) ) then
+               xs_min[xs_rank[dep_var[1]],dep_var[1]]=read_real(line(b:e))
+            else
+               xs_min[xs_rank[dep_var[1]],dep_var[1]]=zero
+            end if
+                                                       // Maximum
+            if ( next_token(line(:length),b,e,p) ) then
+               xs_max[xs_rank[dep_var[1]],dep_var[1]]=read_real(line(b:e))
+            else
+               xs_max[xs_rank[dep_var[1]],dep_var[1]]=zero
+            end if
+                                                       // Number of values
+            if ( next_token(line(:length),b,e,p) ) then
+               xs_tab_index[xs_rank[dep_var[1]],dep_var[1]]=read_integer(line(b:e))
+            else
+               if (xs_organization[dep_var[1]] == 'fit' && xs_rank[dep_var[1]] == 1) then
+                  xs_tab_index[xs_rank[dep_var[1]],dep_var[1]]=ra_fit_coef_max
+               else
+                  xs_tab_index[xs_rank[dep_var[1]],dep_var[1]]=1
+               end if
+            end if
+                                                       // And spacing
+            if ( next_token(line(:length),b,e,p) ) then
+               read(line(b:e),'(a)') xs_spacing[xs_rank[dep_var[1]],dep_var[1]]
+            else
+               xs_spacing[xs_rank[dep_var[1]],dep_var[1]]='unknown'
+            end if
+         end if
+                                                       // Propagate to other
+         if (idep > 1) then                            // dependent vars.
+            do i=2,idep
+               xs_rank[dep_var[i]]=xs_rank[dep_var[1]]
+               if (xs_rank[dep_var[1]] > 0) then
+                  xs_var[xs_rank[dep_var[1]],dep_var[i]]=xs_var[xs_rank[dep_var[1]],dep_var[1]]
+                  xs_min[xs_rank[dep_var[1]],dep_var[i]]=xs_min[xs_rank[dep_var[1]],dep_var[1]]
+                  xs_max[xs_rank[dep_var[1]],dep_var[i]]=xs_max[xs_rank[dep_var[1]],dep_var[1]]
+                  xs_tab_index[xs_rank[dep_var[1]],dep_var[i]]=xs_tab_index[xs_rank[dep_var[1]],dep_var[1]]
+                  xs_spacing[xs_rank[dep_var[1]],dep_var[i]]=xs_spacing[xs_rank[dep_var[1]],dep_var[1]]
+               end if
+            end do
+         end if
+      end if
+
+      goto next_line
+
+end_indep_var: continue
+
+/*
+   Assign cgs units with conversions to MKS
+*/
+      do j=1,xs_num_dep_var
+         if (xs_rank[j] > 0) then
+            do i=1,xs_rank[j]
+               if (xs_var[i,j] == 'energy' || xs_var[i,j] == 'temperature') then
+                  xs_units[i,j]='eV'
+                  xs_mult[i,j]=electron_charge
+               else if (xs_var[i,j] == 'specific_energy' 
+     $            || xs_var[i,j] == 'specific_temperature') then
+                  xs_units[i,j]='eV/amu'
+                  xs_mult[i,j]=electron_charge/atomic_mass_unit
+               else if (xs_var[i,j] == 'density') then
+                  xs_units[i,j]='cm^-3'
+                  xs_mult[i,j]=const(1.,6)
+               else
+                  xs_units[i,j]='unknown'
+                  xs_mult[i,j]=zero
+               end if
+            end do
+         end if
+/*
+   Fill defaults for unused ranks
+*/
+         if (xs_rank[j] < xs_table_rank_max) then
+            do i=xs_rank[j]+1,xs_table_rank_max
+               xs_tab_index[i,j]=1
+               xs_var[i,j]='unknown'
+               xs_spacing[i,j]='unknown'
+               xs_units[i,j]='unknown'
+               xs_mult[i,j]=zero
+               xs_min[i,j]=zero
+               xs_max[i,j]=zero
+            end do
+         end if
+      end do
+
+      return
+      end
+
+@ Read in data for reactions. This also forms the starting point for the
+rest of the ratecalc code which fills in the tables and writes the
+netCDF files for each reaction.
+
+@<Functions...@>=
+      subroutine read_reaction_list(unit,line)
+      implicit_none
+      integer unit                                  // Input
+      character*(*) line                            // Output
+      integer length,p,b,e,i,idep                   // Local
+      integer dep_var[xs_dep_var_max]
+      logical and_section
+
+      xs_common
+      ra_common
+      st_common
+
+/*
+   The following declarations are required to write out reaction
+   specification information (|ra| class) as a netCDF file.
+\begin{verbatim}
+      integer fileid
+      character*FILELEN fileout
+      nc_common
+      ra_ncdecl
+\end{verbatim}
+*/
+
+react_begin: continue               // Labels are defined in ratecalc.hweb
+
+      if ( ! read_string(unit,line,length) ) line='END'
+      if ( line == 'END' ) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+
+      xs_name=line(:length)                    // First line: reaction name
+
+      assert(read_string(unit,line,length))    // Second line: mass and units
+      length=parse_string(line(:length))
+      p=0
+      assert( next_token(line,b,e,p) )
+      ra_mass=read_real(line(b:e))
+      assert( next_token(line,b,e,p) )
+      read(line(b:e),'(a)') ra_mass_units
+
+      assert(read_string(unit,line,length))    // Third line: data filename
+      length=parse_string(line(:length))
+      assert(length<=len(line))
+      ra_data_filename=line(:length)
+
+      assert(read_string(unit,line,length))    // Fourth line: hier. labels
+      length=parse_string(line(:length))
+      assert(length<=len(line))
+      p=0
+      ra_num_hier=0
+
+next_hlab: continue
+
+      if ( ! next_token(line,b,e,p) ) goto bool_sect
+      ra_num_hier++
+      read(line(b:e),'(a)') ra_hier_label[ra_num_hier]
+      goto next_hlab
+
+/*
+   Subsequent pairs of lines provide the Boolean search labels for this
+   reaction.
+*/
+bool_sect: continue              
+
+      do i=1,xs_num_dep_var
+         ra_num_bool_and[i]=0
+         ra_num_bool_not[i]=0
+      end do
+
+new_bool_sect: continue                    // Start a new pair of lines
+
+/*
+   If next line is blank or is the end of file, it indicates the end
+   of this reaction specification.
+*/
+      idep=0
+      if ( ! read_string(unit,line,length) ) goto react_done   // End of file
+      length=parse_string(line(:length))
+      if (line(1:1) == '-') goto react_done
+
+      p=0
+next_dep_var: continue                     // First line: dependent variables
+
+      if ( ! next_token(line,b,e,p) ) goto bool_list
+      idep++
+      dep_var(idep)=read_integer(line(b:e))
+      assert(dep_var(idep) <= xs_num_dep_var)
+      goto next_dep_var
+
+bool_list: continue
+
+      assert( read_string(unit,line,length) )  // Second: corresponding labels
+      length=parse_string(line(:length))
+      p=0
+      and_section=.true.
+
+next_bool: continue
+
+      if ( ! next_token(line,b,e,p) ) goto new_bool_sect
+      if (line(b:e) == '&!') and_section=.false.
+      if (and_section) then
+         do i=1,idep
+            ra_num_bool_and[dep_var[i]]++
+            read(line(b:e),'(a)') ra_bool_and_label[ra_num_bool_and[dep_var[i]],dep_var[i]]
+         end do
+      else
+         do i=1,idep
+            ra_num_bool_not[dep_var[i]]++
+            read(line(b:e),'(a)') ra_bool_not_label[ra_num_bool_not[dep_var[i]],dep_var[i]]
+         end do
+      end if
+            
+      goto next_bool
+
+/*
+   Reaction specification complete
+*/
+react_done: continue
+
+/*
+   The ra class data can be written to a netCDF file if needed:
+\begin{verbatim}
+      fileout='test.nc'
+      fileid=nccreate(fileout,NC_CLOBBER,nc_stat)
+      ra_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      ra_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
+\end{verbatim}
+
+   Now fill tables and write data file
+*/
+      call fill_tables
+
+      goto react_begin
+
+eof:  return
+      end
+
+@* Fill Cross Section Tables. 
+This routine carries out the loops over dependent
+and independent variables. Table values are obtained directly from ALADDIN (for
+fits) or via subroutine |table_value|.
+
+@<Functions...@>=
+      subroutine fill_tables
+      implicit_none
+      integer fileid,j,k,l,m,b,e,p  // Local
+      real zsigma,table_value
       real ind_var_min[xs_table_rank_max],ind_var_delta[xs_table_rank_max],
      $   ind_var[xs_table_rank_max]
-      character*msg_length error
       character*FILELEN fileout
-      external electron_rate_integrand,           // External
-     $   electron_norm_integrand,ion_rate_integrand
 
       ra_common                                   // Commons and declarations
       xs_common
       xs_ncdecl
       nc_common
+      st_common
       sy_common
       ra_common_l                                 // Local common
       rf_common
 
-/* read filenames used in this program */
+      var_alloc(xs_tab1)
+      var_alloc(xs_tab2)
+      var_alloc(xs_tab3)
+      var_alloc(xs_tab4)
+      var_alloc(xs_tab5)
 
-      call readfilenames
-/* 
-   Get ALADDIN input information and instructions for filling files.
-*/
-      call read_input
+      xs_table1(0,0,0)=zero
+      xs_table2(0,0,0)=zero
+      xs_table3(0,0,0)=zero
+      xs_table4(0,0,0)=zero
+      xs_table5(0,0,0)=zero
 
       do j=1,xs_num_dep_var            // Main loop
 
 /* 
    Get fit information from ALADDIN. 
 */
-         call aladdin_read_coefs(ra_data_filename,ra_hier_label,
+         if (xs_organization[j] != 'table_external') 
+     $      call aladdin_read_coefs(ra_data_filename,ra_hier_label,
      $      ra_num_hier,ra_bool_and_label[1,j],ra_num_bool_and[j],
      $      ra_bool_not_label[1,j],ra_num_bool_not[j],fit_coef,
      $      num_fit_coef,leval)
@@ -302,103 +779,14 @@ impact processes.
             do k=0,xs_tab_index[3,j]-1
                ind_var[3]=ind_var_min[3]+areal(k)*ind_var_delta[3]
                if (xs_spacing[3,j] == 'log') ind_var[3]=exp(ind_var[3])
-               do l=0,xs_tab_index(2,j)-1
+               do l=0,xs_tab_index[2,j]-1
                   ind_var[2]=ind_var_min[2]+areal(l)*ind_var_delta[2]
                   if (xs_spacing[2,j] == 'log') ind_var[2]=exp(ind_var[2])
-                  do m=0,xs_tab_index(1,j)-1
+                  do m=0,xs_tab_index[1,j]-1
                      ind_var[1]=ind_var_min[1]+areal(m)*ind_var_delta[1]
                      if (xs_spacing[1,j] == 'log') ind_var[1]=exp(ind_var[1])
 
-/*
-   For cross sections, presumably will only be evaluating fits to fill
-   the table. Hence, |moment_number| is not needed. But,
-   for higher moments, the variable |moment_number| must be set. 
-   Determine the required value from the contents of |xs_var[0,j]|.
-*/
-                     if (xs_var[0,j] == 'cross_section') then
-	                assert(xs_organization[j] == 'table_eval')
-                     else if (xs_var[0,j] == 'reaction_rate') then
-                        moment_number=0
-                     else if (xs_var[0,j] == '1st_rate_moment') then
-                        moment_number=1
-                     else if (xs_var[0,j] == '2nd_rate_moment') then
-                        moment_number=2
-                     else if (xs_var[0,j] == '3rd_rate_moment') then
-                        moment_number=3
-                     else
-                        assert('Unknown dependent variable' == ' ')
-                     end if
-      
-/*
-   Now split up procedures according to rank of dependent variable. The
-   sorts of things we expect to find with |xs_rank| = 1 are: {\bf cross
-   sections} (to be evaluated) and rates for {\bf electron 
-   impact processes}. In the former case, the independent variable is
-   an energy, temperature for the latter.
-*/
-                     if (xs_rank[j] == 1) then
-                        assert(xs_units[1,j] == 'eV' || xs_units[1,j] == 'eV/amu')
-
-                        if (xs_organization[j] == 'table_calc') then
-                           assert(xs_var[1,j] == 'temperature')
-                           temperature=ind_var[1]   // {\bf Calculate} integral
-                           norm_constant=
-     $                        infinite_integral(electron_norm_integrand)
-                           num_evaluations=0
-                           zsigma=infinite_integral(electron_rate_integrand)
-                           zsigma=zsigma/norm_constant
-
-			else                        // {\bf Evaluate} fit
-                           if (xs_var[1,j] == 'energy') then
-                           zte_aladdin=dble(ind_var[1])  // It expects double
-                           else if (xs_var[1,j] == 'specific_energy') then
-                              assert(ra_mass_units == 'g')
-                              zte_aladdin=dble(ind_var[1]*ra_mass/atomic_mass_unit_g)
-                           else
-                              assert('Unexpected value of xs_var[1,j]' == ' ')
-                           end if
-                           zsigma=zero                   // Doesn't initialize 
-                           call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
-     $                        num_fit_coef,zsigma,error)
-                        end if
-
-/*
-   Alternatively, treat |xs_rank| = 2: expect an {\bf ion impact process}.
-*/
-                     else if (xs_rank[j] == 2) then
-                        assert(xs_units[1,j] == 'eV' || xs_units[1,j] == 'eV/amu')
-                        assert(xs_units[2,j] == 'eV' || xs_units[2,j] == 'eV/amu')
-                        assert(ra_mass_units == 'g')
-                        if ((xs_var[1,j] == 'specific_energy') 
-     $                     && (xs_var[2,j] == 'specific_temperature')) then
-                           zenergy=ind_var[1]
-                           ztemperature=ind_var[2]
-                        else if ((xs_var[1,j] == 'specific_temperature')
-     $                     && (xs_var[2,j] == 'specific_energy')) then
-                           ztemperature=ind_var[1]
-                           zenergy=ind_var[2]
-                        else
-                           assert('Unexpected values of xs_var' == ' ')
-                        end if
-                        if (xs_organization[j] == 'table_calc') then
-              
-                           up=sqrt(two*ztemperature)
-                           u=sqrt(two*zenergy)
-                           num_evaluations=0  
-                           zsigma=infinite_integral(ion_rate_integrand)
-                        else
-                           zte_aladdin=dble(ztemperature)
-                           num_fit_coef_aladdin=num_fit_coef+1
-                           fit_coef[num_fit_coef_aladdin]=dble(zenergy)
-                           zsigma=zero
-                           call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
-     $                        num_fit_coef_aladdin,zsigma,error)
-                        end if
-
-                     else
-                           assert('Ranks higher than 2 not treated' == ' ')
-                     end if
-
+                     zsigma=table_value(j,ind_var)
 /*
    Pay for efficiency in dimensioning |xs_table| differently for each |j|
    with this ugly if-then-else block; again, |xs_dep_var_max| is
@@ -442,6 +830,29 @@ impact processes.
                   xs_table5(m,0,0)=fit_coef[m+1]
                end if
             end do
+/*
+   For {\bf externally specified data}, fill table with the
+   appropriate number of zeroes.
+*/
+         else if (xs_organization[j] == 'table_external') then
+            do k=0,xs_tab_index[3,j]-1
+               do l=0,xs_tab_index[2,j]-1
+                  do m=0,xs_tab_index[1,j]-1
+                     if (j == 1) then
+                        xs_table1(m,l,k)=zero
+                     else if (j == 2) then
+                        xs_table2(m,l,k)=zero
+                     else if (j == 3) then
+                        xs_table3(m,l,k)=zero
+                     else if (j == 4) then
+                        xs_table4(m,l,k)=zero
+                     else if (j == 5) then
+                        xs_table5(m,l,k)=zero
+                     end if
+                  end do
+               end do
+            end do
+
          else
             assert('Unknown organization' == ' ')
          end if          // End for ``if'' on |xs_organization|
@@ -450,8 +861,9 @@ impact processes.
 /*
    All done. Write and close netCDF file
 */
-
-      fileout= filenames_array[aladoutfile]
+      p=0
+      assert( next_token(xs_name,b,e,p) )
+      fileout=xs_name(b:e) \/ '.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
       xs_ncdef(fileid)
       call ncendef(fileid,nc_stat)
@@ -463,229 +875,132 @@ impact processes.
       var_free(xs_tab5)
       call ncclose(fileid,nc_stat)
       
-      stop             
+      return
       end
 
-      @<Functions and subroutines@>
-
-@ Read input data into common variables and setup defaults.
-Presently, intend to read all of the data listed below from a file. However,
-some quantities are either determined locally or assumed to have
-specific values. Those variables are:
-\begin{description}
-  \item[|ra_num|*] Set by counting the corresponding labels.
-  \item[|xs_num_dep_var|] Set by counting the number of 
-dependent variables specified.
-  \item[|xs_rank|] Set by counting the number of independent variables.
-  \begin{itemize}
-    \item Note that when the organization is ``fit'', the |xs_table| array will
-effectively be of rank one, i.e., containing the fit coefficients.
-    \item Also in this case |xs_tab_index| is set temporarily
-to the parameter used to specify the maximum number of fit
-coefficients since the user will not know this in general.
-    \end{itemize}
-  \item[|xs_units|] Are assumed to be cgs or eV for temperature and energy.
-  \item[|xs_multiplier|] Are then the corresponding MKS conversion factors.
-\end{description}
+@ Table evaluation details. This routine uses the information about the
+dependent and independent variables to infer the type of evaluation which
+is required (cross section, electron reaction rate, ion reaction rate, etc.)
+and makes the appropriate function calls. The input parameters are |j| the
+index into the |xs| class variables for this dependent variable and 
+|ind_var| the values of the independent variables for this table entry.
 
 @<Functions...@>=
-      subroutine read_input
+      function table_value(j,ind_var)
       implicit_none
-      integer fileid,i,j                // Local
-      character*FILELEN fileout
-      
-      ra_common
-      nc_common
-      ra_ncdecl
+
+      real table_value                            // Function
+      integer j                                   // Input
+      real ind_var[xs_table_rank_max]
+
+      integer num_fit_coef_aladdin                // Local
+      real norm_constant,infinite_integral,zsigma,zenergy,ztemperature
+      double precision zte_aladdin,zdpsigma 
+      character*msg_length error
+
+      external electron_rate_integrand,           // External
+     $   electron_norm_integrand,ion_rate_integrand
+
       xs_common
-      sy_common
-      rf_common
-
-      ra_mass=const(3.3452,-24)
-      ra_mass_units='g'
-      ra_num_hier=14
-      ra_hier_label[1]='ION'
-      ra_hier_label[2]='H{2}'
-      ra_hier_label[3]='[+1]'
-      ra_hier_label[4]='(G)'
-      ra_hier_label[5]='He'
-      ra_hier_label[6]='[+0]'
-      ra_hier_label[7]='(G)'
-      ra_hier_label[8]='H{2}'
-      ra_hier_label[9]='[+1]'
-      ra_hier_label[10]='(G)'
-      ra_hier_label[11]='He'
-      ra_hier_label[12]='[+1]'
-      ra_hier_label[13]='(G)'
-      ra_hier_label[14]='e'
-      do j=1,xs_dep_var_max
-         ra_num_bool_and[j]=1
-         ra_num_bool_not[j]=0
-         if (j == 2) then
-            ra_bool_and_label[1,j]='RC'
-         else
-            ra_bool_and_label[1,j]='XS'
-         end if
-      end do
-      ra_data_filename='/u/ftp/pub/aladdin/data/janev.dat'
-
-/* 
-   These variables can be written as a netCDF file, if needed.
+      ra_common
+      ra_common_l
+/*
+   For cross sections, presumably will only be evaluating fits to fill
+   the table. Hence, |moment_number| is not needed. But,
+   for higher moments, the variable |moment_number| must be set. 
+   Determine the required value from the contents of |xs_var[0,j]|.
 */
-      fileout= filenames_array[aladinfile]
-      fileid=nccreate(fileout,NC_CLOBBER,nc_stat)
-      ra_ncdef(fileid)
-      call ncendef(fileid,nc_stat)
-      ra_ncwrite(fileid)
-      call ncclose(fileid,nc_stat)
-
-      xs_name='h2pheion'
-      xs_num_dep_var=5
-
-      xs_tab_index[1,1]=ra_fit_coef_max  // Set temporarily until get
-      xs_tab_index[2,1]=1                // actual value from ALADDIN
-      xs_tab_index[3,1]=1
-      xs_tab_index[1,2]=ra_fit_coef_max
-      xs_tab_index[2,2]=1
-      xs_tab_index[3,2]=1
-      xs_tab_index[1,3]=2
-      xs_tab_index[2,3]=4
-      xs_tab_index[3,3]=1
-      xs_tab_index[1,4]=2
-      xs_tab_index[2,4]=4
-      xs_tab_index[3,4]=1
-      xs_tab_index[1,5]=2
-      xs_tab_index[2,5]=4
-      xs_tab_index[3,5]=1
-
-      do j = 1, xs_num_dep_var
-         if ((j == 1) || (j == 2)) then
-            xs_organization[j]='fit'
-         else
-            xs_organization[j]='table_calc'
-         end if
-         xs_eval_name[j]='unknown'
-      end do
-
-      xs_rank[1]=1
-      do j=2,xs_num_dep_var
-         xs_rank[j]=2
-      end do
-
-      xs_min[1,1]=const(1.,2)
-      xs_max[1,1]=const(1.,6)
-      xs_min[1,2]=const(1.,2)
-      xs_max[1,2]=const(1.,4)
-      xs_min[1,3]=const(1.,2)
-      xs_max[1,3]=const(1.,3)
-      xs_min[1,4]=const(1.,2)
-      xs_max[1,4]=const(1.,3)
-      xs_min[1,5]=const(1.,2)
-      xs_max[1,5]=const(1.,3)
-
-      xs_min[2,2]=const(1.,1)
-      xs_max[2,2]=const(1.,4)
-      xs_min[2,3]=const(1.,1)
-      xs_max[2,3]=const(1.,4)
-      xs_min[2,4]=const(1.,1)
-      xs_max[2,4]=const(1.,4)
-      xs_min[2,5]=const(1.,1)
-      xs_max[2,5]=const(1.,4)
-
-      do j=1,xs_num_dep_var
-         xs_mult[0,j]=const(1.,-2)^(j+1)
-         xs_spacing[0,j]='log'
-         do i=1,xs_rank[j]
-            if (j <= 2) then
-               xs_mult[i,j]=electron_charge
-            else
-               xs_mult[i,j]=electron_charge/atomic_mass_unit
-            end if
-            xs_spacing[i,j]='log'
-         end do
-      end do
-
-      xs_var[0,1]='cross_section'
-      xs_units[0,1]='cm^2'
-      xs_var[1,1]='energy'
-      xs_units[1,1]='eV'
-      xs_var[0,2]='reaction_rate'
-      xs_units[0,2]='cm^3/s'
-      xs_var[1,2]='temperature'
-      xs_units[1,2]='eV'
-      xs_var[2,2]='energy'
-      xs_units[2,2]='eV'
-      xs_var[0,3]='1st_rate_moment'
-      xs_units[0,3]='cm^4/s^2'
-      xs_var[0,4]='2nd_rate_moment'
-      xs_units[0,4]='cm^5/s^3'
-      xs_var[0,5]='3rd_rate_moment'
-      xs_units[0,5]='cm^6/s^4'
-      do j=3,xs_num_dep_var
-         xs_var[1,j]='specific_temperature'
-         xs_units[1,j]='eV/amu'
-         xs_var[2,j]='specific_energy'
-         xs_units[2,j]='eV/amu'
-      end do
-
-      do j=1,xs_num_dep_var
-         if (xs_rank[j] < xs_table_rank_max) then
-            do i=xs_rank[j]+1,xs_table_rank_max
-               xs_var[i,j]='unknown'
-               xs_spacing[i,j]='unknown'
-               xs_units[i,j]='unknown'
-               xs_mult[i,j]=zero
-               xs_min[i,j]=zero
-               xs_max[i,j]=zero
-            end do
-         end if
-      end do
-
-      if (xs_num_dep_var < xs_dep_var_max) then
-         do j=xs_num_dep_var+1,xs_dep_var_max
-
-            xs_rank[j]=1
-            xs_organization[j]='unknown'
-            xs_var[0,j]='unknown'
-            xs_spacing[0,j]='unknown'
-            xs_units[0,j]='unknown'
-            xs_mult[0,j]=zero
-            do i=1,xs_table_rank_max
-               xs_var[i,j]='unknown'
-               xs_spacing[i,j]='unknown'
-               xs_units[i,j]='unknown'
-               xs_mult[i,j]=zero
-               xs_min[i,j]=zero
-               xs_max[i,j]=zero
-            end do
-         end do
+      if (xs_var[0,j] == 'cross_section') then
+         assert(xs_organization[j] == 'table_eval')
+      else if (xs_var[0,j] == 'reaction_rate') then
+         moment_number=0
+      else if (xs_var[0,j] == '1st_rate_moment') then
+         moment_number=1
+      else if (xs_var[0,j] == '2nd_rate_moment') then
+         moment_number=2
+      else if (xs_var[0,j] == '3rd_rate_moment') then
+         moment_number=3
+      else
+         assert('Unknown dependent variable' == ' ')
       end if
       
-/* 
-   Check some of the data parameters for consistency 
+/*
+   Now split up procedures according to rank of dependent variable. The
+   sorts of things we expect to find with |xs_rank| = 1 are: {\bf cross
+   sections} (to be evaluated) and rates for {\bf electron 
+   impact processes}. In the former case, the independent variable is
+   an energy, temperature for the latter.
 */
-      assert(xs_num_dep_var <= xs_dep_var_max)
+      if (xs_rank[j] == 1) then
+         assert(xs_units[1,j] == 'eV' || xs_units[1,j] == 'eV/amu')
 
-      do j=1,xs_num_dep_var
-         assert(xs_rank[j] <= xs_table_rank_max)
-      end do
+         if (xs_organization[j] == 'table_calc') then
+            assert(xs_var[1,j] == 'temperature')
+            temperature=ind_var[1]   // {\bf Calculate} integral
+            norm_constant=infinite_integral(electron_norm_integrand)
+            num_evaluations=0
+            zsigma=infinite_integral(electron_rate_integrand)
+            zsigma=zsigma/norm_constant
 
-      var_alloc(xs_tab1)
-      var_alloc(xs_tab2)
-      var_alloc(xs_tab3)
-      var_alloc(xs_tab4)
-      var_alloc(xs_tab5)
+         else                        // {\bf Evaluate} fit
+            if (xs_var[1,j] == 'energy' || xs_var[1,j] == 'temperature') then
+               zte_aladdin=dble(ind_var[1])               // It expects double
+            else if (xs_var[1,j] == 'specific_energy') then
+               assert(ra_mass_units == 'g')
+               zte_aladdin=dble(ind_var[1]*ra_mass/atomic_mass_unit_g)
+            else
+               assert('Unexpected value of xs_var[1,j]' == ' ')
+            end if
+            zdpsigma=zero                   // Doesn't initialize 
+            call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
+     $           num_fit_coef,zdpsigma,error)
+            zsigma=zdpsigma
+         end if
+      
+/*
+   Alternatively, treat |xs_rank| = 2: expect an {\bf ion impact process}.
+*/
+      else if (xs_rank[j] == 2) then
+         assert(xs_units[1,j] == 'eV' || xs_units[1,j] == 'eV/amu')
+         assert(xs_units[2,j] == 'eV' || xs_units[2,j] == 'eV/amu')
+         assert(ra_mass_units == 'g')
+         if ((xs_var[1,j] == 'specific_energy') 
+     $        && (xs_var[2,j] == 'specific_temperature')) then
+            zenergy=ind_var[1]
+            ztemperature=ind_var[2]
+         else if ((xs_var[1,j] == 'specific_temperature')
+     $           && (xs_var[2,j] == 'specific_energy')) then
+            ztemperature=ind_var[1]
+            zenergy=ind_var[2]
+         else
+            assert('Unexpected values of xs_var' == ' ')
+         end if
+         if (xs_organization[j] == 'table_calc') then
+              
+            up=sqrt(two*ztemperature)
+            u=sqrt(two*zenergy)
+            num_evaluations=0  
+            zsigma=infinite_integral(ion_rate_integrand)
+         else
+            zte_aladdin=dble(ztemperature)
+            num_fit_coef_aladdin=num_fit_coef+1
+            fit_coef[num_fit_coef_aladdin]=dble(zenergy)
+            zdpsigma=zero
+            call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
+     $           num_fit_coef_aladdin,zdpsigma,error)
+            zsigma=areal(zdpsigma)
+         end if
 
-      xs_table1(0,0,0)=zero
-      xs_table2(0,0,0)=zero
-      xs_table3(0,0,0)=zero
-      xs_table4(0,0,0)=zero
-      xs_table5(0,0,0)=zero
+      else
+         assert('Ranks higher than 2 not treated' == ' ')
+      end if
+
+      table_value=zsigma
 
       return
       end
 
-@* Compute Dependent Variable ``delta''s. These steps
+@ Compute Dependent Variable ``delta''s. These steps
 will be executed frequently throughout the code. Perhaps this
 routine can be standardized and used in many places. The minimum
 |min_value| and maximum |max_value| are input. A uniform series
@@ -724,7 +1039,7 @@ is used to effect a change in units. Hence, the output minimum
       return
       end
 
-@* Integrands for Rate Ralculations. 
+@* Integrands for Rate Calculations. 
 This routine is a single argument function which provides the integrand
 in a calculation of velocity-weighted averages of a user-specified
 function over a user-specified distribution function. The principle
@@ -974,9 +1289,10 @@ is returned in |leval|.
 
       logical end_of_file,match                              // Local variables
       character*msg_length errmsg
-      integer ientry
+      integer ientry,alad_diskin
 
-      open(diskin,file=filename,status='old')
+      alad_diskin=diskin+1
+      open(alad_diskin,file=filename,status='old')
 
 /* 
    Loop through entries in |filename| 
@@ -984,7 +1300,7 @@ is returned in |leval|.
       ientry=0
 
 loop: continue
-      call alread(diskin,ientry,end_of_file,errmsg)
+      call alread(alad_diskin,ientry,end_of_file,errmsg)
 
       assert(!end_of_file)
       assert(errmsg == ' ')
@@ -995,7 +1311,7 @@ loop: continue
       call alcomp(hier_label,num_hier,bool_and_label,num_bool_and,bool_not_label,num_bool_not,match)
       if (!match) goto loop
 
-      close(unit=diskin)                                        // Have a match
+      close(unit=alad_diskin)                                  // Have a match
 
 /* 
    Decode coefficients; check first that access label is the standard one 
