@@ -3,6 +3,13 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.29  1997/09/02 21:14:32  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.28  1997/08/21 01:46:17  karney
 % Convert rest of memory allocation to fortran 90 standard.
 %
@@ -170,7 +177,6 @@ uninitialized; these are set in |boundaries_neighbors|.
 
       var_realloca(strata)
       var_realloca(sector_strata_segment)
-      var_realloca(sectors)
       var_realloca(sector_zone)
       var_realloca(sector_surface)
       var_realloca(sector_points)
@@ -178,7 +184,8 @@ uninitialized; these are set in |boundaries_neighbors|.
 
       strata[nsectors]=int_unused
       sector_strata_segment[nsectors]=int_unused
-      sectors[nsectors]=int_unused
+// |sectors| hasn't been allocated yet and isn't used until |end_sectors|
+ //     sectors[nsectors]=int_unused   
       sector_zone[nsectors]=int_unused
       sector_surface[nsectors]=int_unused
       vc_set(sector_points[nsectors][sc_neg],real_unused,real_unused,real_unused)
