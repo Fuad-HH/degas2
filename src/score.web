@@ -3,6 +3,10 @@
 \Title{score}
 
 % $Log$
+% Revision 1.6  1998/05/08 14:10:54  dstotler
+% Add compression of intermediate scoring arrays. Modify to use
+% pr_var0_list for string variables.
+%
 % Revision 1.5  1998/04/27 17:26:01  karney
 % Reorder common block includes to avoid complaints from DEC compilers.
 % Remove spurious -R load flag from Makefile.
@@ -32,7 +36,9 @@
 
 @m FILE 'score.web'
 
-@m max_segments 36
+@m STARK 0
+
+@m max_segments 40
 
 @I macros.hweb
 @I sysdep.hweb
@@ -666,8 +672,10 @@ wavelength of emissions.
      $   number_bins,bins,bin_label,geom_mult)
 
       implicit_none_f77
+      zn_common
       de_common                                       // Common
       pr_common
+      bk_common
       tl_common
       implicit_none_f90
       
@@ -685,7 +693,8 @@ wavelength of emissions.
       integer de_group,iview,i,ibin,num_lines,i_e_rate,       // Local
      $        i_line
       integer lines[max_lines],e_rates[max_lines]
-      real lambda0,lambda,lambda_f,dl,vth,delta_l_th,f
+      real lambda0,lambda,lambda_f,dl,vth,delta_l_th,f,density,delta_l_st,
+     $     x_voigt,y_voigt
       character*tl_tag_length line
       vc_decl(v)
       logical init
@@ -693,8 +702,8 @@ wavelength of emissions.
       lc_decls
       st_decls
 
-      external find_lambda                                    // External
-      real find_lambda
+      external find_lambda,voigt                               // External
+      real find_lambda,voigt
 
       save init,num_lines,lines,e_rates
       data init/.true./
@@ -751,6 +760,17 @@ wavelength of emissions.
          bins[1]=0
       end if
 
+      density=bk_n(1,lc_zone(pt_loc(p)))       // electron density
+      if (density < const(1.,20)) then
+         delta_l_st=const(0.1)*(density/const(1.,20))
+      else if (density < const(1.,21)) then
+         delta_l_st=const(0.1)+(const(0.4)/const(9.))*(density/const(1.,20)-one)
+      else if (density < const(1.,22)) then
+         delta_l_st=const(0.5)+(const(1.9)/const(9.))*(density/const(1.,21)-one)
+      else
+         delta_l_st=const(2.4)
+      end if
+      delta_l_st*=const(1.,-10)    // from Angstroms to meters
       do i=1,detector_num_views[de_group]
          iview=de_view_pointer(i,de_group)
          if (de_zone_frags[lc_zone(pt_loc(p))][iview] != zero) then
@@ -764,6 +784,7 @@ wavelength of emissions.
                if (vth==zero) then
                   lambda=find_lambda(vc_args(lc_x(pt_loc(p))),vc_args(v),
      $                 vc_args(de_view_points[iview][de_view_start]),lambda0)
+@#if !STARK
                   number_bins=1
                   if (detector_spacing[de_group] == de_spacing_log)
      $                 lambda=log(lambda)
@@ -784,6 +805,21 @@ wavelength of emissions.
                      bins[1]=1            
                      geom_mult[number_segments][1]=zero  // Outside bin range: throw out
                   end if
+@#else
+                  number_bins=detector_tab_index[de_group]
+                  assert(number_bins <= max_bins)
+                  assert(delta_l_st > zero)
+                  do ibin=1,number_bins
+                     bins[ibin]=ibin
+                     lambda_f=detector_min[de_group]
+     $                    +(ibin-half)*detector_delta[de_group]
+                     assert(detector_spacing[de_group] == de_spacing_linear)
+                     dl=detector_delta[de_group]
+                     f=(delta_l_st/PI)/((lambda_f-lambda)**2+delta_l_st**2)
+                     geom_mult[number_segments][ibin]=f*dl
+     $                    *de_zone_frags[lc_zone(pt_loc(p))][iview]
+                  end do
+@#endif
 /*
    Maxwellian Distributed Profile
 */
@@ -804,8 +840,15 @@ wavelength of emissions.
                         assert(detector_spacing[de_group] == de_spacing_linear)
                         dl=detector_delta[de_group]
                      end if
-                     f=(exp(-half*(lambda-lambda_f)^2/delta_l_th^2))
-     $                    /(delta_l_th*sqrt(two*PI))
+                     x_voigt=(lambda-lambda_f)/(sqrt(two)*delta_l_th)
+@#if !STARK
+                     f=exp(-x_voigt^2)
+@#else
+                     assert(delta_l_st > zero)
+                     y_voigt=delta_l_st / (sqrt(two)*delta_l_th)
+                     f=voigt(x_voigt,y_voigt)
+@#endif
+                     f/=(delta_l_th*sqrt(two*PI))
                      geom_mult[number_segments][ibin]=f*dl
      $                    *de_zone_frags[lc_zone(pt_loc(p))][iview]
                   end do
