@@ -1,5 +1,10 @@
 # $Id$
 # $Log$
+# Revision 1.75  2001/11/16 15:35:06  dstotler
+# Add defineback. Add variable settings for Fujitsu compiler, including
+# COFLAGS to contain flags for the compile-only stage. Add composite.o
+# to dependencies for flighttest.
+#
 # Revision 1.74  2001/07/16 20:34:54  dstotler
 # Add aux2dsetup to readbackground dependencies. Add writeback to
 # flighttest dependencies. Removed degas2.in as a dependency. Add
@@ -421,6 +426,10 @@ ALADIR=$(DEGASROOT)/degas2/Aladdin
 
 CRAMDIR=$(DEGASROOT)/degas2/CRAMD
 
+DETECTORFILE=$(shell if ([ -s $(SOURCEDIR)/usr2ddetector.web ]) || ([ -s $(SOURCEDIR)/usr2ddetector.f ]); then echo usr2ddetector; else echo def2ddetector; fi)
+
+PLASMAFILE=$(shell if ([ -s $(SOURCEDIR)/usr2dplasma.web ]) || ([ -s $(SOURCEDIR)/usr2dplasma.f ]); then echo usr2dplasma; else echo def2dplasma; fi)
+
 Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
 Makefile.depends: $(SOURCEDIR)/Makefile.depends
@@ -728,15 +737,15 @@ test = test.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O co
 test_libs = $(NETCDF)
 test: $(test) $(foreach arg,$(subst .$O,_mods,$(test)),$($(arg)))
 
-readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O pmimatread.$O dediagsetup.$O aux2dsetup.$O
+readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O pmimatread.$O dediagsetup.$O aux2dsetup.$O $(DETECTORFILE).$O
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
 
-definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O 
+definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O $(DETECTORFILE).$O
 definegeometry2d_libs = $(NETCDF)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
-defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O
+defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O $(PLASMAFILE).$O
 defineback_libs = $(NETCDF)
 defineback: $(defineback) $(foreach arg,$(subst .$O,_mods,$(defineback)),$($(arg)))
 
