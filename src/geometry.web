@@ -3,6 +3,9 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.30  1998/06/01 15:56:33  karney
+% MPI enabled version.
+%
 % Revision 1.29  1998/04/16 15:31:02  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -820,13 +823,20 @@ $\vect e_2 = \vect e_3 \times \vect e_1$.
       vc_unit(e3,e3)
       vc_xvt(v,e3,-vc_product(e3,v),e1)
 
+@#if 0
       if (vc_abs(e1) == zero) then // $\vect v_\parallel = 0$, so choose an arbitrary direction in the surface
+@#else
+      if (vc_abs(e1) <= vc_abs(v)*epsilon) then
+@#endif
          vc_set(e2,one,zero,zero)
          vc_cross(e3,e2,e1)
          if (vc_abs(e1) == zero) then
             e[2,2]=one
             vc_cross(e3,e2,e1)
          end if
+      end if
+      if (vc_abs(v) > zero) then
+         assert(vc_abs(e1)/vc_abs(v) > sqrt(epsilon)) // Test, to see if anything squeaks by
       end if
 
       vc_unit(e1,e1)
