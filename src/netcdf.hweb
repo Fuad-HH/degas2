@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1993/09/24  21:21:28  karney
+% Corrected spelling of ncredf
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -81,7 +84,7 @@ Convert to LaTeX/NFSS
       _IF(rank_##name >= 3, nc_dims(3)=dimid(ind_##name##_3);,)
       _IF(rank_##name >= 4, nc_dims(4)=dimid(ind_##name##_4);,)
       _IF(rank_##name >= 5, nc_dims(5)=dimid(ind_##name##_5);,)
-      name##_id = ncvardef(fileid,#name,
+      dimid(name) = ncvardef(fileid,#name,
       _IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL),
       rank_##name,nc_dims,nc_stat) @;
 
@@ -92,8 +95,8 @@ Convert to LaTeX/NFSS
       _IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
       _IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
       _IF(type_##name == CHAR,
-        call ncvarputc(fileid,name##_id,nc_corner,nc_edge,name,array_size(name),nc_stat),
-        call ncvarput(fileid,name##_id,nc_corner,nc_edge,name,nc_stat)) @;
+        call ncvarputc(fileid,dimid(name),nc_corner,nc_edge,name,array_size(name),nc_stat),
+        call ncvarput(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
 
 @m dimen_inq(fileid,name)
       dimid(name) = ncdimid(fileid,#name,nc_stat);
@@ -101,8 +104,8 @@ Convert to LaTeX/NFSS
       assert(nc_size == range_size(name)) @;
 
 @m var_inq(fileid,name)
-      name##_id = ncvarid(fileid,#name,nc_stat);
-      call ncvarinq(fileid,name##_id,nc_dummy,nc_type,nc_rank,nc_dims,nc_attr,nc_stat);
+      dimid(name) = ncvarid(fileid,#name,nc_stat);
+      call ncvarinq(fileid,dimid(name),nc_dummy,nc_type,nc_rank,nc_dims,nc_attr,nc_stat);
       assert(nc_rank >= 0 && nc_rank <= MAX_DIM);
       assert(nc_rank == rank_##name);
       _IF(rank_##name >= 1, assert( nc_dims(1) == dimid(ind_##name##_1) );,)
@@ -119,6 +122,6 @@ Convert to LaTeX/NFSS
       _IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
       _IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
       _IF(type_##name == CHAR,
-        call ncvargetc(fileid,name##_id,nc_corner,nc_edge,name,array_size(name),nc_stat),
-        call ncvarget(fileid,name##_id,nc_corner,nc_edge,name,nc_stat)) @;
+        call ncvargetc(fileid,dimid(name),nc_corner,nc_edge,name,array_size(name),nc_stat),
+        call ncvarget(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
 
