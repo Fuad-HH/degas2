@@ -2,6 +2,9 @@
 \Title{defineback}
 
 % $Log$
+% Revision 1.1  2001/11/16 15:33:47  dstotler
+% Added to repository.
+%
 
 @* A Program for Defining 2-D Plasmas. This program is designed to be used
 in conjunction with {\tt definegeometry2d}. Like {\tt definegeometry2d}, 
@@ -43,7 +46,9 @@ defineback an_input_file
 Like other text input files used in {\tt DEGAS 2}, blank lines,
 spaces, and lines 
 beginning with a comment character \verb+#+ are ignored (comments can
-also appear at the end of a line). 
+also appear at the end of a line).  This is true not only for the
+main input file, \verb+an_input_file+, but also for the text files to
+which it refers.
 
 \section{Example Input File}
 
@@ -78,17 +83,32 @@ end_source_group
 
 \section{Plasma Data}
 This program contains by default a rather general mechanism for specifying the
-plasma data via a text file. 
+plasma data via a text file. The data can either be formatted in labeled
+columns or in more freely formatted rows. The ordering of 
+the data in either case can match that of the zones or can be specified
+by a list of zone numbers.
 
 As in the above example, there is essentially only one keyword associated
 with specifying the plasma data, |plasma_file|. In the default 
-implementation, this keyword has a single argument consisting of the name
-of the file containing the plasma data to be read in. 
+implementation, the first argument to this keyword is the name
+of the file containing the plasma data to be read in. If the 
+data are in the row-oriented format, a second argument \verb+row+ must
+appear after the file name. E.g., for the example above,
 
-The default implementation requires the plasma data to be in a tabular
-format (with space or tab delimiters, just like any other {\tt DEGAS 2}
-text input file). The key
-assumption for this routine is that
+\begin{verbatim}
+plasma_file mrx_plasma3 row
+\end{verbatim}
+
+There is also a keyword |plasma_coords| allowing the user to specify 
+the coordinate system of the plasma velocities as either |cartesian|
+or \verb+cylindrical+. In two-dimensional problems, this choice is
+governed by the symmetry specified in {\tt definegeometry2d}.  As
+such, the user can ignore this keyword. It is provided only for
+completeness.
+
+\subsection{Tabular Format}
+The key
+assumption for the tabular format is that
 all data pertaining to a particular zone are contained on a single line of
 the file. If the zone number is provided as the first number of a line,
 it will be used in assigning the data values on that line; in principle,
@@ -114,7 +134,9 @@ give the temperature and density of the first background species (referring
 to their ordering in the input file provided for {\tt problemsetup}). The
 last two columns have the temperature and density for the second 
 background species. Note that the assumed units are eV for temperatures
-and m$^{-3}$ for densities. Velocities (in meters per second) 
+and m$^{-3}$ for densities. 
+
+Velocities (in meters per second) 
 would be indicated by a string like
 \verb+V2(1)+ to indicate the velocity in the $x_{2}$ (e.g., $y$) direction
 for the first background species. The columns may be in any order. The
@@ -123,13 +145,86 @@ strings can be either lower or upper case (e.g., \verb+ZONE+ or
 particular data are not provided (such as the velocities in the above example),
 default values of $0$ will be used. 
 
-There is also a keyword |plasma_coords| allowing the user to specify 
-the coordinate system of the plasma velocities as either |cartesian|
-or \verb+cylindrical+. In two-dimensional problems, this choice is
-governed by the symmetry specified in {\tt definegeometry2d}.  As
-such, the user can ignore this keyword. It is provided only for
-completeness.
+Cases in which the plasma mesh has been created with the 
+\verb+sonnet_mesh+ or \verb+uedge_mesh+
+commands in {\tt definegeometry2d} provide the best opportunity for
+simplifying the ordering of the plasma data in {\tt defineback}.
+At present, the zones representing such a plasma mesh 
+are defined in nested do loops according to:
 
+\begin{verbatim}
+zone=0
+do ix=1,nx
+  do iz=1,nz
+    zone=zone+1
+    .
+    .
+    .
+\end{verbatim}
+where |ix| represents the first of the two indices used by {\tt UEDGE} or 
+{\tt Sonnet} and |iz| represents the second.
+So, if the data are written out by looping over the |iz| index first, 
+the zone number would not need to be specified.
+need to specify the zone number.  
+
+If some other ordering we easier to generate, a separate column of zone
+numbers would be needed, computed according to 
+$|zone| = |iz| + (|ix|-1)|ny|$.
+
+\subsection{Row Format}
+
+The tabular format can be easier to read, but more difficult to generate and
+manipulate. For that reason, a more loosely structured, row-oriented
+format is provided. Here's an example of such a file:
+
+\begin{verbatim}
+#
+  N(1)
+#
+  2.17708e+18  2.34353e+18  2.67808e+18  3.02909e+18  3.40510e+18
+3.81293e+18
+  4.25755e+18  4.74202e+18  5.27144e+18  5.84497e+18  1.20000e+20
+1.20000e+20
+  1.20000e+20  1.20000e+20  1.20000e+20  1.20000e+20  1.20000e+20
+1.20000e+20
+  1.20000e+20  1.20000e+20  1.20000e+20  1.20000e+20  1.20000e+20
+1.20000e+20
+  1.20000e+20  1.20000e+20  1.20000e+20  1.20000e+20  1.20000e+20
+1.20000e+20
+#
+   T(2) J
+#
+  1.77525e-19  1.77495e-19  1.77435e-19  1.77372e-19  1.77304e-19
+1.77230e-19
+  1.77150e-19  1.77062e-19  1.76967e-19  1.76863e-19  4.00000e-17
+4.00000e-17
+  4.00000e-17  4.00000e-17  4.00000e-17  4.00000e-17  4.00000e-17
+4.00000e-17
+  4.00000e-17  4.00000e-17  4.00000e-17  4.00000e-17  4.00000e-17
+4.00000e-17
+  4.00000e-17  4.00000e-17  4.00000e-17  4.00000e-17  4.00000e-17
+4.00000e-17
+\end{verbatim}
+
+These data are read in row-by-row.  As in the tabular case, the default is 
+that the data are listed according to zone number.  If some other order
+is required, a list of zones can provided {\em as the first item in the file}.
+The labels are parsed in the same way as those for the tabular format. Note
+that the labels actually serve as the delimiters for the data. That is, the 
+reading routine will just keep reading row
+after row until it reaches another data label, so the data do not have to be
+formatted in any particular way (you can even have one data value per line -
+i.e., a single column of data).  The only constraint is that there be no
+more than 136 characters on a line.
+
+Again, the default unit for the temperature data is eV. 
+The temperature can also be specified in joules.
+A units string indicating as much should be added to the label, as shown
+above. To avoid confusion, the code will also recognize ``eV'' as a units label
+for the temperature. {\em Note that this facility is currently not
+available for tabular data; those temperatures must all be in eV.}
+
+\subsection{Non-default Plasma Data}
 The |get_n_t| 
 subroutine that reads the plasma file has a 
 simple, but flexible interface consisting of the string that follows the
@@ -157,20 +252,37 @@ An example of such a subroutine, used in work on the
 National Compact Stellarator Experiment (NCSX), is included here as
 an example. 
 The version of the |get_n_t| subroutine to be
-used is controlled by the \verb+GEOMETRY+ macro at the top of the file.
-The default behavior is obtained by setting it to \verb+DEFAULT+ before
-compiling. If set to \verb+NCSX+, the specialized routine designated with
-the {\tt FWEB} tag ``Plasma Data for NCSX'' is invoked. If your problem
-needs such additional processing, you can either replace this subroutine
-or add it to the end of the file. In the latter case, you will need to
-define an additional FWEB macro variable and tag to force it to be used
-when {\tt ftangle} is run.
+used is controlled by file names. The default routine is contained in the
+file |def2dplasma.web|. A replacement routine will be loaded automatically
+by the {\tt Makefile} if it is contained in a file named |usr2dplasma.web|.
+The NCSX example file is called |ncsxplasma.web|. In practice, one would
+use such a file by
+executing commands analogous to:
+\begin{verbatim}
+cd $HOME/degas2/src
+cp ncsxplasma.web usr2dplasma.web
+touch usr2dplasmar.web
+cd ../SUN
+gmake defineback
+\end{verbatim}
 
-The \verb+NCSX+ example shows how the stratum label available in 
+Likewise, to revert to the default subroutine,
+\begin{verbatim}
+cd $HOME/degas2/src
+rm usr2dplasma.web
+touch def2dplasma.web
+cd ../SUN
+gmake defineback
+\end{verbatim}
+
+Note the use of the \verb+touch+ command to make sure \verb+gmake+ 
+recognizes the change.
+
+The NCSX example shows how the stratum label available in 
 {\tt definegeometry2d} can be
 used to locate the zones generated by the triangulation of a 
 particular polygon specified in a
-{\tt definegeometry2d} input file. Namely, the polygons in the \verb+NCSX+ 
+{\tt definegeometry2d} input file. Namely, the polygons in the NCSX 
 problem
 were drawn so that plasma parameters would be constant over them (they 
 corresponded to magnetic flux surfaces); each of
@@ -190,7 +302,18 @@ As the above example input file
 shows, each source group is specified in its own section.
 The specification is begun with a |new_source_group| command and ended with
 |end_source_group|. The order of the keywords in between {\em should not} 
-matter. 
+matter.
+
+For very simple sources (e.g., consisting of a two or three source segments),
+the requisite data can all be specified explicitly in the {\tt defineback} 
+input file. In other cases, only the ``global'' parameters for the source
+group appear in the {\tt defineback} input file, and the segment-dependent
+data (|source_stratum|, |source_segment|, and |source_strength|) are
+placed in a separate file pointed to by the |source_file| keyword. This 
+option also permits the specification of local plasma data that can be
+used in the case of a plasma recycling flux to compute the sheath potential
+or even the magnitude of the flux. As in the plasma data files, both
+tabular and row formats are permitted for the source files.
 
 Each of the keywords occupies a line of the form:
 
@@ -263,6 +386,13 @@ specifying the location and strength of the source (i.e., in lieu of
 using |source_stratum|, |source_segment|, and |source_strength|). 
 The file {\tt filename} is a text file of the usual type in which
 blank lines and comment lines beginning with \verb+#+ are ignored.
+The tabular and row-oriented formats available for these files are
+described below.
+\end{description}
+
+\subsection{Tabular Format}
+The tabular format is somewhat restrictive. Unlike the analogous option for
+the plasma data, no header line is needed.
 Each line specifies a source segment:  
 
 $i_{\rm stratum}$ $i_{\rm segment}$ $S_{\rm strength}$ 
@@ -271,22 +401,127 @@ That is, the stratum and segment numbers followed by its strength. This
 is the only permissible order for the three parameters. No wild cards
 are allowed. The units of the source strength are determined by which 
 of |specify_flux| and |specify_current| is in effect.
-\end{description}
 
-\section{Other Considerations}
+When the source group is processed (following the |end_source_group| 
+command), the code will print out the endpoint coordinates (only
+$x$ and $z$) of the sector associated with each source segment to provide
+the user with feedback on their specification.
 
-If a plate source is specified, a default sheath physics model 
-is implemented. 
-The |target_e_ion_mult| array is set to $1$, implying that
-the source ion energy will start at  
-$1$ times the thermal energy corresponding to 
-the local ion temperature. 
-A fixed sheath potential of $3 T_{e}$ is assumed (the 
-code will expect the electron species to be the first background
-species; again, this is not intended to be a refined implementation).
-The sheath potential is placed into the |target_e_ion_delta|, representing
-a constant (for each source particle starting at that segment) increment
-to the source ion's energy.
+\subsection{Row Format}
+
+The row format appears to be the more
+attractive option for the user because of its greater flexibility. For this
+reason, efforts to extend this code's functionality have focussed on it.
+Roughly speaking, the format is the same as that of a row-oriented plasma
+data file; only the labels used will differ.
+
+The simplest form for a source file would have sections for the
+stratum number (using the label \verb+stratum+; the code will also
+recognize \verb+STRATUM+ and \verb+Stratum+), the stratum segment 
+number (\verb+segment+; the alternative capitalizations will also work), and
+source strength (\verb+f+ or \verb+F+; ``f'' stands for flux, although the
+meaning of the data provided is determined by which of |specify_flux|
+and |specify_current| is in effect).
+
+Fluid plasma codes usually maintain plasma data in small zones directly 
+adjacent to the target for the purpose of setting boundary conditions.
+The zones are too small to merit direct inclusion in the neutral transport
+simulation. However, the data contained in them can be used for a recycling
+source to compute the
+local sheath potential or even the plasma flux.
+
+\subsection{Sheath Model}
+
+The basic default parameters for the sheath model used when simulating
+a plate source are set when the sectors
+associated with a source are defined, e.g., during |definegeometry2d|: 
+$|target_e_ion_delta| = 0$ and $|target_e_ion_mult| = 1$.
+Since this step precedes the plasma specification, it necessarily is
+ignorant of the plasma parameters in the vicinity of that sector.
+
+When |defineback| sets up the segments of a plate source it will attempt
+to rectify this situation. If specific plasma data for the sector
+are not specified (as described below), provided the electron
+temperature in the plasma zone adjacent to the source sector is 
+positive, it will set $|target_e_ion_delta| = 3 T_{e}$ (explicitly
+assuming that electrons are the first background species), leaving
+|target_e_ion_mult| set to 1. In this case, the $3 T_{e}$ represents
+a simple value for the sheath potential.
+
+If specific plasma parameters are available for the source sector, such 
+as those computed by a fluid plasma code for the purposes of setting
+boundary conditions, they can be included in a row-oriented source
+file. The same types of 
+labels used for the plasma density, temperature, and velocity
+in a plasma data file will be recognized. The difference, of course, is
+that the values will correspond to the source segments, rather than
+to zones. 
+
+The sheath model currently in use needs only the electron temperature 
+$T_{e}$, the
+temperature of the source ion $T_{i}$, and the source ion species' flow 
+velocity
+vector $\vec{v}_{i}$. The result is a value for the incident ion
+energy $E_{i}$
+\begin{eqnarray}
+E_{i} & = & 3 T_{i} + \left ( \frac{1}{2} + \phi \right) T_{e}, 
+\label{ei} \\ \label{phi}
+\phi & =  & -\ln \left( \frac{\sqrt{2 \pi} \, @| \vec{v}_{i} @| }{\sqrt{T_{e} / m_{e}}} \right)
+% \phi & = & - \ln \left( \frac{\sqrt{2 \pi} \left \|\vec{v}_{i} \right \|}
+% {\sqrt{T_{e} / m_{e}}} \right)  \\
+\end{eqnarray}
+Since the model depends on only the magnitude of the flow velocity,
+|defineback| will also proceed to evaluate these expressions if just
+the parallel velocity (labeled by \verb+v_par+) is provided. The result
+is placed into the appropriate element of |target_e_ion_delta| and the
+corresponding entry in |target_e_ion_mult| is set to zero.
+
+\subsection{Plasma Flux Computation}
+
+The strength of the source can be computed directly by {\tt defineback} if
+the requisite data are provided in a row-oriented source file. In this
+case, there is no need to explicitly specify the strength of the source
+in the input file(s) (more precisely, if a strength is specified, the flux
+will not be computed). 
+
+The code will need:
+\begin{enumerate}
+  \item The source ion density, e.g., labeled \verb+N(2)+,
+  \item The source ion {\em parallel} velocity, e.g., labeled \verb+v_par+
+(also, \verb+V_PAR+, \verb+V_Par+, etc.),
+  \item The {\em parallel} (i.e., taking into account the field line
+pitch and angle of incidence on the surface) 
+area, e.g., labeled \verb+Area+ (also 
+\verb+area+ or \verb+Area+). 
+\end{enumerate}
+
+The |specify_current| option needs to be given 
+to prevent the perpendicular area from being factored in when the internal
+source arrays are loaded.As noted above, 
+if the electron temperature is also provided, the code
+will evaluate the incident ion energy using Eqs.~(\ref{ei}) and (\ref{phi}).
+
+\subsection{Additional Comments on Source Locations}
+
+The stratum is just the stratum
+label assigned in the {\tt definegeometry2d} input file
+to the polygon that contains the solid surface that the source ions
+ions will be striking.  This number should be the same for all of the
+elements of each source group.  The segment number is determined by the
+location of that solid surface within the list of polygon points.  
+One way to automate the setting of the segment number is to 
+arrange the polygon points in the {\tt definegeometry2d} input file
+so that the
+first points in the polygon are the ones that will be used as
+source segments. 
+Then, you'll know that the segment number
+goes from 1 to the desired number of segments.  
+Note that for {\tt definegeometry2d} to keep track of
+the segment numbers, the polygon has to be specified in a clockwise
+direction.  An alternative approach would be to define an
+auxiliary stratum for each source group consisting of just the
+desired segments. Again, the segment numbers would just range from 1
+to the number of source segments.
 
 \ID{$Id$}
 
@@ -306,7 +541,7 @@ to the source ion's energy.
 @I geometry2d.hweb
 @I location.hweb
 
-@ The main program.
+@* The Main Program.
 
 @a
       program defineback
@@ -349,12 +584,33 @@ to the source ion's energy.
 
       @<Functions and subroutines@>
 
-@ Setup background.
+@* Main Subroutine.
 
-@m DEFAULT 0          // Reads plasma data from a file 
-@m NCSX 1             // Plasma data computed using data from 3 files
+@m code_undefined 0
+@m code_int 1
+@m code_real 2
 
-@m GEOMETRY DEFAULT
+@m code_int_min 1
+@m code_zone 1
+@m code_stratum 2
+@m code_segment 3
+@m code_all_segs 4
+@m code_int_max 4
+
+@m code_real_min 11              // These two lists need to be separate
+@m code_density 11
+@m code_temperature_J 12
+@m code_temperature_eV 13
+@m code_electron_temperature 14
+@m code_velocity_1 15
+@m code_velocity_2 16
+@m code_velocity_3 17
+@m code_velocity_par 18
+@m code_area 19
+@m code_strength 20
+@m code_e_delta 21
+@m code_e_mult 22
+@m code_real_max 22
 
 @m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
          assert(open_stat == 0) @;
@@ -366,30 +622,32 @@ to the source ion's energy.
 @m segments_done #:0
 @m next_strength #:0
 @m strengths_done #:0
-@m next_srcline #:0
-@m srcfile_done #:0
+@m next_tabline #:0
+@m next_rowline #:0
+@m next_datum #:0
 
 @m increment_iseg iseg++;
       if (iseg > dim_segments) then;
          dim_segments=iseg;
-         var_realloca(source_stratum);
-         var_realloca(source_segment);
-         var_realloca(all_segments);
-         var_realloca(source_strength);
-         source_stratum[iseg]=int_uninit;
-         source_segment[iseg]=int_uninit;
-         all_segments[iseg]=FALSE;
-         source_strength[iseg]=real_uninit;
+         var_realloca(source_int_params);
+         var_realloca(source_real_params);
+         do i=code_int_min,code_int_max;
+            source_int_params[iseg][i]=int_uninit;
+         end do;
+         source_int_params[iseg][code_all_segs]=FALSE;
+         do i=code_real_min,code_real_max;
+            source_real_params[iseg][i]=real_uninit;
+         end do;
       end if @;
 
 @<Functions...@>=
       subroutine setup_background(inputfile)
 
+      define_dimen(int_params_ind,code_int_min,code_int_max)
+      define_dimen(real_params_ind,code_real_min,code_real_max)
       define_dimen(segment_ind,dim_segments)
-      define_varp(source_strength,FLOAT,segment_ind)
-      define_varp(source_stratum,INT,segment_ind)
-      define_varp(source_segment,INT,segment_ind)
-      define_varp(all_segments,INT,segment_ind)
+      define_varp(source_int_params,INT,int_params_ind,segment_ind)
+      define_varp(source_real_params,FLOAT,real_params_ind,segment_ind)
 
       implicit_none_f77
       gi_common                                                // Common      
@@ -403,14 +661,18 @@ to the source ion's energy.
 
       character*FILELEN inputfile                               // Input
 
-      real density,temperature,dummy,circum,area                // Local
+      real density,temperature,dummy,circum,area,               // Local
+     $     rtest,real_mult     
       integer type,geom,nflights,length,p,b,e,nunit_n,specify_flux,
      $        nunit_t,num_segments,iseg,i,uedge,open_stat,targ,diskin2,
-     $        dim_segments
+     $        dim_segments,itest,data_type,data_code
 
       character*1 back_label
-      character*LINELEN line,type_string,nt_string
+      character*LINELEN line,type_string,nt_string,file_format
       character*FILELEN source_file
+
+      external inc_ion_energy                                   // External
+      real inc_ion_energy
 
       sp_decl(species)
       sp_decl(root_sp)
@@ -418,11 +680,11 @@ to the source ion's energy.
       zn_decl(zone)
       sc_decl(sector)
       vc_decl(xdiff)
+      vc_decl(targ_v)
 
-      declare_varp(source_strength)
-      declare_varp(source_stratum)
-      declare_varp(source_segment)
-      declare_varp(all_segments)
+
+      declare_varp(source_int_params)
+      declare_varp(source_real_params)
 
       @<Memory allocation interface@>
       st_decls
@@ -460,8 +722,17 @@ next_line: continue
          if (line(b:e) == 'plasma_file') then
             assert(next_token(line,b,e,p))
             nt_string=line(b:)
-            call get_n_t(nt_string)
-        else if (line(b:e) == 'plasma_coords') then
+            if (next_token(line,b,e,p)) then
+               file_format=line(b:e)
+            else
+               file_format='tabular'
+            end if
+            if (file_format == 'row') then
+               call get_n_t_row(nt_string)
+            else                          // Default; dedicated subroutine also
+               call get_n_t(nt_string)
+            end if
+         else if (line(b:e) == 'plasma_coords') then
            assert(next_token(line,b,e,p))
            if (line(b:e) == 'cartesian') then
               background_coords=plasma_coords_cartesian
@@ -488,10 +759,13 @@ next_line: continue
 */
             if (dim_segments > 0) then
                do iseg=1,dim_segments
-                  source_stratum[iseg]=int_uninit
-                  source_segment[iseg]=int_uninit
-                  all_segments[iseg]=FALSE
-                  source_strength[iseg]=real_uninit
+                  do i=code_int_min,code_int_max
+                     source_int_params[iseg][i]=int_uninit
+                  end do
+                  source_int_params[iseg][code_all_segs]=FALSE
+                  do i=code_real_min,code_real_max
+                     source_real_params[iseg][i]=real_uninit
+                  end do
                end do
             end if
 
@@ -555,7 +829,7 @@ next_stratum: continue
                goto strata_done
             else
                increment_iseg
-               source_stratum[iseg]=read_integer(line(b:e))
+               source_int_params[iseg][code_stratum]=read_integer(line(b:e))
             end if
             goto next_stratum
 strata_done: continue
@@ -573,11 +847,11 @@ next_segment: continue
             else
                increment_iseg
                if (line(b:e) == '*') then
-                  all_segments[iseg]=TRUE
-                  source_segment[iseg]=int_unused
+                  source_int_params[iseg][code_all_segs]=TRUE
+                  source_int_params[iseg][code_segment]=int_unused
                else
-                  all_segments[iseg]=FALSE
-                  source_segment[iseg]=read_integer(line(b:e))
+                  source_int_params[iseg][code_all_segs]=FALSE
+                  source_int_params[iseg][code_segment]=read_integer(line(b:e))
                end if
             end if
             goto next_segment
@@ -595,7 +869,7 @@ next_strength: continue
                goto strengths_done
             else
                increment_iseg
-               source_strength[iseg]=read_real(line(b:e))
+               source_real_params[iseg][code_strength]=read_real(line(b:e))
             end if
             goto next_strength
 strengths_done: continue
@@ -606,32 +880,38 @@ strengths_done: continue
             source_file=line(b:e)
             diskin2=diskin+1
             open_file(diskin2,source_file)
-next_srcline: continue
-            if (! read_string(diskin2,line,length)) then
+            if (next_token(line,b,e,p)) then
+               file_format=line(b:e)
+            else 
+               file_format='tabular'    
+            end if
+            if (file_format == 'tabular') then
+next_tabline: continue
+               if (read_string(diskin2,line,length)) then
 /*
    I suppose we could generalize this if-then to match the others
    above and add a format specification below so that this file
    could contain just a subset of stratum, segment, and strength.
    But, do not see the need.
 */
+                  assert(length<=len(line))
+                  length=parse_string(line(:length))
+                  p=0
+                  increment_iseg
+                  assert(next_token(line,b,e,p))
+                  source_int_params[iseg][code_stratum]=read_integer(line(b:e))
+                  assert(next_token(line,b,e,p))
+                  source_int_params[iseg][code_segment]=read_integer(line(b:e))
+                  assert(next_token(line,b,e,p))
+                  source_real_params[iseg][code_strength]=read_real(line(b:e))
+                  goto next_tabline
+               end if
                assert(num_segments == int_uninit)
                num_segments=iseg
                close(unit=diskin2)
-               goto srcfile_done
-            else
-               assert(length<=len(line))
-               length=parse_string(line(:length))
-               p=0
-               increment_iseg
-               assert(next_token(line,b,e,p))
-               source_stratum[iseg]=read_integer(line(b:e))
-               assert(next_token(line,b,e,p))
-               source_segment[iseg]=read_integer(line(b:e))
-               assert(next_token(line,b,e,p))
-               source_strength[iseg]=read_real(line(b:e))
+            else if (file_format == 'row') then
+               @<Read Row Source File@>
             end if
-            goto next_srcline
-srcfile_done: continue
 
          else if (line(b:e) == 'end_source_group') then
             @<Setup Source Group@>
@@ -650,13 +930,13 @@ input_done: continue
 */
       nunit_n=diskin+5
       open(unit=nunit_n,file='density_1.txt',status='unknown')
-      write(nunit_n,'(i4.4)') zn_num
+      write(nunit_n,'(i5.5)') zn_num
       do back=1,bk_num
          nunit_t=nunit_n+1
          write(back_label,'(i1)') back
          open(unit=nunit_t,file='temperature_'\/back_label\/'.txt',
      $        status='unknown')
-         write(nunit_t,'(i4.4)') zn_num
+         write(nunit_t,'(i5.5)') zn_num
          do zone=1,zn_num
             if (zn_type(zone) == zn_plasma) then
                density=bk_n(back,zone)
@@ -666,10 +946,10 @@ input_done: continue
                temperature=zero
             end if
             if (back == 1) then
-               write(nunit_n,'(4x,i4,6x,i4,6x,1pe13.5,2x,0pf7.4)')
+               write(nunit_n,'(4x,i5,6x,i4,6x,1pe13.5,2x,0pf7.4)')
      $              zone,back,density,dummy
             end if
-            write(nunit_t,'(4x,i4,6x,i4,6x,1pe13.5,2x,0pf7.4)')
+            write(nunit_t,'(4x,i5,6x,i4,6x,1pe13.5,2x,0pf7.4)')
      $           zone,back,temperature/electron_charge,dummy
          end do
          close(unit=nunit_t)
@@ -687,18 +967,16 @@ input_done: continue
       var_reallocb(source_total_current)
       var_reallocb(source_weight_norm)
       var_reallocb(source_scale_factor)
-
+@#if 0
       var_reallocb(source_current)
       var_reallocb(source_segment_ptr)
       var_reallocb(source_segment_rel_wt)
       var_reallocb(source_segment_prob_alias)
       var_reallocb(source_segment_ptr_alias)
+@#endif
 
-
-      var_reallocb(source_strength)
-      var_reallocb(source_stratum)
-      var_reallocb(source_segment)
-      var_reallocb(all_segments)
+      var_reallocb(source_int_params)
+      var_reallocb(source_real_params)
 
       if (so_seg_tot == 0) then
          assert('No sources were defined!' == ' ')
@@ -715,18 +993,146 @@ input_done: continue
 */
       call write_geometry    
 
-      var_free(source_strength)
-      var_free(source_stratum)
-      var_free(source_segment)
-      var_free(all_segments)
+      var_free(source_int_params)
+      var_free(source_real_params)
 
       return
       end
 
-@ Setup a source group.
+@* Read a row-oriented source file.
+
+@<Read Row Source File@>=
+
+next_rowline: continue
+      if (read_string(diskin2,line,length)) then
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,b,e,p))
+         itest=read_int_soft_fail(line(b:e))
+         rtest=read_real_soft_fail(line(b:e))
+/*
+   Note that |read_real_soft_fail| can read an integer, but |read_int_soft_fail|
+   cannot read a real (should be tested on a variety of platforms or made
+   part of {\tt sysdeptest}). So, the following test only works in this
+   order.
+*/
+         if (itest != int_undef) then
+            data_type=code_int
+         else if (rtest != real_undef) then
+            data_type=code_real
+         else
+            data_type=code_undefined
+         end if
+         if (data_type == code_undefined) then 
+            if (num_segments == int_uninit) then
+               if (iseg != 0) num_segments=iseg
+            else
+               assert(num_segments == iseg)
+            end if
+            call parse_label(line,data_code,back)
+            assert(data_code != code_undefined) 
+            iseg=0
+/*
+   Two special cases, both dealing with temperature. Note that this is
+   the only usage of the |back| index, i.e., to identify the electron
+   temperature. All other background parameters are assumed to be those
+   of the source root species.
+*/
+            real_mult=one
+            if (data_code == code_temperature_eV) then
+               real_mult=electron_charge
+               data_code=code_temperature_J
+            end if
+            if (data_code == code_temperature_J) then
+/*
+   Separate these two ifs since |back| may not be defined.
+*/
+               if (sp_sy(pr_background(back)) == 'e')
+     $            data_code=code_electron_temperature
+            end if
+
+            goto next_rowline
+         else
+/*
+   Contains a line of data
+*/
+            assert(data_code != code_undefined)
+next_datum: continue
+            increment_iseg
+            if (data_type == code_int) then
+               source_int_params[iseg][data_code]=read_integer(line(b:e))
+            else if (data_type == code_real) then
+               source_real_params[iseg][data_code]=read_real(line(b:e))*real_mult
+            end if
+            if (next_token(line,b,e,p)) then
+               goto next_datum
+            else
+               goto next_rowline
+            end if
+         end if     // label or data
+      end if        // string presence
+      close(unit=diskin2)
+
+@* Setup a source group.
 
 @<Setup Source Group@>=
       assert(num_segments > 0)
+/*
+   Check to see if we are supposed to compute the source strength
+   (current) from the density, velocity, and parallel area.
+
+   Here, the velocity must be $v_{\parallel}$ since we cannot convert
+   between $\vec{v}$ components and $v_{\parallel}$ without pitch
+   data, etc.    Likewise, we have to have the parallel area. If we 
+   read in the pitch at the same time, we could compute the area in the 
+   poloidal plane like we do above.
+*/
+      if (source_real_params[1][code_strength] == real_uninit) then
+         assert(source_real_params[1][code_density] != real_uninit)
+         assert(source_real_params[1][code_velocity_par] != real_uninit)
+         assert(source_real_params[1][code_area] != real_uninit)
+         assert(specify_flux == FALSE)
+         do iseg=1,num_segments
+            source_real_params[iseg][code_strength]=
+     $           source_real_params[iseg][code_density]
+     $           *abs(source_real_params[iseg][code_velocity_par])
+     $           *source_real_params[iseg][code_area]
+         end do
+      end if
+/*
+   Compute more detailed sheath parameters if the appropriate data
+   are present. The current implementation of |inc_ion_energy| 
+   depends only on the magnitude of the velocity. However, a more
+   detailed model is possible, hence, the use of the vector velocity
+   as an argument. For now, assume that only the magnitude counts
+   and use the information at hand.
+*/
+      if ((source_real_params[1][code_temperature_J] != real_uninit)
+     $     && (source_real_params[1][code_electron_temperature] != real_uninit)
+     $     && ((source_real_params[1][code_velocity_par] != real_uninit)
+     $        || (source_real_params[1][code_velocity_1] != real_uninit))) then
+         do iseg=1,num_segments
+            assert(source_real_params[iseg][code_temperature_J] > zero)
+            assert(source_real_params[iseg][code_electron_temperature] > zero)
+            if ((source_real_params[iseg][code_velocity_par] != real_uninit)
+     $           && (source_real_params[iseg][code_velocity_1] == real_uninit)) then
+               vc_set(targ_v,source_real_params[iseg][code_velocity_par],zero,zero)
+            else
+               vc_set(targ_v,source_real_params[iseg][code_velocity_1],
+     $              source_real_params[iseg][code_velocity_2],
+     $               source_real_params[iseg][code_velocity_3])
+            end if
+            assert(vc_abs(targ_v) > zero)
+            source_real_params[iseg][code_e_delta]=inc_ion_energy(targ_v,
+     $           source_real_params[iseg][code_temperature_J],
+     $           source_real_params[iseg][code_electron_temperature])
+            source_real_params[iseg][code_e_mult]=zero
+         end do
+      end if
+/*
+   Now pull it all together into the final description of the source.
+*/
       var_realloca(source_base_ptr)
       var_realloca(source_num_segments)
       var_realloca(source_type)
@@ -751,23 +1157,37 @@ input_done: continue
       so_root_sp(so_grps)=root_sp
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
+      write(stdout,*)
+      write(stdout,*) ' Processing source group ',so_grps
+      write(stdout,*)
+      write(stdout,'(2x,a,12x,a,31x,a)') 'source','stratum','sector points'
+      write(stdout,'(2x,a,2x,a,2x,a,2x,a,5x,a,4x,a,4x,a,13x,a,5x,a,5x,a)') 
+     $     'segment','stratum','segment',
+     $     'sector','x1','start','x3','x1','end','x3'
       do sector=1,nsectors
          do iseg=1,num_segments
-            if ((strata[sector] == source_stratum[iseg]) 
-     $           && ((sector_strata_segment[sector] == source_segment[iseg])
-     $                || all_segments[iseg] == TRUE)) 
+            if ((strata[sector] == source_int_params[iseg][code_stratum]) 
+     $           && ((sector_strata_segment[sector] 
+     $                 == source_int_params[iseg][code_segment])
+     $                || source_int_params[iseg][code_all_segs] == TRUE)) 
      $           then
                targ=sector_type_pointer[sector][sc_target]
                zone=sector_zone[sector]
                assert(sc_target_check(targ))
                so_seg_tot++
+               write(stdout,'(2x,i4,5x,i4,5x,i4,5x,i5,4(1pe13.5,2x))') iseg,source_int_params[iseg][code_stratum],
+     $              source_int_params[iseg][code_segment],
+     $              sector,sector_points[sector][sc_neg][1],
+     $              sector_points[sector][sc_neg][3],
+     $              sector_points[sector][sc_pos][1],
+     $              sector_points[sector][sc_pos][3]
                var_realloca(source_current)
                var_realloca(source_segment_ptr)
                var_realloca(source_segment_rel_wt)
                var_realloca(source_segment_prob_alias)
                var_realloca(source_segment_ptr_alias)
-               assert(source_strength[iseg] > zero 
-     $              && source_strength[iseg] != real_uninit)
+               assert(source_real_params[iseg][code_strength] > zero 
+     $              && source_real_params[iseg][code_strength] != real_uninit)
                if (specify_flux == TRUE) then
                   vc_difference(sector_points[sector][sc_neg],
      $                 sector_points[sector][sc_pos],xdiff)
@@ -787,12 +1207,14 @@ input_done: continue
                   end if
                   area=circum*vc_abs(xdiff)
                   assert(area > zero)
-                  source_current[so_seg_tot]=source_strength[iseg]*area
+                  source_current[so_seg_tot]
+     $                 =source_real_params[iseg][code_strength]*area
                else
 /*
    Specify current
 */
-                  source_current[so_seg_tot]=source_strength[iseg]
+                  source_current[so_seg_tot]
+     $                    =source_real_params[iseg][code_strength]
                end if
                so_tot_curr(so_grps)+=source_current[so_seg_tot]
                source_segment_ptr[so_seg_tot]=sector
@@ -804,37 +1226,31 @@ input_done: continue
    function. Assumes that the first background species is ``e''.
 */
                if (so_type(so_grps) == so_plate) then
-                  assert(sp_sy(pr_background(1)) == 'e')
-                  assert(bk_temp(1,zone) > zero)
-                  target_e_ion_delta[targ]=const(3.)*bk_temp(1,zone)
-                  target_e_ion_mult[targ]=one
+                  if ((source_real_params[iseg][code_e_delta] != real_uninit)
+     $          && (source_real_params[iseg][code_e_mult] != real_uninit)) then
+                     target_e_ion_delta[targ]=
+     $                    source_real_params[iseg][code_e_delta]
+                     target_e_ion_mult[targ]=
+     $                    source_real_params[iseg][code_e_mult]
+                  else
+                     assert(sp_sy(pr_background(1)) == 'e')
+                     assert(bk_temp(1,zone) > zero)
+                     target_e_ion_delta[targ]=const(3.)*bk_temp(1,zone)
+                     target_e_ion_mult[targ]=one
+                  end if
                end if
             end if
          end do
       end do
       so_nseg(so_grps)=so_seg_tot-so_base(so_grps)+1
 
-@ Decide on which geometry specific code to use.
-
-@<Functions...@>=
-
-@#if (GEOMETRY == DEFAULT)
-@<Read Plasma From File@>
-
-@#elif (GEOMETRY == NCSX)
-@<Plasma Data For NCSX@>
-
-@#endif
-
-@ Find background densities, temperatures, and flow velocities. These are
-read from a file using a rather flexible, user-specified format. The key
-assumption for this routine (conceivably others could be developed) is that
-all data pertaining to a particular zone are contained on a single line of
-the file. If the zone number is provided as the first number of a line,
-it will be used in assigning the data values on that line; in principle,
-the any ordering of zones could be used. Note that this zone number is the
-``absolute'' zone, not the plasma zone number. If the zone number is not 
-specified, the line number is used as the zone number.
+@* Parse tabular plasma data header. 
+This routine takes the text description of the
+plasma data format provided by the user and translates it into an
+integer code that can be more readily used in reading the data.
+This additional step also facilitates testing the format. One additional
+capability simplifies the specification of data for a large number
+of background species. 
 
 @m format_max LINELEN     // |format_code| is parsed from a line
 
@@ -847,122 +1263,9 @@ specified, the line number is used as the zone number.
 @m form_velocity_2 14
 @m form_velocity_3 15
 
-@m data_loop #:0
-@m kount_loop #:0    // If ``count\_loop'', will assume it's a comment
-
-@<Read Plasma From File@>=
-      subroutine get_n_t(nt_string)
-
-      implicit_none_f77
-      bk_common                                             // Common
-      zn_common
-      implicit_none_f90
-
-      character*FILELEN nt_string                           // Input
-
-      integer p,b,e,length,count,line_num,                  // Local
-     $        sub_count,open_stat,diskin3
-      integer format_code[format_max]
-      character*LINELEN line,plasma_format
-      character*FILELEN plasma_file
-
-      zn_decl(zone)
-      bk_decl(back)
-
-      @<Memory allocation interface@>
-      st_decls
-
-      p=0
-      assert(next_token(nt_string,b,e,p))
-      plasma_file=nt_string(b:e)
-      diskin3=diskin+2
-      open_file(diskin3,plasma_file)
-      assert(read_string(diskin3,line,length))
-      assert(length<=len(line))
-      length=parse_string(line(:length))
-      p=0
-      assert(next_token(line,b,e,p))
-/*
-   First line of the file must be a format string
-*/
-      plasma_format=line(:length)
-      call parse_format(plasma_format,bk_num,format_code,count)
-      assert(count > 0)
-      line_num=0
-
-data_loop: continue
-      if (! read_string(diskin3,line,length)) goto eof
-      line_num++
-      zone=line_num
-      assert(length<=len(line))
-      length=parse_string(line(:length))
-      p=0
-      sub_count=0
-
-kount_loop: continue
-      sub_count++
-      if (sub_count > count) goto data_loop
-      assert(next_token(line,b,e,p))
-      if (format_code[sub_count] == form_zone) then
-         zone=read_integer(line(b:e))
-         assert(zn_check(zone))
-         assert(zn_type(zone) == zn_plasma)
-      else if (format_code[sub_count] == form_density) then
-         sub_count++
-         back=format_code[sub_count]
-         assert(bk_check(back))
-         assert(zn_check(zone))
-         assert(zn_type(zone) == zn_plasma)
-         bk_n(back,zone)=read_real(line(b:e))
-         assert(bk_n(back,zone) >= zero)
-      else if (format_code[sub_count] == form_temperature) then
-         sub_count++
-         back=format_code[sub_count]
-         assert(bk_check(back))
-         assert(zn_check(zone))
-         assert(zn_type(zone) == zn_plasma)
-         bk_temp(back,zone)=read_real(line(b:e))*electron_charge
-         assert(bk_temp(back,zone) >= zero)
-      else if (format_code[sub_count] == form_velocity_1) then
-         sub_count++
-         back=format_code[sub_count]
-         assert(bk_check(back))
-         assert(zn_check(zone))
-         assert(zn_type(zone) == zn_plasma)
-         bk_v(back,zone)[1]=read_real(line(b:e))
-      else if (format_code[sub_count] == form_velocity_2) then
-         sub_count++
-         back=format_code[sub_count]
-         assert(bk_check(back))
-         assert(zn_check(zone))
-         assert(zn_type(zone) == zn_plasma)
-         bk_v(back,zone)[2]=read_real(line(b:e))
-      else if (format_code[sub_count] == form_velocity_3) then
-         sub_count++
-         back=format_code[sub_count]
-         assert(bk_check(back))
-         assert(zn_check(zone))
-         assert(zn_type(zone) == zn_plasma)
-         bk_v(back,zone)[3]=read_real(line(b:e))
-      end if
-      goto kount_loop
-
-eof:  continue
-      close(unit=diskin3)
-
-      return
-      end
-
-@ Parse format string. This routine takes the text description of the
-plasma data format provided by the user and translates it into an
-integer code that can be more readily used in reading the data.
-This additional step also facilitates testing the format. One additional
-capability simplifies the specification of data for a large number
-of background species. 
-
 @m token_loop #:0
 
-@<Read Plasma...@>=
+@<Functions...@>=
       subroutine parse_format(format_string,bk_num,format_code,count)
 
       implicit_none_f77
@@ -1001,7 +1304,7 @@ token_loop: continue
             format_code[count]=form_density
          else if ((line(b:b) == 't') || (line(b:b) == 'T')) then
             format_code[count]=form_temperature
-         else if ((line(b:b) == 'v') || (line(b:b) == 'v')) then
+         else if ((line(b:b) == 'v') || (line(b:b) == 'V')) then
             if (line(b+1:b+1) == '1') then
                format_code[count]=form_velocity_1
             else if (line(b+1:b+1) == '2') then
@@ -1073,220 +1376,271 @@ eof: continue
       
       return
       end
+      
+@* Read row-oriented plasma data.
+This is analogous to the default routine, but the
+data are arranged in rows rather than in columns. Again, if zone number
+data are provided, they are used to control the ordering of the data
+values. If not, the data are assumed to be arranged by ascending zone
+number. The data are read using DEGAS 2's string-handling routines, giving
+the user flexibility in the appearance of the data. This also permits
+the user to provide fewer data values than zones, if desired.
 
-@ Compute background densities and temperatures for NCSX.
+@m next_line #:0
+@m zone_loop #:0
+@m density_loop #:0
+@m temperature_loop #:0
+@m velocity_loop #:0
 
-@m max_stratum 100
-@m max_radii 100
+@<Functions...@>=
+      subroutine get_n_t_row(nt_string)
 
-@m radii_done #:0
-@m nT_done #:0
-
-@<Plasma Data For NCSX@>=
-      subroutine get_n_t(nt_string)
-
-      define_varp(zone_stratum,INT,zone_ind)
+      define_varp(zone_list,INT,zone_ind)  
 
       implicit_none_f77
-      zn_common                                             // Common
-      sp_common
-      pr_common
-      bk_common
-      g2_common
+      bk_common                                             // Common
+      zn_common
       implicit_none_f90
 
-      character*LINELEN nt_string                           // Input
+      character*FILELEN nt_string                           // Input
 
-      integer is,ix,p,b,e,length,stratum,zone,j,num_x,      // Local
-     $        close_zone,open_stat,lcms_stratum,fileid,
-     $        zone2,back,ipoly,diskin3
-
-      real x_in,jx_in,delta_min,delta,lambda_n,lambda_t
-      real  stratum_radius[max_stratum],r_over_a[0:max_radii],
-     $     ne[0:max_radii],te[0:max_radii],ti[0:max_radii]
-
+      integer p,b,e,length,data_code,count,v_index,         // Local
+     $        open_stat,diskin3,itest
+      real temperature_mult,rtest
       character*LINELEN line
-      character*FILELEN radii_file,polygon_file,nT_profile  
+      character*FILELEN plasma_file
+      
+      zn_decl(zone)
+      bk_decl(back)
 
-      vc_decl(vec_delta)
-
-      external find_index,interpolate1                       // External
-      real find_index,interpolate1
-
-      declare_varp(zone_stratum)
+      declare_varp(zone_list)
 
       @<Memory allocation interface@>
       st_decls
-      vc_decls
-      g2_ncdecl
-      nc_decls
 
-      var_alloc(zone_stratum) 
-/*
-   Could have put all of these arguments in yet another text input file,
-   but decided that there were already too many input files for this
-   routine. For clarity, the order of the arguments is:
-   |radii_file|  |nT_profile|  |polygon_file|  |lambda_n|  |lambda_t|
-*/
+      var_alloc(zone_list)
+      do zone=1,zn_num
+         zone_list[zone]=int_undef
+      end do
+
       p=0
       assert(next_token(nt_string,b,e,p))
-      radii_file=nt_string(b:e)
-
-      assert(next_token(nt_string,b,e,p))
-      nT_profile=nt_string(b:e)
-
-      assert(next_token(nt_string,b,e,p))
-      polygon_file=nt_string(b:e)
-
-      assert(next_token(nt_string,b,e,p))
-      lambda_n=read_real(nt_string(b:e))
-      assert(lambda_n > zero)
-
-      assert(next_token(nt_string,b,e,p))
-      lambda_t=read_real(nt_string(b:e))
-      assert(lambda_t > zero)
-
+      plasma_file=nt_string(b:e)
       diskin3=diskin+2
-      open_file(diskin3,radii_file)
-      assert(read_string(diskin3,line,length))  // Column header
-      do is=1,max_stratum
-         stratum_radius[is]=real_unused
-      end do
-      do is=1,max_stratum
-         if (read_string(diskin3,line,length)) then
-            assert(length<=len(line))
-            length=parse_string(line(:length))
-            p=0
-            assert(next_token(line,b,e,p))
-            stratum=read_integer(line(b:e))
-            assert(stratum <= max_stratum)
-            assert(stratum_radius[stratum] == real_unused)
-            assert(next_token(line,b,e,p))
-            stratum_radius[stratum]=read_real(line(b:e))
-            assert(stratum_radius[stratum] >= zero
-     $           && stratum_radius[stratum] <= one)
+      open_file(diskin3,plasma_file)
+
+      data_code=code_undefined
+      count=0
+
+next_line: continue
+   
+      if (read_string(diskin3,line,length)) then
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,b,e,p))
+         itest=read_int_soft_fail(line(b:e))
+         rtest=read_real_soft_fail(line(b:e))
+         if ((itest == int_undef) && (rtest == real_undef)) then
+            call parse_label(line,data_code,back)
+            assert(data_code != code_undefined) 
+            count=0
+            goto next_line
          else
-            goto radii_done
-         end if
-      end do
-      assert('Stratum radius file too long' == ' ')
-radii_done: continue
 /*
-   Assume that these radii are defined only over the LCMS and 
-   that the last one represents the LCMS itself.
+   Contains a line of data
 */
-      lcms_stratum=stratum
+            assert(data_code != code_undefined)
+            if (data_code == code_zone) then
+zone_loop: continue
+               count++
+               zone_list[count]=read_integer(line(b:e))
+               assert(zn_check(zone_list[count]))
+               assert(zn_type(zone_list[count]) == zn_plasma)
+               if (next_token(line,b,e,p)) then
+                  goto zone_loop
+               else
+                  goto next_line
+               end if
+
+            else if (data_code == code_density) then
+density_loop: continue
+               count++
+               if (zn_check(zone_list[count])) then
+                  zone=zone_list[count]
+               else
+                  zone=count
+               end if
+               assert(zn_check(zone))
+               assert(zn_type(zone) == zn_plasma)
+               assert(bk_check(back))
+               bk_n(back,zone)=read_real(line(b:e))
+               if (next_token(line,b,e,p)) then
+                  goto density_loop
+               else
+                  goto next_line
+               end if
+
+            else if ((data_code == code_temperature_J) 
+     $              || (data_code == code_temperature_eV)) then
+temperature_loop: continue
+               count++
+               if (zn_check(zone_list[count])) then
+                  zone=zone_list[count]
+               else
+                  zone=count
+               end if
+               assert(zn_check(zone))
+               assert(zn_type(zone) == zn_plasma)
+               assert(bk_check(back))
+               if (data_code == code_temperature_eV) then
+                  temperature_mult=electron_charge
+               else
+                  temperature_mult=one
+               end if
+               bk_temp(back,zone)=read_real(line(b:e))*temperature_mult
+               if (next_token(line,b,e,p)) then
+                  goto temperature_loop
+               else
+                  goto next_line
+               end if
+
+            else if ((data_code == code_velocity_1) 
+     $              || (data_code == code_velocity_2)
+     $              || (data_code == code_velocity_3)) then
+velocity_loop: continue
+               count++
+               if (zn_check(zone_list[count])) then
+                  zone=zone_list[count]
+               else
+                  zone=count
+               end if
+               assert(zn_check(zone))
+               assert(zn_type(zone) == zn_plasma)
+               assert(bk_check(back))
+               if (data_code == code_velocity_1) then
+                  v_index=1
+               else if (data_code == code_velocity_2) then
+                  v_index=2
+               else 
+                  v_index=3
+               end if
+               assert((v_index >= 1) && (v_index <= 3))
+               bk_v(back,zone)[v_index]=read_real(line(b:e))
+               if (next_token(line,b,e,p)) then
+                  goto velocity_loop
+               else
+                  goto next_line
+               end if
+               
+            else
+               assert(' Unexpected value of data_code' == ' ')
+            end if      // |data_code|
+         end if         // string content
+         goto next_line
+
+      end if            // string presence
       close(unit=diskin3)
 
-      do zone=1,zn_num
-         zone_stratum[zone]=int_unused
-      end do
-
-      assert(polygon_file != char_undef)
-      fileid=ncopen(polygon_file,NC_NOWRITE,nc_stat)
-      g2_ncread(fileid)
-
-      do ipoly=1,g2_num_polygons
-         zone=g2_polygon_zone[ipoly]
-         if (zone_stratum[zone] == int_unused) then
-            assert(g2_polygon_stratum[ipoly] >= 0)  // Do we need this?
-            zone_stratum[zone]=g2_polygon_stratum[ipoly]
-         else                                       // Or this?
-            assert(zone_stratum[zone] == g2_polygon_stratum[ipoly])
-         end if
-      end do
-      
-      open_file(diskin3,nT_profile)
-      assert(read_string(diskin3,line,length))  // Column header
-/*
-   Begin these arrays at zero so they will be consistent with the
-   interpolation routines.
-*/
-      do ix=0,max_radii
-         r_over_a[ix]=real_unused
-         ne[ix]=real_unused
-         te[ix]=real_unused
-         ti[ix]=real_unused
-      end do
-      do ix=0,max_radii
-         if (read_string(diskin3,line,length)) then
-            assert(length<=len(line))
-            length=parse_string(line(:length))
-            p=0
-            assert(next_token(line,b,e,p))
-            j=read_integer(line(b:e))
-            assert(j == ix+1)    // Be sure arrays ordered correctly
-            assert(next_token(line,b,e,p))
-            r_over_a[ix]=read_real(line(b:e))
-            assert(r_over_a[ix] >= zero && r_over_a[ix] <= one)
-            assert(next_token(line,b,e,p))
-/*
-   Assume density is in units of $10^{19}$ m$^{-3}$ and temperatures in keV.
-*/
-            ne[ix]=read_real(line(b:e))*const(1.,19)
-            assert(ne[ix] > zero)
-            assert(next_token(line,b,e,p))
-            te[ix]=read_real(line(b:e))*const(1.,3)*electron_charge
-            assert(te[ix] > zero)
-            assert(next_token(line,b,e,p))
-            ti[ix]=read_real(line(b:e))*const(1.,3)*electron_charge
-            assert(ti[ix] > zero)
-         else
-            goto nT_done
-         end if
-      end do
-      assert('Plasma profile file too long' == ' ')
-nT_done: continue
-      num_x=j    // Last value read
-/*
-   Done reading files. Interpolate density and temperature values for those
-   zones inside the LCMS.
-*/
-      do back=1,bk_num
-         assert(bk_check(back))
-         do zone=1,zn_num
-            assert(zn_check(zone))
-            if (zn_type(zone) == zn_plasma) then
-               if (zone_stratum[zone] <= lcms_stratum) then
-                  x_in=stratum_radius[zone_stratum[zone]]
-                  jx_in=find_index(x_in,r_over_a,num_x)
-                  if (sp_sy(pr_background(back)) == 'e') then
-                     bk_n(back,zone)=interpolate1(jx_in,ne,num_x)
-                     bk_temp(back,zone)=interpolate1(jx_in,te,num_x) 
-                  else
-                     bk_n(back,zone)=interpolate1(jx_in,ne,num_x)
-                     bk_temp(back,zone)=interpolate1(jx_in,ti,num_x) 
-                  end if
-               else
-                  delta_min=geom_infinity
-                  do zone2=1,zn_num
-/*
-   Find those zones representing the LCMS. Calculate minimum distance from
-   |zone| to one of them. Compute density and temperature using
-   exponential fall-off lengths.
-*/
-                     if (zone_stratum[zone2] == lcms_stratum) then
-                        vc_difference(zone_center[zone],zone_center[zone2],
-     $                       vec_delta)
-                        delta=vc_abs(vec_delta)
-                        if (delta < delta_min) then
-                           delta_min=delta
-                           close_zone=zone2
-                        end if
-                     end if
-                  end do
-                  assert(delta_min > zero && delta_min < geom_infinity)
-                  assert(bk_n(back,close_zone) > zero)
-                  assert(bk_temp(back,close_zone) > zero)
-                  bk_n(back,zone)=bk_n(back,close_zone)*exp(-delta_min/lambda_n)
-                  bk_temp(back,zone)=bk_temp(back,close_zone)*exp(-delta_min/lambda_n)
-               end if
-            end if
-         end do
-      end do
-      
       return
       end
+
+@* Parse a single label for row-oriented data. 
+This routine is analogous to |parse_format|, but intended
+for use with row-oriented data. The line containing the label is passed in.
+A code describing the data is passed back, along with the background
+index, if applicable.
+
+@<Functions...@>=
+      subroutine parse_label(line,data_code,back)
+
+      implicit_none_f77
+      bk_common                                           // Common
+      implicit_none_f90
       
+      character*LINELEN line                              // Input
+
+      integer data_code                                   // Output
+      bk_decl(back)
+      
+      integer p,b,e,p2,b2,e2,b_code                       // Local
+
+      @<Memory allocation interface@>
+      st_decls
+
+      data_code=code_undefined
+      back=int_undef
+      p=0
+      assert(next_token(line,b,e,p))
+      if ((line(b:e) == 'zone') || (line(b:e) == 'ZONE') 
+     $     || (line(b:e) == 'Zone')) then
+         data_code=code_zone 
+         back=int_undef
+      else if ((line(b:e) == 'stratum') || (line(b:e) == 'STRATUM')
+     $        || (line(b:e) == 'Stratum')) then
+         data_code=code_stratum
+         back=int_undef
+      else if ((line(b:e) == 'segment') || (line(b:e) == 'SEGMENT')
+     $        || (line(b:e) == 'Segment')) then
+         data_code=code_segment
+         back=int_undef
+      else if ((line(b:e) == 'area') || (line(b:e) == 'AREA')
+     $        || (line(b:e) == 'Area')) then
+         data_code=code_area
+         back=int_undef
+      else if ((line(b:b) == 'n') || (line(b:b) == 'N')) then
+         data_code=code_density
+      else if ((line(b:b) == 'f') || (line(b:b) == 'F')) then  // ``Flux''
+         data_code=code_strength
+      else if ((line(b:b) == 't') || (line(b:b) == 'T')) then
+         data_code=code_temperature_eV
+/*
+   Note the use of a second set of string indices so as to not mess up
+   the ones that will be used below to read the background index.
+*/
+         p2=p
+         if (next_token(line,b2,e2,p2)) then
+            if (line(b2:e2) == 'J') then
+               data_code=code_temperature_J
+            else if (line(b2:e2) == 'eV') then
+               data_code=code_temperature_eV
+            else
+               write(stderr,*) ' Unexpected token, ',line(b2:e2)
+               assert(.false.)
+            end if
+         end if
+      else if ((line(b:b) == 'v') || (line(b:b) == 'V')) then
+         if (line(b+1:b+1) == '1') then
+            data_code=code_velocity_1
+         else if (line(b+1:b+1) == '2') then
+            data_code=code_velocity_2
+         else if (line(b+1:b+1) == '3') then
+            data_code=code_velocity_3
+         else if ((line(b+1:b+4) == '_par') || (line(b+1:b+4) == '_PAR') 
+     $           || (line(b+1:b+4) == '_Par')) then
+            data_code=code_velocity_par
+         else
+            write(stderr,*) ' Illegal format token, ',line(b:e)
+            assert(.false.)
+         end if
+      end if
+/*
+   Stuff ending up here represents further analysis of 
+   the label. Look for the background number. This expects the 
+   background number to be a single digit.
+
+   See the comment in |parse_format| regarding this convoluted FWEB code.
+*/
+      if (data_code != code_undefined) then
+         b_code=$TRANSLIT(index(line(b:e)C'('),'C',',')+1
+         if (b_code > 1) then
+            b_code=b+b_code-1   // Relate to start of whole line
+            back=read_int_soft_fail(line(b_code:b_code))
+            assert(bk_num < 10)
+         end if
+      end if
+
+      return
+      end
 
 @* INDEX.
