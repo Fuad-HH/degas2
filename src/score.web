@@ -2,6 +2,24 @@
 \Title{score}
 
 % $Log$
+% Revision 1.10  1999/07/19 19:29:04  karney
+% (1) Remove much dead code in random.web.
+%
+% (2) Add more timing tests in randomtest.web.
+%
+% (3) Implement |geometry_symmetry_oned| where $y$ and $z$ coordinates are
+% ignored.
+%
+% This is treated exactly like goemetry_symmetry_plane, except that there's a
+% additional transformation defined to carry a particle from zmin to zmax and
+% vice versa.
+%
+% (4) Implement partitioning of symmetry direction via additional
+% zonearray[0:ndiv-1], ndiv, and facearray[0:ndiv] arguments to
+% decompose_polygon.  zonearray[k] has additional faces facearray[k] and
+% -facearray[k-1] added.  (See boxgen.web for sample code, although the
+% zonearray feature is not properly exercised yet.)
+%
 % Revision 1.9  1999/04/20 20:17:32  dstotler
 % Replace use of "idiag != 0" with sc_diag_check in
 % handle_diagnostics. Add new dependent variables for
@@ -522,9 +540,10 @@ more than one scoring bin. Again, the affected bins are in an array |bins|.
 
                                                  // Local
       integer i,j,k,jscore,back,number_segments,geom_seg_label,geom_seg,
-     $     number_bins,bin_label,ibin,back_min,back_max
+     $     bin_label,ibin,back_min,back_max
       integer index_parameters[tl_index_unknown:tl_index_max],
-     $     segments[max_segments],ind_val[tl_rank_max],bins[max_bins] 
+     $     segments[max_segments],ind_val[tl_rank_max],
+     $     number_bins[max_segments],bins[max_segments][max_bins] 
       real check_data
       real geom_mult[max_segments][max_bins],
      $     converted_data[scoring_data_max]
@@ -583,8 +602,8 @@ more than one scoring bin. Again, the affected bins are in an array |bins|.
 
             do geom_seg=1,number_segments
                index_parameters[geom_seg_label]=segments[geom_seg]
-               do ibin=1,number_bins
-                  index_parameters[bin_label]=bins[ibin]
+               do ibin=1,number_bins[geom_seg]
+                  index_parameters[bin_label]=bins[geom_seg][ibin]
                   do back=back_min,back_max
                      index_parameters[tl_index_back]=back
                      do k=1,tl_rank_max
@@ -681,8 +700,9 @@ tracked by those elements.
       real scoring_data[scoring_data_max]
 
                                                    // Output
-      integer number_segments,geom_seg_label,number_bins,bin_label
-      integer segments[max_segments],bins[max_bins]
+      integer number_segments,geom_seg_label,bin_label
+      integer segments[max_segments],number_bins[max_segments],
+     $     bins[max_segments][max_bins]
       real geom_mult[max_segments][max_bins]
 
       number_segments=0
@@ -691,8 +711,8 @@ tracked by those elements.
          number_segments=1
          segments[1]=lc_zone(pt_loc(p))
          geom_seg_label=tl_index_zone
-         number_bins=1
-         bins[1]=0
+         number_bins[1]=1
+         bins[1][1]=0
          bin_label=tl_index_unknown
          geom_mult[1][1]=one
       else if (geometry == tl_geom_detector) then
@@ -739,7 +759,8 @@ wavelength of emissions.
       real scoring_data[scoring_data_max]
 
       integer number_segments,number_bins,bin_label           // Output
-      integer segments[max_segments],bins[max_bins]
+      integer segments[max_segments],number_bins[max_segments],
+     $     bins[max_segments][max_bins]
       real geom_mult[max_segments][max_bins]
 
       integer de_group,iview,i,ibin,num_lines,i_e_rate,       // Local
@@ -808,9 +829,7 @@ wavelength of emissions.
          assert(lambda0 > zero)
       else
          bin_label=tl_index_unknown
-         number_bins=1
-         bins[1]=0
-      end if
+       end if
 
       density=bk_n(1,lc_zone(pt_loc(p)))       // electron density
       if (density < const(1.,20)) then
@@ -837,7 +856,7 @@ wavelength of emissions.
                   lambda=find_lambda(vc_args(lc_x(pt_loc(p))),vc_args(v),
      $                 vc_args(de_view_points[iview][de_view_start]),lambda0)
 @#if !STARK
-                  number_bins=1
+                  number_bins[number_segments]=1
                   if (detector_spacing[de_group] == de_spacing_log)
      $                 lambda=log(lambda)
                   if (detector_spacing[de_group] == de_spacing_log
@@ -845,24 +864,26 @@ wavelength of emissions.
 /*
    ``one'' inside ``int()'' $\Rightarrow$ get |lambda| < |detector_min| right.
 */
-                     bins[1]=int((lambda-detector_min[de_group])
+                      bins[number_segments][1]=int((lambda
+     $                      -detector_min[de_group])
      $                    /detector_delta[de_group]+one) 
                   else
                      assert('Unsupported spacing' == ' ')
                   end if
-                  if (bins[1] > 0 
-     $                 && bins[1] <= detector_tab_index[de_group]) then
+                  if (bins[number_segments][1] > 0 
+     $                 && bins[number_segments][1] 
+     $                     <= detector_tab_index[de_group]) then
                      geom_mult[number_segments][1]=de_zone_frags[lc_zone(pt_loc(p))][iview]
                   else
-                     bins[1]=1            
+                     bins[number_segments][1]=1            
                      geom_mult[number_segments][1]=zero  // Outside bin range: throw out
                   end if
 @#else
-                  number_bins=detector_tab_index[de_group]
-                  assert(number_bins <= max_bins)
+                  number_bins[number_segments]=detector_tab_index[de_group]
+                  assert(number_bins[number_segments] <= max_bins)
                   assert(delta_l_st > zero)
-                  do ibin=1,number_bins
-                     bins[ibin]=ibin
+                  do ibin=1,number_bins[number_segments]
+                     bins[number_segments][ibin]=ibin
                      lambda_f=detector_min[de_group]
      $                    +(ibin-half)*detector_delta[de_group]
                      assert(detector_spacing[de_group] == de_spacing_linear)
@@ -879,10 +900,10 @@ wavelength of emissions.
                   lambda_f=find_lambda(vc_args(lc_x(pt_loc(p))),vc_args(v),
      $                 vc_args(de_view_points[iview][de_view_start]),lambda0)
                   delta_l_th=lambda0*vth/speed_of_light
-                  number_bins=detector_tab_index[de_group]
-                  assert(number_bins <= max_bins)
-                  do ibin=1,number_bins
-                     bins[ibin]=ibin
+                  number_bins[number_segments]=detector_tab_index[de_group]
+                  assert(number_bins[number_segments] <= max_bins)
+                  do ibin=1,number_bins[number_segments]
+                     bins[number_segments][ibin]=ibin
                      lambda=detector_min[de_group]
      $                    +(ibin-half)*detector_delta[de_group]
                      if (detector_spacing[de_group] == de_spacing_log) then
@@ -908,7 +929,8 @@ wavelength of emissions.
                   assert('Incomplete emitter velocity specification' == ' ')
                end if
             else
-               bins[1]=0
+               number_bins[number_segments]=1
+               bins[number_segments][1]=0
                geom_mult[number_segments][1]=de_zone_frags[lc_zone(pt_loc(p))][iview]
             end if
          end if
@@ -993,48 +1015,17 @@ bins. The treated variables thus far are energy and angle of incicidence.
       real scoring_data[scoring_data_max]
 
       integer number_segments,number_bins,bin_label   // Output
-      integer segments[max_segments],bins[max_bins]
+      integer segments[max_segments],number_bins[max_segments],
+     $     bins[max_segments][max_bins]
       real geom_mult[max_segments][max_bins]
 
-      integer diag_grp,i,j,idiag                      // Local
+      integer diag_grp,idiag,isector                  // Local
       real value
-      sc_decl(sector1)
-      sc_decl(sector2)
 
       lc_decls
 
       diag_grp=pointer
       number_segments=0
-      number_bins=0
-      sector1=lc_sector(pt_loc(p))
-      sector2=lc_sector_next(pt_loc(p))
-
-      if (diagnostic_var[diag_grp] == sc_diag_energy) then
-         bin_label=tl_index_energy_bin
-         value=scoring_data[pr_var_energy]
-      else if (diagnostic_var[diag_grp] == sc_diag_angle) then
-         bin_label=tl_index_angle_bin
-         value=scoring_data[pr_var_angle]
-      else
-         bin_label=tl_index_unknown
-         number_bins=1
-         bins[1]=0
-      end if
-
-      if (bin_label != tl_index_unknown) then
-         if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log) 
-     $        value=log(value)
-         if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log
-     $        || diagnostic_spacing[diag_grp] == sc_diag_spacing_linear) then
-            number_bins++
-            assert(number_bins <= max_bins)
-            bins[number_bins]=int((value-diagnostic_min[diag_grp])
-     $           /diagnostic_delta[diag_grp]+one)
-         else
-            assert('Unsupported spacing' == ' ')
-         end if
-      end if
-
 /*
    {\em Note: if this code is modified so that sectors other than |lc_sector|
    or |lc_sector_next| are added to this |segments| list, a similar change
@@ -1044,38 +1035,57 @@ bins. The treated variables thus far are energy and angle of incicidence.
    in |score_diagnostics| since otherwise this routine might return
    |number_segments| = 0.
 */
-      idiag=sector_type_pointer[sector1][sc_diagnostic(diag_grp)]
+      do isector=1,2
+         if (isector == 1) then
+            idiag=sector_type_pointer[lc_sector(pt_loc(p))][sc_diagnostic(diag_grp)]
+         else if (isector == 2) then
+            idiag=sector_type_pointer[lc_sector_next(pt_loc(p))][sc_diagnostic(diag_grp)]
+         else
+            assert('Need to allow for more sector segments' == ' ')
+         end if
+            
 @#if 0
-      if (idiag != 0) then
+         if (idiag != 0) then
 @#endif
-      if (sc_diag_check(idiag,diag_grp)) then
-         number_segments++
-         assert(number_segments <= max_segments)
-         segments[number_segments]=idiag
-      end if
-
-      idiag=sector_type_pointer[sector2][sc_diagnostic(diag_grp)]
-@#if 0
-      if (idiag != 0) then
-@#endif
-      if (sc_diag_check(idiag,diag_grp)) then
-         number_segments++
-         assert(number_segments <= max_segments)
-         segments[number_segments]=idiag
-      end if
-
-      assert(number_segments > 0 && number_bins > 0)
-      do i=1,number_segments
-         do j=1,number_bins
-            if (bin_label != tl_index_unknown 
-     $           && (bins[j] <= 0 
-     $                || bins[j] > diagnostic_tab_index[diag_grp])) then
-               bins[j]=1
-               geom_mult[i][j]=zero  // Outside bin range: throw out
+         if (sc_diag_check(idiag,diag_grp)) then
+            number_segments++
+            assert(number_segments <= max_segments)
+            segments[number_segments]=idiag
+            if (diagnostic_var[diag_grp] == sc_diag_energy) then
+               bin_label=tl_index_energy_bin
+               value=scoring_data[pr_var_energy]
+            else if (diagnostic_var[diag_grp] == sc_diag_angle) then
+               bin_label=tl_index_angle_bin
+               value=scoring_data[pr_var_angle]
             else
-               geom_mult[i][j]=one
+               bin_label=tl_index_unknown
             end if
-         end do
+
+            if (bin_label != tl_index_unknown) then
+               number_bins[number_segments]=1
+               if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log) 
+     $              value=log(value)
+               if (diagnostic_spacing[diag_grp] == sc_diag_spacing_log
+     $              || diagnostic_spacing[diag_grp] == sc_diag_spacing_linear) then
+                  bins[number_segments][1]=int((value-diagnostic_min[diag_grp])
+     $                      /diagnostic_delta[diag_grp]+one)
+               else
+                  assert('Unsupported spacing' == ' ')
+               end if
+               if (bins[number_segments][1] > 0 
+     $                 && bins[number_segments][1] 
+     $                     <= diagnostic_tab_index[diag_grp]) then
+                  geom_mult[number_segments][1]=one
+               else
+                  bins[number_segments][1]=1            
+                  geom_mult[number_segments][1]=zero  // Outside bin range: throw out
+               end if
+            else
+               number_bins[number_segments]=1
+               bins[number_segments][1]=0
+               geom_mult[number_segments][1]=one
+            end if
+         end if
       end do
 
       return
