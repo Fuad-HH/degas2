@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1996/05/24 18:50:49  dstotler
+% Variable modifications, additions required to handle PMI.
+%
 % Revision 1.1  1996/03/01 20:38:16  dstotler
 % Add to repository.
 %
@@ -86,7 +89,7 @@ in the  |pd_handling| array.
 @f pd_common integer
 @m pd_common
       pd_common_a;
-      integer inc;
+      integer pd_inc;
 
 /*
    |pd_ragged_alloc| and |pd_ragged_realloc| are designed to automatically
@@ -142,9 +145,9 @@ in the  |pd_handling| array.
 
 @m pd_set_baseinc1(x,y,subs)
       x##_base##subs=x##_size;
-      inc=1;
+      pd_inc=1;
       $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
-        inc=inc*y##subs[I];
+        pd_inc=pd_inc*y##subs[I];
       }
 
 @m pd_set_baseinc0(x,y,subs)
@@ -153,7 +156,7 @@ in the  |pd_handling| array.
       $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
          x##_base##subs[I]=x##_base##subs[I-1]+y##subs[I-1];
       }
-      inc=x##_base##subs[range_max(ind_##x##_base_1)]-x##_base##subs[range_min(ind_##x##_base_1)]+y##subs[range_max(ind_##y##_1)];
+      pd_inc=x##_base##subs[range_max(ind_##x##_base_1)]-x##_base##subs[range_min(ind_##x##_base_1)]+y##subs[range_max(ind_##y##_1)];
 
 @m pd_ragged_alloc(x) 
       x##_size=0;
@@ -161,5 +164,5 @@ in the  |pd_handling| array.
 
 @m pd_ragged_realloc(x,y,subs)
       $IFCASE(rank_##y - rank_##x##_base,pd_set_baseinc0(x,y,subs),pd_set_baseinc1(x,y,subs))
-      var_realloc(x##_tab,x##_size-1,x##_size-1+inc);
-      x##_size=x##_size+inc @;
+      var_realloc(x##_tab,x##_size-1,x##_size-1+pd_inc);
+      x##_size=x##_size+pd_inc @;
