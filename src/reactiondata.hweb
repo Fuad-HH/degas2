@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1996/05/24 18:56:40  dstotler
+% Removed (already commented out) dummy variable.???
+%
 % Revision 1.8  1996/03/01 20:33:07  dstotler
 % Clean up data arrays to match pmidata.hweb.
 %
@@ -36,54 +39,66 @@
 \ID{$Id$}
 
 Data for reactions is held in arrays in common blocks.
-|rd_data3(x,m,...)| accesses the data for the $m$th table as an array
-with up to 3 dimensions.
-Miscellaneous (i.e., not cross section or reaction rate) data is handled
-in the analogous |rd_misc_data3| array.
+|rd_rate(i,j,k,r)| accesses the reaction rate for the $r$th reaction as an 
+array with up to 3 dimensions.
+``Handling'' (i.e., not reaction rate) data is kept
+in the analogous |rd_handling(i,j,k,d,r)| array. The $d$ index denotes the $d$th
+dependent variable for the $r$th reaction.
 
 @I xsection.hweb
 @I problem.hweb
 
-@m rd_data3(x,m,i,j,k) reaction_data_table[reaction_data_base[x][m]+i+reaction_data_tab_index[x][m][1]*(j+reaction_data_tab_index[x][m][2]*k)]
+@m rd_rate(i,j,k,r) reaction_rate_tab[reaction_rate_base[r]+i+reaction_rate_tab_index[r][1]*(j+reaction_rate_tab_index[r][2]*k)]
 
-@m rd_misc_data3(x,m,i,j,k) reaction_misc_table[reaction_misc_base[x][m]+i+reaction_misc_tab_index[x][m][1]*(j+reaction_misc_tab_index[x][m][2]*k)]
+@m rd_handling(i,j,k,d,r) reaction_handling_tab[reaction_handling_base[r][d]+i+reaction_handling_tab_index[r][d][1]*(j+reaction_handling_tab_index[r][d][2]*k)]
 
-@m rd_xs 1
-@m rd_rate 2
+@m rd_data_args(x,subs)
+      x##_eval_name##subs,x##_rank##subs,x##_var##subs[1],x##_tab_index##subs[1],x##_spacing##subs[0],x##_min##subs[1],x##_delta##subs[1],x##_tab[x##_base##subs]
+
+
+@m rd_dep_var_max $EVAL(xs_dep_var_max-1)
 
 @ Variable definitions.
 
 @a
       package_init(rd)
-      define_var_pk(rd,reaction_data_size,INT)
-      define_var_pk(rd,reaction_misc_size,INT)
 
       define_dimen_pk(rd,rd_rank_ind,xs_table_rank_max)
-      define_dimen_pk(rd,rd_dep_var_ind,xs_dep_var_max)
+      define_dimen_pk(rd,rd_dep_var_ind,rd_dep_var_max)
       define_dimen_pk(rd,rd_rank_ind0,0,xs_table_rank_max)
-      define_dimen_pk(rd,rd_table_ind,0,reaction_data_size-1)
-      define_varp_pk(rd,reaction_organization,INT,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_min,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_delta,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_rank,INT,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_spacing,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_tab_index,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_base,INT,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_var,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_data_table,FLOAT,rd_table_ind)
-      
       define_dimen_pk(rd,rd_tag_string,xs_tag_string_length)
-      define_dimen_pk(rd,rd_misc_table_ind,0,reaction_misc_size-1)
-      define_varp_pk(rd,reaction_misc_organization,INT,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_min,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_delta,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_rank,INT,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_spacing,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_tab_index,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_base,INT,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_var_dep,CHAR,rd_tag_string,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_var_indep,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_misc_table,FLOAT,rd_misc_table_ind)
+      define_dimen_pk(rd,rd_eval_string,xs_eval_name_length)
+
+      define_var_pk(rd,reaction_rate_size,INT)
+      define_dimen_pk(rd,rd_table_ind,0,reaction_rate_size-1)
+      define_var_pk(rd,reaction_handling_size,INT)
+      define_dimen_pk(rd,rd_handling_table_ind,0,reaction_handling_size-1)
+
+      define_varp_pk(rd,reaction_rate_min,FLOAT,rd_rank_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_rate_delta,FLOAT,rd_rank_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_rate_rank,INT,problem_reaction_ind)
+      define_varp_pk(rd,reaction_rate_spacing,INT,rd_rank_ind0,problem_reaction_ind)
+      define_varp_pk(rd,reaction_rate_eval_name,CHAR,rd_eval_string,problem_reaction_ind)
+      define_varp_pk(rd,reaction_rate_tab_index,INT,rd_rank_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_rate_var,INT,rd_rank_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_rate_num_rand,INT,problem_reaction_ind)
+
+      define_varp_pk(rd,reaction_rate_base,INT,problem_reaction_ind) 
+      define_varp_pk(rd,reaction_rate_tab,FLOAT,rd_table_ind)        
+      
+      define_varp_pk(rd,reaction_handling_min,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_delta,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_rank,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_spacing,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_eval_name,CHAR,rd_eval_string,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_tab_index,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_var0,CHAR,rd_tag_string,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_var,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_num_rand,INT,problem_reaction_ind)
+
+      define_varp_pk(rd,reaction_handling_base,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_handling_tab,FLOAT,rd_handling_table_ind)
+
 @ Common blocks definitions.
 
 @f rd_common integer
@@ -91,7 +106,7 @@ in the analogous |rd_misc_data3| array.
       rd_common_a;
       integer inc;
 
-/* The |ragged_alloc| macros are a subset of the ones described in 
+/* The |ragged_alloc| macros are the same as those in 
    |pmidata.hweb|. More detailed documentation is given there. */
 @m rd_set_baseinc(x,y,subs)
       x##_base##subs##=x##_size;
@@ -106,5 +121,5 @@ in the analogous |rd_misc_data3| array.
 
 @m rd_ragged_realloc(x,y,subs)
       rd_set_baseinc(x,y,subs);
-      var_realloc(x##_table,x##_size-1,x##_size-1+inc);
+      var_realloc(x##_tab,x##_size-1,x##_size-1+inc);
       x##_size=x##_size+inc @;
