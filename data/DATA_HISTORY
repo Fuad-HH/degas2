@@ -91,6 +91,41 @@ and added "table_external" data. The dissociation energy (3 eV) and
 the background energy losses (10.5 * reaction rate) come directly from the
 Janev book.
 
+MOLECULAR HYDROGEN DISSOCIATION TO N=3
+h2dis_n3.nc
+
+  --Version 2.0--
+This file was generated from a combination of V. 2.1 of h2pdisrec.nc and a
+run of ratecalc from h2dis_n3.input to set up the independent and dependent 
+variable arrays. Significant manual editing was required fill in the 
+placeholder values. The bulk of the reaction rate values were computed by a 
+run of ratecalc using the Janev book fits. The initial six values violated 
+the fit constraints. A forced evaluation of the fit in KaleidaGraph yields 
+reasonable values here, so they have been pasted in. The same was done for 
+the last 4 values. The background energy loss (21.5 * reaction rate) comes 
+directly from the Janev book. The dissociation energy for this reaction is more
+complicated than the others. The paper by Higo (M. Higo et al., Chem.
+Phys. 73, 99 (1982); see also D. P. Stotler et al., Phys. Plasmas 3, 
+4084 (1996)) reported a bimodal distribution of dissociation energies,
+varying from mostly slow (0.25 eV) at low electron energies (near the 
+threshold of 19 eV) to almost 50-50 slow and fast (6.7 eV) for electron
+energies of 90 eV. The energies were converted into equivalent electron
+temperatures by dividing by 3/2. The distribution of energies was effected
+by manually setting up a 2-D table with one dimension being the electron
+temperature (6 values, 10 to 60 eV), the other representing a random
+variable between 0 and 1. The H-alpha emission rate was computed from
+the dissociation rate as: \[
+\frac{A_{3 \rightarrow 2}}{( A_{3 \rightarrow 2} + A_{3 \rightarrow 1}
+)} E_{3 \rightarrow 2} S_{dis},
+\]
+where: $A_{3 \rightarrow 2} = 4.410 \times 10^{7}$ s$^{-1}$,
+$A_{3 \rightarrow 1} = 5.575 \times 10^{7}$ s$^{-1}$
+(this ratio was previously set to $0.439$ following Reiter's 1992 PSI),
+$E_{3 \rightarrow 2} = (1/4 - 1/9) \times 13.595$ eV. Finally, the
+H-alpha wavelengths appear as 3 separate dependent variables with nonzero
+values only in a narrow range for the emitter mass around the appropriate 
+isotope mass.
+
 MOLECULAR HYDROGEN IONIZATION
 h2ion.nc
 
@@ -154,6 +189,36 @@ and added "table_external" data. The dissociation energy (4.3 eV) and
 the background energy losses (10.5 * reaction rate) come directly from the
 Janev book.
 
+MOLECULAR HYDROGEN ION DISSOCIATION TO N=3
+h2pdis_n3
+
+  --Version 2.0--
+The file was generated manually using h2pdisrec.nc as a template. The
+rate in the Janev book and Aladdin database (Janev reaction 2.2.13) is
+for a final state of n=2. Following reasoning described in Reiter et
+al., J. Nucl. Mater. 196-198, 1059 (1992), that rate is multiplied by
+a factor of 0.174 to estimate the rate for reactions resulting in an
+n=3 state.  A few values at the extremes of the temperature range
+exceed the fit restrictions. However, the resulting rate values are
+reasonable and are included here anyway.  The electron energy loss per
+reaction is taken directly from the Janev book as 17.5 eV (i.e., the
+background energy loss rate is 17.5 * reaction rate).  In principle it
+should probably be about 1 eV larger (because of a higher lying
+intermediate state), but have no definite calculation from which we
+can obtain an alternative value. The dissociation energy is set at 1.5 eV,
+as specified in the Janev book. The H-alpha emission rate was computed from
+the dissociation rate as: \[
+\frac{A_{3 \rightarrow 2}}{( A_{3 \rightarrow 2} + A_{3 \rightarrow 1}
+)} E_{3 \rightarrow 2} S_{dis},
+\]
+where: $A_{3 \rightarrow 2} = 4.410 \times 10^{7}$ s$^{-1}$,
+$A_{3 \rightarrow 1} = 5.575 \times 10^{7}$ s$^{-1}$
+(this ratio was previously set to $0.439$ following Reiter's 1992 PSI),
+$E_{3 \rightarrow 2} = (1/4 - 1/9) \times 13.595$ eV. Finally, the
+H-alpha wavelengths appear as 3 separate dependent variables with nonzero
+values only in a narrow range for the emitter mass around the appropriate 
+isotope mass.
+
 MOLECULAR HYDROGEN ION DISSOCIATIVE IONIZATION
 h2pdision.nc
 
@@ -195,7 +260,7 @@ As part of the scoring implementation, switch from an energy loss term
 to an energy loss rate (multiply energy loss as above by rate). Add 
 explicit H-alpha emission rate and separate wavelengths for each
 isotope (as elsewhere). The expression used for the former is: \[
-f_{n=3} \frac{A_{3 \rightarrow 2}}{( A_{3 \rightarrow 2} + A_{3 \rightarrow 2}
+f_{n=3} \frac{A_{3 \rightarrow 2}}{( A_{3 \rightarrow 2} + A_{3 \rightarrow 1}
 )} E_{3 \rightarrow 2} S_{dis},
 \]
 where: $f_{n=3} = 0.45$ (Janev book), 
