@@ -3,6 +3,11 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.23  1996/01/25 15:04:38  dstotler
+% Changed the name of end_geometry to boundaries_neighbors; added
+% end_sectors. Modified check_geometry to permit (degenerate) outer
+% surfaces which were not defined within universal_cell.
+%
 % Revision 1.22  1995/12/13 19:41:21  karney
 % Implement walls and symmetry selection in readgeometry.
 %
@@ -91,6 +96,12 @@ Geometry setup routines for degas.
 
 @I geomint.hweb
 @I readfilenames.hweb
+@I zone.hweb
+@I strata.hweb
+@I sysdep.hweb
+@I netcdf.hweb
+@I sector.hweb
+
 @ The unnamed module.
 
 @a
@@ -118,6 +129,7 @@ should.
       implicit_none
       gi_common                 // Output
       zn_common
+      sc_common
       sr_common
       sy_common
       setup_common
@@ -139,6 +151,15 @@ should.
       var_realloca(sector_surface)
       var_realloca(sector_points)
       var_realloca(surfaces_tx_mx)
+
+      var_realloca(sector_vacuum)
+      var_realloca(sector_plasma)
+      var_realloca(sector_solid)
+      var_realloca(sector_exit)
+
+      sc_solid_num=0
+      var_realloca(sector_solid_material);
+      var_realloca(sector_solid_temperature);
 
       zn_num=0
       $DO(I,1,zn_type_max) {
@@ -341,6 +362,7 @@ should.
       subroutine end_sectors
       implicit_none
       gi_common                 // Input/Output
+      sc_common
       integer k,i,base,sigma    // Local
       integer sector_list[*]    // Pointee
       ptr_decl(sector_list)
@@ -581,6 +603,7 @@ these values match.
       ptr_decl(sector_list)
       sy_common
       sr_common
+      sc_common
       zn_common
       setup_common
 
@@ -594,6 +617,11 @@ these values match.
       var_realloca(sector_zone)
       var_realloca(sector_surface)
       var_realloca(sector_points)
+
+      var_realloca(sector_vacuum)
+      var_realloca(sector_plasma)
+      var_realloca(sector_solid)
+      var_realloca(sector_exit)
 
       strata[nsectors]=stratum
       sector_zone[nsectors]=zone
@@ -814,6 +842,7 @@ break1:        continue
       subroutine erase_geometry
       implicit_none
       gi_common                 // Input/Output
+      sc_common
 
       var_free(cells)
       var_free(surfaces)
@@ -854,6 +883,8 @@ break1:        continue
       rf_common
       sr_common
       sr_ncdecl
+      sc_common
+      sc_ncdecl
       integer fileid
       character*FILELEN tempfile
 
@@ -863,11 +894,13 @@ break1:        continue
       gi_ncdef(fileid)
       zn_ncdef(fileid)
       sr_ncdef(fileid)
+      sc_ncdef(fileid)
       call ncendef(fileid,nc_stat);
       vc_ncwrite(fileid)
       gi_ncwrite(fileid)
       zn_ncwrite(fileid)
       sr_ncwrite(fileid)
+      sc_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
 
       return
