@@ -2,6 +2,9 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.20  1998/09/04 17:15:57  dstotler
+% Set up GEOMETRY compiler flag analogous to readgeometry.
+%
 % Revision 1.19  1998/03/11 15:21:10  dstotler
 % Allow for total flux = 0 to one of the two UEDGE targets (for Marv's
 % slab single-null - although this is general). Incorporate setting of
@@ -111,10 +114,7 @@
       @<Functions and Subroutines@>
 
 @ The main program
-@m GENERAL 0
-@m UEDGE_RECT_SLAB 1  // For Marv's single-null slab used in the EIRENE bench
-
-@m GEOMETRY GENERAL
+@m OLD_UEDATA 0
 
 @<Functions...@>=
       program readbackground
@@ -438,17 +438,20 @@ of the file name (x.d is degas and x.u for uedge) */
       integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3,max_rc,test,grp
       real rm[mx,my,0:4],zm[mx,my,0:4],ni[mx,my],vr[mx,my],vz[mx,my],
      $     vphi[mx,my],te[mx,my],ti[mx,my],
-     $     flux1[my],flux2[my],eion1[my],eion2[my]
+     $     flux1[my],flux2[my],ni1[my],ni2[my],
+     $     vr1[my],vr2[my],vz1[my],vz2[my],vphi1[my],vphi2[my],
+     $     ti1[my],ti2[my],te1[my],te2[my]
       real flux1_tot,flux2_tot,dummy
       character*FILELEN file
       vc_decl(x1)
       vc_decl(x2)
+      vc_decl(v_bdy)
       sc_decl(sector)
       sc_plasma_decl(plasma_sc_ptr)
       
-      external lookup_sector
+      external lookup_sector,inc_ion_energy
       integer lookup_sector
-
+      real inc_ion_energy
       
       print *, 'in read_uedge'
 
@@ -478,11 +481,24 @@ of the file name (x.d is degas and x.u for uedge) */
       read (nu,*,err= 6)SP ((vphi[j1,j2],j1=1,nx),j2=1,ny)
       read (nu,*,err= 6)SP ((ti[j1,j2],j1=1,nx),j2=1,ny)
       read (nu,*,err= 6)SP ((te[j1,j2],j1=1,nx),j2=1,ny)
+@#if !OLD_UEDATA
+      read (nu,*,err= 6)SP (ni1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (vr1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (vz1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (vphi1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (ti1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (te1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (ni2[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (vr2[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (vz2[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (vphi2[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (ti2[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (te2[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
+@#else
       read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
       read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
-@#if (GEOMETRY == UEDGE_RECT_SLAB)                // Eventually make permanent
-      read (nu,*,err= 6)SP (eion1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (eion2[j2],j2=1,ny)
 @#endif
 
       i=0
@@ -586,10 +602,12 @@ of the file name (x.d is degas and x.u for uedge) */
             if (zn_type(sector_zone(sector)) == zn_solid) then
                sector=lookup_sector(x2,x1)
             end if
-@#if (GEOMETRY == UEDGE_RECT_SLAB)
+@#if !OLD_UEDATA
             plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
             assert(sc_plasma_check(plasma_sc_ptr))
-            plasma_e_ion_delta[plasma_sc_ptr]=eion1[j2]*electron_charge
+            vc_set(v_bdy,vr1[j2],vphi1[j2],vz1[j2])
+            plasma_e_ion_delta[plasma_sc_ptr]
+     $           =inc_ion_energy(vc_args(v_bdy),ti1[j2],te1[j2])
             plasma_e_ion_mult[plasma_sc_ptr]=zero
 @#endif
             source_segment_ptr[i]=sector
@@ -617,10 +635,12 @@ of the file name (x.d is degas and x.u for uedge) */
             if (zn_type(sector_zone(sector)) == zn_solid) then
                sector=lookup_sector(x2,x1)
             end if
-@#if (GEOMETRY == UEDGE_RECT_SLAB)
+@#if !OLD_UEDATA
             plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
             assert(sc_plasma_check(plasma_sc_ptr))
-            plasma_e_ion_delta[plasma_sc_ptr]=eion2[j2]*electron_charge
+            vc_set(v_bdy,vr2[j2],vphi2[j2],vz2[j2])
+            plasma_e_ion_delta[plasma_sc_ptr]
+     $           =inc_ion_energy(vc_args(v_bdy),ti2[j2],te2[j2])
             plasma_e_ion_mult[plasma_sc_ptr]=zero
 @#endif
             source_segment_ptr[i]=sector
@@ -639,4 +659,25 @@ of the file name (x.d is degas and x.u for uedge) */
       return
       end
 
+@ Compute incident ion energy. Use a simple prescription based on the
+one applied by EIRENE in the benchmark runs.
 
+@<Functions...@>=
+      function inc_ion_energy(vc_dummy(vi),ti,te)
+
+      implicit_none_f77
+      implicit_none_f90
+      @<Memory allocation interface@>
+      real inc_ion_energy                // Function
+      vc_decl(vi)                        // Input
+      real ti,te
+
+      real ce,phi_sheath                 // Local
+
+      ce=sqrt(te/electron_mass)
+      phi_sheath=-log(sqrt(two*PI)*vc_abs(vi)/ce)
+
+      inc_ion_energy=const(3.0)*ti+(half+phi_sheath)*te
+
+      return
+      end
