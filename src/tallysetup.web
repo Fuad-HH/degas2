@@ -2,6 +2,12 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.12  2001/07/16 21:07:36  dstotler
+% Added source type to reaction list for tally_est_reaction. Original is
+% tallysetup.ref. NOTE: MAY WANT TO REPLACE pr_reaction_num+so_type,
+% etc. WITH A MACRO AS WE HAVE DONE FOR problem_sp. Allow an estimator
+% 'N' to denote no estimator for a particular  reaction.
+%
 % Revision 1.11  2000/04/01 17:35:13  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -1237,7 +1243,16 @@ possibly be used to {\em replace} the separate arrays in the tally class.
       var_num[tl_index_problem_sp]=pr_background_num+pr_test_num
       var_num[tl_index_test_author]=so_type_num+pr_reaction_num+pr_pmi_num
       var_num[tl_index_reaction]=pr_reaction_num+so_type_num
+/*
+   Found it convenient to not read in background file for this code.
+   So, |so_grps| is not available. Does not look like we need this
+   as an independent variable anyway.
+*/
+@#if 0
       var_num[tl_index_source_group]=so_grps
+@#else
+      var_num[tl_index_source_group]=int_unused
+@#endif
 
       var_num[tl_index_zone_ind_1]=zone_index_max[1]
       var_num[tl_index_zone_ind_2]=zone_index_max[2]
