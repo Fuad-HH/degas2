@@ -2,6 +2,9 @@
 \def\Wtitle{composite}
 
 % $Log$
+% Revision 1.5  1995/03/28 20:37:29  jshankar
+% Initial version of readgeometry.
+%
 % Revision 1.4  1994/08/24 15:02:45  karney
 % Added degasgeom to read in old degas' geometry spec.
 %
@@ -127,7 +130,7 @@ of the points.
       integer n                 // Input
       real x[2,0:n]
       integer i                 // Local
-      real pi,totang,dir0,dir,delta, deltax, deltaz
+      real pi,totang,dir0,dir,delta 
       external self_intersect   // External
       logical self_intersect
 
@@ -241,12 +244,6 @@ of the points.
             a[2,m]=x[2,i]
          end if
       end do
-/*
-      if (m<3) then
-         write(stderr,*) 'Warning n<3'
-         return
-      end if
-*/
       assert(m>=3)
       check( ! self_intersect(m,a) ) // Check the polygon isn't self intersecting
 

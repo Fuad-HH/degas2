@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.1  1995/03/28 20:37:44  jshankar
+% Initial version of readgeometry.
+%
 % Revision 1.1  1995/01/30 21:06:55  karney
 % Merge in my changes with Daren's
 %
@@ -9,19 +12,27 @@
 @n/
 
 @* A program to read a geometry specification from an external file.
-The syntax for the file is
+the file name has to be given in the command  line. The syntax for the file is:
 
-keyword args
+keyword args \\
 
-where keyword is one of degasfile, newzone, newpolygon, definepolygon,
-wall, outer.  ``degasfile FILE'' defines a degas input file.  newzone
-starts a new zone. newpolygon starts a new polygon. definepolygon adds the
-current polygon to the current zone.  ``wall WALLNO START STOP DIRECTION''
-where START STOP can be replaced by ``*'' (meaning the whole wall segment)
-and DIRECTION is optional (default = +1).  ``outer I J K ...'' adds I'th
-J'th K'th points from outer boundary to polygon (bottom left corner = point
-0, numbering is clockwise).
-
+The keyword is shown in bold face below and the arguments in italics.
+``keyword'' is one of {\bf degasfile},{\bf  new_zone},{\bf  new_polygon},
+\bf define_polygon},
+{\bf wall},{\bf outer}, {\bf minx}, {\bf minz},\bf mindensity}. {\bf
+degasfile}.  {\it degasfile_name} defines a degas input file.
+{\bf new_zone} {\it zone_type} starts a new zone. {\it zone_type} is a
+string that indicates the type of  the zone. It can be ``plasma'',
+``vacuum'' or ``solid''. {\bf new_polygon} starts
+a new polygon. {\bf define_polygon} adds the current polygon to the current
+zone. {\bf wall} {\it wallno start stop direction} where {\it start} \&{\it
+stop} can be replaced by ``*'' (meaning the whole wall segment) and {\it
+direction} is optional (default = +1).  {\bf outer}{\it i j k} adds i'th j'th
+k'th points from outer boundary to polygon (bottom left corner = point 0,
+numbering is clockwise). {\bf minx} {\it x value}  \& {\bf minz} {z value}
+are for excluding grid indices (and hence the gridx, gridz values) that lie
+below these values. {\bf mindensity} {\it density value} is also used to
+exclude grid indices that define the cells containing plasma density less than the given value.
 
 \ID{$Id$}
 
@@ -199,26 +210,22 @@ loop3:   continue
          grid_starth=read_integer(line(b:e))
          assert(next_token(line,b,e,p))
          grid_stoph=read_integer(line(b:e))
-         do j2=grid_starth,grid_stoph      /* nptshb-1 */
+         do j2=grid_starth,grid_stoph 
             plot=' '
-            do j1=grid_startv,grid_stopv             /*nptsvb-1 */
+            do j1=grid_startv,grid_stopv   
                if (kzone1(j1,j2) <= 0 || kzone2(j1,j2) <= 0) then
                   plot(j1:j1)='k'
-c     write(stdout,*) 'kzone: ',j1,j2
                   goto skip
                else if (denehvt(j1,j2,1) <= mindensity) then
                   plot(j1:j1)='d'
-c     write(stdout,*) 'density: ',j1,j2
                   goto skip
                else if (gridx(j1,j2,1)<=minx || gridx(j1,j2+1,1)<=minx ||
      $                 gridx(j1+1,j2+1,1)<=minx || gridx(j1+1,j2,1)<=minx) then
                   plot(j1:j1)='x'
-c     write(stdout,*) 'minx: ',j1,j2
                   goto skip
                else if (gridz(j1,j2,1)<=minz || gridz(j1,j2+1,1)<=minz ||
      $                 gridz(j1+1,j2+1,1)<=minz || gridz(j1+1,j2,1)<=minz) then
                   plot(j1:j1)='z'
-c     write(stdout,*) 'minz: ',j1,j2
                   goto skip
                endif
 /*
@@ -274,7 +281,6 @@ skip:          continue
            h=grid_starth
            v=grid_startv
            do i=0,num-1
-c     write(stdout,'(2f10.4)') gridx(v,h,1),gridz(v,h,1)
               x[1,n]=gridx(v,h,1)
               x[2,n]=gridz(v,h,1)
               n++
@@ -381,7 +387,6 @@ eof:  continue
          do j=1,nosegsxz[i]+1
             xwall[j,i]=xoffset+xwall[j,i]*const(0.01)
             zwall[j,i]=zwall[j,i]*const(0.01)
-/*	write (stdout,*) xwall[j,i],zwall[j,i] */
          end do
       end do
 
@@ -399,6 +404,9 @@ eof:  continue
       return
 
       end
+
+
+
 
 
 
