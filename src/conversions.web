@@ -1,0 +1,448 @@
+% $Id$
+\Title{conversions}
+
+% $Log$
+
+@* Routines used to convert tallies from their raw form to the one desired.
+ 
+\ID{$Id$}
+
+@m FILE 'conversions.web'
+
+@I macros.hweb
+@I tally.hweb
+@I particle.hweb
+@I string.hweb
+@I problem.hweb
+@I species.hweb
+@I zone.hweb
+@I geomint.hweb
+@I background.hweb
+@I output.hweb
+
+@ The main program
+
+@a
+      @<Functions and subroutines@>
+
+@ Subroutine to convert |scoring_data| prior to adding to tallies.
+
+@<Functions...@>=
+      subroutine track_conversions(tl_dummy(jscore),pt_dummy(p),ind_val,
+     $   scoring_data_label,num_scoring_data,scoring_data,converted_data)
+
+      implicit_none_f77
+      tl_common                                  // Common
+      pr_common
+      implicit_none_f90
+
+      tl_decl(jscore)                            // Input
+      pt_decl(p)
+      integer ind_val[tl_rank_max]
+      real scoring_data[*]              
+      character*(*) scoring_data_label[*]
+      integer num_scoring_data
+
+      real converted_data[*]                     // Output
+
+      integer icv,j_tl_cv,k,ip,i,j               // Local
+      integer ind_valp1[tl_rank_max],dep_index[tl_cv_max_partners]
+      real cv_params[tl_cv_max_params],local_data[tl_cv_max_local_data],
+     $     local_data_out[tl_cv_max_local_data]
+      logical vector
+
+      tl_decls
+      st_decls
+
+      do k=1,num_scoring_data          // Need to do this every call!
+         converted_data[k]=scoring_data[k]
+      end do
+
+/*
+   Should we do a test in the calling routine so that this one gets called
+   only when needed? Notes for future use: first, the call to 
+   |set_track_cv_params| need not be inside the do-loop, I guess. Second,
+   we originally had |scoring_data| in the assignment of |local_data| below.
+   If there were more than one track conversion for this score, that would
+   have meant that only the last would have been remembered.
+*/
+      if (tally_num_conversions[jscore] > 0) then
+         do k=1,tl_rank_max
+            ind_valp1[k]=ind_val[k]+1
+         end do
+
+         do j_tl_cv=1,tally_num_conversions[jscore]
+            icv=tally_cv_ptr[jscore][j_tl_cv]
+            if (tally_cv_type[icv] == tl_cv_track) then
+
+               call set_track_cv_params(tl_args(jscore),ind_valp1,pt_args(p),
+     $              cv_params)
+
+               i=0
+               do ip=1,tally_cv_num_partners[icv]
+                  dep_index[ip]
+     $               =string_lookup(tally_dep_var[tally_cv_partners[icv][ip]],
+     $                 scoring_data_label,num_scoring_data)
+                  if (index(tally_name[tally_cv_partners[icv][ip]],
+     $                        'vector') > 0) then
+                     if (ip==1) vector=.true.
+                     do j=1,3
+                        i++
+                        local_data[i]=converted_data[dep_index[ip]+j-1]
+                     end do
+                  else
+                     if (ip==1) vector=.false.
+                     i++
+                     local_data[i]=converted_data[dep_index[ip]]
+                  end if
+               end do
+               assert(i <= tl_cv_max_local_data)
+
+               call do_conversions(icv,cv_params,local_data,vector,
+     $              local_data_out)
+
+/*
+   Only the data for the first partner (i.e., the score itself) gets altered.
+*/
+               i=0
+               if (index(tally_name[tally_cv_partners[icv][1]],
+     $              'vector') > 0) then
+                  do j=1,3
+                     i++
+                     converted_data[dep_index[1]+j-1]=local_data_out[i]
+                  end do
+               else
+                  i++
+                  converted_data[dep_index[1]]=local_data_out[i]
+               end if
+
+            end if
+         end do
+      end if
+
+      return
+      end
+
+@ Preparatory routine for post-process and output conversions. Note that
+|track_conversions| works on a copy of the score data while this routine
+modifies the data directly. In this case, it would be painful to make a
+complete copy of the full |scores| array, and we can be certain that we
+alter only the scores needed. In |track_conversions|, use of the
+score data on subsequent calls are not determined a priori so that it is 
+not appropriate to make permanent changes to them.
+
+@<Functions...@>=
+      subroutine final_conversions(type,scores)
+
+      implicit_none_f77
+      tl_common                                           // Common
+      pr_common
+      implicit_none_f90
+
+      integer type                                        // Input
+
+      real scores[0:*][o_mean:o_var]                      // Input / Output
+
+      integer icv,jscore,ip,i,j,k,l,m,is,jv               // Local
+      integer ind_val[tl_rank_max],ind_valp1[tl_rank_max]
+      real check_data
+      real local_data[tl_cv_max_local_data],
+     $     local_data_out[tl_cv_max_local_data],cv_params[tl_cv_max_params]
+      logical vector
+
+      tl_decls
+
+      do icv=1,nconversions
+         if (tally_cv_type[icv] == type) then
+            jscore=tally_cv_partners[icv][1]
+            assert(jscore > 0)
+
+/*
+   Note: this routine assumes that all partners have 
+   the same |tally_tab_index|.
+*/
+            assert(tl_rank_max == 5)
+            do m=1,tally_tab_index[jscore][5]
+               ind_val[5]=m-1
+               ind_valp1[5]=m
+               do l=1,tally_tab_index[jscore][4]
+                  ind_val[4]=l-1
+                  ind_valp1[4]=l
+                  do k=1,tally_tab_index[jscore][3]
+                     ind_val[3]=k-1
+                     ind_valp1[3]=k
+                     do j=1,tally_tab_index[jscore][2]
+                        ind_val[2]=j-1
+                        ind_valp1[2]=j
+                        do i=1,tally_tab_index[jscore][1]
+                           ind_val[1]=i-1
+                           ind_valp1[1]=i
+
+                           call set_cv_params(tl_args(jscore),ind_valp1,
+     $                          cv_params)
+
+                           is=0
+                           check_data=zero
+                           do ip=1,tally_cv_num_partners[icv]
+                              if (index(tally_name[tally_cv_partners[icv][ip]],'vector') > 0) then
+                                 if (ip==1) vector=.true.
+                                 do jv=1,3
+                                    is++
+                                    local_data[is]=scores[out_array_vc_index(jv,ind_val,tally_cv_partners[icv][ip])][o_mean]
+                                    check_data+=abs(local_data[is])
+                                 end do
+                              else
+                                 if (ip==1) vector=.false.
+                                 is++
+                                 local_data[is]=scores[out_array_index(ind_val,tally_cv_partners[icv][ip])][o_mean]
+                                 check_data+=abs(local_data[is])
+                              end if
+                           end do
+                           assert(is <= tl_cv_max_local_data)
+
+                           if (check_data > zero) then
+                              call do_conversions(icv,cv_params,local_data,vector,
+     $                             local_data_out)
+
+/*
+   Only the data for the first partner (i.e., the score itself) gets altered.
+*/
+                              is=0
+                              if (index(tally_name[tally_cv_partners[icv][1]],
+     $                             'vector') > 0) then
+                                 do jv=1,3
+                                    is++
+                                    scores[out_array_vc_index(jv,ind_val,tally_cv_partners[icv][1])][o_mean]=local_data_out[is]
+                                 end do
+                              else
+                                 is++
+                                 scores[out_array_index(ind_val,tally_cv_partners[icv][1])][o_mean]=local_data_out[is]
+                              end if
+                           end if
+                        end do        // |i|, \ldots
+                     end do
+                  end do
+               end do    
+            end do                    // \ldots, |m|
+         end if
+      end do                          // |icv|
+
+      return
+      end
+
+@ Subroutine to set parameters used to do track conversions.
+
+@<Functions...@>=
+      subroutine set_track_cv_params(tl_dummy(jscore),ind_valp1,pt_dummy(p),
+     $   cv_params)
+
+      implicit_none_f77
+      implicit_none_f90
+
+
+      tl_decl(jscore)                              // Input
+      integer ind_valp1[tl_rank_max]
+      pt_decl(p)
+
+      real cv_params[tl_cv_max_params]             // Output
+                                                   // Local
+      integer i                                  
+/*
+   It is extremely convenient to have this separate from the analogous
+   set_cv_params routine used for the final conversions. The main reason
+   is that we probably will need at least the current particle position
+   to do the velocity coordinate conversion. We pass in a particle so
+   that we can eventually do more (e.g., if we end up averaging x/R along
+   the track and pass the track specification along with the particle, or
+   maybe it'll have to be a flight at that point). Because the post-process
+   conversions were established almost entirely to allow a fake particle
+   to be set up for the post-process scores, it's asking too much to pass
+   down a particle specification for that |set_cv_params| routine. 
+   It is reasonable for this routine to call that one as a subset;
+   e.g., if there was a need to divide out the mass or volume on the
+   fly. But right now that's not necessary.
+*/
+
+      do i=1,tl_cv_max_params
+         cv_params[i]=zero
+      end do
+
+      cv_params[tl_cv_pos_1]=lc_x(pt_loc(p))[1]
+      cv_params[tl_cv_pos_2]=lc_x(pt_loc(p))[2]
+      cv_params[tl_cv_pos_3]=lc_x(pt_loc(p))[3]
+
+@#if 0
+      call set_cv_params(tl_args(jscore),ind_valp1,cv_params)
+@#endif
+
+      return
+      end
+
+@ Set parameters used for scaling and other conversions.
+
+@<Functions...@>=
+      subroutine set_cv_params(tl_dummy(jscore),ind_valp1,cv_params)
+
+      implicit_none_f77
+      tl_common                                    // Common
+      pr_common
+      sp_common
+      zn_common
+      implicit_none_f90
+
+      tl_decl(jscore)                              // Input
+      integer ind_valp1[tl_rank_max]
+
+      real cv_params[tl_cv_max_params]             // Output
+      
+      integer k                                    // Local
+
+      tl_decls
+
+/*  Will this suffice to trap pathological cases if we check for 
+    zeroes later? Are there cases where zero is a reasonable value?
+*/
+      do k=1,tl_cv_max_params
+         cv_params[k]=zero
+      end do
+
+/* We can do constants here, too, although they might be better done in
+   constants.hweb with obvious names.
+*/
+      cv_params[tl_cv_Pa_per_mTorr]=const(1.3332,-1) // NRL Plasma Formulary
+      cv_params[tl_cv_three_halves]=const(1.5)       // For neutral temperature
+
+      do k=1,tl_rank_max
+
+         if (tally_indep_var[jscore][k] == tl_index_test) then
+/*  We'll need to trap non-physical tests, non-plasma zones, etc. somewhere.
+    Start with the harshest treatment and see if we can relax it.
+*/
+            assert(pr_test_check(ind_valp1[k]))   
+            assert(cv_params[tl_cv_test_mass] == zero)
+            cv_params[tl_cv_test_mass]=sp_m(pr_test(ind_valp1[k]))
+
+         else if (tally_indep_var[jscore][k] == tl_index_back) then
+            assert(pr_background_check(ind_valp1[k]))
+            assert(cv_params[tl_cv_back_mass] == zero)
+            cv_params[tl_cv_back_mass]=sp_m(pr_background(ind_valp1[k]))
+
+         else if (tally_indep_var[jscore][k] == tl_index_zone) then
+            assert(zn_check(ind_valp1[k]))
+
+            cv_params[tl_cv_volume]=zn_volume(ind_valp1[k])
+
+/* Presently, |zone_centers| defined only for plasma zones. Could we
+   be doing some sort of volume average here? Does it make any difference?
+ */
+            if (zn_type(ind_valp1[k]) == zn_plasma) then
+               cv_params[tl_cv_zone_pos_1]=zone_center[ind_valp1[k]][1]
+               cv_params[tl_cv_zone_pos_2]=zone_center[ind_valp1[k]][2]
+               cv_params[tl_cv_zone_pos_3]=zone_center[ind_valp1[k]][3]
+            end if
+/*  The other parameter we've imagined including here is the sector area.
+    However, that is not presently computed during the geometry setup!
+    Hold off on that until we get all of this transform stuff working.
+*/
+         end if
+      end do
+
+      return
+      end
+
+@ Actually do the conversions. This routine contains all of the
+details.
+
+@<Functions...@>=
+      subroutine do_conversions(icv,cv_params,local_data,vector,local_data_out)
+
+      implicit_none_f77
+      tl_common                                     // Common
+      gi_common
+      bk_common
+      pr_common
+      implicit_none_f90
+
+      integer icv                                   // Input
+      real cv_params[tl_cv_max_params],local_data[tl_cv_max_local_data]
+      logical vector
+
+      real local_data_out[tl_cv_max_local_data]     // Output
+
+      integer i                                     // Local
+      vc_decl(x)
+
+      tl_decls
+
+      do i=1,tl_cv_max_local_data
+         local_data_out[i]=zero
+      end do
+
+      if (tally_cv_action[icv] == tl_cv_scale) then
+         if (cv_params[tally_cv_scalers[icv][1]] != zero) then
+            if (!vector) then
+               local_data_out[1]=local_data[1]
+     $              /cv_params[tally_cv_scalers[icv][1]]
+            else
+               vc_scale(one/cv_params[tally_cv_scalers[icv][1]],
+     $              local_data,local_data_out)
+            end if
+         else
+            if (!vector) then
+               local_data_out[1]=local_data[1]
+            else
+               vc_copy(local_data,local_data_out)
+            end if
+         end if
+
+      else 
+
+         if (tally_cv_action[icv] == tl_cv_divide_number) then
+/*
+  Verify that partner conversions have been done; settle for checking 
+  just the first.
+*/
+            assert(tally_cv_ptr[tally_cv_partners[icv][2]][1] < icv)
+            if (local_data[2] != zero) then
+               if (!vector) then
+                  local_data_out[1]=local_data[1]/local_data[2]
+               else
+                  vc_scale(one/local_data[4],local_data,local_data_out)
+               end if
+            else
+               if (!vector) then
+                  local_data_out[1]=local_data[1]
+               else
+                  vc_copy(local_data,local_data_out)
+               end if
+            end if
+            if (!vector) then
+               local_data_out[2]=local_data[2]
+            else
+               local_data_out[4]=local_data[4]
+            end if
+
+         else if (tally_cv_action[icv] == tl_cv_to_internal_coords) then
+            assert(vector)
+            x[1]=cv_params[tl_cv_zone_pos_1]
+            x[2]=cv_params[tl_cv_zone_pos_2]
+            x[3]=cv_params[tl_cv_zone_pos_3]
+            v_ext_to_int(x,local_data,local_data_out,geometry_symmetry,background_coords)
+
+         else if (tally_cv_action[icv] == tl_cv_to_external_coords) then
+            assert(vector)
+            x[1]=cv_params[tl_cv_pos_1]
+            x[2]=cv_params[tl_cv_pos_2]
+            x[3]=cv_params[tl_cv_pos_3]
+            v_int_to_ext(x,local_data,local_data_out,geometry_symmetry,background_coords)
+
+         else
+            assert('Unsupported conversion' == ' ')
+         end if
+      end if
+
+      return
+      end
+         
+
+
