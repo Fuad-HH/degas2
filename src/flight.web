@@ -2,6 +2,10 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.39  2000/04/01 17:32:12  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.38  1999/08/09 15:18:35  karney
 % An extensive revision of the random number routines
 % (1) make the routines available for export,
@@ -174,8 +178,8 @@
 
 @m FILE 'flight.web'
 
-@m MANDREKAS 0
 @m EIR_REC_BENCH 0
+@m DUMP_FLIGHTS 0
 
 @m WMIN_PMI const(1.,4)
 
@@ -316,6 +320,9 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
      $     rate[pr_reaction_max],rate_all[pr_reaction_max],sum,t_fac
       real estimator_factors[*]         // Scratch
       logical done
+@#if DUMP_FLIGHTS
+      character*1 grp_label
+@#endif
 
       pt_decl(prod[0:rc_product_max])
       rn_decls
@@ -327,15 +334,20 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
       
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
 
-@#if 0
-      do i=0,tally_size-1
-         scores[i][o_mean]=zero
-         scores[i][o_var]=zero
-      end do
+@#if DUMP_FLIGHTS
+      if (fl_number(x) == 0) then
+         write(grp_label,'(i1)') fl_source(x)
+         open(unit=diskout,file='flights'\/grp_label,status='unknown')
+      end if
 @#endif
 
-      call sample_sources(fl_args(x),rel_wt)
+/*
+   This call now combines the source sampling and scoring.
+*/
+      call sample_sources(tl_est_collision,fl_args(x),estimator_factors,rel_wt)
+@#if 0
       call score_sources(fl_args(x),estimator_factors)
+@#endif
 
 loop1: continue                 // Start a new 
 
@@ -343,6 +355,12 @@ loop1: continue                 // Start a new
  does not depend on the neutral energy could go here. */
 
 loop: continue                  // Still in same zone
+@#if DUMP_FLIGHTS
+      write(diskout,'(1p,5(e13.4,2x))') pt_t(fl_current(x)),
+     $   lc_x(pt_loc(fl_current(x)))[1],
+     $   lc_x(pt_loc(fl_current(x)))[2],lc_x(pt_loc(fl_current(x)))[3],
+     $   pt_w(fl_current(x))
+@#endif
 
       ionize_rate=zero
       other_rate=zero
@@ -478,6 +496,10 @@ break1:  continue
       end if
 
 break: continue     // End of flight!
+@#if DUMP_FLIGHTS
+      write(diskout,*) '------------------------------------'   // Delimiter
+      if (fl_number(x) == so_nflights(fl_source(x))-1) close(unit=diskout)
+@#endif
 
       return
       end
@@ -573,12 +595,14 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       end do
 @#else
       call score_diagnostics(nprod,pt_args(prod[0]),estimator_factors)
-      do i=1,nprod
-         if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
-            fl_pointer(x)++
-            pt_copy(prod[i],fl_current(x))
-         end if
-      end do
+      if (nprod > 0) then
+         do i=1,nprod
+            if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
+               fl_pointer(x)++
+               pt_copy(prod[i],fl_current(x))
+            end if
+         end do
+      end if
 @#endif
 
       return
