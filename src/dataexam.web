@@ -1,0 +1,394 @@
+\Title{dataexam}
+
+@* A program to view and manipulate reaction specific data.
+
+@m FILE 'dataexam.web'
+
+@I macros.hweb
+@I zone.hweb
+@I background.hweb
+@I species.hweb
+@I problem.hweb
+@I reactiondata.hweb
+@I xsection.hweb
+@I netcdf.hweb
+@I sysdep.hweb
+@I reaction.hweb
+@I particle.hweb
+@I string.hweb
+
+@ The main program.
+
+@a
+      program dataexam
+      implicit_none
+      character*LINELEN line    // Local
+      character*FILELEN tempfile,reaction_file
+
+      real value
+      real min(xs_table_rank_max),delta(xs_table_rank_max)
+      real fvar1,fvar2,fvar3
+
+      integer length,p,b,e
+      integer i,j,k
+      integer fileid,reaction
+      integer dep_choice
+
+      rc_decl(reaction)
+
+      integer min_slice(xs_table_rank_max,xs_dep_var_max)
+      integer max_slice(xs_table_rank_max,xs_dep_var_max)
+
+      xs_common
+      xs_ncdecl
+      nc_common
+      sy_common
+      rc_common
+      pr_common
+      st_common
+
+      call readfilenames
+      call nc_read_reactions
+      write(stdout,*)
+      write(stdout,*) 'Enter the name of the netCDF file to examine.'
+
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      tempfile = line(b:e)
+
+      do i = b , e
+         if(line(i:i) == '.' ) then
+            reaction_file = line(b:i-1) 
+         endif
+      end do    
+
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
+      xs_ncread(fileid)
+      call ncclose(fileid,nc_stat)
+
+      reaction=rc_lookup(reaction_file)
+
+loop: continue
+
+      write(stdout,*)
+      write(stdout,*) 'Reaction Name:',rc_name(reaction)
+      write(stdout,*) 
+      write(stdout,*) xs_num_dep_var,' Dependent variables used.'
+      write(stdout,*)      
+      write(stdout,*)'Variable Number      Name    Organization'
+      write(stdout,*)      
+
+      do i = 1 , xs_num_dep_var 
+           write(stdout,*) i,'         ',xs_var(0,i),xs_organization(i)
+      end do
+
+      write(stdout,*)
+      write(stdout,*) 'Choose the dependent variable number to examine'
+      write(stdout,*) 'Enter integer value or',xs_num_dep_var+1,' to exit'
+
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      dep_choice=read_integer(line(b:e))
+      if(dep_choice == xs_num_dep_var+1 ) goto eof
+
+      write(stdout,*)
+      write(stdout,*)'The independent variables for ',xs_var(0,dep_choice),' are:'
+      write(stdout,*)'Independent Variable #    Name     # of Values   Min   Max'
+      write(stdout,*)
+
+      if ( xs_rank(dep_choice) == 0 ) then
+
+         write(stdout,*)      
+         write(stdout,*) 'This is a scalar quantity'
+         write(stdout,*) xs_var[0,dep_choice],'   ',xs_data_table(0,0,0,dep_choice)
+         goto loop1
+
+      else
+
+         do i = 1 , xs_rank(dep_choice)
+            write(stdout,*) i,'  ',xs_var(i,dep_choice),' ',xs_tab_index(i,dep_choice),
+     &      '  ',xs_min(i,dep_choice),'  ',xs_max(i,dep_choice)
+         end do 
+
+      endif
+
+      write(stdout,*)
+      write(stdout,*)'Do you want to examine a range of values?'
+      write(stdout,*)'Enter y for Yes and n for No.'
+
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      tempfile = line(b:e)
+      if(tempfile == 'n') goto loop1
+
+      do i = 1 , xs_table_rank_max
+         do j = 1 , xs_dep_var_max
+            min_slice(i,j) = 0
+            max_slice(i,j) = 0
+         end do
+      end do
+
+      do i = 1 , xs_rank(dep_choice)
+         write(stdout,*)
+     $        'Enter beginning and ending range indices, separated by a space, for ',xs_var(i,dep_choice)
+         if (! read_string(stdin,line,length)) goto eof
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,b,e,p))
+         min_slice(i,dep_choice) = read_integer(line(b:e))
+         assert(next_token(line,b,e,p))
+         max_slice(i,dep_choice) = read_integer(line(b:e))
+      end do
+
+      write(stdout,*)
+      write(stdout,*)'Display this on S for Screen or F for File.'
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      tempfile = line(b:e)
+
+      do i=1,xs_rank[dep_choice]
+
+         if ( xs_spacing[i,dep_choice] == 'linear' ) then
+            min[i]=xs_min[i,dep_choice]
+            delta[i]=
+     $            (xs_max[i,dep_choice]-xs_min[i,dep_choice])/
+     $            areal(xs_tab_index[dep_choice][i]-1)
+         else if ( xs_spacing[i,dep_choice] == 'log' ) then
+            min[i]=log(xs_min[i,dep_choice])
+            delta[i]=
+     $           log(xs_max[i,dep_choice]/xs_min[i,dep_choice])/
+     $           areal(xs_tab_index[dep_choice][i]-1)
+         else
+            min[i]=zero
+            delta[i]=zero
+         end if
+ 
+      end do
+
+      i = 0
+      j = 0
+      k = 0
+
+      if(tempfile == 'S') then
+         if ( xs_rank(dep_choice) == 1 ) then
+
+            write(stdout,*)
+            write(stdout,*)xs_var(1,dep_choice),'    ',xs_var(0,dep_choice)
+            write(stdout,*)
+
+            do i = min_slice(1,dep_choice)-1 , max_slice(1,dep_choice)-1
+          
+               if ( xs_spacing[1,dep_choice] == 'linear' ) then
+                  fvar1 = xs_min(1,dep_choice) + areal(i) * delta(1)
+               else if ( xs_spacing[1,dep_choice] == 'log' ) then
+                  fvar1 = dexp( dlog(xs_min(1,dep_choice)) + areal(i) * delta(1) )
+               end if 
+    
+               value=xs_data_table(i,j,k,dep_choice)
+
+               write(stdout,*) fvar1,value
+
+            end do
+
+         else if ( xs_rank(dep_choice) == 2 ) then
+
+         write(stdout,*)
+         write(stdout,*)xs_var(1,dep_choice),' ',xs_var(2,dep_choice),' ',xs_var(0,dep_choice)
+         write(stdout,*)
+
+         do j = min_slice(2,dep_choice)-1 , max_slice(2,dep_choice)-1
+            do i = min_slice(1,dep_choice)-1 , max_slice(1,dep_choice)-1
+
+               if ( xs_spacing[1,dep_choice] == 'linear' ) then
+                  fvar1 = xs_min(1,dep_choice) + areal(i) * delta(1)
+               else if ( xs_spacing[1,dep_choice] == 'log' ) then
+                  fvar1 = dexp( dlog(xs_min(1,dep_choice)) + areal(i) * delta(1) )
+               end if 
+
+               if ( xs_spacing[2,dep_choice] == 'linear' ) then
+                  fvar2 = xs_min(2,dep_choice) + areal(j) * delta(2)
+               else if ( xs_spacing[2,dep_choice] == 'log' ) then
+                  fvar2 = dexp( dlog(xs_min(2,dep_choice)) + areal(j) * delta(2) )
+               end if 
+
+               value=xs_data_table(i,j,k,dep_choice)
+
+               write(stdout,*) fvar1,fvar2,value
+
+            end do
+         end do
+
+         else if ( xs_rank(dep_choice) == 3 ) then
+
+         write(stdout,*)
+         write(stdout,*)xs_var(1,dep_choice),' ',xs_var(2,dep_choice),' ',xs_var(3,dep_choice),
+     &                  ' ',xs_var(0,dep_choice)
+         write(stdout,*)
+
+         do k = min_slice(3,dep_choice)-1 , max_slice(3,dep_choice)-1
+            do j = min_slice(2,dep_choice)-1 , max_slice(2,dep_choice)-1
+               do i = min_slice(1,dep_choice)-1 , max_slice(1,dep_choice)-1
+
+               if ( xs_spacing[1,dep_choice] == 'linear' ) then
+                  fvar1 = xs_min(1,dep_choice) + areal(i) * delta(1)
+               else if ( xs_spacing[1,dep_choice] == 'log' ) then
+                  fvar1 = dexp( dlog(xs_min(1,dep_choice)) + areal(i) * delta(1) )
+               end if 
+
+               if ( xs_spacing[2,dep_choice] == 'linear' ) then
+                  fvar2 = xs_min(2,dep_choice) + areal(j) * delta(2)
+               else if ( xs_spacing[2,dep_choice] == 'log' ) then
+                  fvar2 = dexp( dlog(xs_min(2,dep_choice)) + areal(j) * delta(2) )
+               end if 
+
+               if ( xs_spacing[3,dep_choice] == 'linear' ) then
+                  fvar3 = xs_min(3,dep_choice) + areal(k) * delta(3)
+               else if ( xs_spacing[3,dep_choice] == 'log' ) then
+                  fvar3 = dexp( dlog(xs_min(3,dep_choice)) + areal(k) * delta(3) )
+               end if 
+
+               value=xs_data_table(i,j,k,dep_choice)
+
+               write(stdout,*) fvar1,fvar2,fvar3,value
+
+               end do
+            end do
+         end do
+
+         endif    
+
+      elseif(tempfile == 'F') then
+
+         write(stdout,*)
+         write(stdout,*)'Enter filename to store information'
+         write(stdout,*)
+
+         if (! read_string(stdin,line,length)) goto eof
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,b,e,p))
+         tempfile = line(b:e)
+         open(unit=10,file=tempfile,status='new')
+
+         if ( xs_rank(dep_choice) == 1 ) then
+
+            write(stdout,*)
+            write(10,*)xs_var(1,dep_choice),'    ',xs_var(0,dep_choice)
+            write(10,*)
+
+            do i = min_slice(1,dep_choice)-1 , max_slice(1,dep_choice)-1
+
+               if ( xs_spacing[1,dep_choice] == 'linear' ) then
+                  fvar1 = xs_min(1,dep_choice) + areal(i) * delta(1)
+               else if ( xs_spacing[1,dep_choice] == 'log' ) then
+                  fvar1 = dexp( dlog(xs_min(1,dep_choice)) + areal(i) * delta(1) )
+               end if 
+
+               value=xs_data_table(i,j,k,dep_choice)
+
+               write(10,*) fvar1,value
+               
+            end do
+
+         else if ( xs_rank(dep_choice) == 2 ) then
+
+         write(stdout,*)
+         write(10,*)xs_var(1,dep_choice),' ',xs_var(2,dep_choice),' ',xs_var(0,dep_choice)
+         write(10,*)
+
+         do j = min_slice(2,dep_choice)-1 , max_slice(2,dep_choice)-1
+            do i = min_slice(1,dep_choice)-1 , max_slice(1,dep_choice)-1
+
+               if ( xs_spacing[1,dep_choice] == 'linear' ) then
+                  fvar1 = xs_min(1,dep_choice) + areal(i) * delta(1)
+               else if ( xs_spacing[1,dep_choice] == 'log' ) then
+                  fvar1 = dexp( dlog(xs_min(1,dep_choice)) + areal(i) * delta(1) )
+               end if 
+
+               if ( xs_spacing[2,dep_choice] == 'linear' ) then
+                  fvar2 = xs_min(2,dep_choice) + areal(j) * delta(2)
+               else if ( xs_spacing[2,dep_choice] == 'log' ) then
+                  fvar2 = dexp( dlog(xs_min(2,dep_choice)) + areal(j) * delta(2) )
+               end if 
+
+               value=xs_data_table(i,j,k,dep_choice)
+
+               write(10,*) fvar1,fvar2,value
+
+            end do
+         end do
+
+         else if ( xs_rank(dep_choice) == 3 ) then
+
+         write(stdout,*)
+         write(10,*)xs_var(1,dep_choice),' ',xs_var(2,dep_choice),' ',xs_var(3,dep_choice),
+     &                  ' ',xs_var(0,dep_choice)
+         write(10,*)
+
+         do k = min_slice(3,dep_choice)-1 , max_slice(3,dep_choice)-1
+            do j = min_slice(2,dep_choice)-1 , max_slice(2,dep_choice)-1
+               do i = min_slice(1,dep_choice)-1 , max_slice(1,dep_choice)-1
+               
+               if ( xs_spacing[1,dep_choice] == 'linear' ) then
+                  fvar1 = xs_min(1,dep_choice) + areal(i) * delta(1)
+               else if ( xs_spacing[1,dep_choice] == 'log' ) then
+                  fvar1 = dexp( dlog(xs_min(1,dep_choice)) + areal(i) * delta(1) )
+               end if 
+
+               if ( xs_spacing[2,dep_choice] == 'linear' ) then
+                  fvar2 = xs_min(2,dep_choice) + areal(j) * delta(2)
+               else if ( xs_spacing[2,dep_choice] == 'log' ) then
+                  fvar2 = dexp( dlog(xs_min(2,dep_choice)) + areal(j) * delta(2) )
+               end if 
+
+               if ( xs_spacing[3,dep_choice] == 'linear' ) then
+                  fvar3 = xs_min(3,dep_choice) + areal(k) * delta(3)
+               else if ( xs_spacing[3,dep_choice] == 'log' ) then
+                  fvar3 = dexp( dlog(xs_min(3,dep_choice)) + k * delta(3) )
+               end if 
+
+               value=xs_data_table(i,j,k,dep_choice)
+
+               write(10,*) fvar1,fvar2,fvar3,value
+
+               end do
+            end do
+         end do
+
+         endif    
+
+         close(unit=10)
+
+      end if
+
+loop1: continue
+
+      write(stdout,*) 'Look at another variable y = Yes or n = No '
+
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      if ( line(b:e) == 'y' ) goto loop
+
+eof:  continue
+
+      stop
+      end
+
+ 
