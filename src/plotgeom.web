@@ -2,6 +2,11 @@
 \Title{plot geometry}
 
 % $Log$
+% Revision 1.12  1995/10/12 21:42:52  karney
+% Finish the implementation of sectors.  Now track exits when encountering a
+% sector (on either side).  Sector and strata information is now part of the
+% location.
+%
 % Revision 1.11  1995/10/04 18:33:30  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -373,12 +378,17 @@ loop1:   continue
       smin=one
       smax=zero
       do j=1,zn_num
-         stat[1,j]=stat[1,j]/zn_volume(j)
+ /* This is now done in flighttest
+         stat[1,j]=stat[1,j]/zn_volume(j) */
          if (stat[1,j]>0) then
             smin=min(smin,stat[1,j])
             smax=max(smax,stat[1,j])
          end if
       end do
+      
+      if (smin/smax < const(1.0,-10)) smin=const(1.0,-10)*smax
+
+      write(stdout,*) 'smin/smax', smin,smax
 
       return
       end

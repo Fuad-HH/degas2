@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.21  1995/11/03 15:06:23  karney
+% Clean up for release.
+%
 % Revision 1.20  1995/10/12 21:42:45  karney
 % Finish the implementation of sectors.  Now track exits when encountering a
 % sector (on either side).  Sector and strata information is now part of the
@@ -192,6 +195,10 @@ should.
          do i=0,3
             call conea(x[i][1],x[i+1][1],coeff,surf_type,apex)
             face=define_surface(coeff,.true.)
+            if (face>0) then
+               vc_copy(x[i],surface_points[0,face])
+               vc_copy(x[i+1],surface_points[1,face])
+            end if
             call add_surface(face,0,.true.)
          end do
 

@@ -2,6 +2,11 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.15  1995/07/14 13:20:11  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.14  1995/06/21 20:04:35  jshankar
 % updated to include readfilenames
 %
@@ -144,6 +149,12 @@ PVM more straightforward.
          call next_seed(nfrag,seed,seed) // Advance the seed
       end do
 
+      do i=1,zn_num
+         if (zone_type[i] == zn_plasma) then
+            stat[i][2]=sqrt(stat[i][2]/weight)/max(stat[i][1],const(1.0,-100))
+            stat[i][1]=stat[i][1]*source_total/zn_volume(i)
+         end if
+      end do
       open(unit=diskout,file='stat.dat',status='unknown')
       write(diskout,*) stat
       close(unit=diskout)
@@ -151,8 +162,7 @@ PVM more straightforward.
       do i=1,zn_num
          if (zone_type[i] == zn_plasma) then
             write(diskout,'(2i6,1p2e20.4)') zone_index[i][1],zone_index[i][2],
-     $           stat[i][1]*source_total/zn_volume(i),
-     $           sqrt(stat[i][2]/weight)/max(stat[i][1],const(1.0,-100))
+     $           stat[i][1],stat[i][2]
          end if
       end do
       close(unit=diskout)

@@ -2,6 +2,11 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.17  1995/10/12 21:42:36  karney
+% Finish the implementation of sectors.  Now track exits when encountering a
+% sector (on either side).  Sector and strata information is now part of the
+% location.
+%
 % Revision 1.16  1995/10/02 21:05:28  karney
 % Fix typos.
 %
@@ -263,6 +268,7 @@ of the points.
       ptr_decl(a)
       ptr_decl(b)
       integer i,j,m,k,start,size
+      logical intersect
       sy_common
       external self_intersect,check_split,convex_polygon   // External
       logical self_intersect,check_split,convex_polygon
@@ -290,7 +296,14 @@ of the points.
          end if
       end do
       assert(m>=3)
-      check( ! self_intersect(m,a) ) // Check the polygon isn't self intersecting
+
+      intersect=self_intersect(m,a)
+      if (intersect) then
+         do i=0,n
+            write(stderr,*) a[1,i],a[2,i]
+         end do
+      end if
+      check( ! intersect ) // Check the polygon isn't self intersecting
 
 loop: continue
 

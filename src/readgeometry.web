@@ -2,6 +2,9 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.21  1995/11/27 18:37:10  karney
+% Up the limits on 2-d arrays in readgeometry and readbackground to 120,100.
+%
 % Revision 1.20  1995/11/21 20:13:39  karney
 % Fix a foolish error in main program.
 %
@@ -165,6 +168,10 @@ and adds it to the current polygon. The
 arguments indicate the same things as in  grid except that here we must have 
 either {\it j1} = {\it j2} or {\it j3} = {\it j4} in order for the edge to
 lie on a single boundary.
+    \item {\bf symmetry} {\it plane} or {\it cylindrical} specifies the
+overall symmetry.  (Better can first.)
+    \item {\bf wallfile} {\it filename} specifies a file with two wall
+segments to go with uedge files.
   \end{enumerate}
 
 A typical file might have lines in the following order:
@@ -231,16 +238,16 @@ end
       implicit_none
       integer mx,my
       parameter (mx=120,my=100)
-      character*FILELEN filename,datafilename
+      character*FILELEN filename,datafilename,wallfilename
       logical uedge,degas,sonnet,single_null,double_null
       integer length,p,b,e // Local
-      integer datafile_diskin,zone,n,wall_no,wall_start,
-     $     wall_stop,wall_direction,i,grid_startv,grid_stopv,j1,j2,
+      integer datafile_diskin,wallfile_diskin,zone,n,wall_no,wall_start,
+     $     wall_stop,wall_direction,i,j,grid_startv,grid_stopv,j1,j2,
      $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
      $     trx,symmetry,ix_mirror,null_type,grid_sense
 
       character*LINELEN line,keyword
-      logical complete
+      logical complete,vacuum
       real x[2,0:5000],xmin,xmax,zmin,zmax,vol,vola
       real mindensity,minx,minz
       real rm[mx,my,0:4],zm[mx,my,0:4]
@@ -270,13 +277,12 @@ end
       call readfilenames
 
       datafile_diskin=diskin+1
+      wallfile_diskin=diskin+2
 
       open(unit=diskin,file=filename,status='old',form='formatted')
 
       /* read the file containing keywords that describe the way plotting has to be done */
-      assert( read_string(diskin,line,length) )
-      assert(length<=len(line))
-      
+     
       uedge =.false.
       degas =.false.
       sonnet=.false.
@@ -284,13 +290,26 @@ end
       double_null=.false.
 
       symmetry=geometry_symmetry_cylindrical
-      symmetry=geometry_symmetry_plane
+      zone=0
 
+loop1: continue
+      assert( read_string(diskin,line,length) )
+      assert(length<=len(line))
       length=parse_string(line(:length))
       p=0
       assert( next_token(line,b,e,p) )
       keyword = line(b:e)
       assert( next_token(line,b,e,p) )
+      if (keyword == 'symmetry') then
+         if (line(b:e) == 'cylindrical') then
+            symmetry=geometry_symmetry_cylindrical
+         else if (line(b:e)=='plane') then
+            symmetry=geometry_symmetry_plane
+         else
+            assert(line(b:e) == 'cylindrical' || line(b:e) == 'plane')
+         end if
+         goto loop1
+      end if
       assert(keyword ==  'degasfile' || keyword == 'uedgefile' || keyword == 
      $     'sonnetfile'  )
       datafilename = line(b:e)
@@ -305,6 +324,7 @@ end
       elseif (keyword == 'uedgefile') then
          uedge=.true.
          nu= datafile_diskin
+         vacuum=.false.
       elseif (keyword == 'sonnetfile') then
          sonnet= .true.
          /* everything is the same as for uedge for single null */
@@ -537,7 +557,19 @@ skip:          continue
            assert(next_token(line,b,e,p))
            minx=read_real(line(b:e))
 
-
+        elseif (keyword == 'wallfile') then
+           assert(next_token(line,b,e,p))
+           wallfilename= line(b:e)
+           open(unit=wallfile_diskin,name=wallfilename,status='old',
+     $          form='formatted')
+           read(wallfile_diskin,*) nowals
+           read(wallfile_diskin,*)SP(nosegsxz[i],i=1,nowals)
+           do i=1,nowals
+              do j=1,nosegsxz[i]
+                 read(wallfile_diskin,*) xwall[j,i],zwall[j,i]
+              enddo
+           enddo
+           vacuum=.true.
         elseif (keyword == 'mesh') then
            assert(uedge)
            assert(next_token(line,b,e,p))
@@ -590,7 +622,6 @@ conform with the data file being used  */
                vc_set(zone_center[zone],rm[j1,j2,0],zero,zm[j1,j2,0])
             enddo
          enddo
-         zone++
 
 @#if 0
 
@@ -631,84 +662,191 @@ conform with the data file being used  */
 
 @#endif
 
+        if (! vacuum) then
+           zone++
 /*
    start from left lower corner of box and go clockwise along box till 
    right lower corner. return along outer edge of SOL to starting pt. 
 */
-         n=0
-         if (single_null) then
-         x[1,n]=xmin; x[2,n]=zmin; n++
-         x[1,n]=xmin; x[2,n]=zmax; n++
-         x[1,n]=xmax; x[2,n]=zmax; n++
-         x[1,n]=xmax; x[2,n]=zmin; n++
-         j1=nx; j2=ny
-         x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+           n=0
+           if (single_null) then
+           x[1,n]=xmin; x[2,n]=zmin; n++
+           x[1,n]=xmin; x[2,n]=zmax; n++
+           x[1,n]=xmax; x[2,n]=zmax; n++
+           x[1,n]=xmax; x[2,n]=zmin; n++
+           j1=nx; j2=ny
+           x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
 
-            do j1=nx,1,-1
-               x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
-            end do
-         elseif (double_null .and. uedge) then
-            x[1,n]=xmin; x[2,n]=zmin; n++
-            x[1,n]=xmin; x[2,n]=zmax; n++
-            x[1,n]=xmax; x[2,n]=zmax; n++
-            x[1,n]=xmax; x[2,n]=zmin; n++
-            j1=nx; j2=ny
-            x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
-            j2=ny
-            do j1=nx,ix_mirror+1,-1
-               x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
-            enddo
-            j1=ix_mirror+1
-            do j2=ny,1,-1
-               x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
-            enddo
-            j1=ix_mirror; j2=1
-            x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
-            j1= ix_mirror
-            do j2=1,ny
-               x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
-            enddo
-            j2=ny
-            do j1=ix_mirror,1,-1
-               x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
-            enddo
+              do j1=nx,1,-1
+                 x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+              end do
+           elseif (double_null .and. uedge) then
+              x[1,n]=xmin; x[2,n]=zmin; n++
+              x[1,n]=xmin; x[2,n]=zmax; n++
+              x[1,n]=xmax; x[2,n]=zmax; n++
+              x[1,n]=xmax; x[2,n]=zmin; n++
+              j1=nx; j2=ny
+              x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+              j2=ny
+              do j1=nx,ix_mirror+1,-1
+                 x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+              enddo
+              j1=ix_mirror+1
+              do j2=ny,1,-1
+                 x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+              enddo
+              j1=ix_mirror; j2=1
+              x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+              j1= ix_mirror
+              do j2=1,ny
+                 x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+              enddo
+              j2=ny
+              do j1=ix_mirror,1,-1
+                 x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+              enddo
 
-         else 
-            print*, 'neither single nor double null'
-            assert(.false.)
-         endif
-         x[1,n]=x[1,0]; x[2,n]=x[2,0]               
-         call decompose_polygon(n,x,zone)
-         zn_type_set(zone,zn_solid)
-         zn_volume(zone)=polygon_volume(n,x)
+           else 
+              print*, 'neither single nor double null'
+              assert(.false.)
+           endif
+           x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+           call decompose_polygon(n,x,zone)
+           zn_type_set(zone,zn_solid)
+           zn_volume(zone)=polygon_volume(n,x)
 
-/*start from left lower corner of box and to upper left bottom of SOL to lower left bottom of SOL to lower right bottom of SOL to upper right bottom of SOL tolower right bottom of box  and back*/
-         n=0
-         x[1,n]=xmin; x[2,n]=zmin; n++
-         j1=1
-         do j2=ny,1,-1
-            x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
-         end do
-         j2=1
-         do j1=1,ixpt1
-            x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
-         end do
-         do j1=ixpt2+1,nx
-            x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
-         end do
-         j1=nx
-         do j2=1,ny
-            x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
-         end do
-         j2=ny
-         x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+  /*start from left lower corner of box and to upper left bottom of SOL to lower left bottom of SOL to lower right bottom of SOL to upper right bottom of SOL tolower right bottom of box  and back*/
+           n=0
+           x[1,n]=xmin; x[2,n]=zmin; n++
+           j1=1
+           do j2=ny,1,-1
+              x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+           end do
+           j2=1
+           do j1=1,ixpt1
+              x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+           end do
+           do j1=ixpt2+1,nx
+              x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+           end do
+           j1=nx
+           do j2=1,ny
+              x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+           end do
+           j2=ny
+           x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
 
-         x[1,n]=xmax; x[2,n]=zmin; n++
-         x[1,n]=x[1,0]; x[2,n]=x[2,0]               
-         call decompose_polygon(n,x,zone)
-         zn_volume(zone)=zn_volume(zone)+polygon_volume(n,x)
-         
-         zone++
+           x[1,n]=xmax; x[2,n]=zmin; n++
+           x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+           call decompose_polygon(n,x,zone)
+           zn_volume(zone)=zn_volume(zone)+polygon_volume(n,x)
+
+        else /* Specify a vacuum region */
+/* Start with top vacuum region */
+           zone++
+
+           n=0
+           i=2
+           do j=nosegsxz[i],1,-1
+              x[1,n]=xwall[j,i]; x[2,n]=zwall[j,i]; n++
+           end do
+           j1=nx; j2=ny
+           x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+
+           do j1=nx,1,-1
+              x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+           end do
+
+           x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+
+           call decompose_polygon(n,x,zone)
+           zn_type_set(zone,zn_vacuum)
+           zn_volume(zone)=polygon_volume(n,x)
+           
+/* Do top wall */
+
+/*
+   start from left lower corner of box and go clockwise along box till 
+   right lower corner. return along top wall.
+*/
+           zone++
+
+           n=0
+           x[1,n]=xmin; x[2,n]=zmin; n++
+           x[1,n]=xmin; x[2,n]=zmax; n++
+           x[1,n]=xmax; x[2,n]=zmax; n++
+           x[1,n]=xmax; x[2,n]=zmin; n++
+           i=2
+           do j=1,nosegsxz[i]
+              x[1,n]=xwall[j,i]; x[2,n]=zwall[j,i]; n++
+           end do
+
+           x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+
+           call decompose_polygon(n,x,zone)
+           zn_type_set(zone,zn_solid)
+           zn_volume(zone)=polygon_volume(n,x)
+
+/* Bottom wall */
+  /*start from left lower corner of box and to upper left bottom of SOL to lower left bottom of SOL to lower right bottom of SOL to upper right bottom of SOL tolower right bottom of box  and back*/
+           n=0
+           x[1,n]=xmin; x[2,n]=zmin; n++
+
+           i=2; j=nosegsxz[i]
+           x[1,n]=xwall[j,i]; x[2,n]=zwall[j,i]; n++
+
+           j1=1
+           do j2=ny,1,-1
+              x[1,n]=rm(j1,j2,xcorner2); x[2,n]=zm(j1,j2,zcorner2); n++
+           end do
+           j2=1
+           x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+
+           i=1; 
+           do j=1,nosegsxz[i]
+              x[1,n]=xwall[j,i]; x[2,n]=zwall[j,i]; n++
+           end do
+
+           j1=nx
+           do j2=1,ny
+              x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+           end do
+           j2=ny
+           x[1,n]=rm(j1,j2,xcorner3); x[2,n]=zm(j1,j2,zcorner3); n++
+           
+           i=2; j=1
+           x[1,n]=xwall[j,i]; x[2,n]=zwall[j,i]; n++
+
+           x[1,n]=xmax; x[2,n]=zmin; n++
+           x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+           call decompose_polygon(n,x,zone)
+           zn_volume(zone)=zn_volume(zone)+polygon_volume(n,x)
+
+/* Private vacuum region */
+
+           zone++
+           n=0
+           j2=1
+           do j1=1,ixpt1
+              x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+           end do
+           do j1=ixpt2+1,nx
+              x[1,n]=rm(j1,j2,xcorner1); x[2,n]=zm(j1,j2,zcorner1); n++
+           end do
+           j1=nx
+           x[1,n]=rm(j1,j2,xcorner4); x[2,n]=zm(j1,j2,zcorner4); n++
+           i=1
+           do j=nosegsxz[i],1,-1
+              x[1,n]=xwall[j,i]; x[2,n]=zwall[j,i]; n++
+           end do
+           x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+           call decompose_polygon(n,x,zone)
+           zn_type_set(zone,zn_vacuum)
+           zn_volume(zone)=polygon_volume(n,x)
+
+        endif
+
+        zone++
 
 /* core region */
          n=0
