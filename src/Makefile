@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.58  1998/01/09 15:45:49  karney
+# Optimization for Cray f90 modified.
+# Accomodate variuos netcdf versions.
+#
 # Revision 1.57  1997/09/29 18:39:46  karney
 # Typo in Makefile
 # SGI fix in sysdep.web
@@ -499,7 +503,7 @@ pvmslave = pvmslave.$O random.$O randother.$O stat.$O geometry.$O elementread.$O
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave) $(foreach arg,$(subst .$O,_mods,$(pvmslave)),$($(arg)))
 
-flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O
+flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O
 flighttest_libs = $(NETCDF)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
@@ -507,7 +511,7 @@ geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfac
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 
-geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O collide.$O randother.$O random.$O
+geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O collide.$O randother.$O random.$O conversions.$O
 geomtesta_libs =  $(NETCDF) $(HDF)
 geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
 
@@ -575,7 +579,7 @@ pmitest = pmitest.$O elementread.$O pmimatread.$O plate.$O readfilenames.$O rand
 pmitest_libs = $(NETCDF)
 pmitest: $(pmitest) $(foreach arg,$(subst .$O,_mods,$(pmitest)),$($(arg)))
 
-sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O 
+sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O
 sourcetest_libs = $(NETCDF)
 sourcetest: $(sourcetest) $(foreach arg,$(subst .$O,_mods,$(sourcetest)),$($(arg)))
 
