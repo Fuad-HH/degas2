@@ -2,6 +2,9 @@
 \def\Wtitle{speciesetup}
 
 % $Log$
+% Revision 1.6  1994/02/14 22:25:24  karney
+% Use LINELEN.
+%
 % Revision 1.5  1994/02/02  22:27:23  karney
 % Convert to read_{integer,real}
 %
@@ -65,6 +68,9 @@ Introduction\ldots
       species_version=line(:length)
 loop1: continue
       if (! read_string(diskin,line,length) ) goto eof
+/*
+   Add next species
+*/
       sp_num=sp_num+1
       var_realloca(species_name)
       var_realloca(species_sy)
@@ -73,29 +79,55 @@ loop1: continue
       var_realloca(species_ncomp)
       var_realloca(species_el)
       var_realloca(species_count)
-
+/*
+   First line contains species name
+*/
       length=parse_string(line(:length))
       species_name[sp_num]=line(:length)
+/*
+   Second line contains symbol and breakdown into ``elements''
+*/
       assert(read_string(diskin,line,length))
       length=parse_string(line(:length))
-      
+/*
+   Extract species ``symbol'' from this line
+*/      
       p=0
       assert( next_token(line,b,e,p) )
       read(line(b:e),'(a)') sp_sy(sp_num)
       sp_ncomp(sp_num) = 0
       sp_z(sp_num)=0
       sp_m(sp_num)=zero
+/*
+   Loop over individual ``elements''
+*/
 loop2: continue
-      if( !next_token(line,b,e,p) ) goto loop1
+      if( !next_token(line,b,e,p) ) goto loop1  // Done with this species
+/*
+   Increment number of ``components'' $\leftrightarrow$ ``elements''
+*/
       sp_ncomp(sp_num) = sp_ncomp(sp_num) + 1
       assert(sp_ncomp(sp_num) > 0 && sp_ncomp(sp_num) <= sp_ncomp_max)
+/*
+   Extract number of this ``component'' in the species
+*/
       sp_count(sp_num,sp_ncomp(sp_num))=read_integer(line(b:e))
+/*
+   Get the symbol representing the ``element''; store the index used to represent it
+*/
       assert( next_token(line,b,e,p) )
       sp_el(sp_num,sp_ncomp(sp_num)) = el_lookup(line(b:e))
       assert( sp_el(sp_num,sp_ncomp(sp_num)) > 0)
+/*
+   Compute net charge of species. This is = 0 by default; nonzero values are
+   arrived at by incorporating the appropriate number (positive or negative) of electrons.
+*/
       if (el_z(sp_el(sp_num,sp_ncomp(sp_num))) == -1) then // Only the electron is charged
          sp_z(sp_num)=sp_z(sp_num)+sp_count(sp_num,sp_ncomp(sp_num))*el_z(sp_el(sp_num,sp_ncomp(sp_num)))
       end if
+/*
+   Accumulate species mass based on ``count'' and the ``element'' mass
+*/
       sp_m(sp_num)=sp_m(sp_num)+sp_count(sp_num,sp_ncomp(sp_num))*el_m(sp_el(sp_num,sp_ncomp(sp_num)))
       goto loop2
 eof:  continue
