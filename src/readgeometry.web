@@ -2,6 +2,10 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.14  1995/08/16 22:13:56  jshankar
+% modified to handle double null files as produced by uedge. Also rearranged
+% the order for reading some keywords. added new routine to check data.
+%
 % Revision 1.13  1995/07/14 13:20:49  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -85,10 +89,10 @@ Degas input file.
     \item  {\bf minx} {\it x\_value}  and  {\bf minz} {\it z\_value} tell the
 code to exclude grid indices for which the gridx, gridz values lie 
 below these {\it x} and {\it z}.
-    \item {\bf mindensity} {\it density value} is used to exclude 
+    \item {\bf mindensity} {\it density\_value} is used to exclude 
 grid indices which correspond to cells having a plasma density less than the 
 given value.
-    \item {\bf grid} {\it j1 j2 j3 j4} is used to transform the gridx
+    \item {\bf grid} {\it j1 j2 j3 j4 sense} is used to transform the gridx
 and gridz arrays into Degas 2 zones.
     \begin{itemize}
       \item The vertical boundary (or horizontal zone, i.e., the
@@ -102,6 +106,12 @@ properly referred to as the original Degas ``zone indices'').
       \item Zones can be excluded from this list by using {\bf minx},
 {\bf minz}, or {\bf mindensity} entries in this input file. The code will
 also ignore zones in which the Degas arrays kzone1 or kzone2 are $\leq 0$.
+      \item {\it sense} is optional. Allowed values are {\it sense} = 1 
+(default) and 2. A value of 1 indicates that a clockwise trip around
+a single cell requires incrementing the {\em first} index of gridx and gridz
+initially, then incrementing the second index to get the third point, etc.
+Likewise, a value of 2 implies that the {\em second} index must be
+incremented first to make the clockwise trip.
     \end{itemize}
     \item {\bf new\_zone} {\it zone\_type}  starts a new zone; {\it zone\_type}
 is a string that indicates the type of  the zone. It can be 
@@ -193,7 +203,7 @@ end
       integer datafile_diskin,zone,n,wall_no,wall_start,
      $     wall_stop,wall_direction,i,grid_startv,grid_stopv,j1,j2,
      $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
-     $     trx,symmetry,ix_mirror,null_type
+     $     trx,symmetry,ix_mirror,null_type,grid_sense
 
       character*LINELEN line,keyword
       logical complete
@@ -240,8 +250,8 @@ end
       double_null=.false.
 
       symmetry=geometry_symmetry_cylindrical
-@#if 0
        symmetry=geometry_symmetry_plane
+@#if 0
 @#endif
 
       length=parse_string(line(:length))
@@ -257,7 +267,7 @@ end
 
       if (keyword == 'degasfile') then
          degas =.true.
-         call inpt(datafile_diskin,xmin,xmax,zmin,zmax)
+         call inpt(datafile_diskin,symmetry,xmin,xmax,zmin,zmax)
          call init_geometry
          close(unit=datafile_diskin)
       elseif (keyword == 'uedgefile') then
@@ -319,6 +329,8 @@ loop2: continue
             zn_type_set(zone,zn_vacuum)
          else if (line(b:e) == 'plasma') then
             zn_type_set(zone,zn_plasma)
+         else if (line(b:e) == 'exit') then
+            zn_type_set(zone,zn_exit)
          else
             write(stderr,*) 'Unknown zone type: ',line(b:e)
             assert(.false.)
@@ -390,9 +402,14 @@ loop3:   continue
          grid_starth=read_integer(line(b:e))
          assert(next_token(line,b,e,p))
          grid_stoph=read_integer(line(b:e))
-         do j2=grid_starth,grid_stoph 
+         if (next_token(line,b,e,p)) then
+            grid_sense=read_integer(line(b:e))
+         else
+            grid_sense=1
+         end if
+         do j2=grid_starth,grid_stoph
             plot=' '
-            do j1=grid_startv,grid_stopv   
+            do j1=grid_startv,grid_stopv
                if (kzone1(j1,j2) <= 0 || kzone2(j1,j2) <= 0) then
                   plot(j1:j1)='k'
                   goto skip
@@ -416,10 +433,19 @@ loop3:   continue
 */
                zone++
                n=0
-               x[1,n]=gridx(j1,j2,1); x[2,n]=gridz(j1,j2,1); n++
-               x[1,n]=gridx(j1+1,j2,1); x[2,n]=gridz(j1+1,j2,1); n++
-               x[1,n]=gridx(j1+1,j2+1,1); x[2,n]=gridz(j1+1,j2+1,1); n++
-               x[1,n]=gridx(j1,j2+1,1); x[2,n]=gridz(j1,j2+1,1); n++ 
+               if (grid_sense == 1) then
+                  x[1,n]=gridx(j1,j2,1); x[2,n]=gridz(j1,j2,1); n++
+                  x[1,n]=gridx(j1+1,j2,1); x[2,n]=gridz(j1+1,j2,1); n++
+                  x[1,n]=gridx(j1+1,j2+1,1); x[2,n]=gridz(j1+1,j2+1,1); n++
+                  x[1,n]=gridx(j1,j2+1,1); x[2,n]=gridz(j1,j2+1,1); n++ 
+               else if (grid_sense == 2) then
+                  x[1,n]=gridx(j1,j2,1); x[2,n]=gridz(j1,j2,1); n++
+                  x[1,n]=gridx(j1,j2+1,1); x[2,n]=gridz(j1,j2+1,1); n++
+                  x[1,n]=gridx(j1+1,j2+1,1); x[2,n]=gridz(j1+1,j2+1,1); n++
+                  x[1,n]=gridx(j1+1,j2,1); x[2,n]=gridz(j1+1,j2,1); n++ 
+               else 
+                  assert('Unexpected value of grid sense' == ' ')
+               end if
                x[1,n]=x[1,0]; x[2,n]=x[2,0]
                call decompose_polygon(n,x,zone)
                zn_type_set(zone,zn_plasma)
