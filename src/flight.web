@@ -2,6 +2,11 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.40  2001/07/16 20:51:38  dstotler
+% Remove call to score_sources since this is now part of
+% sample_sources. Add if-then on nprod > 0 in score_sector. Incorporate
+% changes to write particle positions with a macro parameter.
+%
 % Revision 1.39  2000/04/01 17:32:12  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -181,6 +186,7 @@
 @m EIR_REC_BENCH 0
 @m DUMP_FLIGHTS 0
 
+@m WMIN const(1.,-3)
 @m WMIN_PMI const(1.,4)
 
 @I macros.hweb
@@ -389,7 +395,7 @@ loop: continue                  // Still in same zone
          tmax=geom_infinity
       end if         
 
-      if (pt_w(fl_current(x)) < const(0.001)) then  
+      if (pt_w(fl_current(x)) < WMIN) then  
          if (random(rn_args(fl_rand(x))) > half) then
             fl_pointer(x)--
             if (fl_pointer(x) <= 0) goto break
