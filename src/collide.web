@@ -2,6 +2,14 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.16  1998/01/14 20:29:38  dstotler
+% Replace variable names in chargex and elastic which conflicted with
+% geomint.hweb. Replace transform_v routine with macro. Replace variable
+% names: background_scores -> coupling_scores, problem_species_test ->
+% pr_test_lookup, problem_species_background -> pr_background_lookup,
+% i_0 -> ni_0 (and higher moments). In subr. elastic, look for handling
+% data 'I_1_0' instead of 'I_l_0' to be consistent with ratecalc.web.
+%
 % Revision 1.15  1997/09/02 21:14:25  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -275,7 +283,7 @@ loop: continue
      $    independent_parameters,rn_args(x))
       cx_v=cxsec*vc_abs(vrel)
 
-      assert(cx_v<=sgvmax)
+ //     assert(cx_v<=sgvmax)    // Can disable rejection with |sgvmax| = 0.
       if (cx_v > tempmax) then
          tempmax=cx_v
       end if
@@ -1278,6 +1286,8 @@ loop: continue
       pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
       back=pr_ts_bk(test,ts_reac)
+      ni_1up=real_uninit
+      ni_2up2=real_uninit
       do i=1,rd_dep_var_max
          if (reaction_handling_var0[pr_reac][i] == 'I_l_1*up') then
             ni_1up=independent_parameters[xs_var_density]
@@ -1289,6 +1299,7 @@ loop: continue
      $           independent_parameters,rn_args(x))
          end if
       end do
+      assert(ni_1up != real_uninit && ni_2up2 != real_uninit)
 
       do i=1,3
          u[i]=independent_parameters[xs_var_v_test_1+i-1]
