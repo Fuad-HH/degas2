@@ -2,6 +2,13 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.25  1997/09/02 21:14:27  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.24  1997/08/19 14:36:37  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -200,7 +207,8 @@
          scores[i][o_var]=zero
       end do
 
-      call sample_sources(fl_args(x),rel_wt,scores,estimator_factors)
+      call sample_sources(fl_args(x),rel_wt)
+      call score_sources(fl_args(x),scores,estimator_factors)
 
 loop1: continue                 // Start a new 
 
@@ -272,7 +280,6 @@ loop: continue                  // Still in same zone
             sum=sum+rate[i]
             if (sum >= rnd) then
                assert(rate[i] > zero)
-  //             call score_test(tl_est_collision,one/rate[i],
                call score_test(tl_est_collision,one/other_rate,
      $              pt_args(fl_current(x)),
      $              scores,estimator_factors)
