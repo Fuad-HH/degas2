@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.16  1995/01/30 21:06:25  karney
+# Merge in my changes with Daren's
+#
 # Revision 1.15  1994/11/21 15:48:47  dstotler
 # Interim update associated with ratecalc. ratecalc.hweb and
 # xsection.hweb have undergone substantial revision, but should be
@@ -105,7 +108,7 @@ PVM=-L/soft/pvm/lib/$(PVMARCH) -lfpvm3 -lpvm3
 %.dvi: %.tex
 
 # Set up compilers etc.
-ifeq ($(PRINTER),"")
+ifeq ($(PRINTER),)
  LPRFLAGS=-h
 else
  LPRFLAGS=-h -P$(PRINTER)
@@ -279,7 +282,6 @@ ratecalc = $(ALADIR)/aladdin_subr.o
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc)
 
->>>>>>> 1.15
 #elementread: sysdep.$O
 #test: sysdep.$O
 #sysdeptest: sysdep.$O string.$O
@@ -294,7 +296,7 @@ elementlookup: sysdep.$O string.$O
 speciesetup: elementread.$O sysdep.$O string.$O
 #flighttest: sysdep.$O string.$O elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O
 ifeq ($(MACHINE),IBM)
-  sysdep: sysdep.$O sysdep.c.$O
+  sysdep: sysdep.$O sysdepc.$O
 endif
 
 netcdf: netcdf.$O
