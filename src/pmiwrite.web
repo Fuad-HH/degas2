@@ -2,6 +2,10 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.4  1996/03/01 20:21:15  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.3  1995/07/14 13:20:29  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -55,11 +59,42 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
 @a
       program pmiwrite
       implicit_none
-      character*LINELEN tag
+      character*LINELEN tag,v_type
       tag='t -> c'
+      call pmi_write_degas_refl(tag)
+      tag='h -> c'
+      call pmi_write_degas_refl(tag)
+      tag='d -> c'
       call pmi_write_degas_refl(tag)
       tag='he -> fe'
       call pmi_write_degas_marl(tag)
+      tag='h -> fe'
+      call pmi_write_degas_marl(tag)
+      tag='hmirror'
+      call pmi_write_mirror(tag)
+      tag='h2mirror'
+      call pmi_write_mirror(tag)
+      tag='hadsorbc'
+      v_type='none'
+      call pmi_write_misc(tag,const(0.1),v_type)
+      tag='h2adsorbc'
+      v_type='none'
+      call pmi_write_misc(tag,const(0.2),v_type)
+/*      Try doing these manually... 
+      tag='hdesorbc'
+      v_type='cosine'
+      call pmi_write_misc(tag,const(-1.0),v_type)
+      tag='h2desorbc'
+      v_type='cosine'
+      call pmi_write_misc(tag,const(-1.0),v_type)
+*/
+      tag='hadsorbex'
+      v_type='none'
+      call pmi_write_misc(tag,one,v_type)
+      tag='h2adsorbex'
+      v_type='none'
+      call pmi_write_misc(tag,one,v_type)
+
       stop
       end
       
@@ -76,6 +111,7 @@ combination. An angular dependence is added to the reflection coefficient.
       real delta,theta_in,delta2
       character*LINELEN full_tag,description
       character*FILELEN filein,fileout
+      logical fit,cosspec,cosine
       external rn_ruzic_fit                          // External
       real rn_ruzic_fit
       pf_common                                      // Common
@@ -83,6 +119,11 @@ combination. An angular dependence is added to the reflection coefficient.
       pf_ncdecl
       sy_common
       st_common 
+
+      fit=.true.
+/* The following two must be the opposite of each other! */
+      cosspec=.true.
+      cosine=.false.
 
       description = 'Data for Plasma-Material Interactions in degas 2'
       pf_version = 'degas: refl.dat with Ruzic lrflct1=2 angle dep.'
@@ -95,26 +136,37 @@ combination. An angular dependence is added to the reflection coefficient.
       assert( next_token(tag,bm,em,p) )
       pf_name=tag(bin:ein) \/ 'refl' \/ tag(bm:em)
 
-
 /* 
    Set up everything for first dependent variable
 */
       pf_num_dep_var=1
       pf_var[0,1]='reflection_coef'
       pf_rank[1]=1
-      pf_organization[1]='table'
       
       pf_units[0,1]=' '
       pf_mult[0,1]=one
-      pf_spacing[0,1]='linear'
+
       pf_var[1,1]='energy_in'
       pf_tab_index[1,1]=48
-      pf_units[1,1]='eV'
-      pf_mult[1,1]=electron_charge
-      pf_spacing[1,1]='log'
-      pf_min[1,1]=one
-      delta=const(10.0)**const(0.1)
-      pf_max[1,1]=pf_min[1,1]*delta**(pf_tab_index[1,1]-1)
+
+      if (!fit) then
+         pf_eval_name[1]='table'
+         pf_spacing[0,1]='linear'
+         pf_units[1,1]='eV'
+         pf_mult[1,1]=electron_charge
+         pf_spacing[1,1]='log'
+         pf_min[1,1]=one
+         delta=const(10.0)**const(0.1)
+         pf_max[1,1]=pf_min[1,1]*delta**(pf_tab_index[1,1]-1)
+      else
+         pf_eval_name[1]='refl_ruzic'
+         pf_spacing[0,1]='unknown'
+         pf_units[1,1]=' '
+         pf_mult[1,1]=zero
+         pf_spacing[1,1]='unknown'
+         pf_min[1,1]=zero
+         pf_max[1,1]=zero
+      end if
 
 /*
    Assign default values to everything else
@@ -131,7 +183,7 @@ combination. An angular dependence is added to the reflection coefficient.
 
       do j=pf_num_dep_var+1,pf_dep_var_max
          pf_rank[j]=1
-         pf_organization[j]='unknown'
+         pf_eval_name[j]='unknown'
          pf_var[0,j]='unknown'
          pf_spacing[0,j]='unknown'
          pf_units[0,j]='unknown'
@@ -145,10 +197,6 @@ combination. An angular dependence is added to the reflection coefficient.
             pf_min[i,j]=zero
             pf_max[i,j]=zero
          end do
-      end do
-
-      do j=1,pf_dep_var_max
-         pf_eval_name[j]='unknown'
       end do
 
 /*
@@ -173,14 +221,21 @@ combination. An angular dependence is added to the reflection coefficient.
 */
       pf_rank[1]=2
       pf_var[2,1]='polar_angle_in'
-      pf_tab_index[2,1]=5
-      pf_units[2,1]='degrees'
-      pf_mult[2,1]=PI/const(180.0)
-      pf_spacing[2,1]='linear'
       pf_min[2,1]=zero
-      delta=const(20.0)
-      pf_max[2,1]=const(80.0)
-
+      if (!fit) then
+         pf_tab_index[2,1]=5
+         pf_units[2,1]='degrees'
+         pf_mult[2,1]=PI/const(180.0)    
+         pf_spacing[2,1]='linear'
+         delta=const(20.0)
+         pf_max[2,1]=const(80.0)  
+      else
+         pf_tab_index[2,1]=1
+         pf_units[2,1]=' '
+         pf_mult[2,1]=zero
+         pf_spacing[2,1]='unknown'
+         pf_max[2,1]=zero
+      end if
 /*
    Second dependent variable
 */
@@ -188,9 +243,9 @@ combination. An angular dependence is added to the reflection coefficient.
       pf_var[0,2]='energy_out'
       pf_rank[2]=1
       pf_tab_index[1,2]=48
-      pf_organization[2]='table'
-      pf_units[0,2]=' '
-      pf_mult[0,2]=one
+      pf_eval_name[2]='table'
+      pf_units[0,2]='eV'
+      pf_mult[0,2]=electron_charge
       pf_spacing[0,2]='linear'
       pf_var[1,2]='energy_in'
       pf_units[1,2]='eV'
@@ -201,6 +256,28 @@ combination. An angular dependence is added to the reflection coefficient.
       pf_max[1,2]=pf_min[1,2]*delta2**(pf_tab_index[1,2]-1)
 
 /*
+   Third dependent variable (fit)
+*/
+      if (cosspec) then
+         pf_num_dep_var=3
+         pf_var[0,3]='velocity_vector'
+         pf_units[0,3]=' '
+         pf_rank[3]=1
+         pf_tab_index[1,3]=1
+         pf_eval_name[3]='cosspec'
+         pf_mult[0,3]=one
+         pf_var[1,3]='polar_angle_in'
+         pf_units[1,3]=' '
+      end if
+      if (cosine) then
+         pf_num_dep_var=3
+         pf_var[0,3]='velocity_vector'
+         pf_units[0,3]=' '
+         pf_rank[3]=0
+         pf_eval_name[3]='cosine'
+      end if
+
+/*
    Can now reallocate |pf_data_table| \ldots
 */
       pf_ragged_realloc(pf_data,pf_tab_index)
@@ -208,12 +285,14 @@ combination. An angular dependence is added to the reflection coefficient.
 /*
    Add the angular dependence to the reflection coefficient \ldots
 */
-      do j=1,pf_tab_index[2,1]-1
-         do i=0,pf_tab_index[1,1]-1
-            theta_in=pf_min[2,1]+j*delta
-            pf_data_table(i,j,0,0,0,1)=rn_ruzic_fit(pf_data_table(i,0,0,0,0,1),theta_in)
-         end do
-      end do
+      if (!fit) then
+         do j=1,pf_tab_index[2,1]-1
+            do i=0,pf_tab_index[1,1]-1
+               theta_in=pf_min[2,1]+j*delta
+               pf_data_table(i,j,0,0,0,1)=rn_ruzic_fit(pf_data_table(i,0,0,0,0,1),theta_in)  
+            end do
+         end do  
+      end if
 
 /*
    And read in the data for the second dependent variable
@@ -222,14 +301,19 @@ combination. An angular dependence is added to the reflection coefficient.
       call pf_file_read(filein,full_tag,2)
 
 /*
-   Fill in the arrays containing the dependent variables. Since 
+   Set fit coefficient for the third dependent variable
+*/
+      if (cosspec) pf_data_table(0,0,0,0,0,3)=1.7
+
+/*
+   Fill in the arrays containing the independent variables. Since 
    the spacing is uniform everywhere here, these are straightforward.
 */
       pf_ragged_alloc(pf_indep_var,pf_tab_index)
 
       do i=0,pf_tab_index[1,1]-1
          pf_indep_var_table(i,1,1)=pf_min[1,1]*delta2**i
-         pf_indep_var_table(i,1,2)=pf_indep_var_table(i,1,1)
+         pf_indep_var_table(i,1,2)=pf_min[1,2]*delta2**i
       end do
 
       do i=0,pf_tab_index[2,1]-1
@@ -337,6 +421,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
    First dependent variable: reflection coefficient(incident angle, energy)
 */
       pf_var[0,1]='reflection_coef'
+      pf_eval_name[1]='table'
       pf_rank[1]=2
       pf_units[0,1]=' '
       pf_mult[0,1]=one
@@ -344,15 +429,17 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
 /*
    Second dependent variable: quantiles for outgoing energy
 */
-      pf_var[0,2]='energy_out'
+      pf_var[0,2]='sqrt_energy_out'
+      pf_eval_name[2]='table'
       pf_rank[2]=3
-      pf_units[0,2]='eV'
-      pf_mult[0,2]=electron_charge
+      pf_units[0,2]='eV**0.5'
+      pf_mult[0,2]=sqrt(electron_charge)
 
 /*
    Third dependent variable: quantiles for cosine of outgoing polar angle
 */
       pf_var[0,3]='cos_polar_angle_out'
+      pf_eval_name[3]='table'
       pf_rank[3]=4
       pf_units[0,3]=' '
       pf_mult[0,3]=one
@@ -361,6 +448,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
    Fourth dependent variable: quantiles for cosine of outgoing azimuthal angle
 */
       pf_var[0,4]='cos_azi_angle_out'
+      pf_eval_name[4]='table'
       pf_rank[4]=5
       pf_units[0,4]=' '
       pf_mult[0,4]=one
@@ -373,7 +461,6 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
    first in the subscript list.
 */
       do j=1,pf_num_dep_var
-         pf_organization[j]='table'
          pf_spacing[0,j]='linear'
 
          pf_var[j,j]='polar_angle_in'
@@ -397,17 +484,26 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
    The ``outgoing'' variables are chosen from quantiles formed from the
    calculated distributions. Hence, the independent variable in this case
    is a random number which will be used to interpolate a value from those
-   provided here.
+   provided here. These distributions are correlated. Hence, the first
+   random number is used to sample from all three, etc.
 */
+      pf_var[1,2]='1st_random_number'
+      
+      pf_var[1,3]='2nd_random_number'
+      pf_var[2,3]='1st_random_number'
+
+      pf_var[1,4]='3rd_random_number'
+      pf_var[2,4]='2nd_random_number'
+      pf_var[3,4]='1st_random_number'
+
       do j=2,pf_num_dep_var
          do i=1,pf_rank[j]-2
-            pf_var[i,j]='random_number'
             pf_tab_index[i,j]=5
             pf_units[i,j]=' '
             pf_mult[i,j]=one
             pf_spacing[i,j]='linear'
-            pf_min[i,j]=0.1
-            pf_max[i,j]=0.9
+            pf_min[i,j]=const(0.1)
+            pf_max[i,j]=const(0.9)
          end do
       end do
 
@@ -427,7 +523,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
 
       do j=pf_num_dep_var+1,pf_dep_var_max
          pf_rank[j]=1
-         pf_organization[j]='unknown'
+         pf_eval_name[j]='unknown'
          pf_var[0,j]='unknown'
          pf_spacing[0,j]='unknown'
          pf_units[0,j]='unknown'
@@ -442,11 +538,6 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
             pf_max[i,j]=zero
          end do
       end do
-
-      do j=1,pf_dep_var_max
-         pf_eval_name[j]='unknown'
-      end do
-
 
 /*
    Fill in independent variable tables; all are uniform except the incoming
@@ -535,6 +626,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       var_free(pf_indep_var_tab)
 
       call ncclose(fileid,nc_stat)
+      close(unit=diskin)
 
       return
       end
@@ -553,6 +645,270 @@ An overall upper limit of 0.9 is enforced.
       rn_new=rn * (one + half * sin(theta / const(57.296)))
       rn_new=min(rn_new,const(0.9))
       rn_ruzic_fit=rn_new
+
+      return
+      end
+
+@ Relatively general routine to write several of the really trivial files,
+the characteristics of which can be summarized in this short argument list.
+
+@<Functions...@>=
+      subroutine pmi_write_misc(tag,yield,v_type)
+      implicit_none
+      character*LINELEN tag,v_type                    // Input
+      real yield
+      integer i,j,fileid                             // Local
+      character*LINELEN description
+      character*FILELEN fileout
+      pf_common                                       // Common
+      nc_common
+      pf_ncdecl
+      sy_common
+      st_common 
+
+      description = 'Data for Plasma-Material Interactions in degas 2'
+      pf_version = 'degas: refl.dat with Ruzic lrflct1=2 angle dep.'
+
+/* Tag is the name here. */
+      pf_name=tag
+
+/* 
+   Set up everything for first dependent variable
+*/
+      pf_num_dep_var=1
+      pf_var[0,1]='yield'
+      pf_rank[1]=0
+      
+      pf_units[0,1]=' '
+      pf_mult[0,1]=one
+
+      pf_eval_name[1]='table'
+      pf_spacing[0,1]='linear'
+
+/*
+   Assign default values to everything else
+*/
+      do i=pf_rank[1]+1,pf_table_rank_max
+         pf_tab_index[i,1]=1
+         pf_var[i,1]='unknown'
+         pf_spacing[i,1]='unknown'
+         pf_units[i,1]='unknown'
+         pf_mult[i,1]=zero
+         pf_min[i,1]=zero
+         pf_max[i,1]=zero
+      end do
+
+      do j=pf_num_dep_var+1,pf_dep_var_max
+         pf_rank[j]=1
+         pf_eval_name[j]='unknown'
+         pf_var[0,j]='unknown'
+         pf_spacing[0,j]='unknown'
+         pf_units[0,j]='unknown'
+         pf_mult[0,j]=zero
+         do i=1,pf_table_rank_max
+            pf_tab_index[i,j]=1
+            pf_var[i,j]='unknown'
+            pf_spacing[i,j]='unknown'
+            pf_units[i,j]='unknown'
+            pf_mult[i,j]=zero
+            pf_min[i,j]=zero
+            pf_max[i,j]=zero
+         end do
+      end do
+
+/*
+   Second dependent variable (fit)
+*/
+      if (v_type != 'none') then
+         pf_num_dep_var=2
+         pf_var[0,2]='velocity_vector'
+         pf_rank[2]=0
+         pf_eval_name[2]=v_type
+      end if
+
+/*
+   Can now reallocate |pf_data_table| \ldots
+*/
+      pf_ragged_alloc(pf_data,pf_tab_index)
+      
+      pf_data_table(0,0,0,0,0,1)=yield
+
+/*
+   Fill in the arrays containing the independent variables. Since 
+   the spacing is uniform everywhere here, these are straightforward.
+*/
+      pf_ragged_alloc(pf_indep_var,pf_tab_index)
+
+      do i=0,pf_tab_index[1,1]-1
+         pf_indep_var_table(i,1,1)=zero
+         pf_indep_var_table(i,1,2)=zero
+      end do
+
+/*
+   Write netCDF file and close everything up
+*/
+
+      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(pf_version),
+     $     pf_version,nc_stat)
+      
+      pf_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      pf_ncwrite(fileid)
+
+      var_free(pf_data_tab)
+      var_free(pf_indep_var_tab)
+
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Mirror process.
+
+@<Functions...@>=
+      subroutine pmi_write_mirror(tag)
+      implicit_none
+      character*LINELEN tag                          // Input
+      integer i,j,fileid                             // Local
+      character*LINELEN description
+      character*FILELEN fileout
+      pf_common                                      // Common
+      nc_common
+      pf_ncdecl
+      sy_common
+      st_common 
+
+      description = 'Data for Plasma-Material Interactions in degas 2'
+      pf_version = 'degas: refl.dat with Ruzic lrflct1=2 angle dep.'
+
+/* Tag is the name here. */
+      pf_name=tag
+
+/* 
+   Set up everything for first dependent variable
+*/
+      pf_num_dep_var=1
+      pf_var[0,1]='yield'
+      pf_rank[1]=0
+      
+      pf_units[0,1]=' '
+      pf_mult[0,1]=one
+
+      pf_eval_name[1]='table'
+      pf_spacing[0,1]='linear'
+
+/*
+   Assign default values to everything else
+*/
+      do i=pf_rank[1]+1,pf_table_rank_max
+         pf_tab_index[i,1]=1
+         pf_var[i,1]='unknown'
+         pf_spacing[i,1]='unknown'
+         pf_units[i,1]='unknown'
+         pf_mult[i,1]=zero
+         pf_min[i,1]=zero
+         pf_max[i,1]=zero
+      end do
+
+      do j=pf_num_dep_var+1,pf_dep_var_max
+         pf_rank[j]=1
+         pf_eval_name[j]='unknown'
+         pf_var[0,j]='unknown'
+         pf_spacing[0,j]='unknown'
+         pf_units[0,j]='unknown'
+         pf_mult[0,j]=zero
+         do i=1,pf_table_rank_max
+            pf_tab_index[i,j]=1
+            pf_var[i,j]='unknown'
+            pf_spacing[i,j]='unknown'
+            pf_units[i,j]='unknown'
+            pf_mult[i,j]=zero
+            pf_min[i,j]=zero
+            pf_max[i,j]=zero
+         end do
+      end do
+
+/*
+   Second dependent variable (fit)
+*/
+      pf_num_dep_var=2
+      pf_var[0,2]='velocity_vector'
+      pf_units[0,2]=' '
+      pf_rank[2]=1
+      pf_eval_name[2]='specular'
+      pf_var[1,2]='polar_angle_in'
+      pf_units[1,2]=' '
+/*
+   Third dependent variable (table)
+*/
+      pf_num_dep_var=3
+      pf_var[0,3]='energy_out'
+      pf_rank[3]=1
+      pf_tab_index[1,3]=2
+      pf_eval_name[3]='table'
+      pf_units[0,3]='eV'
+      pf_mult[0,3]=electron_charge
+      pf_spacing[0,3]='linear'
+      pf_var[1,3]='energy_in'
+      pf_units[1,3]='eV'
+      pf_mult[1,3]=electron_charge
+      pf_spacing[1,3]='linear'
+      pf_min[1,3]=zero
+      pf_max[1,3]=const(1.,5)
+
+/*
+   Can now reallocate |pf_data_table| \ldots
+*/
+      pf_ragged_alloc(pf_data,pf_tab_index)
+      
+      pf_data_table(0,0,0,0,0,1)=one
+
+      pf_data_table(0,0,0,0,0,3)=pf_min[1,3]   // ``$E_{out} = E_{in}$''
+      pf_data_table(1,0,0,0,0,3)=pf_max[1,3]
+/*
+   Fill in the arrays containing the independent variables. Since 
+   the spacing is uniform everywhere here, these are straightforward.
+*/
+      pf_ragged_alloc(pf_indep_var,pf_tab_index)
+
+      do i=0,pf_tab_index[1,1]-1
+         pf_indep_var_table(i,1,1)=zero
+         pf_indep_var_table(i,1,2)=zero
+      end do
+      pf_indep_var_table(0,1,3)=pf_min[1,3]
+      pf_indep_var_table(1,1,3)=pf_max[1,3]
+
+/*
+   Write netCDF file and close everything up
+*/
+
+      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(pf_version),
+     $     pf_version,nc_stat)
+      
+      pf_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      pf_ncwrite(fileid)
+
+      var_free(pf_data_tab)
+      var_free(pf_indep_var_tab)
+
+      call ncclose(fileid,nc_stat)
 
       return
       end
