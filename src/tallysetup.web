@@ -2,6 +2,9 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.3  1998/01/14 21:09:00  dstotler
+% Implemented conversions.
+%
 % Revision 1.2  1997/08/19 14:37:09  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -104,6 +107,8 @@ interface can be developed to replace this code.
 
 @m cv_max_parameter 7
 
+@m OPTIMIZE 0   // "1" disables fancy tallies; use "0" otherwise.
+
 @ The unnamed module.
 
 @a 
@@ -188,6 +193,7 @@ c      integer pr_rc_type[pr_reaction_num]
       tally_version=
      $     '$Id$'
 
+@#if !OPTIMIZE
 /* 
    {\bf SECTOR TALLIES}
    \begin{itemize}
@@ -261,6 +267,7 @@ c      integer pr_rc_type[pr_reaction_num]
      $        estimator,pr_rc_type)
       end if
 
+@#endif
 /*
    {\bf TEST TALLIES}
    \begin{itemize}
@@ -298,6 +305,8 @@ c      integer pr_rc_type[pr_reaction_num]
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
 
+@#if !OPTIMIZE
+
       num_conversions=3
       conversions[1]=cv_out_scale_test_mass
       conversions[2]=cv_out_scale_volume
@@ -307,6 +316,8 @@ c      integer pr_rc_type[pr_reaction_num]
      $     tl_type_test,tl_geom_volume,pointer,'momentum vector',2,
      $     indep_var,tab_index,num_conversions,conversions,
      $     conversion_packages,estimator,pr_rc_type)
+
+@#endif
 
       num_conversions=4
       conversions[1]=cv_post_divide_number
@@ -343,127 +354,133 @@ c      integer pr_rc_type[pr_reaction_num]
    \end{itemize}
 */
 
-      do pr_reac=1,pr_reaction_num
-         if (rc_reaction_type(pr_reaction(pr_reac))SP(1:6) 
-     $        == 'dissoc') then
-            pr_rc_type[pr_reac]=pr_rc_dissociation
-         else if (rc_reaction_type(pr_reaction(pr_reac)) 
-     $           == 'ionize_suppress') then
-            pr_rc_type[pr_reac]=pr_rc_ionize_suppress
-         else if (rc_reaction_type(pr_reaction(pr_reac)) 
-     $           == 'recombination') then
-            pr_rc_type[pr_reac]=pr_rc_recombination
-         else
-            pr_rc_type[pr_reac]=pr_rc_unknown
-         end if
-      end do
+      if (pr_reaction_num > 0) then
+         do pr_reac=1,pr_reaction_num
+            if (rc_reaction_type(pr_reaction(pr_reac))SP(1:6) 
+     $           == 'dissoc') then
+               pr_rc_type[pr_reac]=pr_rc_dissociation
+            else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $              == 'ionize_suppress') then
+               pr_rc_type[pr_reac]=pr_rc_ionize_suppress
+            else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $              == 'recombination') then
+               pr_rc_type[pr_reac]=pr_rc_recombination
+            else
+               pr_rc_type[pr_reac]=pr_rc_unknown
+            end if
+         end do
 /*
    This will overwrite some of the above (e.g., dissociation).
 */
-      do test=1,pr_test_num
-         if (sp_z(pr_test(test)) != 0) then // Same check as in |particle.hweb|
-            do i=1,pr_rc_num(test)
-               pr_rc_type[pr_ts_rc(test,i)]=pr_rc_test_ion 
-            end do
-         end if
-      end do
+         do test=1,pr_test_num
+            if (sp_z(pr_test(test)) != 0) then // Same check as in |particle.hweb|
+               do i=1,pr_rc_num(test)
+                  pr_rc_type[pr_ts_rc(test,i)]=pr_rc_test_ion 
+               end do
+            end if
+         end do
 
-      pointer=0
-      indep_var[1]=tl_index_zone
-      tab_index[1]=zn_num
+         pointer=0
+         indep_var[1]=tl_index_zone
+         tab_index[1]=zn_num
 
-      indep_var[2]=tl_index_back
-      tab_index[2]=pr_background_num
+         indep_var[2]=tl_index_back
+         tab_index[2]=pr_background_num
 
-      num_conversions=1
-      conversions[1]=cv_out_scale_back_mass      // Leave as volume integrated
+         num_conversions=1
+         conversions[1]=cv_out_scale_back_mass      // Leave as volume integrated
 
- //     estimator[pr_rc_unknown]=tl_est_track
-      estimator[pr_rc_unknown]=tl_est_collision
-      estimator[pr_rc_recombination]=tl_est_post_process
-//      estimator[pr_rc_recombination]=tl_est_collision
-      estimator[pr_rc_ionize_suppress]=tl_est_post_process
-      estimator[pr_rc_dissociation]=tl_est_track
- //     estimator[pr_rc_dissociation]=tl_est_collision
-      estimator[pr_rc_test_ion]=tl_est_collision
+ //      estimator[pr_rc_unknown]=tl_est_track
+         estimator[pr_rc_unknown]=tl_est_collision
+         estimator[pr_rc_recombination]=tl_est_post_process
+//       estimator[pr_rc_recombination]=tl_est_collision
+         estimator[pr_rc_ionize_suppress]=tl_est_post_process
+         estimator[pr_rc_dissociation]=tl_est_track
+ //      estimator[pr_rc_dissociation]=tl_est_collision
+         estimator[pr_rc_test_ion]=tl_est_collision
 
-      call define_tally('ion source rate',
-     $     tl_type_reaction,tl_geom_volume,pointer,'back mass',2,indep_var,
-     $     tab_index,num_conversions,conversions,conversion_packages,
-     $     estimator,pr_rc_type)
+         call define_tally('ion source rate',
+     $        tl_type_reaction,tl_geom_volume,pointer,'back mass',2,indep_var,
+     $        tab_index,num_conversions,conversions,conversion_packages,
+     $        estimator,pr_rc_type)
 
-      num_conversions=1
-      conversions[1]=cv_track_v_to_external
+         num_conversions=1
+         conversions[1]=cv_track_v_to_external
 
-//     estimator[pr_rc_dissociation]=tl_est_track
-      estimator[pr_rc_dissociation]=tl_est_collision
+//       estimator[pr_rc_dissociation]=tl_est_track
+         estimator[pr_rc_dissociation]=tl_est_collision
 
-      call define_tally('ion momentum source vector',tl_type_reaction,
-     $     tl_geom_volume,pointer,
-     $     'back momentum vector',2,indep_var,tab_index,
-     $     num_conversions,conversions,conversion_packages,
-     $     estimator,pr_rc_type)
+         call define_tally('ion momentum source vector',tl_type_reaction,
+     $        tl_geom_volume,pointer,
+     $        'back momentum vector',2,indep_var,tab_index,
+     $        num_conversions,conversions,conversion_packages,
+     $        estimator,pr_rc_type)
  
-      num_conversions=0
+         num_conversions=0
       
-      estimator[pr_rc_ionize_suppress]=tl_est_track
+         estimator[pr_rc_ionize_suppress]=tl_est_track
 
-      call define_tally('ion energy source',
-     $     tl_type_reaction,tl_geom_volume,pointer,'back energy',2,indep_var,
-     $     tab_index,num_conversions,conversions,conversion_packages,estimator,pr_rc_type)
+         call define_tally('ion energy source',
+     $        tl_type_reaction,tl_geom_volume,pointer,'back energy',2,indep_var,
+     $        tab_index,num_conversions,conversions,conversion_packages,estimator,pr_rc_type)
 
-      do test=1,pr_test_num
-         if ((sp_sy(pr_test(test)) == 'H')
-     $        || (sp_sy(pr_test(test)) == 'D')
-     $        || (sp_sy(pr_test(test)) == 'T')) then
+@#if !OPTIMIZE
 
-            pointer=0
-            indep_var[1]=tl_index_zone
-            tab_index[1]=zn_num
+         do test=1,pr_test_num
+            if ((sp_sy(pr_test(test)) == 'H')
+     $           || (sp_sy(pr_test(test)) == 'D')
+     $           || (sp_sy(pr_test(test)) == 'T')) then
 
-            num_conversions=1
-            conversions[1]=cv_out_scale_volume
+               pointer=0
+               indep_var[1]=tl_index_zone
+               tab_index[1]=zn_num
 
-            estimator[pr_rc_ionize_suppress]=tl_est_post_process
+               num_conversions=1
+               conversions[1]=cv_out_scale_volume
+
+               estimator[pr_rc_ionize_suppress]=tl_est_post_process
             
-            call define_tally(trim(sp_sy(pr_test(test)))\/'alpha emission rate',
-     $           tl_type_reaction,tl_geom_volume,pointer,
-     $           'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
-     $           1,indep_var,tab_index,num_conversions,conversions,
-     $           conversion_packages,estimator,pr_rc_type)
-
-            num_conversions=0
-            
-            pointer=de_lookup('Chord integrals')
-            if (pointer > 0) then                  // No default setup for this
-               indep_var[1]=tl_index_detector
-               tab_index[1]=detector_num_views[pointer]
-               call define_tally(trim(sp_sy(pr_test(test)))\/'alpha chord integrals',
-     $              tl_type_reaction,tl_geom_detector,pointer,
+               call define_tally(trim(sp_sy(pr_test(test)))\/'alpha emission rate',
+     $              tl_type_reaction,tl_geom_volume,pointer,
      $              'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
      $              1,indep_var,tab_index,num_conversions,conversions,
-     $              conversion_packages,estimator,pr_rc_type) 
-            end if
+     $              conversion_packages,estimator,pr_rc_type)
 
-            pointer=de_lookup('Halpha spectrum')
-            if (pointer > 0) then
-               tab_index[1]=detector_num_views[pointer]
-               indep_var[2]=tl_index_wavelength_bin
-               tab_index[2]=detector_tab_index[pointer]
-            
                num_conversions=0
+            
+               pointer=de_lookup('Chord integrals')
+               if (pointer > 0) then                  // No default setup for this
+                  indep_var[1]=tl_index_detector
+                  tab_index[1]=detector_num_views[pointer]
+                  call define_tally(trim(sp_sy(pr_test(test)))\/'alpha chord integrals',
+     $                 tl_type_reaction,tl_geom_detector,pointer,
+     $                 'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
+     $                 1,indep_var,tab_index,num_conversions,conversions,
+     $                 conversion_packages,estimator,pr_rc_type) 
+               end if
 
-               estimator[pr_rc_ionize_suppress]=tl_est_track
+               pointer=de_lookup('Halpha spectrum')
+               if (pointer > 0) then
+                  tab_index[1]=detector_num_views[pointer]
+                  indep_var[2]=tl_index_wavelength_bin
+                  tab_index[2]=detector_tab_index[pointer]
+            
+                  num_conversions=0
+
+                  estimator[pr_rc_ionize_suppress]=tl_est_track
                
-               call define_tally(trim(sp_sy(pr_test(test)))\/'alpha spectrum',
-     $              tl_type_reaction,tl_geom_detector,pointer,
-     $              'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
-     $              2,indep_var,tab_index,num_conversions,conversions,
-     $              conversion_packages,estimator,pr_rc_type)     
-            end if
+                  call define_tally(trim(sp_sy(pr_test(test)))\/'alpha spectrum',
+     $                 tl_type_reaction,tl_geom_detector,pointer,
+     $                 'emission_rate_'\/trim(sp_sy(pr_test(test)))\/'_alpha',
+     $                 2,indep_var,tab_index,num_conversions,conversions,
+     $                 conversion_packages,estimator,pr_rc_type)     
+               end if
 
-         end if
-      end do
+            end if
+         end do
+
+@#endif 
+      end if
 
       var_reallocb(tally_name)
       var_reallocb(tally_type)
