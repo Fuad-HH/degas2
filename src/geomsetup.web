@@ -3,6 +3,9 @@
 \def\Wtitle{geometry setup}
 
 % $Log$
+% Revision 1.9  1995/02/14 21:43:51  karney
+% Typos in Makefile.  Remove \loadfonts from geomsetup.web.
+%
 % Revision 1.8  1994/08/24 15:02:56  karney
 % Added degasgeom to read in old degas' geometry spec.
 %
@@ -69,9 +72,7 @@ Geometry setup routines for degas.
       nsurfaces=0
       ptr_surfaces=0
       ptr_surface_coeffs=0
-@#if DEBUG
       ptr_surface_points=0
-@#endif
       zn_num=0
       _DO(I,1,zn_type_max) {
           zone_type_num[I]=0;
@@ -96,11 +97,8 @@ Geometry setup routines for degas.
       var_reallocb(cells)
       var_reallocb(surfaces)
       var_reallocb(surface_coeffs)
-@#if DEBUG
       var_reallocb(surface_points)
-@#endif
 
-      nboundaries=0
       do j=0,ncells
          nboundaries=nboundaries+cells[c_surfaces,j]
       end do
@@ -181,9 +179,7 @@ then search for duplicates and return the duplicate index if it exists.
       nsurfaces=nsurfaces+1
       var_realloca(surfaces)
       var_realloca(surface_coeffs)
-@#if DEBUG
       var_realloca(surface_points)
-@#endif
       do i=1,NCOEFFS
          surface_coeffs[i,nsurfaces]=coeff[i]
       end do
@@ -390,9 +386,7 @@ break1:        continue
       var_free(cells)
       var_free(surfaces)
       var_free(surface_coeffs)
-@#if DEBUG
       var_free(surface_points)
-@#endif
       var_free(boundaries)
       var_free(neighbors)
       ncells=-1

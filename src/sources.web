@@ -1,0 +1,53 @@
+% $Id$
+\def\Wtitle{flighttest}
+
+% $Log$
+
+@n/
+
+@* Sampling from the sources.
+
+\ID{$Id$}
+
+@m FILE 'sources.web'
+
+@I macros.hweb
+
+@ The main program.
+
+@a
+      @<Functions and Subroutines@>
+
+@ The sampling function.  This is an idiot version for now.  It uses an
+inefficient procure for finding the source.  It just returns the
+position of for the next flight.  (Missing is the species information, a
+proper location, etc.)  It gives a uniform distribution along a line
+(which isn't strictly correct).
+
+@<Functions...@>=
+      subroutine sample_sources(rn_dummy(r),x)
+      implicit_none
+      rn_decl(r)                // Input and output
+      real x[3]                 // Output
+      real u,sum,fr                // Local
+      integer i,n
+      so_common                 // Common
+      
+      rn_next(u,r)
+      u=source_total*u
+      sum=zero
+      do i=1,so_num
+         if (sum+source_current(i) >= u) then
+            fr=(u-sum)/source_current(i)
+            n=i
+            goto break
+         endif
+         sum=sum+source_current(i)
+      end do
+break: continue
+      vc_difference(source_pos[0,n],source_pos[1,n],x)
+      vc_xvt(source_pos[0,n],x,fr,x)
+      return
+      end
+
+@* Index.

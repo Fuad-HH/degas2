@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.23  1995/04/24 20:43:31  karney
+# Generalize reactiondata to allow multiple data arrays per reaction.
+#
 # Revision 1.22  1995/04/12 18:34:00  karney
 # Merge in comments to array.hweb and changes for Sherwood '95 meeting.
 #
@@ -118,6 +121,7 @@ PVM=-L/soft/pvm/lib/$(PVMARCH) -lfpvm3 -lpvm3
 # Cancel some built-in rules
 %: %.f
 %: %.c
+%: %.mod
 %.c: %.l
 %.r: %.l
 %.o %: %.mod
@@ -187,7 +191,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
-    ratecalc.hweb problem.hweb reactiondata.hweb
+    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb
 
 %.f: %.web $(HEADERS) fixit
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<

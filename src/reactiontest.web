@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.3  1995/04/12 18:34:20  karney
+% Merge in comments to array.hweb and changes for Sherwood '95 meeting.
+%
 % Revision 1.2  1995/03/30 17:07:59  karney
 % Add readbackground
 %
@@ -40,8 +43,7 @@
       rc_common
 
 
-      call init_reaction
-      call reaction_data_write
+      call init_reactiontest
 
 loop: continue
       write(stdout,*) 'Enter symbols for test particle, target particle, reaction'
@@ -69,13 +71,13 @@ loop1: continue
       length=parse_string(line(:length))
       p=0
       assert(next_token(line,b,e,p))
-      energy=read_real(line(b:e))
+      energy=electron_chargeread_real(line(b:e))
       assert(next_token(line,b,e,p))
       density=read_real(line(b:e))
       assert(next_token(line,b,e,p))
-      temperature=read_real(line(b:e))
+      temperature=electron_charge*read_real(line(b:e))
       
-      vrel=sqrt(two*electron_charge*energy/(atomic_mass_unit*sp_m(test)))
+      vrel=sqrt(two*energy/sp_m(test))
       vc_set(vt,vrel,zero,zero)
       vc_set(vb,zero,zero,zero)
       
@@ -91,26 +93,18 @@ eof:  continue
       end
       @<Functions and Subroutines@>
 
-@* The other subroutines.
+@* Initialize.
 
 @<Functions...@>=
-      subroutine reaction_data_write
+      subroutine init_reactiontest
       implicit_none
-      integer fileid            // Local
-      pr_common
-      pr_ncdecl
-      rd_common
-      rd_ncdecl
-      nc_common
       
-      fileid = nccreate('../data/test.nc',NC_CLOBBER,nc_stat)
-      pr_ncdef(fileid)
-      rd_ncdef(fileid)
-      call ncendef(fileid,nc_stat)
-      pr_ncwrite(fileid)
-      rd_ncwrite(fileid)
-      call ncclose(fileid,nc_stat)
-
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+      call nc_read_problem
+      
+      return
       end
 
 @* Index.

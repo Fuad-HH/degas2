@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.3  1995/04/24 20:43:43  karney
+% Generalize reactiondata to allow multiple data arrays per reaction.
+%
 % Revision 1.2  1995/04/24 14:21:25  karney
 % Remove some unused variables.  Introduce a coordinate system for plasma
 % flow.
@@ -14,14 +17,19 @@
 \ID{$Id$}
 
 Data for reactions is held in arrays in common blocks.
+|rd_datan(x,m,...)| accesses the data for the $m$th table as an $n$d array.
 
-@m rd_rate1(x,i) reaction_data_table[reaction_data_base[x][rd_rate]+i]
-@m rd_rate2(x,i,j) reaction_data_table[reaction_data_base[x][rd_rate]+i+reaction_data_tab_index[x][rd_rate][1]*j]
-@m rd_rate3(x,i,j,k) reaction_data_table[reaction_data_base[x][rd_rate]+i+reaction_data_tab_index[x][rd_rate][1]*(j+reaction_data_tab_index[x][rd_rate][2]*k)]
+@m rd_data1(x,m,i) reaction_data_table[reaction_data_base[x][m]+i]
+@m rd_data2(x,m,i,j) reaction_data_table[reaction_data_base[x][m]+i+reaction_data_tab_index[x][m][1]*j]
+@m rd_data3(x,m,i,j,k) reaction_data_table[reaction_data_base[x][m]+i+reaction_data_tab_index[x][m][1]*(j+reaction_data_tab_index[x][m][2]*k)]
 
-@m rd_xs1(x,i) reaction_data_table[reaction_data_base[x][rd_xs]+i]
-@m rd_xs2(x,i,j) reaction_data_table[reaction_data_base[x][rd_xs]+i+reaction_data_tab_index[x][rd_xs][1]*j]
-@m rd_xs3(x,i,j,k) reaction_data_table[reaction_data_base[x][rd_xs]+i+reaction_data_tab_index[x][rd_xs][1]*(j+reaction_data_tab_index[x][rd_xs][2]*k)]
+@m rd_rate1(x,i) rd_data1(n,rd_rate,i)
+@m rd_rate2(x,i,j) rd_data2(n,rd_rate,i,j)
+@m rd_rate3(x,i,j,k) rd_data3(n,rd_rate,i,j,k)
+
+@m rd_xs1(x,i) rd_data1(n,rd_xs,i)
+@m rd_xs2(x,i,j) rd_data2(n,rd_xs,i,j)
+@m rd_xs3(x,i,j,k) rd_data3(n,rd_xs,i,j,k)
 
 @m rd_xs 1
 @m rd_rate 2
