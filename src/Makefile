@@ -85,7 +85,7 @@ ifdef DEBUG
 else
   TANGLEFLAGS=-mINLINE -W[ -ytt1000000
 endif
-WEAVEFLAGS=-f -i -W[
+WEAVEFLAGS=-f -i -W[ -ykw600
 
 ifeq ($(MACHINE),CRAY)
   FC=cft77
