@@ -2,6 +2,9 @@
 \Title{other random distributions}
 
 % $Log$
+% Revision 1.6  2000/01/27 18:34:46  karney
+% Portability fixes and minor updates to random.
+%
 % Revision 1.5  1999/08/09 15:18:40  karney
 % An extensive revision of the random number routines
 % (1) make the routines available for export,
@@ -121,16 +124,18 @@ first consumes 4 random numbers; the second consumes 2.)
       if (n<=0) return
 
       call random_array(y,n,rn_args(x))
-      do i=0,int(n/2)*2-1,2
-         theta=pi*(two*y[i]-one) // uniformly distributed in $(-\pi,\pi)$
-         z=sqrt(-two*log(y[i+1])) // $\sqrt{-2\log S}$
-         y[i]=z*cos(theta)
-         y[i+1]=z*sin(theta)
-      end do
+      if (n > 1) then
+         do i=0,int(n/2)-1
+            theta=pi*(two*y[i]-one) // uniformly distributed in $(-\pi,\pi)$
+            z=sqrt(-two*log(y[i+1])) // $\sqrt{-2\log S}$
+            y[i]=z*cos(theta)
+            y[i+1]=z*sin(theta)
+         end do
+      end if
 
       if (mod(n,2)==0) return
       theta=pi*(two*y[n-1]-one)   // uniformly distributed in $(-\pi,\pi)$
-      z=sqrt(-two*random(rn_args(x))) // $\sqrt{-2\log S}$
+      z=sqrt(-two*log(random(rn_args(x)))) // $\sqrt{-2\log S}$
       y[n-1]=z*cos(theta)
       
       return
@@ -141,16 +146,18 @@ first consumes 4 random numbers; the second consumes 2.)
       if (n<=0) return
 
       call srandom_array(ys,n,rn_args(x))
-      do i=0,int(n/2)*2-1,2
-         stheta=spi*(2.0*ys[i]-1.0) // uniformly distributed in $(-\pi,\pi)$
-         sz=sqrt(-2.0*log(ys[i+1])) // $\sqrt{-2\log S}$
-         ys[i]=sz*cos(stheta)
-         ys[i+1]=sz*sin(stheta)
-      end do
+      if (n > 1) then
+         do i=0,int(n/2)-1
+            stheta=spi*(2.0*ys[i]-1.0) // uniformly distributed in $(-\pi,\pi)$
+            sz=sqrt(-2.0*log(ys[i+1])) // $\sqrt{-2\log S}$
+            ys[i]=sz*cos(stheta)
+            ys[i+1]=sz*sin(stheta)
+         end do
+      end if
 
       if (mod(n,2)==0) return
       stheta=spi*(2.0*ys[n-1]-1.0)   // uniformly distributed in $(-\pi,\pi)$
-      sz=sqrt(-2.0*srandom(rn_args(x))) // $\sqrt{-2\log S}$
+      sz=sqrt(-2.0*log(srandom(rn_args(x)))) // $\sqrt{-2\log S}$
       ys[n-1]=sz*cos(stheta)
       
       return
