@@ -2,6 +2,11 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.16  1999/04/20 20:20:21  dstotler
+% Change plasma sector calls to target sector. Eliminate use of xseg2 in
+% set_puff_source_v. Use sc_target_check & sc_wall_check in
+% set_puff_source_v instead of comparing with 0.
+%
 % Revision 1.15  1999/02/08 18:20:46  dstotler
 % Add an assert to catch source species which are not in the problem
 % test list.
@@ -130,7 +135,13 @@ species and ``relative weight''.
    [{\em Electronics Letters} {\bf 10}, 8 (1974), 127-128; {\em ACM Trans.
    Math. Software} {\bf 3} (1976), 253-256]. 
 */
-      rn_next(urd,fl_rand(x))
+      if (so_sampling == so_random) then
+         rn_next(urd,fl_rand(x))
+      else if (so_sampling == so_direct) then
+         urd=mod(so_direct_delta+so_direct_mult*areal(fl_number(x)),1)
+      else
+         assert('Illegal value of so_sampling' == ' ')
+      end if
       kseg=int(so_nseg(fl_source(x))*urd)
       vprob=so_nseg(fl_source(x))*urd - kseg
       if (vprob < source_segment_prob_alias[so_base(fl_source(x))+kseg]) then
