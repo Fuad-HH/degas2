@@ -2,6 +2,10 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.11  1995/07/19 20:13:03  dstotler
+% Changed assumptions about reagent ordering to be consistent with
+% revised reactions.input.
+%
 % Revision 1.10  1995/07/14 13:20:45  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -52,21 +56,35 @@
       implicit_none
       character*LINELEN line    // Local
       integer length,p,b,e
+      integer seed[0:5]
+      integer i,nprod
       real vt[3],vb[3],vrel,energy,density,temperature,rate
       external reaction_rate_a  // External
       real reaction_rate_a
       
       sp_decl(test)
       sp_decl(background)
+      sp_decl(prod[rc_product_max])
       rc_decl(reaction)
+      pr_reaction_decl(prob_react)
+      pr_reaction_decl(ts_reac)
+      rn_decl(tag)
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max]
 
       st_common
       el_common
       sp_common
       rc_common
+      pr_common
 
       call readfilenames
       call init_reactiontest
+
+/* |process_reaction| needs random number thread */
+      seed[0]=1234
+      seed[1]=5678
+      call random_init(seed,rn_args(tag))  
 
 loop: continue
       write(stdout,*) 'Enter symbols for test particle, background particle, reaction'
@@ -82,8 +100,11 @@ loop: continue
       assert(next_token(line,b,e,p))
       reaction=rc_lookup(line(b:e))
       
-      assert(test == rc_reagent(reaction,2))
-      assert(background == rc_reagent(reaction,1))
+      prob_react=pr_reaction_lookup(reaction)
+      ts_reac=int_lookup(prob_react,pr_ts_rc(problem_species_test(test),1),pr_reaction_max)
+      
+      assert(sp_generic(test) == sp_generic(rc_reagent(reaction,2)))
+      assert(sp_generic(background) == sp_generic(rc_reagent(reaction,1)))
       
       write(stdout,*) '     Test species is:       ',sp_name(test)
       write(stdout,*) '     Background species is: ',sp_name(background)
@@ -108,12 +129,50 @@ loop1: continue
       vc_set(vt,vrel,zero,zero)
       vc_set(vb,zero,zero,zero)
       
-      rate=reaction_rate_a(sp_args(test),vt,sp_args(background),density,vb,temperature,rc_args(reaction))
+      rate=reaction_rate_a(pr_test_args(problem_species_test(test)),vc_args(vt),
+     $   pr_background_args(problem_species_background(background)),
+     $   density,vc_args(vb),temperature,pr_reaction_args(ts_reac))
+
       write(stdout,*) '    Test energy = ',energy,' J'
+      write(stdout,*) '    Test (vx,vy,vz) = ',vt[1],', ',vt[2],', ',vt[3],
+     $                     ' m/s'
       write(stdout,*) '    Background density = ',density,' m**-3'
       write(stdout,*) '    Background temperature = ',temperature,' J'
       write(stdout,*) '      => Reaction rate = ',rate,' m**3/s'
-      
+
+/* Determine reaction products */
+      if (rc_reaction_type(reaction) == 'chargex') then
+         call chargex(pr_test_args(problem_species_test(test)),vc_args(vt),
+     $        pr_background_args(problem_species_background(background)),
+     $        density,vc_args(vb),temperature,pr_reaction_args(ts_reac),
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,rn_args(tag))
+      else if (rc_reaction_type(reaction) == 'dissoc') then
+         call dissoc(pr_test_args(problem_species_test(test)),vc_args(vt),
+     $        pr_background_args(problem_species_background(background)),
+     $        density,vc_args(vb),temperature,pr_reaction_args(ts_reac),
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,rn_args(tag))
+      else if (rc_reaction_type(reaction) == 'dissoc_rec') then
+         call dissoc(pr_test_args(problem_species_test(test)),vc_args(vt),
+     $        pr_background_args(problem_species_background(background)),
+     $        density,vc_args(vb),temperature,pr_reaction_args(ts_reac),
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,rn_args(tag))
+      else if (rc_reaction_type(reaction) == 'ionize') then
+         call ionize(pr_test_args(problem_species_test(test)),vc_args(vt),
+     $        pr_background_args(problem_species_background(background)),
+     $        density,vc_args(vb),temperature,pr_reaction_args(ts_reac),
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,rn_args(tag))
+      else
+         assert('Unsupport reaction type' == ' ')
+      end if
+
+      write(stdout,*) ' Number of products = ',nprod
+      do i=1,nprod
+         write(stdout,*) '  Product #',i,' is ',sp_name(prod[i])
+         write(stdout,*) '     (vx,vy,vz) = ',v_prod[i][1],', ',v_prod[i][2],
+     $                   ', ',v_prod[i][3],' m/s'
+         write(stdout,*) '     weight = ',w_prod[i]
+      end do
+
       goto loop1
 
 
