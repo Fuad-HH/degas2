@@ -2,20 +2,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1993/09/23  16:30:21  karney
+% Added var_reallocc
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
-%
-# Revision 1.2  1993/06/01  22:15:07  karney
-# Redo pre-Albuquerque checkin
-#
-% Revision 1.2  1993/04/24  23:15:36  karney
-% Pre-Albuquerque checkin
-%
-% Revision 1.1  1993/03/17  20:34:52  karney
-% Prior to array reorganization
-%
-% Revision 1.1  1992/11/13  17:58:50  karney
-% Initial checkin
 %
 
 @ Macro definitions.
@@ -157,6 +148,74 @@
       int_realloc(x,array_sizec(x,on),array_sizec(x,n)),
       real_realloc(x,array_sizec(x,on),array_sizec(x,n)));
       end if @;
+
+@ Define package functions.
+
+@m package_init(pk) _DEFINE(pk##_common_a save /pk##_com/;)
+      _DEFINE(pk##_ncdef(fileid))
+      _DEFINE(pk##_ncwrite(fileid))
+      _DEFINE(pk##_ncreada(fileid))
+      _DEFINE(pk##_ncreadb(fileid))
+      _DEFINE(pk##_ncreadc(fileid))
+      _DEFINE(pk##_ncdecl)
+
+@m define_dimen_pk(pk,name,...) define_dimen(name,#.)
+      _DEFINE(temp(fileid) pk##_ncdef(fileid))
+      _UNDEF(pk##_ncdef)
+      _DEFINE(pk##_ncdef(fileid) temp(fileid); dimen_def(fileid,name);)
+      _UNDEF(temp)
+      _DEFINE(temp pk##_ncdecl)
+      _UNDEF(pk##_ncdecl)
+      _DEFINE(pk##_ncdecl temp; integer dimid(name);)
+      _UNDEF(temp)
+      _DEFINE(temp(fileid) pk##_ncreadb(fileid))
+      _UNDEF(pk##_ncreadb)
+      _DEFINE(pk##_ncreadb(fileid) temp(fileid); dimen_inq(fileid,name);)
+      _UNDEF(temp)
+      
+@m define_var_pk(pk,name,...) define_var(name,#.)
+      _DEFINE(temp pk##_common_a)
+      _UNDEF(pk##_common_a)
+      _DEFINE(pk##_common_a temp declare_var(name); common /pk##_com/ name;)
+      _UNDEF(temp)
+      _DEFINE(temp(fileid) pk##_ncdef(fileid))
+      _UNDEF(pk##_ncdef)
+      _DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
+      _UNDEF(temp)
+      _DEFINE(temp pk##_ncdecl)
+      _UNDEF(pk##_ncdecl)
+      _DEFINE(pk##_ncdecl temp; integer dimid(name);)
+      _UNDEF(temp)
+      _DEFINE(temp(fileid) pk##_ncwrite(fileid))
+      _UNDEF(pk##_ncwrite)
+      _DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
+      _UNDEF(temp)
+      _DEFINE(temp(fileid) pk##_ncreada(fileid))
+      _UNDEF(pk##_ncreada)
+      _DEFINE(pk##_ncreada(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
+      _UNDEF(temp)
+
+@m define_varp_pk(pk,name,...) define_var(name,#.)
+      _DEFINE(temp pk##_common_a)
+      _UNDEF(pk##_common_a)
+      _DEFINE(pk##_common_a temp declare_varp(name); common /pk##_com/ ptr_##name;)
+      _UNDEF(temp)
+      _DEFINE(temp(fileid) pk##_ncdef(fileid))
+      _UNDEF(pk##_ncdef)
+      _DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
+      _UNDEF(temp)
+      _DEFINE(temp pk##_ncdecl)
+      _UNDEF(pk##_ncdecl)
+      _DEFINE(pk##_ncdecl temp; integer dimid(name);)
+      _UNDEF(temp)
+      _DEFINE(temp(fileid) pk##_ncwrite(fileid))
+      _UNDEF(pk##_ncwrite)
+      _DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
+      _UNDEF(temp)
+      _DEFINE(temp(fileid) pk##_ncreadc(fileid))
+      _UNDEF(pk##_ncreadc)
+      _DEFINE(pk##_ncreadc(fileid) temp(fileid); var_inq(fileid,name); var_alloc(name); var_read(fileid,name);)
+      _UNDEF(temp)
 
 @* External interface to array.  These macros aid in defining array
 operations.
