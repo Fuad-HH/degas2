@@ -2,6 +2,10 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.5  1995/07/19 20:13:18  dstotler
+% Changed assumptions about reagent ordering to be consistent with
+% revised reactions.input.
+%
 % Revision 1.4  1995/07/14 13:20:00  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -32,49 +36,94 @@
 @a
       @<Functions and Subroutines@>
 
-@ Subroutine to process a reaction.
+@ Subroutine to process a reaction. The arguments here are |p|, the particle
+index, |ts_reac|, the reaction index into the list of reactions participated
+in by the test species corresponding to |p|, |nprod|, the number of products,
+|prod|, their corresponding particle tags, and |x|, the current random
+number thread. This routine uses |p| to pull together all of the more
+specific information required by the lower level routines. The individual
+pieces of data about the products they produce are incorporated into 
+instances of the particle class.
       
 @<Functions...@>=
-      subroutine process_reaction(pt_dummy(p),rc_dummy(r),bk_dummy(b),
+      subroutine process_reaction(pt_dummy(p),pr_reaction_dummy(ts_reac),
      $   nprod,pt_dummy(prod),rn_dummy(x))
+
       implicit_none
-      pt_decl(p)                // Input
-      rc_decl(r)
-      bk_decl(b)
-      integer nprod             // Output
+
+      pt_decl(p)                           // Input
+      pr_reaction_decl(ts_reac)
+      integer nprod                        // Output
       pt_decl(prod[rc_product_max])
-      rn_decl(x)                // Input/output
-      real vb[3],rr             // Local
+      rn_decl(x)                           // Input/output
+
+      bk_decl(back)                        // Local
+      vc_decl(vb_flow)
+      real rr  
       integer i
-      zn_common                 // Common
-      rc_common
+
+      zn_common                            // Common
       bk_common
       sp_common
       pr_common
       st_common
+      rc_common
 
+      back=pr_ts_bk(pt_test(p),ts_reac)
       if (background_coords == plasma_coords_cartesian) then
-         vc_copy(bk_v(b,lc_zone(pt_loc(p))),vb)
+         vc_copy(bk_v(back,lc_zone(pt_loc(p))),vb_flow)
       else if (background_coords == plasma_coords_cylindrical) then
          rr=sqrt(lc_x(pt_loc(p))[1]**2+lc_x(pt_loc(p))[2]**2)
-         vb[1]=(bk_v(b,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[1]-
-     $        bk_v(b,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[2])/rr
-         vb[2]=(bk_v(b,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[2]+
-     $        bk_v(b,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[1])/rr
-         vb[3]=bk_v(b,lc_zone(pt_loc(p)))[3]
+         vb_flow[1]=(bk_v(back,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[1]-
+     $        bk_v(back,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[2])/rr
+         vb_flow[2]=(bk_v(back,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[2]+
+     $        bk_v(back,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[1])/rr
+         vb_flow[3]=bk_v(back,lc_zone(pt_loc(p)))[3]
       else
          assert(.false.)
       end if
       
-      call process_reaction_a(pt_sp(p),pt_v(p),pr_background(b),
-     $     bk_n(b,lc_zone(pt_loc(p))),
-     $     vb,
-     $     bk_temp(b,lc_zone(pt_loc(p))),
-     $     pr_reaction(r),
-     $     nprod,
-     $     pt_sp(prod[1]),vc_args(pt_v(prod[1])),pt_w(prod[1]),
-     $     rn_args(x))
+/* 
+   Split up into different reaction types. Note that for now types |dissoc|
+   and |dissoc_rec| use the same processing routine; the distinction between
+   the two currently exists because different logic is required during the
+   ``set products'' phase of |problemsetup|.
+*/
+      if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'chargex') then
+         call chargex(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
+     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
+     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
+     $     pr_reaction_args(ts_reac),
+     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $     pt_w(prod[1]),rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc') then
+         call dissoc(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
+     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
+     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
+     $     pr_reaction_args(ts_reac),
+     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $     pt_w(prod[1]),rn_args(x))
+         else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'dissoc_rec') then
+         call dissoc(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
+     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
+     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
+     $     pr_reaction_args(ts_reac),
+     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $     pt_w(prod[1]),rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(p),ts_reac))) == 'ionize') then
+         call ionize(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
+     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
+     $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
+     $     pr_reaction_args(ts_reac),
+     $     nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $     pt_w(prod[1]),rn_args(x))
+      else
+         assert('Unsupported reaction type' == ' ')
+      end if
 
+/*
+   Create particle instances from products. 
+*/
       do i=1,nprod
          pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
          lc_copy(pt_loc(p),pt_loc(prod[i]))
@@ -92,91 +141,103 @@
       return
       end
 
-@ The low level routine for processing reactions.  The arguments are:
-(input) test particle species, velocity, background particle species,
-density, velocity, temperature, reaction number; (output) number of
-products (0, 1, or 2, at present), species, velocity, and weight for
-product 1, species, velocity, and weight for product 2; (input/output)
-random number thread.
+@ Process a charge exchange reaction. The arguments here are:
+\begin{description}
+  \item[|test|] test particle index,
+  \item[|v_test|] its velocity,
+  \item[|back|] background particle index,
+  \item[|nb|] its density,
+  \item[|vb_flow|] its flow velocity,
+  \item[|tb|] and its temperature,
+  \item[|ts_reac|] reaction index into the list of reactions participated 
+in by |test|,
+  \item[|nprod|] number of products,
+  \item[|prod|] array of product species indices,
+  \item[|v_prod|] array of product velocity vectors,
+  \item[|w_prod|] array of product weight fractions (relative to |test|),
+  \item[|x|] current random number thread.
+\end{description}
+The intention here is to make these variables as ``physical'' as possible
+so this routine can easily be used in standalone codes, 
+such as |reaction_test|.
 
 @<Functions...@>=
+      subroutine chargex(pr_test_dummy(test),vc_dummy(v_test),
+     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
+     $     pr_reaction_dummy(ts_reac),
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $     rn_dummy(x))
 
-      subroutine process_reaction_a(sp_dummy(p),vc_dummy(v),sp_dummy(b),nb,
-     $     vb,tb,rc_dummy(r),nprod,
-     $     sp_dummy(po),vo,wo,rn_dummy(x))
       implicit_none
-      sp_decl(p)                // Input
-      real v[3]
-      sp_decl(b)
-      real nb,vb[3],tb
-      rc_decl(r)
-      integer nprod             // Output
-      sp_decl(po[rc_product_max])
-      real vo[rc_product_max][3],wo[rc_product_max]
-      rn_decl(x)                // Input/output
-      
-      rc_common                 // Common
-      sp_common
-      
-      assert(rc_reagent(r,2)==p && rc_reagent(r,1)==b)
-      
-      assert(reaction_type[r] == 'chargex') // This is all we know about.
-      
-      if (reaction_type[r]=='chargex') then
-         call charge_exchange(sp_args(p),v,sp_args(b),nb,
-     $        vb,tb,rc_args(r),nprod,
-     $        sp_args(po),vo,wo,rn_args(x))
-      end if
-         
-      return
-      
-      end
 
-@ Process a charge exchange reaction.
+      pr_test_decl(test)                               // Input
+      vc_decl(v_test)
+      pr_background_decl(back)
+      real nb,tb
+      vc_decl(vb_flow)
+      pr_reaction_decl(ts_reac)
 
-@<Functions...@>=
-      subroutine charge_exchange(sp_dummy(p),v,sp_dummy(b),nb,
-     $     vb,tb,rc_dummy(r),nprod,
-     $     sp_dummy(po),vo,wo,rn_dummy(x))
-      implicit_none
-      sp_decl(p)                // Input
-      real v[3]
-      sp_decl(b)
-      real nb,vb[3],tb
-      rc_decl(r)
-      integer nprod             // Output
-      sp_decl(po[rc_product_max])
-      real vo[rc_product_max][3],wo[rc_product_max]
-      rn_decl(x)                // Input/output
-      real vrel[3],vt,ran,sgvmax,cx        // Local
+      integer nprod                                    // Output
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max]
+      rn_decl(x)                                       // Input/Output
+
+      pr_reaction_decl(pr_reac)                        // Local
       integer i,count
-      external cross_section_a  // External
+      vc_decl(vt_plasma_frame)
+      vc_decl(vb_therm)
+      real v_thermal,ran,sgvmax,cx  
+      save sgvmax
+      data sgvmax/zero/
+
+      external cross_section_a                         // External
       real cross_section_a
       real tempmax
       save tempmax
-      data tempmax/0.0/
+      data tempmax/zero/
       
-      rc_common                 // Common
+      pr_common                                        // Common
+      rc_common
+      rd_common
       sp_common
       rn_common
-      
-      nprod=1
-      count=0
-      sgvmax=const(1.4,-7)/const(1.0,6)
 
-      vc_difference(v,vb,vrel)
+      pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+      count=0
+/*
+  If not done already, extract |sgvmax| from |rd_misc_data3|
+*/
+      if (sgvmax == zero) then
+         do i=1,xs_dep_var_max
+            if (reaction_misc_var_dep[pr_reac][i] == 'sigv_max') then
+               assert(reaction_misc_rank[pr_reac][i] == 0)
+               sgvmax=rd_misc_data3(pr_reac,i,0,0,0)
+               goto break
+            end if
+         end do
+break:   continue
+      end if
+
+/*
+   Transform to frame moving with the local background flow velocity
+*/
+      vc_difference(v_test,vb_flow,vt_plasma_frame)
 
 loop: continue
       count++
  /* Pick a background particle */
-      vt=sqrt(tb/sp_m(b))
+      v_thermal=sqrt(tb/sp_m(pr_background(back)))
       do i=1,3
          rn_gauss_next(ran,x)
-         vo[1][i]=vt*ran
+         vb_therm[i]=v_thermal*ran
       end do
 
 @#if 1     
-      cx=cross_section_a(sp_args(p),vrel,sp_args(b),vc_args(vo[1]),rc_args(r))
+      cx=cross_section_a(pr_test_args(test),vc_args(vt_plasma_frame),
+     $    pr_background_args(back),nb,vc_args(vb_therm),tb,
+     $    pr_reaction_args(ts_reac))
       assert(cx<=sgvmax)
       if (cx > tempmax) then
          write(6,*) cx
@@ -185,12 +246,253 @@ loop: continue
       rn_next(ran,x)
       if (cx < ran*sgvmax) goto loop
 @#endif
-      
-      po[nprod]=rc_product(r,1)
-      wo[nprod]=one
-      vc_add(vo[1],vb,vo[1])
+
+/*
+   Assume that the background particle becomes the test species and
+   vice-versa. Hence, the appearance of the former background velocity
+   in the first assignment below for the intended test particle.
+*/
+      assert(pr_num_arrangements(test,ts_reac) == 1)
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,1,i)
+         if (problem_species_test(prod[i]) != 0) then
+            w_prod[i]=one
+            vc_add(vb_therm,vb_flow,v_prod[i])
+         else
+            w_prod[i]=zero
+            vc_copy(v_test,v_prod[i])
+         end if
+      end do
       
       return
       end
+
+@ Process a dissociation. Arguments are the same as for |chargex|.
+
+@<Functions...@>=
+      subroutine dissoc(pr_test_dummy(test),vc_dummy(v_test),
+     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
+     $     pr_reaction_dummy(ts_reac),
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $     rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                               // Input
+      vc_decl(v_test)
+      pr_background_decl(back)
+      real nb,tb
+      vc_decl(vb_flow)
+      pr_reaction_decl(ts_reac)
+
+      integer nprod                                    // Output
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max]
+      rn_decl(x)                                       // Input/Output
+
+      pr_reaction_decl(pr_reac)                        // Local
+      integer i,num_heavy_products,i_ediss,i_elediss,j_arr
+      save i_ediss,i_elediss
+      data i_ediss,i_elediss/0,0/
+      integer product_index[2]
+      vc_decl(v_iso)
+      real sum,ran,indep_var,ediss,elediss,v_diss1,v_diss2
+      real mass[2]
+
+      external interpolate1                            // External
+      real interpolate1
+      
+      pr_common                                        // Common
+      rc_common
+      sp_common
+      rn_common
+      rd_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+
+/*
+   Randomly select from the various product arrangements available for this
+   test particle-reaction combination. The array |pr_prod_mult| provides the
+   probability for each.
+*/
+      sum=zero
+      rn_next(ran,x)
+      do i=1,pr_num_arrangements(test,ts_reac)
+         sum=sum+pr_prod_mult(test,ts_reac,i)
+         if (sum >= ran) then
+            j_arr=i
+            goto break
+         end if
+      end do
+
+break:continue
+
+/*
+   Get an isotropic unit vector to use in setting the product velocities.
+*/
+      rn_iso_next(v_iso,x)
+
+/*
+   Count the number of ``heavy'' products (i.e., not electrons) and store
+   their masses.
+*/
+      num_heavy_products=0
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,j_arr,i)
+         if (sp_sy(prod[i]) != 'e') then
+            num_heavy_products++
+            mass[num_heavy_products]=sp_m(prod[i])
+            product_index[num_heavy_products]=i
+         end if
+      end do
+      
+/*
+   If not set already, search through the list of miscellaneous dependent
+   variables to find |ediss|, the dissociation energy, and |elediss|, the
+   energy lost by the dissociating agent. 
+*/
+      if (i_ediss == 0 && i_elediss == 0) then
+         do i=1,xs_dep_var_max
+            if (reaction_misc_var_dep[pr_reac][i] == 'ediss') then
+               i_ediss=i
+            else if (reaction_misc_var_dep[pr_reac][i] == 'elediss') then
+               i_elediss=i
+            end if
+         end do
+      end if
+
+/*
+   Using the indices found above, obtain the values of |ediss| and |elediss|.
+   Note that we need to do this every call since these quantities are 
+   functions of electron temperature for some cases.
+*/
+      if (reaction_misc_rank[pr_reac][i_ediss] == 0) then
+         ediss=rd_misc_data3(pr_reac,i_ediss,0,0,0)
+      else if (reaction_misc_rank[pr_reac][i_ediss] == 1) then
+         assert(reaction_misc_var_indep[pr_reac][i_ediss][1] == xs_var_temperature)
+         indep_var=tb
+         if (reaction_misc_spacing[pr_reac][i_ediss][1] == xs_spacing_log) indep_var=log(indep_var)
+         indep_var=(indep_var-reaction_misc_min[pr_reac][i_ediss][1])/
+     $        reaction_misc_delta[pr_reac][i_ediss][1]
+         ediss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_ediss]],reaction_misc_tab_index[pr_reac][i_ediss][1])
+         if (reaction_misc_spacing[pr_reac][i_ediss][0] == xs_spacing_log)
+     $        ediss=exp(ediss)
+      end if
+
+      if (reaction_misc_rank[pr_reac][i_elediss] == 0) then
+         elediss=rd_misc_data3(pr_reac,i_elediss,0,0,0)
+      else if (reaction_data_rank[pr_reac][i_elediss] == 1) then
+         assert(reaction_misc_var_indep[pr_reac][i_elediss][1] == xs_var_temperature)
+         indep_var=tb
+         if (reaction_misc_spacing[pr_reac][i_elediss][1] == xs_spacing_log) indep_var=log(indep_var)
+         indep_var=(indep_var-reaction_misc_min[pr_reac][i_elediss][1])/
+     $        reaction_misc_delta[pr_reac][i_elediss][1]
+         elediss=interpolate1(indep_var,reaction_misc_table[reaction_misc_base[pr_reac][i_elediss]],reaction_misc_tab_index[pr_reac][i_elediss][1])
+         if (reaction_misc_spacing[pr_reac][i_elediss][0] == xs_spacing_log)
+     $        elediss=exp(elediss)
+      end if
+      
+/*
+   Set speeds of products so as to conserve momentum. This routine is 
+   equipped to deal with only two heavy products.
+*/
+      assert(num_heavy_products == 2)
+      v_diss1=sqrt(const(4.0)*ediss*(mass[2]/mass[1])/(mass[1]+mass[2]))
+      v_diss2=-v_diss1*mass[1]/mass[2]
+
+/*
+   Set product velocities by transforming back into the lab frame (from the
+   test particle frame). Set weight fractions.
+*/
+      do i=1,nprod
+         if (product_index[1] == i) then
+            vc_xvt(v_test,v_iso,v_diss1,v_prod[i])
+            w_prod[i]=half
+         else if (product_index[2] == i) then
+            vc_xvt(v_test,v_iso,v_diss2,v_prod[i])
+            w_prod[i]=half
+         else
+            vc_set(v_prod[i],zero,zero,zero)
+            w_prod[i]=zero
+         end if
+      end do
+
+      return
+      end
+
+@ Process an ionization. Arguments are the same as for |chargex|. This
+routine is required for ionizations which are not treated by the method
+of reduced absorption.
+
+@<Functions...@>=
+      subroutine ionize(pr_test_dummy(test),vc_dummy(v_test),
+     $     pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
+     $     pr_reaction_dummy(ts_reac),
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $     rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                               // Input
+      vc_decl(v_test)
+      pr_background_decl(back)
+      real nb,tb
+      vc_decl(vb_flow)
+      pr_reaction_decl(ts_reac)
+
+      integer nprod                                    // Output
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max]
+      rn_decl(x)                                       // Input/Output
+
+      pr_reaction_decl(pr_reac)                        // Local
+      integer i
+      real eioniz
+      save eioniz
+      data eioniz/zero/
+      
+      pr_common
+      rc_common
+      sp_common
+      rd_common
+
+      pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+      assert(pr_num_arrangements(test,ts_reac) == 1)
+
+/*
+   If not set already, get ionization energy |eioniz| from |rd_misc_data3|
+*/
+      if (eioniz == zero) then
+         do i=1,xs_dep_var_max
+            if (reaction_misc_var_dep[pr_reac][i] == 'eioniz') then
+               assert(reaction_misc_rank[pr_reac][i] == 0)
+               eioniz=rd_misc_data3(pr_reac,i,0,0,0)
+               goto break
+            end if
+         end do
+break:   continue
+      end if
+
+/*
+   Note: the following assumes {\bf electron} impact ionization. It should
+   easy to generalize.
+*/
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,1,i)
+         if (sp_sy(prod[i]) != 'e') then
+            vc_copy(v_test,v_prod[i])
+            w_prod[i]=one
+         else
+            vc_set(v_prod[i],zero,zero,zero)
+            w_prod[i]=zero
+         end if
+      end do
+
+      return
+      end 
 
 @* INDEX.
