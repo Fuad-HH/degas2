@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.23  1998/03/11 15:13:43  dstotler
+% Add pr_reaction_dim to permit pr_reaction_num=0.
+%
 % Revision 1.22  1998/01/14 20:49:12  dstotler
 % Replace int_lookup in macros pr_test_lookup and pr_background_lookup
 % with corresponding arrays for consistency. Change title phrase to
@@ -104,8 +107,6 @@ problem is identified by an integer indexing into these arrays.
 @f pr_materials_decl integer
 @f pr_pmi_decl integer
 
-@m SCORING 0
-
 @m pr_test_args(x) x
 @m pr_background_args(x) x
 @m pr_reaction_args(x) x
@@ -169,22 +170,42 @@ problem is identified by an integer indexing into these arrays.
 @m pr_background_lookup(sp) problem_species_background[sp]
 @m pr_reaction_lookup(rc) int_lookup(rc,problem_rc,pr_reaction_num)
 
-@#if SCORING
-@m pr_score_check(x) (x > 0 && x <= pr_score_num)
-
-@m problem_score_rank(x) problem_score_indep_vars[x](0)
-@#endif
-
 @ Length specifications.
 
 @m pr_reaction_max 8
 @m pr_arrangement_max 4
 @m pr_pmi_max 8
 @m pr_max_equiv 8
-@#if SCORING
-@m pr_score_rank_max 5    // Matches |tl_rank_man| in score.hweb
-@#endif
 @m pr_bkrc_reagent_max 2
+@m pr_tag_string_length 40
+
+@m Pointers to entries in dependent variable list
+
+@m pr_var_unknown 1
+@m pr_var_mass 2                        // test particle data
+@m pr_var_momentum_vector 3
+@m pr_var_momentum_2 4
+@m pr_var_momentum_3 5
+@m pr_var_energy 6
+@m pr_var_angle 7
+@m pr_var_emitter_v_vector 8                 // For spectrum construction
+@m pr_var_emitter_v_2 9
+@m pr_var_emitter_v_3 10
+@m pr_var_emitter_vf_Maxwell_vector 11
+@m pr_var_emitter_vf_Maxwell_2 12
+@m pr_var_emitter_vf_Maxwell_3 13
+@m pr_var_emitter_vth_Maxwell 14
+                                        // Constructed variables begin after
+                                        // these; place other constants above.
+@m pr_var_back_mass 20              
+@m pr_var_back_momentum_vector 21       // Exchanges with background species
+@m pr_var_back_momentum_2 22
+@m pr_var_back_momentum_3 23
+@m pr_var_back_energy 24
+
+@m pr_num_back_vars 5 
+
+@m pr_var_back_index(i,back) i+pr_num_back_vars*back
 
 @ Variable definitions.
 
@@ -198,9 +219,8 @@ problem is identified by an integer indexing into these arrays.
       define_var_pk(pr,pr_bkrc_dim,INT)
       define_var_pk(pr,pr_materials_num,INT)
       define_var_pk(pr,pr_pmi_num,INT)
-@#if SCORING
-      define_var_pk(pr,pr_score_num,INT)
-@#endif
+
+      define_var_pk(pr,pr_var0_num,INT)
 
       define_dimen_pk(pr,problem_test_ind,pr_test_num)
       define_dimen_pk(pr,problem_background_ind,pr_background_num)
@@ -216,10 +236,9 @@ problem is identified by an integer indexing into these arrays.
       define_dimen_pk(pr,problem_pmi_ind0,pr_pmi_max)
       define_dimen_pk(pr,problem_product_ind,rc_product_max)
       define_dimen_pk(pr,problem_arr_ind,pr_arrangement_max)
-@#if SCORING
-      define_dimen_pk(pr,problem_scores,0,pr_score_num)
-      define_dimen_pk(pr,problem_score_rank_ind,0,pr_score_rank_max)
-@#endif
+
+      define_dimen_pk(pr,pr_var0_list_ind,pr_var0_num)
+      define_dimen_pk(pr,pr_tag_string,pr_tag_string_length)
 
       define_varp_pk(pr,problem_species_test,INT,problem_species_ind)
       define_varp_pk(pr,problem_species_background,INT,problem_species_ind)
@@ -249,10 +268,9 @@ problem is identified by an integer indexing into these arrays.
       define_varp_pk(pr,problem_pmi_num_arrange,INT,problem_pmi_ind0,problem_test_ind)
       define_varp_pk(pr,problem_pmi_products,INT,problem_product_ind,problem_arr_ind,problem_pmi_ind0,problem_test_ind)
       define_varp_pk(pr,problem_pmi_prod_mult,FLOAT,problem_arr_ind,problem_pmi_ind0,problem_test_ind)
-@#if SCORING
-      define_varp_pk(pr,problem_score,INT,problem_scores)
-      define_varp_pk(pr,problem_score_indep_vars,INT,problem_score_rank_ind,problem_scores)
-@#endif
+
+      define_varp_pk(pr,pr_var0_list,CHAR,pr_tag_string,pr_var0_list_ind)
+
       define_varlocal_pk(pr,problem_version,CHAR,string)
       package_end(pr)
 
