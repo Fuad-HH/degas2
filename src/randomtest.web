@@ -2,6 +2,13 @@
 \Title{randomtest}
 
 % $Log$
+% Revision 1.9  1997/09/02 21:14:39  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.8  1997/08/19 14:36:54  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -246,7 +253,9 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
       call seed_to_string(seed,dec)
       write(stdout,*) 'Random seed (based on time and pid) = ',dec
 
+@#if 0
       call test_string
+@#endif
       stop
       end
 
