@@ -2,6 +2,10 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.23  1996/01/25 15:12:27  dstotler
+% Added facility for defining default strata and sectors. Also, stratum
+% and material keywords inserted.
+%
 % Revision 1.22  1995/12/13 19:41:36  karney
 % Implement walls and symmetry selection in readgeometry.
 %
@@ -241,6 +245,12 @@ end
 @I readfilenames.hweb
 @I degas.hweb
 @I geomint.hweb
+@I sector.hweb
+@I sysdep.hweb
+@I string.hweb
+@I strata.hweb
+@I zone.hweb
+@I materials.hweb
 
 @f namelist integer
 @ The unnamed module.
@@ -324,6 +334,7 @@ end
       st_common
       gi_common
       gi_ext
+      sc_common
       sr_common
       zn_common
       ma_common
@@ -1287,10 +1298,14 @@ eof:  continue
 /*
    Assign sector material (and other properties) here from 
    polygon_material[i]. Check validity to trap errors, e.g., from improper
-   usage of materials obtained from ``wall'' keyword. The next version
-   will actually do something here!
+   usage of materials obtained from ``wall'' keyword.
+   Temporarily hardwire temperature too 300.;
+   should eventually be |polygon_temperature| or something.
 */
-                   assert(ma_check(polygon_material[i]))
+                   if (zn_type(zone1) == zn_solid) then
+                      assert(ma_check(polygon_material[i]))
+                      define_sector_solid(sector1,polygon_material[i],const(3.,2))
+                   end if
 
                 end if
              end if
