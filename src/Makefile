@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.45  1996/01/25 14:59:17  dstotler
+# Added dependencies (for materials, pmi stuff) to datasetup and
+# readgeometry.
+#
 # Revision 1.44  1995/11/29 17:42:44  karney
 # Specify path (.) for idtof
 #
@@ -294,15 +298,12 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb \
     pmi.hweb pmiformat.hweb readfilenames.hweb strata.hweb materials.hweb
 
-%.f: %.web $(HEADERS)
+%.f: %.web
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
 	$(IDENTAPPEND)
 
 ifeq ($(STANDALONE),yes)
 # include files
-geomfaces.f geomfront.f geomtest.f geomtesta.f geomutils.f plotgoem.f composite.f geometry.f geomsetup.f: geomint.hweb
-
-degasgeom.f: degas.hweb geomint.hweb
 endif
 
 ifeq ($(TARGET),IBM)
@@ -451,13 +452,74 @@ idtof: idtof.sh
 	cp $< $@
 	chmod a+x $@
 
+makedepend: makedepend.sh
+	cp $< $@
+	chmod a+x $@
+
+depend: makedepend
+	./makedepend *.web
+
 #aladdin_subr.o: $(ALADIR)/ALPCOM.FOR $(ALADIR)/ALCOM.FOR
 #	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
 
 TAGS:
 	etags --language=fortran --regex='/[ 	]*define_[a-z]+_pk([a-z]+,[A-Za-z0-9_]+,/' --regex='/[ 	]*@m [A-Za-z0-9_]+(?/' *.web *.hweb
 
-.PHONY: clean %.view %.print TAGS
+.PHONY: clean %.view %.print TAGS depends
 
 clean:
 	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum
+# DO NOT DELETE THIS LINE -- make depend depends on it.
+ifeq ($(STANDALONE),yes)
+classes.f: array.hweb background.hweb classes.hweb element.hweb flight.hweb location.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb test.hweb xsection.hweb zone.hweb
+collide.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+composite.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+crosssection.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+datasetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+degasgeom.f: array.hweb background.hweb classes.hweb constants.hweb degas.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+elementlookup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+elementread.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+elementsetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+extern.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+flight.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+flighttest.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geometry.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomfaces.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomfront.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomread.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomsetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomtest.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomtesta.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomtestb.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+geomutils.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+materialsetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+mytest.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+plasma.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb plasma.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+plotgeom.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+pmisetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+pmiwrite.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+problemsetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+pvmmaster.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb pvm.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+pvmslave.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb pvm.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+random.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+randomtest.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+randomtest2.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+randother.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+ratecalc.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+reaction.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+reactionsetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+reactiontest.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+reactionwrite.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+readbackground.f: array.hweb background.hweb classes.hweb constants.hweb degas.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+readdegas.f: array.hweb background.hweb classes.hweb constants.hweb degas.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+readfilenames.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+readgeometry.f: array.hweb background.hweb classes.hweb constants.hweb degas.hweb element.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+sources.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+speciesetup.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+stat.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+string.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+sysdep.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+sysdeptest.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+template.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+teststring.f: array.hweb background.hweb classes.hweb constants.hweb element.hweb flight.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb pmi.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sources.hweb species.hweb strata.hweb string.hweb sysdep.hweb test.hweb vector.hweb xsection.hweb zone.hweb
+endif
