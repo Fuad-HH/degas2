@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.43  1995/11/17 22:00:48  karney
+# A couple of fixes for Cray compilation.
+#
 # Revision 1.42  1995/11/03 15:06:08  karney
 # Clean up for release.
 #
@@ -269,7 +272,7 @@ ifndef CROSSCOMPILE
   %.o: %.f
 	$(FC) $(FFLAGS) $<
   %: %.o $(SYSDEPO) string.$O idtof degas2.in
-	idtof $(patsubst %.$O,%.f,$^) > $*.id.f
+	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
 	$(FC) $(FFLAGS) $*.id.f
 	$(LD) $(LDFLAGS) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs)
 else # We're cross compiling
