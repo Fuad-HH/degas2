@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1997/08/19 14:37:04  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.5  1997/08/07 20:26:42  dstotler
 % Altered order of variables to avoid complaints from
 % ALPHA. Implemented: strata label & index, more complete subclasses.
@@ -33,9 +38,13 @@
 
 @m sc_decl(x) integer x @;
 
+@m sc_plasma_decl(x) integer x @;
+
 @m sc_copy(x,y) y=x @;
 
 @m sc_check(x) (x > 0 && x <= nsectors)
+
+@m sc_plasma_check(x) (x > 0 && x <= sc_plasma_num)
 
 // Define these to work around the [0] element.
 
@@ -106,6 +115,8 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_var_pk(sc,sc_plasma_num,INT)
       define_dimen_pk(sc,plasma_ind,0,sc_plasma_num)
       define_varp_pk(sc,plasma_sector,INT,plasma_ind)
+      define_varp_pk(sc,plasma_e_ion_delta,FLOAT,plasma_ind)
+      define_varp_pk(sc,plasma_e_ion_mult,FLOAT,plasma_ind)
           // Properties: field-line-angle-of-incidence, for example
 
 /* |target| subclass */
@@ -168,8 +179,12 @@ starting them at $0$, the dimensions have a length of at least $1$.
 @m define_sector_plasma(sc)
       sc_plasma_num=sc_plasma_num+1;
       var_realloca(plasma_sector);
+      var_realloca(plasma_e_ion_delta);
+      var_realloca(plasma_e_ion_mult);
       plasma_sector[sc_plasma_num]=sc;
-      sector_type_pointer[sc][sc_plasma]=sc_plasma_num @;
+      sector_type_pointer[sc][sc_plasma]=sc_plasma_num; 
+      plasma_e_ion_delta[sc_plasma_num]=zero;       // Simple default values,
+      plasma_e_ion_mult[sc_plasma_num]=one @;       // Reset with background
 @m define_sector_target(sc,mat,temp)
       sc_target_num=sc_target_num+1;
       var_realloca(target_sector);
@@ -178,7 +193,7 @@ starting them at $0$, the dimensions have a length of at least $1$.
       target_sector[sc_target_num]=sc;
       sector_type_pointer[sc][sc_target]=sc_target_num;
       target_material[sc_target_num]=mat;
-      target_temperature[sc_target_num]=temp @;
+      target_temperature[sc_target_num]=temp @; 
 @m define_sector_wall(sc,mat,temp)
       sc_wall_num=sc_wall_num+1;
       var_realloca(wall_sector);
