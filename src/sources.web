@@ -2,6 +2,11 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.10  1998/01/14 21:07:57  dstotler
+% Replace transform_v routine with a macro. Moved score_sources up to
+% subroutine follow so we could get sourcetest working again. Replace
+% problem_species_background with pr_background_lookup.
+%
 % Revision 1.9  1997/08/19 14:37:05  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -329,25 +334,41 @@ using routines specific for the type of that source.
       sp_decl(spion)  
       vc_decl(vzero)
       vc_decl(vone)
-
+      sc_plasma_decl(plasma_sc_ptr)
 
       external neutralize_species  // External
       integer neutralize_species
 
       assert(so_geom(isource) == so_surface)
       spion=so_species(isource)
-/* Sample a Gaussian energy at background temperature */
+      plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
+      assert(sc_plasma_check(plasma_sc_ptr))
       wa=zero
-      do j=1,3
-         rn_gauss_next(vgauss,r)
-         wa+=vgauss**2
-      end do
-      wa=half*wa*bk_temp(pr_background_lookup(spion),lc_zone(x))
+      if (plasma_e_ion_mult[plasma_sc_ptr] > zero) then
+/* Sample a Gaussian energy at background temperature */
+         do j=1,3
+            rn_gauss_next(vgauss,r)
+            wa+=vgauss**2
+         end do
+         wa=half*wa*bk_temp(pr_background_lookup(spion),lc_zone(x))
+      else
+         assert(plasma_e_ion_mult[plasma_sc_ptr] == zero)
+      end if
+@#if 0
       assert(sp_sy(pr_background(1))=='e')
 /* Simple sheath model for now: $\Phi = 3 T_{e}$. */
       sheath_pot=const(3.)*bk_temp(1,lc_zone(x))
       assert(sp_z(spion) > 0)
       ion_energy=sp_z(spion)*sheath_pot + wa
+@#endif
+/*
+   First attempt at a flexible sheath physics model. These parameters
+   are now set in |readbackground.web|.
+*/
+      assert(sp_z(spion) == 1) // If $> 1$, should have term $\propto Z$
+      ion_energy=plasma_e_ion_delta[plasma_sc_ptr]
+     $     + plasma_e_ion_mult[plasma_sc_ptr]*wa
+      
       ion_velocity=sqrt(two*ion_energy/sp_m(spion))
 
 /* This should work if the analogous code for sampling surface x works 
