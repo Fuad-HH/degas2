@@ -2,6 +2,11 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.26  2001/07/16 20:56:23  dstotler
+% Generalize velocity plot to work with "flux" or "velocity" vector
+% tally. Divide ion source rate by volume, adding "V" to file name to
+% distinguish.
+%
 % Revision 1.25  2000/04/01 17:32:32  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -190,7 +195,7 @@
       integer integral_region
       character*4 ivlab
       character*1 ind_sy[3]
-      character*3 vtag
+      character*3 vtag,auth
       character*tl_tag_length vname
       data ind_sy /'1','2','3'/
 
@@ -389,6 +394,39 @@
 
       end do
 @#endif
+@#if 0
+/*
+   This is provisional. Could just test for the presence of the tally
+   and leave this in here permanently.
+*/
+      j=2                                // Usually the atom species
+      index_parameters[tl_index_test]=j
+      do k=1,so_type_num+pr_reaction_num+pr_pmi_num
+         index_parameters[tl_index_test_author]=k
+         ha_temp=zero
+         do i=1,zn_num
+            if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
+               index_parameters[tl_index_zone]=i
+               density=extract_output_datum(index_parameters,1,
+     $              out_post_all,o_mean,'neutral density by author')
+               hdf_data[i]=density               // NEUTRAL DENSITY BY AUTHOR
+               ha_temp+=density*zn_volume(i)
+            else
+               hdf_data[i]=zero
+            end if
+         end do
+         write(diskout,*) 'test i = ',j,' author = ',k,
+     $        ' total particles = ',ha_temp
+         if (ha_temp > zero) then
+            write(auth,'(a1,i2.2)') 'a',k
+            call data_slice(
+     $           'sp'\/trim(sp_sy(pr_test(j)))\/'den_'\/auth\/'.hdf',hdf_data,
+     $           'sp'\/trim(sp_sy(pr_test(j)))\/' density '\/auth,'m**-3',
+     $           'E11.3',x,a,b,alen,blen)
+         end if
+      end do
+
+@#endif
 @#if 1
       do i=1,zn_num
          hdf_data[i]=zero
@@ -430,6 +468,48 @@
       if (halpha_tot > zero) then
          call data_slice('halpha.hdf',hdf_data,
      $        'H_alpha_rate','photons / s','E11.3',
+     $        x,a,b,alen,blen)
+      end if
+@#endif
+@#if 1
+      do i=1,zn_num
+         hdf_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (((sp_sy(pr_test(test)) == 'He')          // NEUTRAL He 5877 line
+     $        && string_lookup('He 5877 emission rate',tally_name,tl_num) > 0)) then
+            ha_temp=zero
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'He 5877 emission rate')
+     $                 /(const(2.109566)*electron_charge)
+                  hdf_data[zone]+=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+@#if 0
+               else if (zn_type(zone) == zn_solid) then  // Can plot solid
+                  hdf_data[zone]=-one                    // regions 
+@#endif
+               else
+                  hdf_data[zone]=zero
+               end if
+            end do
+            write(diskout,*) 'test = ',test,', ha = ',ha_temp 
+         end if
+      end do
+
+      halpha_tot=zero
+      do zone=1,zn_num
+         halpha_tot+=hdf_data[zone]*zn_volume(zone)
+      end do
+      write(diskout,*) ' Halpha_tot = ',halpha_tot
+
+      if (halpha_tot > zero) then
+         call data_slice('he_5877.hdf',hdf_data,
+     $        'He_5877_rate','photons / s','E11.3',
      $        x,a,b,alen,blen)
       end if
 @#endif
