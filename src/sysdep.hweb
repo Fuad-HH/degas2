@@ -1,6 +1,9 @@
 @* Macros for machine dependencies.
 % $Id$
 % $Log$
+% Revision 1.11  1998/06/01 15:56:35  karney
+% MPI enabled version.
+%
 % Revision 1.10  1998/04/16 15:31:12  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -163,6 +166,12 @@
   @m single   REAL              // Coerce to single precision
 @#endif
 @#endif
+
+@#if CRAY
+  @m HIPREC 1
+@#else
+  @m HIPREC 0
+@#endif
                       // Pointers are 64-bits on Alphas
 @#if ALPHA
   @m address INTEGER*8
@@ -205,8 +214,8 @@
 @m sy_decls
       external get_env,wall_time,cpu_time,get_pid,arg_count,set_cwd;
       logical get_env,set_cwd;
-      integer wall_time,get_pid,arg_count;
-      real cpu_time;
+      integer get_pid,arg_count;
+      real cpu_time,wall_time@;
 
 @ Interface for memory allocation.
 

@@ -2,6 +2,9 @@
 \Title{sysdeptest}
 
 % $Log$
+% Revision 1.12  1998/09/04 17:24:43  dstotler
+% Minor changes to satisfy FWEAVE and TeX.
+%
 % Revision 1.11  1997/09/29 17:17:44  karney
 % Implement mem_check.
 %
@@ -75,13 +78,13 @@ Introduction\ldots
       program sysdep_test
       implicit_none_f77
       implicit_none_f90
-      character ncwd*FILELEN,cwd*FILELEN,user*8,host*20,arg*LINELEN,pathval*LINELEN // Local
-      integer time[6],pid,i,wall,on,n
+      character ncwd*FILELEN,cwd*FILELEN,user*8,host*20,arg*LINELEN,pathval*LINELEN,date_str*30 // Local
+      integer time[8],pid,i,on,n
       declare_varp(x)
       logical res
       declare_varp(y)
       declare_varp(ch)
-      real t0
+      real t0,wall
       integer itemp
       real rtemp
       @<Memory allocation interface@>
@@ -97,7 +100,8 @@ Introduction\ldots
 
       t0=cpu_time()
       call date_time(time)
-      wall=wall_time()
+      wall=wall_time(time)
+      call date_string(time,date_str)
       pid=get_pid()
       call get_cwd(cwd)
       res = set_cwd('..')
@@ -106,16 +110,14 @@ Introduction\ldots
       call user_name(user)
       call host_name(host)
       res = get_env('PATH',pathval)
-      write(stdout,
-     $     '(a,i4.4,''/'',i2.2,''/'',i2.2,'' '',i2.2,'':'',i2.2,'':'',i2.2)')
-     $     'Date: ',time
+      write(stdout,'(a,a)') 'Date: ',date_str
       write(stdout,'(a,i5)') 'Pid: ',pid
       write(stdout,'(a,a,1x,i3)') 'CWD: ',trim(cwd),string_length(cwd)
       write(stdout,'(a,a,1x,i3)') 'NCWD: ',trim(ncwd),string_length(ncwd)
       write(stdout,'(a,a,1x,i2)') 'USER: ',trim(user),string_length(user)
       write(stdout,'(a,a,1x,i2)') 'HOST: ',trim(host),string_length(host)
       write(stdout,'(a,a,1x,i3)') 'PATH: ',trim(pathval),string_length(pathval)
-      write(stdout,'(a,1x,i9)') 'time to 2000: ',-wall
+      write(stdout,'(a,1x,f13.3)') 'time since 2000: ',wall
       do i=0,arg_count()
          call command_arg(i,arg)
          write(stdout,'(i2,1x,a,1x,i2)') i,trim(arg),string_length(arg)
@@ -196,7 +198,10 @@ Introduction\ldots
       var_free(ch)
       call mem_check
       write(stdout,'(a,f10.6)') 'CPU: ',cpu_time()-t0
-      write(stdout,'(a,i9)') 'Elasped: ',wall_time()-wall
+      call date_time(time)
+      write(stdout,'(a,f13.3)') 'Elasped: ',wall_time(time)-wall
+      call date_string(time,date_str)
+      write(stdout,'(a,a)') 'Current time: ',date_str
       stop
       end
 

@@ -2,6 +2,13 @@
 \Title{pvmmaster}
 
 % $Log$
+% Revision 1.10  1997/09/02 21:14:35  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.9  1997/08/19 14:36:52  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -122,7 +129,7 @@ c      real stat1(2,zn_num)
       var_alloc(stat)
       var_alloc(stat1)
 
-      call string_to_seed('12',seed) // Initialize random number seed
+      call decimal_to_seed('12',seed) // Initialize random number seed
       
       weight=zero
       do i=1,zn_num

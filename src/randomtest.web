@@ -2,68 +2,6 @@
 \Title{randomtest}
 
 % $Log$
-% Revision 1.10  1999/02/02 15:04:34  dstotler
-% Commented out call to test_string since no user interaction is
-% prompted.
-%
-% Revision 1.9  1997/09/02 21:14:39  karney
-% New initializer for random numbers.
-% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
-% Minor bug in collide.web (array index was a real).
-% Eliminate some uses of repeated actual args (transform, transform_velocity,
-% stat_add, next_seed, rand_axc).
-%
-% Revision 1.8  1997/08/19 14:36:54  karney
-% Changes to support compilation under f90.  This involved extensive changes
-% in array.hweb and sysdep.web.  Nearly all other files needed some
-% modifications.
-%
-% Revision 1.7  1995/07/18 15:02:55  karney
-% Add extern.web.  New seeding procedures for random numbers implemented.
-%
-% Revision 1.6  1995/07/14 13:20:36  karney
-% Coding for strata added.
-% Switch \Wtitle to \Title.
-% Update to use standard etags.
-%
-% Revision 1.5  1995/06/16 18:21:45  dstotler
-% Add section to perform timings of random number generators, comparing
-% with math functions.
-%
-% Revision 1.4  1995/05/26 04:01:24  karney
-% Upgrade to fweb 1.51beta.
-% Initial implementation of surface segments.
-%
-% Revision 1.3  1994/02/02 22:25:53  karney
-% Convert to random_seed_test.
-%
-% Revision 1.2  1993/10/25  22:35:30  karney
-% Change name of error to error_exit.
-%
-% Revision 1.1  1993/09/23  12:17:11  karney
-% Checkin under RCS
-%
-% Revision 1.7  1993/03/17  20:35:22  karney
-% Prior to array reorganization
-%
-% Revision 1.6  1992/08/20  14:54:15  karney
-% Convert to LaTeX/NFSS
-%
-% Revision 1.5  1992/07/15  17:23:45  karney
-% Split nonuniform random distributions into a separate file
-%
-% Revision 1.4  1992/07/06  17:33:50  karney
-% Implement other distributions of random numbers
-%
-% Revision 1.3  1992/06/27  21:06:47  karney
-% Farting around with Id keywords
-%
-% Revision 1.2  1992/06/10  21:17:08  karney
-% Switch to 47-bit seed
-%
-% Revision 1.1  1992/06/03  13:16:46  karney
-% Break out randomtest.  Standardize variable declarations.
-%
 
 
 @* A test program for the random number routines.
@@ -90,61 +28,74 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
       implicit_none_f77
       implicit_none_f90
       rn_seed_decl(seed)        // Local
-      integer i,j,k
+      integer i,k
       real x,start,end
-      real xx[0:110000],yy[0:110000]
-      character*17 dec
+      real xx[0:110000]
+      single_precision y,yy[0:110000]
+      integer time[8]
+      character*(ran_c) dec
       rn_decl(tag)                     // Local for random number routines
       rn_decls
       sy_decls
+      single_precision srandom
+      external srandom
 
 /*
       call test_prec
       stop
 */
 
-      write(stdout,*) 'Test of random numbers'
-      call string_to_seed('31415926535897932',seed) // $\lfloor 10^{16} \pi \rfloor$
-      call seed_to_string(seed,dec)
-      write(stdout,*) 'Seed (31415926535897932) = ',dec
-      call next_seed(23,seed) // Should be 12169046133858735
-      call seed_to_string(seed,dec)
-      write(stdout,*) 'Seed (12169046133858735) = ',dec
+      print *, 'Test of random numbers'
+      call decimal_to_seed('3.141592653589793238462643383279502',seed) // $\approx \pi
+      call next_seed3(23,-95,110,seed) // Should be 2902248648199272781830143864736810
+      call seed_to_decimal(seed,dec)
+      print *, 'Seed (2902248648199272781830143864736810) = ',dec
       call random_init(seed,rn_args(tag))
 
 /* Write out the zeroth random number */
-      rn_next(x,tag)            // $215019793392575/2^{48} \approx 0.7639037611986588$
-      write(stdout,*) 'Zeroth number (0.7639037611986588) = ',x
+      rn_next(x,tag)            // $76050879255612.5/2^{47} \approx 0.54037399803243957308$
+      print '(a,f17.15)', 'Zeroth number (0.540373998032440) = ',x
 
-/* Here's how to use |fast_random| */
-      do i=1,5*RAN_K,RAN_K
-         call random_check(RAN_K,rn_args(tag)) // Check |RAN_K| numbers are available
-         do j=i,i-1+RAN_K       // This loop can vectorize
-            rn_fast_next(x,tag)
-         end do
-      end do
-
-/* Here's how to use |random| */
-      do i=5*RAN_K+1,880       // This loop won't vectorize
+      do i=1,1234
          rn_next(x,tag)
       end do
+/* 1234th number $67313725517242.5/2^{47} \approx 0.99479659867599323775$ */
+      print '(a,f17.15)', '1234th number (0.478292786832260) = ',x
+         
+      call random_init(seed,rn_args(tag))
+      call random_array(xx,1234+1,rn_args(tag))
       
-
-      call random_array(xx,1000-880,rn_args(tag))
-
-
-/* Write out the thousandth random number */
-/*      rn_next(x,tag) */            // $259243462334031/2^{48} \approx 0.9210177947737144$
-      x=xx[1000-880-1]
-      write(stdout,*) '1000th number (0.9210177947737144) = ',x
+      print '(a,f17.15)', 'Zeroth number (0.540373998032440) = ',xx[0]
+      print '(a,f17.15)', '1234th number (0.478292786832260) = ',xx[1234]
       
-      call next_seed(-23,seed) // Backtrack seed
-      call seed_to_string(seed,dec)
-      write(stdout,*) 'Seed (31415926535897932) = ',dec
+      call random_init(seed,rn_args(tag))
+/* Write out the zeroth random number */
+      y=srandom(rn_args(tag))            // $76050879255612.5/2^{47} \approx 0.54037399803243957308$
+      print '(a,f10.8)', 'Zeroth number (0.54037398) = ',y
+
+      do i=1,1234
+         y=srandom(rn_args(tag))
+      end do
+/* 1234th number $67313725517242.5/2^{47} \approx 0.99479659867599323775$ */
+      print '(a,f10.8)', '1234th number (0.47829276) = ',y
+
+      call random_init(seed,rn_args(tag))
+      call srandom_array(yy,1234+1,rn_args(tag))
       
-      call set_random_seed(seed)
-      call seed_to_string(seed,dec)
-      write(stdout,*) 'Random seed (based on time and pid) = ',dec
+      print '(a,f10.8)', 'Zeroth number (0.54037398) = ',yy[0]
+      print '(a,f10.8)', '1234th number (0.47829276) = ',yy[1234]
+      
+      
+      call next_seed3(-23,95,-110,seed) // Should be 3141592653589793238462643383279502
+      call seed_to_decimal(seed,dec)
+      print *, 'Seed (3141592653589793238462643383279502) = ',dec
+
+      call date_time(time)
+      call set_random_seed(time,seed)
+      call seed_to_decimal(seed,dec)
+      print *, 'Random seed (based on current time) = ',dec
+      call date_string(time,dec)
+      print *, 'The current time = ',dec(1:30)
 
       /* Timing tests */
       start=cpu_time()
@@ -152,42 +103,21 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
          call next_seed(1,seed)
       end do
       end=cpu_time()
-      write(stdout,*) 'Time of next_seed =',(end-start)/10000
+      print *, 'Time of next_seed =',(end-start)/10000
 
       start=cpu_time()
       do i=1,10000
          call next_seed(312,seed)
       end do
       end=cpu_time()
-      write(stdout,*) 'Time of 312 * next_seed =',(end-start)/10000
+      print *, 'Time of 312 * next_seed =',(end-start)/10000
 
       start=cpu_time()
-      do i=1,1000
+      do i=1,10000
          call random_init(seed,rn_args(tag))
       end do
       end=cpu_time()
-      write(stdout,*) 'Time of random_init =',(end-start)/1000
-
-      start=cpu_time()
-      do k=1,100
-         do i=1,1588*RAN_K,RAN_K
-            call random_check(RAN_K,rn_args(tag))
-            do j=i,i-1+RAN_K  
-               rn_fast_next(xx[j],tag)
-            end do
-         end do
-      end do
-      end=cpu_time()
-      write(stdout,*) 'Time of rn_fast_next =',(end-start)/(1588*RAN_K)/100
-
-      start=cpu_time()
-      do k=1,100
-         do i=1,100000
-            rn_next(xx[i],tag)
-         end do
-      end do
-      end=cpu_time()
-      write(stdout,*) 'Time of rn_next =',(end-start)/100000/100
+      print *, 'Time of random_init =',(end-start)/10000
 
       start=cpu_time()
       do k=1,100
@@ -196,26 +126,28 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
          end do
       end do
       end=cpu_time()
-      write(stdout,*) 'Time of random =',(end-start)/100000/100
+      print *, 'Time of random =',(end-start)/100000/100
 
       start=cpu_time()
       do k=1,100
          call random_array(xx,100000,rn_args(tag))
       end do
       end=cpu_time()
-      write(stdout,*) 'Time of random_array =',(end-start)/100000/100
+      print *, 'Time of random_array =',(end-start)/100000/100
 
+/*
       call new_test
+*/
 
 @#if FORTRAN90
       call random_seed(size=k)
-      write(stdout,*) 'seed size for random_number =',k
+      print *, 'seed size for random_number =',k
       start=cpu_time()
       do k=1,100
          call random_number(xx[0:99999])
       end do
       end=cpu_time()
-      write(stdout,*) 'Time of random_number (fast) =',(end-start)/100000/100
+      print *, 'Time of random_number (fast) =',(end-start)/100000/100
 
       start=cpu_time()
       do k=1,100
@@ -224,12 +156,12 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
          end do
       end do
       end=cpu_time()
-      write(stdout,*) 'Time of random_number =',(end-start)/100000/100
+      print *, 'Time of random_number =',(end-start)/100000/100
 @#endif
 
-@#if 0
+/*
       call test_string
-@#endif
+*/
       stop
       end
 
@@ -238,15 +170,18 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
       implicit_none_f90
       logical read_string
       character*(80) line
-      character*(17) res
+      character*(ran_c) res
       rn_seed_decl(seed)
       integer length
 
 loop: continue
       if (read_string(stdin,line,length)) then
+         call decimal_to_seed(line(1:length),seed)
+         call seed_to_decimal(seed,res)
+         print *, res,' X ',seed
          call string_to_seed(line(1:length),seed)
-         call seed_to_string(seed,res)
-         write(stdout,*) line(1:length),' ',res
+         call seed_to_decimal(seed,res)
+         print *, res,' X ',seed
          goto loop
       end if
       return
@@ -272,43 +207,43 @@ loop: continue
          call exercise1(x)
       end do
       end=cpu_time()
-c     write(stdout,*) '1000th number = ', x[1100-1]
-      write(stdout,*) 'Time of new test1 =',(end-start)*const(1.0,-4)*const(1.0,-3)
+c     print *, '1000th number = ', x[1100-1]
+      print *, 'Time of new test1 =',(end-start)*const(1.0,-4)*const(1.0,-3)
       start=cpu_time()
       do i=1,10000
          call exercise2(x)
       end do
       end=cpu_time()
-c     write(stdout,*) '1000th number = ', x[1100-1]
-      write(stdout,*) 'Time of new test2 =',(end-start)*const(1.0,-4)*const(1.0,-3)
+c     print *, '1000th number = ', x[1100-1]
+      print *, 'Time of new test2 =',(end-start)*const(1.0,-4)*const(1.0,-3)
       start=cpu_time()
       do i=1,10000
          call exercise3(x)
       end do
       end=cpu_time()
-c     write(stdout,*) '1000th number = ', x[1100-1]
-      write(stdout,*) 'Time of new test3 =',(end-start)*const(1.0,-4)*const(1.0,-3)
+c     print *, '1000th number = ', x[1100-1]
+      print *, 'Time of new test3 =',(end-start)*const(1.0,-4)*const(1.0,-3)
       start=cpu_time()
       do i=1,10000
          call exercise4(x)
       end do
       end=cpu_time()
-c     write(stdout,*) '1000th number = ', x[1100-1]
-      write(stdout,*) 'Time of new test4 =',(end-start)*const(1.0,-4)*const(1.0,-3)
+c     print *, '1000th number = ', x[1100-1]
+      print *, 'Time of new test4 =',(end-start)*const(1.0,-4)*const(1.0,-3)
       start=cpu_time()
       do i=1,10000
          call exercise5(x)
       end do
       end=cpu_time()
-c     write(stdout,*) '1000th number = ', x[1100-1]
-      write(stdout,*) 'Time of new test5 =',(end-start)*const(1.0,-4)*const(1.0,-3)
+c     print *, '1000th number = ', x[1100-1]
+      print *, 'Time of new test5 =',(end-start)*const(1.0,-4)*const(1.0,-3)
       start=cpu_time()
       do i=1,10000
          call exercise6(x)
       end do
       end=cpu_time()
-c     write(stdout,*) '1000th number = ', x[1100-1]
-      write(stdout,*) 'Time of new test6 =',(end-start)*const(1.0,-4)*const(1.0,-3)
+c     print *, '1000th number = ', x[1100-1]
+      print *, 'Time of new test6 =',(end-start)*const(1.0,-4)*const(1.0,-3)
 
       return
       end
@@ -464,6 +399,8 @@ c     write(stdout,*) '1000th number = ', x[1100-1]
       end
 
 @* Timing results
+
+OLD ROUTINES
 
 tern (NAG f90)
  Test of random numbers
@@ -641,4 +578,143 @@ killeen, cucaracha prefer a lag of 63
 
 hecate, mcurie, tern (nag+pgi) prefer if (by factors of 1.3, 2.2 [2.6 for subtract], 3.0 3.5)
 killeen, mars, cucaracha, prefer int (by factors of 1.4, 2.0, 2.8)
+
+NEW ROUTINES
+cucaracha (-fast)
+ Test of random numbers
+ Seed (2902248648199272781830143864736810) = 2902248648199272781830143864736810
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+ Seed (3141592653589793238462643383279502) = 3141592653589793238462643383279502
+ Random seed (based on current time) =              199908091240110525199
+ The current time = 1999-08-09 11:05:25.199 -04:00
+ Time of next_seed =    2.1943079307675D-06
+ Time of 312 * next_seed =    4.0132778882980D-05
+ Time of random_init =    8.0928206443787D-05
+ Time of random =    2.1702294349670D-07
+ Time of random_array =    1.2327103614807D-07
+
+
+tern NAG f90 (-O)
+ Test of random numbers
+ Seed (2902248648199272781830143864736810) = 2902248648199272781830143864736810
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+ Seed (3141592653589793238462643383279502) = 3141592653589793238462643383279502
+ Random seed (based on current time) =              199908091240110747000
+ The current time = 1999-08-09 11:07:47.000  -4:00
+ Time of next_seed =   9.9999999999999995E-07
+ Time of 312 * next_seed =   2.8000000000000000E-05
+ Time of random_init =   6.4999999999999994E-05
+ Time of random =   7.3099999999999997E-07
+ Time of random_array =   8.8900000000000009E-07
+ seed size for random_number = 1
+ Time of random_number (fast) =   2.7699999999999995E-07
+ Time of random_number =   2.7300000000000002E-07
+
+mars f90 (-O4)
+ Test of random numbers
+ Seed (2902248648199272781830143864736810) = 2902248648199272781830143864736810
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+ Seed (3141592653589793238462643383279502) = 3141592653589793238462643383279502
+ Random seed (based on current time) =              199908091240110613450
+ The current time = 1999-08-09 11:06:13.450 -04:00
+ Time of next_seed =  1.561599969863892E-006
+ Time of 312 * next_seed =  2.488799951970577E-005
+ Time of random_init =  4.411520063877106E-005
+ Time of random =  3.000224053859710E-007
+ Time of random_array =  2.561023950576782E-007
+ seed size for random_number =           2
+ Time of random_number (fast) =  3.916687965393067E-007
+ Time of random_number =  3.916687965393067E-007
+
+hecate (with 50% faster processors) (-O3)
+ Test of random numbers
+ Test of random numbers
+ Seed (2902248648199272781830143864736810) = 2902248648199272781830143864736810
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+Zeroth number (0.54037398) = 0.54037398
+1234th number (0.47829276) = 0.47829276
+ Seed (3141592653589793238462643383279502) = 3141592653589793238462643383279502
+ Random seed (based on current time) =              199908091240110547378
+ The current time = 1999-08-09 11:05:47.378 -04:00
+ Time of next_seed = 1.47429984062910076E-6
+ Time of 312 * next_seed = 2.49766983091831215E-5
+ Time of random_init = 9.69102054834365868E-5
+ Time of random = 1.58172297477722176E-7
+ Time of random_array = 1.14855504035949713E-7
+ seed size for random_number = 64
+ Time of random_number (fast) = 7.74426698684692512E-8
+ Time of random_number = 7.92046070098876975E-8
+
+mcurie (-O3)
+ Test of random numbers
+ Seed (2902248648199272781830143864736810) = 2902248648199272781830143864736810
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.54037398) = 0.54037400
+1234th number (0.47829276) = 0.47829279
+Zeroth number (0.54037398) = 0.54037400
+1234th number (0.47829276) = 0.47829279
+ Seed (3141592653589793238462643383279502) = 3141592653589793238462643383279502
+ Random seed (based on current time) =              199908091420080611539
+ The current time = 1999-08-09 08:06:11.539 -07:00
+ Time of next_seed = 2.32298802584409724E-6
+ Time of 312 * next_seed = 3.87930437922477748E-5
+ Time of random_init = 1.01175603270530704E-4
+ Time of random = 6.55353403091430601E-7
+ Time of random_array = 5.41545057296752902E-7
+ seed size for random_number = 1
+ Time of random_number (fast) = 2.69431114196777343E-8
+ Time of random_number = 3.42293739318847686E-8
+
+killeen
+ Test of random numbers
+ Seed (2902248648199272781830143864736810) = 2902248648199272781830143864736810
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.540373998032440) = 0.540373998032440
+1234th number (0.478292786832260) = 0.478292786832260
+Zeroth number (0.54037398) = 0.54037400
+1234th number (0.47829276) = 0.47829279
+Zeroth number (0.54037398) = 0.54037400
+1234th number (0.47829276) = 0.47829279
+ Seed (3141592653589793238462643383279502) = 3141592653589793238462643383279502
+ Random seed (based on current time) =              199908091420080615738
+ The current time = 1999-08-09 08:06:15.738 -07:00
+ Time of next_seed = 1.896271200000005E-5
+ Time of 312 * next_seed = 2.901839260000017E-4
+ Time of random_init = 7.203477699999974E-4
+ Time of random = 2.505549170999993E-6
+ Time of random_array = 9.14024181000008E-7
+ seed size for random_number = 1
+ Time of random_number (fast) = 6.852060599999222E-8
+ Time of random_number = 5.768296700000491E-8
+
 @* INDEX.

@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.32  1999/03/25 20:53:26  dstotler
+% Remove routines split off into interpolate.web.
+%
 % Revision 1.31  1998/05/08 14:07:56  dstotler
 % Use reaction_handling_var0 as INT; add labels for corresponding
 % dependent variables to var0_list. Added a short routine used to
@@ -214,7 +217,6 @@ are passed back in the |independent_parameters| array.
       vc_decl(vrel)
       integer i
       real independent_parameters[xs_max_indep_params]
-      real rr
 
       v_ext_to_int(lc_x(pt_loc(p)),bk_v(back,lc_zone(pt_loc(p))),vb_flow,geometry_symmetry,background_coords)
 
@@ -238,10 +240,8 @@ are passed back in the |independent_parameters| array.
       independent_parameters[xs_var_m_back]=sp_m(pr_background(back))
       if (num_random > 0) then
          assert(num_random <= xs_max_random)
-         do i=1,num_random
-            rn_next(rr,x)
-            independent_parameters[xs_var_1st_random_number+i-1]=rr
-         end do
+         call random_array(independent_parameters[xs_var_1st_random_number],
+     $        num_random,rn_args(x))
       end if
 
       return

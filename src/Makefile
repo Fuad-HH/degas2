@@ -1,5 +1,10 @@
 # $Id$
 # $Log$
+# Revision 1.69  1999/05/25 13:30:41  dstotler
+# Raise tangle's yn flag to 7000. Add yb flag = 100000. Added
+# degasinit dependency for geomtesta, matcheir, matchout. Added
+# updatebackground.
+#
 # Revision 1.68  1999/03/25 20:58:57  dstotler
 # Replace reaction.$O with interpolate.$O or add same, where needed. Add
 # datamatch.
@@ -489,7 +494,7 @@ endif
 define RUN-LATEX
   if [ -r $*.aux ]; then cp $*.aux $*.aux0; fi
   $(LATEX) $*.tex
-  if [ -r $*.aux ]; then cmp -s $*.aux $*.aux0 || latex $*.tex; fi
+  if [ -r $*.aux ]; then cmp -s $*.aux $*.aux0 || $(LATEX) $*.tex; fi
   rm -f $*.aux0
 endef
 
@@ -538,9 +543,13 @@ sysdeptest: $(sysdeptest) $(foreach arg,$(subst .$O,_mods,$(sysdeptest)),$($(arg
 # speciesetup_libs = $(NETCDF)
 # speciesetup: $(speciesetup)
 
-randomtest = randomtest.$O random.$O randother.$O
+randomtest = randomtest.$O random.$O
 randomtest_libs =
 randomtest: $(randomtest) $(foreach arg,$(subst .$O,_mods,$(randomtest)),$($(arg)))
+
+nrandomtest = nrandomtest.$O nrandom.$O
+nrandomtest_libs =
+nrandomtest: $(nrandomtest) $(foreach arg,$(subst .$O,_mods,$(randomtest)),$($(arg)))
 
 pvmmaster = pvmmaster.$O random.$O stat.$O geometry.$O readfilenames.$O
 pvmmaster_libs = $(NETCDF) $(PVM)

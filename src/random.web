@@ -1,84 +1,7 @@
 % $Id$
-\Title{random numbers}
+\Title{Random numbers}
 
 % $Log$
-% Revision 1.9  1998/04/28 19:53:46  karney
-% Include a kludge to prevent Sun's f77 -depend (implied by -fast) from
-% optimizing rand_axc into incorrectness.
-%
-% Revision 1.8  1997/09/02 21:14:38  karney
-% New initializer for random numbers.
-% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
-% Minor bug in collide.web (array index was a real).
-% Eliminate some uses of repeated actual args (transform, transform_velocity,
-% stat_add, next_seed, rand_axc).
-%
-% Revision 1.7  1997/08/19 14:36:53  karney
-% Changes to support compilation under f90.  This involved extensive changes
-% in array.hweb and sysdep.web.  Nearly all other files needed some
-% modifications.
-%
-% Revision 1.6  1995/08/01 17:56:30  karney
-% Various changes to make compilation clean on ALPHA.
-%
-% Revision 1.5  1995/07/18 15:02:53  karney
-% Add extern.web.  New seeding procedures for random numbers implemented.
-%
-% Revision 1.4  1995/07/14 13:20:35  karney
-% Coding for strata added.
-% Switch \Wtitle to \Title.
-% Update to use standard etags.
-%
-% Revision 1.3  1995/05/26 04:01:22  karney
-% Upgrade to fweb 1.51beta.
-% Initial implementation of surface segments.
-%
-% Revision 1.2  1994/02/02 22:25:18  karney
-% Provide entry point for checking random starting seed routine.
-%
-% Revision 1.1  1993/09/23  12:17:11  karney
-% Checkin under RCS
-%
-% Revision 1.13  1992/11/13  18:00:25  karney
-% Pre-APS checkin
-%
-% Revision 1.12  1992/08/20  14:54:10  karney
-% Convert to LaTeX/NFSS
-%
-% Revision 1.11  1992/07/15  17:23:42  karney
-% Split nonuniform random distributions into a separate file
-%
-% Revision 1.10  1992/07/06  17:33:49  karney
-% Implement other distributions of random numbers
-%
-% Revision 1.9  1992/06/27  21:06:44  karney
-% Farting around with Id keywords
-%
-% Revision 1.8  1992/06/10  21:17:06  karney
-% Switch to 47-bit seed
-%
-% Revision 1.7  1992/06/03  13:16:44  karney
-% Break out randomtest.  Standardize variable declarations.
-%
-% Revision 1.6  1992/05/27  18:32:16  karney
-% Further polishing to random routines
-%
-% Revision 1.5  1992/05/06  21:40:10  karney
-% Fix up the formatting
-%
-% Revision 1.4  1992/05/05  23:16:29  karney
-% Minor edits
-%
-% Revision 1.3  1992/05/05  22:27:45  karney
-% Clean up code, add other files, etc.
-%
-% Revision 1.2  1992/04/29  22:34:19  karney
-% Allow use of random numbers in batches.  Check vectorization.  Enlarge
-% the stride on the recursion...
-%
-% Revision 1.1  1992/04/29  01:22:28  karney
-% Initial test of random number package.
-%
 
 
 @* Introduction.
@@ -86,133 +9,365 @@
 \ID{$Id$}
 
 Random number routines for degas.  We attempt to satisfy four objectives
-with these routines: (1) they should produce random numbers uniformly
-distributed in $(0,1)$; (2) they should be fast; (3) they should be
-portable; (4) it should be easy to run many independent sequences of random
-numbers.
+with these routines: (1) they should produce high-quality random numbers
+uniformly distributed in $(0,1)$; (2) they should be fast; (3) they
+should be portable; (4) it should be easy to run many independent
+sequences of random numbers.
 
-The routines are based on the subtractive method of described in by Knuth
-\cite{knuth2}, pp.~171--172, based on a generator by G. J. Mitchell and D.
-P. Moore.  This method is used by Knuth in the Metafont program
-\cite{knuth86}.  It is also supplied as part of the random number
-generators provided with BSD Unix \cite{random3}.  The method provides
-random numbers at the cost of a one or two additions (or subtractions).
-These additions do not cause bits to be lost and so the same results can be
-obtained on different computers.  By calculating the random numbers in
-batches and storing the results in an array, these additions vectorize.
-Accessing a random number then involves checking whether the array of
-random numbers needs filling, returning the next element of the array, and
-incrementing an index into the array.  A separate routine for accessing the
-random number array which avoids the check is provided.  This allows do
-loops involving random numbers to vectorize.
+The methods used here are described in D. E. Knuth, {\it Art of Computer
+Programming} (3rd edition, Addison-Wesley, 1998), Vol. 2, {\it
+Seminumerical Algorithms}, Chapter 3, Random Numbers.  The basic method
+is given by the routine |ran_array| in Section 3.6 and converted to
+floating method according to the Exercise 3.6-10.  The Fortran version
+of this routine is available at
+\begin{center}
+\verb+http://www-cs-faculty.stanford.edu/~knuth/programs/frngdb.f+
+\end{center}
+The method uses the recurrence
+\begin{equation}\label{recursion}
+X_n=(X_{n-l}+X_{n-k})\bmod 1,
+\end{equation}
+where $X_n$ are multiples of $2^{-e}$.
 
-The period of this random number generator is at least $2^k-1 \approx
-10^{19}$ (for $k=63$).  (This is the period of the least significant bit of
-the sequence.  The actual period is many times larger.)  Furthermore each
-seed will (probably) give an entirely different sequence.  (Contrast this
-with the multiplicative method, where specifying the seed merely gives the
-starting point on a single sequence of numbers.)
+The following changes have been made to Knuth's version:
+\begin{itemize}
+\item In order to allow separate threads of random numbers to be
+generated, the {\it state} of the random number generator is passing to
+the random number routines via the argument list (instead of being
+stored in a common block).
+\item The number of significant bits, $e$ has been reduced from $52$ to
+$47$ to accomodate the precision of Cray computers.
+\item We add $2^{-(e+1)}$ to the random numbers returned by |random| and
+|random_array|.  This centers the distribution of random numbers between
+$0$ and $1$ and ensures that the numbers lie strictly between $0$ and
+$1$.  The latter property means, for example, that we can safely take
+the $\log$ of the random numbers.
+\item |random_array| can return any number of random numbers.  (Knuth's
+|ran_array| was coded to return at least $k$ random numbers.)
+\item The {\it lags} $(k,l)$ are chosen to be $(63,100)$ instead of
+$(37,100)$.  Because $63+37=100$, this generates the sequence in reverse
+(with an alternating sign change).  The larger value of $k$ allows better
+vectorization (since the 63 numbers can be generated in parallel).
+\item We follow the suggestion of Exercise 3.6-15 using only $k$ numbers
+out of each batch of $p=1009$.
+\end{itemize}
 
-The random numbers routines are initialized with a 47-bit seed.  A separate
-linear congruential random generator is provided to generate these seeds.
-This is {\it not} optimized for speed.  However, it lets the user
-conveniently initialize many independent random number sequences.
+The state of the random number generator is defined by $k$ $e$-bit
+numbers.  If we disallow the state where the least-significant bit of
+all these $k$ numbers is zero, the period of equation
+\ref{recursion} is $2^{e-1}(2^k-1)\approx 8.9\times10^{43}$.  All the
+bits of the random numbers are ``good'' (in contrast to linear
+congruential random generators where the less significant bits are less
+random).  Employing the method of using only $k$ out of $p$ random
+numbers, we have a method with no known defects.  It is also fairly fast
+since it involves only floating-point addition.
 
-This has been replaced by a initialization using the high 47 bits of a
-70-bit linear congruential random number generator.
+In order to start this random number generator, we need to specify its
+inital state.  Knuth includes an algorithm to do this which accepts a
+single integer seed, which can take on approximately $10^9$ different
+values and computes an inital state of the random number generator, in
+such a way that a particular seeds is guaranteed to produce at least
+$2^{70}$ different states before ``colliding'' with those produces by a
+different seed.
 
-@m FILE 'random.web'
+We don't use this method here because (1) it's rather slow (100 times
+slower than the method we use), and (2) $10^9$ possible seeds seems to
+be rather restrictive in parallel applications which may need to consume
+many possible seeds in a given run.
+
+The total number of allowable states this random generator can take is
+$2^{k(e-1)}(2^k-1)$.  Thus a single sequence generated by equation
+\ref{recursion} covers a tiny fraction $2^{-(e-1)(k-1)} \approx
+10^{-1371}$ of allowable states.  If we just picked two inital states
+``randomly,'' it would be highly unlikely that they would belong to
+the same sequence.  In fact, we would have to pick about $10^{685}$
+initial states before having an appreciable probably of a collision.
+
+We therefore adopt a strategy where we use a conventional linear
+congruential random generator to initialize equation \ref{recursion}
+\begin{equation} \label{linear}
+T(x)\equiv (a_1x+c_1) \bmod 2^{112},
+\end{equation}
+We choose $a_1=31167285\times2^{64}+6364136223646793005$, $c_1=1$.  The
+multiplier $a_1$ is obtained by concatenating two ``good'' multipliers
+$31167285 \bmod 2^{48}$ and $6364136223646793005 \bmod 2^{64}$ given in
+lines 23 amd 26 of Knuth, Section 3.3.4, Table 1.  This multiplier will
+give good results in the spectral test ensuring good converage in
+multidimensional space.  The state is obtained from the high $e$ bits of
+$k$ consecutive numbers from equation \ref{linear}.  Actually we place
+the most significant (i.e., the ``most random'') bits from equation
+\ref{linear} into the least significant bits of the state vector where
+they can the most good (since they will result in carries into the more
+significant bits).  (See the implementation of |random_init| for
+details.)  A $k+1$st number is also used to randomly set one of the
+least significant bits in the state vector to 1 in the (unlikely) event
+that they are all zero.
+
+A second state vector can likewise be generated using the next $k+1$
+numbers from equation \ref{linear}.  Since \ref{linear} is a high
+quality random number generator in its own right, this will be no
+correlations between the two resulting sequences.  Furthermore, the
+discussion above implies that we are nearly guaranteed that the
+sequences will have no common points in $k$-dimensional space.
+
+In order to obtain a potentially large set of independent random numbers
+we advance equation \ref{linear} forward
+\begin{equation}\label{stepper}
+L(n_0,n_1,n_2) = g_0 n_0 + g_1 n_1 + g_2 n_2
+\end{equation}
+steps, where $g_0=k+1=101$, $g_1=375549701083$, and
+$g_2=1396411663216078567733$.  $g_0$ is the number of random numbers
+used by |random_init|.  The other numbers are chosen such that
+$$
+\frac{g_1}{g_0} \approx \frac{g_2}{g_1} \approx
+\biggl(\frac{2^{112}}{1000 g_0}\biggr)^{1/3}
+\approx 3.7\times 10^9 > 2^{31}.
+$$
+This means that with $n_0$, $n_1$, $n_2$ varying between 0 and a billion
+we only use $0.1\%$ (another of Knuth's recommendation) of the numbers
+with no recycling.  Since the coeffients, $g_0$, $g_1$, and $g_2$, are
+relatively prime, it wouldn't be a big deal to go beyond these limits.
+
+All these routines assume that the machine can handle real quantities
+with at least 48 bits of precision.  On most machines this means |double
+precision|.  One 
+
 
 @I macros.hweb
 
-@i random.hweb
-
 @* External interface to random.
 
-The state of the random number generator is stored in |rn_args(tag)|,
-where |tag| is an arbitrary tag.  This should not be altered by any
-external routine.  |rn_decl(tag)| declares |rn_args(tag)| and, in
-a top-level routine, allocates space for them.
+If you're using FWEB, the argument |seed| here always refers to an
+eight-element integer array which should be declared by
+|rn_seed_decl(seed)|.  |seed| should not be altered by the user.
+Similarly the state of the random number generator is stored in
+|rn_args(tag)|, where |tag| is an arbitrary tag.  This should not be
+altered by the user.  |rn_decl(tag)| declares |rn_args(tag)| and, in a
+top-level routine, allocates space for them.
 
-The externally callable routines are:
+If you're not using FWEB, then replace |rn_args(tag)| by the argument
+pair |ran_index,ran_array| and then declare the seed and the state as
+follows.
 
-|call random_init(seed,rn_args(tag))| which initializes the random
-number using a four-element integer array |seed[0:3]|.  Each element of
-|seed| must satisfy |0<=seed[i]<2^14|.
-
-|call set_random_seed(seed)| initializes a four-element integer array
-|seed[0:3]| ``randomly'', based on the current time and the processor id.
-The array |seed| is suitable for passing to |random_init|.
-
-|call string_to_seed(string,seed}| initializes the |seed| array from a
-|string| (which might be the decimal representation of a large number).
-
-|call seed_to_string(seed,string}| converted the |seed| array to a
-printable representation in |string| which should be at least 17
-characters long.
-
-|call next_seed(n,seed)| advances the seed $n$ step forward.  This
-allows independent threads of random numbers to be initialized.
-
-|x = random(rn_args(tag))| which returns the next random number in |x|.
-|x| is a |real| random number uniformly distributed in $(0,1)$.
-
-|call random_check(n,rn_args(tag))| which checks that $n$ random numbers
-are available for return with |fast_random|. |n| must satisfy |0<= n <=
-RAN_K|.
-
-|x = fast_random(rn_args(tag))| which returns the next random number in
-|x|.  |fast_random| differs from |random| in that no checking is done
-that the random numbers are available.  Thus a call to |random_check|
-must precede any calls to |fast_random|.
-
-The random numbers returned by |random| and |fast_random| are of the form
-$(i+\frac12)/2^{47}$ for $0\le i < 2^{47}$.
-
-@ Typical calling sequence.  Suppose we are running in a multitasking mode,
-then in order that the results be independent of the number of threads
-executing the simulation, it is natural to start each flight off with an
-independent random number sequence.  The top-level routine would then look
-like:
-
-@#if 0
 @a
-      integer ntasks,nflights,n,num
-      rn_seed_decl(seed0)
-      rn_seed_decl(seed[0:ntasks-1])
-      character*(17) string
-      
-      call set_random_seed(seed0)
-      call seed_to_string(seed0,string)   // Write out the seed!
-      print *,'seed is ',string
+@#if 0
+/* |ran_s|, |ran_c|, and |ran_k| are defined in: */
 
-      num=(nflights+ntasks-1)/ntasks // number of flights/task
+      include 'random.h'
 
-      do n=0,nflights-1,num
-         rn_seed_copy(seed0,seed0[n/num])
-         call next_seed(n,seed[0,n/num])
-         call tskstart(xxx,doflights,min(nflights-n,num),seed[0,n/num],xxx)
-      end do
+/* Seeds are specified by an argument, |seed|, which should be declared
+as: */
+
+      integer seed(ran_s)
+
+/* The external respresentation of the seed is via a string of decimal
+digits.  This should be declared as: */
+
+      character*(ran_c) string
+
+/* The state of the random number generator is stored in two variables
+which are passed as arguments: |ran_index| and |ran_array|.  These
+should be declared as: */
+
+      integer ran_index
+      double precision ran_array(ran_k)
+
+/* Finally, you may need to declare the external routines |random| and
+|srandom|: */
+
+      double precision random
+      real srandom
+      external random,srandom
+
+/* In the above, you will need to change |double precision| to |real| on
+the Crays. */
 @#endif
 
-@ |doflights| would then be defined by
+@ The routines for initializing the seed are:
 
-@#if 0
+|call set_random_seed(time,seed)| set the |seed| from an 8-element
+integer |time| array.  Typically, |time| is set from |call
+date_time(time)| or using the Fortran 90 routine |call
+date_and_time(values=time)|.
+
+|call decimal_to_seed(decimal,seed)| initializes the |seed| array from a
+decimal number in the character variable |decimal|.  Only the digits in
+|decimal| are used, so |'1999/07/30-18:55:33'| is the same is
+|'19990730185533'|.  There is no limit on the length of |decimal|.
+
+|call string_to_seed(string,seed)| initializes the |seed| array from an
+arbitray ASCII string |string| using a checksum algorithm.  Only the
+printable characters in |string| are used.  There is no limit on the
+length of |string|.
+
+|call seed_to_decimal(seed,decimal)| converted the |seed| array to a
+canonical printable representation in the character variable |decimal|
+which should be at least |ran_c=34| characters long.
+
+Possible ways of setting |seed| are:
+
 @a
-      subroutine doflights(num,seed,xxx)
-      rn_decl(x)          // Allocate space for |rn_args|
-      integer i,num
-      rn_seed_decl(seed)
+@#if 0
+      include 'random.h'
+      integer seed(ran_s)
+      integer time(8)
+      character*(ran_c) string
 
-      do i=0,num-1
-         call random_init(seed,rn_args(x)) // Initialize |rn_args|
+/* Set it based on the time of day */
+      call date_and_time(values=time)
+      call set_random_seed(time,seed)
 
-  /* follow a flight with many calls to |random| or |fast_random| */
+/* Set it during debugging */
+      call decimal_to_seed('0',seed)
 
-        call next_seed(1,seed) // Get next seed
+/* Set it from a decimal number */
+      call decimal_to_seed('Run number: 12987',seed)
+
+/* Set it from an ASCII string */
+      call string_to_seed('Pellet injection, case A',seed)
+
+/* In all cases you should write out the seed */
+      call seed_to_decimal(seed,string)
+      print *,string
+@#endif
+
+@ Routines for advancing the seed.  These are needed when independent
+random number sequences are required.
+
+|call next_seed(n,seed)| advances the seed $n$ steps forward.  This
+allows independent threads of random numbers to be initialized.  This
+just invokes |call next_seed3(n,0,0,seed)|.
+
+|call next_seed3(n0,n1,n2,seed)| advances the seed $(n_0,n_1,n_2)$ steps
+forward in 3-dimensional space.  The steps along each axis can be up to
+at least $10^9$ allowing for a total of $10^{27}$ independent threads to
+be initialized.  |next_seed3| might be useful for selecting the seeds
+for a three-dimension domain decomposition.
+
+@ Routines for initializing the state for random number generator and
+for returning random numbers.
+
+|call random_init(seed,rn_args(tag))| which initializes the random
+number generator from |seed|.
+
+|x = random(rn_args(tag))| which returns the next random number in |x|.
+|x| is a |double precision| random number uniformly distributed in $(0,1)$.
+
+|call random_array(y,n,rn_args(tag))| which returns the next |n|
+random numbers in the |double precision| array |y|.
+
+|sx = srandom(rn_args(tag))| which returns the next random number in |sx|.
+|sx| is a |real| random number uniformly distributed in $(0,1)$.
+
+|call srandom_array(sy,n,rn_args(tag))| which returns the next |n|
+random numbers in the |real| array |sy|.
+
+The random numbers returned by |random| and |random_array| are of the
+form $(i+\frac12)/2^{47}$ for $0\le i < 2^{47}$.  The period of each
+thread is about $8.9\times10^{43}$.  Except for the Crays, the random
+numbers returned by |srandom| and |srandom_array| are of the form
+$(i+\frac12)/2^{23}$ for $0\le i < 2^{23}$, with the same period.  On
+the Crays, |srandom| and |srancom_array| are identical to |random| and
+|random_array|.
+
+@* Typical calling sequence.  The following is a more-or-less realistic
+exampleof using these routines in an MPI code.  It compute $\pi$ by
+generating random points in a unit square and counting the number that
+lie in a circle of radius 1 within this square.
+
+This example uses the Fortran 90 subroutine |date_and_time|.  This is
+present in some recent Fortran 77 implementations (specifically, for Sun
+and Digital Unix).  If it is not available initialize the random seed in
+some other way.
+
+@a
+@#if 0
+      program pirandom
+
+* Compute pi by counting the number of randomly generated point lying
+* in a circle.  See Gropp et al., ``Using MPI'', Section 3.7.
+
+* MPI declarations
+      include 'mpif.h'
+      integer id, ierr, len, numprocs
+      character*(mpi_max_processor_name) hostname
+
+* Declarations for random numbers
+      include 'random.h'
+      integer seed(ran_s)
+      character*(ran_c) string
+      integer ran_index
+      double precision ran_array(ran_k)
+
+* For |date_and_time| routine
+      character cdate*8,ctime*10,czone*5
+      integer time(8)
+
+* A place to store random numbers
+      integer m
+      parameter (m=1000)
+      double precision z(m)
+
+* Other local vaiables
+      double precision  pi
+      integer iterations
+      integer a,sum,tot,i,j
+
+* Set iteration count (each iteration computes $m/2$ points)
+      iterations = 10000
+
+* Initialize MPI
+      call mpi_init(ierr)
+      call mpi_comm_rank(mpi_comm_world, id, ierr)
+      call mpi_comm_size(mpi_comm_world, numprocs, iierr)
+
+* Determine and print the seed
+      if (id .eq. 0) then
+         call date_and_time(cdate,ctime,czone,time)
+         call set_random_seed(time,seed)
+         call seed_to_decimal(seed,string)
+         print *,'An inefficient way to compute pi via Monte Carlo'
+         print *,'Seed is set to ',string
+      endif
+
+* Tell everyone the value of seed
+      call mpi_bcast(seed,ran_s,mpi_integer,0,mpi_comm_world,ierr)
+
+* Advance the seed according to the MPI process number
+      call next_seed(id,seed)
+
+* Initialize the random number generator
+      call random_init(seed,ran_index,ran_array)
+      
+* Determine the number of points lying inside a circle of radius 1
+      a=0
+      do i=(iterations*id)/numprocs,(iterations*(id+1))/numprocs-1
+         call random_array(z,m,ran_index,ran_array)
+         do j=1,m,2
+            if (z(j)**2 + z(j+1)**2 .lt. 1.0d0) then
+               a=a+1
+            end if
+         end do
       end do
 
-      return
+* Print some dignostic information
+      call mpi_get_processor_name(hostname,len,ierr)
+      print *,'Process ',id,' running on ',hostname(1:len),' gives ',a
+
+* Assemble the results onto process 0
+      call mpi_reduce(a,sum,1,mpi_integer,mpi_sum,0,mpi_comm_world,ierr)
+
+* Node 0 prints the answer.
+      tot=iterations*m/2
+      if (id .eq. 0) then
+         pi=(4.0d0*sum)/tot
+         print *, 'pi is approximately ',4*sum,'/',tot,' = ',pi
+      endif
+
+* Terminate MPI
+      call mpi_finalize(ierr)
+
+      stop
       end
 @#endif
 
@@ -221,323 +376,446 @@ like:
 @a
       @<Functions and Subroutines@>
 
-@ Define constants used in the basic random number generator.
-The basic algorithm is
-\begin{equation}\label{recursion}X_n=(X_{n-k}-X_{n-j})\bmod 1,\end{equation}
-with $k$ and $j$ given by Knuth's Table 3.2.2--1 \cite{knuth2}.  In this
-relation, replacing $j$ by $k-j$ is equivalent to running the recursion
-backwards.  We make the choice $j\ge k/2$, since this results in longer
-vectorizing loops.  We also choose $k=63$, since this is the largest $k$
-such that |random_batch| vectorizes with short vector loops.
+@ Define constants used in the basic random number generator.  |ran_k|
+is defined in the header file to be 100.
 
-@m ran_k 63                     // Set $k$.
-@m ran_j 31                     // Set $j$
+@m FILE 'random.web'
 
-@#if 2*ran_j < ran_k      // and ensure that $j\ge k/2$.
-   @m ran_j $EVAL(ran_k-#!ran_j)
+@m ran_l 63                     // Set $l$
+@m ran_p 1009                   // We use $k$ out of $p$ numbers
+@m ran_e 47                     // Bits of precision with double precision
+@m ran_es 23                    // Bits of precision with single precision
+
+@m rand_center(x) x+ran_ulp2    // Center returned numbers in $(0,1)$
+@#if !HIPREC                    // Likewise for |single_precision|
+@m rand_center_s(x) (int(ran_mult*x)+0.5)*ran_ulps
 @#endif
 
-@m ran_d 25               // $d = \lceil(2-\phi) k\rceil$ ($\phi=\frac12(\sqrt5+1)$) and $\gcd(k,d)=1$
 
-$ASSERT(ran_k == RAN_K)   // Check that the header file set |RAN_K| correctly
+@i random.hweb
 
-@m ran_m0 $EVAL(2^24)                  // The limits on the seeds
-@m ran_m1 $EVAL(2^23)
-
-@* Functions to return random numbers.  We calculate the random numbers in
-batches, placing the results into the array |ran_array|.  The routine to
-return a single random number, |random|, can then merely return the next
-array element.  It calls the routine to calculate the next batch if
+@* Functions to return random numbers.  We calculate the random numbers
+in batches, placing the results into the array |ran_array|.  The routine
+to return a single random number, |random|, can then merely return the
+next array element.  It calls the routine to calculate the next batch if
 necessary.  |ran_index| points to the next element of |ran_array| to be
-used.  |ran_max| points to the first invalid element of |ran_array|.  Thus
-the number of usable random numbers is |ran_max - ran_count|.  |ran_count|,
-|ran_max|, and |ran_array| together describe the state of the random number
-generator.  The header file packages these together into a single argument
-|rn_args(x)|.
+used.  |ran_max| points to the first invalid element of |ran_array|.
+|ran_index| and |ran_array| together describe the state of the random
+number generator.  The header file packages these together into a single
+argument |rn_args(x)|. |srandom| is an entry point providing a single
+precision result.
 
 @<Functions...@>=
       function random(rn_dummy(x))
       implicit_none_f77
       implicit_none_f90
+      real ran_ulp2
+      parameter (ran_ulp2=two^(-ran_e-1))
+@#if !HIPREC
+      single_precision ran_ulps
+      real ran_mult
+      parameter (ran_ulps=2.0^(-ran_es),ran_mult=two^ran_es)
+@#endif
       real random               // Function
-      rn_decl(x)                // Input/output
-      external random_batch     // External
+      single_precision srandom   // Entry
+      rn_decl(x)                // RNG state
+      external rand_batch       // External
 
-      if (rn_index(x) >= rn_max(x)) then
-         call random_batch(rn_args(x))
+@#if HIPREC
+      entry srandom(rn_dummy(x))
+@#endif
+
+      if (rn_index(x) >= ran_k) then
+         call rand_batch(rn_args(x))
       end if
-      random=rn_array(x)[rn_index(x)]
+      random=rand_center(rn_array(x)[rn_index(x)])
       rn_index(x)=rn_index(x)+1
+
       return
+      
+@#if !HIPREC
+      entry srandom(rn_dummy(x))
+
+      if (rn_index(x) >= ran_k) then
+         call rand_batch(rn_args(x))
+      end if
+      srandom=rand_center_s(rn_array(x)[rn_index(x)])
+      rn_index(x)=rn_index(x)+1
+
+      return
+@#endif
       end
 
-      subroutine random_array(arr,n,rn_dummy(x))
+@ Here is a version of |random| which fills an array.  This is perhaps
+more efficient than separate calls to |random|.  |srandom_array| is an
+entry point providing a single precision result.
+
+@<Functions...@>=
+      subroutine random_array(y,n,rn_dummy(x))
       implicit_none_f77
       implicit_none_f90
+      real ran_ulp2
+      parameter (ran_ulp2=two^(-ran_e-1))
+@#if !HIPREC
+      single_precision ran_ulps
+      real ran_mult
+      parameter (ran_ulps=2.0^(-ran_es),ran_mult=two^ran_es)
+@#endif
       integer n                 // Input
-      real arr(0:n-1)           // Output
-      rn_decl(x)             // Input/output
+      real y(0:n-1)           // Output
+@#if !HIPREC
+      single_precision ys(0:n-1) // Output
+@#endif
+      rn_decl(x)             // RNG state
       integer i,k,j             // Local
-      external random_batch     // External
+      external rand_batch     // External
       
+@#if HIPREC
+      entry srandom_array(y,n,rn_dummy(x))
+@#endif
+
       if (n<=0) return
-      k=min(n,rn_max(x)-rn_index(x))
+      k=min(n,ran_k-rn_index(x))
       do i=0,k-1
-         arr[i]=rn_array(x)[i+rn_index(x)]
+         y[i]=rand_center(rn_array(x)[i+rn_index(x)])
       end do
       rn_index(x)+=k
       do j=k,n-1,ran_k
-         call random_batch(rn_args(x))
+         call rand_batch(rn_args(x))
          do i=j,min(j+ran_k,n)-1
-            arr[i]=rn_array(x)[i-j+rn_index(x)]
+            y[i]=rand_center(rn_array(x)[i-j+rn_index(x)])
          end do
          rn_index(x)+=min(ran_k,n-j)
       end do
       return
+
+@#if !HIPREC
+      entry srandom_array(ys,n,rn_dummy(x))
+
+      if (n<=0) return
+      k=min(n,ran_k-rn_index(x))
+      do i=0,k-1
+         ys[i]=rand_center_s(rn_array(x)[i+rn_index(x)])
+      end do
+      rn_index(x)+=k
+      do j=k,n-1,ran_k
+         call rand_batch(rn_args(x))
+         do i=j,min(j+ran_k,n)-1
+            ys[i]=rand_center_s(rn_array(x)[i-j+rn_index(x)])
+         end do
+         rn_index(x)+=min(ran_k,n-j)
+      end do
+      return
+@#endif
+
       end
       
-@ Check that there are at least |n| random numbers available.  After this
-routine the next $n$ random numbers can be retrieved with |fast_random|.
-Because of the size of the batches in which the random numbers are
-generated, we require $n\le k$.
-
-@<Functions...@>=
-      subroutine random_check(n,rn_dummy(x))
-      implicit_none_f77
-      implicit_none_f90
-      integer n                 // Input
-      rn_decl(x)                // Input/output
-      external random_batch     // External
-
-      assert(0 <= n && n <= ran_k)
-      if (n > rn_max(x)-rn_index(x)) call random_batch(rn_args(x))
-      check(n <= rn_max(x)-rn_index(x))
-      return
-      end
-
-@ If you've called |random_check(n,rn_args(x))|, then you can use this
-routine to return the next $n$ random numbers.  Do loops calling
-|fast_random| can be vectorized if |fast_random| is expanded inline.
-
-@<Functions...@>=
-      function fast_random(rn_dummy(x))
-      implicit_none_f77
-      implicit_none_f90
-      real fast_random          // Function
-      rn_decl(x)             // Input/output
-
-      fast_random=rn_array(x)[rn_index(x)]
-      rn_index(x)=rn_index(x)+1
-      return
-      end
-
 @* Calculate the next batch.  The fills the next $k$ elements of
-|rn_array(x)|.  |rn_array(x)| is dimensioned to hold $2k$ elements.  This
-simplifies the coding of equation (\ref{recursion}).  It also allows
-|random_batch| to be called before the previous batch is exhausted, which
-in turn means that we can ensure that at least $n$ elements are available
-at any time by calling |random_check(n,rn_args(x))| for $n\le k$.
+|rn_array(x)|.  This uses an local array |w| to skip over $p-k$
+elements.  For the implementation given here to work, we require
+$p\ge2k$, which is, of course, satisfied for the parameters we use here.
 
+On some machines it is better to implement the operation of taking the
+fractional part with a conditional.  Both of these methods are
+equivalent since $0\le y<2$.
+
+@#if SGI || CRAY || LINUX
+  @m ran_assign(x,y)
+      tmp=y;
+      if (tmp>=one) then;
+         x=tmp-one;
+      else;
+         x=tmp;
+      end if @;
+@#else
+  @m ran_assign(x,y)
+      tmp=y;
+      x=tmp-int(tmp) @;
+@#endif
 
 @<Functions...@>=
-      subroutine random_batch(rn_dummy(x))
+      subroutine rand_batch(rn_dummy(x))
       implicit_none_f77
       implicit_none_f90
-      real ran_epsilon
-      parameter (ran_epsilon=const(0.5)^48)
-      rn_decl(x)             // Input/output
-      integer i,k                 // Local
+      rn_decl(x)                // RNG state
+      integer i                 // Local
+      real w[0:ran_p-ran_k-1]
       real tmp
 
-      check(rn_max(x) == ran_k || rn_max(x) == 2*ran_k) // We assume |rn_max(x)| takes on one of these values
+/* Sanity check on |rn_index(x)|. */
+      assert(rn_index(x) == ran_k)
 
-/* First check we didn't take too many random numbers, e.g., by calling
-|fast_random| too many times. */
-      assert(rn_index(x) >= 0 && rn_index(x) <= rn_max(x))
-
-      if (rn_index(x) < ran_k && rn_max(x) == 2*ran_k) return // Array already full
-
-      if (rn_index(x) >= ran_k && rn_max(x) == 2*ran_k) then // Shift array down
-         @<Shift |rn_array(x)| down |ran_k| elements@>
-      end if
-
-/* Fill second half.  The compiler codes this as two safe short vectors of
-length |ran_j|, in order to avoid the recursion */
-      do k=1-1,0,-1
-      do i=ran_k,2*ran_k-1
-         tmp=rn_array(x)[i-ran_k]-rn_array(x)[i-ran_j]
-         if (tmp < zero) tmp=one+tmp
-         rn_array(x)[i]=tmp+ran_epsilon
-/*
-         tmp=rn_array(x)[i-ran_k]+rn_array(x)[i-ran_j]
-         rn_array(x)[i]=tmp-int(tmp)
-*/
+      do i=0,ran_l-1
+         ran_assign(w[i],rn_array(x)[i]+rn_array(x)[i+ran_k-ran_l])
+      end do
+      do i=ran_l,ran_k-1
+         ran_assign(w[i],rn_array(x)[i]+w[i-ran_l])
+      end do
+      do i=ran_k,ran_p-ran_k-1
+         ran_assign(w[i],w[i-ran_k]+w[i-ran_l])
+      end do
+      do i=ran_p-ran_k,ran_p-ran_k+ran_l-1
+         ran_assign(rn_array(x)[i-ran_p+ran_k],
+     $        w[i-ran_k]+w[i-ran_l])
+      end do
+      do i=ran_p-ran_k+ran_l,ran_p-1
+         ran_assign(rn_array(x)[i-ran_p+ran_k],
+     $        w[i-ran_k]+rn_array(x)[i-ran_p+ran_k-ran_l])
       end do
 
-      rn_max(x)=rn_max(x)+ran_k
-      rn_count(x)=rn_count(x)+ran_k
-
-      if (rn_index(x) >= ran_k) then // Shift array down
-         @<Shift |rn_array(x)| down...@>
-      end if
-      if (k>0) then
-         rn_index(x)+=ran_k
-      end if
-      end do
-
-      check(rn_index(x) >= 0 && rn_index(x) < rn_max(x)) // Sanity check on |rn_index(x)|
+      rn_index(x)=0
 
       return
       end
 
-@ |random_batch| needs to shift the data in the top half of |rn_array(x)| to
-the bottom half.
-
-@<Shift |rn_array(x)| down...@>=
-         do i=0,ran_k-1         // a short vector move
-            rn_array(x)[i]=rn_array(x)[i+ran_k]
-         end do
-         rn_index(x)=rn_index(x)-ran_k
-         rn_max(x)=rn_max(x)-ran_k
-
-@* Generating a sequence of random seeds.  
+@* Initializing the random number sequence.
 
 This initializes the random number array using the high 47 bits of
-successive numbers from the |drand48| linear congruential converted to
-56 bits.  Define
-\begin{equation} \label{linear}
-T(x)\equiv (a_1x+c_1) \bmod 2^{56},
-\end{equation}
-and
-$$T^n(x)\equiv (a_nx+c_n) \bmod 2^{56}.$$
-Then we have
-$a_1=25214903917$, $c_1=11$;
-$a_{63}=53631580600893541$,
-$c_{63}=37732446681418217$;
-$a_{-63}=39185939196621165$,
-$c_{-63}=21393951150075595$.
+successive numbers from a linear congruential generator defined by
+equation \ref{linear}.
 
-The 56-bit numbers can be represented as an array of 4 14-bit integers
+The 112-bit numbers can be represented as an array of 8 14-bit integers
 which allows the multiplications and additions necessary to perform
-56-bit multiplies to be carried out on 32-bit machines.  (We don't use
+112-bit multiplies to be carried out on 32-bit machines.  (We don't use
 15-bit integers since it is then necessary to do the multiplies more
 carefully.)
 
-To generate the seeds for subsequent random number thread we jump the
-generator ahead multiples of 63 using $T^{63}$.
+@ Here is |random_init|.  This iterates $T$ 100 times.  We might use the
+101st iterate to turn on one of the least-significant bits in the
+unlikely event that they are all zero.  We set |rn_array(x)| from the
+|ran_e| most significant bits of |s|.  We place the most significant
+(i.e., the most random) byte of |s| in the least significant position in
+|rn_array(x)| where it can do the most good; and so on with the other
+bytes; finally we place the five most significant bits from the least
+significant byte in the five most significant bit positions in
+|rn_array(x)|.
 
-@ Here is |random_init|.  This iterates $T$ 63 times.  We make use of
-the fact that $a_1$ and $c_1$ are (relatively) small to save on the
-number of arithmetic operations here.  Finally the generator is warmed
-up by coimputing 10 batches of numbers.
+The main loop here does not vectorize.  It's possible to remedy this by
+first jumping forward by multiples of ten using the tenth power of $T$
+and then initalizing the other elements in a parallel fashion.  This
+results in a modest speed up on vector machines but slows down the
+running time on other machines; so we choose not to do this here.
+
+@m ran_set(i)
+      rn_array(x)[i]=(((s[7]*ran_del+s[6])*ran_del+s[5])*ran_del+int(s[4]/512))*512*ran_del @;
 
 @<Functions...@>=
       subroutine random_init(seed,rn_dummy(x))
       implicit_none_f77
       implicit_none_f90
-      integer base
-      real ran_delta,ran_epsilon
-      parameter (ran_delta=const(0.5)^14,ran_epsilon=const(0.5)^48,base=2^14)
+      integer b
+      real ran_del,ran_ulp
+      parameter (b=2^14,ran_del=two^(-14),ran_ulp=two^(-ran_e))
+      integer a0,a1,a2,a3,a4,a5,a6,c0 // The base $2^{14}$ representation of $a_1$ and $c_1$
+      parameter (a0=15661,a1=678,a2=724,a3=5245,a4=13656,a5=11852,a6=29)
+      parameter (c0=1)
       rn_seed_decl(seed)        // Input
       rn_decl(x)                // Output
-      integer i,j,s[0:3],z[0:3]          // Local
-      integer a0,a1,a2,c0,t
-      data a0,a1,a2,c0/9837,15283,93,11/ // The base $2^{14}$ representation of $a_1$ and $c_1$
+      integer i,j,s[0:ran_s-1]  // Local
+      logical odd               // At least one seed is odd so far
+      integer z[0:ran_s-1],t
 
-      do i=0,3
-         assert(0<=seed[i] && seed[i]<base)
+      do i=0,ran_s-1
+         assert(0<=seed[i] && seed[i]<b)
          s[i]=seed[i]
       end do
 
-/* Set |rn_array(x)| from 47 most significant bits of |s|.  We place the
-most significant (i.e., the most random) byte of |s| in the least
-significant position in |rn_array(x)| where it can do the most good; and
-so on with the other bytes; finally we place the five most significant
-bits from the least significant byte in the five most significant bit
-positions in |rn_array(x)|. */
-
-      rn_array(x)[0]=(((s[3]*ran_delta+s[2])*ran_delta+
-     $      s[1])*ran_delta+int(s[0]/512))*const(512.0)*ran_delta+ran_epsilon
+      odd = mod(s[7],2) != 0
+      ran_set(0)
 
       do j=1,ran_k-1
-         t=c0+a0*s[0]
-         z[0]=mod(t,base)
-         t=int(t/base)+a0*s[1]+a1*s[0]
-         z[1]=mod(t,base)
-         t=int(t/base)+a0*s[2]+a1*s[1]+a2*s[0]
-         z[2]=mod(t,base)
-         t=int(t/base)+a0*s[3]+a1*s[2]+a2*s[1]
-         z[3]=mod(t,base)
-
-         do i=0,3
-            s[i]=z[i]
-         end do
-
-         rn_array(x)[j]=(((s[3]*ran_delta+s[2])*ran_delta+
-     $      s[1])*ran_delta+int(s[0]/512))*const(512.0)*ran_delta+ran_epsilon
-
+         @<Step the linear congruential generator forward one step@>
+         odd = odd || (mod(s[7],2) != 0);
+         ran_set(j)
       end do
-
-      rn_max(x)=ran_k
+      
       rn_index(x)=ran_k
 
-      do i=1,10                 // Warm up the generator
-         call random_batch(rn_args(x))
-         rn_index(x)=rn_index(x)+ran_k
-      end do
+/* If the least significant bit of all the seeds is zero, then randomly
+set one of them to one.  This is {\it very} unlikely to happen. */
 
-      rn_count(x) = 0           // Initialize count of random numbers produced
-      rn_gauss_index(x) = 0     // Initialize the other generators
-      rn_iso_index(x) = 0
-      rn_cos_index(x) = 0
+      if (odd) return
 
+      @<Step the linear congruential generator forward one step@>
+      j=int((s[ran_s-1]*ran_k)/b)
+      rn_array(x)[j]+=ran_ulp
+
+      return
       end
 
-@* Set the seed from an arbitrary string |string| is a string arbitrary
-length.  |seed| is initialized to zero. Whitespace is ignored in the
-string.  Initial digits 0--9 cause the operation |seed=10*seed+digit|.
-Other characters cause the operation |seed=rotr(seed)+digit|, where
-|rotr| is a circular right shift by one bit; this is the operation
-carried out by the BSD sum utility.
+@ Here we step the linear congruential generator forward one step.  We
+open code this to improve the speed somewhat.  (We use the fact that the
+highest byte of $a$ zero as are all but the lowest byte of $c$.)
+
+@<Step the linear congruential generator forward one step@>=
+      z[0]=c0+a0*s[0]
+      z[1]=a0*s[1]+a1*s[0]
+      z[2]=a0*s[2]+a1*s[1]+a2*s[0]
+      z[3]=a0*s[3]+a1*s[2]+a2*s[1]+a3*s[0]
+      z[4]=a0*s[4]+a1*s[3]+a2*s[2]+a3*s[1]+a4*s[0]
+      z[5]=a0*s[5]+a1*s[4]+a2*s[3]+a3*s[2]+a4*s[1]+a5*s[0]
+      z[6]=a0*s[6]+a1*s[5]+a2*s[4]+a3*s[3]+a4*s[2]+a5*s[1]+a6*s[0]
+      z[7]=a0*s[7]+a1*s[6]+a2*s[5]+a3*s[4]+a4*s[3]+a5*s[2]+a6*s[1]
+
+      t=0
+      do i=0,ran_s-1
+         t=int(t/b)+z[i]
+         s[i]=mod(t,b)
+      end do
+
+@ Here's the vectorizing version of |random_init|.  It's commented out
+since it's of marginal utility and it's more complicated.
+
+@m ran_k1 10                    // Factor $k=k_1 k_2$.
+@m ran_k2 10
+
+@<Functions...@>=
+@#if 0
+      subroutine random_init(seed,rn_dummy(x))
+      implicit_none_f77
+      implicit_none_f90
+      integer b
+      real ran_del,ran_ulp
+      parameter (ran_del=two^(-14),ran_ulp=two^(-ran_e),b=2^14)
+      rn_seed_decl(seed)        // Input
+      rn_decl(x)                // Output
+      integer i,j,k,s[0:ran_s-1,0:ran_k1-1] // Local
+      logical odd[0:ran_k1-1]               // At lease one seed is odd so far
+      integer z[0:ran_s-1,0:ran_k1-1],t[0:ran_k1-1]
+      integer a0,a1,a2,a3,a4,a5,a6,c0       // The base $2^{14}$ representation of $a_1$ and $c_1$
+      data a0,a1,a2,a3,a4,a5,a6,c0/15661,678,724,5245,13656,11852,29,1/
+      integer ak2[0:ran_s-1],ck2[0:ran_s-1] // $T^{k_2}$
+      data ak2/11273,6813,10723,15580,4310,5243,1020,6133/
+      data ck2/13766,11135,9779,14128,13492,4815,11925,2137/
+
+      do i=0,ran_s-1
+         assert(0<=seed[i] && seed[i]<b)
+         s[i,0]=seed[i]
+      end do
+      
+      do k=1,ran_k1-1
+         do i=0,ran_s-1
+            s[i,k]=s[i,k-1]
+         end do
+         call rand_axc(ak2,s[0,k],ck2)
+      end do
+
+      do k=0,ran_k1-1
+         odd[k] = (mod(s[7,k],2) != 0)
+         rn_array(x)[k*ran_k2]=(((s[7,k]*ran_del+s[6,k])*ran_del+s[5,k])*ran_del+int(s[4,k]/512))*512*ran_del
+      end do
+
+      do j=1,ran_k2-1
+         do k=0,ran_k1-1
+            z[0,k]=c0+a0*s[0,k]
+            z[1,k]=a0*s[1,k]+a1*s[0,k]
+            z[2,k]=a0*s[2,k]+a1*s[1,k]+a2*s[0,k]
+            z[3,k]=a0*s[3,k]+a1*s[2,k]+a2*s[1,k]+a3*s[0,k]
+            z[4,k]=a0*s[4,k]+a1*s[3,k]+a2*s[2,k]+a3*s[1,k]+a4*s[0,k]
+            z[5,k]=a0*s[5,k]+a1*s[4,k]+a2*s[3,k]+a3*s[2,k]+a4*s[1,k]+a5*s[0,k]
+            z[6,k]=a0*s[6,k]+a1*s[5,k]+a2*s[4,k]+a3*s[3,k]+a4*s[2,k]+a5*s[1,k]+a6*s[0,k]
+            z[7,k]=a0*s[7,k]+a1*s[6,k]+a2*s[5,k]+a3*s[4,k]+a4*s[3,k]+a5*s[2,k]+a6*s[1,k]
+            t[k]=0
+         end do
+
+         do i=0,ran_s-1
+            do k=0,ran_k1-1
+               t[k]=int(t[k]/b)+z[i,k]
+               s[i,k]=mod(t[k],b)
+            end do
+         end do
+
+         do k=0,ran_k1-1
+            odd[k] = odd[k] || (mod(s[7,k],2) != 0)
+            rn_array(x)[k*ran_k2+j]=(((s[7,k]*ran_del+s[6,k])*ran_del+s[5,k])*ran_del+int(s[4,k]/512))*512*ran_del
+         end do
+      end do
+         
+      rn_index(x)=ran_k
+
+/* If the least significant bit of all the seeds is zero, then randomly
+set one of them to one.  This is {\it very} unlikely to happen. */
+
+      do k=0,ran_k1-1
+         if (odd[k]) return
+      end do
+
+      call rand_axc(ak2,s[0,0],ck2)
+      j=int((s[ran_s-1,0]*ran_k)/b)
+      rn_array(x)[j]+=ran_ulp
+
+      return
+      end
+@#endif
+
+@* Initializing the seed.
+
+Set the seed from an decimal string.  |seed| is initialized to
+zero. Digits 0--9 cause the operation |seed=10*seed+digit|.  Other
+characters are ignored.
+
+@<Functions...@>=
+      subroutine decimal_to_seed(decimal,seed)
+      implicit_none_f77
+      implicit_none_f90
+      character*(*) decimal
+      rn_seed_decl(seed)
+      integer i,ten[0:ran_s-1],c[0:ran_s-1],ch
+      data ten/10,7*0/
+      external rand_axc
+      
+      do i=0,ran_s-1
+         seed[i]=0
+         c[i]=0
+      end do
+      
+      do i=1,len(decimal)
+         ch=ichar(decimal(i:i))
+         if (ch >= ichar('0') && ch <= ichar('9')) then
+            c[0]=ch-ichar('0')
+            call rand_axc(ten,seed,c)
+         end if
+      end do
+         
+      return
+      end
+
+@ Set the seed from an arbitrary ASCII string.  Only printable
+characters are considered.  Each such character causes the operation
+|seed=rotr(seed)+char|, where |rotr| is a circular right shift by one
+bit; this is the operation carried out by the BSD sum utility.
 
 @<Functions...@>=
       subroutine string_to_seed(string,seed)
       implicit_none_f77
       implicit_none_f90
-      integer decbase,base
-      parameter (decbase=10,base=2^14)
+      integer b
+      parameter (b=2^14)
       character*(*) string
       rn_seed_decl(seed)
-      logical digits
-      integer t,r,i,k,a[0:3],c[0:3],ch
-      data a/decbase,3*0/
+      integer t,i,k,unity[0:ran_s-1],c[0:ran_s-1],ch
+      data unity/1,7*0/
+      external rand_axc
       
-      do i=0,3
+      do i=0,ran_s-1
          seed[i]=0
          c[i]=0
       end do
       
-      digits=.true.
       do i=1,len(string)
          ch=ichar(string(i:i))
-         if (digits && ch >= ichar('0') && ch <= ichar('9')) then
-            c[0]=ch-ichar('0')
-            call rand_axc(a,seed,c)
-         else if (!(ch == ichar(' ') || ch == 9)) then // 9 is a tab
-            digits=.false.
-            seed[0]+=2*ch
-            t=mod(seed[0],2)
-            r=0
-            do k=0,3
+         if (ch > ichar(' ') && ch < 127) then
+            t=mod(seed[0],2)*(b/2)
+            do k=0,ran_s-1
                seed[k]=int(seed[k]/2)
-               if (k<3) then
-                  seed[k]+=mod(seed[k+1],2)*(base/2)+r
+               if (k < ran_s-1) then
+                  seed[k]+=mod(seed[k+1],2)*(b/2)
                else
-                  seed[k]+=t*(base/2)+r
+                  seed[k]+=t
                end if
-               r=int(seed[k]/base)
-               seed[k]=mod(seed[k],base)
             end do
+            c[0]=ch
+            call rand_axc(unity,seed,c)
 //       else the character is whitespace and we skip it.
          end if
       end do
@@ -545,118 +823,117 @@ carried out by the BSD sum utility.
       return
       end
 
-@* Convert a seed to its decimal equivalent.  |string| should be at
-least 17 characters long; otherwise the high digits are lost.
+@ Choose random seed depending on time.  |time| is the 8-element time
+returned by |date_time| (it can also be obtained in Fortran 90 with
+|call date_and_time(values=time)|).  The seed is set to
+|yyyymmddzzzzhhmmssmmm| where |yyyy| is the year, etc.  The first digit
+of |zzzz| is 1 is the zone offset is negative.
+
+@m SP $UNQUOTE(' ')
 
 @<Functions...@>=
-      subroutine seed_to_string(seed,string)
+      subroutine set_random_seed(time,seed)
       implicit_none_f77
       implicit_none_f90
-      integer pow,decbase,base
-      parameter (pow=4,decbase=10^pow,base=2^14)
-      character*(*) string
+      integer time[8]           // Input
+      rn_seed_decl(seed)        // Output
+      character*21 c
+      external decimal_to_seed
+
+      c=' '
+      write(c(1:8),'(i4.4,2i2.2)') time[1],time[2],time[3]
+      write(c(9:12),'(i1.1,i3.3)') SP (1-sign(1,time[4]))/2,abs(time[4])
+      write(c(13:21),'(3i2.2,i3.3)') time[5],time[6],time[7],time[8]
+      call decimal_to_seed(c,seed)
+
+      return
+      end
+
+@* Convert a seed to its decimal equivalent.
+
+|decimal| should be at least 34 characters long; otherwise the high
+digits are lost.  Internal conversion is done to a base of 10000.
+
+@<Functions...@>=
+      subroutine seed_to_decimal(seed,decimal)
+      implicit_none_f77
+      implicit_none_f90
+      integer pow,decbase,b
+      parameter (pow=4,decbase=10^pow,b=2^14)
+      character*(*) decimal
       rn_seed_decl(seed)
-      integer z[0:3],i,t,j,k
-      character*20 b
+      integer z[0:ran_s-1],i,t,j,k
+      character*36 str
       
       k=-1
-      do i=0,3
+      do i=0,ran_s-1
          z[i]=seed[i]
-         assert(0<=z[i] && z[i]<base)
+         assert(0<=z[i] && z[i]<b)
          if (z[i]>0) k=i
       end do
       
-      b=' '
+      str=' '
 
- /* $2^{56} < 10^{20}$ */
+ /* $2^{112} < 10^{36}$ */
       
-      i=5
+      i=9
 loop: continue
       i--
       t=0
       do j=k,0,-1
-         z[j]=z[j]+t*base
+         z[j]=z[j]+t*b
          t=mod(z[j],decbase)
          z[j]=int(z[j]/decbase)
       end do
       if (z[max(0,k)]==0) k=k-1
       if (k>=0) then
-         write(b(pow*i+1:pow*(i+1)),'(i4.4)') t
+         write(str(pow*i+1:pow*(i+1)),'(i4.4)') t
       else
-         write(b(pow*i+1:pow*(i+1)),'(i4)') t
+         write(str(pow*i+1:pow*(i+1)),'(i4)') t
       end if
       if (k>=0) goto loop
 
-      if (len(string)>len(b)) then
-         string(:len(string)-len(b)) = ' '
-         string(len(string)-len(b)+1:) = b
+      if (len(decimal)>len(str)) then
+         decimal(:len(decimal)-len(str)) = ' '
+         decimal(len(decimal)-len(str)+1:) = str
       else
-         string = b(len(b)-len(string)+1:)
+         decimal = str(len(str)-len(decimal)+1:)
       end if
       
       return
       end
 
-@* Choose random seed depending on current time and processor id.  This
-initializes the seed with |yyyymmddhhmmsspp| where |yyyy| is the year,
-etc. and |pp| is the procoss id (mod 100).
+@* Routines to step the seed forward.
+
+|rand_next_seed| steps the seed $y$ forward $n$ multiples of the
+generator specified by |ax| and |cx|.  $n$ is decomposed in binary and
+$y$ is stepped forward by powers of 2.  We do this by composing equation
+(\ref{linear}) with itself to give
+$$
+T^2(x) \equiv (a_2 x + c_2) \bmod 2^{112}.
+$$
+where $a_2=a_1^2 \bmod 2^{112}$ and $c_1= (a_1+1)c_1 \bmod 2^{112}$.
+The time is proportional to $\log n$.
 
 @<Functions...@>=
-      subroutine set_random_seed(seed)
+      subroutine rand_next_seed(n,ax,cx,y)
       implicit_none_f77
       implicit_none_f90
-      rn_seed_decl(seed)        // Output
-      integer temp[7]           // Local
-      character*17 c
-      external date_time,get_pid // External
-      integer get_pid
-
-      call date_time(temp)
-      temp[7]=mod(get_pid(),1000)
-      write(c,'(i4.4,5i2.2,i3.3)') temp
-      call string_to_seed(c,seed)
-
-      return
-      end
-
-@ |next_seed| steps the seed forward $n$ steps.  Thus, if $X_0 = x$, then
-we have $X_n = y$.  $n$ is decomposed in binary and $x$ is stepped forward
-by powers of 2.  We do this by composing equation (\ref{linear}) with
-itself to give, e.g.,
-$$
-T^2(x) \equiv (a_2 x + c_2) \bmod 2^{56}.
-$$
-where $a_2=a_1^2 \bmod 2^{56}$ and $c_1= (a_1+1)c_1 \bmod 2^{56}$.  The
-cpu time is proportional to $\log n$.
-
-@<Functions...@>=
-      subroutine next_seed(n,y)
-      implicit_none_f77
-      implicit_none_f90
-      integer n          // Input
+      integer n,ax[0:ran_s-1],cx[0:ran_s-1] // Input
       rn_seed_decl(y)           // Input/Output
-      integer af[0:3],cf[0:3],ab[0:3],cb[0:3],a[0:3],c[0:3],z[0:3],t[0:3],m,i
-      data af/  101,14806, 6710,12194/ // $a_{63}$
-      data cf/ 2537, 9167, 5981, 8579/ // $c_{63}$
-      data ab/12653, 2052,13943, 8909/ // $a_{-63}$
-      data cb/11979,10897, 6902, 4864/ // $c_{-63}$
-      data z/4*0/
+      integer a[0:ran_s-1],c[0:ran_s-1],
+     $     z[0:ran_s-1],t[0:ran_s-1],m,i
+      data z/ran_s*0/
+      external rand_axc
 
       if (n == 0) return
+      assert(n>0)
 
-      if (n > 0) then
-         m = n
-         do i=0,3
-            a[i]=af[i]
-            c[i]=cf[i]
-         end do
-      else
-         m = -n
-         do i=0,3
-            a[i]=ab[i]
-            c[i]=cb[i]
-         end do
-      end if
+      m = n
+      do i=0,ran_s-1
+         a[i]=ax[i]
+         c[i]=cx[i]
+      end do
 
 loop: continue
       if (mod(m,2) > 0) then
@@ -664,14 +941,77 @@ loop: continue
       end if
       m = int(m/2)
       if (m == 0) return
-      rn_seed_copy(c,t)
+      do i=0,ran_s-1
+         t[i]=c[i]
+      end do
       call rand_axc(a,c,t) /* $c'=(a+1)c$ */
-      rn_seed_copy(a,t)
+      do i=0,ran_s-1
+         t[i]=a[i]
+      end do
       call rand_axc(t,a,z) /* $a'=a^2$ */
       goto loop
 
       end
 
+
+@ |next_seed3| steps the seed forward by $L(n_0,n_1,n_2)$ steps from
+equation \ref{stepper}.  In this routine |afk| and |cfk| are precomputed
+coefficients for equation \ref{linear} iterated $g_k$ times (i.e.,
+forwards) and |abk| and |cbk| are precomputed coefficients for equation
+\ref{linear} iterated $-g_k$ times (i.e., backwards).  This routine
+works but invoking |rand_next_seed| with the appropriate coefficients for
+each of the $n_k$.
+
+|next_seed| is an entry point where only $n_0$ is passed.
+
+@<Functions...@>=
+      subroutine next_seed3(n0,n1,n2,seed)
+      implicit_none_f77
+      implicit_none_f90
+      integer n0,n1,n2          // Input
+      rn_seed_decl(seed)        // Input/Output
+      integer af0[0:ran_s-1],cf0[0:ran_s-1]
+      integer ab0[0:ran_s-1],cb0[0:ran_s-1]
+      integer af1[0:ran_s-1],cf1[0:ran_s-1]
+      integer ab1[0:ran_s-1],cb1[0:ran_s-1]
+      integer af2[0:ran_s-1],cf2[0:ran_s-1]
+      integer ab2[0:ran_s-1],cb2[0:ran_s-1]
+      data af0/ 15741,  8689,  9280,  4732, 12011,  7130,  6824, 12302/
+      data cf0/ 16317, 10266,  1198,   331, 10769,  8310,  2779, 13880/
+      data ab0/  9173,  9894, 15203, 15379,  7981,  2280,  8071,   429/
+      data cb0/  8383,  3616,   597, 12724, 15663,  9639,   187,  4866/
+      data af1/  8405,  4808,  3603,  6718, 13766,  9243, 10375, 12108/
+      data cf1/ 13951,  7170,  9039, 11206,  8706, 14101,  1864, 15191/
+      data ab1/  6269,  3240,  9759,  7130, 15320, 14399,  3675,  1380/
+      data cb1/ 15357,  5843,  6205, 16275,  8838, 12132,  2198, 10330/
+      data af2/   445, 10754,  1869,  6593,   385, 12498, 14501,  7383/
+      data cf2/  2285,  8057,  3864, 10235,  1805, 10614,  9615, 15522/
+      data ab2/   405,  4903,  2746,  1477,  3263, 13564,  8139,  2362/
+      data cb2/  8463,   575,  5876,  2220,  4924,  1701,  9060,  5639/
+      external rand_next_seed
+
+      if (n2>0) then
+         call rand_next_seed(n2,af2,cf2,seed)
+      else if (n2<0) then
+         call rand_next_seed(-n2,ab2,cb2,seed)
+      end if
+
+      if (n1>0) then
+         call rand_next_seed(n1,af1,cf1,seed)
+      else if (n1<0) then
+         call rand_next_seed(-n1,ab1,cb1,seed)
+      end if
+
+      entry next_seed(n0,seed)
+
+      if (n0>0) then
+         call rand_next_seed(n0,af0,cf0,seed)
+      else if (n0<0) then
+         call rand_next_seed(-n0,ab0,cb0,seed)
+      end if
+
+      return
+      end
 
 @ A utility routine.   Implement |x=a*x+c|.
 
@@ -679,45 +1019,33 @@ loop: continue
       subroutine rand_axc(a,x,c)
       implicit_none_f77
       implicit_none_f90
-      integer base
-      parameter (base=2^14)
-      integer a[0:3],c[0:3]     // Input
-      integer x[0:3]            // Input/output
-      integer z[0:3],i,j,t      // Local
+      integer b
+      parameter (b=2^14)
+      integer a[0:ran_s-1],c[0:ran_s-1] // Input
+      integer x[0:ran_s-1]      // Input/output
+      integer z[0:ran_s-1],i,j,t // Local
+      
+      do i=0,ran_s-1
+         z[i]=c[i]
+      end do
+
+/* These |do| loops were originally |do i=0,ran_s-1; do j=0,i| and the
+assiment of |z| above was inside the outer loop.  The order of the |do|
+loops has been interchanged, so that the inner one can vectorize.  */
+      do j=0,ran_s-1
+         do i=j,ran_s-1
+            z[i]+=a[j]*x[i-j]
+         end do
+      end do
       
       t=0
-      do i=0,3
-         t=c[i]+t
-         do j=0,i
-            t+=a[j]*x[i-j]
-         end do
-         z[i]=mod(t,base)
-         t=int(t/base)
+      do i=0,ran_s-1
+         t=int(t/b)+z[i]
+         x[i]=mod(t,b)
       end do
-      
-@#if SUN
-/* The Sun f77 compiler has an optimization bug where it moves the assignment
-|x=z| to the previous loop.  This conditional stops this from happening.
-Note the |z[0]| should always be non-negative.
-
-This bug in Sun f77 4.2 is fixed in f77 5.0
-*/
-      if (z[0] >= 0) then
-@#endif
-      do i=0,3
-         x[i]=z[i]
-      end do
-@#if SUN
-      end if
-@#endif
       
       return
       end
-
-@* References.
-
-\bibliographystyle{report}
-\bibliography{../../degas/papers/degas}
 
 @* INDEX.
 

@@ -2,6 +2,11 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.23  1999/03/25 20:57:07  dstotler
+% Replace I_l... with I_0... (charge exchange) and I_1... (elastic) for
+% clarity. Clean up some of Randy's code. Replace rand_angle with
+% simpler inline calls.
+%
 % Revision 1.22  1998/12/22 16:42:51  dstotler
 % Corrected sign error in 1.5 T_i term in recombination_data.
 %
@@ -278,9 +283,9 @@ loop: continue
       count++
  /* Pick a background particle */
       v_thermal=sqrt(independent_parameters[xs_var_sp_temperature])
+      call random_gauss(vb_therm,3,rn_args(x))
       do i=1,3
-         rn_gauss_next(ran,x)
-         vb_therm[i]=v_thermal*ran
+         vb_therm[i]*=v_thermal
       end do
 
 /*
@@ -407,6 +412,7 @@ loop: continue
 
       external eval_data                               // External
       real eval_data
+      rn_decls
 
       save tempmax,init,i_sigv_max,i_angle_min,i_cx,i_csang
       data sigvmax / zero /
@@ -456,9 +462,9 @@ loop: continue
   Pick a background particle
 */
       v_thermal=sqrt(independent_parameters[xs_var_sp_temperature])
+      call random_gauss(vb_therm,3,rn_args(x))
       do i=1,3
-         rn_gauss_next(ran,x)
-         vb_therm[i]=v_thermal*ran
+         vb_therm[i]*=v_thermal
       end do
 
 /*
@@ -1155,6 +1161,7 @@ of suppressed absorption.
 
       external apse                                     // External
       real apse
+      rn_decls
 
 @#if 0
       call rand_angle(sin_eps,cos_eps,rn_args(x))
@@ -1229,6 +1236,7 @@ Function to determine random angle  - Removed for simplicity
 
       real eps,eps_sq,eta,eta_sq,eps_eta
       real sign,sin_eps,cos_eps
+      rn_decls
 
 loop: continue
       rn_next(eps,x)

@@ -2,6 +2,10 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.34  1999/07/22 17:54:26  dstotler
+% Add nfrag to "sending more to slave" message. Added var_reallocb for
+% chkpt arrays to satisfy memory checks in F90's var_free.
+%
 % Revision 1.33  1999/05/25 13:39:08  dstotler
 % Numerous changes to permit checkpointing, restarts, and to
 % improve MPI performance. weight_grp is replaced by
@@ -232,6 +236,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       rn_seed_decl(seed)
       rn_seed_decl(temp_seed)
       rn_decl(temp_rand)
+      rn_decls
 
       @<Memory allocation interface@>
       tl_decls
@@ -258,9 +263,9 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
          post_arrays_allocd=FALSE      // Allocate |out_post_grp|, etc. later
 
 @#if 0
-         call string_to_seed('12',seed) // Initialize random number seed
+         call decimal_to_seed('12',seed) // Initialize random number seed
 @#endif
-         call string_to_seed(so_seed_string,rn_seed_args(output_random_seed[1]))
+         call decimal_to_seed(so_seed_string,rn_seed_args(output_random_seed[1]))
          if (so_spaced_seeds == TRUE && so_grps > 1) then
             do is=2,so_grps
                rn_seed_copy(output_random_seed[is-1],output_random_seed[is])
@@ -306,7 +311,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       end if
 
       if (so_sampling == so_direct) then
-         call string_to_seed(so_seed_string,rn_seed_args(temp_seed))
+         call decimal_to_seed(so_seed_string,rn_seed_args(temp_seed))
          call next_seed(-1,rn_seed_args(temp_seed))
          rn_init(rn_seed_args(temp_seed),temp_rand)
          rn_next(so_direct_delta,temp_rand)
@@ -751,7 +756,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       tag++
       call MPI_send(isource,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
       tag++
-      call MPI_send(seed,4,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(seed,ran_s,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
       
 break:  continue
       return
@@ -908,7 +913,7 @@ loop: continue
       tag++
       call MPI_recv(isource,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       tag++
-      call MPI_recv(seed,4,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(seed,ran_s,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 
       call do_flights(nstart,nflights,so_args(isource),seed,
      $     estimator_factors)

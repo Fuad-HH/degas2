@@ -3,43 +3,6 @@
 % $Id$
 
 % $Log$
-% Revision 1.9  1999/05/25 13:36:28  dstotler
-% Added rn_seed_args to permit nicer usage of source group
-% subscripted seed array.
-%
-% Revision 1.8  1999/03/25 20:47:08  dstotler
-% Move in attribute descriptions from classes.web file.
-%
-% Revision 1.7  1997/09/02 21:14:37  karney
-% New initializer for random numbers.
-% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
-% Minor bug in collide.web (array index was a real).
-% Eliminate some uses of repeated actual args (transform, transform_velocity,
-% stat_add, next_seed, rand_axc).
-%
-% Revision 1.6  1997/08/19 14:36:53  karney
-% Changes to support compilation under f90.  This involved extensive changes
-% in array.hweb and sysdep.web.  Nearly all other files needed some
-% modifications.
-%
-% Revision 1.5  1996/03/01 20:23:10  dstotler
-% Switch from including all header files to explicit including only the
-% needed ones.
-%
-% Revision 1.4  1995/07/14 13:20:34  karney
-% Coding for strata added.
-% Switch \Wtitle to \Title.
-% Update to use standard etags.
-%
-% Revision 1.3  1995/06/08 09:09:28  karney
-% Pre-evaluate 2^-48.  (Sun f77 can't optimtimze this!!)
-%
-% Revision 1.2  1993/10/11 19:09:46  karney
-% Fix indexing bug in rn_args.
-%
-% Revision 1.1  1993/09/23  12:17:11  karney
-% Checkin under RCS
-%
 
 \ID{$Id$}
 
@@ -49,188 +12,59 @@
 
 @f rn_decl integer
 @f rn_decls integer
+@f rn_seed_decl integer
+@f single_precision integer
 
-@m rn_args(x) rn_index(x),rn_max(x),rn_count(x),rn_array(x)[0],
-      rn_gauss_index(x),rn_gauss_array(x)[0],
-      rn_iso_index(x),rn_iso_array(x)[0][1],
-      rn_cos_index(x),rn_cos_array(x)[0][1]
+@m rn_args(x) rn_index(x),rn_array(x)[0]
 
-@m rn_dummy(x) rn_index(x),rn_max(x),rn_count(x),rn_array(x),
-      rn_gauss_index(x),rn_gauss_array(x),
-      rn_iso_index(x),rn_iso_array(x),
-      rn_cos_index(x),rn_cos_array(x)
+@m rn_dummy(x) rn_index(x),rn_array(x)
 
-@m rn_decl(x) integer rn_index(x),rn_max(x),rn_count(x),
-      rn_gauss_index(x),rn_cos_index(x),rn_iso_index(x);
-      real rn_array(x)[0:2*RAN_K-1], rn_gauss_array(x)[0:RAN_G-1],
-        rn_iso_array(x)[3,0:RAN_I-1],rn_cos_array(x)[3,0:RAN_C-1] @;
+@m rn_decl(x) integer rn_index(x);
+      real rn_array(x)[0:ran_k-1] @;
 
-@m rn_decls integer ran_temp;
-      real rand_gauss,random,fast_random;
-      external rand_gauss,random,fast_random,seed_to_string @;
+@m rn_decls real random;
+      external random @;
 
 @m rn_copy(x,y)
       rn_index(y)=rn_index(x);
-      rn_max(y)=rn_max(x);
-      rn_count(y)=rn_count(x);
-      rn_gauss_index(y)=rn_gauss_index(x);
-      rn_iso_index(y)=rn_iso_index(x);
-      rn_cos_index(y)=rn_cos_index(x);
-      do ran_temp=min(rn_index(x),rn_max(x)-RAN_K),rn_max(y)-1;
+      do ran_temp=0,ran_k-1;
          rn_array(y)[ran_temp]=rn_array(x)[ran_temp];
-      end do;
-      do ran_temp=0,rn_gauss_index(x)-1;
-         rn_gauss_array(y)[ran_temp]=rn_gauss_array(x)[ran_temp];
-      end do;
-      do ran_temp=0,rn_iso_index(x)-1;
-         vc_copy(rn_iso_array(x)[ran_temp],rn_iso_array(y)[ran_temp]);
-      end do;
-      do ran_temp=0,rn_cos_index(x)-1;
-         vc_copy(rn_cos_array(x)[ran_temp],rn_cos_array(y)[ran_temp]);
       end do @;
 
 @m rn_index(x)  ran_index_##x	// Accessor routines
-@m rn_max(x)    ran_max_##x
-@m rn_count(x)  ran_count_##x
 @m rn_array(x)  ran_array_##x
-@m rn_gauss_index(x) ran_gauss_index_##x
-@m rn_gauss_array(x) ran_gauss_array_##x
-@m rn_iso_index(x) ran_iso_index_##x
-@m rn_iso_array(x) ran_iso_array_##x
-@m rn_cos_index(x) ran_cos_index_##x
-@m rn_cos_array(x) ran_cos_array_##x
 
 @ Length specifications.
 
-@m RAN_K 63		// The size of the batch of random numbers
-@m RAN_G $EVAL(2*(RAN_K/2))     // Size of batches for Gaussian random numbers
-@m RAN_I $EVAL(RAN_K/2)         // Size of batches of isotropically distributed numbers
-@m RAN_C $EVAL(RAN_K/2)         // Size of batches of cosine distributed numbers
+@m ran_k 100                    // The size of the batch of random numbers
+@m ran_s 8                      // The size of the seed.
+@m ran_c 34                     // The size of the decimal version of seed.
 
 @ Inline calling routines.
 
 /* An inline version of |y=random(rn_args(x))| */
-@#if INLINE
-@m rn_next(y,x)
-      if (rn_index(x) >= rn_max(x)) call random_batch(rn_args(x));
-      y=rn_array(x)[rn_index(x)];
-      rn_index(x)=rn_index(x)+1 @;
-@#else
 @m rn_next(y,x)
       y=random(rn_args(x)) @;
-@#endif
-
-/* An inline version of |y=fast_random(rn_args(x))| */
-@#if INLINE
-@m rn_fast_next(y,x)
-      y=rn_array(x)[rn_index(x)];
-      rn_index(x)=rn_index(x)+1 @;
-@#else
-@m rn_fast_next(y,x)
-      y=fast_random(rn_args(x)) @;
-@#endif
-
-/* An inline version of |y=rand_gauss(rn_args(x))| */
-@#if INLINE
-@m rn_gauss_next(y,x)
-      if ( rn_gauss_index(x) <= 0 ) call gauss_batch(rn_args(x));
-      rn_gauss_index(x) = rn_gauss_index(x) - 1;
-      y = rn_gauss_array(x)[rn_gauss_index(x)] @;
-@#else
-@m rn_gauss_next(y,x)
-      y=rand_gauss(rn_args(x)) @;
-@#endif
-
-/* An inline version of |call rand_cosdist(v,rn_args(x))| */
-@#if INLINE
-@m rn_cos_next(v,x)
-      if ( rn_cos_index(x) <= 0 ) call cosdist_batch(rn_args(x));
-      rn_cos_index(x) = rn_cos_index(x) - 1;
-      vc_copy(rn_cos_array(x)[rn_cos_index(x)],v) @;
-@#else
-@m rn_cos_next(v,x)
-      call rand_cosdist(v,rn_args(x)) @;
-@#endif
-
-/* An inline version of |call rand_isodist(v,rn_args(x))| */
-@#if INLINE
-@m rn_iso_next(v,x)
-      if ( rn_iso_index(x) <= 0 ) call isodist_batch(rn_args(x));
-      rn_iso_index(x) = rn_iso_index(x) - 1;
-      vc_copy(rn_iso_array(x)[rn_iso_index(x)],v) @;
-@#else
-@m rn_iso_next(v,x)
-      call rand_isodist(v,rn_args(x)) @;
-@#endif
 
 @m rn_init(seed,x) call random_init(seed,rn_args(x)) @;
 
-@m rn_check(n,x) call random_check(n,rn_args(x)) @;
-
 @m rn_seed_copy(x,y) rn_seed_copy1(x,y)
 @m rn_seed_copy1(x,y)
-      $DO(I,0,3) {
+      $DO(I,0,ran_s-1) {
           y[I]=x[I];
       }
 
 @m rn_seed_decl(x)
-      integer x[0:3] @;
+      integer x[0:ran_s-1] @;
 
 @m rn_seed_args(x)
       x[0]
 
-@* Random class attribute descriptions.
+@m rn_iso_next(v,x)
+      call random_isodist(v,1,rn_args(x)) @;
 
-@ Data and arrays associated with random numbers.  Prefix is |rn|.  
+@m rn_cos_next(v,x)
+      call random_cosdist(v,1,rn_args(x)) @;
 
-The identifier |random| is a string.
-
-\begin{description}
-  \item[|rn_index(random)|] index to next random number.
-
-  \item[|rn_max(random)|] Maximum index computed.
-
-  \item[|rn_count(random)|] Count of random numbers computed.
-
-  \item[|rn_array(random)|] Array of random numbers.
-
-  \item[|rn_gauss_index(random)|] Index to next gaussian random number.
-
-  \item[|rn_gauss_array(random)|] Array of gaussian random numbers.
-
-  \item[|rn_iso_index(random)|] Index to next isotropically distributed 
-vectors.
-
-  \item[|rn_iso_array(random)|] Array of isotropically distributed vectors.
-
-  \item[|rn_cos_index(random)|] Index to next cosine distributed vectors.
-
-  \item[|rn_cos_array(random)|] Array of cosine distributed vectors.
-\end{description}
-
-@ Routines using the random numbers.
-
-\begin{description}
-  \item[|rn_init(seed,random)|] initialize random numbers from 
-2-element integer array |seed|.
-
-  \item[|rn_next(x,random)|] Next random number into $x$ (inline available).
-
-  \item[|rn_fast_next(x,random)|] Fast version of this (inline available).
-
-  \item[|rn_check(n,random)|] Check |n| numbers available for |rn_fast_next|.
-
-  \item[|rn_gauss_next(x,random)|] Next gaussian number into $x$ 
-(inline availble).
-
-  \item[|rn_iso_next(v,random)|] Next isotropic vector number into $\vect v$
-(inline availble).
-
-  \item[|rn_cos_next(v,random)|] Next cosine vector number into $\vect v$
-(inline availble).
-
-  \item[|call set_random_seed(seed)|] Initialize seed from current time, etc.
-
-  \item[|call next_seed(n,seed)|] Advance |seed| forward $n$ steps.
-\end{description}
-
+@m rn_gauss_next(y,x)
+      call random_gauss(y,1,rn_args(x)) @;

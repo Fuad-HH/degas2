@@ -2,6 +2,10 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.8  1999/04/20 20:09:46  dstotler
+% Modify handling of PMI products to look more like the way reactions
+% are done.
+%
 % Revision 1.7  1998/09/04 17:15:09  dstotler
 % Minor changes to satisfy FWEAVE and TeX.
 %
@@ -81,6 +85,7 @@ included in case a distribution must be sampled.
 
       integer i                                       // Local
       real ran
+
       pr_pmi_decl(pmi_sub)
 
       pmi_sub=pr_pm_cases(pt_test(p),ts_pmi)
@@ -92,10 +97,8 @@ included in case a distribution must be sampled.
 */
       if (pmi_yield_num_rand[pmi_sub] > 0) then
          assert(pmi_yield_num_rand[pmi_sub] <= pf_max_random)
-         do i=1,pmi_yield_num_rand[pmi_sub]
-            rn_next(ran,x)
-            independent_parameters[pf_var_1st_random_number+i-1]=ran
-         end do
+         call random_array(independent_parameters[pf_var_1st_random_number],
+     $        pmi_yield_num_rand[pmi_sub],rn_args(x))
       end if
 /* The macro |pd_data_args| (defined in pmidata.hweb) extracts from the
    pmidata arrays only those data required to evaluate the yield for
@@ -149,10 +152,8 @@ returned. The random number thread |x| is included in case it's needed.
 */
       if (pmi_handling_num_rand[pmi_sub] > 0) then
          assert(pmi_handling_num_rand[pmi_sub] <= pf_max_random)
-         do i=1,pmi_handling_num_rand[pmi_sub]
-            rn_next(ran,x) 
-            independent_parameters[pf_var_1st_random_number+i-1]=ran
-         end do
+         call random_array(independent_parameters[pf_var_1st_random_number],
+     $        pmi_handling_num_rand[pmi_sub],rn_args(x))
       end if
 
 /* Loop over various PMI types
@@ -236,7 +237,6 @@ work is all done in |pd_eval_v_product|.
 
       rn_decl(x)                              // Input/output
 
-      real ran                                // Local
       pr_pmi_decl(pmi_sub)
 
 
@@ -290,6 +290,7 @@ for incident hydrogen atoms, either an atom or a molecule may be desorbed.
 
       integer j,arr,wt_factor                 // Local
       real ran
+      rn_decls
       pr_pmi_decl(pmi_sub)
 
 
@@ -402,6 +403,7 @@ probably be handled entirely at a higher level.
 
       external pd_eval_data                             // External
       real pd_eval_data
+      rn_decls
 
 /* Set of flags to check completeness of spherical polar representation
    (if needed). */
@@ -875,6 +877,7 @@ to be varied.
 
       real p,alpha,cos_alpha,sin_alpha,                        // Local
      $     xi,sin_theta,sin_theta_hat,cos_theta_hat,phi,cos_phi,sin_phi
+      rn_decls
 
 /* Check inputs */
 
@@ -923,13 +926,13 @@ to be varied.
       vc_decl(vhat)                                            // Output
 
       real ran,log_ran                                         // Local
+      rn_decls
 
 /* Check inputs */
 
       assert(rank == 0)  
 
-      rn_gauss_next(vhat[1],x)
-      rn_gauss_next(vhat[2],x)
+      call random_gauss(vhat,2,rn_args(x))
 
       rn_next(ran,x)
       log_ran=log(ran)

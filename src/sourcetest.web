@@ -2,6 +2,10 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.7  1999/05/25 13:43:15  dstotler
+% Copy lines for setting so_direct_delta from flighttest.web.
+% Note: was before not properly initializing seed. Doing sonow from so_seed_string. Added advances and rn_init's for seeds so segment test gets same results as main code.
+%
 % Revision 1.6  1998/12/22 16:49:31  dstotler
 % Add averages to bottom of segment test.
 %
@@ -133,7 +137,7 @@
 @#if 0
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
 @#endif
-      call string_to_seed(so_seed_string,rn_seed_args(seed))
+      call decimal_to_seed(so_seed_string,rn_seed_args(seed))
       if (so_sampling == so_direct) then
          rn_seed_copy(seed,temp_seed)
          call next_seed(-1,rn_seed_args(temp_seed))
