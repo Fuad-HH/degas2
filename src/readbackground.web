@@ -2,6 +2,10 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.22  1999/02/04 19:12:43  dstotler
+% If the boundary values are all = 0, leave plasma_e_ion... variables at
+% their default values.
+%
 % Revision 1.21  1999/02/02 15:05:52  dstotler
 % Modified read statements to get boundary plasma parameters from UEDATA
 % file.
@@ -231,7 +235,7 @@ of the file name (x.d is degas and x.u for uedge) */
       sp_decl(sp_hyd[3])
       sp_decl(degas_species[9])
       sc_decl(sector)
-      sc_plasma_decl(plasma_sc_ptr)
+      sc_target_decl(target_sc_ptr)
       vc_decl(x1)
       vc_decl(x2)
 
@@ -385,7 +389,14 @@ of the file name (x.d is degas and x.u for uedge) */
                      source_segment_rel_wt[seg]=one     // Default
                      vc_set(x1,xwall(jseg,jwall),zero,zwall(jseg,jwall))
                      vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
-                     sector=lookup_sector(x1,x2)
+                     sector=lookup_sector(x2,x1)
+                     if (sc_target_check(sector_type_pointer[sector][sc_target])) then
+                        target_sc_ptr=sector_type_pointer[sector][sc_target]
+                        target_e_ion_delta[target_sc_ptr]=const(3.)*bk_temp(1,sector_zone[sector])
+                        target_e_ion_mult[target_sc_ptr]=one
+                     else if (sc_wall_check(sector_type_pointer[sector][sc_target])) then
+                        assert(so_type(so_grps) == so_puff)
+@#if 0
                      if (zn_type(sector_zone(sector)) == zn_solid) then
                         sector=lookup_sector(x2,x1)
                      end if
@@ -400,6 +411,7 @@ of the file name (x.d is degas and x.u for uedge) */
                         assert(sc_plasma_check(plasma_sc_ptr))
                         plasma_e_ion_delta[plasma_sc_ptr]=const(3.)*bk_temp(1,sector_zone(sector))
                         plasma_e_ion_mult[plasma_sc_ptr]=one
+@#endif
                      end if
                      source_segment_ptr[seg]=sector
                   else
@@ -451,7 +463,7 @@ of the file name (x.d is degas and x.u for uedge) */
       vc_decl(x2)
       vc_decl(v_bdy)
       sc_decl(sector)
-      sc_plasma_decl(plasma_sc_ptr)
+      sc_target_decl(target_sc_ptr)
       
       external lookup_sector,inc_ion_energy
       integer lookup_sector
@@ -603,17 +615,32 @@ of the file name (x.d is degas and x.u for uedge) */
             vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
             vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
             sector=lookup_sector(x1,x2)
+            if (!sc_check(sector)) then
+               sector=lookup_sector(x2,x1)
+            end if
+@#if 0
             if (zn_type(sector_zone(sector)) == zn_solid) then
                sector=lookup_sector(x2,x1)
             end if
+@#endif
+
 @#if !OLD_UEDATA
+@#if 0
             plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
             assert(sc_plasma_check(plasma_sc_ptr))
+@#endif
+            target_sc_ptr=sector_type_pointer[sector][sc_target]
+            assert(sc_target_check(target_sc_ptr))
             vc_set(v_bdy,vr1[j2],vphi1[j2],vz1[j2])
             if (vc_abs(v_bdy) > zero || te1[j2] > zero) then
+@#if 0
                plasma_e_ion_delta[plasma_sc_ptr]
      $              =inc_ion_energy(vc_args(v_bdy),ti1[j2],te1[j2])
                plasma_e_ion_mult[plasma_sc_ptr]=zero
+@#endif
+               target_e_ion_delta[target_sc_ptr]
+     $              =inc_ion_energy(vc_args(v_bdy),ti1[j2],te1[j2])
+               target_e_ion_mult[target_sc_ptr]=zero
             end if                           // else: using default values
 @#endif
             source_segment_ptr[i]=sector
@@ -638,17 +665,32 @@ of the file name (x.d is degas and x.u for uedge) */
             vc_set(x1,rm[j1,j2,2],zero,zm[j1,j2,2])
             vc_set(x2,rm[j1,j2,4],zero,zm[j1,j2,4])
             sector=lookup_sector(x1,x2)
+            if (!sc_check(sector)) then
+               sector=lookup_sector(x2,x1)
+            end if
+@#if 0
             if (zn_type(sector_zone(sector)) == zn_solid) then
                sector=lookup_sector(x2,x1)
             end if
+@#endif
+
 @#if !OLD_UEDATA
+@#if 0
             plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
             assert(sc_plasma_check(plasma_sc_ptr))
+@#endif
+            target_sc_ptr=sector_type_pointer[sector][sc_target]
+            assert(sc_target_check(target_sc_ptr))
             vc_set(v_bdy,vr2[j2],vphi2[j2],vz2[j2])
             if (vc_abs(v_bdy) > zero || te2[j2] > zero) then
+@#if 0
                plasma_e_ion_delta[plasma_sc_ptr]
      $              =inc_ion_energy(vc_args(v_bdy),ti2[j2],te2[j2])
                plasma_e_ion_mult[plasma_sc_ptr]=zero
+@#endif
+               target_e_ion_delta[target_sc_ptr]
+     $              =inc_ion_energy(vc_args(v_bdy),ti2[j2],te2[j2])
+               target_e_ion_mult[target_sc_ptr]=zero
             end if                           // else: using default values
 @#endif
             source_segment_ptr[i]=sector
