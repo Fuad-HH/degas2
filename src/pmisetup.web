@@ -2,6 +2,9 @@
 \Title{pmisetup}
 
 % $Log$
+% Revision 1.5  1998/04/16 15:31:05  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.4  1997/08/19 14:36:49  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -45,12 +48,12 @@ Introduction\ldots
 @<Functions...@>=
       subroutine read_pmi
       implicit_none_f77
-      pm_common                 // Common
+      pm_common                    // Common
       sp_common
       ma_common
       rf_common
       implicit_none_f90
-      integer length,p,b,e/*,i,j*/      // Local
+      integer length,p,b,e,i        // Local
       character*LINELEN line
       character*FILELEN file
       character*FILELEN tempfile     //local
@@ -115,6 +118,9 @@ loop1: continue
    Count and identify product species
 */      
       pm_product_num(pm_num) = 0
+      do i=1,pm_product_max
+         pm_product(pm_num,i)=int_unused
+      end do
 loop2: continue
       if ( next_token(line,b,e,p) ) then
          pm_product_num(pm_num) = pm_product_num(pm_num) + 1
