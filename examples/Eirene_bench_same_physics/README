@@ -7,7 +7,37 @@ rejection, as is done in the EIRENE run. The file hionize.nc required
 manually alterations following generation by ratecalc in order for it to
 work as required. Hence, the binary file is included here.
 It should be regenerated if the format (xsection.hweb) of the data changes.
-Before compiling readgeometry and readbackground, the flag 
-UEDGE_RECT_SLAB must be changed from "0" to "1". A reduced set of tallies, 
+
+Because this geometry differs from the normal single-null configuration
+expected by readgeometry and readbackground, specific internal changes
+were required to those codes. Before compiling readgeometry and 
+readbackground, the flag UEDGE_RECT_SLAB must be changed from "0" to "1"
+to enable these changes. Be sure to reset those flags to "0" prior
+to running the code with other geometries.
+
+This example will now also serve as a performance benchmark. However, some
+aspects of this benchmark are not yet standard parts of the code (principally
+because they result in increases in variance) and must also be
+enabled by compiler switches:
+ * geomint.hweb - PLANE_SURFACES 1 (normal is "0"; with "1", the code drops
+   the quadratic terms in the surface representation).
+ * tallysetup.web - OPTIMIZE 1 (this defines a minimal set of tallies, 4
+   as compared to the 14 or so obtained with the default "0").
+ * collide.web - RR 1 (does Russian roulette when molecular dissociation
+   products are both the same test species; with "0", both such products
+   would be tracked).
+
+The text and primary netCDF output here are for 80,000 flights. The run
+time on a Sun UltraSPARC 2 running SunOS 5.5.1 and V. 4.2 of f77 with
+"-O4" optimization is 626 seconds (via the shell command "time flighttest").
+
+The results from a 4000 flight run are included here as well in 
+degas2_4000_out.nc.
+
+
+
+
+A reduced set of tallies, 
 obtained by changing the flag OPTIMIZE from "0" to "1" in tallysetup, is 
-used for these output data. 80000 flights were run.
+used for these output data. 80000 flights were run. A second run with 
+just 4000 flights is in degas2_4000_out.nc
