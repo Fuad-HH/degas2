@@ -3,6 +3,14 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  1999/05/25 13:29:25  dstotler
+% Added source_num_checkpoints, so_chkpt macro, so_restart,
+% so_seed_string, so_spaced_seeds, so_seed_spacing, and
+% associated so_set_run_flags macro. Added so_seg_check.
+% Add so_rel_wt_min, so_rel_wt_max, so_wt_norm_min, so_wt_norm_max
+% and set them with so_set_run_flags. Added so_sampling,
+% so_direct_mult (macro), and so_direct_delta.
+%
 % Revision 1.9  1999/03/25 20:47:33  dstotler
 % Move in attribute descriptions from classes.web file.
 %
@@ -63,14 +71,17 @@ sources are handled.
 @m so_nflights(i) source_num_flights[i]
 @m so_chkpt(i)    source_num_checkpoints[i]
 @m so_species(i)  source_species[i]
+@m so_root_sp(i)  source_root_species[i]
 @m so_tot_curr(i) source_total_current[i]
 @m so_wt_norm(i)  source_weight_norm[i]
 @m so_scale(i)    source_scale_factor[i]
+@m so_name(i)     source_name[i]
 
 @m so_plate 1                // Source types
 @m so_puff 2
 @m so_recomb 3
 @m so_type_num 3
+@m so_name_len 10
 
 @m so_point 0                // Source geometries
 @m so_line 1
@@ -95,6 +106,9 @@ a ``run control'' dialog along with the number of flights, etc.
       so_spaced_seeds=FALSE;
       so_seed_spacing=100000000;
       so_sampling=so_random;
+      so_name(so_plate)='plate';
+      so_name(so_puff)='puff';
+      so_name(so_recomb)='recomb';
       so_rel_wt_min=const(5.,-1);
       so_rel_wt_max=const(2.);
       so_wt_norm_min=const(5.,-1);
@@ -118,8 +132,11 @@ a ``run control'' dialog along with the number of flights, etc.
       define_dimen_pk(so,source_grp_ind,so_grps)
       define_dimen_pk(so,source_seg_ind,so_seg_tot)
       define_dimen_pk(so,so_seed_string_ind,so_seed_len)
+      define_dimen_pk(so,so_name_ind,so_name_len)
+      define_dimen_pk(so,so_type_ind,so_type_num)
       
       define_var_pk(so,so_seed_string,CHAR,so_seed_string_ind)
+      define_var_pk(so,source_name,CHAR,so_name_ind,so_type_ind)
 
       define_varp_pk(so,source_base_ptr,INT,source_grp_ind)
       define_varp_pk(so,source_num_segments,INT,source_grp_ind)
@@ -128,7 +145,8 @@ a ``run control'' dialog along with the number of flights, etc.
       define_varp_pk(so,source_num_flights,INT,source_grp_ind)
       define_varp_pk(so,source_num_checkpoints,INT,source_grp_ind)
       define_varp_pk(so,source_species,INT,source_grp_ind)
-
+      define_varp_pk(so,source_root_species,INT,source_grp_ind)
+      
       define_varp_pk(so,source_total_current,FLOAT,source_grp_ind)
       define_varp_pk(so,source_weight_norm,FLOAT,source_grp_ind)
       define_varp_pk(so,source_scale_factor,FLOAT,source_grp_ind)
@@ -193,6 +211,11 @@ out for group |igroup|. A value of 0 will result in no checkpoint files.
   \item[|so_species(igroup)|] Species index (species class) of group
 |igroup|.
 
+  \item[|so_root_sp(igroup)|] Root species that gives rise to the actual
+species sourced. In the cases of plate and recombination (and, perhaps,
+puff) sources, this is a background species providing the distribution
+function for the source.
+
   \item[|so_tot_curr(igroup)|] Total current (particles per second) of all
 segments in group |igroup|.
 
@@ -240,6 +263,9 @@ serves as an indirect pointer to the same set of geometry elements.
 For further explanation see the routines
 |sample_sources| and |set_prob_alias|. This is computed as part of the
 setup process from the source current distribution.
+
+  \item[|so_name(itype)|] Name of each of the source types stored as
+a string for output purposes.
 \end{description}
 
 @ Run control parameters. The macro |so_set_run_flags| assigns all of these
