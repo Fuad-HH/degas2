@@ -2,6 +2,9 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.2  1996/05/24 18:49:20  dstotler
+% Add all of the routines to handle PMI.
+%
 % Revision 1.1  1996/03/01 20:37:48  dstotler
 % Add to repository.
 %
@@ -59,15 +62,14 @@ included in case a distribution must be sampled.
 
       pmi_sub=pr_pm_cases(pt_test(p),ts_pmi)
 
-      assert(pmi_yield_var[pmi_sub][0] == pf_var_yield)
 /* This construct appears to be unnecessary given that the random number
    thread is passed down to |pd_eval_data| anyway. It allows random
    numbers to serve as independent variables for tables (e.g., cumulative
    distributions) in a transparent manner.
 */
-      if (pmi_yield_num_random[pmi_sub] > 0) then
-         assert(pmi_yield_num_random[pmi_sub] <= pf_max_random)
-         do i=1,pmi_yield_num_random[pmi_sub]
+      if (pmi_yield_num_rand[pmi_sub] > 0) then
+         assert(pmi_yield_num_rand[pmi_sub] <= pf_max_random)
+         do i=1,pmi_yield_num_rand[pmi_sub]
             rn_next(ran,x)
             independent_parameters[pf_var_1st_random_number+i-1]=ran
          end do
@@ -82,7 +84,8 @@ included in case a distribution must be sampled.
       return
       end
 
-@ Subroutines to process PMI. The arguments here are |p|, the identifier for 
+@ Subroutine to pick out the subroutine corresponding to this PMI. 
+The arguments here are |p|, the identifier for 
 the present particle, and |ts_pmi|, the index into the list of PMI in which
 this test particle participates. The array |independent_parameters| contains
 the values of the physical parameters which are needed to process these
@@ -90,7 +93,7 @@ PMI. The number of products, |nprod| and their particle objects |prod| are
 returned. The random number thread |x| is included in case it's needed.
 
 @<Functions...@>=
-      subroutine process_pmi(pt_dummy(p),pr_pmi_dummy(ts_pmi),
+      subroutine pick_pmi(pt_dummy(p),pr_pmi_dummy(ts_pmi),
      $   independent_parameters,nprod,pt_dummy(prod),rn_dummy(x))
       implicit_none
 
@@ -102,6 +105,7 @@ returned. The random number thread |x| is included in case it's needed.
       rn_decl(x)                       // Input/output
 
       integer i                        // Local
+      real ran
       vc_decl(v_temp)
       pr_pmi_decl(pmi_sub)
 
@@ -109,10 +113,24 @@ returned. The random number thread |x| is included in case it's needed.
       real intersection_direction
 
       pr_common                        // Common
+      pd_common
       pm_common
       sp_common
 
       pmi_sub=pr_pm_cases(pt_test(p),ts_pmi)
+
+/* This is where we really need to stow these random numbers ahead of
+   time. In particular, for the Bateman format the {\em same} random
+   numbers are needed to evaluate each of the three components of the
+   product velocity.
+*/
+      if (pmi_handling_num_rand[pmi_sub] > 0) then
+         assert(pmi_handling_num_rand[pmi_sub] <= pf_max_random)
+         do i=1,pmi_handling_num_rand[pmi_sub]
+            rn_next(ran,x) 
+            independent_parameters[pf_var_1st_random_number+i-1]=ran
+         end do
+      end if
 
 /* Loop over various PMI types
 */
@@ -150,14 +168,13 @@ returned. The random number thread |x| is included in case it's needed.
          pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
          lc_copy(pt_loc(p),pt_loc(prod[i]))
          pt_t(prod[i])=pt_t(p)
- //        if (pt_test(prod[i]) > 0) then        DO THIS IN subr. follow
-            pt_w(prod[i])=pt_w(p)*pt_w(prod[i])
-            if (sp_z(pt_sp(prod[i])) == 0) then
-               pt_type(prod[i])=pt_neutral
-            else
-               pt_type(prod[i])=pt_ion
-            end if
- //        end if
+         pt_w(prod[i])=pt_w(p)*pt_w(prod[i])
+         pt_author_pm(prod[i],pmi_sub)
+         if (sp_z(pt_sp(prod[i])) == 0) then
+            pt_type(prod[i])=pt_neutral
+         else
+            pt_type(prod[i])=pt_ion
+         end if
       end do
 
       return
@@ -185,8 +202,7 @@ work is all done in |pd_eval_v_product|.
 
       rn_decl(x)                              // Input/output
 
-      integer j                               // Local
-      real ran
+      real ran                                // Local
       pr_pmi_decl(pmi_sub)
 
       pd_common                               // Common
@@ -203,19 +219,6 @@ work is all done in |pd_eval_v_product|.
       assert(pr_pm_prod(test,ts_pmi,1,1) == pr_test(test))
       nprod=1
       prod[1]=pr_pm_prod(test,ts_pmi,1,1)
-
-/* This is where we really need to stow these random numbers ahead of
-   time. In particular, for the Bateman format the {\em same} random
-   numbers are needed to evaluate each of the three components of the
-   product velocity.
-*/
-      if (pmi_handling_num_random[pmi_sub] > 0) then
-         assert(pmi_handling_num_random[pmi_sub] <= pf_max_random)
-         do j=1,pmi_handling_num_random[pmi_sub]
-            rn_next(ran,x) 
-            independent_parameters[pf_var_1st_random_number+j-1]=ran
-         end do
-      end if
 
       call pd_eval_v_product(pr_pmi_args(pmi_sub),independent_parameters,
      $     sp_args(prod[1]),vc_args(v_prod[1]),rn_args(x))
@@ -271,14 +274,6 @@ for incident hydrogen atoms, either an atom or a molecule may be desorbed.
       arr=max(arr,1)
       arr=min(arr,pr_pm_num_arrange(test,ts_pmi))
       prod[1]=pr_pm_prod(test,ts_pmi,arr,1)
-
-      if (pmi_handling_num_random[pmi_sub] > 0) then
-         assert(pmi_handling_num_random[pmi_sub] <= pf_max_random)
-         do j=1,pmi_handling_num_random[pmi_sub]
-            rn_next(ran,x)
-            independent_parameters[pf_var_1st_random_number+j-1]=ran
-         end do
-      end if
 
       call pd_eval_v_product(pr_pmi_args(pmi_sub),independent_parameters,
      $     sp_args(prod[1]),vc_args(v_prod[1]),rn_args(x))
@@ -453,11 +448,10 @@ Note that the {\em calling} argument list is defined via a macro in
 pmidata.hweb for simplicity.
 
 @m data_array(i,j,k,l,m) data_table[i+tab_index[1]*(j+tab_index[2]*(k+tab_index[3]*(l+tab_index[4]*m)))+tab_base]
-@m var_array(i,j) var_table[i+var_base[j]]
 
 @<Functions...@>=
       function pd_eval_data(eval_name,rank,ind_params_label,tab_index,spacing,
-     $                   min,delta,var_table,var_base,data_table,tab_base,
+     $                   min,delta,data_table,tab_base,
      $                   independent_parameters,rn_dummy(x))
       implicit_none
 
@@ -466,18 +460,18 @@ pmidata.hweb for simplicity.
       character*pf_eval_string_length eval_name         // Input
       integer rank,ind_params_label[pf_table_rank_max],
      $     spacing[0:pf_table_rank_max],tab_index[pf_table_rank_max],
-     $     var_base[*],tab_base
+     $     tab_base
       real ind_params_value[pf_table_rank_max],min[pf_table_rank_max],
-     $     delta[pf_table_rank_max],var_table[0:*],data_table[0:*],
+     $     delta[pf_table_rank_max],data_table[0:*],
      $     independent_parameters[pf_max_indep_params]
       
       rn_decl(x)                                        // Input/output
 
       integer i                                          // Local
 
-      external find_index,interpolate1,interpolate2,     // External
+      external interpolate1,interpolate2,     // External
      $         interpolate3,interpolate4,interpolate5,pd_eval_fit
-      real find_index,interpolate1,interpolate2,
+      real interpolate1,interpolate2,
      $     interpolate3,interpolate4,interpolate5,pd_eval_fit
 
       if (rank > 0) then
@@ -495,9 +489,8 @@ pmidata.hweb for simplicity.
                if (spacing[i] == pf_spacing_log 
      $              || spacing[i] == pf_spacing_linear) then
                   ind_params_value[i]=(ind_params_value[i]-min[i])/delta[i] 
-               else if (spacing[i] == pf_spacing_nonuniform) then
-                  ind_params_value[i]=find_index(ind_params_value[i],
-     $                 var_array(0,i),tab_index[i])
+               else
+                  assert('Unsupported spacing' == ' ')
                end if
             end do
          end if
@@ -537,11 +530,10 @@ This is less involved since tables make no sense
 in this case where three numbers need to be returned rather than just one.
 
 @m data_array(i,j,k,l,m) data_table[i+tab_index[1]*(j+tab_index[2]*(k+tab_index[3]*(l+tab_index[4]*m)))+tab_base]
-@m var_array(i,j) var_table[i+var_base[j]]
 
 @<Functions...@>=
       subroutine pd_eval_vhat(eval_name,rank,ind_params_label,tab_index,
-     $                   spacing,min,delta,var_table,var_base,data_table,
+     $                   spacing,min,delta,data_table,
      $                   tab_base,
      $                   independent_parameters,rn_dummy(x),vc_dummy(vhat))
       implicit none
@@ -549,9 +541,9 @@ in this case where three numbers need to be returned rather than just one.
       character*pf_eval_string_length eval_name           // Input
       integer rank,ind_params_label[pf_table_rank_max],
      $     spacing[0:pf_table_rank_max],tab_index[pf_table_rank_max],
-     $     var_base[*],tab_base
+     $     tab_base
       real ind_params_value[pf_table_rank_max],min[pf_table_rank_max],
-     $     delta[pf_table_rank_max],var_table[0:*],data_table[0:*],
+     $     delta[pf_table_rank_max],data_table[0:*],
      $     independent_parameters[pf_max_indep_params]
 
       vc_decl(vhat)                                     // Output
@@ -923,7 +915,6 @@ to be varied.
       call pf_copy(num)
 
       var_free(pf_data_tab)
-      var_free(pf_indep_var_tab)
 
       return
       end
@@ -937,7 +928,7 @@ information into PMI yield and handling arrays.
       integer num                                         // Input
       integer i,j,jdep,k,l,m,ph_ind,num_random            // Local
       integer spacing[0:pf_table_rank_max],var[pf_table_rank_max]
-      real table_entry,indep_var,min[pf_table_rank_max],delta[pf_table_rank_max]
+      real table_entry,min[pf_table_rank_max],delta[pf_table_rank_max]
       character*pf_eval_string_length eval_name
 
       pf_common
@@ -952,8 +943,7 @@ information into PMI yield and handling arrays.
       ph_ind=0
       pmi_yield_rank[num]=0
       pmi_yield_eval_name[num]='unknown'
-      pmi_yield_var[num][0]=pf_var_unknown 
-      pmi_yield_num_random[num]=0
+      pmi_yield_num_rand[num]=0
       pmi_yield_spacing[num][0]=pf_spacing_unknown
       do i=1,pf_table_rank_max
          pmi_yield_var[num][i]=pf_var_unknown 
@@ -963,7 +953,7 @@ information into PMI yield and handling arrays.
          pmi_yield_tab_index[num][i]=0
       end do
 
-      pmi_handling_num_random[num]=0
+      pmi_handling_num_rand[num]=0
       do j=1,pd_dep_var_max
          pmi_handling_rank[num][j]=0
          pmi_handling_eval_name[num][j]='unknown'
@@ -989,8 +979,6 @@ information into PMI yield and handling arrays.
             spacing[i]=pf_spacing_linear
          else if (pf_spacing[i,jdep] == 'log') then
             spacing[i]=pf_spacing_log
-         else if (pf_spacing[i,jdep] == 'nonuniform') then
-            spacing[i]=pf_spacing_nonuniform
          else if (pf_spacing[i,jdep] == 'unknown') then
             spacing[i]=pf_spacing_unknown
          end if
@@ -1002,8 +990,6 @@ information into PMI yield and handling arrays.
                   spacing[i]=pf_spacing_linear
                else if (pf_spacing[i,jdep] == 'log') then
                   spacing[i]=pf_spacing_log
-               else if (pf_spacing[i,jdep] == 'nonuniform') then
-                  spacing[i]=pf_spacing_nonuniform
                else if (pf_spacing[i,jdep] == 'unknown') then
                   spacing[i]=pf_spacing_unknown
                end if
@@ -1029,8 +1015,6 @@ information into PMI yield and handling arrays.
                else if (pf_var[i,jdep] == '3rd_random_number') then
                   var[i]=pf_var_3rd_random_number
                   num_random=max(3,num_random)
-               else if (pf_var[i,jdep] == 'fit_coef') then
-                  var[i]=pf_var_fit_coef
                else 
                   assert('Unknown independent variable' == ' ')
                end if
@@ -1046,7 +1030,7 @@ information into PMI yield and handling arrays.
      $                 log(pf_max[i,jdep]/pf_min[i,jdep])/
      $                 areal(pf_tab_index[jdep][i]-1)
                 else
-                  min[i]=zero     // Not needed for nonuniform cases
+                  min[i]=zero   
                   delta[i]=zero
                end if
             end do
@@ -1059,12 +1043,11 @@ information into PMI yield and handling arrays.
 */
          if (pf_var[0,jdep] == 'reflection_coef' 
      $  || pf_var[0,jdep] == 'yield') then
-            pmi_yield_var[num][0]=pf_var_yield    // For consistency
             pmi_yield_eval_name[num]=eval_name
             pmi_yield_rank[num]=pf_rank[jdep]
             assert(pf_rank[jdep] > 0 || pf_rank[jdep] <= pf_table_rank_max)
             pmi_yield_spacing[num][0]=spacing[0]
-            pmi_yield_num_random[num]=max(num_random,pmi_yield_num_random[num])
+            pmi_yield_num_rand[num]=max(num_random,pmi_yield_num_rand[num])
             do i=1,pf_rank[jdep]
                pmi_yield_tab_index[num][i]=pf_tab_index[jdep][i]
                pmi_yield_spacing[num][i]=spacing[i]
@@ -1078,7 +1061,6 @@ information into PMI yield and handling arrays.
                end do
             end if
             pd_ragged_realloc(pmi_yield,pmi_yield_tab_index,[num])
-            pd_ragged_realloc(pmi_yield_indep_var,pmi_yield_tab_index,[num])
 
          else if (pf_var[0,jdep] == 'unknown') then
             goto skip
@@ -1088,7 +1070,7 @@ information into PMI yield and handling arrays.
             pmi_handling_eval_name[num][ph_ind]=eval_name
             pmi_handling_rank[num][ph_ind]=pf_rank[jdep]
             pmi_handling_spacing[num][ph_ind][0]=spacing[0]
-            pmi_handling_num_random[num]=max(num_random,pmi_handling_num_random[num])
+            pmi_handling_num_rand[num]=max(num_random,pmi_handling_num_rand[num])
             if (pf_rank[jdep] > 0) then
                do i=1,pf_rank[jdep]
                   pmi_handling_tab_index[num][ph_ind][i]=pf_tab_index[jdep][i]
@@ -1104,28 +1086,8 @@ information into PMI yield and handling arrays.
                end do
             end if
             pd_ragged_realloc(pmi_handling,pmi_handling_tab_index,[num][ph_ind])
-            pd_ragged_realloc(pmi_handling_indep_var,pmi_handling_tab_index,[num][ph_ind])
          end if   // Yield vs. not-yield if-then-else
 
-/* Copy over independent variable arrays. Apply multiplier and log function
-   as needed; transfer to appropriate table. */
-         if (pf_rank[jdep] > 0) then
-            do j=1,pf_rank[jdep]
-               do i=0,pf_tab_index[j,jdep]-1
-                  if (spacing[j] == pf_spacing_log) then
-                     indep_var=log(pf_indep_var_table(i,j,jdep)*pf_mult[j,jdep])
-                  else
-                     indep_var=pf_indep_var_table(i,j,jdep)*pf_mult[j,jdep]
-                  end if
-               
-                  if (pf_var[0,jdep] == 'reflection_coef' || pf_var[0,jdep] == 'yield') then
-                     pd_yield_indep_var(i,j,num)=indep_var
-                  else
-                     pd_handling_indep_var(i,j,ph_ind,num)=indep_var
-                  end if
-               end do
-            end do
-         end if
 /*
    Now retrieve the tabular data for this dependent variable...
 */
@@ -1182,10 +1144,9 @@ skip: continue
       var_alloc(pmi_yield_eval_name)
       var_alloc(pmi_yield_tab_index)
       var_alloc(pmi_yield_var)
-      var_alloc(pmi_yield_num_random)
+      var_alloc(pmi_yield_num_rand)
 
       pd_ragged_alloc(pmi_yield)
-      pd_ragged_alloc(pmi_yield_indep_var)
 
       var_alloc(pmi_handling_min)
       var_alloc(pmi_handling_delta)
@@ -1195,10 +1156,9 @@ skip: continue
       var_alloc(pmi_handling_tab_index)
       var_alloc(pmi_handling_var0)
       var_alloc(pmi_handling_var)
-      var_alloc(pmi_handling_num_random)
+      var_alloc(pmi_handling_num_rand)
 
       pd_ragged_alloc(pmi_handling)
-      pd_ragged_alloc(pmi_handling_indep_var)
 
       do i=1,pr_pmi_num
          call pmi_read(i)
