@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.8  1997/08/19 14:36:37  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.7  1997/08/07 19:42:07  dstotler
 % Add source label to flight properties.
 %
@@ -83,6 +88,35 @@
 @m fl_init(x,sy) pt_init(fl_origin(x),sy,fl_source(x));
       fl_pointer(x)=1;
       pt_copy(fl_origin(x),fl_current(x)) @;
+
+@* Flight class attribute descriptions.
+
+@ Define a flight. Prefix is |fl|.  
+
+The identifier |flight| is a string tag.
+
+\begin{description}
+  \item[|fl_number(flight)|] Is the flight number.
+  \item[|fl_source(flight)|] Is the number of the source which gave rise 
+to the flight.
+  \item[|fl_origin(flight)|] Is the particle initiating the flight.
+  \item[|fl_rand(flight)|] Is the random number information for the flight.
+  \item[|fl_stack(flight)|] Is the stack of particles being processed.
+  \item[|fl_pointer(flight)|] Is the pointer to the current particle 
+(maximum size |fl_stack_max|).
+  \item[|fl_current(flight)|] Is the current particle (same as
+|fl_stack(flight)[fl_pointer(flight)]|).
+\end{description}
+
+@ Routines using flights.
+
+\begin{description}
+  \item[|fl_label(flight,num,isource)|] Sets |fl_number(flight)| to |num| and 
+  \item[|fl_source(flight)|] To source number |isource|.
+  \item[|fl_init(flight,sy)|] Sets up a current flight containing a 
+particle of species |sy|, using |fl_origin(flight)| for the other particle 
+properties and |fl_source(flight)| as the ``author''.
+\end{description}
 
       
       
