@@ -370,6 +370,7 @@ comparison will be added to the DEGAS 2 User's Manual.
 MOLECULAR DEUTERIUM ION ELASTIC SCATTERING
 dd2_00_elastic.nc
 
+     --Version 3.1--
 These data were produced by ratecalc, revision 1.34, using
 dd2_elastic.input, revision 1.1, as the input file.  The fits in
 dd2_elastic.input were based on data obtained directly from
@@ -403,9 +404,25 @@ reagents, they cannot be used for other species. Once "species-specific"
 reactions have been enabled in DEGAS 2, this caveat will be enforced
 automatically by the code.
 
+     --Version 3.2--
+The revised data noted above were made available and were downloaded
+from the CFADC web site. The energy range for the data was strictly
+from 0.1 to 100 eV (Randy originally had data down to 1.e-3 eV), with
+only 3 data values in the third decade. The integrated cross sections
+were extrapolated to 1.e-3, and the scattering angle probability tables
+were interpolated to a uniform mesh. These data and the methods used to
+manipulate them are in the CVS archive "elastic" (tag "V2"). 
+
+The data in this netCDF file were produced with ratecalc, revision
+1.36, using dd2_elastic.input, revision 1.2, as the input file. 
+Manual editing of the file was performed to implement the changes
+noted above.
+
+
 MOLECULAR DEUTERIUM ION ELASTIC SCATTERING 5 DEGREE CUT-OFF
 dd2_05_elastic.nc
 
+     --Version 3.1--
 These data were produced by ratecalc, revision 1.34, using
 dd2_elastic.input, revision 1.1, as the input file.  The fits in
 dd2_elastic.input were based on data obtained directly from
@@ -450,6 +467,20 @@ reagents, they cannot be used for other species. Once "species-specific"
 reactions have been enabled in DEGAS 2, this caveat will be enforced
 automatically by the code.
 
+     --Version 3.2--
+The revised data noted above were made available and were downloaded
+from the CFADC web site. The energy range for the data was strictly
+from 0.1 to 100 eV (Randy originally had data down to 1.e-3 eV), with
+only 3 data values in the third decade. The integrated cross sections
+were extrapolated to 1.e-3, and the scattering angle probability tables
+were interpolated to a uniform mesh. These data and the methods used to
+manipulate them are in the CVS archive "elastic" (tag "V2"). 
+
+The data in this netCDF file were produced with ratecalc, revision
+1.36, using dd2_elastic.input, revision 1.2, as the input file. 
+Manual editing of the file was performed to implement the changes
+noted above.
+
 ELECTRON IMPACT IONIZATION OF ARGON
 
      --Version 1.0--
@@ -486,6 +517,76 @@ above the maximum. The original cross section data were valid over
 a few eV to 400 eV. The energy and temperature ranges here were taken
 to be that as well. These data will be replaced once more recent
 cross section fits are identified.
+
+ELECTRON IMPACT IONIZATION OF HELIUM FUJIMOTO FORM II
+
+ELECTRON RECOMBINATION OF HELIUM FUJIMOTO FORM II
+
+     --Version 1.0--
+These files can be generated directly from the Aladdin format data in 
+he_crII_alad.dat. This data file is output by a slightly modified (for
+the purposes of printing this and other output) version of Fujimoto's
+collisional radiative model for helium code [as described in T. Fujimoto,
+J. Quant. Spectrosc. Radiat. Transfer 21 (1979) 439.]. Note that two
+versions of this code were received from D. Reiter. The one used for
+these data had been modified to explicitly treat only the ground state neutral
+as a "slow" species. This had been done, apparently by Reiter, for the
+purpose of simplifying the computation of electron cooling rates in
+this case. A few additional changes were made to print out the emission
+rate of the (3|3D) -> (2|3P) transition.  Manually edited the resulting
+netCDF files to insert proper units, multipliers, and wavelength of this
+transition (5877.099 Angstroms).
+
+HELIUM DEUTERIUM ION ELASTIC SCATTERING
+
+     --Version 1.0--
+These data were obtained directly from P. Krstic, but are the same as those
+on the CFADC Web site (the latter appears to be missing differential cross
+sections from the upper most energy decade that are included here). Since
+the lower bound of the energy range was 0.1 eV, the data were extrapolated
+to 1.e-3 eV. The data and the methods used to manipulate them are in the CVS 
+archive "elastic" (tag "V2").
+
+The data in this netCDF file were produced with ratecalc, revision
+1.36, using dhe_elastic.input, revision 1.1, as the input file. 
+Manual editing of the file was performed to implement the changes
+noted above under "molecular deuterium ion elastic scattering"
+(The handling of these data parallels closely that applied to those data).
+
+The "00" means that the assumed minimum scattering angle is 0 degrees, and
+no approximations have been made in computing the cross sections.
+These data are provided for comparison purposes with the "05" data.
+Additional information on these data is contained in the
+dhe_elastic.input file.
+
+
+HELIUM DEUTERIUM ION ELASTIC SCATTERING 5 DEGREE CUT-OFF
+
+     --Version 1.0--
+These data were obtained directly from P. Krstic, but are the same as those
+on the CFADC Web site (the latter appears to be missing differential cross
+sections from the upper most energy decade that are included here). Since
+the lower bound of the energy range was 0.1 eV, the data were extrapolated
+to 1.e-3 eV. The data and the methods used to manipulate them are in the CVS 
+archive "elastic" (tag "V2").
+
+The data in this netCDF file were produced with ratecalc, revision
+1.36, using dhe_elastic.input, revision 1.1, as the input file. 
+Manual editing of the file was performed to implement the changes
+noted above under "molecular deuterium ion elastic scattering"
+(The handling of these data parallels closely that applied to those data).
+
+The "05" means that a minimum scattering angle of 5 degrees has been assumed.
+The treatment of elastic scattering in a Monte Carlo neutral transport
+code can be made more efficient by replacing scatterings with deviations
+smaller than some minimum cutoff angle by an effective scattering at
+that minimum angle. The total cross section is computed so as to keep
+the diffusion cross section at its expected value (the viscosity cross
+section is modified only very slightly). If there is doubt as to the
+validity of this approximation in a particular case, the run should be
+repeated with the corresponding "00" data and the results compared.
+Additional information on these data is contained in the
+dhe_elastic.input file.
 
 ___________________________________________________________________________
 
@@ -820,6 +921,22 @@ armirror.nc
 Simple data file describing unit yield, specular reflection off a surface,
 i.e., a mirror. This file was copied from hmirror.nc and edited to replace
 H with Ar.
+
+HELIUM REFLECTION (TRIM) ON CARBON
+He_refl_trim_C.nc
+
+     --Version 1.0--
+The routine and original TRIM data file used here were exactly as
+described above for D_refl_strim_Mo, V. 1.1. This file is generated
+directly by pmiwrite v. 1.11, without modification.
+
+HELIUM REFLECTION (TRIM) ON IRON
+He_refl_trim_Fe.nc
+
+     --Version 1.0--
+The routine and original TRIM data file used here were exactly as
+described above for D_refl_strim_Mo, V. 1.1. This file is generated
+directly by pmiwrite v. 1.11, without modification.
 
 ***NOTE: The following files should probably be updated to contain the
 "real_unused" constant in the appropriate places. Holding off on doing this
