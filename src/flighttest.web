@@ -2,6 +2,17 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.33  1999/05/25 13:39:08  dstotler
+% Numerous changes to permit checkpointing, restarts, and to
+% improve MPI performance. weight_grp is replaced by
+% output_weight_grp. Random number seeds handled through
+% variables in sources.hweb. Add flag routines to pass
+% instructions between slaves and master. Remove
+% post-processing modifications to output_grp so it can be
+% used for restart; add variances to out_post arrays instead.
+% Additional changes to initialize random parameter used for
+% direct sampling.
+%
 % Revision 1.32  1999/04/20 20:06:03  dstotler
 % Generalized test species for spectrum & chord output. Move resetting
 % of stat_size_flt outside of post-process if-then-else clause.
@@ -353,6 +364,9 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             end do
          end if
       end do
+      var_reallocb(chkpt_grp)
+      var_reallocb(chkpt_write)
+      var_reallocb(chkpt_nflights)
 
       is=0
       do icp=1,num_chkpts
@@ -397,7 +411,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             if (nslaves>0) then
                call slave_receive_flag(slave)
                write(stderr,*) 'Slave ',slave,' is done with a batch'
-               write(stderr,*) 'Sending more to slave ',slave
+               write(stderr,*) 'Sending ',nfrag,' more to slave ',slave
                send_data=FALSE
                call slave_send_flag(slave,send_data)
                call slave_send_flights(slave,output_num_flights[is]+nstart,num,so_args(is),seed)
