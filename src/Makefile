@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.73  2000/04/01 17:37:51  dstotler
+# Merged with dps_2_6_changes. Increased fweave flag ykw from 600 to
+# 700.
+#
 # Revision 1.72  2000/03/27 21:14:38  dstotler
 # A little clean up following merger with Randy's branch.
 #
@@ -419,8 +423,8 @@ Makefile.depends: $(SOURCEDIR)/Makefile.depends
 	cp $< $@
 %.sty: $(SOURCEDIR)/%.sty
 	cp $< $@
-degas2.in: $(SOURCEDIR)/degas2.in
-	cp $< $@
+# degas2.in: $(SOURCEDIR)/degas2.in
+#	cp $< $@
 
 # Comment out these lines as long as CRAMD is not part of the DEGAS 2
 # distribution.
@@ -511,7 +515,7 @@ ifndef CROSSCOMPILE
   O=o
   %.o: %.f
 	$(FC) -c $(FFLAGS) $(COMPFLAGS) $(PROFILE) $<
-  %: %.o $(SYSDEPO) string.$O idtof degas2.in
+  %: %.o $(SYSDEPO) string.$O idtof 
 	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
 	$(FC) -c $(FFLAGS) $*.id.f
 	$(LD) $(FFLAGS) $(COMPFLAGS) $(PROFILE) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs) $(PROF_LD)
@@ -519,7 +523,7 @@ ifndef CROSSCOMPILE
 else # We're cross compiling
   O=f
   %: %.o
-  %: %.$O sysdep.$O string.$O idtof degas2.in
+  %: %.$O sysdep.$O string.$O idtof 
 	@echo Made $^
   DG2D=definegeometry2d.f definegeometry2dc.c triangle.c
 endif
@@ -648,7 +652,7 @@ pvmslave = pvmslave.$O random.$O randother.$O stat.$O geometry.$O elementread.$O
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave) $(foreach arg,$(subst .$O,_mods,$(pvmslave)),$($(arg)))
 
-flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O interpolate.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O
+flighttest = flighttest.$O doflights.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O interpolate.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O writeback.$O aux2dsetup.$O geomsetup.$O geomfaces.$O geomutils.$O allocate.$O
 flighttest_libs = $(NETCDF) $(MPILIBSA)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
@@ -656,7 +660,7 @@ geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfac
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 
-geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O interpolate.$O collide.$O randother.$O random.$O conversions.$O voigt.$O degasinit.$O
+geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O interpolate.$O collide.$O randother.$O random.$O conversions.$O voigt.$O degasinit.$O sources.$O
 geomtesta_libs =  $(NETCDF) $(HDF)
 geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
 
@@ -712,9 +716,18 @@ definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomu
 definegeometry2d_libs = $(NETCDF)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
-boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O interpolate.$O random.$O
+boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O interpolate.$O random.$O aux2dsetup.$O
 boxgen_libs = $(CRAMD) $(NETCDF)
 boxgen: $(boxgen) $(foreach arg,$(subst .$O,_mods,$(boxgen)),$($(arg)))
+
+ncsxback = ncsxback.$O readfilenames.$O allocate.$O interpolate.$O pmimatread.$O geomsetup.$O geomfaces.$O geometry.$O geomutils.$O writeback.$O aux2dsetup.$O elementread.$O reaction.$O random.$O
+ncsxback_libs = $(NETCDF)
+ncsxback: $(ncsxback) $(foreach arg,$(subst .$O,_mods,$(ncsxback)),$($(arg)))
+
+plotflight = plotflight.$O string.$O
+plotflight_libs =
+plotflight: $(plotflight) $(foreach arg,$(subst .$O,_mods,$(plotflight)),$($(arg)))
+
 
 cramdproblem = cramdproblem.$O pmimatread.$O cramdadd.$O readfilenames.$O elementread.$O geometry.$O
 cramdproblem_libs = $(CRAMD) $(NETCDF)
@@ -724,7 +737,7 @@ readfilenames=  readfilenames.$O readfilenames.$O sysdep.$O string.$O
 readfilename_libs =
 readfilenames: $(readfilenames) $(foreach arg,$(subst .$O,_mods,$(readfilenames)),$($(arg)))
 
-readbackground = readbackground.$O readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O allocate.$O reaction.$O interpolate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O random.$O
+readbackground = readbackground.$O readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O allocate.$O reaction.$O interpolate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O random.$O aux2dsetup.$O
 readbackground_libs = $(CRAMD) $(NETCDF)
 readbackground: $(readbackground) $(foreach arg,$(subst .$O,_mods,$(readbackground)),$($(arg)))
 
@@ -740,7 +753,7 @@ pmitest = pmitest.$O elementread.$O pmimatread.$O plate.$O readfilenames.$O rand
 pmitest_libs = $(NETCDF)
 pmitest: $(pmitest) $(foreach arg,$(subst .$O,_mods,$(pmitest)),$($(arg)))
 
-sourcetest = sourcetest.$O sources.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O interpolate.$O
+sourcetest = sourcetest.$O sources.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O interpolate.$O score.$O collide.$O reaction.$O conversions.$O
 sourcetest_libs = $(CRAMD) $(NETCDF)
 sourcetest: $(sourcetest) $(foreach arg,$(subst .$O,_mods,$(sourcetest)),$($(arg)))
 
