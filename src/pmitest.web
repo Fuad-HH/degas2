@@ -2,6 +2,9 @@
 \Title{pmitest}
 
 % $Log$
+% Revision 1.2  1996/10/30 18:12:40  dstotler
+% Trivial changes.
+%
 % Revision 1.1  1996/05/24 18:53:37  dstotler
 % Initial entry into repository.
 %
@@ -29,8 +32,11 @@
       integer length,p,b,e
       integer seed[0:5]
       integer i,nprod
-      real velocity,energy,polar_angle,yield,ran,eprod
+      real velocity,energy,polar_angle,yield,ran
       real independent_parameters[pf_max_indep_params]
+ //     integer j,j_max
+ //     real eprod,cos_theta,sin_phi,cos_phi,e_avg,cos_th_avg,cos_phi_avg,
+ //    $     sin_theta,sin_phi_avg
       
       pm_decl(pmi_ref)
       sp_decl(test_species)
@@ -109,7 +115,6 @@ loop1: continue
    product velocities. */
       vc_set(v_test,velocity*sin(polar_angle),zero,-velocity*cos(polar_angle))
 
-      assert(pmi_yield_var[pmi_sub][0] == pf_var_yield)
       do i=1,pf_max_indep_params
          independent_parameters[i]=zero
       end do
@@ -119,9 +124,9 @@ loop1: continue
       independent_parameters[pf_var_vel_3_in]=v_test[3]
       independent_parameters[pf_var_polar_angle_in]=polar_angle
       independent_parameters[pf_var_t_wall]=const(3.,2)*boltzmanns_const // INPUT !!
-      if (pmi_yield_num_random[pmi_sub] > 0) then
-         assert(pmi_yield_num_random[pmi_sub] <= pf_max_random)
-         do i=1,pmi_yield_num_random[pmi_sub]
+      if (pmi_yield_num_rand[pmi_sub] > 0) then
+         assert(pmi_yield_num_rand[pmi_sub] <= pf_max_random)
+         do i=1,pmi_yield_num_rand[pmi_sub]
             rn_next(ran,tag)
             independent_parameters[pf_var_1st_random_number+i-1]=ran
          end do
@@ -136,8 +141,23 @@ loop1: continue
       write(stdout,*) '    Incident polar angle = ',polar_angle,' radians'
       write(stdout,*) '      => Yield = ',yield
 
-/* Determine PMI products */
-//      do i=1,640000           
+/* Determine PMI products 
+
+      e_avg=zero
+      cos_th_avg=zero
+      cos_phi_avg=zero
+      sin_phi_avg=zero
+      j_max=2000
+      do j=1,j_max
+*/
+      if (pmi_handling_num_rand[pmi_sub] > 0) then
+         assert(pmi_handling_num_rand[pmi_sub] <= pf_max_random)
+         do i=1,pmi_handling_num_rand[pmi_sub]
+            rn_next(ran,tag) 
+            independent_parameters[pf_var_1st_random_number+i-1]=ran
+         end do
+      end if
+
       if (pm_pmi_type(pmi_ref) == 'reflection') then
          call reflection(pr_test_args(test),pr_pmi_args(ts_pmi),
      $        independent_parameters,
@@ -157,16 +177,37 @@ loop1: continue
          assert('Unsupported PMI type' == ' ')
       end if
 
-/*   For accumulating distributions...
+/*   For accumulating distributions... 
       eprod=half*sp_m(prod[1])*vc_abs2(v_prod[1])
+      if (vc_abs(v_prod[1]) > zero) then
+         cos_theta=v_prod[1][3]/vc_abs(v_prod[1])
+      else
+         cos_theta=zero
+      end if
+      sin_theta=sqrt(one-cos_theta**2)
+      if (sin_theta > zero) then
+         cos_phi=v_prod[1][1]/(sin_theta*vc_abs(v_prod[1]))
+         sin_phi=v_prod[1][2]/(sin_theta*vc_abs(v_prod[1]))
+      end if
+      e_avg+=eprod
+      cos_th_avg+=cos_theta
+      cos_phi_avg+=cos_phi
+      sin_phi_avg+=sin_phi
+
       if (sp_sy(prod[1]) == 'H') then
          write(10,*) eprod,v_prod[1][1],v_prod[1][2],v_prod[1][3]
       else if (sp_sy(prod[1]) == 'H2') then
          write(11,*) eprod,v_prod[1][1],v_prod[1][2],v_prod[1][3]
       end if
       end do
-*/
 
+      e_avg/=j_max
+      cos_th_avg/=j_max
+      cos_phi_avg/=j_max
+      sin_phi_avg/=j_max
+      write(stdout,*) '<E> = ',e_avg,', <cos(theta)> = ',cos_th_avg,
+     $     ', <cos(phi)> = ',cos_phi_avg,', <sin(phi)> = ',sin_phi_avg
+*/
       write(stdout,*) ' Number of products = ',nprod
       do i=1,nprod
          write(stdout,*) '  Product #',i,' is ',sp_name(prod[i])
