@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.12  1995/03/07 18:10:24  dstotler
+% Fix one minor bug in main code; appears to be unrelated to previous revision.
+%
 % Revision 1.11  1995/03/02 18:45:47  karney
 % Change layout of xs_tablen arrays to be 1-d (called xs_tabn).  Define
 % macros to access like a 3-d array.
@@ -467,7 +470,7 @@ coefficients since the user will not know this in general.
       ra_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
 
-      xs_name='h_ion_by_h+'
+      xs_name='h2pheion'
       xs_num_dep_var=5
 
       xs_tab_index[1,1]=ra_fit_coef_max  // Set temporarily until get
@@ -738,13 +741,13 @@ described by a Maxwellian distribution function. The desired integral can
 be expressed in terms of\cite{Reit93}
 \begin{equation}
 \label{iln}
-I_{\ell, |n|} \equiv \frac{ \exp( -u^{2} / u_{p}^{2}) }
+I_{\ell, |n|} \equiv \frac{ 1 }
                      {\sqrt{\pi} u u_{p}^{n+1}}
                      \int_{0}^{\infty} dv_{rel} \: v_{rel}^{2+|n|}
                      \sigma_{\ell}(v_{rel}) 
-                     \left\{ \exp\left[\frac{-v_{rel}(v_{rel} - 2u)}
+                     \left\{ \exp\left[\frac{-(v_{rel} - u)^{2}}
                      {u_{p}^{2}}\right] 
-                            - (-1)^{n}\exp\left[\frac{-v_{rel}(v_{rel} + 2u)}
+                            - (-1)^{n}\exp\left[\frac{-(v_{rel} + u)^{2}}
                      {u_{p}^{2}}\right] \right\},
 \end{equation}
 where $u$ is the velocity of the neutral particle, and $u_{p}$ is the
@@ -787,10 +790,10 @@ integral has cgs units.
 
       ze=half*(ra_mass/atomic_mass_unit_g)*rel_velocity^2 
       zsigma=sigma(ze)
-      exponent_plus=-rel_velocity*(rel_velocity+two*u)/up^2
-      exponent_minus=-rel_velocity*(rel_velocity-two*u)/up^2
+      exponent_plus=-(rel_velocity+u)^2/up^2
+      exponent_minus=-(rel_velocity-u)^2/up^2
       zbracket=exp(exponent_minus)-(-1)^moment_number*exp(exponent_plus)
-      multiplier=exp(-(u/up)^2)/(sqrt(PI)*u*up)
+      multiplier=one/(sqrt(PI)*u*up)
      $   *(sqrt(ev_to_ergs/atomic_mass_unit_g))^(1+moment_number)
 
       ion_rate_integrand=multiplier*rel_velocity^(2+moment_number)*
@@ -1151,8 +1154,8 @@ to |dcadre| with the original ones).
    Locate ``thresholds'' if any and alter bounds accordingly; the accuracy
    used here is the same as that used for the integrator.
 */
-      call find_threshold(zero,integration_infinity,integrand,integration_acc,
-     $   lower_bound_rev,upper_bound_rev)
+      call find_threshold(zero,integration_infinity,integrand,
+     $   integration_acc,lower_bound_rev,upper_bound_rev)
 
 /*
    If lower limit is still $< 1$ (e.g., possibly still zero), split integral
@@ -1645,10 +1648,8 @@ will return revised bounds |lower_bound_rev| and |upper_bound_rev| such
 that $|f_of_x|(|lower_bound_rev|) \neq 0$, but 
 $|f_of_x|(|lower_bound_rev|-\epsilon) = 0$ and 
 $|f_of_x|(|upper_bound_rev|) \neq 0$ with 
-$|f_of_x|(|upper_bound_rev|+\epsilon) = 0$, where $\epsilon$ is input
-as the error parameter |error|. It is assumed that 
-$|upper_bound| \gg |lower_bound|$ so that if there are {\em two} thresholds,
-both lie below the midpoint of this input interval.
+$|f_of_x|(|upper_bound_rev|+\epsilon) = 0$, where $\epsilon$ is 
+the input parameter |error|.
 
 @<Functions...@>=
       subroutine find_threshold(lower_bound,upper_bound,f_of_x,error,
@@ -1658,45 +1659,140 @@ both lie below the midpoint of this input interval.
 
       real lower_bound,upper_bound,f_of_x,error      // Input
       real lower_bound_rev,upper_bound_rev           // Output
-      integer i,ibound                               // Local
-      real f_lower,f_upper,old_guess,guess,bisect
-      external f_of_x 
-                               // External
-/*
-   Default values of output
-*/
-      lower_bound_rev=lower_bound
-      upper_bound_rev=upper_bound
-
+      real f_lower,f_upper,guess,lower_guess,        // Local
+     $   upper_guess,bisect
+      external f_of_x                                // External
+                              
       f_lower=f_of_x(lower_bound) 
       f_upper=f_of_x(upper_bound)
 
-      if ((f_lower != zero) && (f_upper != zero)) return  // No thresholds
+      lower_bound_rev=lower_bound                    // Default values
+      upper_bound_rev=upper_bound
 
 /*
-   Begin bisecting interval until we find a point with nonzero |f_of_x|
+   If |f_of_x| is nonzero at one of the limits, use that limit with bisect to
+   to find the threshold at the other end. Can then return.
 */
-      old_guess=upper_bound
-      ibound=(log((upper_bound-lower_bound)/error)/log(two))+one
-      do i=1,ibound
-         guess=half*(lower_bound+old_guess)
-         if (f_of_x(guess) != zero) goto loop
-         old_guess=guess
+      if ((f_lower != zero) || (f_upper != zero)) then
+         if (f_upper == zero) upper_bound_rev=bisect(upper_bound,lower_bound,
+     $      error,f_of_x)
+         if (f_lower == zero) lower_bound_rev=bisect(lower_bound,upper_bound,
+     $      error,f_of_x)
+      else                                
+
+/*
+   Zero at both limits. Since |find_nonzero| cannot accept a bound of
+   zero, replace |lower_bound| with |integration_acc|. But, first check
+   to see if |f_of_x| is nonzero there; if so, do not need to call
+   |find_nonzero|!
+*/   
+         if (lower_bound == zero) then
+            if (f_of_x(integration_acc) != zero) then
+               lower_guess=zero
+               guess=integration_acc
+               upper_guess=upper_bound
+            else
+               call find_nonzero(integration_acc,upper_bound,
+     $            lower_guess,guess,upper_guess,f_of_x)
+            end if
+         else
+            call find_nonzero(lower_bound,upper_bound,lower_guess,
+     $         guess,upper_guess,f_of_x)
+         end if
+
+/* 
+   If |find_nonzero| fails, it will set the upper and lower guesses equal.
+   Otherwise, use bisect to find the two thresholds.
+*/
+         if (lower_guess != upper_guess) then
+            upper_bound_rev=bisect(upper_guess,guess,error,f_of_x)
+            lower_bound_rev=bisect(lower_guess,guess,error,f_of_x)
+         end if
+      end if
+
+      return
+      end
+
+@ Find a nonzero value of a function. Since nothing is assumed to be known
+a priori about the function |f_of_x|, this routine must be able to cover 
+the input interval |lower_bound| to |upper_bound| thoroughly. 
+For this reason, a sequence of successively finer 
+subdivisions, much like that used to incrementally refine a trapezoidal
+integration, is used to break up the interval into smaller and smaller
+pieces. Of course, the routine is essentially done once {\em one} nonzero
+value of |f_of_x| is found. This value of |x| is returned as |guess|. One
+virtue of the approach used here is that adjacent |x| at which $|f_of_x| = 0$
+are already known from previous evaluations. These are returned as
+|lower_guess| and |upper_guess|.
+
+Note that because a logarithmic subdivision is used, both of the bounds 
+should be positive.
+
+The parameter used to limit the number of
+subdivisions made is |min_bound_ratio|. It represents the minimum
+ratio of |upper_guess| to |lower_guess| which could be resolved by this
+routine. The value of |min_bound_ratio| should not be too small since
+the maximum number of function evaluations is $2^{|max_stage|} - 1$; i.e.,
+a large number.
+
+@<Functions...@>=
+      subroutine find_nonzero(lower_bound,upper_bound,
+     $   lower_guess,guess,upper_guess,f_of_x)
+
+      implicit_none
+
+      real lower_bound,upper_bound,f_of_x            // Input
+      real lower_guess,guess,upper_guess             // Output
+      integer i,istage,max_stage                     // Local
+      real log_lower,log_upper,log_min_ratio,delta,log_guess
+
+      assert(upper_bound > zero)
+      assert(lower_bound > zero)
+/*
+   Divide up the interval (in log10 space). The maximum 
+   number of function evaluations is $2^{|max_stage|} - 1$. 
+*/
+      log_upper=log10(upper_bound)
+      log_lower=log10(lower_bound)
+      log_min_ratio=log10(min_bound_ratio)
+      max_stage=(log((log_upper-log_lower)/log_min_ratio)/log(two))+one
+
+      do istage=1,max_stage
+
+/*
+   Calculate the step size (in log10 space) and log10 of the first |x|
+   for each |istage|. 
+*/
+         delta=(log_upper-log_lower)/two^(istage-1)
+         log_guess=log_lower+half*delta
+
+/*
+   Each stage consists of evaluating |f_of_x| at only those new values of 
+   |x| required to achieve a grand total of $2^{|istage|} - 1$ evaluations.
+*/
+         do i=1,2^(istage-1)
+            guess=const(1.,1)^log_guess
+            if (f_of_x(guess) != zero) goto loop
+            log_guess=log_guess+delta
+         end do
       end do
 
-      return                 // Cannot find a point where $|f_of_x| \neq 0$
+/*
+  Cannot find a point where $|f_of_x| \neq 0$; indicate this condition
+  by setting |lower_guess| = |upper_guess|.
+*/
+      lower_guess=lower_bound
+      upper_guess=lower_guess
+      return                
 
 loop: continue
 
 /*
-   Having found a nonzero value of |f_of_x|, bisect the intervals above
-   and below it as needed to locate threshold(s).
+   Having found a nonzero value of |f_of_x|, know that the points 
+   (in log space) |delta|/2 above and below have |f_of_x| = 0.
 */
-      if (f_lower == zero) 
-     $   lower_bound_rev=bisect(lower_bound,guess,error,f_of_x)
-
-      if (f_upper == zero) 
-     $   upper_bound_rev=bisect(old_guess,guess,error,f_of_x)
+      upper_guess=const(1.,1)^(log_guess+half*delta)
+      lower_guess=const(1.,1)^(log_guess-half*delta)
 
       return
       end
