@@ -2,6 +2,9 @@
 \Title{elementread}
 
 % $Log$
+% Revision 1.14  1996/03/01 20:26:01  dstotler
+% Add routines and other code for handling PMI data.
+%
 % Revision 1.13  1996/01/25 15:01:15  dstotler
 % Inserted nc_read_pmi and nc_read_materials routines.
 %
@@ -60,16 +63,11 @@ Introduction\ldots
 @I netcdf.hweb
 @I sysdep.hweb
 @I species.hweb
-@I materials.hweb
-@I pmi.hweb
-@I problem.hweb
-@I reactiondata.hweb
 @I reaction.hweb
 @I zone.hweb
 @I background.hweb
 @I sources.hweb
 @I strata.hweb
-@I pmidata.hweb
 
 @ The unnamed module.
 
@@ -126,31 +124,6 @@ Introduction\ldots
       return
       end
 
-@ Read in data from netcdf file \verb+materials.nc+
-      
-@<Functions...@>=
-      subroutine nc_read_materials
-      implicit_none
-      integer fileid
-      character *FILELEN tempfile  //local
-      ma_common
-      ma_ncdecl
-      nc_common
-      sy_common
-      rf_common
-
-      tempfile =  filenames_array[materialsfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     materials_version,len(materials_version),nc_stat)
-
-      ma_ncread(fileid)
-      
-      call ncclose(fileid,nc_stat)
-
-      return
-      end
-
 @ Read in data from netcdf file \verb+reactions.nc+
       
 @<Functions...@>=
@@ -170,65 +143,6 @@ Introduction\ldots
      $     reaction_version,len(reaction_version),nc_stat)
 
       rc_ncread(fileid)
-      
-      call ncclose(fileid,nc_stat)
-
-      return
-      end
-
-@ Read in data from netcdf file \verb+pmi.nc+
-      
-@<Functions...@>=
-      subroutine nc_read_pmi
-      implicit_none
-      integer fileid
-      character *FILELEN tempfile  //local
-      pm_common
-      pm_ncdecl
-      nc_common
-      sy_common
-      rf_common
-
-      tempfile =  filenames_array[pmifile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     pmi_version,len(pmi_version),nc_stat)
-
-      pm_ncread(fileid)
-      
-      call ncclose(fileid,nc_stat)
-
-      return
-      end
-
-@ Read in data from netcdf file \verb+problem.nc+
-      
-@<Functions...@>=
-      subroutine nc_read_problem
-      implicit_none
-      integer fileid
-      character *FILELEN tempfile  //local
-      pr_common
-      rd_common
-      pd_common
-      sp_common
-      ma_common
-      pm_common
-      pr_ncdecl
-      rd_ncdecl
-      pd_ncdecl
-      nc_common
-      sy_common
-      rf_common
-
-      tempfile =  filenames_array[problemfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     problem_version,len(problem_version),nc_stat)
-
-      pr_ncread(fileid)
-      rd_ncread(fileid)
-      pd_ncread(fileid)
       
       call ncclose(fileid,nc_stat)
 
