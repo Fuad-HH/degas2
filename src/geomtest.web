@@ -2,6 +2,11 @@
 \Title{geomtest}
 
 % $Log$
+% Revision 1.8  1995/10/04 18:33:28  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.7  1995/07/14 13:20:20  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -58,40 +63,109 @@
 @<Functions...@>=
       subroutine exercise_setup
       implicit_none
-      integer nzones,nproc
-      parameter (nzones=1158,nproc=8)
+      integer nx,nz
+      parameter (nx=2,nz=3)
       zn_common
       bk_common
       sy_common
-      real coeff[NCOEFFS],x1[3],x2[3],x[2,0:4],vol // Local
-      integer face,cell1,cell2,n,zone
+      real x1[3],x2[3],x[2,0:4],xa[2,0:nx+2],xx1[3],xx2[3],vol // Local
+      integer n,zone,i,j,stratum,sector
       gi_ext
       external init_geometry,
      $     add_surface,plane,end_geometry,check_geometry,print_geometry,
-     $     erase_geometry       // External
+     $     erase_geometry // External
 
       call readfilenames
       call init_geometry
       vc_set(x1,-one,-one,-one)
-      vc_set(x2,one,one,one)
+      vc_set(x2,nx+one,one,nz+one)
       call universal_cell(geometry_symmetry_plane,x1,x2,vol)
       write(stdout,*) vol
-      zone=1
+      zone=0
+      do i=0,nx-1
+         do j=0,nz-1
+            zone++
+            n=0
+            x[1,n]=i;   x[2,n]=j; n++
+            x[1,n]=i;   x[2,n]=j+1; n++
+            x[1,n]=i+1; x[2,n]=j+1; n++
+            x[1,n]=i+1; x[2,n]=j; n++
+            x[1,n]=i;   x[2,n]=j
+            call decompose_polygon(n,x,zone)
+            zn_type_set(zone,zn_plasma)
+            zn_volume(zone)=polygon_volume(n,x)
+            if (i==0 && j<=1) then
+               stratum=1
+               vc_set(xx1,x[1,2],zero,x[2,2])
+               vc_set(xx2,x[1,3],zero,x[2,3])
+               sector=define_sector(stratum,lookup_surface(xx1,xx2),zone)
+               write(stderr,*) sector
+            else if (i==1 && j>=1) then
+               stratum=2
+               vc_set(xx1,x[1,0],zero,x[2,0])
+               vc_set(xx2,x[1,1],zero,x[2,1])
+               sector=define_sector(stratum,lookup_surface(xx1,xx2),zone)
+               write(stderr,*) sector
+            end if
+         end do
+      end do
+      
+      stratum=0
+      
+      zone++
+      
+ /* Bottom */
       n=0
-      x[1,n]=x1[1]; x[2,n]=x1[2]; n++
-      x[1,n]=x1[1]; x[2,n]=x2[2]; n++
-      x[1,n]=x2[1]; x[2,n]=x2[2]; n++
-      x[1,n]=x2[1]; x[2,n]=x1[2]; n++
-      x[1,n]=x1[1]; x[2,n]=x1[2]
-      call decompose_polygon(n,x,zone)
-      zn_type_set(zone,zn_plasma)
-      zn_volume(zone)=polygon_volume(n,x)
+      xa[1,n]=x1[1]; xa[2,n]=x1[3]; n++
+      do i=0,nx
+         xa[1,n]=i; xa[2,n]=0; n++
+      end do
+      xa[1,n]=x2[1]; xa[2,n]=x1[3]; n++
+      xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
+      call decompose_polygon(n,xa,zone)
+      zn_type_set(zone,zn_vacuum)
+      zn_volume(zone)=polygon_volume(n,xa)
+
+ /* Top */
+      n=0
+      xa[1,n]=x2[1]; xa[2,n]=x2[3]; n++
+      do i=nx,0,-1
+         xa[1,n]=i; xa[2,n]=nz; n++
+      end do
+      xa[1,n]=x1[1]; xa[2,n]=x2[3]; n++
+      xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
+      call decompose_polygon(n,xa,zone)
+      zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
+
+ /* Left */
+      n=0
+      xa[1,n]=x1[1]; xa[2,n]=x2[3]; n++
+      do j=nz,0,-1
+         xa[1,n]=0; xa[2,n]=j; n++
+      end do
+      xa[1,n]=x1[1]; xa[2,n]=x1[3]; n++
+      xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
+      call decompose_polygon(n,xa,zone)
+      zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
+      
+ /* Right */
+      n=0
+      xa[1,n]=x2[1]; xa[2,n]=x1[3]; n++
+      do j=0,nz
+         xa[1,n]=nx; xa[2,n]=j; n++
+      end do
+      xa[1,n]=x2[1]; xa[2,n]=x2[3]; n++
+      xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
+      call decompose_polygon(n,xa,zone)
+      zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
 
       call end_geometry
+      call write_geometry
+/*
       call print_geometry(stdout)
+*/
       call check_geometry
             
-      call write_geometry
       call erase_geometry
 
       return
@@ -105,17 +179,22 @@
       pt_decl(x)
       logical done
       real t
-      integer i
+      integer i,j
       lc_common
       pt_common
 
-      vc_set(lc_x(pt_loc(x)),zero,zero,zero)
-      lc_set(pt_loc(x))
-      pt_type(x)=pt_neutral
-      vc_set(pt_v(x),zero,one,const(0.1))
+      do j=0,2
+         vc_set(lc_x(pt_loc(x)),half,zero,j+half)
+         lc_set(pt_loc(x))
+         pt_type(x)=pt_neutral
+         vc_set(pt_v(x),one,zero,zero)
       
-      done=pt_track(const(5.0),t,x)
-      write(stderr,*) t,(lc_x(pt_loc(x))[i],i=1,3)
+         done=pt_track(const(5.0),t,x)
+         write(stderr,*) "Location: ",t,(lc_x(pt_loc(x))[i],i=1,3)
+         write(stderr,*) "Zones: ",lc_zone(pt_loc(x)),lc_zone_next(pt_loc(x))
+         write(stderr,*) "Sectors: ",lc_sector(pt_loc(x)),lc_sector_next(pt_loc(x))
+         write(stderr,*) "Strata: ",lc_stratum(pt_loc(x)),lc_stratum_next(pt_loc(x))
+      end do
       
       return
       end

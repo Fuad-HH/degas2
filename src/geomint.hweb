@@ -2,6 +2,11 @@
 
 % $Id$
 % $Log$
+% Revision 1.12  1995/10/04 18:33:23  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.11  1995/07/14 13:20:15  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -49,9 +54,10 @@
 \ID{$Id$}
 
 @ Define the dimensions and variables used by the geometry routines.
-Note that sector_ind is defined to run from 0.  However the 0 index
-isn't really used.  It's defined this way to accomodate netcdf's wish to
-say that a zero length dimension is unlimited.
+Note that |sector_ind| and |transform_ind| are defined to run from 0.
+However the 0 index isn't really used.  They are defined this way to
+accomodate netcdf's wish to say that a zero length dimension is
+unlimited.
 
 @a
       package_init(gi)
@@ -75,9 +81,6 @@ say that a zero length dimension is unlimited.
       define_dimen_pk(gi,surface_tx_ind,t_surf,t_mx)
       define_dimen_pk(gi,tx_ind_1,3)
       define_dimen_pk(gi,tx_ind_2,4)
- /* These start at zero since a geometry may be defined by |ntransforms=0|
-    or |nsectors=0| and netcdf (and other) routines can't handle zero length
-    arrays */
       define_dimen_pk(gi,transform_ind,0,ntransforms)
       define_dimen_pk(gi,sector_ind,0,nsectors)
       define_dimen_pk(gi,coeff_ind,NCOEFFS)
@@ -97,7 +100,8 @@ say that a zero length dimension is unlimited.
       define_varp_pk(gi,surface_coeffs,FLOAT,coeff_ind,surface_ind)
       define_varp_pk(gi,surface_points,FLOAT,vc_ind,neg_pos,surface_ind)
       define_varp_pk(gi,strata,INT,sector_ind)
-      define_varp_pk(gi,sector_zones,INT,sector_ind)
+      define_varp_pk(gi,sectors,INT,sector_ind)
+      define_varp_pk(gi,sector_zone,INT,sector_ind)
       define_varp_pk(gi,sector_surface,INT,sector_ind)
       define_varp_pk(gi,sector_points,FLOAT,vc_ind,neg_pos,sector_ind)
 
@@ -111,8 +115,8 @@ say that a zero length dimension is unlimited.
 
 @f gi_ext integer
 @m gi_ext
-      external define_surface,define_surface_a,start_cell,polygon_volume;
-      integer define_surface,define_surface_a,start_cell;
+      external define_surface,define_surface_a,start_cell,polygon_volume,define_sector,lookup_surface;
+      integer define_surface,define_surface_a,start_cell,define_sector,lookup_surface;
       real polygon_volume;
 
 @ Indices into the surface coefficient array.

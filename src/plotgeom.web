@@ -2,6 +2,11 @@
 \Title{plot geometry}
 
 % $Log$
+% Revision 1.11  1995/10/04 18:33:30  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.10  1995/08/23 14:46:32  dstotler
 % Added some comments.
 %
@@ -106,8 +111,8 @@ the problem space).
       vc_common
       external DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal // External
       integer DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal
-      external locate_point,track,func
-      integer locate_point,func
+      external track,func
+      integer func
       logical track
 
       assert(alen > 0 && blen > 0)
@@ -362,7 +367,7 @@ loop1:   continue
       common /stat_com/ smin,smax,ptr_stat
 
       real_alloc(stat,2*zn_num)
-      open(unit=diskin,file='stat.dat')
+      open(unit=diskin,file='stat.dat',status='old')
       read(diskin,*) stat
       close(diskin)
       smin=one

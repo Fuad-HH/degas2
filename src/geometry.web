@@ -3,6 +3,11 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.20  1995/10/04 18:33:18  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.19  1995/07/14 13:20:12  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -127,20 +132,22 @@ and |surfaces[s_pos,s_start,k]|.
 associated with each surface: a count,
 |surface_sectors[s_neg,s_count,k]|, of the number of sectors for
 this surface on the negative side; a pointer,
-|surface_sectors[s_neg,s_start,k]|, to |sector_zones|, giving the
-indices of the zones; and then the corresponding information for the
+|surface_sectors[s_neg,s_start,k]|, to |sectors|, giving the
+sectors for that surface zones; and then the corresponding information for the
 positive side, |surface_sectors[s_pos,s_count,k]| and
 |surface_sectors[s_pos,s_start,k]|.
 
-|sector_points| gives bounding points on sectors.
+|sector_points| gives bounding points on sectors. |strata| gives the
+stratum number for each sector.
 
 |sector_surface| gives the surface for each sector.
+
+|sector_zone| gives the zone for each sector.
 
 |surface_coeffs| holds the ten coefficients of the equations for the faces.
 
 |neighbors| is a list of cells for each face.
 
-NOT IMPLEMENTED YET:
 Each surface may have a transformation associated with it.  If \newline
 |surface_tx_ind[s_sign(k),t_surf,abs(k)]| is nonzero, then a point on
 surface |k| is transformed to a point on surface
@@ -351,8 +358,9 @@ on the surface.
       end
 
 @ Sloppy check for whether a point lies inside a particular cell.
-Sloppy check implies that if |x| lies within |geom_epsilon| of the face, it is
- accepted. A strict check is done on the cut surfaces though. 
+Sloppy check implies that if |x| lies within |geom_epsilon| of the face,
+it is accepted. A strict check is done on the cut surfaces though.
+
 @<Functions...@>=
       function sloppy_inside(cell_args,x)
       implicit_none
@@ -854,7 +862,7 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
       gi_common
       real t,x[3]               // Output
       integer cell1,exit_face,cell2,sector1,sector2
-      integer j,k,k1,tx               // Local
+      integer j,k,k1,tx,i,start,count // Local
       real dt,tleft,t1
       external cell_intersect,new_cell,in_surface   // External
       real cell_intersect
@@ -866,6 +874,8 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
       j = cell
       vc_copy(x0,x)
       t1=zero
+      sector1=0
+      sector2=0
 
 loop: continue
       cell1 = j                 // Update cell
@@ -876,8 +886,6 @@ loop: continue
       if ( dt == tleft ) then  // We're done
          t = tmax               // Set |t| exactly to |tmax|
          exit_face = 0
-         sector1 = 0
-         sector2 = 0
          cell2 = j
          track = .true.
          return
@@ -885,7 +893,21 @@ loop: continue
 
       if (type != pt_geometry) then
 
- /* Process the transformation first */
+/* Check for outgoing sector */
+      count=surface_sectors[s_sign(k),s_count,abs(k)]
+      if (count > 0) then
+         start=surface_sectors[s_sign(k),s_start,abs(k)]
+         do i=0,count-1
+            if (cells[c_zone,cell1] == sector_zone[sectors[start+i]]) then
+               sector1=sectors[start+i]
+               assert(sector_surface[sector1] == k)
+               goto break1
+            end if
+         end do
+break1:  continue
+      end if
+
+/* Process the transformation */
          k1=surfaces_tx_ind[s_sign(k),t_surf,abs(k)]
          if (k1 != 0) then
             tx=surfaces_tx_ind[s_sign(k),t_mx,abs(k)]
@@ -903,16 +925,29 @@ loop: continue
          end if
 
       end if
-         
 
       j = new_cell(k,x) // Find next cell
-      if ( cells[c_zone,cell1] == cells[c_zone,j] ) goto loop // Still in zone
+      
+/* Check for incoming sector */
+      count=surface_sectors[s_sign(-k),s_count,abs(k)]
+      if (count > 0) then
+         start=surface_sectors[s_sign(-k),s_start,abs(k)]
+         do i=0,count-1
+            if (cells[c_zone,j] == sector_zone[sectors[start+i]]) then
+               sector2=sectors[start+i]
+               assert(sector_surface[sector2] == -k)
+               goto break2
+            end if
+         end do
+break2:  continue
+      end if
+
+/* Keep tracking if still in same zone and if not on a sector */
+      if ( cells[c_zone,cell1] == cells[c_zone,j] && sector1 == 0 && sector2 == 0 ) goto loop
 
       t = t1
       exit_face = k
       cell2 = j
-      sector1 = 0
-      sector2 = 0
       track=.false.
 
       return
@@ -1137,6 +1172,48 @@ cells, it checks that the cells are neighbors.
       zn_ncread(fileid)
       call ncclose(fileid,nc_stat)
 
+      return
+      end
+
+@* The basic transformation routines. Transform a position vector,
+$\vect y = \tens M \cdot \vect x$.  $\vect x$ and $\vect y$ can overlap.
+
+@<Functions...@>=
+      subroutine transform(m,x,y)
+      implicit_none
+      real m[3,4],x[3]          // Input
+      real y[3]                 // Output
+      integer i                 // Local
+      real temp[3]
+
+      do i=1,3
+         temp[i]=m[i,1]*x[1]+m[i,2]*x[2]+m[i,3]*x[3]+m[i,4]
+      end do
+
+      do i=1,3
+         y[i]=temp[i]
+      end do
+      return
+      end
+
+@ Transform a velocity vector, $\vect w = \tens M \cdot \vect v$.  $\vect
+x$ and $\vect y$ can overlap.
+
+@<Functions...@>=
+      subroutine transform_velocity(m,v,w)
+      implicit_none
+      real m[3,4],v[3]          // Input
+      real w[3]                 // Output
+      integer i                 // Local
+      real temp[3]
+
+      do i=1,3
+         temp[i]=m[i,1]*v[1]+m[i,2]*v[2]+m[i,3]*v[3]
+      end do
+
+      do i=1,3
+         w[i]=temp[i]
+      end do
       return
       end
 

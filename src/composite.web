@@ -2,6 +2,9 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.16  1995/10/02 21:05:28  karney
+% Fix typos.
+%
 % Revision 1.15  1995/10/02 21:01:22  karney
 % Fix typo.
 %
@@ -477,6 +480,10 @@ break: continue
          call planea(x1,x3,x2,coeff)
          face=define_surface_a(coeff,x1,x2)
          call add_surface(face,cell,.true.)
+         if (face>0) then
+            vc_copy(x1,surface_points[0,face])
+            vc_copy(x2,surface_points[1,face])
+         end if
 @#else
          if (face>0) then
             vc_copy(x1,surface_points[0,face])

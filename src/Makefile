@@ -1,5 +1,10 @@
 # $Id$
 # $Log$
+# Revision 1.40  1995/10/04 18:33:13  karney
+# (1) Fix comments to avoid bugs in ftangle.
+# (2) Implement transforms on surfaces.
+# (3) Update universal_cell to impose periodicity on y boundaries.
+#
 # Revision 1.39  1995/08/23 14:44:59  dstotler
 # Added dependencies for reactiontest.
 #
@@ -259,7 +264,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
-    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb segment.hweb \
+    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb \
     pmi.hweb pmiformat.hweb readfilenames.hweb strata.hweb
 
 %.f: %.web $(HEADERS)

@@ -3,6 +3,11 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.19  1995/10/04 18:33:26  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.18  1995/10/02 21:05:31  karney
 % Fix typos.
 %
@@ -117,7 +122,9 @@ should.
       nsectors=0
       ntransforms=0
       var_realloca(strata)
+      var_realloca(sectors)
       var_realloca(surface_sectors)
+      var_realloca(sector_zone)
       var_realloca(sector_surface)
       var_realloca(sector_points)
       var_realloca(surfaces_tx_mx)
@@ -131,6 +138,8 @@ should.
       $DO(I,1,sr_type_max) {
           strata_type_num[I]=0;
       }
+      
+      strata[0]=0
       var_realloca(strata_type)
       var_realloca(strata_pointer)
 
@@ -232,10 +241,10 @@ should.
       implicit_none
       gi_common                 // Input/Output
       integer j,k,i,base,sigma  // Local
-      integer surf_list[*],cell_list[*],zone_list[*] // Pointee
+      integer surf_list[*],cell_list[*],sector_list[*] // Pointee
       ptr_decl(surf_list)
       ptr_decl(cell_list)
-      ptr_decl(zone_list)
+      ptr_decl(sector_list)
       sy_common
       zn_common
       sr_common
@@ -247,6 +256,7 @@ should.
       var_reallocb(surfaces)
       var_reallocb(surface_coeffs)
       var_reallocb(surface_points)
+      var_realloca(surface_sectors)
 
       var_reallocb(zone_type)
       var_reallocb(zone_index)
@@ -254,6 +264,7 @@ should.
       var_reallocb(zone_volume)
 
       var_reallocb(strata)
+      var_realloca(sectors)
       var_reallocb(sector_surface)
       var_reallocb(sector_points)
 
@@ -314,17 +325,17 @@ should.
 
       check(base == nneighbors)
       
-      var_alloc(sector_zones)
+      var_alloc(sectors)
       base=0
       do k=1,nsurfaces
          do sigma=s_neg,s_pos
-            ptr_zone_list=surface_sectors[sigma,s_start,k]+pointer_offset
+            ptr_sector_list=surface_sectors[sigma,s_start,k]+pointer_offset
             do i=1,surface_sectors[sigma,s_count,k]
-               sector_zones[base+i]=zone_list[i]
+               sectors[base+i]=sector_list[i]
             end do
             surface_sectors[sigma,s_start,k]=base+1
             base=base+surface_sectors[sigma,s_count,k]
-            int_free(zone_list,mem_frag(surface_sectors[sigma,s_count,k]))
+            int_free(sector_list,mem_frag(surface_sectors[sigma,s_count,k]))
          end do
       end do
       
@@ -398,23 +409,41 @@ these values match.
       integer define_surface_a    // Function
       real coeff[NCOEFFS],x1[3],x2[3]       // Input
       gi_common                 // Input/Output
-      integer k   // Local
-      external define_surface // External
-      integer define_surface
+      external define_surface,lookup_surface // External
+      integer define_surface,lookup_surface
+
+      define_surface_a=lookup_surface(x1,x2)
+      
+      if (define_surface_a == 0) then
+         define_surface_a=define_surface(coeff,.false.)
+      end if
+         
+      return
+      end
+
+@ Lookup a surface based on |surface_points|.  Returns 0 if none found.
+
+@<Functions...@>=
+      function lookup_surface(x1,x2)
+      implicit_none
+      integer lookup_surface    // Function
+      real x1[3],x2[3]          // Input
+      gi_common                 // Input/Output
+      integer k                 // Local
 
       do k=1,nsurfaces
          if (vc_equal(x1,surface_points[0,k]) &&
      $        vc_equal(x2,surface_points[1,k])) then
-            define_surface_a = k
+            lookup_surface = k
             return
          else if (vc_equal(x1,surface_points[1,k]) &&
      $           vc_equal(x2,surface_points[0,k])) then
-            define_surface_a = -k
+            lookup_surface = -k
             return
          end if
       end do
       
-      define_surface_a=define_surface(coeff,.false.)
+      lookup_surface=0
          
       return
       end
@@ -513,24 +542,28 @@ these values match.
       integer define_sector // Function
       integer stratum,surface,zone // Input
       gi_common                 // Input/Output
-      integer i,zone_count // Local
-      integer zone_list[*],cell_list[*] // Pointee
-      ptr_decl(zone_list)
+      integer i,sector_count // Local
+      integer sector_list[*],cell_list[*] // Pointee
+      ptr_decl(sector_list)
       ptr_decl(cell_list)
       sy_common
       sr_common
       zn_common
       setup_common
 
-      assert(stratum>0)
+      assert(stratum > 0)
+      assert(surface != 0)
       assert(zn_check(zone))
       
       nsectors++
+
       var_realloca(strata)
+      var_realloca(sectors)
       var_realloca(sector_surface)
       var_realloca(sector_points)
 
       strata[nsectors]=stratum
+      sector_zone[nsectors]=zone
       sector_surface[nsectors]=surface
 
       if (surface>0) then
@@ -541,18 +574,18 @@ these values match.
          vc_copy(surface_points[1,surface],sector_points[0,nsectors])
       end if
 
-      ptr_zone_list=surface_sectors[s_sign(surface),s_start,abs(surface)]+pointer_offset
-      zone_count=surface_sectors[s_sign(surface),s_count,abs(surface)]
+      ptr_sector_list=surface_sectors[s_sign(surface),s_start,abs(surface)]+pointer_offset
+      sector_count=surface_sectors[s_sign(surface),s_count,abs(surface)]
 
-      if (mod(zone_count,mem_delta) == 0) then
-         int_realloc(zone_list,zone_count,2*(zone_count+mem_delta))
-         if (pointer_offset == 0) pointer_offset=ptr_zone_list
+      if (mod(sector_count,mem_delta) == 0) then
+         int_realloc(sector_list,sector_count,2*(sector_count+mem_delta))
+         if (pointer_offset == 0) pointer_offset=ptr_sector_list
       end if
-      zone_count++
-      zone_list[zone_count]=zone
+      sector_count++
+      sector_list[sector_count]=nsectors
 
-      surface_sectors[s_sign(surface),s_start,abs(surface)]=ptr_zone_list-pointer_offset
-      surface_sectors[s_sign(surface),s_count,abs(surface)]=zone_count
+      surface_sectors[s_sign(surface),s_start,abs(surface)]=ptr_sector_list-pointer_offset
+      surface_sectors[s_sign(surface),s_count,abs(surface)]=sector_count
 
       ptr_cell_list=surfaces[s_sign(surface),s_start,abs(surface)]+pointer_offset
       do i=1,surfaces[s_sign(surface),s_count,abs(surface)]
@@ -727,6 +760,12 @@ break1:        continue
       var_free(surface_sectors)
       var_free(surfaces_tx_ind)
       var_free(surfaces_tx_mx)
+      var_free(strata)
+      var_free(sectors)
+      var_free(sector_zone)
+      var_free(sector_surface)
+      var_free(sector_points)
+
       ncells=-1
       nsurfaces=0
       nboundaries=0
