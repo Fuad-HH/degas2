@@ -2,6 +2,15 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1994/11/21 15:49:31  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.6  1994/02/14 22:21:10  karney
 % Separate character variables into a different common block.
 %
@@ -40,6 +49,7 @@
       _IF(#0 == 1, _DEFINE(max_##name #1),_DEFINE(max_##name #2))
 
 @m range(name) range_min(name):range_max(name)
+@m range_star(name) range_min(name):*
 @m range_min1(name) min_##name
 @m range_min(name) (range_min1(name))
 @m range_mina(name) range_min1(name)
@@ -67,15 +77,15 @@
       _IF(type_##x == CHAR,
           *range_max(ind_##x##_1)
           _IFCASE(rank_##x,,x,
-          x(range(ind_##x##_2)),
-          x(range(ind_##x##_2),range(ind_##x##_3)),
-          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
-          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5))),
-          _IFCASE(rank_##x,x,x(range(ind_##x##_1)),
-          x(range(ind_##x##_1),range(ind_##x##_2)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5)))) @;
+          x(range_star(ind_##x##_2)),
+          x(range(ind_##x##_2),range_star(ind_##x##_3)),
+          x(range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
+          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5))),
+          _IFCASE(rank_##x,x,x(range_star(ind_##x##_1)),
+          x(range(ind_##x##_1),range_star(ind_##x##_2)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range_star(ind_##x##_3)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5)))) @;
 
 @f declare_varp integer
 @m declare_varp(x)
