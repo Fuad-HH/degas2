@@ -2,6 +2,9 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.8  1999/03/25 20:52:49  dstotler
+% Added check(s) on filenames_array.
+%
 % Revision 1.7  1998/09/04 17:25:14  dstotler
 % Add a tally for spectrum detail as in APS_1977_Hacks_Done.
 %
@@ -194,6 +197,7 @@ interface can be developed to replace this code.
       end do
       tally_size=0
       assert(max_bins >= max(sc_diag_max_bins,de_max_bins))
+      assert(scoring_data_max > pr_var0_num)  // Dimension of |scoring_data|.
 
       do pr_reac=1,pr_reaction_num
          pr_rc_type[pr_reac]=pr_rc_unknown
@@ -238,17 +242,36 @@ interface can be developed to replace this code.
 
       estimator[1]=tl_est_collision     // Not needed for sector tallies yet
 
-      call define_tally('wall & target current',
-     $     tl_type_sector,tl_geom_surface,pointer,'mass',2,indep_var,
+      call define_tally('wall & target current out',
+     $     tl_type_sector,tl_geom_surface,pointer,'mass_out',2,indep_var,
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
+
+/*
+   Earlier versions essentially had only outgoing sector diagnostics
+   (``out'' of the plasma, but into the material). The corresponding
+   incoming diagnostics are commented out pending inclusion in the examples.
+*/
+@#if 0
+      call define_tally('wall & target current in',
+     $     tl_type_sector,tl_geom_surface,pointer,'mass_in',2,indep_var,
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
+@#endif
 
       num_conversions=0
 
-      call define_tally('wall & target energy current',
-     $     tl_type_sector,tl_geom_surface,pointer,'energy',2,indep_var,
+      call define_tally('wall & target energy current out',
+     $     tl_type_sector,tl_geom_surface,pointer,'energy_out',2,indep_var,
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
+
+@#if 0
+      call define_tally('wall & target energy current in',
+     $     tl_type_sector,tl_geom_surface,pointer,'energy_in',2,indep_var,
+     $     tab_index,num_conversions,conversions,conversion_packages,
+     $     estimator,pr_rc_type)
+@#endif
 
       pointer=diag_lookup('Wall and Target Energy Spectrum')
       tab_index[2]=diagnostic_num_sectors[pointer]
@@ -259,7 +282,7 @@ interface can be developed to replace this code.
       conversions[1]=cv_out_scale_test_mass
 
       call define_tally('wall & target current: energy spectrum',
-     $     tl_type_sector,tl_geom_surface,pointer,'mass',3,indep_var,
+     $     tl_type_sector,tl_geom_surface,pointer,'mass_out',3,indep_var,
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
 
@@ -269,7 +292,7 @@ interface can be developed to replace this code.
       tab_index[3]=diagnostic_tab_index[pointer]
 
       call define_tally('wall & target current: angle spectrum',
-     $     tl_type_sector,tl_geom_surface,pointer,'mass',3,indep_var,
+     $     tl_type_sector,tl_geom_surface,pointer,'mass_out',3,indep_var,
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
 
@@ -277,12 +300,42 @@ interface can be developed to replace this code.
       if (pointer > 0) then
          tab_index[2]=diagnostic_num_sectors[pointer]
          call define_tally('exit current',
-     $        tl_type_sector,tl_geom_surface,pointer,'mass',2,indep_var,
+     $        tl_type_sector,tl_geom_surface,pointer,'mass_out',2,indep_var,
      $        tab_index,num_conversions,conversions,conversion_packages,
      $        estimator,pr_rc_type)
       end if
 
 @#endif
+
+/*
+   This purely diagnostic sector groups is defined in |readgeometry| for
+   the |UEDGE_RECT_SLAB| example as a test.
+*/
+@#if 0
+      pointer=diag_lookup('Throat sectors')
+      if (pointer > 0) then
+         indep_var[1]=tl_index_test
+         tab_index[1]=pr_test_num
+         indep_var[2]=tl_index_diagnostic
+         tab_index[2]=diagnostic_num_sectors[pointer]
+
+         num_conversions=1
+         conversions[1]=cv_out_scale_test_mass
+
+         estimator[1]=tl_est_collision  
+
+         call define_tally('Throat current out',
+     $        tl_type_sector,tl_geom_surface,pointer,'mass_out',2,indep_var,
+     $        tab_index,num_conversions,conversions,conversion_packages,
+     $        estimator,pr_rc_type)
+
+         call define_tally('Throat current in',
+     $        tl_type_sector,tl_geom_surface,pointer,'mass_in',2,indep_var,
+     $        tab_index,num_conversions,conversions,conversion_packages,
+     $        estimator,pr_rc_type)
+      end if
+@#endif
+
 /*
    {\bf TEST TALLIES}
    \begin{itemize}
