@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.8  1998/03/11 15:03:34  dstotler
+% Add pf_var_cos_polar_angle_in.
+%
 % Revision 1.7  1998/01/14 20:34:27  dstotler
 % Change title phrase to aid readability of classes.web.
 %
@@ -182,4 +185,109 @@
       set_inc(x,y);
       set_base(x,x##_inc);
       var_realloc(x##_tab,old_size-1,x##_size-1) @;      
+
+@* PMI format class attribute descriptions.
+
+@ Define structures used to specify plasma-material interaction data.
+Prefix is |pf|.
+
+This class provides a format for external storage of data which deal
+with a particular PMI. Here, the subscript |j| denotes the index
+for dependent variables, while 
+the nonzero values of the subscript |i| represent the independent
+variables needed to determine a particular value of variable |j|.
+
+\begin{description}
+
+  \item[|pf_data_size|] Size of one-dimensional array containing all data for
+this PMI.
+
+  \item[|pf_num_dep_var|] Number of dependent variables associated with 
+this PMI.
+
+  \item[|pf_rank[j]|] Integer number of independent variables for 
+the |j|th dependent variable.
+
+  \item[|pf_tab_index[j][i]|] Integer
+number of values used for the |i|th independent variable of the |j|th 
+dependent variable.
+
+  \item[|pf_data_base[j]|] Index in |pf_data_tab|
+at which the data for the |j|th dependent variable begin.
+This array is set by the macros associated with |pf_ragged_alloc| and
+|pf_ragged_realloc|.
+
+  \item[|pf_data_inc[j]|] Is the number of elements in |pf_data_table|
+required for the |j|th dependent variable. 
+This array is set by the macros associated with |pf_ragged_alloc| and
+|pf_ragged_realloc|.
+
+  \item[|pf_name|] String (length |pm_sy_len|) naming the PMI.
+Same as the name of the PMI in the |pm| class; that is, it should match
+|pm_sy|.
+
+  \item[|pf_spacing[j][i]|] String (length |pf_tag_string_length|)
+describing the way the data are to be
+interpolated. Examples are `linear', `log', and 'nonuniform'; 
+applies to tabular data only.
+
+  \item[|pf_var[j][i]|] String (length |pf_tag_string_length|)
+describing the |i|th independent variable of the |j|th dependent variable.
+|i| = 0 refers to the dependent variable itself.
+Examples are 'yield', 'energy\_in', etc.; see |pmiformat.hweb| for a
+complete list.
+
+  \item[|pf_units[j][i]|] String (length |pf_eval_string_length|) 
+providing the units for the |i|th independent variable
+|i|. String providing the units for this quantity; 
+may be in any system.
+
+  \item[|pf_eval_name[j]|] String 
+(length |pf_eval_string_length|) identifying the means for
+evaluating the |j|th dependent variable. 
+The most prevalent value is ``table''; other
+values must correspond to the name of a fitting subroutine. See 
+|plate.web| and the description of the |pd| class
+for more details. Note that in some instances, the appropriate
+dependent ``variable'' is really a vector (i.e., velocity); in this case,
+tabular evaluation (which can return only a single scalar) makes no sense.
+
+  \item[|pf_min[j][i]|] Floating point minimum value to be used for the 
+|i|th independent variable of the |j|the dependent variable.
+It will be combined with the maximum and the number
+of values to actually define the array of independent variable values.
+
+  \item[|pf_max[j][i]|] Floating point maximum value to be used for 
+the |i|th independent of the |j|th depdendent variable.
+
+  \item[|pf_mult[j][i]|] Floating point multipier for the |i|th
+independent variable of the |j|th dependent variable. |i| = 0 refers
+to the dependent variable itself.
+It should provide the conversion factor from |pf_units[j][i]| to the 
+MKS system.
+
+  \item[|pf_data_tab[macro_index]|] is the actual data object which
+holds the data. As described above, this
+is a 1-D array; its size is |pf_data_size|, an integer variable set
+by the macros |pf_ragged_alloc| and |pf_ragged_realloc|.
+\end{description}
+
+@ Routines using PMI data.
+
+\begin{description}
+  \item[|pf_data_table(i,j,k,l,m,n)|] Multidimensional accessor function to
+the PMI data provided for ease of use; the integers |i| through |m| are the
+independent variable indices, 0 $\leq$ |i| $\leq$ |pf_tab_index[n][1]|-1, etc.
+where |n| is the dependent variable.
+
+  \item[|pf_ragged_alloc(pf_data,pf_tab_index)|] Computes sizes and base 
+addresses of the one-dimensional data array |pf_data_tab| (|pf_data| is a 
+root name here) based on the multi-dimensional information provided by 
+|pf_tab_index|. There is additional documentation of a similar macro in 
+|pmiformat.hweb|.
+
+  \item[|pf_ragged_realloc(pf_data,pf_tab_index)|] Makes changes to size
+of one-dimensional data array |pf_data_tab| based on a revised |pf_tab_index|.
+The user must be adding to the end of the table for this to work properly.
+\end{description}
 

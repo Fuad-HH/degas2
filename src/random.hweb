@@ -3,6 +3,13 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1997/09/02 21:14:37  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.6  1997/08/19 14:36:53  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -161,3 +168,59 @@
 
 @m rn_seed_decl(x)
       integer x[0:3] @;
+
+@* Random class attribute descriptions.
+
+@ Data and arrays associated with random numbers.  Prefix is |rn|.  
+
+The identifier |random| is a string.
+
+\begin{description}
+  \item[|rn_index(random)|] index to next random number.
+
+  \item[|rn_max(random)|] Maximum index computed.
+
+  \item[|rn_count(random)|] Count of random numbers computed.
+
+  \item[|rn_array(random)|] Array of random numbers.
+
+  \item[|rn_gauss_index(random)|] Index to next gaussian random number.
+
+  \item[|rn_gauss_array(random)|] Array of gaussian random numbers.
+
+  \item[|rn_iso_index(random)|] Index to next isotropically distributed 
+vectors.
+
+  \item[|rn_iso_array(random)|] Array of isotropically distributed vectors.
+
+  \item[|rn_cos_index(random)|] Index to next cosine distributed vectors.
+
+  \item[|rn_cos_array(random)|] Array of cosine distributed vectors.
+\end{description}
+
+@ Routines using the random numbers.
+
+\begin{description}
+  \item[|rn_init(seed,random)|] initialize random numbers from 
+2-element integer array |seed|.
+
+  \item[|rn_next(x,random)|] Next random number into $x$ (inline available).
+
+  \item[|rn_fast_next(x,random)|] Fast version of this (inline available).
+
+  \item[|rn_check(n,random)|] Check |n| numbers available for |rn_fast_next|.
+
+  \item[|rn_gauss_next(x,random)|] Next gaussian number into $x$ 
+(inline availble).
+
+  \item[|rn_iso_next(v,random)|] Next isotropic vector number into $\vect v$
+(inline availble).
+
+  \item[|rn_cos_next(v,random)|] Next cosine vector number into $\vect v$
+(inline availble).
+
+  \item[|call set_random_seed(seed)|] Initialize seed from current time, etc.
+
+  \item[|call next_seed(n,seed)|] Advance |seed| forward $n$ steps.
+\end{description}
+

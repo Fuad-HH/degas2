@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.11  1998/09/04 17:04:40  dstotler
+% Relax assert on x in v_ext_to_int to take care of vacuum zones with no
+% defined center.
+%
 % Revision 1.10  1998/01/14 20:03:50  dstotler
 % Replace transform_v routine with macro. Both geometry_symmetry and
 % background_coords are used.
@@ -113,4 +117,23 @@ these arrays.
       define_varp_pk(bk,background_v,FLOAT,vector,background_ind,bk_plasma_ind)
       define_varp_pk(bk,background_temp,FLOAT,background_ind,bk_plasma_ind)
       package_end(bk)
+
+@* Background class attribute descriptions.
+
+@ Store background properties.  Prefix is |bk|.  
+
+The identifier |background| is an
+integer variable.
+
+\begin{description}
+  \item[|bk_n(background,i)|] Is the density in the $i$th zone.
+
+  \item[|bk_v(background,i)|] Is the vector velocity in the $i$th zone.
+
+  \item[|bk_temp(background,i)|] Is the temperature in the $i$th zone.
+
+  \item[|background_coords|] Specifies the coordinate system used to 
+represent |bk_v|, either |plasma_coords_cartesian| or 
+|plasma_coords_cylindrical|.
+\end{description}
 

@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1998/06/01 15:56:36  karney
+% MPI enabled version.
+%
 % Revision 1.5  1998/05/08 14:15:06  dstotler
 % Switch tally_dep_var from CHAR to INT. Add tally_dep_var_dim and macro
 % flags. Changed scoring_data_max to 50; this really should be a varp of
@@ -213,3 +216,231 @@ accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
 @m tl_set_base_size(x,y,subs)
       tl_set_baseinc(x,y,subs);
       x##_size=x##_size+inc @;
+
+@* Tally class attribute descriptions.
+
+@ Define tallies or scores. Prefix is |tl|. 
+
+This class provides the machinery for tabulating
+the Monte Carlo scores or tallies which form the basis of the DEGAS 2 output.
+The actual output is controlled within the ``output class'' (see below).
+
+There are a total of |tl_num| tallies, each representing an accounting of
+how a physical quantity, the ``dependent variable'', depends on a
+limited set of problem parameters, the ``independent variables''. The
+rank of each tally is in principle arbitrary. Sums over an individual
+index could either be carried out after the run, or specified as a
+separate tally (e.g., in order to obtain an explicit estimate of the
+relative standard deviation in the reduced tally).
+
+For each tally, an estimate of the mean and the relative standard
+deviation are provided. The latter is ill-defined for tallies with
+non-positive tally contributions.
+
+There are three types of tally determined by the dependent variable:
+\begin{description}
+  \item[|tl_type_sector|] A simple event score carried out when a flight 
+crosses a sector. This can be either a material surface or a purely
+diagnostic sector (see the sector class above).
+
+  \item[|tl_type_test|] A tally based solely on the properties of the
+test flight itself. The most familiar example is the neutral density.
+
+  \item[|tl_type_reaction|] Tallies associated with reactions. The most
+important examples are the sources of background particles, momenta, and
+energy arising from each reaction in the problem.
+\end{description}
+
+In general, we envision each tally consisting of additive contributions
+from one or more estimators. At this time, there are only two 
+run time estimators, |tl_est_track| and |tl_est_collision|. The latter
+is really a catch-all category since it includes not only collision
+based scores of type |tl_type_test|, but also event-based scores
+such as those of type |tl_type_sector| and of |tl_type_reaction| which
+can only be carried out when the reaction actually occurs. The third
+type of estimator |tl_est_post_process| must be derived from existing
+tallies. This option is implemented presently for only a couple of reactions 
+and tallies; no effort is made to propagate the standard deviation
+values through this process.
+
+The relative contributions of each estimator to a tally are controlled
+by the arrays |tally_est_test| (for type |tl_type_est|) and
+|tally_est_reaction| (|tl_type_reaction|). Since there is only
+one sensible estimator for |tl_type_sector|, no analogous array
+is carried along for that type. These arrays contain the multiplicative
+factor associated with each estimator for that tally. |tally_est_reaction|
+has an additional index for reaction so that different estimator
+combinations may be specified for each reaction. {\bf Presently, this
+multiplicative factor is constrained to be either 0 or 1 with the
+sum over estimators equalling 1.} Once more detailed optimization is
+carried out, this constraint will be relaxed.
+
+Certain simple manipulations of the tally data can be effected by 
+{\em conversions}. The principal examples are scaling a tally by a
+constant (e.g., species mass or zone volume) and velocity coordinate
+conversion (may be required for coupling DEGAS 2 to a plasma code). 
+The conversions are
+implemented within the tally class because of the tight links 
+between the two sets of ``objects''.
+The decision not to establish them as separate classes was motivated in
+part by the 
+treatment of the geometry transformations. Each tally may have associated 
+with it 0 or more (up to |tl_cv_max_conversions|) conversions. 
+Each conversion maintains pointers back to its tally so that the conversions
+can be carried out completely either by enumerating the conversions 
+for each tally (as is done during tracking) or vice-versa (the case for
+post-processing). The converted data replace the original so that dimension
+reducing conversions would not be easily done via these conversions.
+
+Conversions can be carried at three points during the run, designated as
+the conversion ``type'': |tl_cv_track| for those
+performed during tracking (the only nontrivial example at present is
+the conversion of velocities from the internal cartesian coordinates to
+the external cylindrical system associated with a toroidally symmetric
+geometry), |tl_cv_post| for conversions needed to prepare the
+neutral particle number and velocity which are input to the post 
+processing estimator, 
+and |tl_cv_output| for the bulk
+of the conversions done just before writing the output data.
+
+Presently there are four ``actions'' performed by the conversions. Although
+there are no a priori links between the action and the type of conversion, 
+only certain combinations are used in practice; see |tallysetup.web| for 
+specifics. The actions are: |tl_cv_scale| to scale a tally by a constant
+specified as part of the conversion, |tl_cv_divide_number| to normalize a
+tally by the number of test particles in a zone; 
+|tl_cv_to_external_coords| and |tl_cv_to_internal_coords| do the
+velocity conversions.
+
+\begin{description}
+  \item[|tl_num|] Total number of distinct tallies in the problem.
+
+  \item[|nconversions|] Total number of distinct conversions in the problem.
+
+  \item[|tally_size|] The total size of the array holding all of the
+tally data.
+
+  \item[|tally_type_num[type_ind]|] Number of tallies of type |type_ind|.
+
+  \item[|tally_type[tally_ind]|] Type of tally |tally_ind|.
+
+  \item[|tally_geometry[tally_ind]|] Geometry of tally |tally_ind|: 
+
+  \begin{enumerate}
+    \item |tl_geom_volume| tallies compiled as a function of zone,
+
+    \item |tl_geom_surface| |tl_type_sector| tallies,
+
+    \item |tl_geom_detector| tallies computed for a member of the
+detector class, 
+
+    \item |tl_geom_global| globally integrated tallies (not yet implemented).
+  \end{enumerate}
+
+  \item[|tally_geometry_ptr[tally_ind]|] Points to the geometric group of
+elements corresponding to tally |tally_ind|. This currently nontrivial only
+for |tl_geom_surface| (points to a diagnostic group) and
+|tl_geom_detector| (points to a detector group).
+
+  \item[|tally_base[tally_ind]|] Pointer to the first datum for tally
+|tally_ind| in the array holding all of the tally data.
+
+  \item[|tally_type_base[type_ind]|] Pointer to the first datum of
+type |type_ind| in the array holding all of the tally data. Note that
+the tallies of each type are assumed to be consecutive in that array.
+
+  \item[|tally_rank[tally_ind]|] Number of indepenedent variables
+(dimensionality) of tally |tally_ind|.
+
+  \item[|tally_dep_var_dim[tally_ind]|] Dimensionality of dependent variables
+of tally |tally_ind|; presently either 1 (|tl_dep_var_scalar|) or 3
+(|tl_dep_var_vector|).
+
+  \item[|tally_indep_var[rank_ind,tally_ind]|] Integer index corresponding
+to the |rank_ind|th independent variable for tally |tally_ind|. The list
+of possible values is lengthy and probably will be subject to considerable
+change; refer to |tally.hweb| for the current list.
+
+  \item[|tally_tab_index[rank_ind,tally_ind]|] Number of values of the
+|rank_ind|th independent variable of tally |tally_ind|.
+
+  \item[|tally_name[tally_ind]|] Descriptive name for tally |tally_ind|;
+if the tally is for a vector quantity, the name {\em must} contain the
+word ``vector''.
+
+  \item[|tally_dep_var[tally_ind]|] Integer identifying the physical 
+quantity being accumulated for tally |tally_ind|. This is set using
+a string specified in the argument list to |define_tally| in |tallysetup|.
+This string is searched for in the global list of dependent variables,
+|pr_var0_list|. The familiar examples are:
+
+  \begin{enumerate}
+    \item |back_mass| source of mass for the background species due to
+the current test species,
+
+    \item |back_momentum_vector| source of vector momentum 
+for the background species due to the current test species,
+
+    \item |back_energy| source of energy for the background species
+due to the current test species,
+
+    \item |mass| mass of test species,
+
+    \item |momentum_vector| momentum vector of the
+test species,
+
+    \item |energy| energy of the test species.
+  \end{enumerate}
+Or, it must be one of the other quantities appearing as reaction handling 
+variables (reactiondata
+class, |reaction_handling_var0|). The most
+commonly used example are the H$_{\alpha}$ emission rates which
+are named |emission_rate_h_alpha| where |h| = H, D, or T according
+to the current test species.
+
+  \item[|tally_est_test[est_ind,tally_ind]|] Multiplier on estimator
+|est_ind| for tally |tally_ind|; makes sense only for tallies of 
+|tl_type_test|.
+
+  \item[|tally_est_reaction[pr_reac,est_ind,tally_ind]|] Multiplier on 
+estimator |est_ind| for tally |tally_ind| when scoring problem reaction 
+|pr_reac|; makes sense only for tallies of 
+|tl_type_reaction|.
+
+  \item[|tally_num_conversions[tally_ind]|] Number of conversions for tally
+|tally_ind|; must be $\leq$ |tl_cv_max_conversions|.
+
+  \item[|tally_cv_ptr[ptr_ind,tally_ind]|] The |ptr_ind|th
+conversion for tally |tally_ind|.
+
+  \item[|tally_cv_action[cv_ind]|] The action to be performed by conversion
+|cv_ind|.
+
+  \item[|tally_cv_type[cv_ind]|] Type of conversion |cv_ind|.
+
+  \item[|tally_cv_num_partners[cv_ind]|] Number of tallies required
+to carry out |cv_ind|, must be at least one and not more than 
+|tl_cv_max_partners|. 
+
+  \item[|tally_cv_scalers[scal_ind,cv_ind]|] List of scalers (constants)
+|scal_ind| required to carry out |cv_ind|. There may be 0 to 
+|tl_cv_max_scalers| for each conversion; the number is determined by
+the action. 
+
+  \item[|tally_cv_partner[part_ind,cv_ind]|] The |part_ind|th partner
+in the list of partners for conversion |cv_ind|. The first partner
+is always the tally being operated on by the conversion. Additional
+(unmodified) tallies which are required to effect the conversion are
+included as other ``partners''.
+\end{description}
+
+@ Routines for use with tallies.
+
+\begin{description}
+  \item[|tl_scoring_index(t,j,ip)|] Provides the integer index of the 
+globally used compiled list of dependent variables, |scoring_data|, for
+dimension |j| (|j| $<$ |tally_dep_var_dim[t]|) of tally |t|. |ip| is
+intended to be the up-to-date |index_parameters| array which is 
+currently used to access the background species index.
+\end{description}
+

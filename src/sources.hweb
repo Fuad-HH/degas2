@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.8  1997/08/19 14:37:04  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.7  1997/08/07 20:27:25  dstotler
 % Added so_type_num macro.
 %
@@ -31,9 +36,8 @@
 
 \ID{$Id$}
 
-@* Specification of the sources.  At present only surface and volume
+@ Specification of the sources.  At present only surface and volume
 sources are handled.
-
 
 @f so_decl integer
 
@@ -95,3 +99,95 @@ sources are handled.
       define_varp_pk(so,source_segment_ptr_alias,INT,source_seg_ind)
 
       package_end(so)
+
+@* Source class attribute descriptions.
+
+@ Define properties of sources. Prefix is |so|. 
+
+Individual source elements or ``segments''
+are sorted into source ``groups''. These groups may be aligned with
+the sector strata, if desired, for external labeling purposes.
+Both the source group and
+segment are represented by integer variables. The segment
+is a general concept meant to account for all possible source geometries.
+For example, axisymmetric surface and volume sources are presently
+treated. The segments in this case represent sectors and zones, respectively.
+All segments in a group are assumed to have the same type, geometry,
+and species.
+
+Segment-specific data are stored in single 1-D arrays with the beginning
+of the portion corresponding to a particular group denoted by the 
+|so_base(igroup)| array.
+
+\begin{description}
+  \item[|so_base(igroup)|] Pointer in arrays defined over all
+segments at which the segments of group |igroup| begin.
+
+  \item[|so_nseg(igroup)|] Number of segments in group |igroup|.
+
+  \item[|so_type(igroup)|] Physical process associated with group |igroup|. 
+Presently treat plate (recycling), gas puff, and recombination.
+
+  \item[|so_geom(igroup)|] Geometry of group |igroup|. Presently treat
+axisymmetric surface and volume sources. Although in general the geometry
+should be independent of the source type, practically we expect plate and
+puff sources to have surface geometry and recombination to be volume.
+
+  \item[|so_nflights(igroup)|] Number of flights to be used for group 
+|igroup| during the run. These may be set independently of the source
+current for each group. The variance
+in the observable parameters of interest due to a particular group 
+should also be used to choose the number of flights.
+
+  \item[|so_species(igroup)|] Species index (species class) of group
+|igroup|.
+
+  \item[|so_tot_curr(igroup)|] Total current (particles per second) of all
+segments in group |igroup|.
+
+  \item[|so_wt_norm(igroup)|] Factor used to renomormalize the total
+weight flown for group |igroup| to adjust for nonunity values of
+|source_segment_rel_wt|.
+
+  \item[|so_scale(igroup)|] Arbitrary scaling factor for the total current
+of group |igroup|. Setting this to a value $\neq 1$ has the same impact
+as rescaling all of the segment currents by this factor. This provides
+additional flexibility for combining source groups since it can be applied
+after the run has been completed.
+\end{description}
+
+@ Internal variables in the sources class.
+
+\begin{description}
+  \item[|so_grps|] Number of source groups in the problem.
+
+  \item[|so_seg_tot|] Total number of source segments in the problem.
+
+  \item[|source_segment_ptr[iseg]|] Integer pointer to the geometry element
+corresponding to segment |iseg|. 
+
+  \item[|source_current[iseg]|] Current (in particles per second) associated
+with segment |iseg|.
+
+  \item[|source_segment_rel_wt[iseg]|] Arbitrary multiplier on the weight
+of flights launched from segment |iseg|. Nonunity values allow for 
+stratified source sampling. Biasing of the results is eliminated by dividing 
+the probability for selecting |iseg| by this factor. The factor |so_wt_norm| 
+is also required for this purpose.
+
+  \item[|source_segment_prob_alias[iseg]|] ``Probability alias'' for segment
+|iseg|. In sampling from this source group, a random number is compared 
+with entries in this array. For further explanation see the routines
+|sample_sources| and |set_prob_alias|. This is computed as part of the
+setup process from the source current distribution.
+
+  \item[|source_segment_ptr_alias[iseg]|] ``Pointer alias'' for segment 
+|iseg|. Used in sampling from this source group. A random number is
+compared with |source_segment_prob_alias|. This leads either directly
+to an entry in |source_segment_ptr| or to an entry in this array which
+serves as an indirect pointer to the same set of geometry elements.
+For further explanation see the routines
+|sample_sources| and |set_prob_alias|. This is computed as part of the
+setup process from the source current distribution.
+\end{description}
+

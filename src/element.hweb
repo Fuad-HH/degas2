@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.8  1997/08/19 14:36:35  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.7  1995/06/12 13:07:04  karney
 % Add in dummy elements into common blocks to avoid complaints from
 % Alpha.
@@ -78,4 +83,23 @@ these arrays.
       define_varp_pk(el,element_m,FLOAT,element_ind)
       define_varlocal_pk(el,element_version,CHAR,string)
       package_end(el)
+
+@* Element class attribute descriptions.
+
+@ This defines elements.  Prefix is |el|.  
+
+The
+identifier |element| is an integer variable.
+
+\begin{description}
+  \item[|el_name(element)|] Returns the long name (length |el_name_len|).
+  \item[|el_sy(element)|] Returns the symbolic name (length |el_sy_len|).
+  \item[|el_z(element)|] Returns the charge number.
+  \item[|el_m(element)|] Returns the mass number (in amu).
+\end{description}
+
+@ Routines using elements.
+
+|el_lookup(symbol)| Returns the integer element number corresponding to
+the symbolic name |symbol|.
 

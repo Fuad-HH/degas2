@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.24  1998/05/08 14:05:45  dstotler
+% Removed Charles' preliminary SCORING code to prevent later
+% confusion. Add list of dependent variables and macro pointers to
+% hard-wired entries.
+%
 % Revision 1.23  1998/03/11 15:13:43  dstotler
 % Add pr_reaction_dim to permit pr_reaction_num=0.
 %
@@ -284,3 +289,195 @@ problem is identified by an integer indexing into these arrays.
       define_varp_pk(ps,num_equiv,INT,problem_species_ind)
       define_varp_pk(ps,equivalents,INT,pr_equiv_ind,problem_species_ind)
       package_end(ps)
+
+@* Problem class attribute descriptions.
+
+@ Data structures used to specify the current problem. Prefix is |pr|. 
+
+These properties characterize the
+interactions between the various components of the problem: test particles,
+background species, reactions, materials, and plasma-material interactions.
+The integer indices and array values
+noted below correspond
+to entries into one of several lists.
+For clarity, we will associate with each list a different subscript to
+be used in the subsequent definitions:
+\begin{enumerate}
+  \item Reference list of species (class |sp|) (subscript: $s$),
+  \item Reference list of reactions (class |rc|) (subscript: $r$),
+  \item List of test species (problem input) (subscript: $t$),
+  \item List of background species (problem input) (subscript: $b$),
+  \item List of problem reactions (problem input) (subscript: $pr$),
+  \item List of problem background reactions (problem input) (subscript: $br$),
+  \item Reference list of materials (class |ma|) (subscript: $m$),
+  \item List of problem materials (problem input) (subscript: $ms$),
+  \item Reference list of plasma-materials interactions (class |pm|) 
+(subscript: $p$),
+  \item List of problem PMI (problem input) (subscript: $ps$),
+\end{enumerate}
+The index $i$ below refers to an element of each of these lists. Once we've got
+the subset lists specified in the ``problem input'', we can identify the
+reactions and PMI in which particular test species participates. Indices for 
+these sub-subset lists are denoted by $j$ below. Reactions
+between background species only (e.g., recombination) are designated as
+``background reactions'' and are characterized by separate arrays below.
+Background reactions enter into the problem by having a test species (maybe
+more than one?) in their list of products and, thus, give rise to a source
+group (class |so|).  
+
+\begin{description}
+
+  \item{|pr_test|($i_{t}$)} Species index of test species $i_{t}$.
+
+  \item{|pr_background|($i_{b}$)} Species index of background species $i_{b}$.
+
+  \item{|pr_reaction|($i_{pr}$)} Index into the reference list of reactions for
+problem reaction $i_{pr}$.
+
+  \item{|pr_mat_ref|($i_{ms}$)} Reference materials index of the $i_{ms}$ 
+entry in the problem materials subset.
+
+  \item{|pr_rc_num|($i_{t}$)} Number of reactions in which test species 
+$i_{t}$ participates.
+
+  \item{|pr_ts_rc|($i_{t}$,$j$)} Index of the problem reaction
+for the $j$th reaction involving test species $i_{t}$, $1 \leq 
+j \leq |pr_rc_num|(i_{t})$.
+
+  \item{|pr_ts_bk|($i_{t}$,$j$)} Index into the list of (problem) 
+background species for the $j$th reaction involving test species $i_{t}$.
+
+  \item{|pr_num_arrangements|($i_{t}$,$j$)} Number of arrangements of
+products (which may or may not be truly different) for  the $j$th 
+reaction involving test species $i_{t}$.
+ 
+  \item{|pr_ts_prod|($i_{t}$,$j$,$k$,$l$)} The $l$th product (equivalent
+to the $l$th entry in the list of generic species given by |rc_product|) for 
+the $k$th arrangement of
+the $j$th reaction involving test species $i_{t}$.
+
+  \item{|pr_prod_mult|($i_{t}$,$j$,$k$)} Relative weight or 
+multiplicity of the $k$th
+arrangement of  the $j$th reaction involving test species $i_{t}$. This
+quantity is the probability of obtaining arrangement $k$ in this reaction.
+
+  \item{|pr_bk_rc|($i_{br}$)} Index into the reference list of reactions
+for problem background reaction $i_{br}$.
+
+  \item{|pr_bkrc_rg|($i_{br}$,$j$)} Index into the list of (problem) background
+species for the $j$th reagent (1 $\leq j \leq$ |pr_bkrc_reagent_max|) in the
+$i_{br}$th background reaction.
+
+  \item{|pr_bkrc_prod|($i_{br}$,$j$)} Index into the list of reference species
+for the $j$ product of the $i_{br}$th background reaction.
+
+  \item{|pr_pm_ref|($i_{ps}$)} Index into the reference list of PMI for
+problem PMI $i_{ps}$.
+
+  \item{|pr_pm_case_num|($i_{t}$)} Number of PMI in which test species 
+$i_{t}$ participates.
+
+  \item{|pr_pm_cases|($i_{t}$,$j$)} Index of the problem PMI
+for the $j$th reaction involving test species $i_{t}$, $1 \leq j
+\leq |pr_pm_case_num|(i_{t})$.
+
+  \item{|pr_pm_num_arrange|($i_{t}$,$j$)} Number of arrangements of
+products (which may or may not be truly different) for  the $j$th 
+PMI involving test species $i_{t}$.
+
+  \item{|pr_pm_prod|($i_{t}$,$j$,$k$,$l$)} The $l$th product 
+for the $k$th arrangement of
+the $j$th PMI involving test species $i_{t}$.
+
+  \item{|pr_prod_mult|($i_{t}$,$j$,$k$)} Relative weight or 
+multiplicity of the $k$th
+arrangement of  the $j$th PMI involving test species $i_{t}$. This
+quantity is the probability of obtaining arrangement $k$ in this PMI.
+\end{description}
+
+@ Internal variables for the problem class.
+
+\begin{description}
+
+  \item{|pr_test_num|} Number of test species in the problem.
+
+  \item{|pr_background_num|} Number of background species in the problem.
+
+  \item{|pr_reaction_num|} Number of reactions in the problem.
+
+  \item{|pr_bkrc_num|} Number of background reactions in the problem.
+
+  \item{|pr_bkrc_dim|} For dimensioning; is equal to |pr_bkrc_num|, except
+is set to 1 when |pr_bkrc_num|=0.
+
+  \item{|pr_materials_num|} Number of materials in the problem.
+
+  \item{|pr_pmi_num|} Number of plasma-material interactions in the problem.
+
+  \item{|pr_var0_num|} Number of entries in |pr_var0_list|.
+
+  \item{|pr_materials_sub|[$i_{m}$]} Problem index of reference material
+$i_{m}$.
+
+  \item{|problem_pmi_sub|[$i_{p}$]} Index of the problem PMI 
+corresponding to reference PMI $i_{p}$.
+
+  \item{|pr_var0_list|[$j$]} List of dependent variables in the problem
+(compiled on the fly), $1 \leq j \leq$ |pr_var0_num|. 
+\end{description}
+
+@ Routines using problem class.
+
+Note: these first two lookup macros are frequently used and are thus based
+on actual internal arrays.
+
+\begin{description}
+
+  \item{|pr_test_lookup|($i_{s}$)} Index into the list of problem test species
+corresponding to reference species $i_{s}$; returns 0 if the species $i_{s}$
+is not a test species.
+
+  \item{|pr_background_lookup|($i_{s}$)} Index into the list of problem
+background species corresponding to reference species $i_{s}$; returns 0 if 
+the species $i_{s}$ is not a background species.
+
+  \item{|pr_reaction_lookup|($i_{r}$)} Index into the list of problem reactions
+corresponding to reference reaction $i_{r}$.
+
+  \item{|pr_var_back_index|($i$,|back|)} Provides integer index into 
+|pr_var0_list| specific for background species |back| (the generic
+background-related variables such as |pr_var_back_mass| are duplicated
+|pr_background_num| times).
+\end{description}
+
+@ Problem setup variables for isotopic variations. Prefix is |ps|.
+
+The following variables are required in a number of the |problemsetup.web| 
+routines, but not in any outside; hence, they have been broken off into this
+separate package defined within |problem.hweb|.
+
+The mechanism for dealing with isotopic variations involves defining a
+``generic species'', a single species which represents all of the isotopic
+combinations equivalent to it.
+E.g., for the all-important case of hydrogen,
+the generic archetype for a given molecule is defined (or at least
+it should be) as the one containing only protium isotopes.
+
+\begin{description}
+
+  \item[|num_generics|] Total number of "generic species" appearing
+in the lists of test and background species.
+
+  \item[|generics|[$i_{s}$]] Provides the index $i_{g}$ (used below)
+of the ``generic species'' which is being used to represent (the isotopically
+equivalent) species $i_{s}$ of the reference species list.
+
+  \item[|num_equiv|[$i_{g}$]] Total number of entries in the test and 
+background species lists which are equivalent to "generic species" $i_{g}$.
+
+  \item[|equivalents|[$i_{g}$,$j$]] Provides the index into the 
+reference species list of
+the $j$th particle equivalent to generic species $i_{g}$, where $1 \leq j \leq
+|num_equiv|[i_{g}]$.
+\end{description}
+

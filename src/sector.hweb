@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.8  1999/02/02 15:07:51  dstotler
+% Added recycling coefficient to list of target and wall properties.
+%
 % Revision 1.7  1998/03/11 15:24:13  dstotler
 % Add plasma_e_ion_delta, plasma_e_ion_mult. Add sc_plasma_check. Add
 % sc_plasma_decl.
@@ -220,3 +223,229 @@ starting them at $0$, the dimensions have a length of at least $1$.
       exit_sector[sc_exit_num]=sc;
       sector_type_pointer[sc][sc_exit]=sc_exit_num;
       exit_albedo[sc_exit_num]=alb @;
+
+@* Sector class attribute descriptions.
+
+@ Define a sector. Prefix is |sc|.
+
+A sector is identified by a positive integer |sector|.  This
+gives information about the properties of the sector.  Each
+sector is defined by a zone and a (directed) surface number. The array
+providing the map from surface indices back to the sector indices
+is held within the sector common block.  
+
+A set of sector subclasses are defined here as well for the purpose of
+providing clearly defined arrays for storing sector-related properties.
+With the exception of the ``diagnostic'' subclass, the subclass type
+is the closely related to the sector's zone type.
+The intention is that the number of these subclasses will change
+infrequently; with new properties added occasionally. Hence, we have
+opted, for clarity, to make the subclass and property names explicit
+rather than store all of this information in some flexible array
+structure.
+
+The |strata| and |sector_strata_segment| arrays provide
+labels for coordinating input and output data with external codes. The
+intention is to use them in the same way as the |zn_index| for 
+individual zones. For historical reasons, a single stratum is used to
+for sectors on both sides of a boundary (e.g., plasma-surface interface).
+
+Note that separate |target| and |wall| subclasses are being maintained,
+although currently the distinction between them is largely artificial
+since they have the same properties. The anticipation is that at some
+point the distinction will prove useful in separating sectors experiencing
+(in most problems) both ion and neutral fluxes from those receiving just
+neutral fluxes.
+
+The diagnostic subclass (distinct from the separate, but also arbitrarily
+named, |detector| class) properties permit sectors to record information
+about sector-crossing flights. As presently envisioned and utilized, these
+sectors are also members of the |target| or |wall| subclasses.
+Related diagnostic sectors with identical properties may be collectively
+``grouped'' together. There may be several groups of diagnostics in
+a given problem: one to measure particle current to each sector,
+one to collect an energy spectrum of arriving particles, etc.
+Each sector (a given surface and zone) may belong to one of the 
+non-diagnostic subclasses (this is only a logical restriction and is
+unenforced), as well as to one or more diagnostic groups. Sectors
+may also be defined solely to serve as diagnostic surfaces.
+
+\begin{description}
+  \item[|nsectors|] Total number of sectors in the problem.
+
+  \item[|strata[sector]|] External (arbitrary) label for a group of sectors. 
+In the nomenclature of the original DEGAS, one stratum would correspond to
+a single wall.
+
+  \item[|sector_strata_segment[sector]|] Another external label intended
+to enumerate individual sectors in a stratum; the original DEGAS analog
+would be wall segments.
+
+  \item[|sectors[pointer]|] Array pointed to by |surface_sectors| (see
+|geometry.web|) via the integer index |pointer|. The array |sectors| provides
+the sector(s) index |sector| associated with a given surface. Need to use a
+pointer here rather than a direct array with a |surface| index since there
+may indeed be more than one |sector| associated with a given |surface|.
+Nonetheless, because of the fact that a sector is defined by a single
+(and only one) surface, the number of elements in |sectors| is just
+|nsectors|.
+
+  \item[|sector_zone[sector]|] Returns the zone (class |zn|)
+associated with |sector|.
+
+  \item[|sector_surface[sector]|] Returns the surface (see |geomint.hweb|)
+associated with |sector|.
+
+  \item[|sector_points[i,e,sector]|] Returns the
+|i|th component of the position
+vector at one end (i.e., |e| = 0 or 1) of |sector|.
+
+  \item[|sector_type_pointer[sector][type]|] Integer index into the list
+of the |type| subclass corresponding to |sector| (each sector may belong
+to more than one subclass).
+\end{description}
+
+{\bf vacuum subclass}
+\begin{description}
+  \item[|sc_vacuum_num|] Number of sectors in the vacuum subclass.
+
+  \item[|vacuum_sector[vacuum_ind]|] Returns the sector index corresponding
+to index |vacuum_ind| in the vacuum subclass list.
+\end{description}
+
+{\bf plasma subclass}
+\begin{description}
+  \item[|sc_plasma_num|] Number of sectors in the plasma subclass.
+
+  \item[|plasma_sector[plasma_ind]|] Returns the sector index corresponding
+to index |plasma_ind| in the plasma subclass list.
+\end{description}
+
+{\bf target subclass}
+\begin{description}
+  \item[|sc_target_num|] Number of sectors in the target subclass.
+
+  \item[|target_sector[target_ind]|] Returns the sector index corresponding
+to index |target_ind| in the target subclass list.
+
+  \item[|target_material[target_ind]|] Integer index into the materials
+class |ma| to be used to identify the plasma-material interactions for
+the target sector |target_ind|.
+
+  \item[|target_temperature[target_ind]|] Temperature, in joules, of the 
+target material comprising the target sector |target_ind|.
+
+  \item[|target_recyc_coef[target_ind]|] Recycling coefficient (1 - 
+absorbed fraction) of the target material comprising the target 
+sector |target_ind|.
+\end{description}
+
+{\bf wall subclass}
+\begin{description}
+  \item[|sc_wall_num|] Number of sectors in the wall subclass.
+
+  \item[|wall_sector[wall_ind]|] Returns the sector index corresponding
+to index |wall_ind| in the wall subclass list.
+
+  \item[|wall_material[wall_ind]|] Integer index into the materials
+class |ma| to be used to identify the plasma-material interactions for
+the wall sector |wall_ind|.
+
+  \item[|wall_temperature[wall_ind]|] Temperature, in joules, of the 
+wall material comprising the wall sector |wall_ind|.
+
+  \item[|wall_recyc_coef[wall_ind]|] Recycling coefficient (1 - 
+absorbed fraction) of the wall material comprising the wall 
+sector |wall_ind|.
+\end{description}
+
+{\bf exit subclass}
+\begin{description}
+  \item[|sc_exit_num|] Number of sectors in the exit subclass.
+
+  \item[|exit_sector[exit_ind]|] Returns the sector index corresponding
+to index |exit_ind| in the exit subclass list.
+
+  \item[|exit_albedo[exit_ind]|] Floating value for the albedo of
+the exit sector |exit_ind|.
+\end{description}
+
+{\bf diagnostic subclass}
+\begin{description}
+  \item[|sc_diagnostic_grps|] Number of {\em groups} of diagnostics in this 
+subclass.
+
+  \item[|sc_diag_max_bins|] Used in conjunction with |de_max_bins| to check
+the dimension for the bins scoring array, |max_bins|.
+
+  \item[|diagnostic_grp_name[group_ind]|] Descriptive label for each 
+diagnostic group.
+
+  \item[|diagnostic_num_sectors[group_ind]|] Number of sectors comprising each
+diagnostic group.
+
+  \item[|diagnostic_var[group_ind]|] Independent variable for 
+spectrum-collecting (e.g., |sc_diag_energy| or incident angle, 
+|sc_diag_angle|) diagnostics.
+
+  \item[|diagnostic_tab_index[group_ind]|] Number of bins for 
+spectrum-collecting diagnostics. For simplicity, only rank 0 
+(designated by |diagnostic_tab_index| = 0) or 1 diagnostics are 
+permitted.
+
+  \item[|diagnostic_min[group_ind]|] Minimum value for the independent
+variable.
+
+  \item[|diagnostic_delta[group_ind]|] Increment between independent
+variable bins.
+
+  \item[|diagnostic_spacing[group_ind]|] Spacing method for independent
+variables. Presently only uniform-linear and uniform-log are 
+treated.
+
+  \item[|diagnostic_grp_base[group_ind]|] Index into the list of all sectors
+for the first member of |groud_ind| (members of each group are required
+to be consecutive in this list). This array is used only to set up the
+|diagnostic_sector| macro (see below).
+  \item[|sc_diag_size|] Total number of diagnostic sectors.
+
+  \item[|diagnostic_sector_tab[diagnostic_ind]|] Sector number corresponding
+to the diagnostic number |diagnostic_ind|. Again, this is used only to
+set up the |diagnostic_sector| macro.
+\end{description}
+
+@ Routines using sectors.
+
+\begin{description}
+  \item[|diag_lookup(name)|] Returns the integral diagnostic group number
+associated with |name|.
+
+  \item[|plasma_lookup(sector)|] Retrieves the index in the plasma subclass
+list corresponding to sector.
+
+  \item[|sc_diagnostic(group)|] Provides the integral sector type 
+(analogous to |sc_wall|, |sc_plasma|, etc.) associated with |group|.
+
+  \item[|diagnostic_sector(i,group)|] Sector number corresponding to the
+|i|th member of diagnostic group |group|.
+
+  \item[|define_sector_vacuum(sector)|] Adds |sector| to the vacuum sector
+subclass.
+
+  \item[|define_sector_plasma(sector)|] Adds |sector| to the plasma sector
+subclass.
+
+  \item[|define_sector_target(sector,material,temp,recyc)|] 
+Adds |sector| to the 
+target sector subclass. It is assumed to made of |material| (member of the
+material class |ma|) at temperature |temp|, with recycling coefficient |recyc|.
+
+  \item[|define_sector_wall(sector,material,temp,recyc)|] Adds |sector| to the 
+wall sector subclass. It is assumed to made of |material| (member of the
+material class |ma|) at temperature |temp|, with recycling coefficient |recyc|.
+
+  \item[|define_sector_exit(sector,albedo)|] Adds |sector| to the exit
+sector subclass. An albedo value of |albedo| is assigned (not implemented at
+present).
+\end{description}
+  

@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.15  1997/08/19 14:37:12  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.14  1996/10/30 18:31:54  dstotler
 % Added zone_min and zone_max.
 %
@@ -115,3 +120,40 @@ identified by an integer indexing into these arrays.
 @m zn_type_set(zone,type) zn_type(zone)=type;
       zone_type_num[type]=zone_type_num[type]+1;
       zn_pointer(zone)=zone_type_num[type] @;
+
+@* Zone class attribute descriptions.
+
+@ Define a zone.  Prefix is |zn|.  
+
+The identifier |zone| is an integer variable.
+
+\begin{description}
+  \item[|zn_type(zone)|] Is one of |zn_vacuum|, |zn_plasma|, |zn_solid|
+indicating the type of zone.
+
+  \item[|zn_index(zone,l)|] For $l=1, \rightarrow$ |zn_index_max| 
+gives the fluid code indices of the zone.
+
+  \item[|zn_pointer(zone)|] Is a pointer into arrays specific for different 
+types of zones: plasma, solid, etc.
+
+  \item[|zn_volume(zone)|] Is the volume of the zone.
+\end{description}
+
+@ Internal variables in the zone class.
+
+\begin{description}
+  \item[|zn_num|] Number of zones in the problem.
+
+  \item[|zone_center[zone]|] Is an approximate center for the zone; accuracy 
+depends on the geometry.
+
+  \item[|zone_min[zone]|] Minimum value of the coordinates of the corners of 
+the zone; the minimum is performed separately for each component so that this 
+point is not necessarily part of the zone.
+
+  \item[|zone_max[zone]|] Maximum value of the coordinates of the corners of 
+the zone; the maximum is performed separately for each component so that this 
+point is not necessarily part of the zone.
+\end{description}
+

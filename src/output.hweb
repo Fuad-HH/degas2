@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1999/02/02 15:03:45  dstotler
+% Added source group index to output_2D_coupling.
+%
 % Revision 1.4  1998/05/08 13:54:58  dstotler
 %  Replace out_array_vc_index and out_array_index with a
 % single out_array_index using tally_dep_var_dim.
@@ -77,4 +80,70 @@ complete. Hence, we have collected them separately here.
       define_varp_pk(ou,output_2D_coupling,FLOAT,output_ind_1,output_ind_2,ou_back_ind,output_coupling_ind,output_grps_ind) 
       define_varlocal_pk(ou,output_version,CHAR,string)
       package_end(ou)
+
+@* Output class attribute descriptions.
+
+@ Definition of the data in the main output file. Prefix is |ou|. 
+
+This class contains various objects needed
+to record the results of the DEGAS 2 calculation. Presently, these 
+consist of several related large arrays representing components of the
+total scores. The existing arrays are explicitly of rank 2 or 3. The
+first of these, indicated by |mom_ind| below, is either |o_mean|,
+indicating the mean score, or |o_var|, denoting its variance. The
+|table_ind| is the compressed single dimension array containing the
+ragged, multidimensional scoring data. The |_grp| arrays have a third
+index |group_ind| for the source group. At present, no attempt is
+made to compute the variance of post-processed scores.
+
+Specific data required for the coupling of DEGAS 2 to two dimensional
+fluid plasma transport codes are contained in the |output_2D_coupling|
+array. The 2-D spatial indices are determined from the |zn_index| 
+arrays.
+
+\begin{description}
+  \item[|output_all[mom_ind,table_ind]|] Sum over all source groups of
+tallies computed during the DEGAS 2 run.
+
+  \item[|output_grp[mom_ind,table_ind,group_ind]|] Tallies computed during
+the DEGAS 2 run for source group |group_ind|.
+
+  \item[|out_post_all[mom_ind,table_ind]|] Sum over all source groups of
+all DEGAS 2 tallies, including post-processed contributions.
+
+  \item[|output_grp[mom_ind,table_ind,group_ind]|] All DEGAS 2 tallies
+for source group |group_ind|, including post-processed contributions.
+
+  \item[|output_index_1_min|] Minimum of the first index appearing
+in the |zn_index| data passed to DEGAS 2.
+
+  \item[|output_index_1_max|] Maximum of the first index appearing
+in the |zn_index| data passed to DEGAS 2.
+
+  \item[|output_index_2_min|] Minimum of the second index appearing
+in the |zn_index| data passed to DEGAS 2.
+
+  \item[|output_index_2_max|] Maximum of the second index appearing
+in the |zn_index| data passed to DEGAS 2.
+
+  \item[|output_2D_coupling[ix,iy,back_ind,cpl_ind]|] The |cpl_ind|th
+variable (ion number, momentum component, or energy source) associated with 
+background particle |back_ind| in zone |(ix,iy)|, as specified by
+|zone_index|.
+\end{description}
+
+@ Routines using output.
+
+Successive attempts have been made at providing a succinct accessor method
+to the output arrays. The present approach involves the following macro to
+specify the single array index into which all of the tallies and their
+dependencies have been compiled:
+
+\begin{description}
+  \item[|out_array_index(i,ind,t)|] Index for the |i|th component,
+|i| $<$ |tally_dep_var_dim[t]|, of the tally |t| and |ind|,
+an array of length |tl_rank_max| containing the indices corresponding
+to a particular set of independent variable values (between 0 and 
+|tally_tab_index[r,t]|-1 with 1 $\leq$ |r| $\leq$ |tally_rank[t]|).
+\end{description}
 

@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.16  1998/03/11 15:15:20  dstotler
+% Allow for pr_reaction_num=0; includes also doing dummy allocation of
+% reaction_rate_tab and reaction_handling_tab.
+%
 % Revision 1.15  1997/08/19 14:36:57  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -112,4 +116,44 @@ reaction is identified by an integer indexing into these arrays.
       define_varp_pk(rc,reaction_filename,CHAR,reaction_filename_string,reaction_ind)
       define_varlocal_pk(rc,reaction_version,CHAR,string)
       package_end(rc)
+
+@* Reaction class attribute descriptions.
+
+@ Define reactions.  Prefix is |rc|.  
+
+The identifier |reaction| is an
+integer variable.
+
+\begin{description}
+  \item[|rc_name(reaction)|] Is the name of the reaction 
+(length |rc_name_len|).
+
+  \item[|rc_sy(reaction)|] Is the symbolic name of the reaction 
+(length |rc_sy_len|).
+
+  \item[|rc_emitter(reaction)|] Is the reagent (if negative) or product 
+(if positive) number to be associated with a photon emitted from this reaction.
+
+  \item[|rc_reagent_num(reaction)|] Is the number of reagents in the reaction
+(maximum value |rc_reagent_max|).
+
+  \item[|rc_reagent(reaction,i)|] Is the $i$th species reagent in the reaction.
+
+  \item[|rc_product_num(reaction)|] Is the number of products (maximum value
+|rc_product_max|).
+
+  \item[|rc_product(reaction,i)|] Is the species of the $i$th product.
+
+  \item[|rc_filename(reaction)|] netCDF filename containing the reaction 
+rate and handling data (class |xs|) for the reaction.
+
+  \item[|rc_reaction_type(reaction)|] The reaction type determines 
+which routines will be used to determine the reaction product velocities 
+during run time.
+\end{description}
+
+@ Routines using reactions.
+
+|rc_lookup(symbol)| returns the integer reaction number corresponding to
+the symbolic name |symbol|.
 

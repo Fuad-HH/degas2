@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  1997/08/19 14:37:05  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.9  1995/07/19 20:14:39  dstotler
 % Further changes for handling isotopes; define species multiplicity for
 % molecules containing more than one isotope.
@@ -94,3 +99,32 @@ species is identified by an integer indexing into these arrays.
       define_varp_pk(sp,species_count,INT,species_comp_ind,species_ind)
       define_varlocal_pk(sp,species_version,CHAR,string)
       package_end(sp)
+
+@* Species class attribute descriptions.
+
+@ Define species.  Prefix is |sp|.  
+
+The identifier |species| is an
+integer variable.
+
+\begin{description}
+  \item[|sp_name(species)|] Returns the long name (length |sp_name_len|).
+  \item[|sp_sy(species)|] Returns the symbolic name (length |sp_sy_len|).
+  \item[|sp_m(species)|] Returns the mass (in kg).
+  \item[|sp_z(species)|] Returns the charge number.
+  \item[|sp_ncomp(species)|] Returns the number of components in a species
+(maximum size |sp_ncomp_max|).
+  \item[|sp_generic(species)|] Is the integer species number of the isotopic 
+equivalent to |species| which has been designated in the species input as the 
+archetype or ``generic'' member of that family.
+  \item[|sp_multiplicity(species)|] Number of different ways in which the 
+isotopically equivalent elements in |species| could be arranged. 
+  \item[|sp_el(species,i)|] Returns the element for the $i$th component.
+  \item[|sp_count(species,i)|] Returns the count of the $i$th component.
+\end{description}
+
+@ Routines using species.
+
+|sp_lookup(symbol)| returns the integer species number corresponding to the 
+symbolic name |symbol|.
+

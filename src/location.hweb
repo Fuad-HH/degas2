@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1998/04/16 15:31:03  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.8  1998/01/14 20:44:38  dstotler
 % Remove "strata" from list of properties.
 %
@@ -105,4 +108,32 @@ A location is identified by a string tag.
 @m geom_infinity const(1.0,16) // A large distance---about a light year.  Also a long time---about a billion years.
 @m geom_large const(1000.0) // A largish (non-infinite) distance $1\,\mathrm{km}$.
 @m epsilon_angle const(1.0,-10) // A small angle.
+
+@* Location class attribute descriptions.
+
+@ Define a location.  Prefix is |lc|.  
+
+The identifier |location| is a
+string tag.
+
+\begin{description}
+  \item[|lc_x(location)|] Is the position.
+  \item[|lc_cell(location)|] Is the cell number.
+  \item[|lc_zone(location)|] Is the zone number.
+  \item[|lc_face(location)|] Is the face of the cell if at a face (else 0).
+  \item[|lc_cell_next(location)|] Is the next cell number.
+  \item[|lc_zone_next(location)|] Is the next zone number.
+  \item[|lc_sector(location)|] Is the present sector number if at a sector; 
+else 0.
+  \item[|lc_sector_next(location)|] If at or just past a sector adjacent to a 
+second sector, contains the number of the latter; else 0.
+\end{description}
+
+@ Routines using locations.
+
+\begin{description}
+  \item[|lc_set(location)|] Sets other fields of |location| given the position.
+  \item[|lc_thru_face(location)|] Updates the fields of |location| for 
+traversal of a cell face.
+\end{description}
 
