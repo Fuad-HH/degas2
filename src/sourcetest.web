@@ -2,6 +2,9 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.5  1998/09/04 17:21:16  dstotler
+% Added computation of chi-squared for global profile comparison.
+%
 % Revision 1.4  1998/01/14 21:08:37  dstotler
 % Update usage to flight (mainly to include fl_source) and arguments for
 % call to sample_sources.
@@ -81,7 +84,8 @@
       implicit_none_f90
       real rel_wt,weight_tot,energy,fr,vsrc_mag,vnorm_mag,cos_theta,
      $     deltax_mag,vpar1,vpar2,vplane2_mag,
-     $     min_prob,max_prob
+     $     min_prob,max_prob,energy_avg,fr_avg,costh_avg,vpar1_avg,
+     $     vpar2_avg
       real chi_sqd(max_num_chis)
       integer num,i,xseg,nsample,zone,nseg,j,num_chis
       integer num_points(max_num_chis)
@@ -99,6 +103,8 @@
       vc_decl(xp)
       vc_decl(xp2)
       vc_decl(vsrc)
+      vc_decl(xsrc_avg)
+      vc_decl(vsrc_avg)
       vc_decl(vnorm)
       vc_decl(vplane2)
 
@@ -246,6 +252,13 @@ loop2: continue
       write(diskout,*) 'For source group ',isource,', segment ',
      $     nseg,', which points to geometry element ',xseg
       write(diskout,*) '   i      x            y            z            vx           vy           vz         energy         fr         cos_th       vpar1       vpar2'
+      vc_set(xsrc_avg,zero,zero,zero)
+      vc_set(vsrc_avg,zero,zero,zero)
+      energy_avg=zero
+      fr_avg=zero
+      costh_avg=zero
+      vpar1_avg=zero
+      vpar2_avg=zero
       do i=1,nsample
          call set_source_x(so_args(isource),xseg,rn_args(fl_rand(x)),
      $        lc_args(xsrc))
@@ -302,8 +315,27 @@ loop2: continue
          write(diskout,'(i5,1x,1p,11(e11.4,2x))') i,lc_x(xsrc)[1],
      $        lc_x(xsrc)[2],lc_x(xsrc)[3],
      $        vsrc[1],vsrc[2],vsrc[3],energy,fr,cos_theta,vpar1,vpar2
-
+         vc_add(lc_x(xsrc),xsrc_avg,xsrc_avg)
+         vc_add(vsrc,vsrc_avg,vsrc_avg)
+         energy_avg+=energy
+         fr_avg+=fr
+         costh_avg+=cos_theta
+         vpar1_avg+=vpar1
+         vpar2_avg+=vpar2
       end do
+      write(diskout,*) '----------------------------------------------------------------------------------------------------------------------------------------------'
+      vc_scale(one/areal(nsample),xsrc_avg,xsrc_avg)
+      vc_scale(one/areal(nsample),vsrc_avg,vsrc_avg)
+      energy_avg/=areal(nsample)
+      fr_avg/=areal(nsample)
+      costh_avg/=areal(nsample)
+      vpar1_avg/=areal(nsample)
+      vpar2_avg/=areal(nsample)
+      write(diskout,*) ' Averages:'
+      write(diskout,'(6x,1p,11(e11.4,2x))') xsrc_avg[1],xsrc_avg[2],
+     $     xsrc_avg[3],vsrc_avg[1],vsrc_avg[2],vsrc_avg[3],energy_avg,
+     $     fr_avg,costh_avg,vpar1_avg,vpar2_avg
+
       go to loop2
 
 eof: continue
