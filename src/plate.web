@@ -2,6 +2,11 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.4  1997/08/19 14:36:47  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.3  1997/08/07 19:56:23  dstotler
 % Eliminate indep_var array usage and nonuniform spacing code. Move
 % setting of random numbers for independent_parameters from reflection
@@ -175,7 +180,7 @@ returned. The random number thread |x| is included in case it's needed.
      $        pt_v(prod[i])[1],v_temp[1])
          vc_copy(v_temp,pt_v(prod[i]))
 // Do pt_thru_face(prod[i]) here instead of in calling routine? !!!
-         pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
+         pt_test(prod[i])=pr_test_lookup(pt_sp(prod[i]))
          lc_copy(pt_loc(p),pt_loc(prod[i]))
          pt_t(prod[i])=pt_t(p)
          pt_w(prod[i])=pt_w(p)*pt_w(prod[i])

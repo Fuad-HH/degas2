@@ -2,6 +2,13 @@
 \Title{pmitest}
 
 % $Log$
+% Revision 1.5  1997/09/02 21:14:34  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.4  1997/08/19 14:36:50  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -98,7 +105,7 @@ loop: continue
       else
          assert(test_species == pm_reagent(pmi_ref))
       end if
-      test=problem_species_test(test_species)
+      test=pr_test_lookup(test_species)
       mat_ref=pm_materials(pmi_ref)
       mat_sub=problem_materials_sub(mat_ref)
       pmi_sub=problem_pmi_sub(pmi_ref)
