@@ -2,6 +2,10 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.15  1999/02/08 18:20:46  dstotler
+% Add an assert to catch source species which are not in the problem
+% test list.
+%
 % Revision 1.14  1998/12/22 16:49:13  dstotler
 % Use local common x_surface in set_puff_source_v.
 %
@@ -357,7 +361,7 @@ using routines specific for the type of that source.
       sp_decl(spion)  
       vc_decl(vzero)
       vc_decl(vone)
-      sc_plasma_decl(plasma_sc_ptr)
+      sc_target_decl(target_sc_ptr)
 
       external neutralize_species  // External
       integer neutralize_species
@@ -366,10 +370,10 @@ using routines specific for the type of that source.
 
       assert(so_geom(isource) == so_surface)
       spion=so_species(isource)
-      plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
-      assert(sc_plasma_check(plasma_sc_ptr))
+      target_sc_ptr=sector_type_pointer[xseg][sc_target]
+      assert(sc_target_check(target_sc_ptr))
       wa=zero
-      if (plasma_e_ion_mult[plasma_sc_ptr] > zero) then
+      if (target_e_ion_mult[target_sc_ptr] > zero) then
 /* Sample a Gaussian energy at background temperature */
          do j=1,3
             rn_gauss_next(vgauss,r)
@@ -377,7 +381,7 @@ using routines specific for the type of that source.
          end do
          wa=half*wa*bk_temp(pr_background_lookup(spion),lc_zone(x))
       else
-         assert(plasma_e_ion_mult[plasma_sc_ptr] == zero)
+         assert(target_e_ion_mult[target_sc_ptr] == zero)
       end if
 @#if 0
       assert(sp_sy(pr_background(1))=='e')
@@ -391,8 +395,8 @@ using routines specific for the type of that source.
    are now set in |readbackground.web|.
 */
       assert(sp_z(spion) == 1) // If $> 1$, should have term $\propto Z$
-      ion_energy=plasma_e_ion_delta[plasma_sc_ptr]
-     $     + plasma_e_ion_mult[plasma_sc_ptr]*wa
+      ion_energy=target_e_ion_delta[target_sc_ptr]
+     $     + target_e_ion_mult[target_sc_ptr]*wa
       
       ion_velocity=sqrt(two*ion_energy/sp_m(spion))
 
@@ -487,12 +491,14 @@ with an isotropic distribution; we would need another routine for that.
 @#if 0
       vpuff=sqrt(vpuff*electron_charge*const(3.,-2)/sp_m(spsrc))
 @#endif
+@#if 0
       xseg2=int_lookup(-sector_surface[xseg],sector_surface[1],nsectors)
       assert(strata[xseg2]==strata[xseg])
-      if (sector_type_pointer[xseg2][sc_wall] != 0) then
-         temp=wall_temperature[sector_type_pointer[xseg2][sc_wall]]
-      else if (sector_type_pointer[xseg2][sc_target] != 0) then
-         temp=target_temperature[sector_type_pointer[xseg2][sc_target]]
+@#endif
+      if (sc_wall_check(sector_type_pointer[xseg][sc_wall])) then
+         temp=wall_temperature[sector_type_pointer[xseg][sc_wall]]
+      else if (sc_target_check(sector_type_pointer[xseg][sc_target])) then
+         temp=target_temperature[sector_type_pointer[xseg][sc_target]]
       else
          assert('Puffing surface not found' == ' ')
       end if
