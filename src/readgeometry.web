@@ -2,6 +2,13 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.30  1997/09/02 21:14:42  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.29  1997/08/21 01:46:22  karney
 % Convert rest of memory allocation to fortran 90 standard.
 %
@@ -307,6 +314,7 @@ end
       num_polygon++ @;
 @#endif
 
+@#if 0
 @m increment_num_polygon if (mod(num_polygon,mem_delta) == 0) then;
       var_realloc(polygon_x,num_polygon-1,num_polygon-1+mem_delta);
       var_realloc(polygon_points,num_polygon-1,num_polygon-1+mem_delta);
@@ -316,6 +324,15 @@ end
       var_realloc(polygon_segment,num_polygon-1,num_polygon-1+mem_delta);
       end if;
       num_polygon++ @;
+@#endif
+
+@m increment_num_polygon       num_polygon++;
+      var_realloca(polygon_x);
+      var_realloca(polygon_points);
+      var_realloca(polygon_zone);
+      var_realloca(polygon_material);
+      var_realloca(polygon_stratum);
+      var_realloca(polygon_segment) @;
 
 @<Functions...@>=
       program readgeometry
@@ -364,7 +381,7 @@ end
      $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
      $     trx,symmetry,ix_mirror,null_type,grid_sense
 
-      character*LINELEN line,keyword
+      character*LINELEN line,keyword,new_zone_type
       logical complete,vacuum
       real xmin,xmax,zmin,zmax,vol,vola,vol_test
       real mindensity,minx,minz
@@ -423,6 +440,14 @@ c      integer polygon_segment[num_points-1,*]
       double_null=.false.
 
       num_polygon=0
+
+      var_realloca(polygon_x)
+      var_realloca(polygon_points)
+      var_realloca(polygon_zone)
+      var_realloca(polygon_stratum)
+      var_realloca(polygon_material)
+      var_realloca(polygon_segment)
+
       symmetry=geometry_symmetry_cylindrical
       zone=0
 
@@ -507,20 +532,7 @@ loop2: continue
          zone++
          zn_volume(zone)=zero
          assert(next_token(line,b,e,p))
-         if (line(b:e) == 'solid') then
-            zn_type_set(zone,zn_solid)
-         else if (line(b:e) == 'exit') then
-            zn_type_set(zone,zn_exit)
-         else if (line(b:e) == 'vacuum') then
-            zn_type_set(zone,zn_vacuum)
-         else if (line(b:e) == 'plasma') then
-            zn_type_set(zone,zn_plasma)
-         else if (line(b:e) == 'exit') then
-            zn_type_set(zone,zn_exit)
-         else
-            write(stderr,*) 'Unknown zone type: ',line(b:e)
-            assert(.false.)
-         end if
+         new_zone_type=line(b:e)
       elseif (keyword == 'new_polygon') then
          n=0
 	 increment_num_polygon
@@ -532,7 +544,22 @@ loop2: continue
          polygon_stratum[num_polygon]=current_stratum
          polygon_material[num_polygon]=current_material
          call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
-         if (zn_volume(zone) == zero) then
+         if (zn_volume(zone) == real_undef) then
+            zn_volume(zone)=zero
+            if (new_zone_type == 'solid') then
+               zn_type_set(zone,zn_solid)
+            else if (new_zone_type == 'exit') then
+               zn_type_set(zone,zn_exit)
+            else if (new_zone_type == 'vacuum') then
+               zn_type_set(zone,zn_vacuum)
+            else if (new_zone_type == 'plasma') then
+               zn_type_set(zone,zn_plasma)
+            else if (new_zone_type == 'exit') then
+               zn_type_set(zone,zn_exit)
+            else
+               write(stderr,*) 'Unknown zone type: ',new_zone_type
+               assert(.false.)
+            end if
             call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.true.)
          else
             call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
