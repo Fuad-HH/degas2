@@ -3,6 +3,9 @@
 \def\Wtitle{geometry}
 
 % $Log$
+% Revision 1.13  1995/03/10 22:11:18  karney
+% Reorder variable definitions in various header files
+%
 % Revision 1.12  1995/03/01 19:29:20  jshankar
 % Have put some more documentation which a novice might find of some help (or
 % may be confuse ?).
@@ -47,7 +50,7 @@
 
 \ID{$Id$}
 
-Each cell is described by a equations of the form
+Each cell is described by an equation of the form
 $$
 C_j = \bigcap_{k\in K_j\cup K'_j} \{ \vect x : \sigma_k f_k(\vect x) \ge 0 \}.
 $$
@@ -58,7 +61,7 @@ extraneous volumes that may appear when using quadratic surfaces.  We
 require that each cell is {\it connected}.  The cut surfaces serve to
 enforce this constraint.
 
-There are $N_c+1$ cells numbered 0 thru $N_c$.  Cells 0 is the universe.  All
+There are $N_c+1$ cells numbered 0 thru $N_c$.  Cell 0 is the universe.  All
 the other cells are disjoint and their union is the universe.  Thus
 $$
 C_0 = \bigcup_{j=1}^{N_c} C_j,
@@ -76,6 +79,9 @@ abstraction seen by the outside world.
 
 
 The information about the cells is held in an array |cells[4,ncells]|.
+The ``4'' represents the following items pertinent to each cell; the
+actual integer value assigned to the first index in each case is specified
+in |geomint.hweb|.
 |cells[c_start,j]| is a pointer to a list of surfaces for cell $j$,
 |cells[c_faces,j]| is the number of faces, and |cells[c_surfaces,j]| is
 the number of faces plus cut surfaces.  |cells[c_zone,j]| holds a zone
@@ -90,10 +96,10 @@ starting at |boundaries[cells[c_start,j]]| and the cut surfaces are gives
 by the |cells[c_surfaces,j]-cells[c_faces,j]| surfaces starting at
 |boundaries[cells[c_start,j]+cells[c_faces,j]]|.
 
-|surfaces| holds four pieces of information about each surface, a count,
+|surfaces| holds four pieces of information about each surface: a count,
 |surfaces[s_neg,s_count,k]|, of the number of cells for which this surface is
-a face on the negative side and a pointer, |surfaces[s_neg,s_start,k]|, to
-|neighbors|, giving the indices of the cells, and then the
+a face on the negative side; a pointer, |surfaces[s_neg,s_start,k]|, to
+|neighbors|, giving the indices of the cells; and then the
 corresponding information for the positive side, |surfaces[s_pos,s_count,k]|
 and |surfaces[s_pos,s_start,k]|.
 
@@ -102,8 +108,8 @@ and |surfaces[s_pos,s_start,k]|.
 |neighbors| is a list of cells for each face.
 
 NOT IMPLEMENTED YET: Each surface may have a transformation associated
-with it.  If |surface_tx_ind[abs(k),s_sign(k),t_surf]| is nonzero, then
-a point on surface |k| is transformed to a a point on surface
+with it.  If \newline |surface_tx_ind[abs(k),s_sign(k),t_surf]| is nonzero, then
+a point on surface |k| is transformed to a point on surface
 |surface_tx_ind[abs(k),s_sign(k),t_surf]| using the transformation
 |surface_tx_mx[1..3,1..4,surface_tx_ind[abs(k),s_sign(k),t_mx]]|.
 
@@ -136,13 +142,15 @@ succeeded.
 |track(type,tmax,x0,v,cell,t,x,cell1,exit_face,cell2)| tracks a
 particle $\vect x = \vect x_0 + \vect v t$ through a zone stopping either
 at the boundary of the zone (and returning |.false.|) or after a time
-$t_{\mathrm{max}}$ (and returning |.true.|), whichever comes first.  The updated
+$t_{\mathrm{max}}$ (and returning |.true.|), whichever comes first.  
+The updated
 position is given in $\vect x$.  |cell| is the starting cell.  If the
 result is |.true.|, then the particle did not leave the zone, |t = tmax|,
-|cell1=cell2| is the ending cell, and |exit_face=0|.  Else, the particle
-did not leave the zone, |t < tmax|, |cell1| is the ending cell belonging
-to the original region, the face through which the particle is exiting is
-given in |exit_face| and the new cell is given in |cell2|.  If |cell2==0|,
+|cell1=cell2| is the ending cell, and |exit_face=0|.  Else, 
+if the result is |.false.|, the particle stopped at the boundary of the
+zone, |t < tmax|, |cell1| is the ending cell belonging
+to the original zone, the face through which the particle is exiting is
+given in |exit_face| and the next cell is given in |cell2|.  If |cell2==0|,
 then the particle is leaving the universal cell.
 
 |intersection_direction(face,x,v)| returns the cosine of angle of
@@ -151,13 +159,13 @@ the cell.
 
 |call surface_specular(face,x,v,v1)| specularly reflects a
 particle at $\vect x$ with velocity $\vect v$ off a surface.  Returns a new
-velocity $\vect v' = \vect v - 2 \nabla f (\nabla f \cdot \vect v) /
+velocity $\vect {v1} = \vect v - 2 \nabla f (\nabla f \cdot \vect v) /
 \abs{\nabla f}^2 $, provided $v$ was heading out of the face, otherwise
-$\vect v' = \vect v$.
+$\vect {v1} = \vect v$.
 
 |call surface_reflect(face,x,v,w,v1)| makes an abritrary
-reflection of a particle at $\vect x$ with velocity $\vect v$ of a face.
-The new velocity is $\vect v'$.  In the coordinate system aligned with the
+reflection of a particle at $\vect x$ with velocity $\vect v$ off a face.
+The new velocity is $\vect {v1}$.  In the coordinate system aligned with the
 face, this new velocity is input as $\vect w$, where $w_i = \vect e_i\cdot
 \vect w$.  This coordinate system is given by the unit vectors: $\vect e_3$
 is inward unit normal to the face, $\vect e_1$ is parallel to $(\tens I -
@@ -257,7 +265,7 @@ In order to avoid evaluating |f|  twice, |surface_val|  should be passed as
 
 @ Check whether a point lies on the positive side of a surface (within
 |geom_epsilon|).
-Here, if |f| >= 0 the point lies on the positive side of the surface. Else,
+Here, if |f| $\geq 0$ the point lies on the positive side of the surface. Else,
 if it lies on the negative side within |geom_epsion| it is accepted.
 @<Functions...@>=
       function inside_surface(surface_args,x)
@@ -453,8 +461,8 @@ the cell.
       end
 
 @ A sloppy version of |on_face|.
-This is the same as |on_face| except that the point does'nt have to lie stric
-tly inside the cell ie.. it may lie within |geom_epsilon| of the faces. 
+This is the same as |on_face| except that the point does'nt have to lie 
+strictly inside the cell; ie., it may lie within |geom_epsilon| of the faces. 
 @<Functions...@>=
       function sloppy_on(cell_args,face,x)
       implicit_none
@@ -505,7 +513,7 @@ tly inside the cell ie.. it may lie within |geom_epsilon| of the faces.
       if (on) then
          cell_compare=0
       else
-         cell_compare=1 // comes here if f0 > 0
+         cell_compare=1 // comes here if f0 $> 0$
       end if
 
       return
@@ -518,18 +526,21 @@ result, if $\vect x_0$ is initially on the wrong side of the face.  (In
 this case the particle should pass to the neighboring cell.)
 
 To find the intersection of the surface |f(x)| with the path of the particle 
-given by $\vect x_0 + \vect v t$ , we put this in the equation  $$f(\vect x + 
-\vect v t)= 0 $$ . We get \\
-$$ f(\vect x) + g(\vect v) t^2 + \nabla f. \vect v t $$ \\
-This is a  quadratic equation of the form \\
-$$ a t^2 + 2 h t +c = 0 $$ where a,h and t are given as \\
-$$ a= \sigma*
-     (v[3]*(coeff[czz]*v[3]+coeff[cyz]*v[2]+
-       coeff[cxz]*v[1])+v[2]*(coeff[cyy]*v[2]+
-       coeff[cxy]*v[1])+coeff[cxx]*v[1]^2)
-$$ 
-$ h= \frac {1}{2} \nabla f. \vect v $ \\
-$ c= f(\vect x) $ \\
+given by $\vect x_0 + \vect v t$ , we put this in the equation  
+$$f(\vect x_{0} + 
+\vect v t)= 0. $$ 
+We get
+a  quadratic equation,
+$$ a t^2 + 2 h t +c = 0, $$ where a, h and t are given as
+\begin{eqnarray*}
+ a & = & \sigma*
+     \left[ v_{3}*(coeff_{czz}*v_{3}+coeff_{cyz}*v_{2}+
+       coeff_{cxz}*v_{1}) \right. \\
+   &  &  \left. +v_{2}*(coeff_{cyy}*v_{2}+
+       coeff_{cxy}*v_{1})+coeff_{cxx}*v_{1}^2 \right]
+\end{eqnarray*}
+$ h= \frac {1}{2} \left. \nabla f \right @|_{x_{0}} \cdot \vect v, $
+$ c= f(\vect x_{0}) $ \\
 solving this equation gives the value of t (time) taken for the particle to
 intersect the first face in its direction. 
 @<Functions...@>=
@@ -636,7 +647,7 @@ the cell.
 @ Specularly reflect a particle at $\vect x$ with velocity $\vect v$ off a
 surface.  Returns a new velocity $\vect v' = \vect v - 2 \nabla f (\nabla f
 \cdot \vect v) / \abs{\nabla f}^2 $, provided $v$ was heading out of the
-face, otherwise $\vect v' = \vect v$.
+face, otherwise $\vect {v1} = \vect v$.
 
 @<Functions...@>=
       subroutine surface_specular(face,x,v,v1)
@@ -707,7 +718,7 @@ as function value.  The face through which the trajectory exits is given by
 The time taken to intersect each of the faces is calculated by the function 
 |surface_intersect|. The smallest of these times is taken as |cell_intersect|.
 The face of intersection is saved in |ns|. If the value of |cell_intersect| is
-$\lt 0$, it is taken as 0.
+$< 0$, it is taken as 0.
 
 @<Functions...@>=
       function cell_intersect(cell_args,x0,v,exit_face)
