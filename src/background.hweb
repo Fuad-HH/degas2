@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  1998/01/14 20:03:50  dstotler
+% Replace transform_v routine with macro. Both geometry_symmetry and
+% background_coords are used.
+%
 % Revision 1.9  1997/08/19 14:36:28  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -73,7 +77,7 @@ these arrays.
 
 @ Move velocity from external reference plane to internal position.
 
-@m v_ext_to_int(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian)) then;
+@m v_ext_to_int(x,v,v_t,sym,coord) if (sym == geometry_symmetry_plane || (sym == geometry_symmetry_none && coord == plasma_coords_cartesian) || (x[1]**2+x[2]**2 == zero)) then;
       vc_copy(v,v_t);
       else if (sym == geometry_symmetry_cylindrical || (sym == geometry_symmetry_none && coord == plasma_coords_cylindrical)) then;
       assert(x[1]**2+x[2]**2 > zero);
