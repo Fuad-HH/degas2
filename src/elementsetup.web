@@ -2,6 +2,9 @@
 \def\Wtitle{elementsetup}
 
 % $Log$
+% Revision 1.3  1993/09/26  23:33:57  karney
+% Convert to 'package' support
+%
 % Revision 1.2  1993/09/23  12:34:24  karney
 % Change netcdf file extension from .cdf to .nc
 %
@@ -65,13 +68,13 @@ loop1: continue
       length=parse_string(line(:length))
       p=0
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(i)') element_z[el_num]
+      read(line(b:e),'(i)') el_z(el_num)
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') element_sy[el_num]
+      read(line(b:e),'(a)') el_sy(el_num)
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(f)') element_m[el_num]
+      read(line(b:e),'(f)') el_m(el_num)
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') element_name[el_num]
+      read(line(b:e),'(a)') el_name(el_num)
       goto loop1
 eof:  continue
       close(unit=diskin)
