@@ -79,7 +79,9 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     'aladinfile' || symbolic_fname == 'aladoutfile' ||
      $     symbolic_fname == 'elements_infile' || symbolic_fname ==
      $     'problem_infile' || symbolic_fname =='reaction_infile' ||
-     $     symbolic_fname == 'species_infile' )
+     $     symbolic_fname == 'species_infile' || symbolic_fname == 
+     $     'materials_infile' || symbolic_fname == 'materialsfile' ||
+     $     symbolic_fname == 'pmi_infile' || symbolic_fname == 'pmifile' )
       
       filenames_max = filenames_max +1
       var_realloca(filenames_array)
@@ -109,6 +111,14 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
          filenames_array[reaction_infile] = line(b:e)
       elseif ( symbolic_fname == 'species_infile')  then
          filenames_array[species_infile] = line(b:e)
+      elseif ( symbolic_fname == 'materials_infile')  then
+         filenames_array[materials_infile] = line(b:e)
+      elseif ( symbolic_fname == 'materialsfile')  then
+         filenames_array[materialsfile] = line(b:e)
+      elseif ( symbolic_fname == 'pmi_infile')  then
+         filenames_array[pmi_infile] = line(b:e)
+      elseif ( symbolic_fname == 'pmifile')  then
+         filenames_array[pmifile] = line(b:e)
       endif
 
       goto loop
