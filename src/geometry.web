@@ -2,6 +2,9 @@
 \def\Wtitle{geometry}
 
 % $Log$
+% Revision 1.8  1993/10/25  22:32:00  karney
+% Fix TeX errors.  Fix conditions for straight line tracking.
+%
 % Revision 1.7  1993/10/11  19:07:49  karney
 % Fix bug in do-loop indexing in cell_enter.
 %
@@ -998,30 +1001,5 @@ cells, it checks that the cells are neighbors.
 
       return
       end
-
-@* Location routines.
-
-@<Functions...@>=
-      function lc_track(type,tmax,lc_dummy(x0),v,lc_dummy(x),t)
-      implicit_none
-      logical lc_track          // Function
-      real tmax,v[3]            // Input
-      integer type
-      lc_decl(x0)
-      real t                    // Output
-      lc_decl(x)
-      gi_common
-      external track            // Exteral
-      logical track
-
-      lc_track=track(type,tmax,lc_x(x0),v,lc_cell(x0),
-     $     t,lc_x(x),lc_cell(x),lc_face(x),lc_cell_next(x))
-      if (lc_face(x) != 0) then
-         lc_zone_next(x) = cells[c_zone,lc_cell_next(x)]
-      end if
-      
-      return
-      end
-
 
 @* Index.
