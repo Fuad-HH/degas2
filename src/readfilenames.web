@@ -85,7 +85,9 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     symbolic_fname == 'species_infile' || symbolic_fname == 
      $     'materials_infile' || symbolic_fname == 'materialsfile' ||
      $     symbolic_fname == 'pmi_infile' || symbolic_fname == 'pmifile' 
-     $     || symbolic_fname == 'cramdproblemfile')
+     $     || symbolic_fname == 'cramdproblemfile' 
+     $     || symbolic_fname == 'tallyfile'
+     $     || symbolic_fname == 'outputfile')
       
       filenames_max = filenames_max +1
       var_realloca(filenames_array)
@@ -125,6 +127,10 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
          filenames_array[pmifile] = line(b:e)
       elseif ( symbolic_fname == 'cramdproblemfile') then
          filenames_array[cramdproblemfile] = line(b:e)
+      elseif ( symbolic_fname == 'tallyfile') then
+         filenames_array[tallyfile] = line(b:e)
+      elseif ( symbolic_fname == 'outputfile') then
+         filenames_array[outputfile] = line(b:e)
       endif
 
       goto loop
