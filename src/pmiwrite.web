@@ -2,6 +2,13 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.10  1998/12/22 16:47:40  dstotler
+% Fill unused portion of main data table with real_unused (also in DEGAS
+% refl section, use real_undef for the datum corresponding to a fit with
+% no coefficients - the cosine velocity vector). Incremented data file
+% version  numbers. Hack in emulation of EIRENE extrapolation of
+% cos(theta).
+%
 % Revision 1.9  1998/09/04 17:15:16  dstotler
 % Minor changes to satisfy FWEAVE and TeX.
 %
@@ -89,6 +96,8 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       tag='t -> c'
       version='V. 1.1, T reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
+// Comment out most of the calls to keep things clean 
+@#if 0
       tag='h -> c'
       version='V. 1.1, H reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
@@ -101,21 +110,26 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       tag='d -> mo'
       version='V. 1.1, D reflection on Mo data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
+@#endif
       tag='he -> fe'
       version='V. 1.1, He reflection on Fe, marlowe data from marl.dat'
       call pmi_write_degas_marl(tag,version)
+@#if 0
       tag='h -> fe'
       version='V. 1.1, H reflection on Fe, marlowe data from marl.dat'
       call pmi_write_degas_marl(tag,version)
+@#endif
       tag='hmirror'
       version='V. 1.1, simple data for unit yield, specular reflection of H on a mirror'
       call pmi_write_mirror(tag,version)
+@#if 0
       tag='h2mirror'
       version='V. 1.1, simple data for unit yield, specular reflection of H2 on a mirror'
       call pmi_write_mirror(tag,version)
       tag='hadsorbc'
       v_type='none'
       version='V. 1.1, simple data for adsorption of H on C'
+@#endif
       call pmi_write_misc(tag,const(0.1),v_type,version)
       tag='h2adsorbc'
       v_type='none'
@@ -130,6 +144,7 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       v_type='cosine'
       call pmi_write_misc(tag,const(-1.0),v_type)
 @#endif
+@#if 0
       tag='hadsorbex'
       v_type='none'
       version='V. 1.1, simple data for adsorption of H at exit'
@@ -138,12 +153,22 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       v_type='none'
       version='V. 1.1, simple data for adsorption of H2 at exit'
       call pmi_write_misc(tag,one,v_type,version)
-
+@#endif
       call readfilenames
       call nc_read_elements     // Needed to rescale TRIM data
       tag='D -> Mo'             // Capitalize to match element symbols
       data_tag='D -> Fe'
       version='V. 1.1. D reflection on Mo, trim data scaled from D on Fe'
+      call pmi_write_trim(tag,data_tag,version)
+
+      tag='He -> C'
+      data_tag=tag
+      version='V. 1.0. He reflection on C, trim data'
+      call pmi_write_trim(tag,data_tag,version)
+
+      tag='He -> Fe'
+      data_tag=tag
+      version='V. 1.0. He reflection on Fe, trim data'
       call pmi_write_trim(tag,data_tag,version)
 
       stop
@@ -860,6 +885,17 @@ four of these.
          jpair=7
       else if (data_proj == 'T' && data_target == 'C') then
          jpair=8
+@#if 0
+/*
+   Suspect that this first pair is correct. Sure of the second based
+   on data contained in Reiter, et al. JUL-2605. These are both
+   commented out since W is not yet in the list of elements.
+*/
+      else if (data_proj == 'D' && data_target == 'W') then
+         jpair=9
+      else if (data_proj == 'He' && data_target == 'W') then
+         jpair=10
+@#endif
       else
          assert('Unsupport data species' == ' ')
       end if
