@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.35  1995/06/16 19:51:42  dstotler
+# Switch strata -> segment in HEADERS definition (bug) and remove
+# randomtest2.
+#
 # Revision 1.34  1995/06/16 09:54:44  karney
 # remove unresolved conflict garbage
 #
@@ -185,6 +189,7 @@ ifeq ($(DEBUG),yes)
 else
   TANGLEFLAGS=-mINLINE -W[ -ytt4000000 -yn8000 -n/ -n')' -Tv
 endif
+
 WEAVEFLAGS=-f -i -W[ -ykw600 -j -n/
 
 ifeq ($(MACHINE),CRAY)
@@ -241,7 +246,7 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
     ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb segment.hweb \
-    pmi.hweb pmiformat.hweb 
+    pmi.hweb pmiformat.hweb readfilenames.hweb
 
 %.f: %.web $(HEADERS)
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -310,19 +315,19 @@ randomtest = random.$O randother.$O
 randomtest_libs =
 randomtest: $(randomtest)
 
-pvmmaster = random.$O stat.$O geometry.$O
+pvmmaster = random.$O stat.$O geometry.$O readfilenames.$O
 pvmmaster_libs = $(NETCDF) $(PVM)
 pvmmaster: $(pvmmaster)
 
-pvmslave = random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O reaction.$O geomfront.$O
+pvmslave = random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O reaction.$O geomfront.$O readfilenames.$O
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave)
 
-flighttest = elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O
+flighttest = elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O
 flighttest_libs = $(NETCDF)
 flighttest: $(flighttest)
 
-geomtesta = geometry.$O plotgeom.$O elementread.$O
+geomtesta = geometry.$O plotgeom.$O elementread.$O readfilenames.$O
 geomtesta_libs = $(HDF) $(NETCDF)
 geomtesta: $(geomtesta)
 
@@ -334,11 +339,11 @@ pmiwrite =
 pmiwrite_libs = $(NETCDF)
 pmiwrite: $(pmiwrite)
 
-datasetup = elementread.$O elementsetup.$O speciesetup.$O reactionsetup.$O
+datasetup = elementread.$O elementsetup.$O speciesetup.$O reactionsetup.$O readfilenames.$O
 datasetup_libs = $(NETCDF)
 datasetup: $(datasetup)
 
-problemsetup = elementread.$O reaction.$O
+problemsetup = elementread.$O reaction.$O readfilenames.$O
 problemsetup_libs = $(NETCDF)
 problemsetup: $(problemsetup)
 
@@ -358,19 +363,19 @@ readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O s
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry)
 
-readfilenames= readfilenames.$O sysdep.$O string.$O
+readfilenames=  readfilenames.$O sysdep.$O string.$O
 readfilename_libs =
 readfilenames: $(readfilenames)
 
-readbackground = readdegas.$O geometry.$O elementread.$O
+readbackground = readdegas.$O geometry.$O elementread.$O readfilenames.$O
 readbackground_libs = $(NETCDF)
 readbackground: $(readbackground)
 
-reactiontest = reactiontest.$O elementread.$O reaction.$O
+reactiontest = reactiontest.$O elementread.$O reaction.$O readfilenames.$O
 reactiontest_libs = $(NETCDF)
 reactiontest: $(reactiontest)
 
-ratecalc = $(ALADIR)/aladdin_subr.o
+ratecalc = $(ALADIR)/aladdin_subr.o readfilenames.$O
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc)
 
@@ -379,7 +384,7 @@ ratecalc: $(ratecalc)
 #sysdeptest: $(SYSDEPO) string.$O
 array: $(SYSDEPO)
 teststring: $(SYSDEPO) string.$O
-geomtest: geometry.$O geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) composite.$O string.$O
+geomtest: geometry.$O geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) composite.$O string.$O readfilenames.$O
 #geomtesta: geometry.$O $(SYSDEPO) string.$O plotgeom.$O elementread.$O
 #geomread: geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
 #pvmmaster: pvmmaster.$O $(SYSDEPO) random.$O stat.$O geometry.$O

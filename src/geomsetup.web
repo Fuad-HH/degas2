@@ -3,6 +3,9 @@
 \def\Wtitle{geometry setup}
 
 % $Log$
+% Revision 1.14  1995/06/06 13:37:59  csk
+% Permit printing at Garching.
+%
 % Revision 1.13  1995/05/31 19:24:36  dstotler
 % Add "face" to argument list of add_segment (presumably an oversight
 % from a previous release.
@@ -57,6 +60,7 @@ Geometry setup routines for degas.
 @I macros.hweb
 
 @I geomint.hweb
+@I readfilenames.hweb
 @ The unnamed module.
 
 @a
@@ -518,9 +522,12 @@ break1:        continue
       gi_ncdecl
       zn_ncdecl
       vc_ncdecl
+      rf_common
       integer fileid
+      character*FILELEN tempfile
 
-      fileid = nccreate('geometry.nc',NC_CLOBBER,nc_stat)
+      tempfile = filenames_array[geometryfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
       vc_ncdef(fileid)
       gi_ncdef(fileid)
       zn_ncdef(fileid)

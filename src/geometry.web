@@ -3,6 +3,10 @@
 \def\Wtitle{geometry}
 
 % $Log$
+% Revision 1.16  1995/05/26 04:00:43  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.15  1995/05/22 22:05:40  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -127,6 +131,7 @@ After the geometry is set up, information about the geometry is held in
 @I macros.hweb
 
 @I geomint.hweb
+@I readfilenames.hweb
 
 @* External interface to geometry routines.
 
@@ -1066,11 +1071,13 @@ cells, it checks that the cells are neighbors.
       gi_ncdecl
       zn_ncdecl
       vc_ncdecl
-      integer fileid
       sy_common
-      
+      rf_common
+      integer fileid
+      character*FILELEN tempfile    //local
 
-      fileid = ncopen('geometry.nc',NC_NOWRITE,nc_stat)
+      tempfile = filenames_array[geometryfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
       vc_ncread(fileid)
       gi_ncread(fileid)
       zn_ncread(fileid)

@@ -2,6 +2,10 @@
 \def\Wtitle{readbackground}
 
 % $Log$
+% Revision 1.5  1995/05/26 04:01:42  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.4  1995/05/22 22:06:01  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -27,6 +31,7 @@
 @I macros.hweb
 @I degas.hweb
 @I geomint.hweb
+@I readfilenames.hweb
 
 @f namelist integer
 @ The unnamed module.
@@ -48,6 +53,9 @@
       bk_common
 
       call command_arg(1,datafilename)
+
+      call readfilenames
+
       degas = .false. ; uedge =.false.
 
 /* find out whether the data file is degas or uedge depending on the extension 
@@ -72,7 +80,7 @@ of the file name (x.d is degas and x.u for uedge) */
          else
             assert (.false.)
          endif
-         print *, 'datafilename   ',datafilename
+
       call read_geometry
             
       call nc_read_elements
@@ -277,6 +285,7 @@ skip:       continue
       subroutine write_background
       implicit_none
       integer fileid
+      character *FILELEN tempfile
       zn_common
       bk_common
       bk_ncdecl
@@ -284,8 +293,10 @@ skip:       continue
       nc_common
       so_common
       so_ncdecl
+      rf_common
 
-      fileid = nccreate('background.nc',NC_CLOBBER,nc_stat)
+      tempfile = filenames_array[backgroundfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
       vc_ncdef(fileid)
       bk_ncdef(fileid)
       so_ncdef(fileid)

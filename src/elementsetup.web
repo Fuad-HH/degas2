@@ -2,6 +2,10 @@
 \def\Wtitle{elementsetup}
 
 % $Log$
+% Revision 1.12  1995/05/26 04:00:35  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.11  1995/02/16 18:37:33  dstotler
 % Cleanup some conflicts associated with recent merges.
 %
@@ -46,6 +50,7 @@ Introduction\ldots
 @m FILE 'elementsetup.web'
 
 @I macros.hweb
+@I readfilenames.hweb
 
 @ The unnamed module.
 
@@ -105,15 +110,18 @@ eof:  continue
       el_common                 // Common
       nc_common                 // Local
       integer fileid
-
+      character *FILELEN tempfile      //local
       el_ncdecl
       st_common
+      rf_common
       character*LINELEN description,program_version
 
       program_version=
      $     '$Id$'
 
-      fileid = nccreate('../data/elements.nc',NC_CLOBBER,nc_stat)
+
+      tempfile = filenames_array[elementsfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
 
       description = 'Data for elements in degas 2'
       call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,

@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.16  1995/05/31 19:26:10  dstotler
+% Add new Aladdin subroutine calls to aladdin_eval_fit.
+%
 % Revision 1.15  1995/05/26 04:01:29  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -189,6 +192,7 @@ on the origin of the cross section data; it is assumed to be in grams.
 @m FILE 'ratecalc.web'
 
 @I macros.hweb
+@I readfilenames.hweb
 
 @ The unnamed module
 
@@ -211,7 +215,11 @@ on the origin of the cross section data; it is assumed to be in grams.
       nc_common
       sy_common
       ra_common_l                                 // Local common
+      rf_common
 
+/* read filenames used in this program */
+
+      call readfilenames
 /* 
    Get ALADDIN input information and instructions for filling files.
 */
@@ -386,7 +394,8 @@ on the origin of the cross section data; it is assumed to be in grams.
 /*
    All done. Write and close netCDF file
 */
-      fileout='../data/aladoutput.nc'
+
+      fileout= filenames_array[aladoutfile]
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
       xs_ncdef(fileid)
       call ncendef(fileid,nc_stat)
@@ -434,6 +443,7 @@ coefficients since the user will not know this in general.
       ra_ncdecl
       xs_common
       sy_common
+      rf_common
 
       ra_mass=const(3.3452,-24)
       ra_mass_units='g'
@@ -466,7 +476,7 @@ coefficients since the user will not know this in general.
 /* 
    These variables can be written as a netCDF file, if needed.
 */
-      fileout='../data/aladinput.nc'
+      fileout= filenames_array[aladinfile]
       fileid=nccreate(fileout,NC_CLOBBER,nc_stat)
       ra_ncdef(fileid)
       call ncendef(fileid,nc_stat)

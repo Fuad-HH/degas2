@@ -2,6 +2,10 @@
 \def\Wtitle{elementread}
 
 % $Log$
+% Revision 1.9  1995/05/26 04:00:33  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.8  1995/05/22 22:05:32  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -37,6 +41,7 @@ Introduction\ldots
 @m FILE 'elementread.web'
 
 @I macros.hweb
+@I readfilenames.hweb
 
 @ The unnamed module.
 
@@ -49,12 +54,15 @@ Introduction\ldots
       subroutine nc_read_elements
       implicit_none
       integer fileid
+      character *FILELEN tempfile  //local
       el_common
       el_ncdecl
       nc_common
       sy_common
+      rf_common
 
-      fileid = ncopen('../data/elements.nc',NC_NOWRITE,nc_stat)
+      tempfile = filenames_array[elementsfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
       call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $     element_version,len(element_version),nc_stat)
 
@@ -71,12 +79,15 @@ Introduction\ldots
       subroutine nc_read_species
       implicit_none
       integer fileid
+      character *FILELEN tempfile  //local
       sp_common
       sp_ncdecl
       nc_common
       sy_common
+      rf_common
 
-      fileid = ncopen('../data/species.nc',NC_NOWRITE,nc_stat)
+      tempfile =  filenames_array[speciesfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
       call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $     species_version,len(species_version),nc_stat)
 
@@ -93,12 +104,15 @@ Introduction\ldots
       subroutine nc_read_reactions
       implicit_none
       integer fileid
+      character *FILELEN tempfile  //local
       rc_common
       rc_ncdecl
       nc_common
       sy_common
+      rf_common
 
-      fileid = ncopen('../data/reactions.nc',NC_NOWRITE,nc_stat)
+      tempfile =  filenames_array[reactionfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
       call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $     reaction_version,len(reaction_version),nc_stat)
 
@@ -115,6 +129,7 @@ Introduction\ldots
       subroutine nc_read_problem
       implicit_none
       integer fileid
+      character *FILELEN tempfile  //local
       pr_common
       rd_common
       sp_common
@@ -122,8 +137,10 @@ Introduction\ldots
       rd_ncdecl
       nc_common
       sy_common
+      rf_common
 
-      fileid = ncopen('../data/problem.nc',NC_NOWRITE,nc_stat)
+      tempfile =  filenames_array[problemfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
       call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $     problem_version,len(problem_version),nc_stat)
 
@@ -141,6 +158,7 @@ Introduction\ldots
       subroutine nc_read_background
       implicit_none
       integer fileid
+      character *FILELEN tempfile  //local
       zn_common
       bk_common
       bk_ncdecl
@@ -150,8 +168,10 @@ Introduction\ldots
       sy_common
       so_common
       so_ncdecl
+      rf_common
 
-      fileid = ncopen('background.nc',NC_NOWRITE,nc_stat)
+      tempfile =  filenames_array[backgroundfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
 
       vc_ncread(fileid)
       bk_ncread(fileid)
@@ -168,12 +188,15 @@ Introduction\ldots
       subroutine nc_read_test
       implicit_none
       integer fileid
+      character *FILELEN tempfile  //local
       ts_common
       ts_ncdecl
       nc_common
       sy_common
+      rf_common
 
-      fileid = ncopen('test.nc',NC_NOWRITE,nc_stat)
+      tempfile =  filenames_array[backgroundfile]
+      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
 
       ts_ncread(fileid)
       

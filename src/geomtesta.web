@@ -2,6 +2,10 @@
 \def\Wtitle{geomtesta}
 
 % $Log$
+% Revision 1.9  1995/05/26 04:00:59  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.8  1995/04/12 18:34:10  karney
 % Merge in comments to array.hweb and changes for Sherwood '95 meeting.
 %
@@ -43,6 +47,7 @@
       program geometry_test
       implicit_none
 
+      call readfilenames
       call exercise
 
       stop
@@ -61,21 +66,24 @@
       integer zone_func,density_func,te_func,ti_func,stat_func
       
       call read_geometry
-      call nc_read_background
-      call stat_read
 @#if 0
+      call nc_read_background
+
+      call stat_read
 @#endif
       open(unit=diskin,file='geometry.inp',status='old',form='formatted')
       read(diskin,*) SP (x[i],i=1,3),(a[i],i=1,3),(b[i],i=1,3),alen,blen
       close(unit=diskin)
       
-     
+
       call output_slice('geomtesta.hdf',.true.,x,a,b,alen,blen,zone_func)
+@#if 0     
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,density_func)
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,te_func)
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,ti_func)
+
+
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,stat_func)
-@#if 0
 @#endif
       return
       end

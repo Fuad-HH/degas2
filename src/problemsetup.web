@@ -2,6 +2,10 @@
 \def\Wtitle{problemsetup}
 
 % $Log$
+% Revision 1.5  1995/05/26 04:01:14  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.4  1995/05/22 22:05:51  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -25,13 +29,14 @@ Introduction\ldots
 @m FILE 'problemsetup.web'
 
 @I macros.hweb
-
+@I readfilenames.hweb
 @ The unnamed module.
 
 @a
       program problemsetup
       implicit_none
-
+      
+      call readfilenames
       call read_problem
       call init_reaction
       call nc_write_problem
@@ -275,12 +280,15 @@ eof:  return
       pr_ncdecl
       rd_ncdecl
       st_common
+      rf_common
       character*LINELEN description,program_version
+      character*FILELEN tempfile     //local
 
       program_version=
      $     '$Id$'
 
-      fileid = nccreate('../data/problem.nc',NC_CLOBBER,nc_stat)
+      tempfile = filenames_array[problemfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
 
       description = 'Data for problem in degas 2'
       call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,

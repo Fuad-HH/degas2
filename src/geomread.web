@@ -2,6 +2,10 @@
 \def\Wtitle{geomread}
 
 % $Log$
+% Revision 1.17  1995/05/26 04:00:52  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.16  1995/05/22 22:05:42  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -64,7 +68,7 @@ netcdf file.
 @I geomint.hweb
 
 @I netcdf.hweb
-
+@I readfilenames.hweb
 @ The main program.
 
 @a
@@ -724,13 +728,16 @@ break: continue
       subroutine write_background
       implicit_none
       integer fileid
+      character *FILELEN tempfile    //local
       zn_common
       bk_common
       bk_ncdecl
       vc_ncdecl
       nc_common
+      rf_common
 
-      fileid = nccreate('background.nc',NC_CLOBBER,nc_stat)
+      tempfile = filenames_array[backgroundfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
       vc_ncdef(fileid)
       bk_ncdef(fileid)
       call ncendef(fileid,nc_stat);
@@ -794,11 +801,14 @@ break:         continue
       subroutine write_test
       implicit_none
       integer fileid
+      character *FILELEN tempfile    //local
       ts_common
       ts_ncdecl
       nc_common
+      rf_common
 
-      fileid = nccreate('test.nc',NC_CLOBBER,nc_stat)
+      tempfile = filenames_array[testfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
       ts_ncdef(fileid)
       call ncendef(fileid,nc_stat);
       ts_ncwrite(fileid)
