@@ -1,0 +1,282 @@
+% $Id$
+\def\Wtitle{pmiwrite}
+
+% $Log$
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Reads in text files containing plasma-material interaction data used
+in the original DEGAS code and writes them out as NETCDF files.
+
+@m FILE 'pmiwrite.web'
+
+@I macros.hweb
+
+@ The unnamed module.
+
+
+
+@a
+      program pmiwrite
+      implicit_none
+      character*LINELEN tag
+      tag='h -> c'
+      call pmi_write_degas_refl(tag)
+      stop
+      end
+      
+      @<Functions and subroutines@>
+      
+@ Set up array sizes to read in data for a particular reaction.
+
+@<Functions...@>=
+      subroutine pmi_write_degas_refl(tag)
+      implicit_none
+      character*LINELEN tag
+      integer i,j,fileid,b,e,p,bin,ein,bm,em    // Local
+      real delta,theta_in,delta2
+      character*LINELEN full_tag,description
+      character*FILELEN filein,fileout
+      external rn_ruzic_fit                          // External
+      real rn_ruzic_fit
+      pf_common                                      // Common
+      nc_common
+      pf_ncdecl
+      sy_common
+      st_common 
+
+      description = 'Data for Plasma-Material Interactions in degas 2'
+      pf_version = 'degas: refl.dat with Ruzic lrflct1=2 angle dep.'
+
+/* Parse tag into name */      
+      p=0
+      assert( next_token(tag,bin,ein,p) )
+      assert( next_token(tag,b,e,p) )
+      assert( tag(b:e) == '->' )
+      assert( next_token(tag,bm,em,p) )
+      pf_name=tag(bin:ein) \/ 'refl' \/ tag(bm:em)
+
+
+/* 
+   Set up everything for first dependent variable
+*/
+      pf_num_dep_var=1
+      pf_var[0,1]='reflection_coef'
+      pf_rank[1]=1
+      pf_organization[1]='table'
+      
+      pf_units[0,1]=' '
+      pf_mult[0,1]=one
+      pf_spacing[0,1]='linear'
+      pf_var[1,1]='energy_in'
+      pf_tab_index[1,1]=48
+      pf_units[1,1]='eV'
+      pf_mult[1,1]=electron_charge
+      pf_spacing[1,1]='log'
+      pf_min[1,1]=one
+      delta=const(10.0)**const(0.1)
+      pf_max[1,1]=pf_min[1,1]*delta**(pf_tab_index[1,1]-1)
+
+/*
+   Assign default values to everything else
+*/
+      do i=pf_rank[1]+1,pf_table_rank_max
+         pf_tab_index[i,1]=1
+         pf_var[i,1]='unknown'
+         pf_spacing[i,1]='unknown'
+         pf_units[i,1]='unknown'
+         pf_mult[i,1]=zero
+         pf_min[i,1]=zero
+         pf_max[i,1]=zero
+      end do
+
+      do j=pf_num_dep_var+1,pf_dep_var_max
+         pf_rank[j]=1
+         pf_organization[j]='unknown'
+         pf_var[0,j]='unknown'
+         pf_spacing[0,j]='unknown'
+         pf_units[0,j]='unknown'
+         pf_mult[0,j]=zero
+         do i=1,pf_table_rank_max
+            pf_tab_index[i,j]=1
+            pf_var[i,j]='unknown'
+            pf_spacing[i,j]='unknown'
+            pf_units[i,j]='unknown'
+            pf_mult[i,j]=zero
+            pf_min[i,j]=zero
+            pf_max[i,j]=zero
+         end do
+      end do
+
+      do j=1,pf_dep_var_max
+         pf_eval_name[j]='unknown'
+      end do
+
+/*
+   Allocate space for |pf_data_table| and then call subroutine to
+   read in data for first dependent variable.
+*/
+      pf_ragged_alloc(pf_data,pf_tab_index)
+   
+      filein='../data/refl.dat'
+      full_tag=' rn:  ' \/ tag 
+      call pf_file_read(filein,full_tag,1)
+
+/*
+   Now add angular dependence to the first dependent variable. Since
+   these data are not in any file (incorporated here via function
+   |rn_ruzic_fit|), we cannot use the (general) |pf_file_read| routine
+   to fill the table. In fact, since |pf_file_read| uses the present 
+   dimensions of |pf_data_table|, we must set up everything for 
+   the angular dependence, as well as for the second dependent
+   variable, {\em after} we read in the reflection coefficient
+   data.
+*/
+      pf_rank[1]=2
+      pf_var[2,1]='polar_angle_in'
+      pf_tab_index[2,1]=5
+      pf_units[2,1]='degrees'
+      pf_mult[2,1]=PI/const(180.0)
+      pf_spacing[2,1]='linear'
+      pf_min[2,1]=zero
+      delta=const(20.0)
+      pf_max[2,1]=const(80.0)
+
+/*
+   Second dependent variable
+*/
+      pf_num_dep_var=2
+      pf_var[0,2]='energy_out'
+      pf_rank[2]=1
+      pf_tab_index[1,2]=48
+      pf_organization[2]='table'
+      pf_units[0,2]=' '
+      pf_mult[0,2]=one
+      pf_spacing[0,2]='linear'
+      pf_var[1,2]='energy_in'
+      pf_units[1,2]='eV'
+      pf_mult[1,2]=electron_charge
+      pf_spacing[1,2]='log'
+      pf_min[1,2]=one
+      delta2=const(10.0)**const(0.1)
+      pf_max[1,2]=pf_min[1,2]*delta2**(pf_tab_index[1,2]-1)
+
+/*
+   Can now reallocate |pf_data_table| \ldots
+*/
+      pf_ragged_realloc(pf_data,pf_tab_index)
+
+/*
+   Add the angular dependence to the reflection coefficient \ldots
+*/
+      do j=1,pf_tab_index[2,1]-1
+         do i=0,pf_tab_index[1,1]-1
+            theta_in=pf_min[2,1]+j*delta
+            pf_data_table(i,j,0,1)=rn_ruzic_fit(pf_data_table(i,0,0,1),theta_in)
+         end do
+      end do
+
+/*
+   And read in the data for the second dependent variable
+*/
+      full_tag=' er:  ' \/ tag
+      call pf_file_read(filein,full_tag,2)
+
+/*
+   Fill in the arrays containing the dependent variables. Since 
+   the spacing is uniform everywhere here, these are straightforward.
+*/
+      pf_ragged_alloc(pf_indep_var,pf_tab_index)
+
+      do i=0,pf_tab_index[1,1]-1
+         pf_indep_var_table(i,1,1)=pf_min[1,1]*delta2**i
+         pf_indep_var_table(i,1,2)=pf_indep_var_table(i,1,1)
+      end do
+
+      do i=0,pf_tab_index[2,1]-1
+         pf_indep_var_table(i,2,1)=pf_min[2,1]+delta*i
+      end do
+
+/*
+   Write netCDF file and close everything up
+*/
+
+      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(pf_version),
+     $     pf_version,nc_stat)
+      
+      pf_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      pf_ncwrite(fileid)
+
+      var_free(pf_data_tab)
+      var_free(pf_indep_var_tab)
+
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Read in the data from a file.
+
+@<Functions...@>=
+      subroutine pf_file_read(filename,tag,dep_var)
+      implicit_none
+      character*(*) filename,tag // Input
+      integer dep_var
+      integer i,j,k             // Local
+      character*LINELEN line
+      pf_common                 // Common
+      
+      open(unit=diskin,file=filename,status='old',form='formatted')
+      if (tag != ' ')then
+loop:    continue
+         read(diskin,'(a)') line
+         if (line != tag) goto loop
+      end if
+
+/*
+   With ragged array for |pf_data_table|, this looks very natural
+*/
+      read(diskin,*) SP ((( pf_data_table(i,j,k,dep_var),i=0,pf_tab_index[1,dep_var]-1), j=0,pf_tab_index[2,dep_var]-1), k=0,pf_tab_index[3,dep_var]-1)
+
+      close(unit=diskin)
+      return
+      end
+
+@ Ruzic's fit for the angular dependence of the reflection coefficient.
+The input |rn| is assumed to be for normal incidence, polar angle
+|theta| = 0. An overall upper limit of 0.9 is enforced.
+
+@<Functions...@>=
+      function rn_ruzic_fit(rn,theta)
+      implicit_none
+      real rn_ruzic_fit,rn,theta       // Input
+      real rn_new                      // Local
+
+      rn_new=rn * (one + half * sin(theta / const(57.296)))
+      rn_new=min(rn_new,const(0.9))
+      rn_ruzic_fit=rn_new
+
+      return
+      end
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* Index.
+
