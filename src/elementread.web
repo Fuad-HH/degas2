@@ -2,6 +2,9 @@
 \Title{elementread}
 
 % $Log$
+% Revision 1.13  1996/01/25 15:01:15  dstotler
+% Inserted nc_read_pmi and nc_read_materials routines.
+%
 % Revision 1.12  1995/11/03 15:06:13  karney
 % Clean up for release.
 %
@@ -53,6 +56,20 @@ Introduction\ldots
 
 @I macros.hweb
 @I readfilenames.hweb
+@I element.hweb
+@I netcdf.hweb
+@I sysdep.hweb
+@I species.hweb
+@I materials.hweb
+@I pmi.hweb
+@I problem.hweb
+@I reactiondata.hweb
+@I reaction.hweb
+@I zone.hweb
+@I background.hweb
+@I sources.hweb
+@I strata.hweb
+@I pmidata.hweb
 
 @ The unnamed module.
 
@@ -193,9 +210,13 @@ Introduction\ldots
       character *FILELEN tempfile  //local
       pr_common
       rd_common
+      pd_common
       sp_common
+      ma_common
+      pm_common
       pr_ncdecl
       rd_ncdecl
+      pd_ncdecl
       nc_common
       sy_common
       rf_common
@@ -207,6 +228,7 @@ Introduction\ldots
 
       pr_ncread(fileid)
       rd_ncread(fileid)
+      pd_ncread(fileid)
       
       call ncclose(fileid,nc_stat)
 
@@ -241,29 +263,6 @@ Introduction\ldots
       so_ncread(fileid)
       sr_ncread(fileid)
 
-      call ncclose(fileid,nc_stat)
-
-      return
-      end
-
-@ Read in test data from netcdf file \verb+test.nc+
-      
-@<Functions...@>=
-      subroutine nc_read_test
-      implicit_none
-      integer fileid
-      character *FILELEN tempfile  //local
-      ts_common
-      ts_ncdecl
-      nc_common
-      sy_common
-      rf_common
-
-      tempfile =  filenames_array[backgroundfile]
-      fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-
-      ts_ncread(fileid)
-      
       call ncclose(fileid,nc_stat)
 
       return
