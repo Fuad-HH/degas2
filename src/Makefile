@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.18  1995/03/01 17:17:23  karney
+# Minor changes to fweboptions.sty and Makefile.
+#
 # Revision 1.17  1995/02/14 21:43:49  karney
 # Typos in Makefile.  Remove \loadfonts from geomsetup.web.
 #
@@ -179,8 +182,9 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
 	$(IDENTAPPEND)
 
 # include files
-# geomsetup.f: geomint.hweb
-# degasgeom.f: degas.hweb geomint.hweb
+geomfaces.f geomfront.f geomtest.f geomtesta.f geomutils.f plotgoem.f composite.f geometry.f geomsetup.f: geomint.hweb
+
+degasgeom.f: degas.hweb geomint.hweb
 
 ifeq ($(TARGET),IBM)
   sysdep.f sysdepc.c: sysdep.web macros.hweb

@@ -2,6 +2,15 @@
 
 % $Id$
 % $Log$
+% Revision 1.6  1994/11/21 15:50:24  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.5  1994/08/24 15:02:52  karney
 % Added degasgeom to read in old degas' geometry spec.
 %
@@ -24,6 +33,11 @@
 
 @a
       package_init(gi)
+      define_var_pk(gi,ncells,INT)
+      define_var_pk(gi,nsurfaces,INT)
+      define_var_pk(gi,nboundaries,INT)
+      define_var_pk(gi,nneighbors,INT)
+      define_var_pk(gi,ntransforms,INT)
       define_dimen_pk(gi,cell_info_ind,c_start,c_zone)
       define_dimen_pk(gi,cell_ind,0,ncells)
       define_dimen_pk(gi,surface_ind,nsurfaces)
@@ -35,11 +49,6 @@
 @#if 0
       define_dimen_pk(gi,givc_ind,3)
 @#endif
-      define_var_pk(gi,ncells,INT)
-      define_var_pk(gi,nsurfaces,INT)
-      define_var_pk(gi,nboundaries,INT)
-      define_var_pk(gi,nneighbors,INT)
-      define_var_pk(gi,ntransforms,INT)
       define_varp_pk(gi,cells,INT,cell_info_ind,cell_ind)
       define_varp_pk(gi,surfaces,INT,neg_pos,surface_info_ind,surface_ind)
       define_varp_pk(gi,boundaries,INT,boundary_ind)
