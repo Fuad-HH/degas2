@@ -2,6 +2,9 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.7  1998/01/14 20:05:27  dstotler
+% Switch nx to 5 from 100; allocate some source arrays.
+%
 % Revision 1.6  1997/09/29 17:17:37  karney
 % Implement mem_check.
 %
@@ -102,15 +105,41 @@ where |den_max| is computed.
 Three sides of the box are set up as ``mirrors''; the fourth (|x| = |x_max|)
 is an exit. 
 
+@m den_min const(8.5,18)    // Frequently adjusted parameters, override
+@m temp_min one             // using blocks like below (as for puff_species)
+@m temp_max const(10.)      // so that these remain the defaults.
+@m puff_species 'H'
+
+@m BOXRUN 0
+
+@#if (BOXRUN == 32)         // DEGAS 2 benchmark runs
+
+@m nx 100
+
+@#elif (BOXRUN == 33)
+
+@m nx 50
+
+@#elif (BOXRUN == 34)
+
+@m nx 10
+
+@#elif (BOXRUN == 35)
+
+@m nx 4
+
+@#else                        // Debugging runs
+
 @m nx 5
+@m puff_species 'H2'       
+
+@#endif
+
 @m nz 1
 @m nxtot nx+2
 @m nmax nxtot
 @m x_min zero
 @m x_max one
-@m temp_min one
-@m temp_max const(10.)
-@m den_min const(8.5,18)
 
 @f box_localcommon integer
 @m box_localcommon save /boxgen_common/;
@@ -435,7 +464,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_type(so_grps)=so_puff
       so_geom(so_grps)=so_surface
       so_nflights(so_grps)=100       // Should be reset manually prior to run
-      so_species(so_grps)=sp_lookup('H2')
+      so_species(so_grps)=sp_lookup(puff_species)
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
       do sector=1,nsectors
