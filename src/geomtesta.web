@@ -2,6 +2,10 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.21  1998/09/04 17:14:38  dstotler
+% Moved pr_common before tl_common; inserted de_common. Added plots of
+% zone_frags, ion temperature, zone number.
+%
 % Revision 1.20  1998/05/08 13:52:52  dstotler
 % Modified argument list for extract_output_datum. Add writes of
 % rel. std. dev. for density and ion source rate.
@@ -436,6 +440,25 @@
      $                 'N','E11.3',
      $                 x,a,b,alen,blen)
                end do
+
+               do i=1,3                                     // Component
+                  do zone=1,zn_num
+                     if (zn_type(zone) == zn_plasma) then
+                        index_parameters[tl_index_zone]=zone
+                        ha_rate=extract_output_datum(index_parameters,i,
+     $                       output_all,o_var,'ion momentum source vector')
+                        hdf_data[zone]=ha_rate
+                     else
+                        hdf_data[zone]=zero
+                     end if
+                  end do
+                  call data_slice(
+     $                 trim(sp_sy(pr_background(back)))\/'mom'\/ind_sy[i]\/'_rsd.hdf',
+     $                 hdf_data,
+     $                 trim(sp_sy(pr_background(back)))\/'_Mom '\/ind_sy[i]\/'_Source_rate_rsd',
+     $                 'N','E11.3',
+     $                 x,a,b,alen,blen)
+               end do
             end if
          end do
 
@@ -459,6 +482,20 @@
      $           'W','E11.3',
      $           x,a,b,alen,blen)
 
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 output_all,o_var,'ion energy source')
+                  hdf_data[zone]=ha_rate
+               else
+                  hdf_data[zone]=zero
+               end if
+            end do
+            call data_slice(trim(sp_sy(pr_background(back)))\/'energy_rsd.hdf',
+     $           hdf_data,trim(sp_sy(pr_background(back)))\/'_Energy_Source_rate_rsd',
+     $           'W','E11.3',
+     $           x,a,b,alen,blen)
          end do
 
       end if
@@ -501,118 +538,247 @@ set up for Alcator C-Mod single null runs.
       return
       end     
 
-@ Exercise the locate function
-
-@m ndx 64
-@m ndy 32
-@m max_eir_vars 10
+@ Read and plot EIRENE output files. To facilitate the benchmarking process,
+have set up this routine to read the |fort.32| and |fort.44| files output
+by EIRENE and then to put the data into the same HDF file format as
+used by the rest of |geomtesta|.
 
 @<Functions...@>=
 
       subroutine plot_eirene_data
 
+      implicit_none_f77
+      implicit_none_f90
+                                           
+      integer nx,ny,natmi,nmoli,nioni,nfl,i    // Local
+      real x0[3],a[3],b[3],alen,blen       
+
+      @<Memory allocation interface@>
+      
+      open(unit=diskin,file='geometry.inp',status='old',form='formatted')
+      read(diskin,*) SP (x0[i],i=1,3),(a[i],i=1,3),(b[i],i=1,3),alen,blen
+      close(unit=diskin)
+
+      open(unit=diskin,file='eirene44.out',status='old',form='formatted',err=eof)
+      read(diskin,'(i4,2x,i4)') nx,ny
+
+      read(diskin,'(i4,2x,i4,2x,i4)') natmi,nmoli,nioni
+      nfl=1    // No way to determine this from the files?
+
+      call plot_eirene_continued(nx,ny,natmi,nmoli,nioni,nfl,
+     $     diskin,x0,a,b,alen,blen)
+
+eof:  continue
+
+      return
+      end
+
+@ Continue set up for reading and plotting of EIRENE data. Need to
+start a new subroutine here so that the pointer arrays can be
+properly dimensioned.
+
+@<Functions...@>=
+
+      subroutine plot_eirene_continued(nx,ny,natmi,nmoli,nioni,nfl,
+     $                                 unit_num,x0,a,b,alen,blen)
+
+      define_dimen(ix_ind,nx)
+      define_dimen(iy_ind,ny)
+      define_dimen(atm_ind,natmi)
+      define_dimen(mol_ind,nmoli)
+      define_dimen(ion_ind,nioni)
+      define_dimen(fl_ind,nfl)
+
       define_varp(hdf_data,FLOAT,zone_ind)
+      define_varp(ix_iy_zone,INT,ix_ind,iy_ind)
+      define_varp(atm_name,CHAR,species_symbol_string,atm_ind)
+      define_varp(mol_name,CHAR,species_symbol_string,mol_ind)
+      define_varp(ion_name,CHAR,species_symbol_string,ion_ind)
+      define_varp(fl_name,CHAR,species_symbol_string,fl_ind)
 
       implicit_none_f77
-      zn_common
+      zn_common                                       // Common
       so_common
       implicit_none_f90
-      real x[3],a[3],b[3],alen,blen         // Local
-      real eirene_data(0:ndx+1,0:ndy+1,max_eir_vars)
-      integer i,j,zone,ix,iy,nx,ny,lim,ivar,natmi,nmoli,nioni
+
+      integer nx,ny,natmi,nmoli,nioni,nfl,unit_num    // Input
+      real x0[3],a[3],b[3],alen,blen       
+                                         
+      integer i,length,zone,ix,iy,nstra               // Local
+      real multiplier
+      character*sp_sy_len stra_name          // Same length as other strings
       character*80 line
 
       declare_varp(hdf_data)
+      declare_varp(ix_iy_zone)
+      declare_varp(atm_name)
+      declare_varp(mol_name)
+      declare_varp(ion_name)
+      declare_varp(fl_name)
       
       @<Memory allocation interface@>
+      st_decls
       
-      open(unit=diskin,file='eirene44.out',status='old',form='formatted',err=eof)
-      read(diskin,'(i4,2x,i4)') nx,ny
-      read(diskin,'(i4,2x,i4,2x,i4)') natmi,nmoli,nioni
+      var_alloc(ix_iy_zone)
 
-      read(diskin,*) line       // Actually have the species names here
-      read(diskin,*) line
-      read(diskin,*) line
+      do zone=1,zn_num
+          if ((1 <= zn_index(zone,1) && zn_index(zone,1) <= nx)
+     $        && (1 <= zn_index(zone,2) && zn_index(zone,2) <= ny)) then
+             ix_iy_zone[zn_index(zone,1),zn_index(zone,2)]=zone
+          end if
+       end do
+       do iy=1,ny
+          do ix=1,nx
+             assert(ix_iy_zone[ix,iy] > 0)
+          end do
+       end do
 
-      assert(nx <= ndx && ny <= ndy)
-      assert(natmi == 1 && nmoli == 1 && nioni == 1)
+      var_alloc(atm_name)
+      var_alloc(mol_name)
+      var_alloc(ion_name)
 
-      lim=(nx/5)*5-4
-      do ivar=1,6
-         do iy=1,ny
-            do ix=1,lim,5
-               read(diskin,'(5(e16.8))') SP (eirene_data(ix-1+j,iy,ivar),j=1,5)
-            end do
-            if (lim+4 != nx) then
-               read(diskin,'(5(e16.8))') SP (eirene_data(ix,iy,ivar),ix=lim+5,nx)
-            end if
-         end do
+      do i=1,natmi
+         read(unit_num,*) atm_name[i]
       end do
-      close(unit=diskin)
-
-      open(unit=diskin,file='eirene32.out',status='old',form='formatted')
-
-      read(diskin,*) line       // Actually have some global totals here
-
-      lim=(nx/5)*5-4
-      do ivar=7,10
-         do iy=1,ny
-            do ix=1,lim,5
-               read(diskin,'(5(e16.8))') SP (eirene_data(ix-1+j,iy,ivar),j=1,5)
-            end do
-            if (lim+4 != nx) then
-               read(diskin,'(5(e16.8))') SP (eirene_data(ix,iy,ivar),ix=lim+5,nx)
-            end if
-         end do
+      do i=1,nmoli
+         read(unit_num,*) mol_name[i]
       end do
-      close(unit=diskin)
-
-      open(unit=diskin,file='geometry.inp',status='old',form='formatted')
-      read(diskin,*) SP (x[i],i=1,3),(a[i],i=1,3),(b[i],i=1,3),alen,blen
-      close(unit=diskin)
+      do i=1,nioni
+         read(unit_num,*) ion_name[i]
+      end do
 
       var_alloc(hdf_data)
+/*
+  This list should correspond with that in EIRENE's subroutine |wneutral|.
+*/
+      call eirene_file_to_hdf(unit_num,nx,ny,natmi,hdf_data,ix_iy_zone,
+     $   one,'eir_den_',atm_name,'density','m**-3','E11.3',
+     $   x0,a,b,alen,blen)
+      call eirene_file_to_hdf(unit_num,nx,ny,natmi,hdf_data,ix_iy_zone,
+     $   one/electron_charge,'eir_temp_',atm_name,'temperature','eV','E11.3',
+     $   x0,a,b,alen,blen)
+      call eirene_file_to_hdf(unit_num,nx,ny,nmoli,hdf_data,ix_iy_zone,
+     $   one,'eir_den_',mol_name,'density','m**-3','E11.3',
+     $   x0,a,b,alen,blen)
+      call eirene_file_to_hdf(unit_num,nx,ny,nmoli,hdf_data,ix_iy_zone,
+     $   one/electron_charge,'eir_temp_',mol_name,'temperature','eV','E11.3',
+     $   x0,a,b,alen,blen)
+      call eirene_file_to_hdf(unit_num,nx,ny,nioni,hdf_data,ix_iy_zone,
+     $   one,'eir_den_',ion_name,'density','m**-3','E11.3',
+     $   x0,a,b,alen,blen)
+      call eirene_file_to_hdf(unit_num,nx,ny,nioni,hdf_data,ix_iy_zone,
+     $   one/electron_charge,'eir_temp_',ion_name,'temperature','eV','E11.3',
+     $   x0,a,b,alen,blen)
 
-@#if 1
-      do ivar=1,10
-         do zone=1,zn_num
-            if (zn_type(zone) == zn_plasma) then
-               hdf_data[zone]=eirene_data(zone_index[zone][1],zone_index[zone][2],ivar)
-               if (ivar >= 7) then
-                  hdf_data[zone]*=so_tot_curr(1)
-               end if
-            else
-               hdf_data[zone]=zero
-            end if
-         end do
-         if (ivar == 1) then
-            call data_slice('eir_D_den.hdf',hdf_data,'D density','m**-3','E11.3',
-     $           x,a,b,alen,blen)
-         else if (ivar == 3) then
-            call data_slice('eir_D2_den.hdf',hdf_data,'D2 density','m**-3','E11.3',
-     $           x,a,b,alen,blen)
-         else if (ivar == 5) then
-            call data_slice('eir_D2p_den.hdf',hdf_data,'D2p density','m**-3','E11.3',
-     $           x,a,b,alen,blen)
-         else if (ivar == 7) then
-            call data_slice('eir_sni.hdf',hdf_data,'Ion source rate','s**-1','E11.3',
-     $           x,a,b,alen,blen)
-         else if (ivar == 8) then
-            call data_slice('eir_smo.hdf',hdf_data,'Momentum source rate','N','E11.3',
-     $           x,a,b,alen,blen)
-         else if (ivar == 9) then
-            call data_slice('eir_see.hdf',hdf_data,'Electron energy source rate','W','E11.3',
-     $           x,a,b,alen,blen)
-         else if (ivar == 10) then
-            call data_slice('eir_sei.hdf',hdf_data,'Ion energy source rate','W','E11.3',
-     $           x,a,b,alen,blen)
-         end if
+      close(unit=unit_num)
+
+      open(unit=unit_num,file='eirene32.out',status='old',form='formatted')
+
+      nstra=0
+      var_alloc(fl_name)
+      do i=1,nfl
+         write(fl_name[i],'(a1,i2.2)') 'f',i
       end do
-@#endif
+
+loop: continue
+      if (read_string(unit_num,line,length)) then 
+         nstra++
+         write(stra_name,'(a1,i2.2)') 's',nstra
+/*
+   EIRENE leaves plate sources per unit flux; others are already scaled.
+   See subroutine |infcop|.
+*/
+         if (so_type(nstra) == so_recomb) then
+            multiplier=one/electron_charge
+         else
+            multiplier=so_tot_curr(nstra)
+         end if   
+/*
+  This list should correspond to the one in EIRENE's |infcop|.
+*/
+         call eirene_file_to_hdf(unit_num,nx,ny,nfl,hdf_data,ix_iy_zone,
+     $        multiplier,'eir_sni_'\/trim(stra_name),fl_name,
+     $        'Ion source rate '\/trim(stra_name),'s**-1','E11.3',
+     $        x0,a,b,alen,blen)
+         call eirene_file_to_hdf(unit_num,nx,ny,nfl,hdf_data,ix_iy_zone,
+     $        multiplier,'eir_smo_'\/trim(stra_name),fl_name,
+     $        'Momentum source rate '\/trim(stra_name),'N','E11.3',
+     $        x0,a,b,alen,blen)
+         call eirene_file_to_hdf(unit_num,nx,ny,1,hdf_data,ix_iy_zone,
+     $        multiplier,'eir_see_'\/trim(stra_name),'tot',
+     $        'Electron energy source rate '\/trim(stra_name),'W','E11.3',
+     $        x0,a,b,alen,blen)
+         call eirene_file_to_hdf(unit_num,nx,ny,1,hdf_data,ix_iy_zone,
+     $        multiplier,'eir_sei_'\/trim(stra_name),'tot',
+     $        'Ion energy source rate '\/trim(stra_name),'W','E11.3',
+     $        x0,a,b,alen,blen)
+         go to loop
+      end if
+
+      close(unit=unit_num)
 
       var_free(hdf_data)
+      var_free(ix_iy_zone)
+      var_free(atm_name)
+      var_free(mol_name)
+      var_free(ion_name)
+      var_free(fl_name)
 
-eof:  continue
+      assert(nstra == so_grps)  // Assuming strata $\leftrightarrow$ groups!
+
+      return
+      end
+
+@ Read a section of an EIRENE output file and dump the contents to an HDF file.
+The ``read'' section should look a great deal like EIRENE's subroutine |neutr|.
+
+@<Functions...@>=
+
+      subroutine eirene_file_to_hdf(unit_num,nx,ny,nf,hdf_data,ix_iy_zone,
+     $           multiplier,cfilrt,cfilext,clabel,cunits,cformt,
+     $           x0,a,b,alen,blen)
+
+      implicit_none_f77
+      zn_common                                    // Common
+      implicit_none_f90
+
+      integer unit_num,nx,ny,nf                    // Input
+      integer ix_iy_zone[nx,ny]
+      real multiplier,alen,blen
+      real hdf_data[zn_num],x0[3],a[3],b[3]
+      character*(*) cfilrt,clabel,cunits,cformt
+      character*(*) cfilext[nf]
+      integer lim,i,j,ix,iy,zone                     // Local
+
+      @<Memory allocation interface@>
+      st_decls
+      
+      do zone=1,zn_num
+         hdf_data[zone]=zero
+      end do
+
+      lim=(nx/5)*5-4
+      do i=1,nf
+         do iy=1,ny
+            do ix=1,lim,5
+               read(unit_num,'(5(e16.8))') SP 
+     $              (hdf_data[ix_iy_zone[ix-1+j,iy]],j=1,5)
+            end do
+            if (lim+4 != nx) then
+               read(unit_num,'(5(e16.8))') SP 
+     $              (hdf_data[ix_iy_zone[ix,iy]],ix=lim+5,nx)
+            end if
+         end do
+
+         if (multiplier != one) then
+            do zone=1,zn_num
+               hdf_data[zone]*=multiplier
+            end do
+         end if
+
+         call data_slice(cfilrt\/trim(cfilext[i])\/'.hdf',hdf_data,
+     $        trim(cfilext[i])\/' '\/clabel,cunits,cformt,x0,a,b,alen,blen)
+      end do
 
       return
       end
