@@ -2,6 +2,10 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.21  1999/02/02 15:05:52  dstotler
+% Modified read statements to get boundary plasma parameters from UEDATA
+% file.
+%
 % Revision 1.20  1998/09/04 17:15:57  dstotler
 % Set up GEOMETRY compiler flag analogous to readgeometry.
 %
@@ -606,9 +610,11 @@ of the file name (x.d is degas and x.u for uedge) */
             plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
             assert(sc_plasma_check(plasma_sc_ptr))
             vc_set(v_bdy,vr1[j2],vphi1[j2],vz1[j2])
-            plasma_e_ion_delta[plasma_sc_ptr]
-     $           =inc_ion_energy(vc_args(v_bdy),ti1[j2],te1[j2])
-            plasma_e_ion_mult[plasma_sc_ptr]=zero
+            if (vc_abs(v_bdy) > zero || te1[j2] > zero) then
+               plasma_e_ion_delta[plasma_sc_ptr]
+     $              =inc_ion_energy(vc_args(v_bdy),ti1[j2],te1[j2])
+               plasma_e_ion_mult[plasma_sc_ptr]=zero
+            end if                           // else: using default values
 @#endif
             source_segment_ptr[i]=sector
          end do
@@ -639,9 +645,11 @@ of the file name (x.d is degas and x.u for uedge) */
             plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
             assert(sc_plasma_check(plasma_sc_ptr))
             vc_set(v_bdy,vr2[j2],vphi2[j2],vz2[j2])
-            plasma_e_ion_delta[plasma_sc_ptr]
-     $           =inc_ion_energy(vc_args(v_bdy),ti2[j2],te2[j2])
-            plasma_e_ion_mult[plasma_sc_ptr]=zero
+            if (vc_abs(v_bdy) > zero || te2[j2] > zero) then
+               plasma_e_ion_delta[plasma_sc_ptr]
+     $              =inc_ion_energy(vc_args(v_bdy),ti2[j2],te2[j2])
+               plasma_e_ion_mult[plasma_sc_ptr]=zero
+            end if                           // else: using default values
 @#endif
             source_segment_ptr[i]=sector
          end do
