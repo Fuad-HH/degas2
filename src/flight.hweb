@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1996/10/30 17:53:12  dstotler
+% Raised fl_stack_max from 20 to 40.
+%
 % Revision 1.5  1996/05/24 18:45:12  dstotler
 % Comment change.
 %
@@ -30,13 +33,13 @@ A flight is identified by a string tag.
 @f fl_decl integer
 @f fl_common integer
 
-@m fl_args(x) fl_number(x),pt_args(fl_origin(x)),rn_args(fl_rand(x)),
-      pt_args(fl_stack(x)[1]),fl_pointer(x) @;
+@m fl_args(x) fl_number(x),fl_source(x),pt_args(fl_origin(x)),
+      rn_args(fl_rand(x)),pt_args(fl_stack(x)[1]),fl_pointer(x) @;
 
-@m fl_dummy(x) fl_number(x),pt_dummy(fl_origin(x)),rn_dummy(fl_rand(x)),
-      pt_dummy(fl_stack(x)),fl_pointer(x) @;
+@m fl_dummy(x) fl_number(x),fl_source(x),pt_dummy(fl_origin(x)),
+      rn_dummy(fl_rand(x)),pt_dummy(fl_stack(x)),fl_pointer(x) @;
 
-@m fl_decl(x) integer fl_number(x),fl_pointer(x);
+@m fl_decl(x) integer fl_number(x),fl_source(x),fl_pointer(x);
       pt_decl(fl_origin(x)); 
       rn_decl(fl_rand(x));
       pt_decl(fl_stack(x)[fl_stack_max]) @;
@@ -45,6 +48,7 @@ A flight is identified by a string tag.
 
 @m fl_copy(x,y) 
       fl_number(y)=fl_number(x);
+      fl_source(y)=fl_source(x);
       pt_copy(fl_origin(x),fl_origin(y));
       rn_copy(fl_rand(x),fl_rand(y));
       fl_pointer(x)=fl_pointer(y);
@@ -53,9 +57,11 @@ A flight is identified by a string tag.
       end do @;
 
 @m fl_check(x) (fl_number(x) >= 0 && 
+      (fl_source(x) > 0 && fl_source(x) <= so_grps) &&
       fl_pointer(x) > 0 && fl_pointer(x) <= fl_stack_max)
 
 @m fl_number(x) number_##x
+@m fl_source(x) source_##x
 @m fl_origin(x) origin_##x
 @m fl_rand(x) x
 @m fl_stack(x) stack_##x
@@ -68,8 +74,10 @@ A flight is identified by a string tag.
 
 @ Macros to manipulate flights.
 
-@m fl_init(x,num,sy) pt_init(fl_origin(x),sy);
-      fl_number(x)=num;
+@m fl_label(x,num,isource) fl_number(x)=num;
+      fl_source(x)=isource @;
+
+@m fl_init(x,sy) pt_init(fl_origin(x),sy,fl_source(x));
       fl_pointer(x)=1;
       pt_copy(fl_origin(x),fl_current(x)) @;
 
