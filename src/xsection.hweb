@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1995/01/26 14:55:16  dstotler
+% First complete version of ratecalc. Presently, input is done in
+% subroutine setup_netcdf. Changes to other files at this update are for
+% insertion of or changes to comments only.
+%
 % Revision 1.5  1994/11/21 15:52:25  dstotler
 % Interim update associated with ratecalc. ratecalc.hweb and
 % xsection.hweb have undergone substantial revision, but should be
@@ -36,7 +41,7 @@ Information about crosssections.
 @m xs_organization_table 1
 @m xs_organization_fit 2
 
-@m xs_spacing_unknown 0          // Types of spacing in tables
+@m xs_spacing_unknown 0          // Types of spacing in TABLES
 @m xs_spacing_linear 1
 @m xs_spacing_log 2
 
@@ -49,6 +54,7 @@ Information about crosssections.
 
 @m xs_unit_string_length 12     // The length of the unit specifications
 @m xs_tag_string_length 20      // The length of variable names and spacings
+@m xs_eval_name_length 40       // Routine used to evaluate FITS
 
 @m xs_table_rank_max 3          // The biggest rank table
 @m xs_dep_var_max 5             // Maximum number of dependent variables
@@ -86,6 +92,7 @@ Information about crosssections.
       define_dimen_pk(xs,unit_string,xs_unit_string_length)
       define_dimen_pk(xs,tag_string,xs_tag_string_length)
       define_dimen_pk(xs,xs_symbol_string,rc_sy_len)
+      define_dimen_pk(xs,eval_name,xs_eval_name_length)
 
       define_var_pk(xs,xs_name,CHAR,xs_symbol_string)
       define_var_pk(xs,xs_num_dep_var,INT)
@@ -98,6 +105,7 @@ Information about crosssections.
       define_var_pk(xs,xs_spacing,CHAR,tag_string,rank_ind0,dep_var_ind)
       define_var_pk(xs,xs_var,CHAR,tag_string,rank_ind0,dep_var_ind)
       define_var_pk(xs,xs_units,CHAR,unit_string,rank_ind0,dep_var_ind)
+      define_var_pk(xs,xs_eval_name,CHAR,eval_name,dep_var_ind)
 
       define_varp_pk(xs,xs_table1,FLOAT,index1v1_ind,index2v1_ind,index3v1_ind)
       define_varp_pk(xs,xs_table2,FLOAT,index1v2_ind,index2v2_ind,index3v2_ind)
