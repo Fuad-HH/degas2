@@ -2,6 +2,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.20  1997/08/19 14:36:27  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.18  1995/10/04 18:33:15  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -645,13 +650,13 @@ invoking a macro for entity.
       $IFCASE(cat,
         ,
         ,
-        $IF(MODULE_SIZE == 0, module pk##_mod; implicit none; save;,)
+        $IF(MODULE_SIZE == 0, module pk##_mod; implicit_none_f90mod; save;,)
           declare_var(var);
           $INCR(MODULE_SIZE),
-        $IF(MODULE_SIZE == 0, module pk##_mod; implicit none; save;,)
+        $IF(MODULE_SIZE == 0, module pk##_mod; implicit_none_f90mod; save;,)
           declare_varp(var);
           $INCR(MODULE_SIZE),
-        $IF(MODULE_SIZE == 0, module pk; implicit none; save;,)
+        $IF(MODULE_SIZE == 0, module pk; implicit_none_f90mod; save;,)
           declare_var(var);
           $INCR(MODULE_SIZE),
         )

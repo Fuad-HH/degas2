@@ -169,7 +169,37 @@ Makefile.local is included if it's available.  E.g.,
 
 causes f90 to be used.
 
-(G) Other...
+(G) Precision.  Degas 2 (in Fortran90 mode) now uses the REAL(KIND=..)
+specification of precision.  For this to work conveniently, the following
+coding practises need to be used:
+
+(a) ALL functions and subroutines need to contain
+
+      implicit_none_f77
+      ... optional package commons ...
+      implicit_none_f90
+
+(b) Declare the type of function in a separate statement, e.g., instead of
+
+      real function f(x)
+
+use
+
+      function f(x)
+      implicit_none_f77
+      ...
+      implicit_none_f90
+      real f
+
+ftangle converts this to
+
+      function f(x)
+      implicit none
+      integer,parameter::SINGLE=kind(0.0),DOUBLE=selected_real_kind(12)
+      REAL(kind=DOUBLE) f
+
+
+(H) Other...
 
 f90 is flakely on Suns and NERSC computers.  I'm almost certain this is due
 to compiler bugs and not my interpretation of f90.  So check out all the

@@ -2,6 +2,11 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.3  1997/08/19 14:36:28  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.2  1997/08/07 19:05:03  dstotler
 % Replaced amax1 with max, etc.; used const() in subr. lsode. Remove
 % sr_common. Add geometry-specific detector routine and related calls.
@@ -659,11 +664,12 @@ c     x = x-coordinate
 c
 c**********************************************************************c
 c
-      real function soln1_int(x)
+      function soln1_int(x)
 c
       implicit_none_f77
       implicit_none_f90
 c
+      real soln1_int
       real x, alpha_t, nu_cx_mul, t, n, t_of_x, n_of_x
 c
 c..Multiplier on thermal force
@@ -1936,6 +1942,8 @@ c-----------------------------------------------------------------------
 @<Functions...@>=
       subroutine lsode (f, neq, y, t, tout, itol, rtol, atol, itask,
      1            istate, iopt, rwork, lrw, iwork, liw, jac, mf)
+      implicit_none_f77
+      implicit_none_f90
       external f, jac
       integer neq, itol, itask, istate, iopt, lrw, iwork, liw, mf
       real y, t, tout, rtol, atol, rwork
@@ -2535,6 +2543,8 @@ c-----------------------------------------------------------------------
 
 @<Functions...@>=
       subroutine intdy (t, k, yh, nyh, dky, iflag)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       integer k, nyh, iflag
       integer iownd, iowns,
@@ -2677,6 +2687,8 @@ c-----------------------------------------------------------------------
 @<Functions...@>=
       subroutine stode (neq, y, yh, nyh, yh1, ewt, savf, acor,
      1   wm, iwm, f, jac, pjac, slvs)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       external f, jac, pjac, slvs
       integer neq, nyh, iwm
@@ -3107,6 +3119,8 @@ c-----------------------------------------------------------------------
 
 @<Functions...@>=
       subroutine cfode (meth, elco, tesco)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       integer meth
       integer i, ib, nq, nqm1, nqp1
@@ -3233,6 +3247,8 @@ c-----------------------------------------------------------------------
 @<Functions...@>=
       subroutine prepj (neq, y, yh, nyh, ewt, ftem, savf, wm, iwm,
      1   f, jac)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       external f, jac
       integer neq, nyh, iwm
@@ -3399,6 +3415,8 @@ c-----------------------------------------------------------------------
 
 @<Functions...@>=
       subroutine solsy (wm, iwm, x, tem)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       integer iwm
       integer iownd, iowns,
@@ -3443,6 +3461,8 @@ c
 c----------------------- end of subroutine solsy -----------------------
       end
       subroutine ewset (n, itol, rtol, atol, ycur, ewt)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
 c-----------------------------------------------------------------------
 c this subroutine sets the error weight vector ewt according to
@@ -3474,7 +3494,9 @@ c
       return
 c----------------------- end of subroutine ewset -----------------------
       end
-      real function vnorm (n, v, w)
+      function vnorm (n, v, w)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
 c-----------------------------------------------------------------------
 c this function routine computes the weighted root-mean-square norm
@@ -3482,6 +3504,7 @@ c of the vector of length n contained in the array v, with weights
 c contained in the array w of length n..
 c   vnorm = sqrt( (1/n) * sum( v(i)*w(i) )**2 )
 c-----------------------------------------------------------------------
+      real vnorm
       integer n,   i
       real v, w,   sum
       dimension v(n), w(n)
@@ -3493,6 +3516,8 @@ c-----------------------------------------------------------------------
 c----------------------- end of function vnorm -------------------------
       end
       subroutine srcom (rsav, isav, job)
+      implicit_none_f77
+      implicit_none_f90
 c-----------------------------------------------------------------------
 c this routine saves or restores (depending on job) the contents of
 c the common blocks ls0001 and eh0001, which are used internally
@@ -3534,7 +3559,10 @@ c
       return
 c----------------------- end of subroutine srcom -----------------------
       end
-      real function r1mach (idum)
+      function r1mach (idum)
+      implicit_none_f77
+      implicit_none_f90
+      real r1mach
       integer idum
 c-----------------------------------------------------------------------
 c this routine computes the unit roundoff of the machine.
@@ -3611,6 +3639,8 @@ c-----------------------------------------------------------------------
 
 @<Functions...@>=
       subroutine xerrwv (msg, nmes, nerr, level, ni, i1, i2, nr, r1, r2)
+      implicit_none_f77
+      implicit_none_f90
       integer msg, nmes, nerr, level, ni, i1, i2, nr,
      1   i, lun, lunit, mesflg, ncpw, nch, nwds
       real r1, r2
@@ -3675,6 +3705,8 @@ c abort the run if level = 2. ------------------------------------------
 c----------------------- end of subroutine xerrwv ----------------------
       end
       subroutine xsetf (mflag)
+      implicit_none_f77
+      implicit_none_f90
 c
 c this routine resets the print control flag mflag.
 c
@@ -3686,6 +3718,8 @@ c
 c----------------------- end of subroutine xsetf -----------------------
       end
       subroutine xsetun (lun)
+      implicit_none_f77
+      implicit_none_f90
 c
 c this routine resets the logical unit number for messages.
 c
@@ -3749,6 +3783,8 @@ c
 
 @<Functions...@>=
       subroutine sgefa(a,lda,n,ipvt,info)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       integer lda,n,ipvt(1),info
       real a(lda,1)
@@ -3870,6 +3906,8 @@ c
 
 @<Functions...@>=
       subroutine sgesl(a,lda,n,ipvt,b,job)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       integer lda,n,ipvt(1),job
       real a(lda,1),b(1)
@@ -4020,6 +4058,8 @@ c
 
 @<Functions...@>=
       subroutine sgbfa(abd,lda,n,ml,mu,ipvt,info)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       integer lda,n,ml,mu,ipvt(1),info
       real abd(lda,1)
@@ -4183,6 +4223,8 @@ c
 
 @<Functions...@>=
       subroutine sgbsl(abd,lda,n,ml,mu,ipvt,b,job)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
       integer lda,n,ml,mu,ipvt(1),job
       real abd(lda,1),b(1)
@@ -4257,6 +4299,8 @@ c
       return
       end
       subroutine saxpy(n,sa,sx,incx,sy,incy)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
 c
 c     constant times a vector plus a vector.
@@ -4305,6 +4349,8 @@ c
       return
       end
       subroutine sscal(n,sa,sx,incx)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
 c
 c     scales a vector by a constant.
@@ -4346,12 +4392,15 @@ c
    50 continue
       return
       end
-      integer function isamax(n,sx,incx)
+      function isamax(n,sx,incx)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
 c
 c     finds the index of element having max. absolute value.
 c     jack dongarra, linpack, 6/17/77.
 c
+      integer isamax
       real sx(1),smax
       integer i,incx,ix,n
 c
@@ -4382,7 +4431,10 @@ c
    30 continue
       return
       end
-      real function sdot(n,sx,incx,sy,incy)
+      function sdot(n,sx,incx,sy,incy)
+      implicit_none_f77
+      implicit_none_f90
+      real sdot
 clll. optimize
 c
 c     forms the dot product of a vector.
@@ -4432,6 +4484,8 @@ c
       return
       end
       subroutine scopy(n,sx,incx,sy,incy)
+      implicit_none_f77
+      implicit_none_f90
 clll. optimize
 c
 c     copies a vector, x, to a vector, y.

@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.53  1997/08/21 01:46:11  karney
+# Convert rest of memory allocation to fortran 90 standard.
+#
 # Revision 1.52  1997/08/19 14:36:25  karney
 # Changes to support compilation under f90.  This involved extensive changes
 # in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -381,7 +384,7 @@ endif
 %.mweb: %.hweb makemodule
 	./makemodule $< $@
 
-%_mod.f: %.mweb
+%_mod.f: %.mweb array.hweb sysdep.hweb
 	$(FTANGLE) -I$(SOURCEDIR) $(TANGLEFLAGS) $(TANGLEDEBUG) $(TANGLEFORTRAN) -m$(TARGET) -=n=#_mod.f $<
 
 ifeq ($(TARGET),IBM)

@@ -2,6 +2,11 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.28  1997/08/19 14:36:56  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.27  1997/08/07 20:07:34  dstotler
 % Just change names of higher moments: I_l_1*u to I_l_1*up to
 % avoid confusion between u (neutral) and up (plasma). Replace
@@ -1112,11 +1117,11 @@ The mass $m =$ |ra_mass| and exponent |n| =
 through common blocks.
 
 @<Functions...@>=
-      real function electron_rate_integrand(energy)
+      function electron_rate_integrand(energy)
       implicit_none_f77
       ra_common                       // Common
       implicit_none_f90
-
+      real electron_rate_integrand
       real energy                     // Input
 
       real multiplier,ze_dist,exponent,zint,zsigma   // Local variables
@@ -1143,11 +1148,11 @@ this numerically is allow the use of arbitrary electron distribution
 functions. The argument |energy| is assumed to be in eV; the overall
 multiplier converts the resulting units to cgs. 
 @<Functions...@>=
-      real function electron_norm_integrand(energy)
+      function electron_norm_integrand(energy)
       implicit_none_f77
       ra_common                       // Common
       implicit_none_f90
-
+      real electron_norm_integrand
       real energy                     // Input
 
       real multiplier,ze_dist,zint    // Local variables
@@ -1209,11 +1214,11 @@ should be in eV, and that |sigma| itself is in cm$^{2}$. The factor
 integral has cgs units.
 
 @<Functions...@>=
-      real function ion_rate_integrand(rel_velocity)
+      function ion_rate_integrand(rel_velocity)
       implicit_none_f77
       ra_common                    // Common
       implicit_none_f90
-
+      real ion_rate_integrand
       real rel_velocity             // Input
 
       real zbracket,multiplier,ze,exponent_minus,     // Local 
@@ -1245,10 +1250,10 @@ other distributions may require additional parameters (beyond temperature)
 to describe them.
 
 @<Functions...@>=
-      real function e_distrib_fn(energy) 
+      function e_distrib_fn(energy) 
       implicit_none_f77
       implicit_none_f90
-
+      real e_distrib_fn
       real energy            // Input
       ra_localcommon            // Local common
 
@@ -1268,10 +1273,10 @@ input energy |energy|. The other information required to communicate with
 ALADDIN is brought in by the common block |ra_localcommon|.
 
 @<Functions...@>=
-      real function sigma(energy)
+      function sigma(energy)
       implicit_none_f77
       implicit_none_f90
-
+      real sigma
       real energy                    // Input
 
       double precision ze,zfit       // Local
@@ -1594,9 +1599,10 @@ to |dcadre| with the original ones).
 \end{enumerate}
 
 @<Functions...@>=
-      real function infinite_integral(integrand)
+      function infinite_integral(integrand)
       implicit_none_f77
       implicit_none_f90
+      real infinite_integral
       integer ier                                              // Local
       real dcadre,lower_result,upper_result,error,
      $   lower_bound_rev,upper_bound_rev
@@ -1672,10 +1678,10 @@ to make it compatible with the rest of this (WEB) program. Otherwise,
 the ``latest revision'' date of January 27, 1977 is still applicable.
 
 @<Functions...@>=
-      real function dcadre(f,lower_bound,upper_bound,aerr,rerr,error,ier)
+      function dcadre(f,lower_bound,upper_bound,aerr,rerr,error,ier)
       implicit_none_f77
       implicit_none_f90
-
+      real dcadre
       real lower_bound,upper_bound,f,aerr,rerr        // Input
       integer ier                                     // Output
       real error
@@ -2263,9 +2269,10 @@ bisected until it is |error| wide. The function returns the bound of
 that interval at which $|f_of_x| \neq 0$.
  
 @<Functions...@>=
-      real function bisect(zero_side,nonzero_side,error,f_of_x)
+      function bisect(zero_side,nonzero_side,error,f_of_x)
       implicit_none_f77
       implicit_none_f90
+      real bisect
       real zero_side,nonzero_side,error,f_of_x     // Input
       integer i,ibound                             // Local
       real rev_zero,rev_nonzero,guess
