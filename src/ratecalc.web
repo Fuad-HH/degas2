@@ -2,6 +2,10 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.5  1994/06/17 19:29:08  dstotler
+% Continue working on ALADDIN interface routines; make "read_coef" routine
+% consistent with WEB & DEGAS 2 coding procedures.
+%
 % Revision 1.4  1994/06/16 19:27:05  dstotler
 % Continue working on ALADDIN routines: generalize routine for extracting
 % fit coefficients from ALADDIN data files.
@@ -128,7 +132,7 @@ update them. */
             den=ho-hp
 
 /* This error can occur only if two input |xa|'s are identical. */
-            assert(den != zero) 
+            assert(den!= zero) 
 
             den=w/den
             d[i]=hp*den          // Here the |c| and |d| are updated.
@@ -174,18 +178,18 @@ infinite (value passed not used). It is assumed that the function
       real aa,bb,funk
       real s                  // Output
 
-      integer                 // Local variables
+      integer it, j           // Local variables
       real a,b,ddel,del,func,sum,tnm,x
 
 /*  Performs substitution $x^{\prime} = e^{-x}$ */
-      func(x)=funk(-alog(x))/x 
+      func(x)=funk(-log(x))/x 
       b=exp(-aa)
       assert(one/bb < epsilon)  // Verify that |bb| is large.
       a=zero 
 
       if (n = 1) then
          s=(b-a)*func(half*(a+b))
-         it=1                  // 2$times$|it| points will be added next time
+         it=1                  // 2$\times$|it| points will be added next time
       else
          tnm=areal(it)
          del=(b-a)/(const(3.0)*tnm)
@@ -219,10 +223,11 @@ is returned in |leval|.
 
 @<Functions...@>=
       subroutine aladdin_read_coefs(filename,lhsl,khsl,lbasl,kbasl,
-      $                             lbnsl,kbnsl,pcf,kcf,leval)
+     $                              lbnsl,kbnsl,pcf,kcf,leval)
       implicit_none
 
-/* Parameters: same as in ALCOM.FOR */
+/* Parameters: same as in ALCOM.FOR 
+!!! Should these go in a macro so they can be used elsewhere ??!!*/
       integer nslmx,ncfmx
       parameter (nslmx=100)
       parameter (ncfmx=200)
@@ -266,37 +271,381 @@ loop: continue
       assert(errmsg = ' ')
 
       leval = bl[nbl]               // Assign evaluation label variable
-
-      return 
+/* Note: this step is not really necessary; could just return bl \&
+   select the last value when calling the evaluation routine. */
+      return
+ 
       end
 
-      
+@ This routine does the dirty job of associating the input boolean 
+label for the evaluation routine, |leval|, with an actual FORTRAN subroutine.
+Because all of the ALADDIN routines of interest currently have essentially
+the same arguments (although they differ in details which are of no
+consequence to the compiler), this clearing-house routine can be
+generated automatically from a shell script which reads through the file
+containing all of the ALADDIN subroutines.
 
-      subroutine cfeval....
+In addition to |leval|, the 
+input arguments are: |pet|, the energy or temperature at which the
+ALADDIN fit is to be evaluated and |pcf|, the array of |kncf| fit coefficients
+passed in from the ALADDIN data files. The resulting value is returned as
+|pfit|. Errors are returned via |kermsg|. 
 
-* At this point all you need to know is
-* cf(1..n) and bl(nbl)
+@<Functions...@>=
+      subroutine aladdin_eval(leval, pet, pcf, kncf, pfit, kermsg)
+      implicit_none
 
-* If we're ever writing out tabular data for later processing, it might
-* be a good idea to include the filename 'file' and ebuff(i),i=1,neln as a
-* record of where the data came from.
+/* Parameters: same as in ALCOM.FOR */
+      integer ncfmax
+      parameter (ncfmax=200)
 
-      if (bl(nbl).eq.'#HCX1') then
-         x=1.d4
-         call hcx1(x,cf,n,res,errmsg)
-         write(6,*) 'Value at ',x,' = ', res
-      else if (bl(nbl).eq.'#NEEXH2') then
-         x=1.d3
-         call neexh2(x,cf,n,res,errmsg)
-         write(6,*) 'Value at ',x,' = ', res
+      character*40 leval                  // Input
+      integer kcf
+      double precision pet
+      double precision pcf(ncfmx)
+
+      double precision pfit               // Output
+      character*80 kermsg
+
+/* !!! Do we need to declare each routine name as "external"?
+       If so, should be done by shell script when generating this 
+       routine!!! */
+
+      if (leval = '#ALMEWE') then
+         call ALMEWE(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ALBELI') then
+         call ALBELI(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ALCHEB') then
+         call ALCHEB(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ALKING') then
+         call ALKING(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ALPHACX') then
+         call ALPHACX(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ALJAN1') then
+         call ALJAN1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ETABSQ') then
+         call ETABSQ(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#FNAGEX') then
+         call FNAGEX(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#FNRC') then
+         call FNRC(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#FNXS') then
+         call FNXS(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#F0RC') then
+         call F0RC(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#F0XS') then
+         call F0XS(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JBORN1') then
+         call JBORN1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JBORN2') then
+         call JBORN2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JANRD') then
+         call JANRD(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#EEXCH2') then
+         call EEXCH2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#EIONH2') then
+         call EIONH2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#EIONHR') then
+         call EIONHR(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JRREC1') then
+         call JRREC1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JRREC3') then
+         call JRREC3(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEEXC1') then
+         call JEEXC1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEEXC2') then
+         call JEEXC2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEEXC3') then
+         call JEEXC3(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEEXC4') then
+         call JEEXC4(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEEXC6') then
+         call JEEXC6(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JIONHE') then
+         call JIONHE(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEION5') then
+         call JEION5(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JRREC2') then
+         call JRREC2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEEXC5') then
+         call JEEXC5(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JEEXC7') then
+         call JEEXC7(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JDREC1') then
+         call JDREC1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ALJAN3') then
+         call ALJAN3(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#PEXCH4') then
+         call PEXCH4(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#IONBEA') then
+         call IONBEA(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JCX1') then
+         call JCX1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#JCX2') then
+         call JCX2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#NEEXH1') then
+         call NEEXH1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#NEEXH2') then
+         call NEEXH2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#EEXCJN') then
+         call EEXCJN(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#EIONJN') then
+         call EIONJN(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HEXC1') then
+         call HEXC1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HEXC2') then
+         call HEXC2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HEXC3') then
+         call HEXC3(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HEXC4') then
+         call HEXC4(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HEXC5') then
+         call HEXC5(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HEXCLD') then
+         call HEXCLD(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HIONN') then
+         call HIONN(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HCX1') then
+         call HCX1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HCX2') then
+         call HCX2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HCX3') then
+         call HCX3(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#AQEXC1') then
+         call AQEXC1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#AQEXC2') then
+         call AQEXC2(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#AQEXC3') then
+         call AQEXC3(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#AIONGL') then
+         call AIONGL(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#HCX4') then
+         call HCX4(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ACXGL1') then
+         call ACXGL1(pet, pcf, kncf, pfit, kermsg)
+      else if (leval = '#ACXGL2') then
+         call ACXGL2(pet, pcf, kncf, pfit, kermsg)
       end if
-      stop
+
+      return
+      end
+
+@ This routine is a single argument function which provides the integrand
+in a calculation of velocity-weighted averages of a user-specified
+function over a user-specified distribution function. The principle
+use of this routine is to compute a velocity-weighted reaction rate 
+\begin{equation}
+\label{ereactionrate}
+\langle \sigma v v^{|n|}\rangle = \frac{4 \pi}{\alpha m} \left( \frac{2}{m} 
+\right)^{(n+2)/2} \int_{0}^{\infty} dE \: \sigma f(E) E^{(n+2)/2},
+\end{equation} 
+where $\sigma(E)$ is computed
+using the function |sigma|, $f(E)$ is calculated by 
+the function |edist|, $m$ is the
+particle mass relating $E$ and $v$ via $E = \frac{1}{2} m v^{2}$, and $\alpha$
+is the normalization constant for the distribution function,
+\[ 
+\alpha = \frac{4 \pi}{m} \left( \frac{2}{m} 
+\right)^{1/2} \int_{0}^{\infty} dE \: f(E) E^{1/2}.
+\] 
+Note that $\alpha$ does not appear in this routine but is incorporated
+in the calling routines. 
+
+A number of assumptions must be made in arriving
+at Eq.~(\ref{ereactionrate}).
+\begin{enumerate}
+  \item $\sigma$ is a function only of the magnitude of the relative
+velocities of the colliding particles.
+  \item The distribution function is a function only of the particle's
+energy (or, equivalently, speed).
+  \item The velocity of the ``projectile'' particle is much less than
+the typical velocity of the ``target'' particles (i.e., defined by $f$).
+\end{enumerate}
+These are the standard assumptions made when a neutral atom (``projectile'')
+collides with plasma electrons (``target'').
+
+This routine is set up with a single argument so that it can be used with
+``canned'' integration routines; the argument |pe| is the energy $E$ in 
+the above expressions. The mass $m =$ |xmass| and exponent |n| must come in 
+through a common block.
+
+@<Functions...@>=
+      real function electron_rate_integrand(pe)
+      implicit_none
+
+      integer n                  // Input
+      real pe,xmass
+      common /com_erint/ n,xmass
+
+      real zconst,zedist,zexp,zint,zsigma  // Local variables
+      real edist,sigma          // External functions
+
+      zsigma=sigma(pe)
+      zedist=edist(pe)
+      zexp=half*(areal(n)+two)
+      zconst=(const(4.0) / xmass) * (two / xmass)**zexp
+
+      zint=zconst * zsigma * zedist * pe**zexp
+
+      electron_rate_integrand=zint
+
+      return
+      end
+
+@ This routine is a single argument function which provides the integrand
+in a calculation of a standard integral closely associated with 
+velocity-weighted reaction rates. 
+More specifically, these integrals arise in the
+computation of plasma source terms due to interactions between neutral
+atoms and charged particles\cite{Reit93}, $S_{A_{p},k}$,
+\begin{equation}
+\label{source}
+S_{A_{p},k} = \Gamma \int d^{3}v \: f(\vec{v}) \langle \sigma_{k}(v_{rel})
+\Delta A_{p} \rangle_{p},
+\end{equation}
+where $\Gamma$ is the flux of neutral particles, $f(\vec{v})$ is the neutral
+particle distribution function, $p$ is a plasma species index, $\sigma_{k}$ is 
+the cross section for the $k$th reaction between the neutral and species
+$p$, $v_{rel}$ is the relative velocity of the two particles, and 
+$\Delta A_{p}$ is the change in a plasma quantity (e.g., density, momentum,
+energy, etc.) in a single collision. 
+
+When the plasma species can be
+described by a Maxwellian distribution function, the required cross
+section averages in Eq.(\ref{source}) can be computed in terms of the standard 
+integral\cite{Reit93}
+\begin{equation}
+\label{iln}
+I_{\ell, |n|} \equiv \frac{ \exp( -u^{2} / u_{p}^{2}) }
+                     {\sqrt{\pi} u u_{p}^{n+1}}
+                     \int_{0}^{\infty} dv_{rel} \: v_{rel}^{2+|n|}
+                     \sigma_{\ell}(v_{rel}) e^{-v^{2}_{rel} / u_{p}^{2}}
+                     \left[ \exp(2 v_{rel} u / u_{p}^{2}) 
+                            - (-1)^{n}\exp(-2 v_{rel} u / u_{p}^{2})\right],
+\end{equation}
+where $u$ is the velocity of the neutral particle, and $u_{p}$ is the
+thermal velocity of the plasma particle. The latter is related to the
+plasma temperature by $T_{p} = \frac{1}{2} m_{p} u_{p}^{2}$. The subscript
+$\ell$ is included to allow the treatment of elastic collisions
+($\ell \neq 0$). Note that Eq.~(\ref{iln}) is not the same as 
+$\langle \sigma v v^{n} \rangle$ because of the need to treat angular
+dependence in the integrand of Eq.~(\ref{source}), e.g., for
+the momentum source rate. Quantities such as this can be found as a linear
+combination of the $I_{\ell, |n|}$. However, the result provided by
+this routine differs from the definition of Eq.~(\ref{iln}) by a factor
+of $u_{p}^{n}$ so as to have the same dimensions as 
+$\langle \sigma v v^{n} \rangle$.
+
+This routine is set up with a single argument so that it can be used with
+``canned'' integration routines; the argument |pv| is the relative
+velocity $v_{rel}$ in the above expressions. The factors $u$ and $u_{p}$,
+as well as the exponent |n| come in through a common block. Also in 
+common is the mass |xmass| used to convert the relative velocity into
+an energy for use in evaluating the cross section |sigma|. The value
+to be used for |xmass| may vary, depending on the origin of the data used
+in |sigma|.
+
+@<Functions...@>=
+      real function ion_rate_integrand(pv)
+      implicit_none
+
+      integer n                  // Input
+      real pv,u,up,xmass
+      common /com_irint/ n,u,up,xmass
+
+      real zbracket,zconst,ze,zexparg,zint,zsigma  // Local 
+      real sigma                // External function
+
+      ze=half*xmass*pv**2
+      zsigma=sigma(ze)
+      zexparg=two*pv*u/up**2
+      zbracket=exp(zexparg)-(-1)**n*exp(-zexparg)
+      zconst=exp(-(u/up)**2)/(sqrt(pi)*u*up)
+
+      zint=zconst*pv**(2+n)*zsigma*exp(-(pv/up)**2)*zbracket
+
+      ion_rate_integrand=zint
+
+      return
+      end
+
+@ This routine provides the electron distribution function at the
+energy |pe|. Presently, the distribution is assumed to be Maxwellian;
+the temperature |temp| characterizing the distribution is passed in through
+common. Note that |temp| and |pe| must have the same units.
+The routine utilizes a single argument for generality since 
+other distributions may require additional parameters (beyond temperature)
+to describe them.  (?? Could we do it with a macro?)
+
+@<Functions...@>=
+      real function edist(pe)   // Use a longer name?
+      implicit_none
+
+      real pe, temp            // Input
+      common /com_edist/ temp
+
+      edist = exp(-pe/temp)
+
+      return
+      end
+
+@ This is a prototype routine which serves as the intermediary between the
+integration functions and calls to ALADDIN subroutines. In order to fit
+in with the former, this function must have only a single argument;
+consequently, it could easily be altered without having to change the
+calling routines. 
+
+As presently used, this routine computes the cross section at the
+input energy |pe|. The other information required to communicate with
+ALADDIN is brought in by common blocks (?? Another instance where
+we could use a macro?).
+
+@<Functions...@>=
+      real function sigma(pe)
+      implicit_none
+
+/* Parameters: same as in ALCOM.FOR */
+      integer ncfmax
+      parameter (ncfmax=200)
+
+      character*40 leval                  // Input
+      integer ncf
+      real pe
+      double precision cf(ncfmx)
+      common /com_sigala/ leval,ncf,cf
+
+      double precision ze,zfit               // Local
+      character*80 errmsg
+
+      ze=dble(pe)         // Explicitly transfer to double precision
+
+      call aladdin_eval(leval,ze,cf,ncf,zfit,errmsg)
+
+/* Trap errors from ALADDIN routines. Barring actual foul-ups, the
+   the only likely error is from requesting cross section values at
+   energies below threshold. A handful of the ALADDIN routines report
+   this as an error condition. Assume this is the case here, but
+   write out the error message as a warning.                          */
+      if (errmsg != ' ') then
+        zfit=0.0d0
+        write(stderr,*)' Warning from sigma & aladdin_eval: ',errmsg
+      end if
+
+      sigma=areal(zfit)   // Explicitly convert back to normal precision
+
+      return
       end
 
 
-@* References.
+
+@* References.  @% How do we use this?
 
 \bibliographystyle{report}
 \bibliography{../../degas}
+\begin{thebibliography}{9}
+\bibitem{Reit93} D. Reiter, in {\em Atomic and Plasma-Material Interaction
+Processes in Controlled Thermonuclear Fusion}, R. K. Janev and H. W. Drawin,
+Eds. (Elsevier, New York, 1993), p. 243.
+\end{thebibliography}
 
 @* Index.
