@@ -2,6 +2,14 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.28  1998/09/04 17:12:41  dstotler
+% Commented out an assert to allow weight to be zeroed at the end of
+% stat_wt_balance. Incorporated spectrom output from
+% APS_1977_Hacks_Done. Reset stat_wt_tot_fin prior to start of 2nd and
+% later source groups. Moved "-1" factor in variance expression from
+% stat_acc to final computations here. Removed some old commented-out
+% code for clarity.
+%
 % Revision 1.27  1998/06/01 15:56:33  karney
 % MPI enabled version.
 %
@@ -108,7 +116,6 @@
 % Pre PET checkin
 %
 
-
 @* A test program for the geometry routines.
 
 \ID{$Id$}
@@ -149,6 +156,7 @@
       else
          call do_flights_slave
       end if
+      mpi_end
       
       stop
       end
