@@ -2,6 +2,10 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.17  1996/03/01 20:23:39  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.16  1995/12/13 19:41:15  karney
 % Implement walls and symmetry selection in readgeometry.
 %
@@ -69,6 +73,7 @@
 @I string.hweb
 @I zone.hweb
 @I sources.hweb
+@I problem.hweb
 
 @ The main program.
 
@@ -79,6 +84,8 @@
       character*LINELEN arg
       sy_common
       st_common
+
+/* NOTE: nflights now coming in through source class! */
 
       nflights=100000
       nfrag=-1
@@ -100,24 +107,6 @@
 
       @<Functions and Subroutines@>
 
-@ Initialize common blocks.
-
-@<Functions...@>=
-      subroutine degas_init
-      implicit_none
-      
-      call read_geometry
-      call nc_read_elements
-      call nc_read_species
-      call nc_read_reactions
-      call nc_read_materials
-      call nc_read_pmi
-      call nc_read_problem
-      call nc_read_background
-      
-      return
-      end
-      
 @ The master controller.  This breaks the calculation of |nflights|
 flights into chunks of size |nfrag|.  This is to make the conversion to
 PVM more straightforward.
@@ -126,59 +115,118 @@ PVM more straightforward.
       subroutine do_flights_master(nflights,nfrag)
       implicit_none
       integer nflights,nfrag     // Input
-      integer seed[0:1],i,j     // Local
+      integer seed[0:1],i,j,k,is,sp_dim     // Local
       zn_common
       sy_common
       so_common
-      real weight,weight1
-      ptr_decl(stat)
-      ptr_decl(stat1)
-      ptr_decl(stat2)
-      real stat(2,zn_num)
-      real stat1(2,zn_num)
-      real stat2(2,zn_num)
+      pr_common
+      real weight_frag,tot_scale_curr,prob
+      ptr_decl(stat_tot)
+      ptr_decl(stat_grp)
+      ptr_decl(stat_frag)
+      ptr_decl(stat_flt)
+      ptr_decl(weight_grp)
+      real stat_tot(2,zn_num,2*(pr_test_num-1))
+      real stat_grp(2,zn_num,2*(pr_test_num-1),so_grps)
+      real stat_frag(2,zn_num,2*(pr_test_num-1))
+      real stat_flt(2,zn_num,2*(pr_test_num-1))
+      real weight_grp(so_grps)
       
-      real_alloc(stat,2*zn_num)
-      real_alloc(stat1,2*zn_num)
-      real_alloc(stat2,2*zn_num)
+      sp_dim=2*(pr_test_num-1)
+      real_alloc(stat_tot,2*zn_num*sp_dim)
+      real_alloc(stat_grp,2*zn_num*sp_dim*so_grps)
+      real_alloc(stat_frag,2*zn_num*sp_dim)
+      real_alloc(stat_flt,2*zn_num*sp_dim)
+      real_alloc(weight_grp,so_grps)
 
       seed[0]=1                 // Initialize random number seed
       seed[1]=2
       
-      weight=zero
-      do i=1,zn_num
-         do j=1,2
-            stat[j,i]=zero
+      tot_scale_curr=zero
+      do i=1,sp_dim 
+         do j=1,zn_num
+            do k=1,2
+               stat_tot[i][j][k]=zero
+            end do
          end do
       end do
 
-      do j=0,nflights-1,nfrag
-         call do_flights(j,min(nfrag,nflights-j),seed,stat1,weight1,stat2) // Calculate the flights
-         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat) // Accumulate the results
-         call next_seed(nfrag,seed,seed) // Advance the seed
+      do is=1,so_grps
+         nflights=so_nflights(is)
+         nfrag=nflights                      // Temporary fudge!
+
+         weight_grp[is]=zero
+         do i=1,sp_dim
+            do j=1,zn_num
+               do k=1,2
+                  stat_grp[is][i][j][k]=zero
+               end do
+            end do
+         end do
+
+         do j=0,nflights-1,nfrag
+            call do_flights(j,min(nfrag,nflights-j),so_args(is),seed,
+     $           stat_frag,weight_frag,stat_flt) // Calculate the flights
+            call stat_add(zn_num,sp_dim,weight_frag,stat_frag,
+     $           weight_grp[is],stat_grp[1,1,1,is],
+     $           weight_grp[is],stat_grp[1,1,1,is]) // Accumulate the results
+            call next_seed(nfrag,seed,seed) // Advance the seed
+         end do
+         
+         tot_scale_curr+=so_scale(is)*so_tot_curr(is)
+
+      end do           // Over |is|
+
+/*
+   In preparation for combining results from various source groups, scale
+   up according to total source rate for this group (presumably determined
+   by physics) and the arbitrary scaling factor. Note that the latter does
+   provide for real additional flexibility since the individual source
+   currents are specified, making the total current derived. Hence, the 
+   relative contribution to the sum over source groups can be more 
+   efficiently altered via the scale factor. The expressions for 
+   the total sample mean (stat_tot[1]) and variance of the sample
+   mean (stat_tot[2]) are taken from Brandt.
+*/
+      do is=1,so_grps
+         do i=1,sp_dim
+            do j=1,zn_num
+               prob=so_scale(is)*so_tot_curr(is)/tot_scale_curr
+               stat_tot[i][j][1]+=prob*stat_grp[is][i][j][1]
+               assert(weight_grp[is] > zero)
+               stat_tot[i][j][2]+=prob**2*stat_grp[is][i][j][2]/weight_grp[is]
+            end do
+         end do
       end do
 
-      do i=1,zn_num
-         if (zone_type[i] == zn_plasma) then
-            stat[i][2]=sqrt(stat[i][2]/weight)/max(stat[i][1],const(1.0,-100))
-            stat[i][1]=stat[i][1]*source_total/zn_volume(i)
-         end if
+      do i=1,sp_dim
+         do j=1,zn_num
+            if (zone_type[j] == zn_plasma) then
+               stat_tot[i][j][2]=sqrt(stat_tot[i][j][2])/max(stat_tot[i][j][1],const(1.0,-100))
+               stat_tot[i][j][1]=stat_tot[i][j][1]*tot_scale_curr/zn_volume(j)
+            end if
+         end do
       end do
       open(unit=diskout,file='stat.dat',status='unknown')
-      write(diskout,*) stat
+      write(diskout,*) stat_tot
       close(unit=diskout)
       open(unit=diskout,file='density.out',status='unknown')
-      do i=1,zn_num
-         if (zone_type[i] == zn_plasma) then
-            write(diskout,'(2i6,1p2e20.4)') zone_index[i][1],zone_index[i][2],
-     $           stat[i][1],stat[i][2]
-         end if
+      do i=1,sp_dim,2
+         do j=1,zn_num
+            if (zone_type[j] == zn_plasma) then
+               write(diskout,'(2i6,1p4e20.4)') zone_index[j][1],
+     $              zone_index[j][2],stat_tot[i][j][1],stat_tot[i][j][2],
+     $              stat_tot[i+1][j][1],stat_tot[i+1][j][2]
+            end if
+         end do
       end do
       close(unit=diskout)
 
-      real_free(stat,2*zn_num)
-      real_free(stat1,2*zn_num)
-      real_free(stat2,2*zn_num)
+      real_free(stat_tot,2*zn_num*sp_dim)
+      real_free(stat_grp,2*zn_num*sp_dim*so_grps)
+      real_free(stat_frag,2*zn_num*sp_dim)
+      real_free(stat_flt,2*zn_num*sp_dim)
+      real_free(weight_grp,so_grps)
 
       return
       end
