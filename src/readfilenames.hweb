@@ -1,25 +1,23 @@
-@* File names for Degas 2.
+@* File names for DEGAS 2.
 
-@ common block definitions for filenames
+% $Id$
 
-@a
-      package_init(rf)
-      define_var_pk(rf,filenames_max,INT) 
-      define_dimen_pk(rf,filenames_size,FILELEN)
-      define_dimen_pk(rf,filenames_ind,filenames_max)
-      define_varp_pk(rf,filenames_array,CHAR,filenames_size,filenames_ind)
-      package_end(rf)
+% $Log$
+
+\ID{$Id$}
+
+Symbolic names for DEGAS 2 input and output files.
 
 @ indices for the array of filenames
 @m elementsfile 1
 @m backgroundfile 2
-@m testfile 3
+@m testfile 3         // No longer used
 @m geometryfile 4
 @m problemfile 5
 @m reactionfile 6
 @m speciesfile 7
-@m aladinfile 8
-@m aladoutfile 9
+@m aladinfile 8        // Not being used
+@m aladoutfile 9       // Not being used
 @m elements_infile 10
 @m problem_infile 11
 @m reaction_infile 12
@@ -28,44 +26,68 @@
 @m materialsfile 15
 @m pmi_infile 16
 @m pmifile 17
-@m cramdproblemfile 18
+@m cramdproblemfile 18   // Not used in public version of code
 @m tallyfile 19
 @m outputfile 20
 
-@* file names for degas2
-each file used by degas2 as input or output has a name which can be specified 
-by the user in a file. The filenames are read as variables called
-|sybolic_fnames|. These names are easily associated with the contents of
-the file.  Each of these goes into an array called
-|filenames_array|. To refer to a particular filename, a pointer to this
-array is used. The pointers have names that are easy to remember and are
-same as the symbolic filenames. They are defined through macros above. A
-common block that contains |filenames_array|  is passed to all routines
-that will  require a filename. To refer to a file name which has the
-sybolic name \em{elementsfile}, we have to refer to
-\em{filenames_array[elementsfile]} and to refer to a file with the sybolic
-name \em{geometryfile} we refer to \em{filenames_array[geometryfile]} and
-so on. The array of filenames can be filled by calling the routine
-readfilenames. In summary, the main input file for degas2 contains
-something like - 
+@m filenames_max 20   // Largest of the above
+
+@ common block definitions for filenames
+
+@a
+      package_init(rf)
+@#if 0
+      define_var_pk(rf,filenames_max,INT) 
+@#endif
+      define_dimen_pk(rf,filenames_size,FILELEN)
+      define_dimen_pk(rf,filenames_ind,filenames_max)
+      define_varp_pk(rf,filenames_array,CHAR,filenames_size,filenames_ind)
+      package_end(rf)
+
+
+@* Description of file name usage in DEGAS 2.
+
+The names of most input and output files used by DEGAS 2 are specified
+in a single file, currently called |degas2.in|.  The filenames given
+therein are associated with the symbolic names which appear in the
+rest of the code. These symbolic names should be self-describing;
+more details about each of these files is given in the User's Manual.
+The corresponding user-specified filenames (which can be an absolute
+or relative UNIX path name) are stored in the |filenames_array| array.
+The indices in that array corresponding to each symbolic name are given
+by the above macros. The entries in the |degas2.in| file are of the form:
 
 \begin{verbatim}
-elementsfile elements.nc
-backgroundfile back.nc
-...
-...
+symbolic_name    actual_path_name
 \end{verbatim}
 
-and we open these files by doing :
+The entries can be in any order. Comments begin with a ``\#'' and be
+on a separate line or at the end of a line. Spaces and blank lines
+are ignored. Unneeded filenames (see comments at the top of this
+file) do not have to be included. If you forget to specify a needed
+filename, DEGAS 2 will should give an error like:
 
-rf_common
-...
+\begin{verbatim}
+Assertion failed (pmimatread.web): tempfile!=char_undef
+\end{verbatim}
 
-open (unit,file=filenames_array[elementsfile],status='unknown')
-open (unit,file=filenames_array[backgroundfile],status='old')
-...
-...
+An example |degas2.in| file is distributed in the |src| directory of
+DEGAS 2. Other examples are included in |examples| directories.
+The |degas2.in| file {\em must} be in your current ``run'' directory
+(e.g., \verb+degas2/SUN+). Files referred to by |degas2.in| in the
+|data| directory should not be modified by the user. If changes need
+to be made, the user should make copies of the files in the ``run''
+directory or elsewhere. The user is advised to choose filenames
+which will aid in the tracking of run variants.
 
+To add new files to the above list:
+\begin{enumerate}
+  \item Create a suggestive symbolic file name,
+  \item Assign the next integer to it in the above macro list,
+  \item Increment |filenames_max|,
+  \item Make corresponding changes to |readfilenames.web| (see
+the introduction there).
+\end{enumerate}
 
 
 
