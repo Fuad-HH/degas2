@@ -2,6 +2,12 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.36  1999/02/02 15:07:08  dstotler
+% Remove some old code for increment_polygon for clarity. Add
+% polygon_recyc_coef and current_recyc_coef to go along with
+% corresponding temperature variables. Updated documentation at top of
+% code.
+%
 % Revision 1.35  1998/09/04 17:18:09  dstotler
 % Added C-Mod detector chords as in APS_1997_Hacks_Done. Set up this
 % routine along with other run-dependent features to be enabled by a
@@ -476,6 +482,7 @@ end
       logical complete,vacuum
       real xmin,xmax,ymin,ymax,zmin,zmax,vol,vola,vol_test
       real mindensity,minx,minz,current_temperature,current_recyc_coef
+      real wall_recyc,target_recyc,pfr_recyc
       real rm[mx,my,0:4],zm[mx,my,0:4],x_test[2,0:4]
       vc_decl(min_corner)
       vc_decl(max_corner)
@@ -546,6 +553,9 @@ end
       zone=0
       current_temperature=const(3.,2)
       current_recyc_coef=one
+      wall_recyc=const(0.99)
+      pfr_recyc=const(0.99)
+      target_recyc=const(0.98)
 
 loop1: continue
       assert( read_string(diskin,line,length) )
@@ -739,6 +749,19 @@ loop3:   continue
       elseif (keyword == 'recyc_coef') then
          assert(next_token(line,b,e,p))
          current_recyc_coef=read_real(line(b:e))
+
+/* 
+   These three are presently used only for the |UEDGE_RECT_SLAB| geometry. 
+*/
+      elseif (keyword == 'wall_recyc_coef') then
+         assert(next_token(line,b,e,p))
+         wall_recyc=read_real(line(b:e))
+      elseif (keyword == 'target_recyc_coef') then
+         assert(next_token(line,b,e,p))
+         target_recyc=read_real(line(b:e))
+      elseif (keyword == 'pfr_recyc_coef') then
+         assert(next_token(line,b,e,p))
+         pfr_recyc=read_real(line(b:e))
 
 /* insert additional keywords below this */            
 
@@ -2053,7 +2076,7 @@ skip:          continue
       polygon_material[num_polygon]=ma_lookup('mo')
       polygon_temperature[num_polygon]=const(2.5,-2)      // eV, from EIRENE
      $                 *electron_charge/boltzmanns_const  // convert to K
-      polygon_recyc_coef[num_polygon]=const(0.99)
+      polygon_recyc_coef[num_polygon]=wall_recyc
       call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
       zn_volume(zone)+=polygon_volume(n,polygon_x[1,0,num_polygon])
       call set_zn_min_max(n,polygon_x[1,0,num_polygon],zone,.false.)
@@ -2119,7 +2142,7 @@ skip:          continue
       polygon_material[num_polygon]=ma_lookup('mo')
       polygon_temperature[num_polygon]=const(2.5,-2)      // eV, from EIRENE
      $                 *electron_charge/boltzmanns_const  // convert to K
-      polygon_recyc_coef[num_polygon]=const(0.99)
+      polygon_recyc_coef[num_polygon]=pfr_recyc
       call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
       zn_type_set(zone,zn_solid)
       zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
@@ -2180,7 +2203,7 @@ skip:          continue
       polygon_material[num_polygon]=ma_lookup('mo')
       polygon_temperature[num_polygon]=const(1.,-1)      // eV, from EIRENE
      $                 *electron_charge/boltzmanns_const  // convert to K
-      polygon_recyc_coef[num_polygon]=const(0.98)
+      polygon_recyc_coef[num_polygon]=target_recyc
       call decompose_polygon(n,polygon_x[1,0,num_polygon],zone)
       zn_type_set(zone,zn_solid)
       zn_volume(zone)=polygon_volume(n,polygon_x[1,0,num_polygon])
