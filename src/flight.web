@@ -2,6 +2,13 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.33  1999/02/02 14:58:02  dstotler
+% Commented out line putting a minimum on |sum| in choosing the
+% PMI. Rather than make absorption a specific PMI, make it a surface
+% property. Use recyc_coef in process_pmi. Added some code to test an
+% alternative suppressed absorption approach, but is currently commented
+% out.
+%
 % Revision 1.32  1998/12/22 16:44:15  dstotler
 % Removed some older commented out test sections. Leave in with macro
 % switch EIR_REC_BENCH the hack to set yield = 0 for energies < 1 eV.
@@ -541,11 +548,17 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
          sum=sum+yield[ts_pmi]
       end do
 
+      if (default_pmi > 0 && sum < one) yield[default_pmi]=one-sum
+
+@#if 0
       if (pr_pm_case_num(pt_test(fl_current(x))) > 1) then 
          rn_next(rnd,x)
       else            
          rnd=zero     
       end if          
+@#else
+         rn_next(rnd,x)
+@#endif
 @#if 0
 /*
    Leave |rnd| alone to get precisely a unit interval. Did we have
