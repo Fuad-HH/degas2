@@ -2,6 +2,9 @@
 \def\Wtitle{geomread}
 
 % $Log$
+% Revision 1.2  1993/09/23  12:34:48  karney
+% Change netcdf file extension from .cdf to .nc
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 
@@ -17,9 +20,8 @@ netcdf file.
 
 @I macros.hweb
 
-@I geometry.hweb
+@I geomint.hweb
 
-@I vector.hweb
 @I netcdf.hweb
 
 @ The main program.
@@ -41,7 +43,7 @@ c      call input_b2_geometry
 @<Functions...@>=
       subroutine input_geometry
       implicit_none
-      decl_geom
+      gi_common
       real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99] // Local
       integer face,surf_type,zone,n,i,j
       external init_geometry,start_cell,sphere,define_surface,
@@ -54,10 +56,10 @@ c      call input_b2_geometry
       open(unit=20,file='geometry.txt',status='old',form='formatted')
       read(20,*) zone,n
       assert(zone == 0 && n<=99)
-      read(20,*) ((x[i,j],i=1,2),j=0,n)
+      read(20,*) SP ((x[i,j],i=1,2),j=0,n)
       do j=0,n-1
-         Vector_set(x1,x[1,j],zero,x[2,j])
-         Vector_set(x2,x[1,j+1],zero,x[2,j+1])
+         vc_set(x1,x[1,j],zero,x[2,j])
+         vc_set(x2,x[1,j+1],zero,x[2,j+1])
          call conea(x1,x2,coeff,surf_type,apex)
          face=define_surface(coeff,.true.)
          call add_surface(face,0,.true.)
@@ -66,7 +68,7 @@ loop: continue
       read(20,*) zone,n
       if (zone == 0) goto break
       assert( n>0 && n<=99 )
-      read(20,*) ((x[i,j],i=1,2),j=0,n)
+      read(20,*) SP ((x[i,j],i=1,2),j=0,n)
       call decompose_polygon(n,x,zone)
       goto loop
 break: continue
@@ -102,7 +104,8 @@ break: continue
       subroutine input_b2_geometry_a(nx,ny)
       implicit_none
       integer nx,ny             // Input
-      decl_geom                 // Common
+      gi_common                 // Common
+      zn_common
       integer ix,iy,i,j,n1,n2   // Local
       integer face,surf_type,zone
       real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99],a[3],x0[3]
@@ -121,7 +124,7 @@ break: continue
       do j=1,nx*ny
          read(20,'(a11,2i3)') dummy,ix,iy
          read(20,*)
-         read(20,*) (ccr(i,ix,iy),ccz(i,ix,iy),i=0,4)
+         read(20,*) SP (ccr(i,ix,iy),ccz(i,ix,iy),i=0,4)
          read(20,*)
          read(20,*)
          read(20,*)
@@ -138,8 +141,8 @@ break: continue
       z0[4] = z0[0]
       
       do j=0,3
-         Vector_set(x1,r0[j],zero,z0[j])
-         Vector_set(x2,r0[j+1],zero,z0[j+1])
+         vc_set(x1,r0[j],zero,z0[j])
+         vc_set(x2,r0[j+1],zero,z0[j+1])
          call conea(x1,x2,coeff,surf_type,apex)
          face=define_surface(coeff,.true.)
          call add_surface(face,0,.true.)
@@ -160,11 +163,15 @@ break: continue
             x[1,4]=ccr[1,ix,iy]
             x[2,4]=ccz[1,ix,iy]
             call decompose_polygon(4,x,zone)
+            zn_type_set(zone,zn_plasma)
+            zn_index(zone,1)=ix
+            zn_index(zone,2)=ix
          end do
       end do
 
  /* Central plasma region */
       zone=zone+1
+      zn_type_set(zone,zn_plasma)
       i=0
       do ix=1,nx/2
          x[1,i]=ccr[1,ix,1]; x[2,i]=ccz[1,ix,1]; i=i+1
@@ -177,6 +184,7 @@ break: continue
 
  /* Divertor plate */
       zone=zone+1
+      zn_type_set(zone,zn_solid)
       i=0
       x[1,i]=ccr[2,nx,1]; x[2,i]=-const(2.1); i=i+1
       do iy=1,ny
@@ -190,6 +198,7 @@ break: continue
 
  /* Excluded region */
       zone=zone+1
+      zn_type_set(zone,zn_solid)
       i=0
       x[1,i]=r0[0]; x[2,i]=z0[0]; i=i+1
       x[1,i]=r0[1]; x[2,i]=z0[1]; i=i+1
@@ -218,6 +227,7 @@ break: continue
 
  /* The wall */
       zone=zone+1
+      zn_type_set(zone,zn_solid)
       i=0
       x[1,i]=r0[2]-const(0.1); x[2,i]=ccz[3,1,ny]; i=i+1
       x[1,i]=r0[2]; x[2,i]=z0[2]; i=i+1
@@ -240,22 +250,22 @@ break: continue
       n1=start_cell(zone+1)     // The vertical cylinder
       n2=start_cell(zone+1)     // The horizontal cylinder
 
-      Vector_set(x1,2.7,zero,z0[3])
-      Vector_set(x2,3.5,zero,-1.7)
+      vc_set(x1,2.7,zero,z0[3])
+      vc_set(x2,3.5,zero,-1.7)
       call conea(x1,x2,coeff,surf_type,apex)
       face=define_surface(coeff,.true.)
       call add_surface(face,n1,.true.)
       call add_surface(-face,n2,.true.)
       
-      Vector_set(x0,3.25,zero,zero)
-      Vector_set(a,zero,zero,one)
+      vc_set(x0,3.25,zero,zero)
+      vc_set(a,zero,zero,one)
       call cylinder(x0,a,const(0.2),coeff)
       face=define_surface(coeff,.false.)
       call add_surface(-face,n1,.true.)
       call add_surface(face,n1-1,.true.)
 
-      Vector_set(x1,r0[3],zero,z0[3])
-      Vector_set(x2,r0[4],zero,z0[4])
+      vc_set(x1,r0[3],zero,z0[3])
+      vc_set(x2,r0[4],zero,z0[4])
       call conea(x1,x2,coeff,surf_type,apex)
       face=define_surface(coeff,.true.)
       call add_surface(face,n1,.true.)
@@ -267,14 +277,14 @@ break: continue
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
       call decompose_polygon(i,x,zone)
 
-      Vector_set(x0,zero,zero,-1.95)
-      Vector_set(a,one,zero,zero)
+      vc_set(x0,zero,zero,-1.95)
+      vc_set(a,one,zero,zero)
       call cylinder(x0,a,const(0.2),coeff)
       face=define_surface(coeff,.false.)
       call add_surface(-face,n2,.true.)
       call add_surface(face,n2+1,.true.)
-      Vector_set(x1,2.7,zero,z0[3])
-      Vector_set(x2,2.7,zero,-1.7)
+      vc_set(x1,2.7,zero,z0[3])
+      vc_set(x2,2.7,zero,-1.7)
       call conea(x1,x2,coeff,surf_type,apex)
       face=define_surface(coeff,.true.)
       call add_surface(face,n2,.true.)
@@ -294,6 +304,7 @@ break: continue
 
  /* Vacuum region */
       zone=zone+1
+      zn_type_set(zone,zn_vacuum)
       i=0
       x[1,i]=const(3.6); x[2,i]=ccz[3,1,ny]; i=i+1
 
@@ -322,36 +333,13 @@ break: continue
       return
       end
 
-@ Write the geometry to a netcdf file.
-
-@<Functions...@>=
-      subroutine write_geometry
-      implicit_none
-      decl_geom_int
-      decl_netcdf
-      netcdf_geometry_decls
-      integer fileid
-      external nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
-      integer nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
-
-      fileid = nccreate('geometry.nc',NC_CLOBBER,nc_stat)
-      netcdf_write_geometry(fileid)
-      call ncclose(fileid,nc_stat)
-
-      return
-      end
-      
 @ New geometry input routine
 
 @<Functions...@>=
       subroutine new_input_geometry
       implicit_none
       integer nx,ny
-      character*FILELEN file
-      character*LINELEN line
 
-      read(unit=stdin,a,) line
-      
       open(unit=20,file='../data/b2specss',status='old',form='formatted')
       read(20,*) nx,ny
       read(20,*)
