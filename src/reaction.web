@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.29  1998/01/14 20:57:56  dstotler
+% Replace transform_v routine with macro. Change a comment for FWEAVE.
+%
 % Revision 1.28  1997/08/19 14:36:58  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -844,9 +847,14 @@ skip: continue
 
       rd_ragged_alloc(reaction_handling)
 
-      do i=1,pr_reaction_num
-         call reaction_read(i)
-      end do
+      if (pr_reaction_num > 0) then
+         do i=1,pr_reaction_num
+            call reaction_read(i)
+         end do
+      else
+         rd_null_alloc(reaction_rate)
+         rd_null_alloc(reaction_handling)
+      end if
       return
       end
 
