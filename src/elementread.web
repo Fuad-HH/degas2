@@ -2,6 +2,9 @@
 \def\Wtitle{elementread}
 
 % $Log$
+% Revision 1.2  1993/09/23  12:34:09  karney
+% Change netcdf file extension from .cdf to .nc
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -18,9 +21,6 @@ Introduction\ldots
 
 @I macros.hweb
 
-@i elements.hweb
-@i netcdf.hweb
-
 @ The unnamed module.
 
 @a
@@ -31,47 +31,66 @@ Introduction\ldots
 @<Functions...@>=
       subroutine nc_read_elements
       implicit_none
-      decl_elements
-      decl_netcdf
       integer fileid
-      integer nelements_id,element_sy_id,element_m_id,element_z_id,
-     $     element_name_id,element_symbol_string_id,element_name_string_id,
-     $     element_ind_id
-      external mem_alloc,ncopen,ncvarid,ncdimid
-      integer mem_alloc,ncopen,ncvarid,ncdimid
+      el_common
+      el_ncdecl
+      nc_common
+      sy_common
 
       fileid = ncopen('../data/elements.nc',NC_NOWRITE,nc_stat)
       call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     elements_version,len(elements_version),nc_stat)
-      var_inq(fileid,nelements)
-      var_read(fileid,nelements)
+     $     element_version,len(element_version),nc_stat)
 
-      dimen_inq(fileid,element_symbol_string)
-      dimen_inq(fileid,element_name_string)
-      dimen_inq(fileid,element_ind)
-
-      var_inq(fileid,element_sy)
-      var_inq(fileid,element_name)
-      var_inq(fileid,element_z)
-      var_inq(fileid,element_m)
-      
-      var_alloc(element_sy)
-      var_alloc(element_name)
-      var_alloc(element_z)
-      var_alloc(element_m)
-      var_read(fileid,element_sy)
-      var_read(fileid,element_name)
-      var_read(fileid,element_z)
-      var_read(fileid,element_m)
+      el_ncread(fileid)
       
       call ncclose(fileid,nc_stat)
 
       return
       end
 
+@ Read in data from netcdf file \verb+species.nc+
       
+@<Functions...@>=
+      subroutine nc_read_species
+      implicit_none
+      integer fileid
+      sp_common
+      sp_ncdecl
+      nc_common
+      sy_common
 
+      fileid = ncopen('../data/species.nc',NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     species_version,len(species_version),nc_stat)
 
+      sp_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Read in data from netcdf file \verb+reactions.nc+
+      
+@<Functions...@>=
+      subroutine nc_read_reactions
+      implicit_none
+      integer fileid
+      rc_common
+      rc_ncdecl
+      nc_common
+      sy_common
+
+      fileid = ncopen('../data/reactions.nc',NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     reaction_version,len(reaction_version),nc_stat)
+
+      rc_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
 
 @* References.
 
