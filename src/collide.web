@@ -2,6 +2,9 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.21  1998/11/09 18:57:18  kanzlr
+% Updated elastic collision routine.  Fixed problem with collision geometry routine.
+%
 % Revision 1.20  1998/09/04 17:05:48  dstotler
 % Added i_elediss to save list in subr. dissoc.
 %
@@ -1857,7 +1860,7 @@ actually done at the source point or as a post-processor.
       vc_decl(v_src)
       integer i,i_e_loss,i_e_src,num_lines,i_e_rate,i_gen_rate
       integer lines[max_lines],e_rates[max_lines]
-      real e_src,e_e_loss,e_e_src
+      real e_loss,e_e_loss,e_e_src
       character*tl_tag_length line
       logical init
 
@@ -1923,7 +1926,7 @@ actually done at the source point or as a post-processor.
      $           sqrt(bk_temp(back_2,lc_zone(zone_loc))
      $           /sp_m(pr_background(back_2)))
             vc_copy(vb_flow,v_src)
-            e_src=const(1.5)*bk_temp(back_2,lc_zone(zone_loc))
+            e_loss=const(1.5)*bk_temp(back_2,lc_zone(zone_loc))
          else if (est == tl_est_collision) then
             do i=1,3
                v_src[i]=independent_parameters[xs_var_v_test_1+i-1]
@@ -1931,7 +1934,7 @@ actually done at the source point or as a post-processor.
             scoring_data[pr_var_emitter_v_vector]=v_src[1]
             scoring_data[pr_var_emitter_v_2]=v_src[2]
             scoring_data[pr_var_emitter_v_3]=v_src[3]
-            e_src=half*sp_m(pr_background(back_2))*vc_abs2(v_src)
+            e_loss=half*sp_m(pr_background(back_2))*vc_abs2(v_src)
          end if
       end if
 
@@ -1987,15 +1990,15 @@ actually done at the source point or as a post-processor.
       scoring_data[pr_var_back_index(pr_var_back_mass,back_2)]+=
      $     -sp_m(pr_background(back_2))*rate
       scoring_data[pr_var_back_index(pr_var_back_momentum_vector,back_2)]+=
-     $     sp_m(pr_background(back_2))*v_src[1]*rate 
+     $     -sp_m(pr_background(back_2))*v_src[1]*rate 
       scoring_data[pr_var_back_index(pr_var_back_momentum_2,back_2)]+=
-     $     sp_m(pr_background(back_2))*v_src[2]*rate 
+     $     -sp_m(pr_background(back_2))*v_src[2]*rate 
       scoring_data[pr_var_back_index(pr_var_back_momentum_3,back_2)]+=
-     $     sp_m(pr_background(back_2))*v_src[3]*rate 
+     $     -sp_m(pr_background(back_2))*v_src[3]*rate 
       scoring_data[pr_var_back_index(pr_var_back_energy,back_1)]+=
      $     e_e_src-e_e_loss
       scoring_data[pr_var_back_index(pr_var_back_energy,back_2)]+=
-     $     e_src*rate
+     $     -e_loss*rate
 
       return
       end
