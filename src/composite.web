@@ -2,6 +2,11 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.21  1997/08/19 14:36:31  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.20  1996/10/30 17:28:01  dstotler
 % Add set_zn_min_max routine.
 %
@@ -208,7 +213,7 @@ of the points.
          else if (delta < -pi) then
             delta=delta+two*pi
          end if
-         if (delta >= -epsilon_angle) return // This used to be |>= zero|.
+         if (delta >= -sqrt(epsilon_angle)) return // This used to be |>= zero|.
          totang=totang+delta
          dir0=dir
       end do
@@ -274,7 +279,7 @@ of the points.
       return
       end
 
-@ Temporary space for decompose_polygon.
+@ Temporary space for |decompose_polygon|.
 
 @a
 
@@ -295,9 +300,6 @@ of the points.
       real x[2,0:n]
       declare_varp(a)
       declare_varp(b)
-c     real a[2,0:n],b[2,0:n-1]  // Local
-c     ptr_decl(a)
-c     ptr_decl(b)
       integer i,j,m,k,start,size
       logical intersect
       @<Memory allocation interface@>
