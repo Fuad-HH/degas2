@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1996/11/04 20:38:33  karney
+% Remove dummy array from problem.hweb.  Remove some checks from nc_var_inq.
+%
 % Revision 1.6  1995/05/26 04:01:07  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -70,8 +73,8 @@ Convert to LaTeX/NFSS
 @m NC_LONG 4
 @m NC_FLOAT 5
 @m NC_DOUBLE 6
-@m NC_CLOBBER 11
-@m NC_NOCLOBBER 15
+@m NC_CLOBBER 0
+@m NC_NOCLOBBER 4
 @m NC_WRITE 1
 @m NC_NOWRITE 0
 @m NC_GLOBAL 0
@@ -129,7 +132,7 @@ Convert to LaTeX/NFSS
       $IF(rank_##name >= 5, assert( nc_dims(5) == dimid(ind_##name##_5) );,) @;
 
 @#if 0
-/* These used to be part of var_inq.  Removed to avoid tangle problems.
+/* These used to be part of |var_inq|.  Removed to avoid tangle problems. */
       assert(nc_rank == rank_##name);
       assert(nc_rank >= 0 && nc_rank <= MAX_DIM);
       assert( $IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL) == nc_type ) @;
