@@ -2,6 +2,12 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.19  1998/01/14 20:59:51  dstotler
+% Replace background_sources with coupling_scores. Added checks on test,
+% background, and reaction to make sure they are in the problem.
+% Replace problem_species_test with pr_test_lookup and
+% problem_species_background with pr_background_lookup.
+%
 % Revision 1.18  1997/09/02 21:14:40  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -112,8 +118,6 @@
 @<Functions...@>=
       subroutine start_reactiontest
 
-      define_varp(coupling_scores,FLOAT,output_coupling_ind,problem_background_ind)
-
       implicit_none_f77
       el_common
       sp_common
@@ -126,12 +130,11 @@
       @<Memory allocation interface@>
 
       character*LINELEN line                         // Local
-      integer length,p,b,e,i,nprod,num_scoring_data
+      integer length,p,b,e,i,nprod
       rn_seed_decl(seed)
       real vtest,energy,density,temperature,rate,rr
       real independent_parameters[xs_max_indep_params],w_prod[rc_product_max],
      $     scoring_data[scoring_data_max]
-      character*tl_tag_length scoring_data_label[scoring_data_max]
       vc_decl(vt)
       vc_decl(vb)
       vc_decl(vrel)
@@ -148,10 +151,6 @@
       external eval_data                             // External
       real eval_data
 
-
-      declare_varp(coupling_scores)                   // Pointee
-
-      var_alloc(coupling_scores)
 
 /* |process_reaction| needs random number thread */
       call string_to_seed('12345678',seed)
@@ -251,15 +250,8 @@ loop1: continue
          end do
       end if
 
-      num_scoring_data=0
       do i=1,scoring_data_max
          scoring_data[i]=zero
-         scoring_data_label[i]='unknown'
-      end do
-      do back=1,pr_background_num
-         do i=1,ou_coupling_max
-            coupling_scores[back][i]=zero
-         end do
       end do
 
 /* Determine reaction products */
@@ -267,38 +259,32 @@ loop1: continue
          call chargex(pr_test_args(pr_test_lookup(test)),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,rn_args(tag))
+     $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'elastic') then
          call elastic(pr_test_args(pr_test_lookup(test)),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,rn_args(tag))
+     $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'dissoc') then
          call dissoc(pr_test_args(pr_test_lookup(test)),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,rn_args(tag))
+     $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'dissoc_rec') then
          call dissoc(pr_test_args(pr_test_lookup(test)),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,rn_args(tag))
+     $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'ionize') then
          call ionize(pr_test_args(pr_test_lookup(test)),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,rn_args(tag))
+     $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'ionize_suppress') then
          call ionize(pr_test_args(pr_test_lookup(test)),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
-     $        num_scoring_data,scoring_data,scoring_data_label,
-     $        coupling_scores,rn_args(tag))
+     $        scoring_data,rn_args(tag))
       else
          write(stdout,*) '**No reaction processing routine available**'
       end if
@@ -311,23 +297,23 @@ loop1: continue
          write(stdout,*) '     weight = ',w_prod[i]
       end do
 
-      if (num_scoring_data > 0) then
-         write(stdout,*)
-         write(stdout,*) ' Scoring Data Entries:'
-         do i=1,num_scoring_data
-            write(stdout,*) scoring_data_label[i],' = ',scoring_data[i]
-         end do
-      end if
-
       write(stdout,*) ' Background Sources: mass, momentum (1, 2, 3), energy'
       do back=1,pr_background_num
          write(stdout,*) ' Background = ',sp_name(pr_background(back))
-         write(stdout,*) coupling_scores[back][ou_coupling_mass]
-         write(stdout,*) '(',coupling_scores[back][ou_coupling_momentum_1],', ',
-     $        coupling_scores[back][ou_coupling_momentum_2],', ',
-     $        coupling_scores[back][ou_coupling_momentum_3],')'
-         write(stdout,*) coupling_scores[back][ou_coupling_energy]
+         write(stdout,*) scoring_data[pr_var_back_index(pr_var_back_mass,back)]
+         write(stdout,*) '(',scoring_data[pr_var_back_index(pr_var_back_momentum_vector,back)],', ',
+     $        scoring_data[pr_var_back_index(pr_var_back_momentum_2,back)],', ',
+     $        scoring_data[pr_var_back_index(pr_var_back_momentum_3,back)],')'
+         write(stdout,*) scoring_data[pr_var_back_index(pr_var_back_energy,back)]
       end do
+
+      write(stdout,*) ' Other Scoring Data:'
+      do i=1,pr_var_back_mass-1
+         if (scoring_data[i] != zero) then
+            write(stdout,*) 'scoring_data[',i,'] = ',scoring_data[i]
+         end if
+      end do
+
       goto loop1
 
 eof:  continue
