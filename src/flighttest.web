@@ -2,6 +2,9 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.29  1998/09/29 13:13:10  dstotler
+% Add mpi_end (call to MPI_FINALIZE) for all MPI processes.
+%
 % Revision 1.28  1998/09/04 17:12:41  dstotler
 % Commented out an assert to allow weight to be zeroed at the end of
 % stat_wt_balance. Incorporated spectrom output from
@@ -757,21 +760,35 @@ break:  continue
 @ Fill coupling arrays. This needs to be in a separate subroutine since
 we don't set the dimensions until just before the call.
 
+@m i_dens 1
+@m i_temp 2
+@m i_flux1 3
+@m i_flux2 4
+@m i_flux3 5
+@m list_max 5  // However many of these there are 
+
 @<Functions...@>=
       subroutine fill_coupling_arrays
 
+      define_dimen(list_ind,list_max)
+
       define_varp(zone_map,INT,output_ind_1,output_ind_2)
+      define_varp(test_data,FLOAT,output_ind_1,output_ind_2,problem_test_ind,list_ind)
 
       implicit_none_f77
       zn_common
       sp_common
       pr_common
+      so_common
       tl_common
       ou_common                                                // Common
       implicit_none_f90
       
-      integer zone,back,e_back,ix,iy,i                                // Local
+      integer zone,back,e_back,ix,iy,i,ix_1,ix_n,iy_1,iy_n,    // Local
+     $        test,is,i_list,first_back
       integer index_parameters[tl_index_max]
+      real multiplier
+      logical have_pressure
 
       @<Memory allocation interface@>
       st_decls
@@ -781,7 +798,10 @@ we don't set the dimensions until just before the call.
       real extract_output_datum
 
       declare_varp(zone_map)
+      declare_varp(test_data)
+
       var_alloc(zone_map)
+      var_alloc(test_data)
 
       var_alloc(output_2D_coupling)
 
@@ -798,68 +818,144 @@ we don't set the dimensions until just before the call.
    sum over the extra dimensions.
 */
 
-      if (pr_reaction_num > 0) then      // else: these tallies undefined     
-         do back=1,pr_background_num
-            index_parameters[tl_index_back]=back
-            do iy=output_index_2_min,output_index_2_max
-               do ix=output_index_1_min,output_index_1_max
-                  if (zn_check(zone_map(ix,iy))) then
-                     index_parameters[tl_index_zone]=zone_map(ix,iy)
-                     output_2D_coupling(ix,iy,back,ou_coupling_mass)=
-     $                    extract_output_datum(index_parameters,1,
-     $                    out_post_all,o_mean,'ion source rate')
-                     output_2D_coupling(ix,iy,back,ou_coupling_momentum_1)=
-     $                    extract_output_datum(index_parameters,1,
-     $                    out_post_all,o_mean,'ion momentum source vector')
-                     output_2D_coupling(ix,iy,back,ou_coupling_momentum_2)=
-     $                    extract_output_datum(index_parameters,2,
-     $                    out_post_all,o_mean,'ion momentum source vector')
-                     output_2D_coupling(ix,iy,back,ou_coupling_momentum_3)=
-     $                    extract_output_datum(index_parameters,3,
-     $                    out_post_all,o_mean,'ion momentum source vector')
-                     output_2D_coupling(ix,iy,back,ou_coupling_energy)=
-     $                    extract_output_datum(index_parameters,1,
-     $                    out_post_all,o_mean,'ion energy source')
+      ix_1=output_index_1_min
+      ix_n=output_index_1_max
+      iy_1=output_index_2_min
+      iy_n=output_index_2_max
+
+      if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
+         have_pressure=.true.
+      else
+         have_pressure=.false.   // Not kept with minimal set of scores
+      end if
+      do test=2,pr_test_num    // Exclude ``0'' test species
+         index_parameters[tl_index_test]=test
+         do iy=iy_1,iy_n
+            do ix=ix_1,ix_n
+               if (zn_check(zone_map(ix,iy))) then
+                  index_parameters[tl_index_zone]=zone_map(ix,iy)
+                  test_data(ix,iy,test,i_dens)
+     $                 =extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,'neutral density')
+                  if (have_pressure 
+     $                 && test_data(ix,iy,test,i_dens) != zero) then
+                     test_data(ix,iy,test,i_temp)
+     $                    =extract_output_datum(index_parameters,1,
+     $                    out_post_all,o_mean,'neutral pressure')
+     $                    /test_data(ix,iy,test,i_dens)
                   else
-                     do i=1,ou_coupling_max
-                        output_2D_coupling(ix,iy,back,i)=zero
-                     end do
+                     test_data(ix,iy,test,i_temp)=zero
                   end if
-               end do      // ix
-            end do         // iy
-         end do            // back
-
-         open(unit=diskout,file='sources.out',status='unknown')
-         e_back=pr_background_lookup(sp_lookup('e'))
-         do back=1,pr_background_num
-            if (back != e_back) then
-               write(diskout,*) SP
-     $              ((output_2D_coupling(ix,iy,back,ou_coupling_mass),
-     $              ix=output_index_1_min,output_index_1_max),
-     $              iy=output_index_2_min,output_index_2_max)
-               write(diskout,*) SP 
-     $              ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_1),
-     $              ix=output_index_1_min,output_index_1_max),
-     $              iy=output_index_2_min,output_index_2_max)
-               write(diskout,*) SP
-     $              ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_2),
-     $              ix=output_index_1_min,output_index_1_max),
-     $              iy=output_index_2_min,output_index_2_max)
-               write(diskout,*) SP
-     $              ((output_2D_coupling(ix,iy,back,ou_coupling_momentum_3),
-     $              ix=output_index_1_min,output_index_1_max),
-     $              iy=output_index_2_min,output_index_2_max)
-               write(diskout,*) SP
-     $              ((output_2D_coupling(ix,iy,back,ou_coupling_energy),
-     $              ix=output_index_1_min,output_index_1_max),
-     $              iy=output_index_2_min,output_index_2_max)
-            end if
+                  do i=1,3
+                     test_data(ix,iy,test,i_flux1+i-1)
+     $                    =extract_output_datum(index_parameters,i,
+     $                    out_post_all,o_mean,'neutral flux vector')
+                  end do
+               end if
+            end do
          end do
-         write(diskout,*) SP
-     $        ((output_2D_coupling(ix,iy,e_back,ou_coupling_energy),
-     $        ix=output_index_1_min,output_index_1_max),
-     $        iy=output_index_2_min,output_index_2_max)
+      end do
 
+      open(unit=diskout,file='testdata.out',status='unknown')
+      do test=2,pr_test_num
+         write(diskout,*) sp_sy(pr_test(test))
+      end do
+      multiplier=one
+      do test=2,pr_test_num
+         call write_sources(test_data(ix_1,iy_1,test,i_dens),multiplier,
+     $        ix_1,ix_n,iy_1,iy_n,diskout)
+         call write_sources(test_data(ix_1,iy_1,test,i_temp),multiplier,
+     $        ix_1,ix_n,iy_1,iy_n,diskout)
+      end do
+      do test=2,pr_test_num
+         do i_list=i_flux1,i_flux3
+            call write_sources(test_data(ix_1,iy_1,test,i_list),multiplier,
+     $           ix_1,ix_n,iy_1,iy_n,diskout)
+         end do
+      end do
+      close(unit=diskout)
+         
+      if (pr_reaction_num > 0) then      // else: these tallies undefined 
+         e_back=pr_background_lookup(sp_lookup('e'))
+         open(unit=diskout,file='sources.out',status='unknown')
+         do is=1,so_grps
+            first_back=0
+            do back=1,pr_background_num
+               index_parameters[tl_index_back]=back
+               do iy=iy_1,iy_n
+                  do ix=ix_1,ix_n
+                     if (zn_check(zone_map(ix,iy))) then
+                        index_parameters[tl_index_zone]=zone_map(ix,iy)
+                        output_2D_coupling(ix,iy,back,ou_coupling_mass,is)=
+     $                       extract_output_datum(index_parameters,1,
+     $                       out_post_grp[is][0][o_mean],o_mean,
+     $                       'ion source rate')
+                        output_2D_coupling(ix,iy,back,
+     $                       ou_coupling_momentum_1,is)=
+     $                       extract_output_datum(index_parameters,1,
+     $                       out_post_grp[is][0][o_mean],o_mean,
+     $                       'ion momentum source vector')
+                        output_2D_coupling(ix,iy,back,
+     $                       ou_coupling_momentum_2,is)=
+     $                       extract_output_datum(index_parameters,2,
+     $                       out_post_grp[is][0][o_mean],o_mean,
+     $                       'ion momentum source vector')
+                        output_2D_coupling(ix,iy,back,
+     $                       ou_coupling_momentum_3,is)=
+     $                       extract_output_datum(index_parameters,3,
+     $                       out_post_grp[is][0][o_mean],o_mean,
+     $                       'ion momentum source vector')
+/*
+   Fluid codes presently track just one ion temperature. Sum all of the
+   energy sources to non-electron background species into the
+   |first_back| entry (others will be 0).
+*/
+                        if (first_back == 0 || back == e_back) then
+                           output_2D_coupling(ix,iy,back,
+     $                          ou_coupling_energy,is)=
+     $                          extract_output_datum(index_parameters,1,
+     $                          out_post_grp[is][0][o_mean],o_mean,
+     $                          'ion energy source')
+                        else
+                           output_2D_coupling(ix,iy,first_back,
+     $                          ou_coupling_energy,is)+=
+     $                          extract_output_datum(index_parameters,1,
+     $                          out_post_grp[is][0][o_mean],o_mean,
+     $                          'ion energy source')
+                        end if
+                     else
+                        do i=1,ou_coupling_max
+                           output_2D_coupling(ix,iy,back,i,is)=zero
+                        end do
+                     end if
+                  end do      // ix
+               end do         // iy
+               if (first_back == 0 && back != e_back) first_back = back
+            end do            // back
+
+            multiplier=one
+            write(diskout,'(e12.6)') -so_scale(is)*so_tot_curr(is)
+            do back=1,pr_background_num
+               if (back != e_back) then
+                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+     $                 ou_coupling_mass,is),multiplier,ix_1,ix_n,
+     $                 iy_1,iy_n,diskout)
+                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+     $                 ou_coupling_momentum_1,is),multiplier,ix_1,ix_n,
+     $                 iy_1,iy_n,diskout)
+                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+     $                 ou_coupling_momentum_2,is),multiplier,ix_1,ix_n,
+     $                 iy_1,iy_n,diskout)
+                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+     $                 ou_coupling_momentum_3,is),multiplier,ix_1,ix_n,
+     $                 iy_1,iy_n,diskout)
+               end if
+            end do
+            call write_sources(output_2D_coupling(ix_1,iy_1,e_back,
+     $           ou_coupling_energy,is),multiplier,ix_1,ix_n,iy_1,iy_n,diskout)
+            call write_sources(output_2D_coupling(ix_1,iy_1,first_back,
+     $           ou_coupling_energy,is),multiplier,ix_1,ix_n,iy_1,iy_n,diskout)
+         end do
          close(unit=diskout)
       end if
 
@@ -868,6 +964,37 @@ we don't set the dimensions until just before the call.
       return
       end
 
+@ Routine to write text data similar to EIRENE's \verb+fort.32+ and
+\verb+fort.44+ files.
+
+@<Functions...@>=
+      subroutine write_sources(two_D_data,multiplier,ix_1,ix_n,
+     $           iy_1,iy_n,unit_num)
+
+      implicit_none_f77
+      implicit_none_f90
+
+      integer ix_1,ix_n,iy_1,iy_n,unit_num          // Input
+      real two_D_data[ix_1:ix_n,iy_1:iy_n]
+      real multiplier
+
+      integer lim,iy,ix,j                           // Local
+
+      lim=((ix_n-ix_1+1)/5)*5-4
+      do iy=iy_1,iy_n
+         do ix=ix_1,lim,5
+            write(unit_num,'(5(e16.8))') SP 
+     $           (multiplier*two_D_data[ix-ix_1+j,iy],j=1,5)
+         end do
+         if (lim+4 != ix_n) then
+            write(unit_num,'(5(e16.8))') SP 
+     $           (multiplier*two_D_data[ix,iy],ix=lim+5,ix_n)
+         end if
+      end do
+
+      return
+      end
+     
 @ Write out data into netcdf file \verb+output.nc+ 
 
 @<Functions...@>=
