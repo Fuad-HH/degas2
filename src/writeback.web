@@ -2,6 +2,9 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.1  1996/10/30 18:31:33  dstotler
+% These routines were needed in more than one stand-alone program.
+%
 
 @* Introduction.
 
@@ -20,6 +23,11 @@ Introduction\ldots
 @I vector.hweb
 @I background.hweb
 @I sources.hweb
+@I particle.hweb
+@I location.hweb
+@I random.hweb
+@I problem.hweb
+@I zone.hweb
 
 @ The unnamed module.
 
@@ -53,6 +61,102 @@ Introduction\ldots
       bk_ncwrite(fileid)
       so_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Set sources due to background reactions (recombination).
+
+@<Functions...@>=
+      subroutine set_background_sources
+      implicit_none
+
+      integer jr,zone             // Local
+      real rate
+      pt_decl(bk_rg2)
+      lc_decl(zone_loc)
+      rn_decl(dummy_rand)         // Not really used!
+      
+
+      external find_rate
+      real find_rate
+
+      pr_common
+      bk_common
+      so_common
+      zn_common
+      sy_common
+      sp_common
+      lc_common
+      rn_common
+      st_common
+
+      if (pr_bkrc_num > 0) then
+         var_realloc(source_base_ptr,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_num_segments,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_type,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_geometry,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_num_flights,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_species,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_total_current,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_weight_norm,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_scale_factor,so_grps,so_grps+pr_bkrc_num)
+         so_grps+=pr_bkrc_num
+         do jr=1,pr_bkrc_num
+            so_base(so_grps)=so_seg_tot+1
+            so_type(so_grps)=so_recomb
+/* In |set_prod_recomb|, assumed that these reactions had just one product:
+   the test species being sourced.
+ */
+            so_species(so_grps)=pr_bkrc_prod(jr,1)
+            so_nseg(so_grps)=0
+            so_geom(so_grps)=so_volume
+            so_nflights(so_grps)=100
+            so_tot_curr(so_grps)=zero
+            so_scale(so_grps)=one
+/* In |check_problem|, order of reagents was established: the ``background''
+   species to be used in the rate calculation is the first one. Using 
+   |bk_v(2,zone)| here just as a dummy since it's not a real test velocity.
+   Furthermore, if |bk_v| were really used, we would need to transform
+   from cylindrical to cartesian coordinates in the appropriate cases.
+ */
+            pt_init(bk_rg2,sp_sy(pr_background(pr_bkrc_rg(jr,2))),so_grps)
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  vc_copy(zone_center[zone],lc_x(zone_loc))
+                  lc_set(zone_loc)
+                  assert(lc_zone(zone_loc) == zone)
+                  lc_copy(zone_loc,pt_loc(bk_rg2))
+                  call transform_v(pr_background_args(pr_bkrc_rg(jr,2)),
+     $                 lc_args(zone_loc),pt_v(bk_rg2))
+                  rate=bk_n(pr_bkrc_rg(jr,2),zone)*find_rate(pt_args(bk_rg2),
+     $                 pr_background_args(pr_bkrc_rg(jr,1)),
+     $                 pr_reaction_args(pr_bk_rc(jr)),rn_args(dummy_rand))
+     $                 *zn_volume(zone)
+                  if (rate > zero) then
+                     so_seg_tot++
+                     so_nseg(so_grps)++
+                     var_realloca(source_segment_ptr)
+                     var_realloca(source_current)
+                     var_realloca(source_segment_rel_wt)
+                     var_realloca(source_segment_prob_alias)
+                     var_realloca(source_segment_ptr_alias)
+                     source_current[so_seg_tot]=rate
+                     so_tot_curr(so_grps)+=rate
+                     source_segment_rel_wt[so_seg_tot]=one     // Default
+                     source_segment_ptr[so_seg_tot]=zone
+                  end if
+               end if
+            end do 
+            call set_prob_alias(so_nseg(so_grps),
+     $           source_current[so_base(so_grps)],
+     $           source_segment_rel_wt[so_base(so_grps)],
+     $           source_segment_ptr[so_base(so_grps)],
+     $           source_segment_prob_alias[so_base(so_grps)],
+     $           source_segment_ptr_alias[so_base(so_grps)],
+     $           so_wt_norm(so_grps))
+         end do    
+      end if
 
       return
       end
