@@ -3,6 +3,11 @@
 \Title{Read old Degas' geometry}
 
 % $Log$
+% Revision 1.3  1995/07/14 13:20:48  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.2  1995/05/26 04:01:44  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -30,6 +35,7 @@
 
 @I macros.hweb
 @I degas.hweb
+@I geomint.hweb
 
 @ The unnamed module.
 @f namelist integer
@@ -40,11 +46,11 @@
 @ Read namelists from a degas input file.  File should be open on |unit|.
 
 @<Functions...@>=
-      subroutine inpt(unit,xmin,xmax,zmin,zmax)
+      subroutine inpt(unit,symmetry,xmin,xmax,zmin,zmax)
       implicit_none
-      integer unit              // Input
-      real xmin,xmax,zmin,zmax  // Output
-      integer i,j,k,jh,jv,jt,jsi // Local
+      integer unit,symmetry       // Input
+      real xmin,xmax,zmin,zmax    // Output
+      integer i,j,k,jh,jv,jt,jsi  // Local
       real xoffset
 
       @<pardef.h@>
@@ -111,7 +117,14 @@
 
 
   /* Convert to meters and for offset */
-      xoffset = (rmajor-half*xlen)*const(0.01)
+      if (symmetry == geometry_symmetry_cylindrical) then
+         xoffset=(rmajor-half*xlen)*const(0.01)
+      else if (symmetry == geometry_symmetry_plane) then
+         xoffset=zero
+      else
+         assert('Unexpected symmetry value' == ' ')
+      end if
+
       assert(nowals<=npw)
       do i=1,nowals
 	assert(nosegsxz[i]+1<=npptsw)
