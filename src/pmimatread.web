@@ -2,6 +2,10 @@
 \Title{pmimattread}
 
 % $Log$
+% Revision 1.1  1996/05/24 18:52:08  dstotler
+% Split off from elementread.web. Getting too many complaints from
+% FTANGLE about too many tokens.
+%
 
 @* Introduction.
 
@@ -21,6 +25,8 @@ Introduction\ldots
 @I problem.hweb
 @I reactiondata.hweb
 @I pmidata.hweb
+@I string.hweb
+@I vector.hweb
 
 @ The unnamed module.
 
@@ -108,6 +114,90 @@ Introduction\ldots
       
       call ncclose(fileid,nc_stat)
 
+      return
+      end
+
+@ Read in CRAMD data into problem / reactiondata commons, if needed.
+
+@<Functions...@>=
+      subroutine read_cramd_data
+      implicit_none
+
+      integer pr_reac,jdep
+      logical have_cramd_data
+      character*FILELEN tempfile
+
+      pr_common
+      rd_common
+      rf_common
+
+      have_cramd_data=.false.
+      do pr_reac=1,pr_reaction_num
+         do jdep=1,xs_dep_var_max
+            if (reaction_organization[pr_reac][jdep] == xs_organization_cramd)
+     $           have_cramd_data=.true.
+         end do
+      end do
+      if (!have_cramd_data) return
+
+      tempfile=filenames_array[problemfile]
+      filenames_array[problemfile]=filenames_array[cramdproblemfile]
+      call nc_read_problem
+      filenames_array[problemfile]=tempfile
+
+      return
+      end
+
+@ Write out data into netcdf file \verb+elements.nc+
+      
+@<Functions...@>=
+      subroutine nc_write_problem
+      implicit_none
+      pr_common                 // Common
+      rd_common
+      pd_common
+      sp_common
+      ma_common
+      pm_common
+      nc_common                 // Local
+      integer fileid
+      pr_ncdecl
+      rd_ncdecl
+      pd_ncdecl
+      st_common
+      rf_common
+      character*LINELEN description,program_version
+      character*FILELEN tempfile     //local
+
+      program_version=
+     $     '$Id$'
+
+      tempfile = filenames_array[problemfile]
+      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
+
+      description = 'Data for problem in degas 2'
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(problem_version),
+     $     problem_version,nc_stat)
+      
+      call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
+     $     string_length(program_version),
+     $     program_version,nc_stat)
+      
+      pr_ncdef(fileid)
+      rd_ncdef(fileid)
+      pd_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      pr_ncwrite(fileid)
+      rd_ncwrite(fileid)
+      pd_ncwrite(fileid)
+      
+      call ncclose(fileid,nc_stat)
+      
       return
       end
 
