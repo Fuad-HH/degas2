@@ -1,7 +1,11 @@
 % $Id$
-\def\Wtitle{plot geometry}
+\Title{plot geometry}
 
 % $Log$
+% Revision 1.8  1995/05/26 04:01:12  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.7  1995/05/22 22:05:46  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -121,7 +125,7 @@ b$.  Size of the image is |alen| by |blen|.
          tmax=areal(na)*dx              // Go |alen| horizontally
 loop:    continue
          done=track(TRACK_BASIC,tmax,lc_x(xx),v,lc_cell(xx),t,
-     $      lc_x(xx),lc_cell(xx),lc_face(xx),lc_cell_next(xx))
+     $      lc_x(xx),lc_cell(xx),lc_face(xx),lc_cell_next(xx),lc_sector(xx),lc_sector_next(xx))
          if (lc_face(xx) != 0) then
             lc_zone_next(xx)=cells[c_zone,lc_cell_next(xx)]
          end if
@@ -149,7 +153,7 @@ loop:    continue
          tmax=dx                // Go |dx| vertically
 loop1:   continue
          done=track(TRACK_BASIC,tmax,lc_x(xx),vy,lc_cell(xx),t,
-     $      lc_x(xx),lc_cell(xx),lc_face(xx),lc_cell_next(xx))
+     $      lc_x(xx),lc_cell(xx),lc_face(xx),lc_cell_next(xx),lc_sector(xx),lc_sector_next(xx))
          if (lc_face(xx) != 0) then
             lc_zone_next(xx)=cells[c_zone,lc_cell_next(xx)]
          end if

@@ -1,0 +1,77 @@
+@* Strata definitions.
+
+% $Id$
+
+% $Log$
+% Revision 1.1  1995/05/26 04:01:49  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface stratas.
+%
+
+\ID{$Id$}
+
+Information about strata is held in arrays in common blocks.  A stratum
+is identified by a positive integer indexing into these arrays.  This
+gives information about the properties of the stratum.  Information
+about the location of the strata is held within the geometry common
+block.  Each stratum is made up of the union of one or more sectors,
+with a sector defined by a zone and a surface number.  This defines
+a directed surface element.  (There needs to be some convention to
+indicate either or both sides of the stratum.)
+
+Each sector may belong only to one stratum.  (We may want to relax
+this restriction at some point.)
+
+@f sr_decl integer
+
+@m sr_args(x) x
+
+@m sr_dummy(x) x
+
+@m sr_decl(x) integer x @;
+
+@m sr_copy(x,y) y=x @;
+
+@m sr_check(x) (x > 0 && x <= sr_num && 
+      sr_type(x) > 0 && sr_type(x) <= sr_type_max)
+
+@m sr_type(x) strata_type[x]
+@m sr_pointer(x) strata_pointer[x]
+
+@ Length specifications.
+
+@m sr_type_max 5
+@m sr_undefined 0
+@m sr_diagnostic 1
+@m sr_wall 2
+@m sr_target 3
+@m sr_pump 4
+@m sr_exit 5
+
+@ Variable definitions. |strata_ind| is dimensioned from zero to
+accomodate netcdf.  The 0 index is unused.
+
+@a
+      package_init(sr)
+      define_var_pk(sr,sr_num,INT)
+      define_var_pk(sr,sub_sr_num,INT)
+      define_dimen_pk(sr,strata_type_ind,sr_type_max)
+      define_dimen_pk(sr,strata_ind,0,sr_num)
+      define_var_pk(sr,strata_type_num,INT,strata_type_ind)
+      define_varp_pk(sr,strata_type,INT,strata_ind)
+      define_varp_pk(sr,strata_pointer,INT,strata_ind)
+
+@ Common blocks definitions.
+
+@f sr_common integer
+@m sr_common
+      sr_common_a;
+      character*LINELEN strata_version;
+      common /com_strata_c/ strata_version;
+      save /com_strata_c/ @;
+
+@ Setting up strata information.
+
+@m sr_type_set(strata,type) sr_type(strata)=type;
+      strata_type_num[type]=strata_type_num[type]+1;
+      sr_pointer(strata)=strata_type_num[type] @;

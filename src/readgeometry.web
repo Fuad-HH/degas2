@@ -1,7 +1,10 @@
 % $Id$
-\def\Wtitle{readgeometry}
+\Title{readgeometry}
 
 % $Log$
+% Revision 1.12  1995/06/21 20:09:34  jshankar
+% modified to include readfilenames
+%
 % Revision 1.11  1995/05/31 19:26:37  dstotler
 % Expand and clean up documentation.
 %
@@ -185,13 +188,14 @@ end
       integer datafile_diskin,zone,n,wall_no,wall_start,
      $     wall_stop,wall_direction,i,grid_startv,grid_stopv,j1,j2,
      $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
-     $     trx,ix,iy
+     $     trx,ix,iy,symmetry
 
       character*LINELEN line,keyword
       logical complete
       real x[2,0:5000],xmin,xmax,zmin,zmax,vol,vola
       real mindensity,minx,minz
       real rm[mx,my,0:4],zm[mx,my,0:4]
+      real min_corner[3],max_corner[3]
       integer xcorner1,xcorner2,xcorner3,xcorner4, zcorner1,zcorner2
      $     ,zcorner3,zcorner4
       character*100 plot
@@ -228,6 +232,10 @@ end
       uedge =.false.
       degas =.false.
       sonnet=.false.
+      symmetry=geometry_symmetry_cylindrical
+@#if 0
+       symmetry=geometry_symmetry_plane
+@#endif
 
       length=parse_string(line(:length))
       p=0
@@ -266,7 +274,15 @@ end
 
       call init_geometry
 
-      if (! uedge) call universal_cell(xmin,xmax,zmin,zmax,vol)
+      if (! uedge) then
+         min_corner[1]=xmin
+         min_corner[2]=zero
+         min_corner[3]=zmin
+         max_corner[1]=xmax
+         max_corner[2]=two*PI
+         max_corner[3]=zmax
+         call universal_cell(symmetry,min_corner,max_corner,vol)
+      end if
 
 loop2: continue
       if (! read_string(diskin,line,length) ) goto eof 
@@ -455,7 +471,13 @@ skip:          continue
          zmin=read_real(line(b:e))
          assert(next_token(line,b,e,p))
          zmax=read_real(line(b:e))
-         call universal_cell(xmin,xmax,zmin,zmax,vol)
+         min_corner[1]=xmin
+         min_corner[2]=zero
+         min_corner[3]=zmin
+         max_corner[1]=xmax
+         max_corner[2]=two*PI
+         max_corner[3]=zmax
+         call universal_cell(symmetry,min_corner,max_corner,vol)
          do j1=1,nx
             do j2=1,ny
                zone++
@@ -557,50 +579,17 @@ skip:          continue
 eof:  continue
       close(unit=diskin)
       call end_geometry
-      call check_geometry
       call write_geometry
+      call check_geometry
       vola=zero
       do i=1,zn_num
          assert(zn_volume(i)>0)
          vola=vola+zn_volume(i)
       end do
+      write(stdout,*) vol,vola
 
       call erase_geometry
       stop
-      end
-
-@ Define universal cell
-
-@<Functions...@>=
-      subroutine universal_cell(xmin,xmax,zmin,zmax,vol)
-      implicit_none
-      real xmin,xmax,zmin,zmax
-      real vol
-      integer face,surf_type,zone,i
-      real x[2,0:4],apex[3],x1[3],x2[3],coeff[NCOEFFS]
-      gi_common
-      gi_ext
-      
-
-      zone=0
-      i=0
-      x[1,i]=xmin; x[2,i]=zmin; i=i+1
-      x[1,i]=xmin; x[2,i]=zmax; i=i+1
-      x[1,i]=xmax; x[2,i]=zmax; i=i+1
-      x[1,i]=xmax; x[2,i]=zmin; i=i+1
-      x[1,i]=x[1,0]; x[2,i]=x[2,0]
-      
-      do i=0,3
-         vc_set(x1,x[1,i],zero,x[2,i])
-         vc_set(x2,x[1,i+1],zero,x[2,i+1])
-         call conea(x1,x2,coeff,surf_type,apex)
-         face=define_surface(coeff,.true.)
-         call add_surface(face,0,.true.)
-      end do
-      
-      vol=PI*(x[1,2]^2-x[1,0]^2)*(x[2,2]-x[2,0])
-
-      return
       end
 
 @ subroutine to read inputs from sonnet file.
@@ -653,29 +642,6 @@ eof:  continue
          enddo
       enddo
      
-<<<<<<< readgeometry.web
-/*  the cuts may depend on the number u choose for the difference. i should 
- probably take a relative measure.
- the configuration seems to be -- */
-/*
-      1--- 2  1--- 2 
-    | | i  |  | i+1| ...
-    | 3--- 4  3--- 4
-    y x --->
-/* 
-  /* along the x direction (iy=0 along the lower edge of inner PFR) , we
-||||||| 1.10
-/*  the cuts may depend on the number u choose for the difference. i should 
- probably take a relative measure.
- the configuration seems to be --
-
-    ^ 1--- 2  1--- 2 
-    | | i  |  | i+1| ...
-    | 3--- 4  3--- 4
-    y x --->
- 
- along the x direction (iy=0 along the lower edge of inner PFR) , we
-=======
 /*  
    the cuts may depend on the number u choose for the difference. i should 
    probably take a relative measure.
@@ -701,7 +667,6 @@ eof:  continue
 
  
  along the x direction (iy=0 along the lower edge of inner PFR) , we
->>>>>>> 1.11
  compare the bottom 
  corners. these should be equal for adjacent cells until we reach the
  cut. this is ixcut1. from here as x increases, it traces the outer edge
@@ -859,13 +824,8 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
       return
       end
 
-<<<<<<< readgeometry.web
-@ replace corneri of cell ix,iy with | [xcorner_new, ycorner_new] |
-||||||| 1.10
-@ replace corneri of cell ix,iy with [xcorner_new, ycorner_new]
-=======
-@ replace corneri of cell ix,iy with [|xcorner_new|, |ycorner_new|]
->>>>>>> 1.11
+@ replace corneri of cell ix,iy with [|xcorner_new|, |ycorner_new|].
+
 @<Functions...@>=
 
       subroutine replace_corners(ix,iy,corneri,xcorner_new,
@@ -924,6 +884,7 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
       endif
  9    return
       end
+
 @* INDEX.
 
 

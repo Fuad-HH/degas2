@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.3  1995/06/08 09:09:28  karney
+% Pre-evaluate 2^-48.  (Sun f77 can't optimtimze this!!)
+%
 % Revision 1.2  1993/10/11 19:09:46  karney
 % Fix indexing bug in rn_args.
 %
@@ -70,19 +73,17 @@ A random number sequence is idenified by a string tag.
 @ Length specifications.
 
 @m RAN_K 63		// The size of the batch of random numbers
-@m RAN_G _EVAL(2*(RAN_K/2))     // Size of batches for Gaussian random numbers
-@m RAN_I _EVAL(RAN_K/2)         // Size of batches of isotropically distributed numbers
-@m RAN_C _EVAL(RAN_K/2)         // Size of batches of cosine distributed numbers
+@m RAN_G $EVAL(2*(RAN_K/2))     // Size of batches for Gaussian random numbers
+@m RAN_I $EVAL(RAN_K/2)         // Size of batches of isotropically distributed numbers
+@m RAN_C $EVAL(RAN_K/2)         // Size of batches of cosine distributed numbers
 
 @ Inline calling routines.
-
-@m ran_epsilon const(3.5527136788005009294,-15) // $2^{-48}$, a constant to add to the random numbers to get them in the range $(0,1)$.
 
 /* An inline version of |y=random(rn_args(x))| */
 @#if INLINE
 @m rn_next(y,x)
       if (rn_index(x) >= rn_max(x)) call random_batch(rn_args(x));
-      y=rn_array(x)[rn_index(x)]+ran_epsilon;
+      y=rn_array(x)[rn_index(x)];
       rn_index(x)=rn_index(x)+1 @;
 @#else
 @m rn_next(y,x)
@@ -92,7 +93,7 @@ A random number sequence is idenified by a string tag.
 /* An inline version of |y=fast_random(rn_args(x))| */
 @#if INLINE
 @m rn_fast_next(y,x)
-      y=rn_array(x)[rn_index(x)]+ran_epsilon;
+      y=rn_array(x)[rn_index(x)];
       rn_index(x)=rn_index(x)+1 @;
 @#else
 @m rn_fast_next(y,x)

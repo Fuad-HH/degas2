@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.36  1995/06/21 20:03:30  jshankar
+# updated to include readfilenames
+#
 # Revision 1.35  1995/06/16 19:51:42  dstotler
 # Switch strata -> segment in HEADERS definition (bug) and remove
 # randomtest2.
@@ -119,7 +122,7 @@ ifneq ($(TARGET),$(MACHINE))
 endif
 
 foof:
-	echo $(TEMP)
+	echo $(MACHINE) $(TARGET) $(SOURCEDIR)
 
 utils: idtof Makefile
 
@@ -246,7 +249,7 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
     ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb segment.hweb \
-    pmi.hweb pmiformat.hweb readfilenames.hweb
+    pmi.hweb pmiformat.hweb readfilenames.hweb strata.hweb
 
 %.f: %.web $(HEADERS)
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -299,7 +302,7 @@ programs: randomtest geomtest sysdeptest
 documentation: random.dvi randomtest.dvi geometry.dvi geomsetup.dvi \
   geomtest.dvi sysdep.dvi vector.dvi
 
-sysdeptest = $(SYSDEPO)
+sysdeptest =
 sysdeptest_libs = 
 sysdeptest: $(sysdeptest)
 
@@ -347,7 +350,7 @@ problemsetup = elementread.$O reaction.$O readfilenames.$O
 problemsetup_libs = $(NETCDF)
 problemsetup: $(problemsetup)
 
-geomread = geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
+geomread = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O elementread.$O
 geomread_libs = $(NETCDF)
 geomread: $(geomread)
 
@@ -359,7 +362,7 @@ test = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O
 test_libs = $(NETCDF)
 test: $(test)
 
-readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O
+readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry)
 
@@ -400,14 +403,17 @@ idtof: idtof.sh
 	cp $< $@
 	chmod a+x $@
 
-../$(MACHINE)/etags: etags.c getopt.c getopt1.c getopt.h
-	gcc -o $@ -g -DETAGS -Demacs etags.c getopt.c getopt1.c
+#../$(MACHINE)/etags: etags.c getopt.c getopt1.c getopt.h
+#	gcc -o $@ -g -DETAGS -Demacs etags.c getopt.c getopt1.c
 
 #aladdin_subr.o: $(ALADIR)/ALPCOM.FOR $(ALADIR)/ALCOM.FOR
 #	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
 
-TAGS:  ../$(MACHINE)/etags
-	$< *.web *.hweb
+#TAGS:  ../$(MACHINE)/etags
+#	$< *.web *.hweb
+
+TAGS:
+	etags --language=fortran --regex='/[ 	]*define_[a-z]+_pk([a-z]+,[A-Za-z0-9_]+,/' --regex='/[ 	]*@m [A-Za-z0-9_]+(?/' *.web *.hweb
 
 .PHONY: clean %.view %.print TAGS
 

@@ -1,7 +1,10 @@
 % $Id$
-\def\Wtitle{composite}
+\Title{composite}
 
 % $Log$
+% Revision 1.12  1995/06/22 21:41:11  jshankar
+% corrected a few typos
+%
 % Revision 1.11  1995/06/16 20:19:15  jshankar
 % fixed typo
 %
@@ -213,13 +216,22 @@ of the points.
       integer n                 // Input
       real x[2,0:n]
       integer i                 // Local
+      gi_common                 // Common
 
       polygon_volume=zero
-      do i=0,n-1
-         polygon_volume=polygon_volume+(x[1,i]^2+x[1,i]*x[1,i+1]+x[1,i+1]^2)*(x[2,i]-x[2,i+1])
-      end do
+
+      if (geometry_symmetry==geometry_symmetry_plane) then
+         do i=0,n-1
+            polygon_volume=polygon_volume+(x[1,i]+x[1,i+1])*(x[2,i]-x[2,i+1])
+         end do
+         polygon_volume=(universal_cell_max[2]-universal_cell_min[2])*polygon_volume/const(2.0)
+      else if (geometry_symmetry==geometry_symmetry_cylindrical) then
+         do i=0,n-1
+            polygon_volume=polygon_volume+(x[1,i]^2+x[1,i]*x[1,i+1]+x[1,i+1]^2)*(x[2,i]-x[2,i+1])
+         end do
+         polygon_volume=PI*polygon_volume/const(3.0)
+      end if
       
-      polygon_volume=PI*polygon_volume/const(3.0)
 @#if 0
       assert(polygon_volume > zero)
 @#endif
@@ -404,6 +416,85 @@ break: continue
 
 @<Functions...@>=
       subroutine process_polygon(n,x,zone)
+      implicit_none
+      integer n,zone          // Input
+      real x[2,0:n]
+      gi_common
+      
+      assert(geometry_symmetry==geometry_symmetry_plane || geometry_symmetry==geometry_symmetry_cylindrical)
+      
+      if (geometry_symmetry==geometry_symmetry_plane) then
+         call process_polygon_plane(n,x,zone)
+      else if (geometry_symmetry==geometry_symmetry_cylindrical) then
+         call process_polygon_cylindrical(n,x,zone)
+      end if
+      
+      return
+      end
+
+@ Process a convex polygon in plane geometry.
+
+@<Functions...@>=
+      subroutine process_polygon_plane(n,x,zone)
+      implicit_none
+      integer n,zone          // Input
+      real x[2,0:n]
+      integer i,cell,face // Local
+      real coeff[NCOEFFS],x1[3],x2[3],x3[3],a[3]
+      gi_common
+      external define_surface,start_cell,vector_compare // External
+      integer define_surface,start_cell,vector_compare
+
+      cell=start_cell(zone)
+      vc_set(a,zero,one,zero)
+      call plane(universal_cell_min,a,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(face,cell,.true.)
+      call plane(universal_cell_max,a,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,cell,.true.)
+      
+      do i=0,n-1
+         vc_set(x1,x[1,i],zero,x[2,i])
+         vc_set(x2,x[1,i+1],zero,x[2,i+1])
+         if (face>0) then
+            vc_copy(x1,surface_points[0,face])
+            vc_copy(x2,surface_points[1,face])
+         end if
+         if (x1[1] == x2[1]) then
+            if (x1[3] > x2[3]) then
+               x1[3] = one
+               x2[3] = zero
+            else
+               x2[3] = one
+               x1[3] = zero
+            end if
+         else if (x1[3] == x2[3]) then
+            if (x1[1] > x2[1]) then
+               x1[1] = one
+               x2[1] = zero
+            else
+               x2[1] = one
+               x1[1] = zero
+            end if
+         end if
+         if (vector_compare(x1,x2)>0) then
+            vc_set(x3,x1[1],one,x1[3])
+         else
+            vc_set(x3,x2[1],one,x2[3])
+         end if
+         call planea(x1,x3,x2,coeff)
+         face=define_surface(coeff,.true.)
+         call add_surface(face,cell,.true.)
+      end do
+      
+      return
+      end
+
+@ Process a convex polygon in cylindrical geometry.
+
+@<Functions...@>=
+      subroutine process_polygon_cylindrical(n,x,zone)
       implicit_none
       integer n,zone          // Input
       real x[2,0:n]

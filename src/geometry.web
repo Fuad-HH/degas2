@@ -1,8 +1,11 @@
 % $Id$
 
-\def\Wtitle{geometry}
+\Title{geometry}
 
 % $Log$
+% Revision 1.18  1995/06/22 21:36:22  jshankar
+% corrected a few typos
+%
 % Revision 1.17  1995/06/21 20:04:47  jshankar
 % updated to include readfilenames
 %
@@ -114,6 +117,19 @@ a face on the negative side; a pointer, |surfaces[s_neg,s_start,k]|, to
 |neighbors|, giving the indices of the cells; and then the
 corresponding information for the positive side, |surfaces[s_pos,s_count,k]|
 and |surfaces[s_pos,s_start,k]|.
+
+|surface_sectors| holds four pieces of information about the sectors
+associated with each surface: a count,
+|surface_sectors[s_neg,s_count,k]|, of the number of sectors for
+this surface on the negative side; a pointer,
+|surface_sectors[s_neg,s_start,k]|, to |sector_zones|, giving the
+indices of the zones; and then the corresponding information for the
+positive side, |surface_sectors[s_pos,s_count,k]| and
+|surface_sectors[s_pos,s_start,k]|.
+
+|sector_points| gives bounding points on sectors.
+
+|sector_surface| gives the surface for each sector.
 
 |surface_coeffs| holds the ten coefficients of the equations for the faces.
 
@@ -823,14 +839,14 @@ the original zone and, in addition, the face through which the particle
 is exiting is given in |exit_face| and the new cell is given in |cell2|.
 
 @<Functions...@>=
-      function track(type,tmax,x0,v,cell,t,x,cell1,exit_face,cell2)
+      function track(type,tmax,x0,v,cell,t,x,cell1,exit_face,cell2,sector1,sector2)
       implicit_none
       logical track             // Function
       real tmax,x0[3],v[3]      // Input
       integer type,cell
       gi_common
       real t,x[3]               // Output
-      integer cell1,exit_face,cell2
+      integer cell1,exit_face,cell2,sector1,sector2
       integer j,k               // Local
       real dt,tleft,t1
       external cell_intersect,new_cell   // External
@@ -852,6 +868,8 @@ loop: continue
       if ( dt == tleft ) then  // We're done
          t = tmax               // Set |t| exactly to |tmax|
          exit_face = 0
+         sector1 = 0
+         sector2 = 0
          cell2 = j
          track = .true.
          return
@@ -862,6 +880,8 @@ loop: continue
       t = t1
       exit_face = k
       cell2 = j
+      sector1 = 0
+      sector2 = 0
       track=.false.
 
       return
@@ -933,7 +953,7 @@ number is returned as an argument.
       real x[3]                 // Input
       integer zone              // Output
 
-      integer k,c,cell1,cell2   // Local
+      integer k,c,cell1,cell2,sector1,sector2   // Local
       real x0[3],x1[3],v[3],t,tmax
       logical done
       external track,new_cell,cell_enter // External
@@ -965,7 +985,7 @@ number is returned as an argument.
       tmax=-t
       
 loop: continue
-      done=track(TRACK_BASIC,tmax,x0,v,c,t,x1,cell1,k,cell2)
+      done=track(TRACK_BASIC,tmax,x0,v,c,t,x1,cell1,k,cell2,sector1,sector2)
       if (done) then
          locate_point=cell1
          goto break

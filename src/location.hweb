@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1993/10/25 22:33:37  karney
+% Add some geometry definitions.
+%
 % Revision 1.3  1993/10/11  19:08:43  karney
 % Use another layer of macro indirection.
 %
@@ -21,13 +24,13 @@ A location is identified by a string tag.
 @f lc_common integer
 
 @m lc_args(x) lc_x(x)[1],lc_cell(x),lc_zone(x),
-      lc_face(x),lc_cell_next(x),lc_zone_next(x)
+      lc_face(x),lc_cell_next(x),lc_zone_next(x),lc_sector(x),lc_sector_next(x)
 
 @m lc_dummy(x) lc_x(x),lc_cell(x),lc_zone(x),
-      lc_face(x),lc_cell_next(x),lc_zone_next(x)
+      lc_face(x),lc_cell_next(x),lc_zone_next(x),lc_sector(x),lc_sector_next(x)
 
 @m lc_decl(x) real lc_x(x)[3]; integer lc_cell(x),lc_zone(x),
-      lc_face(x),lc_cell_next(x),lc_zone_next(x) @;
+      lc_face(x),lc_cell_next(x),lc_zone_next(x),lc_sector(x),lc_sector_next(x) @;
 
 @m lc_common external locate_point,check_location;
       integer locate_point;
@@ -38,7 +41,9 @@ A location is identified by a string tag.
       lc_zone(y)=lc_zone(x);
       lc_face(y)=lc_face(x);
       lc_cell_next(y)=lc_cell_next(x);
-      lc_zone_next(y)=lc_zone_next(x) @;
+      lc_zone_next(y)=lc_zone_next(x);
+      lc_sector(y)=lc_sector(x) ;
+      lc_sector_next(y)=lc_sector_next(x) @;
 
 @m lc_check(x) check_location(lc_args(x))
 
@@ -54,6 +59,10 @@ A location is identified by a string tag.
 @m lc_cell_next1(x) cell_next_##x
 @m lc_zone_next(x) lc_zone_next1(x)
 @m lc_zone_next1(x) zone_next_##x
+@m lc_sector(x) lc_sector1(x)
+@m lc_sector1(x) sector_##x
+@m lc_sector_next(x) lc_sector_next1(x)
+@m lc_sector_next1(x) sector_next_##x
 
 @ Some interface routines
 

@@ -2,6 +2,10 @@
 
 % $Id$
 % $Log$
+% Revision 1.10  1995/06/12 13:07:07  karney
+% Add in dummy elements into common blocks to avoid complaints from
+% Alpha.
+%
 % Revision 1.9  1995/05/26 04:00:50  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -40,6 +44,9 @@
 \ID{$Id$}
 
 @ Define the dimensions and variables used by the geometry routines.
+Note that sector_ind is defined to run from 0.  However the 0 index
+isn't really used.  It's defined this way to accomodate netcdf's wish to
+say that a zero length dimension is unlimited.
 
 @a
       package_init(gi)
@@ -48,7 +55,11 @@
       define_var_pk(gi,nboundaries,INT)
       define_var_pk(gi,nneighbors,INT)
       define_var_pk(gi,ntransforms,INT)
+      define_var_pk(gi,nsectors,INT)
+      define_var_pk(gi,geometry_symmetry,INT)
+@#if 1
       define_dummy_pk(gi,gi_ignore,INT)
+@#endif
       define_dimen_pk(gi,cell_info_ind,c_start,c_zone)
       define_dimen_pk(gi,cell_ind,0,ncells)
       define_dimen_pk(gi,surface_ind,nsurfaces)
@@ -57,16 +68,24 @@
       define_dimen_pk(gi,neg_pos,s_neg,s_pos)
       define_dimen_pk(gi,surface_info_ind,s_start,s_count)
       define_dimen_pk(gi,coeff_ind,NCOEFFS)
+      define_dimen_pk(gi,sector_ind,0,nsectors)
 @#if 0
       define_dimen_pk(gi,givc_ind,3)
 @#endif
+      define_var_pk(gi,universal_cell_min,FLOAT,vc_ind)
+      define_var_pk(gi,universal_cell_max,FLOAT,vc_ind)
+      define_var_pk(gi,universal_cell_vol,FLOAT)
       define_varp_pk(gi,cells,INT,cell_info_ind,cell_ind)
       define_varp_pk(gi,surfaces,INT,neg_pos,surface_info_ind,surface_ind)
+      define_varp_pk(gi,surface_sectors,INT,neg_pos,surface_info_ind,surface_ind)
       define_varp_pk(gi,boundaries,INT,boundary_ind)
-      define_varp_pk(gi,segments,INT,boundary_ind)
       define_varp_pk(gi,neighbors,INT,neighbor_ind)
       define_varp_pk(gi,surface_coeffs,FLOAT,coeff_ind,surface_ind)
       define_varp_pk(gi,surface_points,FLOAT,vc_ind,neg_pos,surface_ind)
+      define_varp_pk(gi,strata,INT,sector_ind)
+      define_varp_pk(gi,sector_zones,INT,sector_ind)
+      define_varp_pk(gi,sector_surface,INT,sector_ind)
+      define_varp_pk(gi,sector_points,FLOAT,vc_ind,neg_pos,sector_ind)
 
 @ Geometry declaration for geometry routines.
 
@@ -148,6 +167,12 @@ faces.
 @m TRACK_BASIC 0           // Tracking in straight lines no transformations
 @m TRACK_NEUTRAL 1    // Observe transformations
 @m TRACK_ODE 2        // Track according to an ODE
+
+@ Definitions of symmetries for some types of elements.
+
+@m geometry_symmetry_none 0
+@m geometry_symmetry_plane 1 // $y$ coordinate is ignored.
+@m geometry_symmetry_cylindrical 2 // $\phi$ coordinate is ignored.
 
 @ NETCDF read/write of geometry.
 

@@ -1,7 +1,11 @@
 % $Id$
-\def\Wtitle{random numbers}
+\Title{random numbers}
 
 % $Log$
+% Revision 1.3  1995/05/26 04:01:22  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.2  1994/02/02 22:25:18  karney
 % Provide entry point for checking random starting seed routine.
 %
@@ -87,6 +91,9 @@ linear congruential random generator is provided to generate these seeds.
 This is {\it not} optimized for speed.  However, it lets the user
 conveniently initialize many independent random number sequences.
 
+This has been replaced by a initialization using the high 47 bits of a
+84-bit linear congruential random number generator.
+
 @m FILE 'random.web'
 
 @I macros.hweb
@@ -111,6 +118,17 @@ using a two-element integer array |seed[0:1]|.  |seed| must satisfy
 The array |seed| is suitable for passing to |random_init|.
 
 |call next_seed(n,seed,newseed)| advances the seed $n$ step forward.  This
+allows independent threads of random numbers to be initialized.
+
+|call random_init_1(seed,rn_args(tag))| which initializes the random
+number using a six-element integer array |seed[0:5]|.  Each element of
+|seed| must satisfy |0<=seed[0]<2^14|.
+
+|call random_seed_1(seed)| initializes a six-element integer array
+|seed[0:5]| ``randomly'', based on the current time and the processor id.
+The array |seed| is suitable for passing to |random_init|.
+
+|call next_seed_1(n,seed,newseed)| advances the seed $n$ step forward.  This
 allows independent threads of random numbers to be initialized.
 
 |x = random(rn_args(tag))| which returns the next random number in |x|.
@@ -188,17 +206,15 @@ such that |random_batch| vectorizes with short vector loops.
 @m ran_j 31                     // Set $j$
 
 @#if 2*ran_j < ran_k      // and ensure that $j\ge k/2$.
-   @m ran_j _EVAL(ran_k-#!ran_j)
+   @m ran_j $EVAL(ran_k-#!ran_j)
 @#endif
 
 @m ran_d 25               // $d = \lceil(2-\phi) k\rceil$ ($\phi=\frac12(\sqrt5+1)$) and $\gcd(k,d)=1$
 
 $ASSERT(ran_k == RAN_K)   // Check that the header file set |RAN_K| correctly
 
-@m ran_delta const(2.0)^(-47)   // The discreteness of the random numbers
-
-@m ran_m0 2^24                  // The limits on the seeds
-@m ran_m1 2^23
+@m ran_m0 $EVAL(2^24)                  // The limits on the seeds
+@m ran_m1 $EVAL(2^23)
 
 @* Functions to return random numbers.  We calculate the random numbers in
 batches, placing the results into the array |ran_array|.  The routine to
@@ -221,7 +237,7 @@ generator.  The header file packages these together into a single argument
       if (rn_index(x) >= rn_max(x)) then
          call random_batch(rn_args(x))
       end if
-      random=rn_array(x)[rn_index(x)]+ran_epsilon
+      random=rn_array(x)[rn_index(x)]
       rn_index(x)=rn_index(x)+1
       return
       end
@@ -254,7 +270,7 @@ routine to return the next $n$ random numbers.  Do loops calling
       real fast_random          // Function
       rn_decl(x)             // Input/output
 
-      fast_random=rn_array(x)[rn_index(x)]+ran_epsilon
+      fast_random=rn_array(x)[rn_index(x)]
       rn_index(x)=rn_index(x)+1
       return
       end
@@ -270,6 +286,8 @@ at any time by calling |random_check(n,rn_args(x))| for $n\le k$.
 @<Functions...@>=
       subroutine random_batch(rn_dummy(x))
       implicit_none
+      real ran_epsilon
+      parameter (ran_epsilon=const(0.5)^48)
       rn_decl(x)             // Input/output
       integer i                 // Local
       real tmp
@@ -291,7 +309,7 @@ length |ran_j|, in order to avoid the recursion */
       do i=ran_k,2*ran_k-1
          tmp=rn_array(x)[i-ran_k]-rn_array(x)[i-ran_j]
          if (tmp < zero) tmp=one+tmp
-         rn_array(x)[i]=tmp
+         rn_array(x)[i]=tmp+ran_epsilon
       end do
 
       rn_max(x)=rn_max(x)+ran_k
@@ -331,6 +349,8 @@ $0 \le s_1 < 2^{23}$.  These seeds are used by combining them into a single
 @<Functions...@>=
       subroutine random_init(seed,rn_dummy(x))
       implicit_none
+      real ran_delta,ran_epsilon
+      parameter (ran_delta=const(0.5)^47,ran_epsilon=const(0.5)^48)
       integer seed[0:1]         // Input
       rn_decl(x)             // Output
       integer i                 // Local
@@ -355,7 +375,7 @@ $0 \le s_1 < 2^{23}$.  These seeds are used by combining them into a single
          k=j-jj
          if (k < zero) k=k+one
          j=jj
-         rn_array(x)[mod(i*ran_d,ran_k)]=j // Shuffle the sequence
+         rn_array(x)[mod(i*ran_d,ran_k)]=j+ran_epsilon // Shuffle the sequence
       end do
 
       rn_max(x)=ran_k
@@ -499,7 +519,7 @@ loop: continue
          call rand_mult(a,y,y)
          call rand_add(y,c,y)
       end if
-      m = m/2
+      m = int(m/2)
       if (m == 0) return
       t[0] = 1                  // Generate coefficients for the square of the mapping.
       t[1] = 0
@@ -556,6 +576,276 @@ loop: continue
       z[1] = mod(z[1] + z[0]/ran_m0, ran_m1)
       z[0] = mod(z[0], ran_m0)
 
+      return
+      end
+
+@* Replacement routines for |random_init|, |random_seed|, and |next_seed|.
+
+This initializes the random number array using the high 47 bits of
+successive numbers from the |drand48| linear congruential converted to
+84 bits.  Define
+$$T(x)\equiv (a_1x+c_1) \bmod 2^{84},$$
+and
+$$T^n(x)\equiv (a_nx+c_n) \bmod 2^{84}.$$
+Then we have
+$a_1=\mathrm{5DEECE66D}_{16}$, $c_1=\mathrm{B}_{16}$;
+$a_{63}=\mathrm{450B134BE89A36E758065}_{16}$,
+$c_{63}=\mathrm{95CE8A3860D75D8F3C9E9}_{16}$;
+$a_{-63}=\mathrm{4EF9EBF8B37677201316D}_{16}$,
+$c_{-63}=\mathrm{703490C4C01AF6AA46ECB}_{16}$;
+
+The 84-bit numbers can be represented as an array of 6 14-bit integers
+which allows the multiplications and additions necessary to perform
+84-bit multiplies to be carried out on 32-bit machines.
+
+To generate the seeds for subsequent random number thread we jump the
+generator ahead multiples of 63 using $T^{63}$.
+
+@ Here is |random_init_1|.  This iterates $T$ 63 times.  We make use of
+the fact that $a_1$ and $c_1$ are (relatively) small to save on the
+number of arithmetic operations here.  Finally the generator is warmed
+up by coimputing 10 batches of numbers.
+
+@<Functions...@>=
+      subroutine random_init_1(seed,rn_dummy(x))
+      implicit_none
+      real ran_delta,ran_epsilon,base
+      parameter (ran_delta=const(0.5)^14,ran_epsilon=const(0.5)^48,base=2^14)
+      integer seed[0:5]         // Input
+      rn_decl(x)                // Output
+      integer i,j,s[0:5],z[0:5]          // Local
+      integer a0,a1,a2,c0,t
+      data a0,a1,a2,c0/0x266D,0x3BB3,0x5D,0xB/ // The base $2^{14}$ representation of $a_1$ and $c_1$
+
+      do i=0,5
+         assert(0<=seed[i] && seed[i]<base)
+         s[i]=seed[i]
+      end do
+
+/* See |rn_array(x)| from 47 most significant bits of |s|. */
+
+      rn_array(x)[0]=(((((int(s[2]/512)*512)*ran_delta+s[3]))*ran_delta+
+     $     s[4])*ran_delta+s[5])*ran_delta+ran_epsilon
+
+      do j=1,ran_k-1
+         t=c0+a0*s[0]
+         z[0]=mod(t,base)
+         t=int(t/base)+a0*s[1]+a1*s[0]
+         z[1]=mod(t,base)
+         t=int(t/base)+a0*s[2]+a1*s[1]+a2*s[0]
+         z[2]=mod(t,base)
+         t=int(t/base)+a0*s[3]+a1*s[2]+a2*s[1]
+         z[3]=mod(t,base)
+         t=int(t/base)+a0*s[4]+a1*s[3]+a2*s[2]
+         z[4]=mod(t,base)
+         t=int(t/base)+a0*s[5]+a1*s[4]+a2*s[3]
+         z[5]=mod(t,base)
+
+         do i=0,5
+            s[i]=z[i]
+         end do
+
+         rn_array(x)[j]=(((((int(s[2]/512)*512)*ran_delta+s[3]))*ran_delta+
+     $        s[4])*ran_delta+s[5])*ran_delta+ran_epsilon
+
+      end do
+
+      rn_max(x)=ran_k
+      rn_index(x)=ran_k
+
+      do i=1,10                 // Warm up the generator
+         call random_batch(rn_args(x))
+         rn_index(x)=rn_index(x)+ran_k
+      end do
+
+      rn_count(x) = 0           // Initialize count of random numbers produced
+      rn_gauss_index(x) = 0     // Initialize the other generators
+      rn_iso_index(x) = 0
+      rn_cos_index(x) = 0
+
+      end
+
+@* Set the seed from a decimal integer.  |decimal| is a positive decimal
+number of arbitrary length (as a character string).  |seed| is set by
+taking the low 84 bits of |decimal|.
+
+@<Functions...@>=
+      subroutine decimal_to_seed(decimal,seed)
+      implicit_none
+      integer pow,decbase
+      parameter (pow=3,decbase=10^pow)
+      character*(*) decimal
+      integer seed[0:5]
+      integer l,i,a[0:5],c[0:5],o
+      data a/decbase,5*0/
+      
+      l=int((len(decimal)+pow-1)/pow)
+      o=1-(pow*l-len(decimal))
+      
+      do i=0,5
+         seed[i]=0
+         c[i]=0
+      end do
+      
+      do i=0,l-1
+         read(decimal(max(1,o+pow*i):o+pow*(i+1)-1),'(i3)') c[0]
+         call rand_axc(a,seed,c)
+      end do
+         
+      return
+      end
+
+@* Convert a seed to its decimal equivalent.  |decimal| should be at
+least 26 characters long; otherwise the high digits are lost.
+
+@<Functions...@>=
+      subroutine seed_to_decimal(seed,decimal)
+      implicit none
+      integer pow,decbase,base
+      parameter (pow=3,decbase=10^pow,base=2^14)
+      character*(*) decimal
+      integer seed[0:5]
+      integer z[0:5],i,t,j,k
+      character*27 b
+      
+      k=-1
+      do i=0,5
+         z[i]=seed[i]
+         if (z[i]>0) k=i
+      end do
+      
+      b=' '
+
+ /* $2^{84} < 10^{27}$ */
+      
+      do i=8,0,-1
+         t=0
+         do j=k,0,-1
+            z[j]=z[j]+t*base
+            t=mod(z[j],decbase)
+            z[j]=int(z[j]/decbase)
+         end do
+         if (z[max(0,k)]==0) k=k-1
+         if (k>=0) then
+            write(b(pow*i+1:pow*(i+1)),'(i3.3)') t
+         else
+            write(b(pow*i+1:pow*(i+1)),'(i3)') t
+         end if
+         if (k<0) goto break
+      end do
+      
+break: continue
+      if (len(decimal)>len(b)) then
+         decimal(:len(decimal)-len(b)) = ' '
+         decimal(len(decimal)-len(b)+1:) = b
+      else
+         decimal = b(len(b)-len(decimal)+1:)
+      end if
+      
+      return
+      end
+
+@* Choose random seed depending on current time and processor id.  This
+initializes the seed with |yyyymmddhhmmsspp| where |yyyy| is the year,
+etc. and |pp| is the procoss id (mod 100).
+
+@<Functions...@>=
+      subroutine random_seed_1(seed)
+      implicit_none
+      integer seed[0:5]         // Output
+      integer temp[7]           // Local
+      character*16 c
+      external date_time,get_pid // External
+      integer get_pid
+
+      call date_time(temp)
+      temp[7]=mod(get_pid(),100)
+      write(c,'(i4.4,6i2.2)') temp
+      call decimal_to_seed(c,seed)
+
+      return
+      end
+
+@ |next_seed_1| steps the seed forward $n$ steps.  Thus, if $X_0 = x$, then
+we have $X_n = y$.  $n$ is decomposed in binary and $x$ is stepped forward
+by powers of 2.  We do this by composing equation (\ref{linear}) with
+itself to give, e.g.,
+$$
+X_{n+2}=(a'X_n + c') \bmod 2^{47}.
+$$
+where $a'=a^2 \bmod 2^{47}$ and $c'= (a+1)c \bmod 2^{47}$.  The cpu time is
+proportional to $\log n$.  Input and output can overlap.
+
+@<Functions...@>=
+      subroutine next_seed_1(n,x,y)
+      implicit none
+      integer n,x[0:5]          // Input
+      integer y[0:5]            // Output
+      integer af[0:5],cf[0:5],ab[0:5],cb[0:5],a[0:5],c[0:5],z[0:5],m,i
+      data af/0x65,0x39D6,0x1A36,0x2FA2,0x3134,0x1142/ // $a_{63}$
+      data cf/0x9E9,0x23CF,0x175D,0x2183,0x28A3,0x2573/ // $c_{63}$
+      data ab/0x316D,0x804,0x3677,0x22CD,0x1EBF,0x13BE/ // $a_{-63}$
+      data cb/0x2ECB,0x2A91,0x1AF6,0x1300,0x90C,0x1C0D/ // $c_{-63}$
+      data z/6*0/
+
+      do i=0,5
+         y[i]=x[i]
+      end do
+
+      if (n == 0) return
+
+      if (n > 0) then
+         m = n
+         do i=0,5
+            a[i]=af[i]
+            c[i]=cf[i]
+         end do
+      else
+         m = -n
+         do i=0,5
+            a[i]=ab[i]
+            c[i]=cb[i]
+         end do
+      end if
+
+loop: continue
+      if (mod(m,2) > 0) then
+         call rand_axc(a,y,c)
+      end if
+      m = int(m/2)
+      if (m == 0) return
+      call rand_axc(a,c,c) /* $c'=(a+1)c$ */
+      call rand_axc(a,a,z) /* $a'=a^2$ */
+      goto loop
+
+      end
+
+
+@ A utility routine.   Implement |x=a*x+c|.
+
+@<Functions...@>=
+      subroutine rand_axc(a,x,c)
+      implicit none
+      integer base
+      parameter (base=2^14)
+      integer a[0:5],c[0:5]     // Input
+      integer x[0:5]            // Input/output
+      integer z[0:5],i,j,t      // Local
+      
+      t=0
+      do i=0,5
+         t=c[i]+t
+         do j=0,i
+            t=t+a[j]*x[i-j]
+         end do
+         z[i]=mod(t,base)
+         t=int(t/base)
+      end do
+      
+      do i=0,5
+         x[i]=z[i]
+      end do
+      
       return
       end
 
