@@ -6285,46 +6285,158 @@ C     KNCF = NUMBER OF ENTRIES IN PCF ARRAY
 C
 C     PXS = CROSS SECTION IN cm[2]
 C
-C     PCF(1) = MINIMUM APPLICABLE ENERGY
+C     PCF(1) = NUMBER OF FIT COEFFICIENTS USED
 C
-C     PCF(2-4) = LOW ENERGY EXTRAPOLATION
+C     PCF(2-PCF(1)) = NUMBER OF PARAMETERS IN FIT
 C
-C     PCF(5) = LOW ENERGY BOUND OF CROSS SECTION FIT
+C     PCF(PCF(1)+1 - 2*(PCF(1))) = ENERGY DIVISIONS OF FITS
 C
-C     PCF(6-15) = FIT COEFFICIENTS TO CLASSICAL CROSS SECTION CALCULATIONS
-C
-C     PCF(16) = HIGH ENERGY BOUND FOR CROSS SECTION FIT
-C
-C     PCF(17-19) = HIGH ENERGY EXTRAPOLATION
-C
-C     PCF(20) = MAXIMUM APPLICABLE BOUND OF CLASSICAL CALCULATIONS
+C     PCF(REST) = ACTUAL FIT COEFFICIENTS
 C 
       DOUBLE PRECISION PCF,PE,PETEMP,LNELAB,SIGSUM,PXS
-      DIMENSION PCF(20)
+      DIMENSION PCF(100)
       CHARACTER*(*) KERMSG
+      
       PETEMP = PE
-      IF ( PE .LT. 1.D-12 ) PETEMP = 1.D-12
+      IF ( PE .LT. 1.D-10 ) PETEMP = 1.D-10
       LNELAB = DLOG(PETEMP)
       SIGSUM = 0.
-      IF ( PE .LT. PCF(5) ) THEN
-         DO 10 I = 2 , 4
-            SIGSUM = SIGSUM + PCF(I) * LNELAB ** ( I - 2 )
- 10      CONTINUE
-      ELSEIF ( PE .GT. PCF(16) ) THEN
-         DO 20 I = 17 , 19
-            SIGSUM = SIGSUM + PCF(I) * LNELAB ** (I - 17 )
- 20      CONTINUE
-      ELSE
-         DO 30 I = 6 , 15
-            SIGSUM = SIGSUM + PCF(I) * LNELAB ** ( I - 6 )
- 30      CONTINUE
+      NFIT = IDINT(PCF(1))
+      IF ( PETEMP .GT. PCF(2*NFIT) ) THEN
+         I = NFIT + 1 
+         GOTO 10   
       ENDIF
+      I = 2
+      DO WHILE ( PETEMP .GT. PCF(NFIT+I) )
+         I = I + 1
+      END DO
+ 10   CONTINUE
+      ICOEF = IDINT(PCF(I))
+      IPLACE = 0
+      IF ( I .GT. 2 ) THEN
+         DO J = 2 , I-1 
+           IPLACE = IPLACE + IDINT(PCF(J)) 
+         END DO 
+      ENDIF
+      DO J = 1 , ICOEF
+         SIGSUM = SIGSUM + PCF(2*NFIT+J+IPLACE)*LNELAB**DFLOAT(J-1) 
+      END DO      
       PXS = DEXP ( SIGSUM )
       RETURN   
       END
 C
 C
+C#############################################################################
 C
+      SUBROUTINE INTERP2D(PE, PCF, KNCF, PFIT, KERMSG)
+C
+C     THIS SUBROUTINE PROVIDES A MEANS FOR STORING CONTINUOUS DATA IN 
+C     ALADDIN FILES AND INTERPOLATING THEM IN THE NORMAL ALADDIN MANNER.
+C     VERSIONS OF THIS ROUTINE FOR OTHER DIMENSIONALITIES CAN BE WRITTEN.
+C
+C     PE = PARAMETER CORRESPONDING TO FIRST ARRAY INDEX
+C
+C     PCF(1) = FIRST ARRAY DIMENSION
+C     PCF(2) = MINIMUM PARAMETER FOR FIRST DIMENSION
+C     PCF(3) = MAXIMUM     "      "    "       "
+C     PCF(4) = SPACING FOR FIRST DIMENSION (1=LINEAR, 2=LOG)
+C     PCF(5) = SECOND ARRAY DIMENSION
+C     PCF(6) = MINIMUM PARAMETER FOR SECOND DIMENSION
+C     PCF(7) = MAXIMUM    "       "    "       "
+C     PCF(8) = SPACING FOR SECOND DIMENSION (1=LINEAR, 2=LOG)
+C     PCF(9:KNCF-1) = ARRAY DATA
+C     PCF(KNCF) = PARAMETER CORRESPONDING TO SECOND ARRAY INDEX
+C
+C     PFIT = RETURNED DATA VALUE
+C     KERMSG = BLANK IF NO ERRORS
+C
+C     WRITTEN BY D. P. STOTLER, dstotler@pppl.gov
+C
+C------------------------------------------------------------------------
+C
+      IMPLICIT NONE
+      DOUBLE PRECISION PE, PFIT
+      INTEGER KNCF
+      DOUBLE PRECISION PCF(KNCF)
+      CHARACTER*(*) KERMSG
+C
+      DOUBLE PRECISION XMIN(2), XMAX(2), XMIN_CHECK(2), XDELTA(2), 
+     $                 VAR(2), SCALE
+      INTEGER IMAX(2), ISPACING(2), I
+      CHARACTER*40 SPACING(2)
+      CHARACTER*1 DIM_LABELS(2)
+C      
+      EXTERNAL INTERPOLATE2
+      DOUBLE PRECISION INTERPOLATE2
+C
+      DATA DIM_LABELS/'1','2'/
+C
+      KERMSG = ' '
+C
+      IMAX(1) = INT(PCF(1))
+      XMIN(1) = PCF(2)
+      XMAX(1) = PCF(3)
+      ISPACING(1) = INT(PCF(4))
+      VAR(1) = PE
+C
+      IMAX(2) = INT(PCF(5))
+      XMIN(2) = PCF(6)
+      XMAX(2) = PCF(7)
+      ISPACING(2) = INT(PCF(8))
+      VAR(2) = PCF(KNCF)
+C
+      IF (IMAX(1)*IMAX(2) .NE. KNCF-9) THEN
+         KERMSG = 'NUMBER OF COEFFICIENTS INCONSISTENT WITH DIMENSIONS'
+         RETURN
+      END IF
+C
+C     DO NO SCALING OF THE INDEPENDENT VARIABLES WHEN FINDING DELTA'S
+C
+      SCALE = 1.0     
+C
+      DO I = 1, 2
+         IF (ISPACING(I).EQ.1) THEN
+            SPACING(I) = 'linear'
+         ELSE IF (ISPACING(I).EQ.2) THEN
+            SPACING(I) = 'log'
+         ELSE
+            KERMSG = 'ILLEGAL SPACING PARAMETER FOR DIMENSION '
+     $           // DIM_LABELS(I)
+            RETURN
+         END IF
+C
+         CALL FIND_DELTA(SPACING(I), XMIN(I), SCALE, XMAX(I),
+     $        IMAX(I), XMIN_CHECK(I), XDELTA(I))
+C
+C        DO HERE SINCE FIND_DELTA RETURNS LOG FOR XMIN_CHECK
+C
+         IF (SPACING(I) .EQ. 'log') THEN
+            VAR(I) = LOG(VAR(I))
+            XMIN(I) = LOG(XMIN(I))
+         END IF
+C
+         IF (XMIN(I) .NE. XMIN_CHECK(I)) THEN
+            KERMSG = 'PROBLEM CALLING FIND_DELTA FOR DIMENSION'
+     $           // DIM_LABELS(I)
+            RETURN
+         END IF
+C
+         VAR(I) = (VAR(I) - XMIN(I)) / XDELTA(I)
+C
+         IF ((VAR(I).LT.-1.D-10) 
+     $        .OR. (VAR(I).GT.DBLE(IMAX(I)-1)*(1.D0+1.D-10))) THEN
+            KERMSG = 'ARRAY PARAMETER OUT OF BOUNDS FOR DIMENSION'
+     $           // DIM_LABELS(I)
+            RETURN
+         END IF
+C
+      END DO
+C
+      PFIT = INTERPOLATE2(VAR,PCF(9),IMAX)
+      RETURN
+C
+      END
+C      
 C#############################################################################
 C
 C
