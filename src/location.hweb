@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.3  1993/10/11  19:08:43  karney
+% Use another layer of macro indirection.
+%
 % Revision 1.2  1993/09/30  18:43:22  karney
 % Pre PET checkin
 %
@@ -26,8 +29,9 @@ A location is identified by a string tag.
 @m lc_decl(x) real lc_x(x)[3]; integer lc_cell(x),lc_zone(x),
       lc_face(x),lc_cell_next(x),lc_zone_next(x) @;
 
-@m lc_common external locate_point;
-      integer locate_point @;
+@m lc_common external locate_point,check_location;
+      integer locate_point;
+      logical check_location @;
 
 @m lc_copy(x,y) vc_copy(lc_x(x),lc_x(y));
       lc_cell(y)=lc_cell(x);
@@ -61,3 +65,11 @@ A location is identified by a string tag.
       lc_cell(x) = lc_cell_next(x);
       lc_zone(x) = lc_zone_next(x);
       end if @;
+
+@ Some constants for the geometry package.
+
+@m geom_epsilon const(1.0,-8) // A small distance $10\,\mathrm{nm}$.
+@m geom_infinity const(1.0,16) // A large distance---about a light year.  Also a long time---about a billion years.
+@m geom_large const(1000.0) // A largish (non-infinite) distance $1\,\mathrm{km}$.
+@m epsilon_angle const(1.0,-10) // A small angle.
+
