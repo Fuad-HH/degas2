@@ -2,6 +2,9 @@
 \def\Wtitle{readgeometry}
 
 % $Log$
+% Revision 1.6  1995/04/24 20:43:49  karney
+% Generalize reactiondata to allow multiple data arrays per reaction.
+%
 % Revision 1.5  1995/04/12 18:34:22  karney
 % Merge in comments to array.hweb and changes for Sherwood '95 meeting.
 %
@@ -26,32 +29,32 @@
 @* A program to read a geometry specification from an external file.
 the file name has to be given in the command  line. The syntax for the file is:
 
-keyword args
+keyword args 
 
-The keyword is shown in bold face below and the arguments in italics.
-``keyword'' is one of {\bf degasfile},{\bf  new_zone},{\bf  new_polygon},
-\bf define_polygon},
-{\bf wall},{\bf outer}, {\bf minx}, {\bf minz},{\bf mindensity} {\bf grid} {\bf
-edge} . {\bf degasfile}  {\it degasfile_name} defines a degas input file.
-{\bf new_zone} {\it zone_type} starts a new zone. {\it zone_type} is a
+The keyword is shown in italics below and arguments in bold face.
+``keyword'' is one of |degasfile|,|new_zone|,|new_polygon|,
+|define_polygon|,
+|wall|,|outer|, | minx|, | minz|,| mindensity| | grid| |edge| . |degasfile|
+{\bf degasfile name} defines a degas input file.
+|new_zone| {\bf zone type}  starts a new zone. {\bf zone type} is a
 string that indicates the type of  the zone. It can be ``plasma'',
-``vacuum'' or ``solid''. {\bf new_polygon} starts
-a new polygon. {\bf define_polygon} adds the current polygon to the current
-zone. {\bf wall} {\it wallno start stop direction} where {\it start} \&{\it
-stop} can be replaced by ``*'' (meaning the whole wall segment) and {\it
-direction} is optional (default = +1).  {\bf outer}{\it i j k} adds i'th j'th
+``vacuum'' or ``solid''. |new_polygon| starts
+a new polygon. |define_polygon| adds the current polygon to the current
+zone. |wall| {\bf wallno start stop direction} where {\bf start} \&
+{\bf stop} can be replaced by ``*'' (meaning the whole wall segment) and 
+|direction| is optional (default = +1).  |outer| {\bf i j k} adds i'th j'th
 k'th points from outer boundary to polygon (bottom left corner = point 0,
-numbering is clockwise). {\bf grid} {\it j1 j2 j3 j4}
+numbering is clockwise). |grid| {\bf j1 j2 j3 j4}
 will put the gridx and gridz values into an array containing corners of
-polygons. The vertical boundary and horizontal boundary limits are {\it
-j1},{\it j2} and  {\it j3},{\it j4}. {\bf minx} {\it x value}  \& {\bf minz}
-{z value} are for excluding grid indices (and hence the gridx, gridz
-values) that lie below these values. {\bf mindensity} {\it density value}
+polygons. The vertical boundary and horizontal boundary limits are {\bf
+j1},{\bf j2} and  {\bf j3},{\bf j4}. |minx| {\bf x value}  \& | minz|
+{\bf z value} are for excluding grid indices (and hence the gridx, gridz
+values) that lie below these values. | mindensity| {\bf density value}
 is also used to exclude grid indices that define the cells containing
-plasma density less than the given value. {\bf edge} {\it j1 j2 j3 j4}
-define edges of the plasma zone. The arguments indicate the same things as
-in {\bf grid} except that here we must have either {\it j1} = {\it j2} or
-{\it j3} = {\it j4} since all edges lie on the same horizontal or vertical
+plasma density less than the given value. | edge| {\bf j1 j2 j3 j4}
+defines edges of the plasma zone. The arguments indicate the same things as
+in | grid| except that here we must have either {\bf j1} = {\bf j2} or
+{\bf j3} = {\bf j4} since all edges lie on the same horizontal or vertical
 boundary. 
 
 \ID{$Id$}
@@ -73,15 +76,22 @@ boundary.
 @<Functions...@>=
       program readgeometry
       implicit_none
-      character*FILELEN filename,degasfilename
+      integer mx,my
+      parameter (mx=50,my=50)
+      character*FILELEN filename,datafilename
+      logical uedge
       integer length,p,b,e // Local
-      integer degasfile_diskin,zone,surf_type,face,n,wall_no,wall_start,
+      integer datafile_diskin,zone,n,wall_no,wall_start,
      $     wall_stop,wall_direction,i,grid_startv,grid_stopv,j1,j2,
-     $     grid_starth,grid_stoph,steph,stepv,h,v,num
+     $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
+     $     trx,ix,iy
+
       character*LINELEN line,keyword
       logical complete
       real x[2,0:5000],xmin,xmax,zmin,zmax,vol,vola
-      real x1[3],x2[3],coeff[NCOEFFS],apex[3],mindensity,minx,minz
+      real mindensity,minx,minz
+      real rm[mx,my,0:4],zm[mx,my,0:4]
+      
       character*100 plot
       sy_common
       st_common
@@ -103,7 +113,9 @@ boundary.
 
       call command_arg(1,filename)
 
-      degasfile_diskin=diskin+1
+      datafile_diskin=diskin+1
+
+
       open(unit=diskin,file=filename,status='old',form='formatted')
 
       /* read the file containing keywords that describe the way plotting has to be done */
@@ -115,32 +127,32 @@ boundary.
       assert( next_token(line,b,e,p) )
       keyword = line(b:e)
       assert( next_token(line,b,e,p) )
-      assert(keyword ==  'degasfile')
-      degasfilename = line(b:e)
-      open(unit=degasfile_diskin,file=degasfilename,status='old',
+      assert(keyword ==  'degasfile' || keyword == 'uedgefile')
+      datafilename = line(b:e)
+      open(unit=datafile_diskin,file=datafilename,status='old',
      $     form='formatted')
-      call inpt(degasfile_diskin,xmin,xmax,zmin,zmax)
-      close(unit=degasfile_diskin)
+
+      if (keyword == 'degasfile') then
+         uedge=.false.
+         call inpt(datafile_diskin,xmin,xmax,zmin,zmax)
+      elseif (keyword == 'uedgefile') then
+         uedge=.true.
+         nu= datafile_diskin
+         read(nu,*)
+         read(nu,*) nx
+         read(nu,*) ny
+         read(nu,*) ixpt1
+         read(nu,*) ixpt2
+         read(nu,*) iysptrx
+         read(nu,*)SP(((rm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
+         read(nu,*)SP(((zm(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
+      endif
+         
+      close(unit=datafile_diskin)
 
       call init_geometry
 
-      zone=0
-      i=0
-      x[1,i]=xmin; x[2,i]=zmin; i=i+1
-      x[1,i]=xmin; x[2,i]=zmax; i=i+1
-      x[1,i]=xmax; x[2,i]=zmax; i=i+1
-      x[1,i]=xmax; x[2,i]=zmin; i=i+1
-      x[1,i]=x[1,0]; x[2,i]=x[2,0]
-      
-      do i=0,3
-         vc_set(x1,x[1,i],zero,x[2,i])
-         vc_set(x2,x[1,i+1],zero,x[2,i+1])
-         call conea(x1,x2,coeff,surf_type,apex)
-         face=define_surface(coeff,.true.)
-         call add_surface(face,0,.true.)
-      end do
-      
-      vol=PI*(x[1,2]^2-x[1,0]^2)*(x[2,2]-x[2,0])
+      if (! uedge) call universal_cell(xmin,xmax,zmin,zmax,vol)
 
 loop2: continue
       if (! read_string(diskin,line,length) ) goto eof 
@@ -318,13 +330,98 @@ skip:          continue
         elseif (keyword == 'minx') then
            assert(next_token(line,b,e,p))
            minx=read_real(line(b:e))
-        elseif (keyword == 'end') then
-           goto eof
-        else
-           write(stderr,*) 'Unknown keyword ',trim(keyword)
-           assert(.false.)
-        end if
-        goto loop2
+/* insert additional keywords below this */
+      elseif (keyword == 'mesh') then
+         assert(uedge)
+         assert(next_token(line,b,e,p))
+         xmin=read_real(line(b:e))
+         assert(next_token(line,b,e,p))
+         xmax=read_real(line(b:e))
+         assert(next_token(line,b,e,p))
+         zmin=read_real(line(b:e))
+         assert(next_token(line,b,e,p))
+         zmax=read_real(line(b:e))
+         call universal_cell(xmin,xmax,zmin,zmax,vol)
+         do j1=1,nx
+            do j2=1,ny
+               zone++
+               n=0
+               x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
+               x[1,n]=rm(j1,j2,3); x[2,n]=zm(j1,j2,3); n++
+               x[1,n]=rm(j1,j2,4); x[2,n]=zm(j1,j2,4); n++
+               x[1,n]=rm(j1,j2,2); x[2,n]=zm(j1,j2,2); n++
+               x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+               call decompose_polygon(n,x,zone)
+               zn_type_set(zone,zn_plasma)
+               zn_volume(zone)=polygon_volume(n,x)
+               zn_index(zone,1)=j1
+            enddo
+            zn_index(zone,2)=j2
+         enddo
+         zone++
+/* start from left lower corner of box and go clockwise along box till right lower corner. return along outer edge of SOL to starting pt. */
+         n=0
+         x[1,n]=xmin; x[2,n]=zmin; n++
+         x[1,n]=xmin; x[2,n]=zmax; n++
+         x[1,n]=xmax; x[2,n]=zmax; n++
+         x[1,n]=xmax; x[2,n]=zmin; n++
+         j1=nx; j2=ny
+         x[1,n]=rm(j1,j2,4); x[2,n]=zm(j1,j2,4); n++
+         do j1=nx,1,-1
+            x[1,n]=rm(j1,j2,3); x[2,n]=zm(j1,j2,3); n++
+         end do
+         x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+         call decompose_polygon(n,x,zone)
+         zn_type_set(zone,zn_solid)
+         zn_volume(zone)=polygon_volume(n,x)
+
+/*start from left lower corner of box and to upper left bottom of SOL to lower left bottom of SOL to lower right bottom of SOL to upper right bottom of SOL tolower right bottom of box  and back*/
+         n=0
+         x[1,n]=xmin; x[2,n]=zmin; n++
+         j1=1
+         do j2=ny,1,-1
+            x[1,n]=rm(j1,j2,3); x[2,n]=zm(j1,j2,3); n++
+         end do
+         j2=1
+         do j1=1,ixpt1
+            x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
+         end do
+         do j1=ixpt2+1,nx
+            x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
+         end do
+         j1=nx
+         do j2=1,ny
+            x[1,n]=rm(j1,j2,2); x[2,n]=zm(j1,j2,2); n++
+         end do
+         j2=ny
+         x[1,n]=rm(j1,j2,4); x[2,n]=zm(j1,j2,4); n++
+
+         x[1,n]=xmax; x[2,n]=zmin; n++
+         x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+         call decompose_polygon(n,x,zone)
+         zn_volume(zone)=zn_volume(zone)+polygon_volume(n,x)
+         
+         zone++
+
+/* core region */
+         n=0
+         j2=1
+         do j1=ixpt1+1,ixpt2
+            x[1,n]=rm(j1,j2,1); x[2,n]=zm(j1,j2,1); n++
+         enddo
+         x[1,n]=x[1,0]; x[2,n]=x[2,0]               
+         call decompose_polygon(n,x,zone)
+         zn_type_set(zone,zn_exit)
+         zn_volume(zone)=polygon_volume(n,x)
+            
+      elseif (keyword == 'end') then
+           
+         goto eof
+      else
+         write(stderr,*) 'Unknown keyword ',trim(keyword)
+         assert(.false.)
+      end if
+      goto loop2
 eof:  continue
       close(unit=diskin)
       call end_geometry
@@ -340,4 +437,42 @@ eof:  continue
       stop
       end
 
+@ Define universal cell
+
+@<Functions...@>=
+      subroutine universal_cell(xmin,xmax,zmin,zmax,vol)
+      implicit_none
+      real xmin,xmax,zmin,zmax
+      real vol
+      integer face,surf_type,zone,i
+      real x[2,0:4],apex[3],x1[3],x2[3],coeff[NCOEFFS]
+      gi_common
+      gi_ext
+      
+
+      zone=0
+      i=0
+      x[1,i]=xmin; x[2,i]=zmin; i=i+1
+      x[1,i]=xmin; x[2,i]=zmax; i=i+1
+      x[1,i]=xmax; x[2,i]=zmax; i=i+1
+      x[1,i]=xmax; x[2,i]=zmin; i=i+1
+      x[1,i]=x[1,0]; x[2,i]=x[2,0]
+      
+      do i=0,3
+         vc_set(x1,x[1,i],zero,x[2,i])
+         vc_set(x2,x[1,i+1],zero,x[2,i+1])
+         call conea(x1,x2,coeff,surf_type,apex)
+         face=define_surface(coeff,.true.)
+         call add_surface(face,0,.true.)
+      end do
+      
+      vol=PI*(x[1,2]^2-x[1,0]^2)*(x[2,2]-x[2,0])
+
+      return
+      end
+
 @* Index.
+
+
+
+
