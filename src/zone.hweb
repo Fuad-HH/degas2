@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 % Revision 1.1  1992/11/13  17:58:50  karney
 % Initial checkin
 %
@@ -45,9 +48,7 @@ identified by an integer indexing into these arrays.
       define_dimen(zone_index_ind,zn_index_max)
       define_dimen(zone_ind,zn_num)
       define_var(zn_num,INT)
-      define_var(zn_vacuum_num,INT)
-      define_var(zn_plasma_num,INT)
-      define_var(zn_solid_num,INT)
+      define_var(zone_type_num,INT,zone_type_ind)
       define_var(zone_type,INT,zone_ind)
       define_var(zone_index,INT,zone_index_ind,zone_ind)
       define_var(zone_pointer,INT,zone_ind)
@@ -57,16 +58,58 @@ identified by an integer indexing into these arrays.
 @f zn_common integer
 @m zn_common
       declare_var(zn_num);
-      declare_var(zn_vacuum_num);
-      declare_var(zn_plasma_num);
-      declare_var(zn_solid_num);
-      declare_var(zn_num);
+      declare_var(zone_type_num);
       declare_varp(zone_type);
       declare_varp(zone_index);
       declare_varp(zone_pointer);
-      common /com_zone/ zn_num,zn_vacuum_num,zn_plasma_num,zn_solid_num,
+      common /com_zone/ zn_num,zone_type_num,
           ptr_zone_type,ptr_zone_index,ptr_zone_pointer;
       character*80 zone_version;
       common /com_zone_c/ zone_version;
       save /com_zone/,/com_zone_c/ @;
 
+@ Setting up zone information.
+
+@m zn_type_set(zone,type) zn_type(zone)=type;
+      zone_type_num[type]=zone_type_num[type+1];
+      zn_pointer(zone)=zone_type_num[type] @;
+
+@ NETCDF read/write of geometry.
+
+@m netcdf_zone_decls
+      integer zn_num_id,zone_type_id,zone_index_id,zone_pointer_id,zone_index_ind_id,zone_ind_id,zone_type_num_id,zone_type_ind_id @;
+
+
+@m netcdf_write_zone(fileid)
+      var_def(fileid,zn_num);
+      dimen_def(fileid,zone_type_ind);
+      dimen_def(fileid,zone_index_ind);
+      dimen_def(fileid,zone_ind);
+      var_def(fileid,zone_type_num);
+      var_def(fileid,zone_type);
+      var_def(fileid,zone_index);
+      var_def(fileid,zone_pointer);
+      call ncendef(fileid,nc_stat);
+      var_write(fileid,zn_num);
+      var_write(fileid,zone_type_num);
+      var_write(fileid,zone_type);
+      var_write(fileid,zone_index);
+      var_write(fileid,zone_pointer) @;
+      
+@m netcdf_read_zone(fileid)
+      var_inq(fileid,zn_num);
+      var_read(fileid,zn_num);
+      dimen_inq(fileid,zone_type_ind);
+      dimen_inq(fileid,zone_index_ind);
+      dimen_inq(fileid,zone_ind);
+      var_inq(fileid,zone_type_num);
+      var_inq(fileid,zone_type);
+      var_inq(fileid,zone_index);
+      var_inq(fileid,zone_pointer);
+      var_alloc(zone_type);
+      var_alloc(zone_index);
+      var_alloc(zone_pointer);
+      var_read(fileid,zone_type_num);
+      var_read(fileid,zone_type);
+      var_read(fileid,zone_index);
+      var_read(fileid,zone_pointer)@;
