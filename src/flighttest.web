@@ -2,6 +2,11 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.31  1999/03/25 20:57:56  dstotler
+% Changed loop indices in write statement for write_sources - NOT
+% CHECKED!! Changed an occurrence of "FALSE." to "FALSE".  Added check
+% on filenames_array.
+%
 % Revision 1.30  1999/02/02 15:00:18  dstotler
 % Modified setting of output_2D_coupling to add source group index and
 % to sum ion energy transfers over all ion species (i.e., non-electron
@@ -183,7 +188,8 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       define_varp(weight_grp,FLOAT,output_grps_ind)
 
       implicit_none_f77
-      zn_common                                             // Common
+      zn_common                                            // Common  
+      sp_common
       so_common
       pr_common
       de_common
@@ -194,7 +200,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       implicit_none_f90
 
       integer i,j,is,zone,test,new_dim,pr_reac,jscore,      // Local
-     $        iview,det,ibin,iauth
+     $        iview,det,ibin,iauth,jscore_detail,jscore_total
       integer index_parameters[tl_index_max]
       real mult,tot_scale_curr,prob,density,dummy,
      $     dens_rsd,pressure,pres_rsd,signal,wavelength
@@ -363,8 +369,11 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       if (stat_dim_flt < tally_size) then
          var_realloc(stat_flt,stat_dim_flt-1,tally_size-1)
          stat_dim_flt=tally_size
+@#if 0
          stat_size_flt=tally_size
+@#endif
       end if
+      stat_size_flt=tally_size  // Had this above (wrongly so)
 
 /*
    Since the post-processing routines eventually call |add_scores|, which
@@ -482,50 +491,56 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       end do
       close(unit=diskout)
 
-      jscore=string_lookup('Dalpha chord integrals',tally_name,tl_num)
-      if (jscore > 0) then
-         open(unit=diskout,file='chords.out',status='unknown')
-         assert(tally_rank[jscore] == 1)
-         do iview=1,tally_tab_index[jscore][1]
-            index_parameters[tl_index_detector]=iview
-            signal=extract_output_datum(index_parameters,1,
-     $           out_post_all,o_mean,'Dalpha chord integrals')
-            write(diskout,'(2x,i3,6x,1pe13.4)') iview,signal
-         end do
-         close(unit=diskout)
-      end if
+      do test=2,pr_test_num     // Exclude ``0'' test species
 
-      jscore=string_lookup('Dalpha spectrum detail',tally_name,tl_num)
-      if (jscore > 0) then
-         open(unit=diskout,file='spectrum.out',status='unknown')
-         assert(tally_indep_var[jscore][3] == tl_index_wavelength_bin)
-         assert(tally_indep_var[jscore][2] == tl_index_test_author)
-         assert(tally_tab_index[jscore][1] >= 1)
-         det=de_lookup('Halpha spectrum')
-         assert(detector_spacing[det] == de_spacing_linear)
-         assert(detector_tab_index[det] == tally_tab_index[jscore][3])
-         assert(tally_tab_index[jscore][2] <= 20)   // |sig_det| dimension
-         do iview=1,tally_tab_index[jscore][1]
-            index_parameters[tl_index_detector]=iview
-            write(diskout,*) 'Spectrum view number ',iview
-            do ibin=1,tally_tab_index[jscore][3]
-               index_parameters[tl_index_wavelength_bin]=ibin
-               do iauth=1,tally_tab_index[jscore][2]
-                  index_parameters[tl_index_test_author]=iauth
-                  signal=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,'Dalpha spectrum detail')
-                  sig_det[iauth]=signal
-                  assert(sig_det[iauth] == signal)
-               end do
+         jscore=string_lookup(trim(sp_sy(pr_test(test)))\/'alpha chord integrals',tally_name,tl_num)
+         if (jscore > 0) then
+            open(unit=diskout,file='chords_'\/trim(sp_sy(pr_test(test)))\/'_alpha.out',status='unknown')
+            assert(tally_rank[jscore] == 1)
+            do iview=1,tally_tab_index[jscore][1]
+               index_parameters[tl_index_detector]=iview
                signal=extract_output_datum(index_parameters,1,
-     $              out_post_all,o_mean,'Dalpha spectrum')
-               wavelength=detector_min[det]+(areal(ibin)-0.5)*detector_delta[det]
-               write(diskout,'(1pe16.6,21e13.4)') wavelength,signal,(sig_det[iauth],iauth=1,tally_tab_index[jscore][2])
+     $              out_post_all,o_mean,trim(sp_sy(pr_test(test)))\/'alpha chord integrals')
+               write(diskout,'(2x,i3,6x,1pe13.4)') iview,signal
             end do
-            write(diskout,*) '-----------------------------------------------------'
-         end do
-         close(unit=diskout)
-      end if
+            close(unit=diskout)
+         end if
+
+         jscore_detail=string_lookup(trim(sp_sy(pr_test(test)))\/'alpha spectrum detail',tally_name,tl_num)
+         jscore_total=string_lookup(trim(sp_sy(pr_test(test)))\/'alpha spectrum',tally_name,tl_num)
+         if (jscore_detail > 0 && jscore_total > 0) then
+            open(unit=diskout,file='spectrum_'\/trim(sp_sy(pr_test(test)))\/'_alpha.out',status='unknown')
+            assert(tally_indep_var[jscore_detail][3] == tl_index_wavelength_bin)
+            assert(tally_indep_var[jscore_detail][2] == tl_index_test_author)
+            assert(tally_tab_index[jscore_detail][1] >= 1) // views
+            det=de_lookup('Halpha spectrum')   // Same name for all isotopes
+            assert(detector_spacing[det] == de_spacing_linear)
+            assert(detector_tab_index[det] == tally_tab_index[jscore_detail][3])
+            assert(tally_tab_index[jscore_detail][2] <= 20)   // |sig_det| dimension
+            assert(tally_indep_var[jscore_total][2] == tl_index_wavelength_bin)
+            assert(tally_tab_index[jscore_total][1] >= 1) // views
+            assert(detector_tab_index[det] == tally_tab_index[jscore_total][2])
+            do iview=1,tally_tab_index[jscore_detail][1]
+               index_parameters[tl_index_detector]=iview
+               write(diskout,*) 'Spectrum view number ',iview
+               do ibin=1,tally_tab_index[jscore_detail][3]
+                  index_parameters[tl_index_wavelength_bin]=ibin
+                  do iauth=1,tally_tab_index[jscore_detail][2]
+                     index_parameters[tl_index_test_author]=iauth
+                     signal=extract_output_datum(index_parameters,1,
+     $                    out_post_all,o_mean,trim(sp_sy(pr_test(test)))\/'alpha spectrum detail')
+                     sig_det[iauth]=signal
+                  end do
+                  signal=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,trim(sp_sy(pr_test(test)))\/'alpha spectrum')
+                  wavelength=detector_min[det]+(areal(ibin)-0.5)*detector_delta[det]
+                  write(diskout,'(1pe16.6,21e13.4)') wavelength,signal,(sig_det[iauth],iauth=1,tally_tab_index[jscore_detail][2])
+               end do
+               write(diskout,*) '-----------------------------------------------------'
+            end do
+            close(unit=diskout)
+         end if
+      end do
 
       call nc_write_output
       call clear_output
