@@ -1,0 +1,82 @@
+
+@* a program to read filenames for various inputs and outputs from an
+external file. The syntax for the file is 
+symbolic-filename  [actual filename]
+The symbolic name is assigned the filename. symoblic filename are self 
+explanatory as to what the files may contain.
+To add more symbolic filenames simply change the assert stmt that checks that
+the symbolic name is a valid one, and add another 'elseif' block. The new 
+symbolic file name has to be included in the common block.
+
+\ID{$Id$}
+
+@m FILE 'readfilenmaes.web'
+@I macros.hweb
+
+@f namelist integer
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+@ The main program
+
+@<Functions...@>=
+
+      program 	readfilenames
+      implicit none
+      
+      character*FILELEN filename	
+      character*LINELEN line,symbolic_fname
+      character*FILELEN  elementsfile,backgroundfile,testfile,
+     $     geometryfile,problemfile,reactionfile,speciesfile,
+     $     aladinfile,aladoutfile
+      integer length,p,b,e // Local
+      sy_common
+      st_common
+
+      call command_arg(1,filename)
+
+      open(unit=diskin,file=filename,status='old',form='formatted')
+
+/* read the file containing filenames */
+loop:      if (! read_string(diskin,line,length) ) goto eof 
+      assert(length<=len(line))
+
+      length=parse_string(line(:length))
+      p=0
+      assert( next_token(line,b,e,p) )
+      symbolic_fname = line(b:e)
+      assert( next_token(line,b,e,p) )
+      assert ( symbolic_fname == 'elementsfile' || symbolic_fname ==
+     $     'backgroundfile' || symbolic_fname ==  'testfile' ||
+     $     symbolic_fname == 'geometryfile' || symbolic_fname ==
+     $     'problemfile' || symbolic_fname == 'reactionfile' ||
+     $     symbolic_fname == 'speciesfile' || symbolic_fname ==
+     $     'aladinfile' || symbolic_fname == 'aladoutfile' )
+
+      if ( symbolic_fname == 'elementsfile') then
+         elementsfile = line(b:e)
+      elseif ( symbolic_fname == 'backgroundfile') then
+         backgroundfile = line(b:e)
+      elseif ( symbolic_fname == 'testfile') then 
+         testfile = line(b:e)
+      elseif ( symbolic_fname == 'geometryfile') then
+         geometryfile = line(b:e)
+      elseif ( symbolic_fname == 'problemfile')  then
+         problemfile =line(b:e)
+      elseif ( symbolic_fname == 'reactionfile') then
+         reactionfile = line(b:e)
+      elseif ( symbolic_fname == 'speciesfile')  then
+         speciesfile = line(b:e)
+      elseif ( symbolic_fname == 'aladinfile')  then
+         aladinfile = line(b:e)
+      elseif ( symbolic_fname == 'aladoutfile')  then
+         aladoutfile = line(b:e)
+      endif
+      goto loop
+eof:  continue
+      stop
+      end
+
+
+
