@@ -1,8 +1,7 @@
 # $Id$
 # $Log$
-# Revision 1.10  1994/06/28 03:28:11  karney
-# Non-existent change
-#
+# Revision 1.11  1994/06/28 19:44:21  karney
+# Get Makefiles working to update fixit, idtof when needed.
 
 DEBUG=yes
 
@@ -44,6 +43,7 @@ endif
 
 foof:
 	echo $(MACHINE) $(TARGET)
+	echo $(SOURCEDIR)
 
 utils: idtof fixit Makefile
 
@@ -80,6 +80,8 @@ PVM=-L/soft/pvm/lib/$(PVMARCH) -lfpvm3 -lpvm3
 %.r: %.l
 %.o %: %.mod
 %.p: %.web
+%.tex: %.web
+%.dvi: %.tex
 
 # Set up compilers etc.
 LPRFLAGS=-h
@@ -133,7 +135,7 @@ else # We're cross compiling
 endif
 
 IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
-.PRECIOUS: %.tex %.dvi %.f %.cft %.o %.dum
+.PRECIOUS: %.tex %.dvi %.f %.cft %.o %.dum fweb.sty fweboptions.sty fixit fixit.el
 
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
@@ -193,6 +195,10 @@ sysdeptest: $(sysdeptest)
 elementsetup =
 elementsetup_libs = $(NETCDF)
 elementsetup: $(elementsetup)
+
+speciesetup = elementread.$O
+speciesetup_libs = $(NETCDF)
+speciesetup: $(speciesetup)
 
 randomtest = random.$O randother.$O
 randomtest_libs =

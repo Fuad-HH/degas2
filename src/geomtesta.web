@@ -2,6 +2,9 @@
 \def\Wtitle{geomtesta}
 
 % $Log$
+% Revision 1.4  1994/05/19 16:52:57  karney
+% Comment out some lines for drawing the dummy ITER geometry.
+%
 % Revision 1.3  1993/11/15  21:44:19  karney
 % Pre APS checkin.
 %
@@ -48,22 +51,22 @@
       integer zone_func,density_func,te_func,ti_func,stat_func
       
       call read_geometry
- /*
+@#if 0
       call nc_read_background
       call stat_read
- */
+@#endif
       open(unit=diskin,file='geometry.inp',status='old',form='formatted')
       read(diskin,*) SP (x[i],i=1,3),(a[i],i=1,3),(b[i],i=1,3),alen,blen
       close(unit=diskin)
       
      
       call output_slice('geomtesta.hdf',.true.,x,a,b,alen,blen,zone_func)
- /*
+@#if 0
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,density_func)
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,te_func)
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,ti_func)
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,stat_func)
- */
+@#endif
       return
       end
 
