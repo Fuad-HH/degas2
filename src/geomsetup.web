@@ -3,6 +3,10 @@
 \def\Wtitle{geometry setup}
 
 % $Log$
+% Revision 1.12  1995/05/26 04:00:55  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.11  1995/05/22 22:05:44  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -322,8 +326,9 @@ then search for duplicates and return the duplicate index if it exists.
 @* Add a segment definition.
 
 @<Functions...@>=
-      subroutine add_segment(segment,surface,cell)
+      subroutine add_segment(segment,surface,cell,face)
       integer segment,surface,cell // Input
+      logical face
       gi_common                 // Input/Output
       integer i,surface_count,cell_count // Local
       integer surf_list[2,*],cell_list[*] // Pointee
