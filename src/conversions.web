@@ -2,6 +2,10 @@
 \Title{conversions}
 
 % $Log$
+% Revision 1.5  2000/04/01 17:31:36  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.4.2.1  1999/12/16 18:22:36  dstotler
 % Changes to allow test exchange tallies and PMI tallies as
 % fn. of incident test: In setting cv_params for tl_cv_problem_sp_mass
@@ -387,7 +391,10 @@ could be converted into a nonzero value by an addition.
       else if (tally_cv_action[icv] == tl_cv_divide_number) then
 /*
   Verify that partner conversions have been done; settle for checking 
-  just the first.
+  just the first. {\em NOTE:} this conversion does not work as intended
+  for runs with multiple source groups. The ``number'' used in the
+  denominator will be that corresponding to the current source group,
+  not to the sum over all groups.
 */
          assert(tally_cv_ptr[tally_cv_partners[icv][2]][1] < icv)
          if (local_data[dim+1]  != zero) then
