@@ -2,6 +2,9 @@
 \def\Wtitle{problemsetup}
 
 % $Log$
+% Revision 1.2  1995/02/16 18:38:02  dstotler
+% Cleanup some conflicts associated with recent merges.
+%
 % Revision 1.1  1995/01/30 21:06:44  karney
 % Merge in my changes with Daren's
 %
@@ -25,6 +28,7 @@ Introduction\ldots
       implicit_none
 
       call read_problem
+      call init_reaction
       call nc_write_problem
 
       stop
@@ -247,9 +251,11 @@ eof:  return
       subroutine nc_write_problem
       implicit_none
       pr_common                 // Common
+      rd_common
       nc_common                 // Local
       integer fileid
       pr_ncdecl
+      rd_ncdecl
       st_common
       character*LINELEN description,program_version
 
@@ -272,8 +278,10 @@ eof:  return
      $     program_version,nc_stat)
       
       pr_ncdef(fileid)
+      rd_ncdef(fileid)
       call ncendef(fileid,nc_stat)
       pr_ncwrite(fileid)
+      rd_ncwrite(fileid)
       
       call ncclose(fileid,nc_stat)
       

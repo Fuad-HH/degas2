@@ -1,6 +1,9 @@
 #  -*- text -*-
 # $Header$
 # $Log$
+# Revision 1.3  1994/08/24 15:02:44  karney
+# Added degasgeom to read in old degas' geometry spec.
+#
 # Revision 1.2  1994/07/05 11:56:17  karney
 # Sync with repository
 #
@@ -71,13 +74,25 @@ etags: a local version of the program to produce tags.
 
 sysdeptest: a test of the various system dependent routines.
 
-elementsetup: converts elements.input to elements.nc
-
-speciesetup: converts species.input to species.nc (run after elementsetup)
-
 reactionwrite: converts cross-section data to REACTION.nc
 
-reactionsetup: converts reactions.input to reactions.nc (run after speciesetup and reactionwrite)
+datasetup: converts elements.input to elements.nc
+	converts species.input to species.nc
+	converts reactions.input to reactions.nc
+
+problemsetup: converts problem.input and reaction data files to problem.nc
+
+reactionwrite: converts some old Degas input files to netcdf format (to be
+superceded by ratecalc).
+
+readgeometry: reads a geometry specification file (specified as arg) to
+creates geometry.nc
+
+readbackground: reads background plasma data from degas input file (specified as arg) to
+creates background.nc
+
+flighttest: runs flights through the plasma (arg is the number of flights)
+-- the prototype for degas 2.
 
 randomtest: a simple test of the random number generator.  A good thing to
 try on new architechures.
@@ -85,4 +100,6 @@ try on new architechures.
 degasgeom: read a degas input file (as arg) and write out geometry.nc.
 
 geomtesta: a program to plot slices through the geometry.  Reads a file
-geometry.inp to determine the slice to plot.
+geometry.inp to determine the slice to plot.  Creates an HDF file
+geomtesta.hdf.
+

@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1995/04/24 14:21:25  karney
+% Remove some unused variables.  Introduce a coordinate system for plasma
+% flow.
+%
 % Revision 1.1  1995/01/30 21:06:50  karney
 % Merge in my changes with Daren's
 %
@@ -11,34 +15,39 @@
 
 Data for reactions is held in arrays in common blocks.
 
-@m rd_xsection1(x,i) reaction_xsection_table[reaction_xs_base[x]+i]
-@m rd_xsection2(x,i,j) reaction_xsection_table[reaction_xs_base[x]+i+reaction_xs_tab_index[x][1]*j]
-@m rd_xsection3(x,i,j,k) reaction_xsection_table[reaction_xs_base[x]+i+reaction_xs_tab_index[x][1]*(j+reaction_xs_tab_index[x][2]*k)]
+@m rd_rate1(x,i) reaction_data_table[reaction_data_base[x][rd_rate]+i]
+@m rd_rate2(x,i,j) reaction_data_table[reaction_data_base[x][rd_rate]+i+reaction_data_tab_index[x][rd_rate][1]*j]
+@m rd_rate3(x,i,j,k) reaction_data_table[reaction_data_base[x][rd_rate]+i+reaction_data_tab_index[x][rd_rate][1]*(j+reaction_data_tab_index[x][rd_rate][2]*k)]
+
+@m rd_xs1(x,i) reaction_data_table[reaction_data_base[x][rd_xs]+i]
+@m rd_xs2(x,i,j) reaction_data_table[reaction_data_base[x][rd_xs]+i+reaction_data_tab_index[x][rd_xs][1]*j]
+@m rd_xs3(x,i,j,k) reaction_data_table[reaction_data_base[x][rd_xs]+i+reaction_data_tab_index[x][rd_xs][1]*(j+reaction_data_tab_index[x][rd_xs][2]*k)]
+
+@m rd_xs 1
+@m rd_rate 2
 
 @ Variable definitions.
 
 @a
       package_init(rd)
+      define_var_pk(rd,rd_table_size,INT)
       define_dimen_pk(rd,rd_rank_ind,xs_table_rank_max)
+      define_dimen_pk(rd,rd_dep_var_ind,xs_dep_var_max)
       define_dimen_pk(rd,rd_rank_ind0,0,xs_table_rank_max)
-      define_dimen_pk(rd,rd_cross_section_ind,0,xs_base_max-1)
-      define_var_pk(rd,xs_base_max,INT)
-      define_varp_pk(rd,reaction_organization,INT,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xs_min,FLOAT,rd_rank_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xs_delta,FLOAT,rd_rank_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xs_rank,INT,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xs_spacing,INT,rd_rank_ind0,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xs_tab_index,INT,rd_rank_ind,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xs_base,INT,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xs_var,INT,rd_rank_ind0,problem_reaction_ind)
-      define_varp_pk(rd,reaction_xsection_table,FLOAT,rd_cross_section_ind)
+      define_dimen_pk(rd,rd_table_ind,0,rd_table_size-1)
+      define_varp_pk(rd,reaction_organization,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_min,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_delta,FLOAT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_rank,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_spacing,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_tab_index,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_base,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_var,INT,rd_rank_ind0,rd_dep_var_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_data_table,FLOAT,rd_table_ind)
+
 @ Common blocks definitions.
 
 @f rd_common integer
 @m rd_common
       rd_common_a;
 
-@m rd_ncread(fileid)
-      rd_ncreada(fileid);
-      rd_ncreadb(fileid);
-      rd_ncreadc(fileid) @;

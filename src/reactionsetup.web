@@ -2,6 +2,10 @@
 \def\Wtitle{reactionsetup}
 
 % $Log$
+% Revision 1.13  1995/04/24 14:21:27  karney
+% Remove some unused variables.  Introduce a coordinate system for plasma
+% flow.
+%
 % Revision 1.12  1995/03/30 17:07:54  karney
 % Add readbackground
 %
@@ -69,7 +73,7 @@ Introduction\ldots
       st_common
 
       rc_num=0
-/*      xs_base_max=0 */
+/*      rd_table_size=0 */
       reaction_version='unknown'
       open(unit=diskin,file='../data/reactions.input',
      $     form='formatted',status='old')
@@ -148,52 +152,7 @@ loop3: continue
       assert(length<=len(type))
       rc_reaction_type(rc_num)=type
 
-@#if 0
-      call xs_read(file)
 
-      var_realloca(reaction_organization)
-      var_realloca(reaction_xs_min)
-      var_realloca(reaction_xs_delta)
-      var_realloca(reaction_xs_rank)
-      var_realloca(reaction_xs_spacing)
-      var_realloca(reaction_xs_base)
-      var_realloca(reaction_xs_tab_index)
-      var_realloca(reaction_xs_var)
-/*
-   Once the data have been read into the xs* variables, copy them
-   into the corresponding reaction* arrays.
-*/
-      call xs_copy
-@#endif
-
-@#if 0
-/*
-   What's the purpose of this? Note that this section is commented out
-   via the above ``if 0'' directive.
-*/
-      if (rc_sy(rc_num)=='hionize') then
-         open(unit=diskin+1,file='../data/eh.dat',form='formatted',status='old')
-         read(diskin+1,*) SP ((tn_cross_section_table[i,j,rc_num],i=0,rc_energy_num),j=0,rc_density_num)
-         close(unit=diskin+1)
-         do j=0,rc_density_num
-            do i=0,rc_energy_num
-               tn_cross_section_table[i,j,rc_num]=tn_cross_section_table[i,j,rc_num]*const(1.0,-6)
-            end do
-         end do
-      else if (rc_sy(rc_num)=='hchex') then
-         open(unit=diskin+1,file='../data/atmc.dat',form='formatted',status='old')
-loop:    continue
-         read(diskin+1,'(a)') line
-         if (line != 'h0 + h+ -> h+ + h0') goto loop
-         read(diskin+1,*) SP ((te_cross_section_table[i,j,rc_num],i=0,rc_energy_num),j=0,rc_energy_num)
-         close(unit=diskin+1)
-         do j=0,rc_energy_num
-            do i=0,rc_energy_num
-               te_cross_section_table[i,j,rc_num]=te_cross_section_table[i,j,rc_num]*const(1.0,-6)
-            end do
-         end do
-      end if
-@#endif
 /*
    Get next reaction
 */
@@ -209,139 +168,9 @@ eof:  continue
       var_reallocb(reaction_type)
       var_reallocb(reaction_filename)
 
-@#if 0
-      var_reallocb(reaction_organization)
-      var_reallocb(reaction_xs_min)
-      var_reallocb(reaction_xs_delta)
-      var_reallocb(reaction_xs_rank)
-      var_reallocb(reaction_xs_spacing)
-      var_reallocb(reaction_xs_base)
-      var_reallocb(reaction_xs_tab_index)
-      var_reallocb(reaction_xs_var)
-@#endif
-
       return
       end
 
-@ Read in cross-section information from a netcdf file.
-
-@<Functions...@>=
-@#if 0
-      subroutine xs_read(file)
-      implicit_none
-      character*(*) file        // Input
-      integer fileid // Local
-      xs_common
-      xs_ncdecl
-      nc_common
-      sy_common
-      
-      fileid = ncopen(file,NC_NOWRITE,nc_stat)
-      
-      xs_ncread(fileid)
-      
-      call ncclose(fileid,nc_stat)
-      
-      return
-      end
-@#endif
-
-@ Copy cross-section information into reaction arrays.
-
-@<Functions...@>=
-@#if 0
-      subroutine xs_copy
-      implicit_none
-      integer i,j,k,size // Local
-      xs_common
-      rc_common
-      sy_common
-      
-      assert(xs_name==rc_sy(rc_num))
-      assert(xs_organization=='table')
-      if (xs_organization=='table') then
-         reaction_organization[rc_num]=xs_organization_table
-      end if
-      assert(xs_rank > 0 && xs_rank <= xs_table_rank_max)
-      reaction_xs_rank[rc_num]=xs_rank
-      i=0
-      assert(xs_spacing[i] == 'linear' || xs_spacing[i] == 'log')
-      assert(xs_var[i] == 'rate')
-      if (xs_spacing[i] == 'linear') then
-         reaction_xs_spacing[i,rc_num]=xs_spacing_linear
-      else if (xs_spacing[i] == 'log') then
-         reaction_xs_spacing[i,rc_num]=xs_spacing_log
-      end if
-      if (xs_var[i] == 'rate') then
-         reaction_xs_var[i,rc_num]=xs_var_rate
-      else if (xs_var[i] == 'density') then
-         reaction_xs_var[i,rc_num]=xs_var_density
-      else if (xs_var[i] == 'temperature') then
-         reaction_xs_var[i,rc_num]=xs_var_temperature
-      else if (xs_var[i] == 'energy') then
-         reaction_xs_var[i,rc_num]=xs_var_energy
-      end if
-      size=1
-      do i=1,xs_rank
-         if (i==1) then
-            reaction_xs_tab_index[i,rc_num] = xs_tab_index1
-         else if (i==2) then
-            reaction_xs_tab_index[i,rc_num] = xs_tab_index2
-         else if (i==3) then
-            reaction_xs_tab_index[i,rc_num] = xs_tab_index3
-         end if
-         assert(reaction_xs_tab_index[i,rc_num] > 1)
-         if (xs_spacing[i] == 'linear') then
-            reaction_xs_spacing[i,rc_num]=xs_spacing_linear
-         else if (xs_spacing[i] == 'log') then
-            reaction_xs_spacing[i,rc_num]=xs_spacing_log
-         end if
-         if (xs_var[i] == 'rate') then
-            reaction_xs_var[i,rc_num]=xs_var_rate
-         else if (xs_var[i] == 'density') then
-            reaction_xs_var[i,rc_num]=xs_var_density
-         else if (xs_var[i] == 'temperature') then
-            reaction_xs_var[i,rc_num]=xs_var_temperature
-         else if (xs_var[i] == 'energy') then
-            reaction_xs_var[i,rc_num]=xs_var_energy
-         end if
-         size=size*reaction_xs_tab_index[i,rc_num]
-         if (reaction_xs_spacing[i,rc_num] == xs_spacing_linear) then
-            reaction_xs_min[i,rc_num]=xs_min[i]*xs_mult[i]
-            reaction_xs_delta[i,rc_num]=
-     $           (xs_max[i]-xs_min[i])*xs_mult[i]/
-     $           areal(reaction_xs_tab_index[i,rc_num]-1)
-         else if (reaction_xs_spacing[i,rc_num] == xs_spacing_log) then
-            reaction_xs_min[i,rc_num]=log(xs_min[i]*xs_mult[i])
-            reaction_xs_delta[i,rc_num]=
-     $           log(xs_max[i]/xs_min[i])/
-     $           areal(reaction_xs_tab_index[i,rc_num]-1)
-         else
-            assert('Unknown spacing type' == ' ')
-         end if
-      end do
-      do i=xs_rank+1,xs_table_rank_max
-         reaction_xs_tab_index[i,rc_num]=1
-      end do
-      reaction_xs_base[rc_num]=xs_base_max
-      var_reallocc(reaction_xsection_table,xs_base_max-1,xs_base_max-1+size)
-      do k=0,xs_tab_index3-1
-         do j=0,xs_tab_index2-1
-            do i=0,xs_tab_index1-1
-               if (reaction_xs_spacing[0,rc_num] == xs_spacing_linear) then
-                  rd_xsection3(rc_num,i,j,k)=xs_table[i,j,k]*xs_mult[0]
-               else
-                  rd_xsection3(rc_num,i,j,k)=log(xs_table[i,j,k]*xs_mult[0])
-               end if
-            end do
-         end do
-      end do
-      xs_base_max=xs_base_max+size
-
-      var_free(xs_table)
-      return
-      end
-@#endif
 
 @ Write out data into netcdf file \verb+reactions.nc+
       

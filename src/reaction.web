@@ -2,6 +2,10 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.12  1995/04/24 14:21:22  karney
+% Remove some unused variables.  Introduce a coordinate system for plasma
+% flow.
+%
 % Revision 1.11  1995/04/12 18:34:18  karney
 % Merge in comments to array.hweb and changes for Sherwood '95 meeting.
 %
@@ -161,39 +165,39 @@ uses the old hardwired scheme.
       external interpolate1,interpolate2,interpolate3 // External
       real interpolate1,interpolate2,interpolate3
       
-      assert( reaction_organization[r] == xs_organization_table )
-      assert( reaction_xs_var[0,r] == xs_var_rate )
+      assert( reaction_organization[r][rd_rate] == xs_organization_table )
+      assert( reaction_data_var[r][rd_rate][0] == xs_var_rate )
 
-      do i=1,reaction_xs_rank[r]
-         if (reaction_xs_var[i,r] == xs_var_density) then
+      do i=1,reaction_data_rank[r][rd_rate]
+         if (reaction_data_var[r][rd_rate][i] == xs_var_density) then
             fvar[i] = nb
-         else if (reaction_xs_var[i,r] == xs_var_energy) then
+         else if (reaction_data_var[r][rd_rate][i] == xs_var_energy) then
             vc_difference(vt,vb,vrel)
             fvar[i] = half*sp_m(t)*atomic_mass_unit*vc_abs2(vrel)
-         else if (reaction_xs_var[i,r] == xs_var_temperature) then
+         else if (reaction_data_var[r][rd_rate][i] == xs_var_temperature) then
             fvar[i] = electron_charge*tb
          else
             assert('Unknown variable' == ' ')
          end if
-         if (reaction_xs_spacing[i,r] == xs_spacing_log) fvar[i] = log(fvar[i])
-         fvar[i] = (fvar[i]-reaction_xs_min[i,r])/reaction_xs_delta[i,r]
+         if (reaction_data_spacing[r][rd_rate][i] == xs_spacing_log) fvar[i] = log(fvar[i])
+         fvar[i] = (fvar[i]-reaction_data_min[r][rd_rate][i])/reaction_data_delta[r][rd_rate][i]
       end do
       
-      if (reaction_xs_rank[r] == 1) then
+      if (reaction_data_rank[r][rd_rate] == 1) then
          cross_section=interpolate1(fvar,
-     $        reaction_xsection_table[reaction_xs_base[r]],
-     $        reaction_xs_tab_index[1,r])
-      else if (reaction_xs_rank[r] == 2) then
+     $        reaction_data_table[reaction_data_base[r][rd_rate]],
+     $        reaction_data_tab_index[r][rd_rate][1])
+      else if (reaction_data_rank[r][rd_rate] == 2) then
          cross_section=interpolate2(fvar,
-     $        reaction_xsection_table[reaction_xs_base[r]],
-     $        reaction_xs_tab_index[1,r])
-      else if (reaction_xs_rank[r] == 3) then
+     $        reaction_data_table[reaction_data_base[r][rd_rate]],
+     $        reaction_data_tab_index[r][rd_rate][1])
+      else if (reaction_data_rank[r][rd_rate] == 3) then
          cross_section=interpolate3(fvar,
-     $        reaction_xsection_table[reaction_xs_base[r]],
-     $        reaction_xs_tab_index[1,r])
+     $        reaction_data_table[reaction_data_base[r][rd_rate]],
+     $        reaction_data_tab_index[r][rd_rate][1])
       end if
       
-      if (reaction_xs_spacing[0,r] == xs_spacing_log) cross_section=exp(cross_section)
+      if (reaction_data_spacing[r][rd_rate][0] == xs_spacing_log) cross_section=exp(cross_section)
       
       reaction_rate_a=cross_section*nb
       
@@ -338,71 +342,73 @@ constant.
       
       assert(xs_name==rc_sy(pr_reaction(num)))
 
+      jdep=0
       do j=1,xs_num_dep_var
-         if (xs_var[0,j] == 'rate') jdep=j
+         if (xs_var[0,j] == 'rate' || xs_var[0,j] == 'reaction_rate' ) jdep=j
       end do
+      assert(jdep>0)
 
-      assert(xs_organization[jdep]=='table')
-      if (xs_organization[jdep]=='table') then
-         reaction_organization[num]=xs_organization_table
+      assert(xs_organization[jdep]SP(1:5)=='table')
+      if (xs_organization[jdep]SP(1:5)=='table') then
+         reaction_organization[num][rd_rate]=xs_organization_table
       end if
       assert(xs_rank[jdep] > 0 && xs_rank[jdep] <= xs_table_rank_max)
-      reaction_xs_rank[num]=xs_rank[jdep]
+      reaction_data_rank[num][rd_rate]=xs_rank[jdep]
       i=0
       assert(xs_spacing[i,jdep] == 'linear' || xs_spacing[i,jdep] == 'log')
       
       if (xs_spacing[i,jdep] == 'linear') then
-         reaction_xs_spacing[i,num]=xs_spacing_linear
+         reaction_data_spacing[num][rd_rate][i]=xs_spacing_linear
       else if (xs_spacing[i,jdep] == 'log') then
-         reaction_xs_spacing[i,num]=xs_spacing_log
+         reaction_data_spacing[num][rd_rate][i]=xs_spacing_log
       end if
-      if (xs_var[i,jdep] == 'rate') then
-         reaction_xs_var[i,num]=xs_var_rate
+      if (xs_var[i,jdep] == 'rate' || xs_var[i,jdep] == 'reaction_rate') then
+         reaction_data_var[num][rd_rate][i]=xs_var_rate
       else if (xs_var[i,jdep] == 'density') then
-         reaction_xs_var[i,num]=xs_var_density
+         reaction_data_var[num][rd_rate][i]=xs_var_density
       else if (xs_var[i,jdep] == 'temperature') then
-         reaction_xs_var[i,num]=xs_var_temperature
+         reaction_data_var[num][rd_rate][i]=xs_var_temperature
       else if (xs_var[i,jdep] == 'energy') then
-         reaction_xs_var[i,num]=xs_var_energy
+         reaction_data_var[num][rd_rate][i]=xs_var_energy
       end if
       size=1
       do i=1,xs_rank[jdep]
-         reaction_xs_tab_index[i,num] = xs_tab_index[i,jdep]
-         assert(reaction_xs_tab_index[i,num] > 1)
+         reaction_data_tab_index[num][rd_rate][i] = xs_tab_index[i,jdep]
+         assert(reaction_data_tab_index[num][rd_rate][i] > 1)
          if (xs_spacing[i,jdep] == 'linear') then
-            reaction_xs_spacing[i,num]=xs_spacing_linear
+            reaction_data_spacing[num][rd_rate][i]=xs_spacing_linear
          else if (xs_spacing[i,jdep] == 'log') then
-            reaction_xs_spacing[i,num]=xs_spacing_log
+            reaction_data_spacing[num][rd_rate][i]=xs_spacing_log
          end if
-         if (xs_var[i,jdep] == 'rate') then
-            reaction_xs_var[i,num]=xs_var_rate
+         if (xs_var[i,jdep] == 'rate' || xs_var[i,jdep] == 'reaction_rate') then
+            reaction_data_var[num][rd_rate][i]=xs_var_rate
          else if (xs_var[i,jdep] == 'density') then
-            reaction_xs_var[i,num]=xs_var_density
+            reaction_data_var[num][rd_rate][i]=xs_var_density
          else if (xs_var[i,jdep] == 'temperature') then
-            reaction_xs_var[i,num]=xs_var_temperature
+            reaction_data_var[num][rd_rate][i]=xs_var_temperature
          else if (xs_var[i,jdep] == 'energy') then
-            reaction_xs_var[i,num]=xs_var_energy
+            reaction_data_var[num][rd_rate][i]=xs_var_energy
          end if
-         size=size*reaction_xs_tab_index[i,num]
-         if (reaction_xs_spacing[i,num] == xs_spacing_linear) then
-            reaction_xs_min[i,num]=xs_min[i,jdep]*xs_mult[i,jdep]
-            reaction_xs_delta[i,num]=
+         size=size*reaction_data_tab_index[num][rd_rate][i]
+         if (reaction_data_spacing[num][rd_rate][i] == xs_spacing_linear) then
+            reaction_data_min[num][rd_rate][i]=xs_min[i,jdep]*xs_mult[i,jdep]
+            reaction_data_delta[num][rd_rate][i]=
      $           (xs_max[i,jdep]-xs_min[i,jdep])*xs_mult[i,jdep]/
-     $           areal(reaction_xs_tab_index[i,num]-1)
-         else if (reaction_xs_spacing[i,num] == xs_spacing_log) then
-            reaction_xs_min[i,num]=log(xs_min[i,jdep]*xs_mult[i,jdep])
-            reaction_xs_delta[i,num]=
+     $           areal(reaction_data_tab_index[num][rd_rate][i]-1)
+         else if (reaction_data_spacing[num][rd_rate][i] == xs_spacing_log) then
+            reaction_data_min[num][rd_rate][i]=log(xs_min[i,jdep]*xs_mult[i,jdep])
+            reaction_data_delta[num][rd_rate][i]=
      $           log(xs_max[i,jdep]/xs_min[i,jdep])/
-     $           areal(reaction_xs_tab_index[i,num]-1)
+     $           areal(reaction_data_tab_index[num][rd_rate][i]-1)
          else
             assert('Unknown spacing type' == ' ')
          end if
       end do
       do i=xs_rank[jdep]+1,xs_table_rank_max
-         reaction_xs_tab_index[i,num]=1
+         reaction_data_tab_index[num][rd_rate][i]=1
       end do
-      reaction_xs_base[num]=xs_base_max
-      var_reallocc(reaction_xsection_table,xs_base_max-1,xs_base_max-1+size)
+      reaction_data_base[num][rd_rate]=rd_table_size
+      var_reallocc(reaction_data_table,rd_table_size-1,rd_table_size-1+size)
       do k=0,xs_tab_index[3,jdep]-1
          do j=0,xs_tab_index[2,jdep]-1
             do i=0,xs_tab_index[1,jdep]-1
@@ -417,15 +423,19 @@ constant.
                else if (jdep == 5) then
                   table_entry=xs_table5(i,j,k)
                end if
-               if (reaction_xs_spacing[0,num] == xs_spacing_linear) then
-                  rd_xsection3(num,i,j,k)=table_entry*xs_mult[0,jdep]
+               if (reaction_data_spacing[num][rd_rate][0] == xs_spacing_linear) then
+                  rd_rate3(num,i,j,k)=table_entry*xs_mult[0,jdep]
                else
-                  rd_xsection3(num,i,j,k)=log(table_entry*xs_mult[0,jdep])
+                  rd_rate3(num,i,j,k)=log(table_entry*xs_mult[0,jdep])
                end if
             end do
          end do
       end do
-      xs_base_max=xs_base_max+size
+      rd_table_size=rd_table_size+size
+
+      do j=1,xs_dep_var_max
+         if (j != rd_rate) reaction_data_var[num][j][0]=xs_var_unknown
+      end do
 
       return
       end
@@ -440,20 +450,15 @@ constant.
       rd_common
       sy_common
             
-      call nc_read_elements
-      call nc_read_species
-      call nc_read_reactions
-      call nc_read_problem
-
-      xs_base_max=0
+      rd_table_size=0
       var_alloc(reaction_organization)
-      var_alloc(reaction_xs_min)
-      var_alloc(reaction_xs_delta)
-      var_alloc(reaction_xs_rank)
-      var_alloc(reaction_xs_spacing)
-      var_alloc(reaction_xs_base)
-      var_alloc(reaction_xs_tab_index)
-      var_alloc(reaction_xs_var)
+      var_alloc(reaction_data_min)
+      var_alloc(reaction_data_delta)
+      var_alloc(reaction_data_rank)
+      var_alloc(reaction_data_spacing)
+      var_alloc(reaction_data_base)
+      var_alloc(reaction_data_tab_index)
+      var_alloc(reaction_data_var)
 
       do i=1,pr_reaction_num
          write(stdout,*) pr_reaction(i)

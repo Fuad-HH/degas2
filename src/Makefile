@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.22  1995/04/12 18:34:00  karney
+# Merge in comments to array.hweb and changes for Sherwood '95 meeting.
+#
 # Revision 1.21  1995/03/30 17:07:04  karney
 # Add readbackground
 #
@@ -184,7 +187,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
-    ratecalc.hweb problem.hweb
+    ratecalc.hweb problem.hweb reactiondata.hweb
 
 %.f: %.web $(HEADERS) fixit
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -279,7 +282,7 @@ datasetup = elementread.$O elementsetup.$O speciesetup.$O reactionsetup.$O
 datasetup_libs = $(NETCDF)
 datasetup: $(datasetup)
 
-problemsetup = elementread.$O
+problemsetup = elementread.$O reaction.$O
 problemsetup_libs = $(NETCDF)
 problemsetup: $(problemsetup)
 
