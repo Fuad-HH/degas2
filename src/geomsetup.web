@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.32  1998/04/16 15:31:03  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.31  1998/03/11 15:00:06  dstotler
 % Add allocation statements for plasma_e_ion_mult and
 % plasma_e_ion_delta.
@@ -203,53 +206,79 @@ uninitialized; these are set in |boundaries_neighbors|.
 
       sc_vacuum_num=0
       var_realloca(vacuum_sector)
+      vacuum_sector[sc_vacuum_num]=int_unused
       
       sc_plasma_num=0
       var_realloca(plasma_sector)
+      plasma_sector[sc_plasma_num]=int_unused
       var_realloca(plasma_e_ion_delta)
+      plasma_e_ion_delta[sc_plasma_num]=real_unused
       var_realloca(plasma_e_ion_mult)
+      plasma_e_ion_mult[sc_plasma_num]=real_unused
 
       sc_target_num=0
       var_realloca(target_sector)
+      target_sector[sc_target_num]=int_unused
       var_realloca(target_material)
+      target_material[sc_target_num]=int_unused
       var_realloca(target_temperature)
+      target_temperature[sc_target_num]=real_unused
 
       sc_wall_num=0
       var_realloca(wall_sector)
+      wall_sector[sc_wall_num]=int_unused
       var_realloca(wall_material)
+      wall_material[sc_wall_num]=int_unused
       var_realloca(wall_temperature)
+      wall_temperature[sc_wall_num]=real_unused
 
       sc_exit_num=0
       var_realloca(exit_sector)
+      exit_sector[sc_exit_num]=int_unused
       var_realloca(exit_albedo)
+      exit_albedo[sc_exit_num]=real_unused
 
       sc_diagnostic_grps=0
       var_realloca(diagnostic_grp_name)
+      diagnostic_grp_name[sc_diagnostic_grps]=char_unused
       var_realloca(diagnostic_num_sectors)
+      diagnostic_num_sectors[sc_diagnostic_grps]=int_unused
       var_realloca(diagnostic_var)
+      diagnostic_var[sc_diagnostic_grps]=int_unused
       var_realloca(diagnostic_tab_index)
+      diagnostic_tab_index[sc_diagnostic_grps]=int_unused
       var_realloca(diagnostic_min)
+      diagnostic_min[sc_diagnostic_grps]=real_unused
       var_realloca(diagnostic_delta)
+      diagnostic_delta[sc_diagnostic_grps]=real_unused
       var_realloca(diagnostic_spacing)
+      diagnostic_spacing[sc_diagnostic_grps]=int_unused
       var_realloca(diagnostic_grp_base)
+      diagnostic_grp_base[sc_diagnostic_grps]=int_unused
 
       de_grps=0
       var_realloca(detector_name)
+      detector_name[de_grps]=char_unused
       var_realloca(detector_num_views)
+      detector_num_views[de_grps]=int_unused
       var_realloca(detector_var)
+      detector_var[de_grps]=int_unused
       var_realloca(detector_tab_index)
+      detector_tab_index[de_grps]=int_unused
       var_realloca(detector_min)
+      detector_min[de_grps]=real_unused
       var_realloca(detector_delta)
+      detector_delta[de_grps]=real_unused
       var_realloca(detector_spacing)
+      detector_spacing[de_grps]=int_unused
       var_realloca(de_view_base)
+      de_view_base[de_grps]=int_unused
       
       zn_num=0
       $DO(I,1,zn_type_max) {
           zone_type_num[I]=0;
       }
       
-      strata[0]=0      // Need this?
-
       call init_mem
 
       return
