@@ -2,6 +2,9 @@
 \def\Wtitle{elementsetup}
 
 % $Log$
+% Revision 1.6  1993/10/25  22:30:34  karney
+% Fix netcdf declarations
+%
 % Revision 1.5  1993/09/27  22:07:46  karney
 % Update netcdf interface.
 %
@@ -72,11 +75,11 @@ loop1: continue
       length=parse_string(line(:length))
       p=0
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(i)') el_z(el_num)
+      read(line(b:e),'(i10)') el_z(el_num)
       assert( next_token(line,b,e,p) )
       read(line(b:e),'(a)') el_sy(el_num)
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(f)') el_m(el_num)
+      read(line(b:e),'(f20.10)') el_m(el_num)
       assert( next_token(line,b,e,p) )
       read(line(b:e),'(a)') el_name(el_num)
       goto loop1
@@ -98,9 +101,8 @@ eof:  continue
       nc_common                 // Local
       integer fileid
       el_ncdecl
+      st_common
       character*80 description,program_version
-      external string_length,nccreate,ncvardef,ncdimdef // External
-      integer string_length,nccreate,ncvardef,ncdimdef
 
       program_version=
      $     '$Id$'

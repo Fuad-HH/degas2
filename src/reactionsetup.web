@@ -2,6 +2,9 @@
 \def\Wtitle{reactionsetup}
 
 % $Log$
+% Revision 1.4  1993/11/15  21:49:58  karney
+% Pre APS checkin.
+%
 % Revision 1.3  1993/10/22  19:13:28  karney
 % Fix comment character
 %
@@ -61,17 +64,21 @@ Introduction\ldots
 loop1: continue
       if (! read_string(diskin,line,length) ) goto eof
       rc_num=rc_num+1
+      rc_tn_num=rc_num          // Temporary kludge
+      rc_te_num=rc_num
       var_realloca(reaction_name)
       var_realloca(reaction_sy)
       var_realloca(reaction_reagant_num)
       var_realloca(reaction_product_num)
       var_realloca(reaction_reagant)
       var_realloca(reaction_product)
+      var_realloca(reaction_type)
       var_realloca(tn_cross_section_table)
       var_realloca(te_cross_section_table)
 
       length=parse_string(line(:length))
       reaction_name[rc_num]=line(:length)
+      reaction_type[rc_num]='unknown'
       assert(read_string(diskin,line,length))
       length=parse_string(line(:length))
       
@@ -126,12 +133,15 @@ loop:    continue
       goto loop1
 eof:  continue
       close(unit=diskin)
-      var_realloca(reaction_name)
-      var_realloca(reaction_sy)
-      var_realloca(reaction_reagant_num)
-      var_realloca(reaction_product_num)
-      var_realloca(reaction_reagant)
-      var_realloca(reaction_product)
+      var_reallocb(reaction_name)
+      var_reallocb(reaction_sy)
+      var_reallocb(reaction_reagant_num)
+      var_reallocb(reaction_product_num)
+      var_reallocb(reaction_reagant)
+      var_reallocb(reaction_product)
+      var_reallocb(reaction_type)
+      var_reallocb(tn_cross_section_table)
+      var_reallocb(te_cross_section_table)
 
       return
       end

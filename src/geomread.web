@@ -2,6 +2,9 @@
 \def\Wtitle{geomread}
 
 % $Log$
+% Revision 1.6  1993/10/25  22:33:09  karney
+% Add a 'geometry' test species.
+%
 % Revision 1.5  1993/10/11  19:08:22  karney
 % Normalize temperature of center cell correctly.
 %
@@ -104,7 +107,7 @@ break: continue
       sy_common
       integer ix,iy,i,j,n1,n2   // Local
       integer face,surf_type,zone
-      real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99],a[3],x0[3],vol
+      real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99],a[3],x0[3]
       ptr_decl(ccr)
       ptr_decl(ccz)
       ptr_decl(ne)
@@ -404,8 +407,8 @@ break: continue
       subroutine init_background(nx,ny)
       implicit_none
       integer nx,ny
-      bk_common
       zn_common
+      bk_common
       sp_common
       st_common
       sy_common
@@ -427,13 +430,11 @@ break: continue
       subroutine write_background
       implicit_none
       integer fileid
+      zn_common
       bk_common
       bk_ncdecl
       vc_ncdecl
-      zn_common
       nc_common
-
-      integer fileid
 
       fileid = nccreate('background.nc',NC_CLOBBER,nc_stat)
       vc_ncdef(fileid)
@@ -457,8 +458,8 @@ break: continue
       st_common
       sy_common
       rc_common
-      bk_common
       zn_common
+      bk_common
       integer i,j,k
       
       ts_num=2
@@ -502,8 +503,6 @@ break:         continue
       ts_common
       ts_ncdecl
       nc_common
-
-      integer fileid
 
       fileid = nccreate('test.nc',NC_CLOBBER,nc_stat)
       ts_ncdef(fileid)
