@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.11  1996/03/01 20:21:47  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.10  1995/06/27 13:24:47  dstotler
 % Begin using specific energy and temperature variable types.
 %
@@ -53,10 +57,10 @@ Information about crosssections.
 @I reaction.hweb
 
 @ Constant definitions.
-
 @m xs_organization_unknown 0    // Types of data organization
 @m xs_organization_table 1
 @m xs_organization_fit 2
+@m xs_organization_cramd 3
 
 @m xs_spacing_unknown 0          // Types of spacing in TABLES
 @m xs_spacing_linear 1
@@ -70,21 +74,20 @@ Information about crosssections.
 @m xs_var_sp_temperature 5
 @m xs_var_rate 6                // Indices for dependent variables
 @m xs_var_cross_section 7
+@m xs_var_zone 8
+@m xs_var_bin 9
 
 @m xs_unit_string_length 12     // The length of the unit specifications
 @m xs_tag_string_length 20      // The length of variable names and spacings
 @m xs_eval_name_length 40       // Routine used to evaluate FITS
 
 @m xs_table_rank_max 3          // The biggest rank table
-@m xs_dep_var_max 5             // Maximum number of dependent variables
+@m xs_dep_var_max 20             // Maximum number of dependent variables
 
-@ Accessor functions for |xs_tabn| to make them look like 3-dimensional arrays.
+@ Accessor functions for |xs_data_tab| to make it look like a 
+4-dimensional arrays.
 
-@m xs_table1(i,j,k) xs_tab1[i+xs_tab_index[1][1]*(j+xs_tab_index[1][2]*k)]
-@m xs_table2(i,j,k) xs_tab2[i+xs_tab_index[2][1]*(j+xs_tab_index[2][2]*k)]
-@m xs_table3(i,j,k) xs_tab3[i+xs_tab_index[3][1]*(j+xs_tab_index[3][2]*k)]
-@m xs_table4(i,j,k) xs_tab4[i+xs_tab_index[4][1]*(j+xs_tab_index[4][2]*k)]
-@m xs_table5(i,j,k) xs_tab5[i+xs_tab_index[5][1]*(j+xs_tab_index[5][2]*k)]
+@m xs_data_table(i,j,k,n) xs_data_tab[i+xs_tab_index[1,n]*(j+xs_tab_index[2,n]*k)+xs_data_base[n]]
 
 @ variable definitions.
 
@@ -95,22 +98,17 @@ Information about crosssections.
       define_dimen_pk(xs,rank_ind0,0,xs_table_rank_max)
       define_dimen_pk(xs,dep_var_ind,xs_dep_var_max)
 
-      define_var_pk(xs,xs_tab_index,INT,rank_ind,dep_var_ind)
-/*
-   Note: the ``5'' and ``3'' used below and in |xs_tablej| below correspond
-   to |xs_dep_var_max| and |xs_table_rank_max|, respectively. 
-*/
-
-      define_dimen_pk(xs,indexv1_ind,0,xs_tab_index[1][1]*xs_tab_index[1][2]*xs_tab_index[1][3]-1)
-      define_dimen_pk(xs,indexv2_ind,0,xs_tab_index[2][1]*xs_tab_index[2][2]*xs_tab_index[2][3]-1)
-      define_dimen_pk(xs,indexv3_ind,0,xs_tab_index[3][1]*xs_tab_index[3][2]*xs_tab_index[3][3]-1)
-      define_dimen_pk(xs,indexv4_ind,0,xs_tab_index[4][1]*xs_tab_index[4][2]*xs_tab_index[4][3]-1)
-      define_dimen_pk(xs,indexv5_ind,0,xs_tab_index[5][1]*xs_tab_index[5][2]*xs_tab_index[5][3]-1)
-
       define_dimen_pk(xs,unit_string,xs_unit_string_length)
       define_dimen_pk(xs,tag_string,xs_tag_string_length)
       define_dimen_pk(xs,xs_symbol_string,rc_sy_len)
       define_dimen_pk(xs,eval_name,xs_eval_name_length)
+
+/* The ''size'' variables get used in the table allocation macros. */
+
+      define_var_pk(xs,xs_tab_index,INT,rank_ind,dep_var_ind)
+
+      define_var_pk(xs,xs_data_size,INT)
+      define_dimen_pk(xs,xs_data_ind,0,xs_data_size-1)
 
       define_var_pk(xs,xs_name,CHAR,xs_symbol_string)
       define_var_pk(xs,xs_num_dep_var,INT)
@@ -126,16 +124,71 @@ Information about crosssections.
       define_var_pk(xs,xs_units,CHAR,unit_string,rank_ind0,dep_var_ind)
       define_var_pk(xs,xs_eval_name,CHAR,eval_name,dep_var_ind)
 
-      define_varp_pk(xs,xs_tab1,FLOAT,indexv1_ind)
-      define_varp_pk(xs,xs_tab2,FLOAT,indexv2_ind)
-      define_varp_pk(xs,xs_tab3,FLOAT,indexv3_ind)
-      define_varp_pk(xs,xs_tab4,FLOAT,indexv4_ind)
-      define_varp_pk(xs,xs_tab5,FLOAT,indexv5_ind)
+/* Main Variable Definitions */
+
+      define_var_pk(xs,xs_data_base,INT,dep_var_ind)
+      define_var_pk(xs,xs_data_inc,INT,dep_var_ind)
+      define_varp_pk(xs,xs_data_tab,FLOAT,xs_data_ind)
 
 @ Common blocks definitions.
 
 @f xs_common integer
 @m xs_common
       xs_common_a;
-      xs_common_b @;
+      xs_common_b;
+      character*LINELEN xsection_version;
+      common /com_xs_c/ xsection_version;
+      save /com_xs_c/ @;
 
+@ Other macros
+
+/*
+      The following macros are merely renamed versions from pmiformat.hweb.
+      Any description may be found in that file.
+*/
+
+@m set_base1(x,y)
+      $ASSERT( range_min(ind_##x##_base_1) == range_min(ind_##y##_1) && range_max(ind_##x##_base_1) == range_max(ind_##y##_1)) 
+      x##_base[range_min(ind_##x##_base_1)]=0;
+      $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
+         x##_base[I]=x##_base[I-1]+y[I-1];
+      }
+      x##_size=x##_base[range_max(ind_##x##_base_1)]+y[range_max(ind_##y##_1)] @;
+
+@m set_base2(x,y) 
+      $ASSERT( range_min(ind_##x##_base_1) == range_min(ind_##y##_1) && range_max(ind_##x##_base_1) == range_max(ind_##y##_1))
+      $ASSERT( range_min(ind_##x##_base_2) == range_min(ind_##y##_2) && range_max(ind_##x##_base_2) == range_max(ind_##y##_2)) 
+      x##_base[range_min(ind_##x##_base_1),range_min(ind_##x##_base_2)]=0;
+      $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
+         x##_base[I,range_min(ind_##x##_base_2)]=x##_base[I-1,range_min(ind_##x##_base_2)]+y[I-1,range_min(ind_##y##_2)];
+      }
+      $DO(J,range_min(ind_##x##_base_2)+1,range_max(ind_##x##_base_2)) {
+         x##_base[range_min(ind_##x##_base_1),J]=x##_base[pf_table_rank_max,J-1]+y[range_max(ind_##y##_1),J-1];
+         $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
+            x##_base[I,J]=x##_base[I-1,J]+y[I-1,J];
+         }
+      }
+      x##_size=x##_base[range_max(ind_##x##_base_1),range_max(ind_##x##_base_2)]+y[range_max(ind_##y##_1),range_max(ind_##y##_2)] @;
+
+@m set_base(x,y)
+      $IFCASE(rank_##x##_base,,set_base1(x,y),set_base2(x,y),)
+
+@m set_inc(x,y)
+/*  \begin{verbatim}     $ASSERT( rank##y == 2) \end{verbatim}  */
+      $DO(J,range_min(ind_##y##_2),range_max(ind_##y##_2)) {
+         x##_inc[J]=1;
+         $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
+            x##_inc[J]=x##_inc[J]*y[I,J]; 
+         }
+      }
+
+@m xs_ragged_alloc(x,y)
+      $IF( rank_##x##_base == rank_##y, $DEFINE( x##_inc y), set_inc(x,y) )
+      set_base(x,x##_inc);
+      var_alloc(x##_tab) @;
+
+@m xs_ragged_realloc(x,y)
+      old_size=x##_size;
+      $IF( rank_##x##_base == rank_##y, $DEFINE( x##_inc y), set_inc(x,y) )
+      set_base(x,x##_inc);
+      var_realloc(x##_tab,old_size-1,x##_size-1) @;      
