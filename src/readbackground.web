@@ -2,6 +2,11 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.17  1997/08/19 14:37:00  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.16  1997/08/07 20:19:40  dstotler
 % Replace reaction_rate_a with call to (revised) find_rate suitable
 % for use with bk_rc. Moved set_background_sources to writeback.web so
@@ -290,7 +295,7 @@ of the file name (x.d is degas and x.u for uedge) */
             vc_set(bk_v(1,zone),zero,zero,zero)
             do js=1,nohyds
 /* This assumes only singly charged ions. Same assumption made below. */
-               jsp=problem_species_background[sp_lookup(trim(sp_sy(degas_species[js])) \/ '+')]
+               jsp=pr_background_lookup(sp_lookup(trim(sp_sy(degas_species[js])) \/ '+'))
                assert(jsp > 1)
                bk_n(jsp,zone)=denihvt[jh,jv,1,js]
                bk_temp(jsp,zone)=electron_charge*tihvt[jh,jv,1,js]
