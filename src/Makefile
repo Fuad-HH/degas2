@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.64  1998/06/01 15:56:29  karney
+# MPI enabled version.
+#
 # Revision 1.63  1998/05/08 13:43:59  dstotler
 # Added local PROF_LD flag (for "-ldl" on Sun); executable matchout.
 #
@@ -292,7 +295,7 @@ ifeq ($(findstring sn,$(SYSTEM)),sn)
   OPTFLAGS=-O3
 endif
 # Figure out target machine
-TARGET=$(notdir $(shell pwd))
+TARGET=$(notdir $(shell pwd | sed 's+-[^/]*$$++'))
 
 ifeq ($(TARGET),SGI)
   MPI=yes
@@ -324,11 +327,15 @@ utils: makemodule idtof Makefile
 -include Makefile.local
 
 ifeq ($(STANDALONE),yes)
+ifndef SOURCEDIR
   SOURCEDIR=$(DEGASROOT)/degas2/src
+endif
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
 else
+ifndef SOURCEDIR
   SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
+endif
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
 endif
