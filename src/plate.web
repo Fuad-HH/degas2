@@ -2,6 +2,9 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.5  1998/01/14 20:46:58  dstotler
+% Replace problem_species_test with pr_test_lookup.
+%
 % Revision 1.4  1997/08/19 14:36:47  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -414,11 +417,13 @@ probably be handled entirely at a higher level.
          else if (pmi_handling_var0[pmi_sub][j]=='cos_polar_angle_out') then
             cos_theta=pd_eval_data(pd_data_args(pmi_handling,[pmi_sub][j]),
      $           independent_parameters,rn_args(x))
+            assert(cos_theta <= one)
             sin_theta=sqrt(one-cos_theta**2)
             cos_theta_set=.true.
          else if (pmi_handling_var0[pmi_sub][j] == 'cos_azi_angle_out') then
             cos_phi=pd_eval_data(pd_data_args(pmi_handling,[pmi_sub][j]),
      $           independent_parameters,rn_args(x))
+            assert(abs(cos_phi) <= one)
             sin_phi=sqrt(one-cos_phi**2)
             rn_next(ran,x)
             if (ran > 0.5) sin_phi=-sin_phi
@@ -1037,6 +1042,8 @@ information into PMI yield and handling arrays.
                   var[i]=pf_var_vel_3_in
                else if (pf_var[i,jdep] == 'polar_angle_in') then
                   var[i]=pf_var_polar_angle_in
+               else if (pf_var[i,jdep] == 'cos_polar_angle_in') then
+                  var[i]=pf_var_cos_polar_angle_in
                else if (pf_var[i,jdep] == 't_wall') then
                   var[i]=pf_var_t_wall
                else if (pf_var[i,jdep] == '1st_random_number') then
