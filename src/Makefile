@@ -50,7 +50,7 @@ ifeq ($(MACHINE),CRAY)
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
 else
-  SOURCEDIR=$(HOME)/degas/degas2/nsrc
+  SOURCEDIR=/u/karney/degas/degas2/nsrc
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
 endif
@@ -217,6 +217,10 @@ reactionsetup = elementread.$O
 reactionsetup_libs = $(NETCDF)
 reactionsetup: $(reactionsetup)
 
+geomread = geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composite.$O string.$O elementread.$O
+geomread_libs = $(NETCDF)
+geomread: $(geomread)
+
 #elementread: sysdep.$O
 #test: sysdep.$O
 #sysdeptest: sysdep.$O string.$O
@@ -224,7 +228,7 @@ array: sysdep.$O
 teststring: sysdep.$O string.$O
 geomtest: geometry.$O geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O composite.$O string.$O
 #geomtesta: geometry.$O sysdep.$O string.$O plotgeom.$O elementread.$O
-geomread: geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composite.$O string.$O elementread.$O
+#geomread: geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composite.$O string.$O elementread.$O
 #pvmmaster: pvmmaster.$O sysdep.$O random.$O stat.$O geometry.$O
 #pvmslave: pvmslave.$O sysdep.$O random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O string.$O reaction.$O geomfront.$O
 elementlookup: sysdep.$O string.$O
