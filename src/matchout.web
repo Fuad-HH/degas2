@@ -2,6 +2,9 @@
 \Title{matchout}
 
 % $Log$
+% Revision 1.1  1998/05/08 13:53:43  dstotler
+% Initial version which does just the simplest possible comparison.
+%
 
 @* Read in two output files and compare contents, both absolutely and 
 relative to standard deviations.
@@ -18,6 +21,7 @@ relative to standard deviations.
 @I readfilenames.hweb
 @I problem.hweb
 @I background.hweb
+@I string.hweb
 
 @ The main program
 
@@ -68,8 +72,8 @@ required comparisons.
       rf_common
       implicit_none_f90
 
-      integer i,is,index_max,index_rel_max                         // Local
-      real diff,diff_rel,delta_max,delta_rel_max
+      integer i,is
+      real sig_max
       character*FILELEN file2
 
       @<Memory allocation interface@>
@@ -88,7 +92,7 @@ required comparisons.
          one_all[i][o_mean]=output_all[i][o_mean]
          one_all[i][o_var]=output_all[i][o_var]
          one_post_all[i][o_mean]=out_post_all[i][o_mean]
-         one_post_all[i][o_var]=out_post_all[i][o_var]
+         one_post_all[i][o_var]=output_all[i][o_var]   // May change this!!
       end do
 
       do is=1,so_grps
@@ -96,149 +100,192 @@ required comparisons.
             one_grp[is][i][o_mean]=output_grp[is][i][o_mean]
             one_grp[is][i][o_var]=output_grp[is][i][o_var]
             one_post_grp[is][i][o_mean]=out_post_grp[is][i][o_mean]
-            one_post_grp[is][i][o_var]=out_post_grp[is][i][o_var]
+            one_post_grp[is][i][o_var]=output_grp[is][i][o_var]  // May change!
          end do
       end do
 
       filenames_array[outputfile]=file2
       call nc_read_output
 
-      delta_max=-one
-      delta_rel_max=-one
-      index_max=-1
-      index_rel_max=-1
-      do i=0,tally_size-1
-         if (one_all[i][o_mean] != zero) then
-            diff=abs((one_all[i][o_mean]-output_all[i][o_mean])/one_all[i][o_mean])
-            if (one_all[i][o_var] > zero) then
-               diff_rel=diff/one_all[i][o_var]
-            else
-               diff_rel=zero
-            end if
-         else
-            diff=zero
-            diff_rel=zero
-         end if
-         if (diff > delta_max) then
-            index_max=i
-            delta_max=diff
-         end if
-         if (diff_rel > delta_rel_max) then
-            index_rel_max=i
-            delta_rel_max=diff_rel
-         end if
+      do i=0,tally_size
+         out_post_all[i][o_var]=output_all[i][o_var]  // May change
       end do
 
-      write(stdout,*) ' Largest differences in output_all: '
-      write(stdout,*) ' At i = ',index_max,' % difference = ',
-     $     delta_max*const(1.,2)
-      write(stdout,*) ' At i = ',index_rel_max,' difference / std. dev. = ',
-     $     delta_rel_max 
-
-// Should really compute an average here? Compile statistics?
-
       do is=1,so_grps
-         delta_max=-one
-         delta_rel_max=-one
-         index_max=-1
-         index_rel_max=-1
          do i=0,tally_size-1
-            if (one_grp[is][i][o_mean] != zero) then
-               diff=abs((one_grp[is][i][o_mean]-output_grp[is][i][o_mean])/one_grp[is][i][o_mean])
-               if (one_grp[is][i][o_var] > zero) then
-                  diff_rel=diff/one_grp[is][i][o_var]
-               else
-                  diff_rel=zero
-               end if
-            else
-               diff=zero
-               diff_rel=zero
-            end if
-            if (diff > delta_max) then
-               index_max=i
-               delta_max=diff
-            end if
-            if (diff_rel > delta_rel_max) then
-               index_rel_max=i
-               delta_rel_max=diff_rel
-            end if
+            out_post_grp[is][i][o_var]=output_grp[is][i][o_var] // May change
          end do
       end do
 
-      write(stdout,*) ' Largest differences in output_grp: '
-      write(stdout,*) ' At i = ',index_max,' % difference = ',
-     $     delta_max*const(1.,2)
-      write(stdout,*) ' At i = ',index_rel_max,' difference / std. dev. = ',
-     $     delta_rel_max 
-
-      delta_max=-one
-      delta_rel_max=-one
-      index_max=-1
-      index_rel_max=-1
-      do i=0,tally_size-1
-         if (one_post_all[i][o_mean] != zero) then
-            diff=abs((one_post_all[i][o_mean]-out_post_all[i][o_mean])/one_post_all[i][o_mean])
-            if (one_post_all[i][o_var] > zero) then
-               diff_rel=diff/one_post_all[i][o_var]
-            else
-               diff_rel=zero
-            end if
-         else
-            diff=zero
-            diff_rel=zero
-         end if
-         if (diff > delta_max) then
-            index_max=i
-            delta_max=diff
-         end if
-         if (diff_rel > delta_rel_max) then
-            index_rel_max=i
-            delta_rel_max=diff_rel
-         end if
-      end do
-
-      write(stdout,*) ' Largest differences in out_post_all: '
-      write(stdout,*) ' At i = ',index_max,' % difference = ',
-     $     delta_max*const(1.,2)
-      write(stdout,*) ' At i = ',index_rel_max,' difference / std. dev. = ',
-     $     delta_rel_max 
-
-// Should really compute an average here? Compile statistics?
+      sig_max=const(1.,2)
 
       do is=1,so_grps
+         write(stdout,*) ' output_grp(',is,') :'
+         call compare_output(output_grp[is][0][o_mean],one_grp[is][0][o_mean],sig_max)
+      end do
+
+      write(stdout,*) ' output_all :'
+      call compare_output(output_all[0][o_mean],one_all[0][o_mean],sig_max)
+
+
+      write(stdout,*) ' NOTE: Post-processing variances may be incorrect'
+      do is=1,so_grps
+         write(stdout,*) ' out_post_grp(',is,') :'
+         call compare_output(out_post_grp[is][0][o_mean],one_post_grp[is][0][o_mean],sig_max)
+      end do
+
+      write(stdout,*) ' out_post_all :'
+      call compare_output(out_post_all[0][o_mean],one_post_all[0][o_mean],sig_max)
+
+/*
+   Should call |clear_output| as well, but needs to be moved to some file
+   other than |flighttest.web| to avoid make conflicts.
+*/
+
+      var_free(one_all)
+      var_free(one_grp)
+      var_free(one_post_all)
+      var_free(one_post_grp)
+
+      return
+      end
+
+@ Compare two individual output arrays, tally-by-tally.
+
+@<Functions...@>=
+      subroutine compare_output(scores1,scores2,sig_max)
+
+      implicit_none_f77
+      tl_common                                         // Common
+      pr_common
+      implicit_none_f90
+
+      real sig_max                                      // Input
+      real scores1[0:*][o_mean:o_var],scores2[0:*][o_mean:o_var] 
+
+      integer itot,jscore,ic_max,i_max,j_max,k_max,     // Local
+     $     l_max,m_max,itot_max,ic_rel_max,i_rel_max,
+     $     j_rel_max,k_rel_max,l_rel_max,m_rel_max,
+     $     itot_rel_max,bin1,bin2,bin3,binelse,bin_tot,
+     $     i,j,k,l,m,ic
+      integer ind_val[5]
+      real x1,x2,sig1,sig2,sig_eff,diff,diff_rel,delta_max,delta_rel_max
+
+      @<Memory allocation interface@>
+      st_decls
+
+      itot=-1
+      do jscore=1,tl_num
          delta_max=-one
          delta_rel_max=-one
-         index_max=-1
-         index_rel_max=-1
-         do i=0,tally_size-1
-            if (one_post_grp[is][i][o_mean] != zero) then
-               diff=abs((one_post_grp[is][i][o_mean]-out_post_grp[is][i][o_mean])/one_post_grp[is][i][o_mean])
-               if (one_post_grp[is][i][o_var] > zero) then
-                  diff_rel=diff/one_post_grp[is][i][o_var]
-               else
-                  diff_rel=zero
-               end if
-            else
-               diff=zero
-               diff_rel=zero
-            end if
-            if (diff > delta_max) then
-               index_max=i
-               delta_max=diff
-            end if
-            if (diff_rel > delta_rel_max) then
-               index_rel_max=i
-               delta_rel_max=diff_rel
-            end if
+         ic_max=-1
+         i_max=-1
+         j_max=-1
+         k_max=-1
+         l_max=-1
+         m_max=-1
+         itot_max=-1
+         ic_rel_max=-1
+         i_rel_max=-1
+         j_rel_max=-1
+         k_rel_max=-1
+         l_rel_max=-1
+         m_rel_max=-1
+         itot_rel_max=-1
+         bin1=0
+         bin2=0
+         bin3=0
+         binelse=0
+         do m=1,tally_tab_index[jscore][5]
+            ind_val[5]=m-1
+            do l=1,tally_tab_index[jscore][4]
+               ind_val[4]=l-1
+               do k=1,tally_tab_index[jscore][3]
+                  ind_val[3]=k-1
+                  do j=1,tally_tab_index[jscore][2]
+                     ind_val[2]=j-1
+                     do i=1,tally_tab_index[jscore][1]
+                        ind_val[1]=i-1
+                        do ic=1,tally_dep_var_dim[jscore]
+                           itot++
+                           x1=scores1[out_array_index(ic,ind_val,jscore)][o_mean]
+                           x2=scores2[out_array_index(ic,ind_val,jscore)][o_mean]
+                           sig1=scores1[out_array_index(ic,ind_val,jscore)][o_var]
+                           sig2=scores2[out_array_index(ic,ind_val,jscore)][o_var]
+                           sig_eff=sqrt(sig1**2+sig2**2)
+                           if (x1 != zero && x2 != zero) then
+                              diff=abs(x1-x2)/abs(x1)
+                           else if (x1 == zero && x2 == zero) then
+                              diff=zero
+                           else
+                              diff=one  // One's $=0$, the other's not!
+                           end if
+
+                           assert(sig_eff >= zero)
+                           if (sig_eff < sig_max  && sig_eff != zero) then
+                              diff_rel=diff/sig_eff
+                              if (diff_rel < one) then
+                                 bin1++
+                              else if (diff_rel < two) then
+                                 bin2++
+                              else if (diff_rel < const(3.)) then
+                                 bin3++
+                              else 
+                                 binelse++
+                              end if
+                           else
+                              diff_rel=zero
+                           end if
+                           if (diff > delta_max) then
+                              ic_max=ic
+                              i_max=i
+                              j_max=j
+                              k_max=k
+                              l_max=l
+                              m_max=m
+                              itot_max=itot
+                              delta_max=diff
+                           endif
+                           
+                           if (diff_rel > delta_rel_max) then
+                              ic_rel_max=ic
+                              i_rel_max=i
+                              j_rel_max=j
+                              k_rel_max=k
+                              l_rel_max=l
+                              m_rel_max=m
+                              itot_rel_max=itot
+                              delta_rel_max=diff_rel
+                           end if
+                        end do
+                     end do
+                  end do
+               end do
+            end do
          end do
-
-         write(stdout,*) ' Largest differences in out_post_grp[is =',
-     $        is,']'
-         write(stdout,*) ' At i = ',index_max,' % difference = ',
-     $        delta_max*const(1.,2)
-         write(stdout,*) ' At i = ',index_rel_max,' difference / std. dev. = ',
-     $        delta_rel_max 
-
+         write(stdout,*) '   ',trim(tally_name[jscore]),' :'
+         write(stdout,*) '       largest difference = ',delta_max
+         write(stdout,*) '         at indices (',i_max,',',j_max,',',
+     $        k_max,',',l_max,',',m_max,'), component ',ic_max,
+     $        ', itot = ',itot_max
+         write(stdout,*) '       largest relative difference = ',delta_rel_max
+         write(stdout,*) '         at indices (',i_rel_max,',',j_rel_max,',',
+     $        k_rel_max,',',l_rel_max,',',m_rel_max,'), component ',ic_rel_max,
+     $        ', itot = ',itot_rel_max
+         bin_tot=bin1+bin2+bin3+binelse
+         if (bin_tot > zero) then
+            write(stdout,*) '       fraction within 1 sigma = ',
+     $           areal(bin1)/areal(bin_tot)
+            write(stdout,*) '          "       "    2   "     ',
+     $           areal(bin1+bin2)/areal(bin_tot)
+            write(stdout,*) '          "       "    3   "     ',
+     $           areal(bin1+bin2+bin3)/areal(bin_tot)
+         end if
+         write(stdout,*) '        fraction binned = ',
+     $        areal(bin_tot)
+     $        /(tally_tab_index[jscore][1]*tally_tab_index[jscore][2]
+     $        *tally_tab_index[jscore][3]*tally_tab_index[jscore][4]
+     $        *tally_tab_index[jscore][5]*tally_dep_var_dim[jscore])
       end do
 
       return
