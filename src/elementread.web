@@ -2,6 +2,10 @@
 \Title{elementread}
 
 % $Log$
+% Revision 1.15  1996/05/24 18:44:54  dstotler
+% Removed reading routines for materials, pmi, and problem (moved to
+% create pmimatread.web).
+%
 % Revision 1.14  1996/03/01 20:26:01  dstotler
 % Add routines and other code for handling PMI data.
 %
@@ -165,8 +169,6 @@ Introduction\ldots
       sy_common
       so_common
       so_ncdecl
-      sr_common
-      sr_ncdecl
       rf_common
 
       tempfile =  filenames_array[backgroundfile]
@@ -175,9 +177,100 @@ Introduction\ldots
       vc_ncread(fileid)
       bk_ncread(fileid)
       so_ncread(fileid)
-      sr_ncread(fileid)
 
       call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Count the number of occurrences of a given element in a species. This
+short function loops through the components of the input species |sp|,
+identifies the one matching element |el| and returns the count of that
+element. If the element is not present, zero is returned.
+
+@<Functions...@>=
+      function species_el_count(sp_dummy(sp),el_dummy(el))
+      implicit_none
+      integer species_el_count            // Function
+      sp_decl(sp)                         // Input
+      el_decl(el)
+      integer i,j                         // Local
+
+      sp_common
+
+      j=0
+      do i=1,sp_ncomp(sp)
+         if (sp_el(sp,i)==el) then
+            j=i
+            go to break
+         end if
+      end do
+      species_el_count=0
+      return
+
+break: continue
+      species_el_count=sp_count(sp,j)
+      
+      return
+      end
+
+@ Compare the sum of two species lists. The number of species in the lists
+|list1| and |list2| are |n1| and |n2|. One subtle reason
+for carrying out this task as a check against a specific list rather than 
+using the summed properties of |list1| to choose a resulting species
+from the full list of species is that such a choice may not be unique
+due to the presence of other properties not checked here (e.g., quantum
+states). 
+
+@<Functions...@>=
+      function species_add_check(n1,sp_dummy(list1),n2,sp_dummy(list2))
+      implicit_none
+      logical species_add_check           // Function
+      integer n1,n2                       // Input
+      sp_decl(list1[n1])
+      sp_decl(list2[n2])
+      integer z_sum1,z_sum2,i,ic,count_sum1,count_sum2  // Local
+      real m_sum1,m_sum2
+      external species_el_count           // External
+      integer species_el_count
+
+      sp_common
+      el_common
+
+      species_add_check=.false.
+/* First compare total charge and mass of the two lists */
+      z_sum1=0
+      m_sum1=zero
+      do i=1,n1
+         z_sum1=z_sum1+sp_z(list1[i])
+         m_sum1=m_sum1+sp_m(list1[i])
+      end do
+      z_sum2=0
+      m_sum2=zero
+      do i=1,n2
+         z_sum2=z_sum2+sp_z(list2[i])
+         m_sum2=m_sum2+sp_m(list2[i])
+      end do
+
+      if (z_sum1 != z_sum2) return
+      if (abs(m_sum1-m_sum2) > epsilon*max(m_sum1,m_sum2)) return
+
+/* Next, loop over the full list of elements, counting the total number 
+appearing in each list and comparing the two. */
+      do ic=1,el_num
+         count_sum1=0
+         count_sum2=0
+         do i=1,n1
+            count_sum1=count_sum1+species_el_count(list1[i],el_args(ic))
+         end do
+         do i=1,n2
+            count_sum2=count_sum2+species_el_count(list2[i],el_args(ic))
+         end do
+         if (count_sum1 != count_sum2) return
+      end do
+
+/* Passed all tests; call it a match. */
+      species_add_check=.true.
 
       return
       end
