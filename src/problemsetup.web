@@ -2,6 +2,9 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.21  1996/11/05 02:03:08  karney
+% Correct typ.
+%
 % Revision 1.20  1996/11/04 17:05:50  karney
 % Check in consistent versions of problem.hweb and problemsetup.hweb with
 % scoring arrays commented out.  (Get it right this time.)
@@ -97,7 +100,6 @@ collated accordingly and written to the single output netCDF file
 @I materials.hweb
 @I pmi.hweb
 @I netcdf.hweb
-@I reactiondata.hweb
 @I pmidata.hweb
 @I element.hweb
 /* @I score.hweb */
@@ -784,6 +786,8 @@ routine specific for each reaction.
       rc_common
 
       if (rc_reaction_type(r)=='ionize') then
+         call set_prod_ionize(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='ionize_suppress') then
          call set_prod_ionize(pr_test_args(ts),sp_args(reagents),rc_args(r))
       else if (rc_reaction_type(r)=='chargex') then
          call set_prod_chargex(pr_test_args(ts),sp_args(reagents),rc_args(r))
