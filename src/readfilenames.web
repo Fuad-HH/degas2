@@ -26,6 +26,10 @@ reactionfile ../data/reactions.nc
 speciesfile ../data/species.nc 
 aladinfile ../data/aladinput.nc
 aladoutfile ../data/aladoutput.nc 
+elements_infile ../data/elements.input 
+problem_infile  ../data/problem.input
+reaction_infile ../data/reactions.input
+species_infile ../data/species.input
 \end{verbatim}
 
 
@@ -72,7 +76,10 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     symbolic_fname == 'geometryfile' || symbolic_fname ==
      $     'problemfile' || symbolic_fname == 'reactionfile' ||
      $     symbolic_fname == 'speciesfile' || symbolic_fname ==
-     $     'aladinfile' || symbolic_fname == 'aladoutfile' )
+     $     'aladinfile' || symbolic_fname == 'aladoutfile' ||
+     $     symbolic_fname == 'elements_infile' || symbolic_fname ==
+     $     'problem_infile' || symbolic_fname =='reaction_infile' ||
+     $     symbolic_fname == 'species_infile' )
       
       filenames_max = filenames_max +1
       var_realloca(filenames_array)
@@ -94,6 +101,14 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
          filenames_array[aladinfile] = line(b:e)
       elseif ( symbolic_fname == 'aladoutfile')  then
          filenames_array[aladoutfile] = line(b:e)
+      elseif ( symbolic_fname == 'elements_infile')  then
+         filenames_array[elements_infile] = line(b:e)
+      elseif ( symbolic_fname == 'problem_infile')  then
+         filenames_array[problem_infile] = line(b:e)
+      elseif ( symbolic_fname == 'reaction_infile')  then
+         filenames_array[reaction_infile] = line(b:e)
+      elseif ( symbolic_fname == 'species_infile')  then
+         filenames_array[species_infile] = line(b:e)
       endif
 
       goto loop
