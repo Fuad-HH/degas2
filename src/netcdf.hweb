@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1995/05/26 04:01:07  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.5  1995/03/14 16:48:27  dstotler
 % Add documentation for netcdf macros, including brief examples of how
 % to read and write netcdf files.
@@ -118,14 +122,18 @@ Convert to LaTeX/NFSS
 @m var_inq(fileid,name)
       dimid(name) = ncvarid(fileid,#name,nc_stat);
       call ncvarinq(fileid,dimid(name),nc_dummy,nc_type,nc_rank,nc_dims,nc_attr,nc_stat);
-      assert(nc_rank >= 0 && nc_rank <= MAX_DIM);
-      assert(nc_rank == rank_##name);
       $IF(rank_##name >= 1, assert( nc_dims(1) == dimid(ind_##name##_1) );,)
       $IF(rank_##name >= 2, assert( nc_dims(2) == dimid(ind_##name##_2) );,)
       $IF(rank_##name >= 3, assert( nc_dims(3) == dimid(ind_##name##_3) );,)
       $IF(rank_##name >= 4, assert( nc_dims(4) == dimid(ind_##name##_4) );,)
-      $IF(rank_##name >= 5, assert( nc_dims(5) == dimid(ind_##name##_5) );,)
+      $IF(rank_##name >= 5, assert( nc_dims(5) == dimid(ind_##name##_5) );,) @;
+
+@#if 0
+/* These used to be part of var_inq.  Removed to avoid tangle problems.
+      assert(nc_rank == rank_##name);
+      assert(nc_rank >= 0 && nc_rank <= MAX_DIM);
       assert( $IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL) == nc_type ) @;
+@#endif
 
 @m var_read(fileid,name)
       $IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
