@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1993/09/27  22:11:09  karney
+% Update for package.
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -38,15 +41,20 @@ these arrays.
 @a
       package_init(bk)
       define_dimen_pk(bk,background_ind,bk_num)
-      define_dimen_pk(bk,plasma_ind,zn_plasma_num)
+      define_dimen_pk(bk,plasma_ind,zone_type_num[zn_plasma])
       define_var_pk(bk,bk_num,INT)
       define_varp_pk(bk,background_sp,INT,background_ind)
-      define_varp_pk(bk,background_n,INT,background_ind,plasma_ind)
-      define_varp_pk(bk,background_v,INT,vc_ind,background_ind,plasma_ind)
-      define_varp_pk(bk,background_temp,INT,background_ind,plasma_ind)
+      define_varp_pk(bk,background_n,FLOAT,background_ind,plasma_ind)
+      define_varp_pk(bk,background_v,FLOAT,vc_ind,background_ind,plasma_ind)
+      define_varp_pk(bk,background_temp,FLOAT,background_ind,plasma_ind)
 
 @ Common blocks definitions.
 
 @f bk_common integer
 @m bk_common
       bk_common_a @;
+
+@m bk_ncread(fileid)
+      bk_ncreada(fileid);
+      bk_ncreadb(fileid);
+      bk_ncreadc(fileid) @;
