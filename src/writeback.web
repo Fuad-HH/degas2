@@ -2,6 +2,10 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.4  1997/08/21 19:47:06  karney
+% Use f90's portable method of specifying precision (via kind and
+% selected_real_kind).
+%
 % Revision 1.3  1997/08/19 14:37:11  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -30,6 +34,7 @@ Introduction\ldots
 @I string.hweb
 @I vector.hweb
 @I background.hweb
+@I geomint.hweb
 @I sources.hweb
 @I particle.hweb
 @I location.hweb
@@ -83,6 +88,7 @@ Introduction\ldots
       implicit_none_f77
       pr_common
       bk_common
+      gi_common
       so_common
       zn_common
       sp_common
@@ -93,7 +99,6 @@ Introduction\ldots
       pt_decl(bk_rg2)
       lc_decl(zone_loc)
       rn_decl(dummy_rand)         // Not really used!
-      
 
       external find_rate
       real find_rate
@@ -139,8 +144,7 @@ Introduction\ldots
                   lc_set(zone_loc)
                   assert(lc_zone(zone_loc) == zone)
                   lc_copy(zone_loc,pt_loc(bk_rg2))
-                  call transform_v(pr_background_args(pr_bkrc_rg(jr,2)),
-     $                 lc_args(zone_loc),pt_v(bk_rg2))
+                  v_ext_to_int(lc_x(zone_loc),bk_v(pr_bkrc_rg(jr,2),zone),pt_v(bk_rg2),geometry_symmetry,background_coords)
                   rate=bk_n(pr_bkrc_rg(jr,2),zone)*find_rate(pt_args(bk_rg2),
      $                 pr_background_args(pr_bkrc_rg(jr,1)),
      $                 pr_reaction_args(pr_bk_rc(jr)),rn_args(dummy_rand))
