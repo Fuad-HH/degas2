@@ -2,6 +2,9 @@
 \def\Wtitle{system dependent routines}
 
 % $Log$
+% Revision 1.3  1993/10/25  22:36:13  karney
+% Change name of error to error_exit.
+%
 % Revision 1.2  1993/09/24  21:20:59  karney
 % Made the magic constant a non integer.
 %
@@ -286,7 +289,7 @@ overflow until 2068.
 @<Functions...@>=
       subroutine get_cwd(cwd)
       implicit_none
-      character*(*) cwd         // Local
+      character*(*) cwd         // Output
       integer getcwd            // External
 
 @#if CRAY
@@ -301,6 +304,20 @@ overflow until 2068.
       if (getcwd(cwd) != 0) cwd='UNKNOWN'
 @#endif
       if (cwd == ' ') cwd='UNKNOWN'
+
+      return
+      end
+
+@ Set working directory.  Returns |.true.| if successful.
+
+@<Functions...@>=
+      function set_cwd(dir)
+      implicit_none
+      logical set_cwd
+      character*(*) dir         // Input
+      integer chdir             // External
+
+      set_cwd = chdir(dir) == 0
 
       return
       end
