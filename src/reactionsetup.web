@@ -2,6 +2,11 @@
 \Title{reactionsetup}
 
 % $Log$
+% Revision 1.18  1995/07/14 13:20:43  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.17  1995/06/21 20:06:16  jshankar
 % updated to include readfilenames
 %
@@ -80,14 +85,17 @@ Introduction\ldots
       integer length,p,b,e/*,i,j*/      // Local
       character*LINELEN line
       character*FILELEN file
+      character*FILELEN tempfile     //local
       character*rc_type_len type
       sy_common
       st_common
-
+      rf_common
       rc_num=0
 /*      rd_table_size=0 */
       reaction_version='unknown'
-      open(unit=diskin,file='../data/reactions.input',
+
+      tempfile = filenames_array[reaction_infile]
+      open(unit=diskin,file=tempfile,
      $     form='formatted',status='old')
       assert( read_string(diskin,line,length) )
       assert(length<=len(line))

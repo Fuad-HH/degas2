@@ -2,6 +2,11 @@
 \Title{elementsetup}
 
 % $Log$
+% Revision 1.14  1995/07/14 13:20:08  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.13  1995/06/21 20:04:25  jshankar
 % updated to include readfilenames
 %
@@ -68,12 +73,15 @@ Introduction\ldots
       el_common                 // Common
       integer length,p,b,e // Local
       character*LINELEN line
+      character* FILELEN tempfile    //local
       sy_common
       st_common
+      rf_common
       
       el_num=0
       element_version='unknown'
-      open(unit=diskin,file='../data/elements.input',
+      tempfile = filenames_array[elements_infile]
+      open(unit=diskin,file=tempfile,
      $     form='formatted',status='old')
       assert( read_string(diskin,line,length) )
       assert(length<=len(line))
