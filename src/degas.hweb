@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1995/03/28 20:37:32  jshankar
+% Initial version of readgeometry.
+%
 % Revision 1.1  1994/08/24 15:03:01  karney
 % Added degasgeom to read in old degas' geometry spec.
 %
@@ -11,23 +14,43 @@
 
 The old degas include files (now defined as web sections).
 
-@ The macro definitions.
+@ The macro definitions. Note that the |TFTR| and |CMOD| options are
+not implemented in the Makefile. Since the information specified here
+far exceeds the needs of DEGAS 2 (namely, just to read the DEGAS input
+file), instead endeavor to modify the default options to suit all 
+applications. The idea is to avoid cluttering the Makefile with 
+stuff required only for this modest task.
 
-@#ifdef TFTR
+@#if defined(TFTR)
 @m TFTR 1
 @#else
 @m TFTR 0
 @#endif
 
+@#if defined(CMOD)
+@m CMOD 1
+@#else
+@m CMOD 0
+@#endif
+
 @#if CRAY
+@#if CMOD
+@m NPPACK 9
+@m NPLEN 7
+@#else
 @m NPPACK 10
 @m NPLEN 6
-@m TASKCOMMON common
+@#endif
+@#else
+@#if CMOD
+@m NPPACK 4
+@m NPLEN 7
 @#else
 @m NPPACK 5
 @m NPLEN 6
-@m TASKCOMMON common
 @#endif
+@#endif
+@m TASKCOMMON common
 
 @m filelen 40
 
@@ -50,23 +73,37 @@ The old degas include files (now defined as web sections).
 @#if TFTR
       parameter (npns=9,npis=9,npntyp=2,nphyd=3,
      $     nph=34,npv=33,npt=1,npptshb=npv+1,npptsvb=nph+1,npptskb=npt+1,
-     $     npw=1,npsegxz=45,npsegy=1,npexit=2)
+     $     npw=1,npsegxz=45,npsegy=1,npexit=2,npgraf=100,nptviews=100)
+@#else
+@#if CMOD
+        parameter (npns=5,npis=5,npntyp=2,nphyd=2,
+     &   nph=124,npv=28,npt=1,npptshb=npv+1,npptsvb=nph+1,npptskb=npt+1,
+     &   npw=6,npsegxz=43,npsegy=1,npexit=1,npgraf=400,nptviews=250)
 @#else
         parameter (npns=5,npis=5,npntyp=2,nphyd=2,
      $     nph=124,npv=28,npt=1,npptshb=npv+1,npptsvb=nph+1,npptskb=npt+1,
-     $     npw=8,npsegxz=139,npsegy=1,npexit=1)
+     $     npw=8,npsegxz=139,npsegy=1,npexit=1,npgraf=100,nptviews=250)
+@#endif
 @#endif
 @#if CRAY
+@#if CMOD
+        parameter (npcel=40005)
+@#else
         parameter (npcel=36005)
+@#endif
+@#else
+@#if CMOD
+        parameter (npcel=90001)
 @#else
         parameter (npcel=72010)
+@#endif
 @#endif
       parameter (npdiva=5,npwtt=2,nptasks=16,
      $     npcels=NPPACK*(npcel-1),
      $     nphp1=nph+1,npvp1=npv+1,npws=4,npwtm=1,npdiv=5,npdive=7,
      $     npptsw=npsegxz+1,npptsww=npsegxz*npsegy*npw,npdetors=12,
-     $     npvp2=npv+2,npvm1=npv-1,nphp2=nph+2,nptviews=100,
-     $     nplambda=200,npgraf=100,npwork=npgraf*npgraf,
+     $     npvp2=npv+2,npvm1=npv-1,nphp2=nph+2,
+     $     nplambda=200,npwork=npgraf*npgraf,
      $     npwalmat=10,npchz=1000,npd=11,nptp1=npt+1,npsegyp1=npsegy+1,
      $     npht=nph*npt,npvt=npv*npt,npe=48,npsplit=81,nprowcol=1000,
      $     nphv=nph*npv,npdifa=7,npdife=12,npdifzon=15,npcos=128,
