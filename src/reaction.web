@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.14  1995/04/25 22:14:45  karney
+% Initial version of sources.web
+%
 % Revision 1.13  1995/04/24 20:43:41  karney
 % Generalize reactiondata to allow multiple data arrays per reaction.
 %
@@ -69,6 +72,7 @@
       pt_decl(p)                // Input
       rc_decl(r)
       bk_decl(b)
+      real vb[3],rr
       zn_common
       rc_common
       bk_common
@@ -77,9 +81,26 @@
       external reaction_rate_a
       real reaction_rate_a
       
+/* Transform the velocity vector into cartesian coords.  This is a
+candidate for moving into an outer routine, since it should only be done
+once per point. */
+
+      if (background_coords == plasma_coords_cartesian) then
+         vc_copy(bk_v(b,lc_zone(pt_loc(p))),vb)
+      else if (background_coords == plasma_coords_cylindrical) then
+         rr=sqrt(lc_x(pt_loc(p))[1]**2+lc_x(pt_loc(p))[2]**2)
+         vb[1]=(bk_v(b,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[1]-
+     $        bk_v(b,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[2])/rr
+         vb[2]=(bk_v(b,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[2]+
+     $        bk_v(b,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[1])/rr
+         vb[3]=bk_v(b,lc_zone(pt_loc(p)))[3]
+      else
+         assert(.false.)
+      end if
+
       reaction_rate=reaction_rate_a(pt_sp(p),pt_v(p),pr_target(b),
      $     bk_n(b,lc_zone(pt_loc(p))),
-     $     bk_v(b,lc_zone(pt_loc(p)))[1],
+     $     vb,
      $     bk_temp(b,lc_zone(pt_loc(p))),
      $     pr_reaction(r))
       
@@ -101,7 +122,7 @@
       pr_common
       sp_common
       integer i // Local
-      real cross_section,fvar[xs_table_rank_max],vrel[3]
+      real sigma_v,fvar[xs_table_rank_max],vrel[3]
       external interpolate1,interpolate2,interpolate3 // External
       real interpolate1,interpolate2,interpolate3
       
@@ -124,22 +145,78 @@
       end do
       
       if (reaction_data_rank[r][rd_rate] == 1) then
-         cross_section=interpolate1(fvar,
+         sigma_v=interpolate1(fvar,
      $        reaction_data_table[reaction_data_base[r][rd_rate]],
      $        reaction_data_tab_index[r][rd_rate][1])
       else if (reaction_data_rank[r][rd_rate] == 2) then
-         cross_section=interpolate2(fvar,
+         sigma_v=interpolate2(fvar,
      $        reaction_data_table[reaction_data_base[r][rd_rate]],
      $        reaction_data_tab_index[r][rd_rate][1])
       else if (reaction_data_rank[r][rd_rate] == 3) then
-         cross_section=interpolate3(fvar,
+         sigma_v=interpolate3(fvar,
      $        reaction_data_table[reaction_data_base[r][rd_rate]],
      $        reaction_data_tab_index[r][rd_rate][1])
       end if
       
-      if (reaction_data_spacing[r][rd_rate][0] == xs_spacing_log) cross_section=exp(cross_section)
+      if (reaction_data_spacing[r][rd_rate][0] == xs_spacing_log) sigma_v=exp(sigma_v)
       
-      reaction_rate_a=cross_section*nb
+      reaction_rate_a=sigma_v*nb
+      
+      return
+      end
+      
+@ A similar routine for the cross-section.  This returns $\sigma(v)v$.
+      
+@<Functions...@>=
+      function cross_section_a(sp_dummy(t),vt,sp_dummy(b),vb,rc_dummy(r))
+      implicit_none
+      real cross_section_a        // Function
+      sp_decl(t)                // Input
+      rc_decl(r)
+      sp_decl(b)
+      real vt[3],vb[3]
+      rc_common
+      rd_common
+      pr_common
+      sp_common
+      integer i // Local
+      real cross_section,fvar[xs_table_rank_max],vrel[3],vr
+      external interpolate1,interpolate2,interpolate3 // External
+      real interpolate1,interpolate2,interpolate3
+      
+      assert( reaction_organization[r][rd_xs] == xs_organization_table )
+      assert( reaction_data_var[r][rd_xs][0] == xs_var_cross_section )
+
+      vc_difference(vt,vb,vrel)
+      vr=vc_abs(vrel)
+
+      do i=1,reaction_data_rank[r][rd_xs]
+         if (reaction_data_var[r][rd_xs][i] == xs_var_energy) then
+            fvar[i] = half*sp_m(t)*vr**2
+         else
+            assert('Unknown variable' == ' ')
+         end if
+         if (reaction_data_spacing[r][rd_xs][i] == xs_spacing_log) fvar[i] = log(fvar[i])
+         fvar[i] = (fvar[i]-reaction_data_min[r][rd_xs][i])/reaction_data_delta[r][rd_xs][i]
+      end do
+      
+      if (reaction_data_rank[r][rd_xs] == 1) then
+         cross_section=interpolate1(fvar,
+     $        reaction_data_table[reaction_data_base[r][rd_xs]],
+     $        reaction_data_tab_index[r][rd_xs][1])
+      else if (reaction_data_rank[r][rd_xs] == 2) then
+         cross_section=interpolate2(fvar,
+     $        reaction_data_table[reaction_data_base[r][rd_xs]],
+     $        reaction_data_tab_index[r][rd_xs][1])
+      else if (reaction_data_rank[r][rd_xs] == 3) then
+         cross_section=interpolate3(fvar,
+     $        reaction_data_table[reaction_data_base[r][rd_xs]],
+     $        reaction_data_tab_index[r][rd_xs][1])
+      end if
+      
+      if (reaction_data_spacing[r][rd_xs][0] == xs_spacing_log) cross_section=exp(cross_section)
+      
+      cross_section_a=cross_section*vr
       
       return
       end
@@ -317,6 +394,8 @@ constant.
             reaction_data_var[num][rd_ind][i]=xs_var_temperature
          else if (xs_var[i,jdep] == 'energy') then
             reaction_data_var[num][rd_ind][i]=xs_var_energy
+         else if (xs_var[i,jdep] == 'cross_section') then
+            reaction_data_var[num][rd_ind][i]=xs_var_cross_section
          end if
          size=1
          do i=1,xs_rank[jdep]

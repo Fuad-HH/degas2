@@ -2,6 +2,9 @@
 \def\Wtitle{readbackground}
 
 % $Log$
+% Revision 1.3  1995/04/25 20:56:38  karney
+% Update to distinguish background from degas versus other sources.
+%
 % Revision 1.2  1995/04/24 14:21:29  karney
 % Remove some unused variables.  Introduce a coordinate system for plasma
 % flow.
@@ -34,15 +37,40 @@
 @<Functions...@>=
       program readbackground
       implicit_none
-      character*FILELEN degasfilename
+      character*FILELEN datafilename,degasfilename,uedgefilename
+      logical uedge,degas
+      integer i,ii
       sy_common
       zn_common
       pr_common
       bk_common
 
-      call command_arg(1,degasfilename)
+      call command_arg(1,datafilename)
+      degas = .false. ; uedge =.false.
 
-     
+/* find out whether the data file is degas or uedge depending on the extension 
+of the file name (x.d is degas and x.u for uedge) */
+
+      do i=1,FILELEN
+         if (datafilename(i:i) == '.') then 
+            ii =i
+            goto 5
+         endif
+      enddo
+      assert(.false.)
+ 5       if (ii+2 < FILELEN) then
+            assert (datafilename(ii+2:ii+2)== ' ')
+         endif
+         if (datafilename(ii+1:ii+1) == 'd') then
+            degasfilename = datafilename
+            degas = .true.
+         elseif (datafilename(ii+1:ii+1) == 'u') then
+            uedgefilename = datafilename
+            uedge = .true.
+         else
+            assert (.false.)
+         endif
+         print *, 'datafilename   ',datafilename
       call read_geometry
             
       call nc_read_elements
@@ -54,8 +82,11 @@
       var_alloc(background_v)
       var_alloc(background_temp)
 
-      call read_degas_background(degasfilename)
-      
+      if (degas == .true.) then
+         call read_degas_background(degasfilename)
+      elseif (uedge == .true.) then
+         call read_uedge_background(uedgefilename)         
+      endif
       stop
       end
 
@@ -137,6 +168,106 @@ skip:       continue
       stop
       end
 
+@ read uedge background data 
+@<Functions...@>=
+      subroutine read_uedge_background(file)
+      implicit_none
+      integer mx,my
+      parameter (mx=50,my=50)
+      integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3
+      real rm[mx,my,0:4],zm[mx,my,0:4],ni[mx,my],vr[mx,my],vz[mx,my],
+     $     vphi[mx,my],te[mx,my],ti[mx,my],
+     $     flux1[my],flux2[my],dummy
+      character*FILELEN file
+
+      sy_common
+      zn_common
+      pr_common
+      bk_common
+      sp_common
+      el_common
+      rc_common
+      so_common
+      
+      print *, 'in read_uedge'
+
+      open(unit=diskin,file=file,status='old',form='formatted')
+      nu =diskin
+/* skip first comment line */
+      read(nu,*)
+      read(nu,*) nx
+      read(nu,*) ny
+      assert(nx <= mx && ny <= my)
+      read(nu,*) ixpt1
+      read(nu,*) ixpt2
+      read(nu,*) iysptrx
+
+      read(nu,*) SP (((rm[j1,j2,j3],j1=1,nx),j2=1,ny),j3=0,4)
+      read(nu,*) SP (((zm[j1,j2,j3],j1=1,nx),j2=1,ny),j3=0,4)
+
+         /* skip data for br,bz,bphi */
+
+      do i=1,3
+         read(nu,*) SP (((dummy,j1=1,nx),j2=1,ny),j3=0,4)
+      enddo
+      print*,'last  dummy', dummy
+      read (nu,*,err= 6)SP ((ni[j1,j2],j1=1,nx),j2=1,ny)
+      read (nu,*,err= 6)SP ((vr[j1,j2],j1=1,nx),j2=1,ny)
+      read (nu,*,err= 6)SP ((vz[j1,j2],j1=1,nx),j2=1,ny)
+      read (nu,*,err= 6)SP ((vphi[j1,j2],j1=1,nx),j2=1,ny)
+      read (nu,*,err= 6)SP ((ti[j1,j2],j1=1,nx),j2=1,ny)
+      read (nu,*,err= 6)SP ((te[j1,j2],j1=1,nx),j2=1,ny)
+      read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
+
+      i=0
+      do j1=1,nx
+         do j2=1,ny
+            i++
+            assert(i<=zone_type_num[zn_plasma])
+            assert(j1==zn_index(i,1) && j2==zn_index(i,2))
+            background_n[1,i]= ni[j1,j2]
+            background_n[2,i]= ni[j1,j2]
+            background_temp[1,i]= te[j1,j2]
+            background_temp[2,i]= ti[j1,j2]
+            vc_set(background_v[1,i],vr[j1,j2],vphi[j1,j2],vz[j1,j2])
+            vc_copy(background_v[1,i],background_v[2,i])
+         enddo
+      enddo
+      assert(i==zone_type_num[zn_plasma])
+      background_coords=plasma_coords_cylindrical
+      
+      so_num=2*ny
+      var_alloc(source_type)
+      var_alloc(source_current)
+      var_alloc(source_pos)
+      source_total=zero
+      i=0
+      j1=1
+      do j2=ny,1,-1
+         i++
+         source_type[i]=so_surface
+         source_current[i]=flux1[j2]
+         source_total=source_total+source_current[i]
+         vc_set(source_pos[i][0],rm[j1,j2,3],zero,zm[j1,j2,3])
+         vc_set(source_pos[i][1],rm[j1,j2,1],zero,zm[j1,j2,1])
+      end do
+      j1=nx
+      do j2=1,ny
+         i++
+         source_type[i]=so_surface
+         source_current[i]=flux2[j2]
+         source_total=source_total+source_current[i]
+         vc_set(source_pos[i][0],rm[j1,j2,2],zero,zm[j1,j2,2])
+         vc_set(source_pos[i][1],rm[j1,j2,4],zero,zm[j1,j2,4])
+      end do
+
+      call write_background
+      return
+ 6    write (stderr,*) 'error occurred in reading uedge data file'
+      assert (.false.)
+      return
+      end
 
 @ Write out background information.
 
@@ -149,13 +280,17 @@ skip:       continue
       bk_ncdecl
       vc_ncdecl
       nc_common
+      so_common
+      so_ncdecl
 
       fileid = nccreate('background.nc',NC_CLOBBER,nc_stat)
       vc_ncdef(fileid)
       bk_ncdef(fileid)
+      so_ncdef(fileid)
       call ncendef(fileid,nc_stat);
       vc_ncwrite(fileid)
       bk_ncwrite(fileid)
+      so_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
 
       return

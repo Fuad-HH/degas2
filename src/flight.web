@@ -2,6 +2,9 @@
 \def\Wtitle{flight}
 
 % $Log$
+% Revision 1.13  1995/04/25 22:14:35  karney
+% Initial version of sources.web
+%
 % Revision 1.12  1995/04/12 18:34:06  karney
 % Merge in comments to array.hweb and changes for Sherwood '95 meeting.
 %
@@ -94,11 +97,14 @@
       subroutine follow(num,stat,seed)
       implicit_none
       zn_common
-      integer seed[0:1],num,i,j
-      real stat[2,zn_num],w[3],r,phi,wa,t,tmax,ionize_rate,rnd,rate,other_rate
+      integer seed[0:1],num,i,j,nprod
+      real stat[2,zn_num],w[3],r,phi,wa,t,tmax,ionize_rate,rnd,other_rate,
+     $     rate[pr_reaction_max],albedo,sum
       logical done
+
       pt_decl(x)
       fl_decl(x)
+      pt_decl(prod[rc_product_max])
       rn_common
       bk_common
       sp_common
@@ -110,8 +116,10 @@
       external reaction_rate
       real reaction_rate
       
+      albedo=const(0.95)
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
       pt_init(x,'0')            // Initialize geometry locator
+@#if 0
       rn_next(rnd,fl_rand(x))
       r=2.2+0.2*rnd
       r=const(0.01)*((169-170*half)+44+13*rnd)
@@ -130,7 +138,10 @@ loop2: continue                 // Track to plasma
 
       rn_cos_next(w,fl_rand(x))
       pt_scatter_thru(x,w)
-
+@#else
+      rn_iso_next(pt_v(x),fl_rand(x))
+      call sample_sources(rn_args(fl_rand(x)),lc_args(pt_loc(x)))
+@#endif
 
       do j=1,zn_num
          stat[1,j]=zero
@@ -140,16 +151,16 @@ loop2: continue                 // Track to plasma
       lc_copy(pt_loc(x),pt_loc(fl_origin(x))) // Copy location
 
       rn_gauss_next(rnd,fl_rand(x)) // Copy and scale velocity
-      wa=abs(rnd)*sqrt(electron_charge*const(10.0)/atomic_mass_unit)
+      wa=abs(rnd)*sqrt(electron_charge*const(0.03)/atomic_mass_unit)
 
       vc_scale(wa,pt_v(x),pt_v(fl_origin(x)))
 
-      fl_init(x,num,'H')
+      fl_init(x,num,sp_sy(pr_test(2)))
 
 loop1: continue                 // Start a new 
 
-/* The computation of the ionization rate and any other rate that doesn't depend on the
-  neutral energy could go here. */
+ /* The computation of the ionization rate and any other rate that
+ does not depend on the neutral energy could go here. */
 
 loop: continue                  // Still in same zone
 
@@ -157,13 +168,14 @@ loop: continue                  // Still in same zone
       other_rate=zero
       if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
          do i=1,pr_rc_num(pt_test(fl_current(x)))
-            rate=reaction_rate(pt_args(fl_current(x)),
+            rate[i]=reaction_rate(pt_args(fl_current(x)),
      $           pr_ts_rc(pt_test(fl_current(x)),i),
      $           pr_ts_tg(pt_test(fl_current(x)),i))
             if (rc_reaction_type(pr_ts_rc(pt_test(fl_current(x)),i))=='ionize') then
-               ionize_rate=ionize_rate+rate
+               ionize_rate=ionize_rate+rate[i]
+               rate[i]=zero
             else
-               other_rate=other_rate+rate
+               other_rate=other_rate+rate[i]
             end if
          end do
       end if         
@@ -198,11 +210,40 @@ loop: continue                  // Still in same zone
       
       if (done) then            // Process a charge exchange
          assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
-         wa=sqrt(two*bk_temp(2,lc_zone(pt_loc(fl_current(x))))/sp_m(pt_sp(fl_current(x))))
+@#if 1
+         rn_next(rnd,fl_rand(x))
+         rnd=rnd*other_rate
+         sum=zero
+         do i=1,pr_rc_num(pt_test(fl_current(x)))
+            sum=sum+rate[i]
+            if (sum >= rnd) then
+               call process_reaction(pt_args(fl_current(x)),
+     $              pr_ts_rc(pt_test(fl_current(x)),i),
+     $              pr_ts_tg(pt_test(fl_current(x)),i),
+     $              nprod,pt_args(prod[1]),
+     $              rn_args(fl_rand(x)))
+               goto break1
+            end if
+         end do
+         assert(.false.)
+break1:  continue
+         fl_pointer(x)--
+         j=0
+         do i=1,nprod
+            if (pt_test(prod[i]) > 0) then
+               j++
+               fl_pointer(x)++
+               pt_copy(prod[j],fl_current(x))
+            end if
+         end do
+@#else
+         wa=sqrt(bk_temp(2,lc_zone(pt_loc(fl_current(x))))/sp_m(pt_sp(fl_current(x))))
          do i=1,3
             rn_gauss_next(rnd,fl_rand(x))
             pt_v(fl_current(x))[i]=wa*rnd
          end do
+@#endif
+
          goto loop
       else                      // Go to next zone or reflect
          if (lc_cell_next(pt_loc(fl_current(x))) == 0 ||
@@ -212,6 +253,7 @@ loop: continue                  // Still in same zone
          else if (zn_type(lc_zone_next(pt_loc(fl_current(x)))) == zn_solid) then
             assert(lc_check(pt_loc(fl_current(x))))
             pt_specular(fl_current(x))
+            pt_w(fl_current(x))=albedo*pt_w(fl_current(x))
          else
             pt_thru_face(fl_current(x))
          end if

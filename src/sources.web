@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.1  1995/04/25 22:14:52  karney
+% Initial version of sources.web
+%
 
 @n/
 
@@ -25,13 +28,16 @@ proper location, etc.)  It gives a uniform distribution along a line
 (which isn't strictly correct).
 
 @<Functions...@>=
-      subroutine sample_sources(rn_dummy(r),x)
+      subroutine sample_sources(rn_dummy(r),lc_dummy(x))
       implicit_none
       rn_decl(r)                // Input and output
-      real x[3]                 // Output
-      real u,sum,fr                // Local
+      lc_decl(x)                // Output
+      real u,sum,fr,xa[3],xb[3] // Local
       integer i,n
       so_common                 // Common
+      vc_common
+      lc_common
+      zn_common
       
       rn_next(u,r)
       u=source_total*u
@@ -45,8 +51,15 @@ proper location, etc.)  It gives a uniform distribution along a line
          sum=sum+source_current(i)
       end do
 break: continue
-      vc_difference(source_pos[0,n],source_pos[1,n],x)
-      vc_xvt(source_pos[0,n],x,fr,x)
+      vc_difference(source_pos[1,n],source_pos[0,n],xa)
+      vc_xvt(source_pos[0,n],xa,fr,lc_x(x))
+      vc_set(xb,zero,one,zero)
+      vc_cross(xa,xb,xa)
+      fr=const(1.0,-4)/vc_abs(xa)
+      vc_xvt(lc_x(x),xa,fr,lc_x(x))
+      
+      lc_set(x)
+      assert(zn_type(lc_zone(x))==zn_plasma)
       return
       end
 

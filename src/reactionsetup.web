@@ -2,6 +2,9 @@
 \def\Wtitle{reactionsetup}
 
 % $Log$
+% Revision 1.14  1995/04/24 20:43:45  karney
+% Generalize reactiondata to allow multiple data arrays per reaction.
+%
 % Revision 1.13  1995/04/24 14:21:27  karney
 % Remove some unused variables.  Introduce a coordinate system for plasma
 % flow.
@@ -88,9 +91,9 @@ loop1: continue
       rc_num=rc_num+1
       var_realloca(reaction_name)
       var_realloca(reaction_sy)
-      var_realloca(reaction_reagant_num)
+      var_realloca(reaction_reagent_num)
       var_realloca(reaction_product_num)
-      var_realloca(reaction_reagant)
+      var_realloca(reaction_reagent)
       var_realloca(reaction_product)
       var_realloca(reaction_type)
       var_realloca(reaction_filename)
@@ -115,12 +118,12 @@ loop1: continue
       p=0
       assert( next_token(line,b,e,p) )
       read(line(b:e),'(a)') rc_sy(rc_num)
-      rc_reagant_num(rc_num) = 0
+      rc_reagent_num(rc_num) = 0
 loop2: continue
-      rc_reagant_num(rc_num) = rc_reagant_num(rc_num) + 1
-      assert( rc_reagant_num(rc_num) <= rc_reagant_max )
+      rc_reagent_num(rc_num) = rc_reagent_num(rc_num) + 1
+      assert( rc_reagent_num(rc_num) <= rc_reagent_max )
       assert( next_token(line,b,e,p) )
-      rc_reagant(rc_num,rc_reagant_num(rc_num)) = sp_lookup(line(b:e))
+      rc_reagent(rc_num,rc_reagent_num(rc_num)) = sp_lookup(line(b:e))
       assert( next_token(line,b,e,p) )
       assert( line(b:e) == '+' || line(b:e) == '->' )
       if (line(b:e) == '+') goto loop2
@@ -161,9 +164,9 @@ eof:  continue
       close(unit=diskin)
       var_reallocb(reaction_name)
       var_reallocb(reaction_sy)
-      var_reallocb(reaction_reagant_num)
+      var_reallocb(reaction_reagent_num)
       var_reallocb(reaction_product_num)
-      var_reallocb(reaction_reagant)
+      var_reallocb(reaction_reagent)
       var_reallocb(reaction_product)
       var_reallocb(reaction_type)
       var_reallocb(reaction_filename)

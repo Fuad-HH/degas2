@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.10  1995/04/24 20:43:37  karney
+% Generalize reactiondata to allow multiple data arrays per reaction.
+%
 % Revision 1.9  1995/04/12 18:34:08  karney
 % Merge in comments to array.hweb and changes for Sherwood '95 meeting.
 %
@@ -98,6 +101,7 @@ PVM more straightforward.
       integer seed[0:1],i,j     // Local
       zn_common
       sy_common
+      so_common
       real weight,weight1
       ptr_decl(stat)
       ptr_decl(stat1)
@@ -128,6 +132,15 @@ PVM more straightforward.
 
       open(unit=diskout,file='stat.dat')
       write(diskout,*) stat
+      close(unit=diskout)
+      open(unit=diskout,file='density.out')
+      do i=1,zn_num
+         if (zone_type[i] == zn_plasma) then
+            write(diskout,'(2i6,1p2e20.4)') zone_index[i][1],zone_index[i][2],
+     $           stat[i][1]*source_total/zn_volume(i),
+     $           sqrt(stat[i][2]/weight)/max(stat[i][1],1.e-100)
+         end if
+      end do
       close(unit=diskout)
 
       real_free(stat,2*zn_num)

@@ -2,6 +2,9 @@
 \def\Wtitle{elementread}
 
 % $Log$
+% Revision 1.7  1995/04/24 20:43:35  karney
+% Generalize reactiondata to allow multiple data arrays per reaction.
+%
 % Revision 1.6  1995/01/30 21:06:34  karney
 % Merge in my changes with Daren's
 %
@@ -112,6 +115,7 @@ Introduction\ldots
       integer fileid
       pr_common
       rd_common
+      sp_common
       pr_ncdecl
       rd_ncdecl
       nc_common
@@ -142,12 +146,15 @@ Introduction\ldots
       vc_common
       vc_ncdecl
       sy_common
+      so_common
+      so_ncdecl
 
       fileid = ncopen('background.nc',NC_NOWRITE,nc_stat)
 
       vc_ncread(fileid)
       bk_ncread(fileid)
-      
+      so_ncread(fileid)
+
       call ncclose(fileid,nc_stat)
 
       return

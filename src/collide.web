@@ -1,0 +1,182 @@
+% $Id$
+\def\Wtitle{collide}
+
+% $Log$
+
+@n/
+
+@* The routines to process various reactions.
+
+\ID{$Id$}
+
+@m FILE 'collide.web'
+
+@I macros.hweb
+
+@ The main program.
+
+@a
+      @<Functions and Subroutines@>
+
+@ Subroutine to process a reaction.
+      
+@<Functions...@>=
+      subroutine process_reaction(pt_dummy(p),rc_dummy(r),bk_dummy(b),
+     $   nprod,pt_dummy(prod),rn_dummy(x))
+      implicit_none
+      pt_decl(p)                // Input
+      rc_decl(r)
+      bk_decl(b)
+      integer nprod             // Output
+      pt_decl(prod[rc_product_max])
+      rn_decl(x)                // Input/output
+      real vb[3],rr             // Local
+      integer i
+      zn_common                 // Common
+      rc_common
+      bk_common
+      sp_common
+      pr_common
+      st_common
+
+      if (background_coords == plasma_coords_cartesian) then
+         vc_copy(bk_v(b,lc_zone(pt_loc(p))),vb)
+      else if (background_coords == plasma_coords_cylindrical) then
+         rr=sqrt(lc_x(pt_loc(p))[1]**2+lc_x(pt_loc(p))[2]**2)
+         vb[1]=(bk_v(b,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[1]-
+     $        bk_v(b,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[2])/rr
+         vb[2]=(bk_v(b,lc_zone(pt_loc(p)))[1]*lc_x(pt_loc(p))[2]+
+     $        bk_v(b,lc_zone(pt_loc(p)))[2]*lc_x(pt_loc(p))[1])/rr
+         vb[3]=bk_v(b,lc_zone(pt_loc(p)))[3]
+      else
+         assert(.false.)
+      end if
+      
+      call process_reaction_a(pt_sp(p),pt_v(p),pr_target(b),
+     $     bk_n(b,lc_zone(pt_loc(p))),
+     $     vb,
+     $     bk_temp(b,lc_zone(pt_loc(p))),
+     $     pr_reaction(r),
+     $     nprod,
+     $     pt_sp(prod[1]),vc_args(pt_v(prod[1])),pt_w(prod[1]),
+     $     rn_args(x))
+
+      do i=1,nprod
+         pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
+         lc_copy(pt_loc(p),pt_loc(prod[i]))
+         pt_t(prod[i])=pt_t(p)
+         if (pt_test(prod[i]) > 0) then
+            pt_w(prod[i])=pt_w(p)*pt_w(prod[i])
+            if (sp_z(pt_sp(prod[i])) == 0) then
+               pt_type(prod[i])=pt_neutral
+            else
+               pt_type(prod[i])=pt_ion
+            end if
+         end if
+      end do
+
+      return
+      end
+
+@ The low level routine for processing reactions.  The arguments are:
+(input) test particle species, velocity, background particle species,
+density, velocity, temperature, reaction number; (output) number of
+products (0, 1, or 2, at present), species, velocity, and weight for
+product 1, species, velocity, and weight for product 2; (input/output)
+random number thread.
+
+@<Functions...@>=
+
+      subroutine process_reaction_a(sp_dummy(p),vc_dummy(v),sp_dummy(b),nb,
+     $     vb,tb,rc_dummy(r),nprod,
+     $     sp_dummy(po),vo,wo,rn_dummy(x))
+      implicit_none
+      sp_decl(p)                // Input
+      real v[3]
+      sp_decl(b)
+      real nb,vb[3],tb
+      rc_decl(r)
+      integer nprod             // Output
+      sp_decl(po[rc_product_max])
+      real vo[rc_product_max][3],wo[rc_product_max]
+      rn_decl(x)                // Input/output
+      
+      rc_common                 // Common
+      sp_common
+      
+      assert(rc_reagent(r,1)==p && rc_reagent(r,2)==b)
+      
+      assert(reaction_type[r] == 'chargex') // This is all we know about.
+      
+      if (reaction_type[r]=='chargex') then
+         call charge_exchange(sp_args(p),v,sp_args(b),nb,
+     $        vb,tb,rc_args(r),nprod,
+     $        sp_args(po),vo,wo,rn_args(x))
+      end if
+         
+      return
+      
+      end
+
+@ Process a charge exchange reaction.
+
+@<Functions...@>=
+      subroutine charge_exchange(sp_dummy(p),v,sp_dummy(b),nb,
+     $     vb,tb,rc_dummy(r),nprod,
+     $     sp_dummy(po),vo,wo,rn_dummy(x))
+      implicit_none
+      sp_decl(p)                // Input
+      real v[3]
+      sp_decl(b)
+      real nb,vb[3],tb
+      rc_decl(r)
+      integer nprod             // Output
+      sp_decl(po[rc_product_max])
+      real vo[rc_product_max][3],wo[rc_product_max]
+      rn_decl(x)                // Input/output
+      real vrel[3],vt,ran,sgvmax,cx        // Local
+      integer i,count
+      external cross_section_a  // External
+      real cross_section_a
+      real tempmax
+      save tempmax
+      data tempmax/0.0/
+      
+      rc_common                 // Common
+      sp_common
+      rn_common
+      
+      nprod=1
+      count=0
+      sgvmax=const(1.4,-7)/const(1.0,6)
+
+      vc_difference(v,vb,vrel)
+
+loop: continue
+      count++
+ /* Pick a background particle */
+      vt=sqrt(tb/sp_m(b))
+      do i=1,3
+         rn_gauss_next(ran,x)
+         vo[1][i]=vt*ran
+      end do
+
+@#if 1     
+      cx=cross_section_a(sp_args(p),vrel,sp_args(b),vc_args(vo[1]),rc_args(r))
+      assert(cx<=sgvmax)
+      if (cx > tempmax) then
+         write(6,*) cx
+         tempmax=cx
+      end if
+      rn_next(ran,x)
+      if (cx < ran*sgvmax) goto loop
+@#endif
+      
+      po[nprod]=rc_product(r,2)
+      wo[nprod]=one
+      vc_add(vo[1],vb,vo[1])
+      
+      return
+      end
+
+@* INDEX.

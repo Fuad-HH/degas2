@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  1995/04/24 14:21:20  karney
+% Remove some unused variables.  Introduce a coordinate system for plasma
+% flow.
+%
 % Revision 1.9  1995/02/16 18:38:18  dstotler
 % Cleanup some conflicts associated with recent merges.
 %
@@ -50,9 +54,9 @@ reaction is identified by an integer indexing into these arrays.
 @m rc_check(x) assert(x > 0 && x <= rc_num) @;
 @m rc_name(x) reaction_name[x]
 @m rc_sy(x)   reaction_sy[x]
-@m rc_reagant_num(x) reaction_reagant_num[x]
+@m rc_reagent_num(x) reaction_reagent_num[x]
 @m rc_product_num(x) reaction_product_num[x]
-@m rc_reagant(x,i)   reaction_reagant[i,x]
+@m rc_reagent(x,i)   reaction_reagent[i,x]
 @m rc_product(x,i)   reaction_product[i,x]
 @m rc_filename(x)    reaction_filename[x]
 @m rc_reaction_type(x) reaction_type[x]
@@ -63,7 +67,7 @@ reaction is identified by an integer indexing into these arrays.
 @m rc_sy_len 24
 @m rc_name_len 32
 @m rc_type_len 32
-@m rc_reagant_max 2
+@m rc_reagent_max 2
 @m rc_product_max 4
 
 @ Variable definitions.
@@ -76,14 +80,14 @@ reaction is identified by an integer indexing into these arrays.
       define_var_pk(rc,rc_num,INT)
       define_dimen_pk(rc,reaction_ind,rc_num)
       define_dimen_pk(rc,reaction_filename_string,FILELEN)
-      define_dimen_pk(rc,reagant_ind,rc_reagant_max)
+      define_dimen_pk(rc,reagent_ind,rc_reagent_max)
       define_dimen_pk(rc,product_ind,rc_product_max)
       define_varp_pk(rc,reaction_name,CHAR,reaction_name_string,reaction_ind)
       define_varp_pk(rc,reaction_type,CHAR,reaction_type_string,reaction_ind)
       define_varp_pk(rc,reaction_sy,CHAR,reaction_symbol_string,reaction_ind)
-      define_varp_pk(rc,reaction_reagant_num,INT,reaction_ind)
+      define_varp_pk(rc,reaction_reagent_num,INT,reaction_ind)
       define_varp_pk(rc,reaction_product_num,INT,reaction_ind)
-      define_varp_pk(rc,reaction_reagant,INT,reagant_ind,reaction_ind)
+      define_varp_pk(rc,reaction_reagent,INT,reagent_ind,reaction_ind)
       define_varp_pk(rc,reaction_product,INT,product_ind,reaction_ind)
       define_varp_pk(rc,reaction_filename,CHAR,reaction_filename_string,reaction_ind)
 

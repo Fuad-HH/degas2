@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.24  1995/04/25 22:14:27  karney
+# Initial version of sources.web
+#
 # Revision 1.23  1995/04/24 20:43:31  karney
 # Generalize reactiondata to allow multiple data arrays per reaction.
 #
@@ -139,9 +142,9 @@ FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
 ifdef DEBUG
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn6000
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn6000 -n/ -n')' -Tv
 else
-  TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn6000
+  TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn6000 -n/ -n')' -Tv
 endif
 WEAVEFLAGS=-f -i -W[ -ykw600
 
@@ -195,7 +198,7 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
 
 %.f: %.web $(HEADERS) fixit
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
-	fixit $@
+#	fixit $@
 	$(IDENTAPPEND)
 
 # include files
@@ -270,7 +273,7 @@ pvmslave = random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O r
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave)
 
-flighttest = elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O
+flighttest = elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O
 flighttest_libs = $(NETCDF)
 flighttest: $(flighttest)
 
