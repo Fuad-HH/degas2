@@ -2,6 +2,9 @@
 \Title{aux2dsetup}
 
 % $Log$
+% Revision 1.2  2000/04/01 17:38:45  dstotler
+% Added during merger with dps_2_6_changes.
+%
 % Revision 1.1.2.1  2000/03/10 21:56:36  dstotler
 % Added to repository; split off from readgeometry.web.
 %
@@ -18,6 +21,8 @@ routines are called by both |readgeometry| and |definegeometry2d|.
 @I geomint.hweb
 @I zone.hweb
 @I detector.hweb
+@I geometry2d.hweb
+@I string.hweb
 
 @ The unnamed module.
 
@@ -123,6 +128,97 @@ routines are called by both |readgeometry| and |definegeometry2d|.
       de_grps=0
       de_view_size=1
       var_alloc(de_view_tab)
+
+      return
+      end
+
+@* Read Sonnet format mesh.
+
+@m sonnet_loop #:0
+@m sonnet_eof #:0
+
+@<Functions...@>=
+      subroutine read_sonnet_mesh(nunit,nxd,nzd,mesh_xz)
+
+      implicit_none_f77
+      implicit_none_f90
+
+      integer nunit,nxd,nzd                                 // Input
+
+      real mesh_xz[nzd][nxd][0:4][g2_x:g2_z]                // Output
+
+      character*LINELEN line                                // Local
+      integer length,ix,iz,ixl,izl
+
+      st_decls
+
+sonnet_loop: continue
+      assert(read_string(nunit,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      if (index(line,'===') == 0) go to sonnet_loop
+
+      do iz=1,nzd
+         do ix=1,nxd
+/*
+   The specific ordering to be used in the rest of this code is that a 
+   polygon will be traced out in the clockwise direction by following
+   the corners in order $1 \rightarrow 4$. The corners used here with
+   |mesh_x| and |mesh_z| are chosen so as to translate the known orientation 
+   of the Sonnet mesh corners into the desired one. The center is denoted
+   as corner $0$.
+*/
+            read(nunit,'(19x,i3,1x,i3,4x,e17.10,1x,e17.10,8x,e17.10,1x,e17.10)') 
+     $           ixl,izl,mesh_xz[iz][ix][2][g2_x],mesh_xz[iz][ix][2][g2_z],
+     $           mesh_xz[iz][ix][3][g2_x],mesh_xz[iz][ix][3][g2_z]
+            assert(ixl == ix-1)
+            assert(izl == iz-1)
+            read(nunit,'(49x,e17.10,1x,e17.10)')
+     $           mesh_xz[iz][ix][0][g2_x],mesh_xz[iz][ix][0][g2_z]
+            read(nunit,'(30x,e17.10,1x,e17.10,8x,e17.10,1x,e17.10)')
+     $           mesh_xz[iz][ix][1][g2_x],mesh_xz[iz][ix][1][g2_z],
+     $           mesh_xz[iz][ix][4][g2_x],mesh_xz[iz][ix][4][g2_z]
+            read(nunit,*,err=sonnet_eof)
+/*
+   This code computes the field line angles of incidence. Note that 
+   |pitch| must be read in from the Sonnet file, the vector variables
+   have to be declared, etc.
+*/
+@#if 0
+            vc_set(x34,mesh_xz[iz][ix][4][g2_x]-mesh_xz[iz][ix][3][g2_x],
+     $           zero,mesh_xz[iz][ix][4][g2_z]-mesh_xz[iz][ix][3][g2_z])
+            vc_set(x32,mesh_xz[iz][ix][2][g2_x]-mesh_xz[iz][ix][3][g2_x],
+     $           zero,mesh_xz[iz][ix][2][g2_z]-mesh_xz[iz][ix][3][g2_z])
+            vc_set(x41,mesh_xz[iz][ix][1][g2_x]-mesh_xz[iz][ix][4][g2_x],
+     $           zero,mesh_xz[iz][ix][1][g2_z]-mesh_xz[iz][ix][4][g2_z])
+            vc_set(x43,mesh_xz[iz][ix][3][g2_x]-mesh_xz[iz][ix][4][g2_x],
+     $           zero,mesh_xz[iz][ix][3][g2_z]-mesh_xz[iz][ix][4][g2_z])
+
+
+            absx34=vc_abs(x34)
+            absx32=vc_abs(x32)
+            absx41=vc_abs(x41)
+            absx43=vc_abs(x43)
+
+            cosgam4=vc_product(x41,x43)/(absx41*absx43)
+            singam4=sqrt(one-cosgam4**2)
+            cosgam3=vc_product(x32,x34)/(absx32*absx34)
+            singam3=sqrt(one-cosgam3**2)
+
+            sinalf=half*(singam4+singam3)*pitch
+            rave=half*(mesh_xz[iz][ix][3][g2_x]+mesh_xz[iz][ix][4][g2_x])
+            as=absx34*two*PI*rave
+
+            write (45,*) ix, iz, sinalf,sinalf*as
+@#endif
+         end do
+      end do
+                  
+      return
+
+sonnet_eof: continue
+      assert(' Problem reading sonnet mesh; unexpected end of file' == ' ')
+      write(stderr,*) ' Problem reading sonnet mesh; unexpected end of file'
 
       return
       end
