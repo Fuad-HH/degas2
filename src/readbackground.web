@@ -2,6 +2,11 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.8  1995/07/14 13:20:47  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.7  1995/06/28 20:55:20  dstotler
 % Replace "target" with "background" everywhere.
 %
@@ -112,7 +117,7 @@ of the file name (x.d is degas and x.u for uedge) */
       subroutine read_degas_background(file)
       implicit_none
 
-      integer i,j1,j2 // Local
+      integer i,j1,j2,symmetry // Local
       real mindensity,minx,minz
       real xmin,xmax,zmin,zmax
       character*FILELEN file
@@ -123,6 +128,8 @@ of the file name (x.d is degas and x.u for uedge) */
       sp_common
       el_common
       rc_common
+      so_common
+      sy_common
 
       @<pardef.h@>
       @<combal.h@>
@@ -137,12 +144,17 @@ of the file name (x.d is degas and x.u for uedge) */
       @<compar.h@>
 
       open(unit=diskin,file=file,status='old',form='formatted')
-      call inpt(diskin,xmin,xmax,zmin,zmax)
+      symmetry=geometry_symmetry_cylindrical     // DIII-D case
+@#if 0
+       symmetry=geometry_symmetry_plane          // Box
+@#endif
+      call inpt(diskin,symmetry,xmin,xmax,zmin,zmax)
       close(unit=diskin)
-
+/*       For DIII-D case   */
       minx=0.995
       minz=0.18
       mindensity=const(1.1,16)
+
       i=0
       assert(sp_sy(pr_background(1))=='e')
       assert(sp_sy(pr_background(2))=='H+')
@@ -170,6 +182,7 @@ of the file name (x.d is degas and x.u for uedge) */
 skip:       continue
          end do
       end do
+/* DIII-D Core plasma  */
       i++
       assert(i==zone_type_num[zn_plasma])
       background_n[1,i]=const(1.0,20)
@@ -179,7 +192,23 @@ skip:       continue
       vc_set(background_v[1,i],zero,zero,zero)
       vc_set(background_v[2,i],zero,zero,zero)
       background_coords=plasma_coords_cylindrical
-      
+/* 
+      background_coords=plasma_coords_cartesian        // Box
+      so_num=nosegsxz[nowals]
+      var_alloc(source_type)
+      var_alloc(source_current)
+      var_alloc(source_pos)
+      source_total=zero
+      do j2=1,so_num
+         source_type[j2]=so_surface
+         source_current[j2]=-currxzt[j2,1,nowals,1]     // ``-'' for gas puff
+         source_total=source_total+source_current[j2]
+         vc_set(source_pos[j2][0],xwall[j2,nowals],zero,
+     $                            zwall[j2,nowals])
+         vc_set(source_pos[j2][1],xwall[j2+1,nowals],zero,
+     $                            zwall[j2+1,nowals])
+      end do
+*/
       call write_background
       stop
       end
