@@ -2,6 +2,9 @@
 \Title{pmimattread}
 
 % $Log$
+% Revision 1.7  1999/03/25 20:52:11  dstotler
+% Added check(s) on filenames_array.
+%
 % Revision 1.6  1998/06/01 15:56:34  karney
 % MPI enabled version.
 %
@@ -226,7 +229,15 @@ Introduction\ldots
 
       tempfile=filenames_array[outputfile]
       assert(tempfile != char_undef)
+      call ncpopt(0)
       fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
+      if (nc_stat != 0) then
+         output_old_file=FALSE
+         return
+      else
+         output_old_file=TRUE
+      end if
+      call ncpopt(NC_VERBOSE+NC_FATAL)
 
       ou_ncread(fileid)
 
