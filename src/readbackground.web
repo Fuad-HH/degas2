@@ -1,0 +1,154 @@
+% $Id$
+\def\Wtitle{readbackground}
+
+% $Log$
+%
+
+@n/
+
+@* A program to read a background specification from a degas file.
+
+\ID{$Id$}
+
+@m FILE 'readbackground.web'
+
+@I macros.hweb
+@I degas.hweb
+@I geomint.hweb
+
+@f namelist integer
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+@ The main program
+
+@<Functions...@>=
+      program readbackground
+      implicit_none
+      character*FILELEN degasfilename
+      real xmin,xmax,zmin,zmax
+      sy_common
+      zn_common
+      pr_common
+      bk_common
+
+      call command_arg(1,degasfilename)
+
+      open(unit=diskin,file=degasfilename,status='old',form='formatted')
+      call inpt(diskin,xmin,xmax,zmin,zmax)
+      close(unit=diskin)
+      
+      call read_geometry
+            
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+      call nc_read_problem
+      bk_num=pr_target_num
+      var_alloc(background_n)
+      var_alloc(background_v)
+      var_alloc(background_temp)
+
+      call read_background
+      
+      stop
+      end
+
+@ Set the background data
+
+@<Functions...@>=
+      subroutine read_background
+      implicit_none
+
+      integer i,j1,j2 // Local
+      real mindensity,minx,minz
+
+      zn_common
+      pr_common
+      bk_common
+      sp_common
+      el_common
+      rc_common
+
+      @<pardef.h@>
+      @<combal.h@>
+      @<comst.h@>
+      @<comgeo.h@>
+      @<compls.h@>
+      @<comflg.h@>
+      @<comrfl.h@>
+      @<comrat.h@>
+      @<comsv.h@>
+      @<comstat.h@>
+      @<compar.h@>
+
+      minx=0.995
+      minz=0.18
+      mindensity=const(1.1,16)
+      i=0
+      assert(sp_sy(pr_target(1))=='e')
+      assert(sp_sy(pr_target(2))=='H+')
+      do j2=1,novzs
+         do j1=1,nohzs
+            if (kzone1(j1,j2) <= 0 || kzone2(j1,j2) <= 0) then
+               goto skip
+            else if (denehvt(j1,j2,1) <= mindensity) then
+               goto skip
+            else if (gridx(j1,j2,1)<=minx || gridx(j1,j2+1,1)<=minx ||
+     $              gridx(j1+1,j2+1,1)<=minx || gridx(j1+1,j2,1)<=minx) then
+               goto skip
+            else if (gridz(j1,j2,1)<=minz || gridz(j1,j2+1,1)<=minz ||
+     $              gridz(j1+1,j2+1,1)<=minz || gridz(j1+1,j2,1)<=minz) then
+               goto skip
+            endif
+            i++
+            assert(i<=zone_type_num[zn_plasma])
+            background_n[1,i]=denehvt[j1,j2,1]
+            background_n[2,i]=denihvt[j1,j2,1,1]
+            background_temp[1,i]=tehvt[j1,j2,1]
+            background_temp[2,i]=tihvt[j1,j2,1,1]
+            vc_set(background_v[1,i],zero,zero,zero)
+            vc_set(background_v[2,i],zero,zero,zero)
+skip:       continue
+         end do
+      end do
+      i++
+      assert(i==zone_type_num[zn_plasma])
+      background_n[1,i]=const(1.0,20)
+      background_n[2,i]=const(1.0,20)
+      background_temp[1,i]=const(200.0)
+      background_temp[2,i]=const(200.0)
+      vc_set(background_v[1,i],zero,zero,zero)
+      vc_set(background_v[2,i],zero,zero,zero)
+      
+      call write_background
+      stop
+      end
+
+
+@ Write out background information.
+
+@<Functions...@>=
+      subroutine write_background
+      implicit_none
+      integer fileid
+      zn_common
+      bk_common
+      bk_ncdecl
+      vc_ncdecl
+      nc_common
+
+      fileid = nccreate('background.nc',NC_CLOBBER,nc_stat)
+      vc_ncdef(fileid)
+      bk_ncdef(fileid)
+      call ncendef(fileid,nc_stat);
+      vc_ncwrite(fileid)
+      bk_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+      

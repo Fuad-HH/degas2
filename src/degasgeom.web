@@ -3,6 +3,9 @@
 \def\Wtitle{Read old Degas' geometry}
 
 % $Log$
+% Revision 1.4  1995/03/28 20:37:35  jshankar
+% Initial version of readgeometry.
+%
 % Revision 1.3  1995/03/10 22:11:15  karney
 % Reorder variable definitions in various header files
 %
@@ -136,6 +139,16 @@
             zwall[j,i]=zwall[j,i]*const(0.01)
          end do
       end do
+
+      do j=1,nptshb-1
+         do i=1,nptsvb-1
+            if (kzone1(i,j) > 0 && kzone2(i,j) > 0 && denehvt(i,j,1) > 1.1e10 ) then
+               write(stdout,'(5f12.4)') gridx(i,j,1),gridx(i,j+1,1),gridx(i+1,j+1,1),gridx(i+1,j,1),gridx(i,j,1)
+               write(stdout,'(5f12.4)') gridz(i,j,1),gridz(i,j+1,1),gridz(i+1,j+1,1),gridz(i+1,j,1),gridz(i,j,1)
+            end if
+         end do
+      end do
+
 /* remove some points -- js 
         do j=1,nptshb-1
         do i=1,nptsvb-1
@@ -153,6 +166,7 @@
             end if  */
          end do
       end do
+
       do j=1,nptshb
          do i=1,nptsvb
             gridx[i,j,1]=xoffset+gridx[i,j,1]*const(0.01)

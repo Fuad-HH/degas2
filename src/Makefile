@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.20  1995/03/28 20:37:26  jshankar
+# Initial version of readgeometry.
+#
 # Revision 1.19  1995/03/10 22:11:13  karney
 # Reorder variable definitions in various header files
 #
@@ -284,9 +287,17 @@ degasgeom = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O rand
 degasgeom_libs = $(NETCDF)
 degasgeom: $(degasgeom)
 
-readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O
+test = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O
+test_libs = $(NETCDF)
+test: $(test)
+
+readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry)
+
+readbackground = readdegas.$O geometry.$O elementread.$O
+readbackground_libs = $(NETCDF)
+readbackground: $(readbackground)
 
 reactiontest = reactiontest.$O elementread.$O reaction.$O
 reactiontest_libs = $(NETCDF)

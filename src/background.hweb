@@ -3,6 +3,15 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1994/11/21 15:49:38  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.3  1993/09/30 18:39:01  karney
 % Pre-PET checkin
 %
@@ -34,7 +43,6 @@ these arrays.
 
 @m bk_check(x) (x > 0 && x <= bk_num)
 
-@m bk_sp(x) background_sp[x]
 @m bk_n(x,i) background_n[x,zn_pointer(i)]
 @m bk_temp(x,i) background_temp[x,zn_pointer(i)]
 @m bk_v(x,i) background_v[x,zn_pointer(i)]
@@ -43,10 +51,9 @@ these arrays.
 
 @a
       package_init(bk)
+      define_var_pk(bk,bk_num,INT)
       define_dimen_pk(bk,background_ind,bk_num)
       define_dimen_pk(bk,plasma_ind,zone_type_num[zn_plasma])
-      define_var_pk(bk,bk_num,INT)
-      define_varp_pk(bk,background_sp,INT,background_ind)
       define_varp_pk(bk,background_n,FLOAT,background_ind,plasma_ind)
       define_varp_pk(bk,background_v,FLOAT,vc_ind,background_ind,plasma_ind)
       define_varp_pk(bk,background_temp,FLOAT,background_ind,plasma_ind)

@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.1  1995/01/30 21:06:55  karney
+% Merge in my changes with Daren's
+%
 
 @n/
 
@@ -18,9 +21,67 @@
 @a
       program reactiontest
       implicit_none
+      character*LINELEN line    // Local
+      integer length,p,b,e
+      real vt[3],vb[3],vrel,energy,density,temperature,rate
+      external reaction_rate_a  // External
+      real reaction_rate_a
       
+      sp_decl(test)
+      sp_decl(target)
+      rc_decl(reaction)
+
+      st_common
+      el_common
+      sp_common
+      rc_common
+
+
       call init_reaction
+loop: continue
+      write(stdout,*) 'Enter symbols for test particle, target particle, reaction'
+
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      test=sp_lookup(line(b:e))
+      assert(next_token(line,b,e,p))
+      target=sp_lookup(line(b:e))
+      assert(next_token(line,b,e,p))
+      reaction=rc_lookup(line(b:e))
       
+      assert(test == rc_reagant(reaction,1))
+      assert(target == rc_reagant(reaction,2))
+      
+loop1: continue
+
+      write(stdout,*) 'Enter test energy, target density, temperature'
+      
+      if (! read_string(stdin,line,length)) goto loop
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      energy=read_real(line(b:e))
+      assert(next_token(line,b,e,p))
+      density=read_real(line(b:e))
+      assert(next_token(line,b,e,p))
+      temperature=read_real(line(b:e))
+      
+      vrel=sqrt(two*electron_charge*energy/(atomic_mass_unit*sp_m(test)))
+      vc_set(vt,vrel,zero,zero)
+      vc_set(vb,zero,zero,zero)
+      
+      rate=reaction_rate_a(sp_args(test),vt,sp_args(target),density,vb,temperature,rc_dummy(reaction))
+
+      write(stdout,*) rate
+      
+      goto loop1
+
+
+eof:  continue
       stop
       end
       @<Functions and Subroutines@>
