@@ -2,6 +2,15 @@
 \def\Wtitle{classes}
 
 % $Log$
+% Revision 1.4  1994/11/21 15:49:58  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.3  1993/09/30 18:42:02  karney
 % Pre-PET checkin
 %
@@ -224,10 +233,10 @@ used for independent variable |i|.
 |i|.
   \item[|xs_mult[i,j]|] Floating point multipier for independent variable |i|.
 It should provide the conversion factor from |xs_units[i]| to the MKS system.
-  \item[|xs_tab_index1v1|] For tabular organizations, this string provides the
-number of values used for the first independent variable and first dependent
-variable. Analogous variables
-are used for additional |i| and |j| values (namely, |xs_tab_indexivj|).
+  \item[|xs_tab_index[i,j]|] For tabular organizations, 
+this integer provides the
+number of values used for independent variable |i| and dependent
+variable |j|. 
   \item[|xs_min[i,j]|] Floating point minimum value to be used for independent
 variable |i| in a table. It will be combined with the maximum and the number
 of values to actually define the array of independent variable values.
@@ -265,7 +274,12 @@ Ideally |xs_table| would have an additional index associated with
    name. The variable dimensioning is then accomplished with the
    |indexivj_ind| dimensions defined above. It would be convenient if
    these could be some sort of array, but since they eventually appear
-   in dimension statements, that is not possible.
+   as dimensions for netCDF, that is not possible. Furthermore, note that
+   in these two sets of variables, |xs_tablej| and |indexivj_ind|, the
+   values of the parameters |xs_dep_var_max| (corresponds to |j|) and
+   |xs_table_rank_max| (corresponds to |i|) are {\em hardwired}. If these
+   parameters ever need to be changed, the {\em number} of these 
+   variables needs to altered accordingly.
 
 @i classes.hweb
 @* Index.

@@ -2,6 +2,15 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.7  1994/11/21 15:51:05  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.6  1994/07/13 19:39:46  dstotler
 % Continue development of ratecalc.web; modify code comments in reaction.web
 % to eliminate TeX errors.
@@ -31,7 +40,12 @@
 \ID{$Id$}
 
 These routines access atomic physics cross sections from the ALADDIN
-database and compute reaction rates from them. 
+database and compute reaction rates, as well as higher velocity
+moments, from them. As presently configured, this code takes as input
+the information required for ALADDIN to identify the desired data.
+Separate input describes the calculations to be performed on these 
+data. Namely, the output is presently envisioned to be in tabular
+format; the user describes the size and contents of these tables.
 
 @m FILE 'ratecalc.web'
 
@@ -43,75 +57,219 @@ database and compute reaction rates from them.
 @a
       program ratecalc
       implicit_none
-      integer fileid,j,k             // Local
-      real delta,emin,energy,sigma
+      integer fileid,j,k,l,m                      // Local
+      double precision zsigma
+      real norm_constant,infinite_integral
+      real ind_var_min[xs_table_rank_max],ind_var_delta[xs_table_rank_max],
+     $   ind_var[xs_table_rank_max]
       character*msg_length error
-      ra_common                      // Common
+      external electron_rate_integrand,           // External
+     $   electron_norm_integrand,ion_rate_integrand
+
+      ra_common                                   // Commons and declarations
       ra_ncdecl
       xs_common
       xs_ncdecl
       nc_common
       sy_common
-      ra_common_l                    // Local common
+      ra_common_l                                 // Local common
 
-/* Open file containing the information describing the ALADDIN data */
-
-      fileid = ncopen('../data/aladinput.nc',NC_NOWRITE,nc_stat)
-
+      call setup_netcdf
+/* 
+   Read file containing the information describing the ALADDIN data 
+*/
+      fileid=ncopen('../data/aladinput.nc',NC_NOWRITE,nc_stat)
       ra_ncread(fileid)
-
       call ncclose(fileid,nc_stat)
 
-/* Get fit information from ALADDIN. The first
-   dependent variable is assumed to be
-   the cross section. The reaction rate and higher moments will be
-   placed in subsequent dependent variable slots. */
-
+/* 
+   Get fit information from ALADDIN. 
+*/
         call aladdin_read_coefs(ra_data_filename,ra_hier_label,
      $     ra_num_hier,ra_bool_and_label,ra_num_bool_and,
      $     ra_bool_not_label,ra_num_bool_not,fit_coef,
      $     num_fit_coef,leval)
 
-/* In one version, all of the above were functions of dependent variable
+/* 
+   In one version, all of the above were functions of dependent variable
    index. The approach was simplified for the purposes of this code. 
-   More complicated arrangements would be executed with separate codes
-   (or perhaps by reading more than one input file per output file. */
+   More complicated arrangements could be executed with separate codes
+   (or perhaps by reading more than one input file per output file).
+*/
 
-      fileid = ncopen('../data/aladoutput.nc',NC_WRITE,nc_stat)
-      
+/*
+   Open file containing information about the independent variables,
+   number of dependent variables, etc. The resulting cross sections,
+   rates, and higher
+   moments will be written to this file.
+*/
+      fileid=ncopen('../data/aladoutput.nc',NC_WRITE,nc_stat)
       xs_ncread(fileid)
 
-/* Check some of the data parameters for consistency */
+/* 
+   Check some of the data parameters for consistency 
+*/
       assert(xs_num_dep_var <= xs_dep_var_max)
 
       do j=1,xs_num_dep_var
          assert(xs_rank[j] <= xs_table_rank_max)
       end do
 
-/* Fill in table for cross section. First check that rank 
-   and independent variable are as expected. */
+/* 
+   Fill in table for cross section. The first
+   dependent variable is assumed to be
+   the cross section. The reaction rate and higher moments will be
+   placed in subsequent dependent variable slots. Check that rank 
+   and independent variable are as expected. 
+*/
+      assert(xs_rank[1] == 1)
+      assert(xs_var[1,1] == 'energy') 
+      assert(xs_units[1,1] == 'eV')
 
-      assert( (xs_rank[1] == 1) && (xs_var[1,1] == 'energy') )
-      if (xs_spacing[1,1] == 'linear') then 
-         emin = xs_min[1,1]*xs_mult[1,1]
-         delta = (xs_max[1,1]-xs_min[1,1])*xs_mult[1,1]/
-     $      areal(xs_tab_index(1,1)-1)
-      else if (xs_spacing[1,1] == 'log') then
-         emin = log(xs_min[1,1]*xs_mult[1,1])
-         delta = log(xs_max[1,1]/xs_min[1,1])/areal(xs_tab_index(1,1)-1)
-      else
-         assert('Unknown spacing type' == ' ')
-      end if
+/*
+   Note that in finding |delta| for the independent variables, we
+   use multiplier = 1. That is, the units stated in the input file
+   (e.g., eV) are the ones to be used in this code.
+*/
+      call find_delta(xs_spacing[1,1],xs_min[1,1],one,xs_max[1,1],
+     $   xs_tab_index[1,1],ind_var_min[1],ind_var_delta[1])
 
       do k=0,xs_tab_index(1,1)-1
-         energy = emin + areal(k)*delta
-         if (xs_spacing[1,1] == 'log') energy=exp(energy)
-         energy=energy/electron_charge     // Aladdin input variables are in eV
-         call aladdin_eval_fit(leval,energy,fit_coef,
-     $      num_fit_coef,sigma,error)
-         xs_table1[k,1,1]=sigma
+         ind_var[1]=ind_var_min[1]+areal(k)*ind_var_delta[1]
+         if (xs_spacing[1,1] == 'log') ind_var[1]=exp(ind_var[1])
+
+/*
+   Aladdin expects all arguments in double precision.
+*/
+         ind_var[1]=dble(ind_var[1])  
+
+         zsigma=zero           // ALADDIN does not always initialize 
+         call aladdin_eval_fit(leval,ind_var[1],fit_coef,
+     $      num_fit_coef,zsigma,error)
+         xs_table1[k,1,1]=zsigma
       end do
 
+/* 
+   Now compute higher moments 
+*/
+      if (xs_num_dep_var > 1) then
+         do j=2,xs_num_dep_var
+
+/*
+   Assume that |j| = 2 is the reaction rate, with successively higher
+   moments at each subsequent |j|. Could possibly check or even assign
+   values of |xs_var| here.
+*/
+            moment_number=j-2  
+ 
+/*
+   Find all |delta| values at this |j|
+*/
+            do k=1,xs_table_rank_max   
+               call find_delta(xs_spacing[k,j],xs_min[k,j],one,xs_max[k,j],
+     $            xs_tab_index[k,j],ind_var_min[k],ind_var_delta[k])
+            end do
+
+/* 
+   The following three loops represent the present size of |xs_table_rank_max|;
+   if it is increased or decreased, the number of loops here should be altered
+   accordingly.
+*/
+            do k=0,xs_tab_index[3,j]-1
+               ind_var[3]=ind_var_min[3]+areal(k)*ind_var_delta[3]
+               if (xs_spacing[3,j] == 'log') ind_var[3]=exp(ind_var[3])
+               do l=0,xs_tab_index(2,j)-1
+                  ind_var[2]=ind_var_min[2]+areal(l)*ind_var_delta[2]
+                  if (xs_spacing[2,j] == 'log') ind_var[2]=exp(ind_var[2])
+                  do m=0,xs_tab_index(1,j)-1
+                     ind_var[1]=ind_var_min[1]+areal(m)*ind_var_delta[1]
+                     if (xs_spacing[1,j] == 'log') ind_var[1]=exp(ind_var[1])
+
+/*
+   Check ALADDIN's hierarchical labels to see if this is an {\bf electron 
+   impact process}; integrals should be a function of
+   electron temperature only (i.e., |xs_rank| = 1).
+*/
+                     if (ra_hier_label[2] == 'e') then
+                        assert(xs_rank[j] == 1)              
+                        assert(xs_var[1,j] == 'temperature')
+                        temperature=ind_var[1]
+
+/*
+   Compute normalization constant for the distribution function.
+*/
+                        norm_constant=
+     $                     infinite_integral(electron_norm_integrand)
+                        num_evaluations=0
+                        zsigma=infinite_integral(electron_rate_integrand)
+                        zsigma=zsigma/norm_constant
+
+/*
+   Alternatively, check to see if this is an {\bf ion impact process}; 
+   do this by examining third hierarchical label to see if it
+   indicates a positive charge. These integrals should be a
+   function of ion temperature and neutral energy; there is no
+   assumed order in |xs_var|, hence the assignment of |u| and |up|
+   inside the if-then-else block. The units of |u| and |up| are
+   taken to be $\sqrt{{\rm eV}/{\rm amu}}$. This effectively
+   normalizes the range of integration; i.e., at least the lower
+   part of the range is at velocities
+   of order unity. For this to work, the variable |ra_mass| should
+   have units of grams, ion temperature and neutral energy should
+   be in eV; also, the cross section computed should require
+   its argument also in eV.
+*/
+                     else if ((ra_hier_label[3]SP[1:2] == '[+') &&
+     $                  (ra_hier_label[3]SP[3:3] != '0')) then
+                        assert(xs_rank[j] == 2)
+                        assert(xs_units[1,j] == 'eV')
+                        assert(xs_units[2,j] == 'eV')
+                        assert(ra_mass_units == 'g')
+                        if ((xs_var[1,j] == 'energy') 
+     $                     && (xs_var[2,j] == 'temperature')) then
+                           u=sqrt(two*ind_var[1])
+                           up=sqrt(two*ind_var[2])
+                        else if ((xs_var[1,j] == 'temperature')
+     $                     && (xs_var[2,j] == 'energy')) then
+                           up=sqrt(two*ind_var[1])
+                           u=sqrt(two*ind_var[2])
+                        else
+                           assert('Unexpected values of xs_var' == ' ')
+                        end if
+              
+                        assert(up != zero)    // Expression valid only for
+                        assert(u != zero)     // nonzero values of |u| and |up|
+                        num_evaluations=0
+                        zsigma=infinite_integral(ion_rate_integrand)
+
+                     else
+                        assert('Unknown reaction process' == ' ')
+                     end if
+
+/*
+   Pay for efficiency in dimensioning |xs_table| differently for each |j|
+   with this ugly if-then-else block; again, |xs_dep_var_max| is
+   assumed to be = 5 here.
+*/
+                  if (j == 2) then
+                     xs_table2[m,l,k]=zsigma
+                  else if (j == 3) then
+                     xs_table3[m,l,k]=zsigma
+                  else if (j == 4) then
+                     xs_table4[m,l,k]=zsigma
+                  else if (j == 5) then
+                     xs_table5[m,l,k]=zsigma
+                  end if
+
+                  end do
+               end do
+            end do
+         end do
+      end if
+
+/*
+   All done. Write and close netCDF file
+*/
       xs_ncwrite(fileid)
       var_free(xs_table1)
       var_free(xs_table2)
@@ -125,197 +283,478 @@ database and compute reaction rates from them.
 
       @<Functions and subroutines@>
 
-@* Romberg integration and subsidiary routines. These are taken from 
-{\em Numerical Recipes} by W. H. Press et al. (Cambridge Press,
-New York, 1986). This routine is listed there as {\em qromo}.
-|romberg_open_integ| does Romberg integration on an open interval.
-Returns as |result| the integral of the function |integrand| 
-from |lower_bound| to |upper_bound|,
-using any specified integrating subroutine |basic_integ| and Romberg's 
-method. Normally |basic_integ| will be an open formula, not evaluating the
-function at the endpoints. It is assumed that |basic_integ| triples the 
-number of steps on each call, and that its error series contains only
-even powers of the number of steps.
+@ Set up netCDF files.
 
 @<Functions...@>=
-      subroutine romberg_open_integ(integrand,lower_bound,upper_bound,
-     $   result,basic_integ)
+      subroutine setup_netcdf
       implicit_none
-      real lower_bound, upper_bound, integrand          // Input
-      real result                                       // Output
-      integer j                                         // Local
-      real extrap_err
-      real estimate[max_integ_steps+1], step_size[max_integ_steps+1]
-      logical done
-      external basic_integ
+      integer fileid,i,j                // Local
+      character*FILELEN fileout
+      
+      ra_common
+      nc_common
+      ra_ncdecl
+      xs_common
+      xs_ncdecl
+      sy_common
 
-      done=.false.
-      step_size[1]=one
-      do j=1,max_integ_steps
-         
-         call basic_integ(integrand,lower_bound,upper_bound,estimate[j],j)
+      ra_mass=const(3.3452,-24)
+      ra_num_hier=14
+      ra_num_bool_and=1
+      ra_num_bool_not=0
+      ra_mass_units='g'
+      ra_hier_label[1]='ION'
+      ra_hier_label[2]='H{2}'
+      ra_hier_label[3]='[+1]'
+      ra_hier_label[4]='(G)'
+      ra_hier_label[5]='He'
+      ra_hier_label[6]='[+0]'
+      ra_hier_label[7]='(G)'
+      ra_hier_label[8]='H{2}'
+      ra_hier_label[9]='[+1]'
+      ra_hier_label[10]='(G)'
+      ra_hier_label[11]='He'
+      ra_hier_label[12]='[+1]'
+      ra_hier_label[13]='(G)'
+      ra_hier_label[14]='e'
+      ra_bool_and_label[1]='XS'
+      ra_data_filename='/u/ftp/pub/aladdin/data/janev.dat'
 
-         if (j >= num_extrap_pts) then
-            call poly_interpolation(step_size[j-num_extrap_pts-1],
-     $         estimate[j-num_extrap_pts-1],num_extrap_pts,zero,result,
-     $         extrap_err)
-            if (abs(extrap_err) < integration_acc*abs(result)) then
-               done=.true.
-               return
-            end if
-         end if
+      fileout='../data/aladinput.nc'
+      fileid=nccreate(fileout,NC_CLOBBER,nc_stat)
+      ra_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      ra_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
 
-         estimate[j+1]=estimate[j]
-         step_size[j+1]=step_size[j]/const(9.0) // Step tripling assumption 
+      xs_name='h_ion_by_h+'
+      xs_num_dep_var=5
 
+      xs_tab_index[1,1]=48
+      xs_tab_index[2,1]=1
+      xs_tab_index[3,1]=1
+      xs_tab_index[1,2]=10
+      xs_tab_index[2,2]=4
+      xs_tab_index[3,2]=1
+      xs_tab_index[1,3]=2
+      xs_tab_index[2,3]=4
+      xs_tab_index[3,3]=1
+      xs_tab_index[1,4]=2
+      xs_tab_index[2,4]=4
+      xs_tab_index[3,4]=1
+      xs_tab_index[1,5]=2
+      xs_tab_index[2,5]=4
+      xs_tab_index[3,5]=1
+
+      do j = 1, xs_num_dep_var
+         xs_organization[j]='table'
       end do
-      assert(done)                              // Indicate error if get here
-      end
 
-@ Polynomial interpolation routine. Given arrays |x_points| and |f_at_x_pts|, 
-each of length |num_x_pts|, and given a value |x_req|, this routine 
-returns a value |f_at_x_req|, and an error estimate |error_est|. 
-If $f(x)$ is the polynomial of degree |num_x_pts - 1| such
-that $f( |x_points[j]| ) = |f_at_x_pts[j]|$, $|j| = 1$, \ldots, 
-|num_x_pts|, then the returned
-value $|f_at_x_req| = f(|x_req|)$.
-
-@<Functions...@>=
-      subroutine poly_interpolation(x_points,f_at_x_pts,num_x_pts,x_req,
-     $   f_at_x_req,error_est)
-      implicit_none
-
-      integer num_x_pts                              // Input
-      real x_points[num_x_pts],f_at_x_pts[num_x_pts]
-      real x_req
-      real error_est,f_at_x_req                      // Output
-
-      integer i,m,ns                                 // Local variables
-      real c[max_interp_pts],d[max_interp_pts]
-      real den,dif,dift,ho,hp,w
-
-      ns=1
-      dif=abs(x_req-x_points[1])
-      do i=1,num_x_pts                // Here we find index ns of closest entry
-         dift=abs(x_req-x_points[i])
-         if (dift < dif) then
-            ns=i
-            dif=dift
-         end if
-         c[i]=f_at_x_pts[i]        // and initialize the tableau of |c| and |d|
-         d[i]=f_at_x_pts[i]
+      xs_rank[1]=1
+      do j=2,xs_num_dep_var
+         xs_rank[j]=2
       end do
-    
-      f_at_x_req=f_at_x_pts[ns]         // First approximation to |f_at_x_req|.
-      ns=ns-1
 
-/* For each column of the tableau, we loop over the current |c| and |d| and
-update them. */
+      xs_min[1,1]=const(1.,2)
+      xs_max[1,1]=const(1.,6)
+      xs_min[1,2]=const(1.,2)
+      xs_max[1,2]=const(1.,4)
+      xs_min[1,3]=const(1.,2)
+      xs_max[1,3]=const(1.,3)
+      xs_min[1,4]=const(1.,2)
+      xs_max[1,4]=const(1.,3)
+      xs_min[1,5]=const(1.,2)
+      xs_max[1,5]=const(1.,3)
 
-      do m=1,num_x_pts-1  
-         do i=1,num_x_pts-m
-            ho=x_points[i]-x_req
-            hp=x_points[i+m]-x_req
-            w=c[i+1]-d[i]
-            den=ho-hp
+      xs_min[2,2]=const(1.,1)
+      xs_max[2,2]=const(1.,4)
+      xs_min[2,3]=const(1.,1)
+      xs_max[2,3]=const(1.,4)
+      xs_min[2,4]=const(1.,1)
+      xs_max[2,4]=const(1.,4)
+      xs_min[2,5]=const(1.,1)
+      xs_max[2,5]=const(1.,4)
 
-/* This error can occur only if two input |x_points|'s are identical. */
-            assert(den!= zero) 
-
-            den=w/den
-            d[i]=hp*den          // Here the |c| and |d| are updated.
-            c[i]=ho*den
+      do j=1,xs_num_dep_var
+         xs_mult[0,j]=const(1.,-2)^(j+1)
+         xs_spacing[0,j]='log'
+         do i=1,xs_rank[j]
+            xs_mult[i,j]=electron_charge
+            xs_spacing[i,j]='log'
          end do
-
-/* After each column in the tableau is completed, we decide which
-correction, |c| or |d|, we want to add to our accumulating 
-value of |f_at_x_req|,
-i.e., which path to take through the tableau -- forking up or down. We
-do this in such a way as to take the most ``straight line'' route through
-the tableau to its apex, updating |ns| accordingly to keep track of
-where we are. This route keeps the partial approximations centered
-(insofar as possible) on the target |x_req|. 
-The last |error_est| added is thus the
-error indication. */ 
-
-         if (2*ns < num_x_pts-m) then
-            error_est=c[ns+1]
-         else
-            error_est=d[ns]
-            ns=ns-1 
-         end if
-
-         f_at_x_req=f_at_x_req+error_est
       end do
 
-      return 
+      xs_var[0,1]='cross_section'
+      xs_units[0,1]='cm^2'
+      xs_var[1,1]='energy'
+      xs_units[1,1]='eV'
+      xs_var[0,2]='reaction_rate'
+      xs_units[0,2]='cm^3/s'
+      xs_var[0,3]='first_rate_moment'
+      xs_units[0,3]='cm^4/s^2'
+      xs_var[0,4]='2nd_rate_moment'
+      xs_units[0,4]='cm^5/s^3'
+      xs_var[0,5]='3rd_rate_moment'
+      xs_units[0,5]='cm^6/s^4'
+      do j=2,xs_num_dep_var
+         xs_var[1,j]='temperature'
+         xs_units[1,j]='eV'
+         xs_var[2,j]='energy'
+         xs_units[2,j]='eV'
+      end do
+
+      do j=1,xs_num_dep_var
+         if (xs_rank[j] < xs_table_rank_max) then
+            do i=xs_rank[j]+1,xs_table_rank_max
+               xs_var[i,j]='unknown'
+               xs_spacing[i,j]='unknown'
+               xs_units[i,j]='unknown'
+               xs_mult[i,j]=zero
+               xs_min[i,j]=zero
+               xs_max[i,j]=zero
+            end do
+         end if
+      end do
+
+      if (xs_num_dep_var < xs_dep_var_max) then
+         do j=xs_num_dep_var+1,xs_dep_var_max
+
+            xs_rank[j]=1
+            xs_organization[j]='unknown'
+            xs_var[0,j]='unknown'
+            xs_spacing[0,j]='unknown'
+            xs_units[0,j]='unknown'
+            xs_mult[0,j]=zero
+            do i=1,xs_table_rank_max
+               xs_var[i,j]='unknown'
+               xs_spacing[i,j]='unknown'
+               xs_units[i,j]='unknown'
+               xs_mult[i,j]=zero
+               xs_min[i,j]=zero
+               xs_max[i,j]=zero
+            end do
+         end do
+      end if
+      
+      var_alloc(xs_table1)
+      var_alloc(xs_table2)
+      var_alloc(xs_table3)
+      var_alloc(xs_table4)
+      var_alloc(xs_table5)
+
+      xs_table1[0,0,0]=zero
+      xs_table2[0,0,0]=zero
+      xs_table3[0,0,0]=zero
+      xs_table4[0,0,0]=zero
+      xs_table5[0,0,0]=zero
+
+      fileout='../data/aladoutput.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+      xs_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      xs_ncwrite(fileid)
+      var_free(xs_table1)
+      var_free(xs_table2)
+      var_free(xs_table3)
+      var_free(xs_table4)
+      var_free(xs_table5)
+      call ncclose(fileid,nc_stat)
+
+      return
       end
+
+@* Compute Dependent Variable ``delta''s. These steps
+will be executed frequently throughout the code. Perhaps this
+routine can be standardized and used in many places. The minimum
+|min_value| and maximum |max_value| are input. A uniform series
+of length |number_of_values|, 
+either linear or logarithmic according to |spacing|, is to be
+established with the spacing |var_delta|. At the same time, the
+original values are to be rescaled by |multiplier|; typically, this
+is used to effect a change in units. Hence, the output minimum
+|var_min| may differ in general from the input |min_value|.
+
+@<Functions...@>=
+      subroutine find_delta(spacing,min_value,multiplier,max_value,
+     $   number_of_values,var_min,var_delta)
+      implicit_none
+      real min_value,multiplier,max_value      // Input
+      integer number_of_values
+      character*xs_tag_string_length spacing
+      real var_min,var_delta                   // Output
      
-@ Basic integration routine. This routine computes the |n_stage|th stage of
-refinement of an extended midpoint rule. When called with $|n_stage| = 1$,
-the routine returns as |result| the crudest estimate 
-of $\int_{|lower_bound|}^{|upper_bound|}
-f(x) dx$. Subsequent calls with |n_stage| = 2, 3, \ldots (in that sequential
-order) will improve the accuracy of |result| by 
-adding $(2/3) \times 3^{|n_stage|-1}$
-additional interior points. |result| should not be modified between 
-sequential calls. For this specific routine, |upper_bound| is assumed to be
-infinite (value passed not used). It is assumed that the function
-|integrand| decreases exponentially at infinity.
+      if (number_of_values <= 1) then
+         var_min = zero
+         var_delta = zero
+         return
+      end if
 
-@<Functions...@>=
-      subroutine basic_exp_integration(integrand,lower_bound,
-     $   upper_bound,result,n_stage)
-      implicit_none
-
-      integer n_stage                          // Input
-      real lower_bound,upper_bound,integrand
-      real result                              // Output
-
-      integer ipoints, j                       // Local variables
-      real lower_bound_sub,upper_bound_sub,two_delta_x,delta_x,
-     $   integrand_sub,sum,real_ipts,x
-      save ipoints
-
-/*  Perform substitution $x^{\prime} = e^{-x}$ */
-
-      integrand_sub(x)=integrand(-log(x))/x 
-      upper_bound_sub=exp(-lower_bound)
-      assert(one/upper_bound < epsilon)  // Verify that |upper_bound| is large.
-      lower_bound_sub=zero 
-
-      if (n_stage == 1) then
-         result=(upper_bound_sub-lower_bound_sub)*
-     $      integrand_sub(half*(lower_bound_sub+upper_bound_sub))
-         ipoints=1         // 2$\times$|ipoints| points will be added next time
+      if (spacing == 'linear') then
+         var_min=min_value*multiplier
+         var_delta=(max_value-min_value)*multiplier/areal(number_of_values-1)
+      else if (spacing == 'log') then
+         var_min = log(min_value*multiplier)
+         var_delta = log(max_value/min_value)/areal(number_of_values-1)
       else
-         real_ipts=areal(ipoints)
-         delta_x=(upper_bound_sub-lower_bound_sub)/(const(3.0)*real_ipts)
-
-/*  The added points alternate in spacing 
-between |delta_x| and |two_delta_x|. */
-
-         two_delta_x=delta_x+delta_x        
-         x=lower_bound_sub+half*delta_x
-         sum=zero
-         do j=1,ipoints
-            sum=sum+integrand_sub(x)
-            x=x+two_delta_x
-            sum=sum+integrand_sub(x)
-            x=x+delta_x
-         end do
-
-/* The new sum is combined with the old integral to give a refined integral. */
-
-         result=(result+(upper_bound_sub-lower_bound_sub)*sum/real_ipts)/
-     $      const(3.0)
-         ipoints=3*ipoints
+         assert('Unknown spacing type' == ' ')
       end if
 
       return
       end
 
-@* ALADDIN routine to read fit coefficients. This routine takes as input
+@* Integrands for Rate Ralculations. 
+This routine is a single argument function which provides the integrand
+in a calculation of velocity-weighted averages of a user-specified
+function over a user-specified distribution function. The principle
+use of this routine is to compute a velocity-weighted reaction rate 
+\begin{equation}
+\label{ereactionrate}
+\langle \sigma v v^{|n|}\rangle = \frac{4 \pi}{\alpha m} \left( \frac{2}{m} 
+\right)^{(n+2)/2} \int_{0}^{\infty} dE \: \sigma f(E) E^{(n+2)/2},
+\end{equation} 
+where $\sigma(E)$ is computed
+using the function |sigma|, $f(E)$ is calculated by 
+the function |edist|, $m$ is the
+particle mass relating $E$ and $v$ via $E = \frac{1}{2} m v^{2}$, and $\alpha$
+is the normalization constant for the distribution function,
+\[ 
+\alpha = \frac{4 \pi}{m} \left( \frac{2}{m} 
+\right)^{1/2} \int_{0}^{\infty} dE \: f(E) E^{1/2}.
+\] 
+Note that $\alpha$ does not appear in this routine but is incorporated
+in the calling routines. 
+
+A number of assumptions must be made in arriving
+at Eq.~(\ref{ereactionrate}).
+\begin{enumerate}
+  \item $\sigma$ is a function only of the magnitude of the relative
+velocities of the colliding particles.
+  \item The distribution function is a function only of the particle's
+energy (or, equivalently, speed).
+  \item The velocity of the ``projectile'' particle is much less than
+the typical velocity of the ``target'' particles (i.e., defined by $f$).
+\end{enumerate}
+These are the standard assumptions made when a neutral atom (``projectile'')
+collides with plasma electrons (``target'').
+
+This routine is set up with a single argument so that it can be used with
+``canned'' integration routines; the argument |energy| is the energy $E$ in 
+the above expressions. In order for the numerical integrations to work
+effectively, it is necessary that $E$ be in practical units; eV in this
+case. Appropriate unit conversions have been inserted into the overall
+multiplier to put the result in cgs units.
+The mass $m =$ |ra_mass| and exponent |n| =
+|moment_number| must come in 
+through common blocks.
+
+@<Functions...@>=
+      real function electron_rate_integrand(energy)
+      implicit_none
+
+      real energy                     // Input
+
+      real multiplier,ze_dist,exponent,zint,zsigma   // Local variables
+      real e_distrib_fn,sigma                        // External functions
+
+      ra_common                       // Common
+      ra_common_l                     // Local common
+
+      zsigma=sigma(energy)
+      ze_dist=e_distrib_fn(energy)
+      exponent=half*(areal(moment_number)+two)
+      multiplier=(const(4.0)*PI / ra_mass) * (two / ra_mass)^exponent
+     $   * ev_to_ergs^(exponent+one)
+
+      zint=multiplier * zsigma * ze_dist * energy^exponent
+
+      electron_rate_integrand=zint
+
+      return
+      end
+
+@ This routine is the integrand used to compute the normalization
+constant for electron reaction rates. The primary motivation for doing
+this numerically is allow the use of arbitrary electron distribution
+functions. The argument |energy| is assumed to be in eV; the overall
+multiplier converts the resulting units to cgs. 
+@<Functions...@>=
+      real function electron_norm_integrand(energy)
+      implicit_none
+
+      real energy                     // Input
+
+      real multiplier,ze_dist,zint    // Local variables
+      real e_distrib_fn               // External functions
+
+      ra_common                       // Common
+
+      ze_dist=e_distrib_fn(energy)
+      multiplier=(const(4.0)*PI / ra_mass) * sqrt(two / ra_mass)
+     $   * ev_to_ergs^const(1.5)
+
+      zint=multiplier * ze_dist * sqrt(energy)
+
+      electron_norm_integrand=zint
+
+      return
+      end
+
+@ This routine is a single argument function which provides the integrand
+in a calculation of a standard integral closely associated with 
+velocity-weighted reaction rates. 
+More specifically, these integrals arise in the
+computation of plasma source terms due to interactions between neutral
+atoms and charged particles\cite{Reit93}, $S_{A_{p},k}$,
+\begin{equation}
+\label{source}
+S_{A_{p},k} = \Gamma \int d^{3}v \: f(\vec{v}) \langle \sigma_{k}(v_{rel})
+\Delta A_{p} \rangle_{p},
+\end{equation}
+where $\Gamma$ is the flux of neutral particles, $f(\vec{v})$ is the neutral
+particle distribution function, $p$ is a plasma species index, $\sigma_{k}$ is 
+the cross section for the $k$th reaction between the neutral and species
+$p$, $v_{rel}$ is the relative velocity of the two particles, and 
+$\Delta A_{p}$ is the change in a plasma quantity (e.g., density, momentum,
+energy, etc.) in a single collision. 
+
+When the plasma species can be
+described by a Maxwellian distribution function, the required cross
+section averages in Eq.(\ref{source}) can be computed in terms of the standard 
+integral\cite{Reit93}
+\begin{equation}
+\label{iln}
+I_{\ell, |n|} \equiv \frac{ \exp( -u^{2} / u_{p}^{2}) }
+                     {\sqrt{\pi} u u_{p}^{n+1}}
+                     \int_{0}^{\infty} dv_{rel} \: v_{rel}^{2+|n|}
+                     \sigma_{\ell}(v_{rel}) 
+                     \left\{ \exp\left[\frac{-v_{rel}(v_{rel} - 2u)}
+                     {u_{p}^{2}}\right] 
+                            - (-1)^{n}\exp\left[\frac{-v_{rel}(v_{rel} + 2u)}
+                     {u_{p}^{2}}\right] \right\},
+\end{equation}
+where $u$ is the velocity of the neutral particle, and $u_{p}$ is the
+thermal velocity of the plasma particle. The latter is related to the
+plasma temperature by $T_{p} = \frac{1}{2} m_{p} u_{p}^{2}$. The subscript
+$\ell$ is included to allow the treatment of elastic collisions
+($\ell \neq 0$). Note that Eq.~(\ref{iln}) is not the same as 
+$\langle \sigma v v^{n} \rangle$ because of the need to treat angular
+dependence in the integrand of Eq.~(\ref{source}), e.g., for
+the momentum source rate. Quantities such as this can be found as a linear
+combination of the $I_{\ell, |n|}$. However, the result provided by
+this routine is $I_{\ell, |n|} u_{p}^{n}$ and, thus, has
+ the same dimensions as 
+$\langle \sigma v v^{n} \rangle$.
+
+This routine is set up with a single argument so that it can be used with
+``canned'' integration routines; the argument |rel_velocity| is the relative
+velocity $v_{rel}$ in the above expressions. The factors $u$ and $u_{p}$,
+as well as the exponent |n| is represented by the variable |moment_number|.
+Also in 
+common is the mass |ra_mass| used to convert the relative velocity into
+an energy for use in evaluating the cross section |sigma|. The value
+to be used for |ra_mass| may vary, depending on the origin of the data used
+in |sigma|.
+
+The units of the various velocities are taken to be $\sqrt{{\rm eV}/{\rm amu}}$
+so that values of order unity for |rel_velocity| are reasonable. It is
+assumed that |ra_mass| has units of grams, that the argument of |sigma|
+should be in eV, and that |sigma| itself is in cm$^{2}$. The factor
+|multiplier| is defined so that the resulting
+integral has cgs units.
+
+@<Functions...@>=
+      real function ion_rate_integrand(rel_velocity)
+      implicit_none
+
+      real rel_velocity             // Input
+
+      real zbracket,multiplier,ze,exponent_minus,       // Local 
+     $   exponent_plus,zsigma     
+      real sigma                                        // External function
+
+      ra_common                    // Common
+      ra_common_l                  // Local common
+
+      ze=half*(ra_mass/atomic_mass_unit_g)*rel_velocity^2 
+      zsigma=sigma(ze)
+      exponent_plus=-rel_velocity*(rel_velocity+two*u)/up^2
+      exponent_minus=-rel_velocity*(rel_velocity-two*u)/up^2
+      zbracket=exp(exponent_minus)-(-1)^moment_number*exp(exponent_plus)
+      multiplier=exp(-(u/up)^2)/(sqrt(PI)*u*up)
+     $   *(sqrt(ev_to_ergs/atomic_mass_unit_g))^(1+moment_number)
+
+      ion_rate_integrand=multiplier*rel_velocity^(2+moment_number)*
+     $   zsigma*zbracket
+
+      return
+      end
+
+@ This routine provides the electron distribution function at the
+energy |energy|. Presently, the distribution is assumed to be Maxwellian;
+the temperature |temperature| characterizing the distribution is passed in 
+through common. Note that |temperature| and |energy| must have the same units.
+The routine utilizes a single argument for generality since 
+other distributions may require additional parameters (beyond temperature)
+to describe them.
+
+@<Functions...@>=
+      real function e_distrib_fn(energy) 
+      implicit_none
+
+      real energy            // Input
+      ra_common_l            // Local common
+
+      e_distrib_fn = exp(-energy/temperature)
+
+      return
+      end
+
+@ This routine serves as the intermediary between the
+integration functions and calls to ALADDIN subroutines. In order to fit
+in with the former, this function must have only a single argument;
+consequently, it can easily be altered without having to change the
+calling routines. 
+
+As presently used, this routine computes the cross section at the
+input energy |energy|. The other information required to communicate with
+ALADDIN is brought in by the common block |ra_common_l|.
+
+@<Functions...@>=
+      real function sigma(energy)
+      implicit_none
+
+      real energy                    // Input
+
+      double precision ze,zfit       // Local
+      character*msg_length errmsg
+
+      ra_common_l                    // Local common
+
+      ze=dble(energy)                // Explicitly transfer to double precision
+      errmsg=' '
+      num_evaluations=num_evaluations+1
+      call aladdin_eval_fit(leval,ze,fit_coef,num_fit_coef,zfit,errmsg)
+
+/* 
+   Trap errors from ALADDIN routines. Barring actual foul-ups, the
+   the only likely error is from requesting cross section values at
+   energies below threshold. A handful of the ALADDIN routines report
+   this as an error condition. Assume this is the case here.
+*/
+      if (errmsg != ' ') then
+         zfit=0.0d0
+
+/*
+         write(stderr,*)' Warning from sigma and aladdin: ',errmsg
+*/
+      end if
+
+      sigma=areal(zfit)          // Explicitly convert back to normal precision
+
+      return
+      end
+
+@* ALADDIN Related Routines. This one reads fit coefficients. It takes as input
 |filename|, the name of an ALADDIN data file; |hier_label|, 
 an array of |num_hier| hierarchical search labels; |bool_and_label|, 
 an array of |num_bool_and| ``.and.'' boolean search labels; 
@@ -349,8 +788,9 @@ is returned in |leval|.
 
       open(diskin,file=filename,status='old')
 
-/* Loop through entries in |filename| */
-
+/* 
+   Loop through entries in |filename| 
+*/
       ientry=0
 
 loop: continue
@@ -359,15 +799,17 @@ loop: continue
       assert(!end_of_file)
       assert(errmsg == ' ')
 
-/* Compare this entry with labels provided on input */ 
-
+/* 
+   Compare this entry with labels provided on input 
+*/ 
       call alcomp(hier_label,num_hier,bool_and_label,num_bool_and,bool_not_label,num_bool_not,match)
       if (!match) goto loop
 
       close(unit=diskin)                                        // Have a match
 
-/* Decode coefficients; check first that access label is the standard one */
-
+/* 
+   Decode coefficients; check first that access label is the standard one 
+*/
       assert(bl[1]SP[1:2] == '$ ')
 
       call alrecf(fit_coef,num_fit_coef,ra_fit_coef_max,errmsg)
@@ -375,14 +817,15 @@ loop: continue
 
       leval = bl[nbl]                       // Assign evaluation label variable
 
-/* Note: this step is not really necessary; could just return bl and
-   select the last value when calling the evaluation routine. */
-
+/* 
+   Note: this step is not really necessary; could just return bl and
+   select the last value when calling the evaluation routine. 
+*/
       return
  
       end
 
-@* Evaluate ALADDIN fits. 
+@ Evaluate ALADDIN fits. 
 This routine does the dirty job of associating the input boolean 
 label for the evaluation routine, |leval|, with an actual FORTRAN subroutine.
 Because all of the ALADDIN routines of interest currently have essentially
@@ -410,22 +853,18 @@ passed in from the ALADDIN data files. The resulting value is returned as
       double precision pfit                                // Output
       character*msg_length kermsg
 
-/* !!! Do we need to declare each routine name as "external"?
-       If so, should be done by shell script when generating this 
-       routine!!! */
-
       if (leval == '#ALMEWE') then
          call ALMEWE(pet, fit_coef, num_fit_coef, pfit, kermsg)
-      else if (leval == '#ALBELI') then
-         call ALBELI(pet, fit_coef, num_fit_coef, pfit, kermsg)
+      else if (leval == '#BELI') then
+         call BELI(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#ALCHEB') then
          call ALCHEB(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#ALKING') then
          call ALKING(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#ALPHACX') then
          call ALPHACX(pet, fit_coef, num_fit_coef, pfit, kermsg)
-      else if (leval == '#ALJAN1') then
-         call ALJAN1(pet, fit_coef, num_fit_coef, pfit, kermsg)
+      else if (leval == '#JAN1') then
+         call JAN1(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#ETABSQ') then
          call ETABSQ(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#FNAGEX') then
@@ -533,212 +972,632 @@ passed in from the ALADDIN data files. The resulting value is returned as
       return
       end
 
-@* Integrands for rate calculations. 
-This routine is a single argument function which provides the integrand
-in a calculation of velocity-weighted averages of a user-specified
-function over a user-specified distribution function. The principle
-use of this routine is to compute a velocity-weighted reaction rate 
-\begin{equation}
-\label{ereactionrate}
-\langle \sigma v v^{|n|}\rangle = \frac{4 \pi}{\alpha m} \left( \frac{2}{m} 
-\right)^{(n+2)/2} \int_{0}^{\infty} dE \: \sigma f(E) E^{(n+2)/2},
-\end{equation} 
-where $\sigma(E)$ is computed
-using the function |sigma|, $f(E)$ is calculated by 
-the function |edist|, $m$ is the
-particle mass relating $E$ and $v$ via $E = \frac{1}{2} m v^{2}$, and $\alpha$
-is the normalization constant for the distribution function,
-\[ 
-\alpha = \frac{4 \pi}{m} \left( \frac{2}{m} 
-\right)^{1/2} \int_{0}^{\infty} dE \: f(E) E^{1/2}.
-\] 
-Note that $\alpha$ does not appear in this routine but is incorporated
-in the calling routines. 
+@* Integration Routines. This first function is used to hide some
+of the machinery needed to compute the infinite integrals required by
+this code. It is assumed that all integrals have limits $0 \rightarrow
+\infty$. In practice, however, the integrand usually exhibits some sort
+of threshold behavior so that the actual lower limit is nonzero. 
+The integrands typically vanish exponentially for large values of the
+variable of integration. Hence, there is also a practical upper limit to
+the integral where the integrand vanishes numerically. In addition, the
+integrand may utilize a fit function of some sort and take a zero value 
+outside the range of validity of that fit. The upshot is again that the
+range of integration is effectively smaller than $0 \rightarrow \infty$.
+Since these discontinuities, particularly the last type, can cause undue
+strain on the integration routine, it is worthwhile to explicitly locate
+these ``thresholds'' and modify the limits of integration accordingly.
+Additional function evaluations are used, perhaps more than the integrator
+would otherwise need, but the result is a more robust procedure.
 
-A number of assumptions must be made in arriving
-at Eq.~(\ref{ereactionrate}).
-\begin{enumerate}
-  \item $\sigma$ is a function only of the magnitude of the relative
-velocities of the colliding particles.
-  \item The distribution function is a function only of the particle's
-energy (or, equivalently, speed).
-  \item The velocity of the ``projectile'' particle is much less than
-the typical velocity of the ``target'' particles (i.e., defined by $f$).
-\end{enumerate}
-These are the standard assumptions made when a neutral atom (``projectile'')
-collides with plasma electrons (``target'').
-
-This routine is set up with a single argument so that it can be used with
-``canned'' integration routines; the argument |energy| is the energy $E$ in 
-the above expressions. The mass $m =$ |ra_mass| and exponent |n| =
-|moment_number| must come in 
-through common blocks.
+Even with a finite range of integration, a variable transformation may
+be used to shrink the range to fit within the interval $0 \rightarrow 1$.
+For the transformation used here, this is
+difficult to do with a single transformation if the lower limit
+is still $< 1$. Consequently,
+the interval may be split into two parts so that separate transformations
+can be used on each. 
 
 @<Functions...@>=
-      real function electron_rate_integrand(energy)
+      real function infinite_integral(integrand)
       implicit_none
+      integer ier                                              // Local
+      real dcadre,lower_result,upper_result,error,
+     $   lower_bound_rev,upper_bound_rev
+      external basic_inf_integration,basic_trap_integration,   // External
+     $   integrand,basic_midpt_integration
 
-      real energy                     // Input
+/*
+   Locate ``thresholds'' if any and alter bounds accordingly; the accuracy
+   used here is the same as that used for the integrator.
+*/
+      call find_threshold(zero,integration_infinity,integrand,integration_acc,
+     $   lower_bound_rev,upper_bound_rev)
 
-      real multiplier,ze_dist,exponent,zint,zsigma   // Local variables
-      real e_distrib_fn,sigma                        // External functions
-
-      ra_common                       // Common
-      ra_common_l                     // Local common
-
-      zsigma=sigma(energy)
-      ze_dist=e_distrib_fn(energy)
-      exponent=half*(areal(moment_number)+two)
-      multiplier=(const(4.0) / ra_mass) * (two / ra_mass)**exponent
-
-      zint=multiplier * zsigma * ze_dist * energy**exponent
-
-      electron_rate_integrand=zint
-
-      return
-      end
-
-@ This routine is a single argument function which provides the integrand
-in a calculation of a standard integral closely associated with 
-velocity-weighted reaction rates. 
-More specifically, these integrals arise in the
-computation of plasma source terms due to interactions between neutral
-atoms and charged particles\cite{Reit93}, $S_{A_{p},k}$,
-\begin{equation}
-\label{source}
-S_{A_{p},k} = \Gamma \int d^{3}v \: f(\vec{v}) \langle \sigma_{k}(v_{rel})
-\Delta A_{p} \rangle_{p},
-\end{equation}
-where $\Gamma$ is the flux of neutral particles, $f(\vec{v})$ is the neutral
-particle distribution function, $p$ is a plasma species index, $\sigma_{k}$ is 
-the cross section for the $k$th reaction between the neutral and species
-$p$, $v_{rel}$ is the relative velocity of the two particles, and 
-$\Delta A_{p}$ is the change in a plasma quantity (e.g., density, momentum,
-energy, etc.) in a single collision. 
-
-When the plasma species can be
-described by a Maxwellian distribution function, the required cross
-section averages in Eq.(\ref{source}) can be computed in terms of the standard 
-integral\cite{Reit93}
-\begin{equation}
-\label{iln}
-I_{\ell, |n|} \equiv \frac{ \exp( -u^{2} / u_{p}^{2}) }
-                     {\sqrt{\pi} u u_{p}^{n+1}}
-                     \int_{0}^{\infty} dv_{rel} \: v_{rel}^{2+|n|}
-                     \sigma_{\ell}(v_{rel}) e^{-v^{2}_{rel} / u_{p}^{2}}
-                     \left[ \exp(2 v_{rel} u / u_{p}^{2}) 
-                            - (-1)^{n}\exp(-2 v_{rel} u / u_{p}^{2})\right],
-\end{equation}
-where $u$ is the velocity of the neutral particle, and $u_{p}$ is the
-thermal velocity of the plasma particle. The latter is related to the
-plasma temperature by $T_{p} = \frac{1}{2} m_{p} u_{p}^{2}$. The subscript
-$\ell$ is included to allow the treatment of elastic collisions
-($\ell \neq 0$). Note that Eq.~(\ref{iln}) is not the same as 
-$\langle \sigma v v^{n} \rangle$ because of the need to treat angular
-dependence in the integrand of Eq.~(\ref{source}), e.g., for
-the momentum source rate. Quantities such as this can be found as a linear
-combination of the $I_{\ell, |n|}$. However, the result provided by
-this routine differs from the definition of Eq.~(\ref{iln}) by a factor
-of $u_{p}^{n}$ so as to have the same dimensions as 
-$\langle \sigma v v^{n} \rangle$.
-
-This routine is set up with a single argument so that it can be used with
-``canned'' integration routines; the argument |velocity| is the relative
-velocity $v_{rel}$ in the above expressions. The factors $u$ and $u_{p}$,
-as well as the exponent |n| is represented by the variable |moment_number|.
-Also in 
-common is the mass |ra_mass| used to convert the relative velocity into
-an energy for use in evaluating the cross section |sigma|. The value
-to be used for |ra_mass| may vary, depending on the origin of the data used
-in |sigma|.
-
-@<Functions...@>=
-      real function ion_rate_integrand(rel_velocity)
-      implicit_none
-
-      real rel_velocity             // Input
-
-      real zbracket,multiplier,ze,exponent,zsigma       // Local 
-      real sigma                                        // External function
-
-      ra_common                    // Common
-      ra_common_l                  // Local common
-
-      ze=half*ra_mass*rel_velocity**2
-      zsigma=sigma(ze)
-      exponent=two*rel_velocity*u/up**2
-      zbracket=exp(exponent)-(-1)**moment_number*exp(-exponent)
-      multiplier=exp(-(u/up)**2)/(sqrt(PI)*u*up)
-
-      ion_rate_integrand=multiplier*rel_velocity**(2+moment_number)*
-     $   zsigma*exp(-(rel_velocity/up)**2)*zbracket
-
-      return
-      end
-
-@ This routine provides the electron distribution function at the
-energy |energy|. Presently, the distribution is assumed to be Maxwellian;
-the temperature |temperature| characterizing the distribution is passed in 
-through common. Note that |temperature| and |energy| must have the same units.
-The routine utilizes a single argument for generality since 
-other distributions may require additional parameters (beyond temperature)
-to describe them.  (?? Could we do it with a macro?)
-
-@<Functions...@>=
-      real function e_distrib_fn(energy)   // Use a longer name?
-      implicit_none
-
-      real energy            // Input
-      ra_common_l            // Local common
-
-      e_distrib_fn = exp(-energy/temperature)
-
-      return
-      end
-
-@ This is a prototype routine which serves as the intermediary between the
-integration functions and calls to ALADDIN subroutines. In order to fit
-in with the former, this function must have only a single argument;
-consequently, it could easily be altered without having to change the
-calling routines. 
-
-As presently used, this routine computes the cross section at the
-input energy |energy|. The other information required to communicate with
-ALADDIN is brought in by the common block |ra_common_l|.
-
-@<Functions...@>=
-      real function sigma(energy)
-      implicit_none
-
-      real energy                    // Input
-
-      double precision ze,zfit       // Local
-      character*msg_length errmsg
-
-      ra_common_l                    // Local common
-
-      ze=dble(energy)                // Explicitly transfer to double precision
-
-      call aladdin_eval_fit(leval,ze,fit_coef,num_fit_coef,zfit,errmsg)
-
-/* Trap errors from ALADDIN routines. Barring actual foul-ups, the
-   the only likely error is from requesting cross section values at
-   energies below threshold. A handful of the ALADDIN routines report
-   this as an error condition. Assume this is the case here, but
-   write out the error message as a warning.                          */
-      if (errmsg != ' ') then
-        zfit=0.0d0
-        write(stderr,*)' Warning from sigma & aladdin_eval_fit: ',errmsg
+/*
+   If lower limit is still $< 1$ (e.g., possibly still zero), split integral
+   into two pieces so that a variable transformation can be used on the 
+   upper half if needed.
+*/
+      if (lower_bound_rev < one) then
+         lower_result=dcadre(integrand,lower_bound_rev,one,zero,
+     $      integration_acc,error,ier)
+         assert(ier < 100)
+         upper_result=dcadre(integrand,one,upper_bound_rev,zero,
+     $      integration_acc,error,ier)
+         assert(ier < 100)
+      else
+         lower_result=zero
+         upper_result=dcadre(integrand,lower_bound_rev,upper_bound_rev,zero,
+     $      integration_acc,error,ier)
+         assert(ier < 100)
       end if
 
-      sigma=areal(zfit)          // Explicitly convert back to normal precision
+      infinite_integral=lower_result+upper_result
 
       return
       end
 
+@ Cautious adaptive Romberg extrapolation integrator.
+This routine computes $\int_{|a|}^{|b|} |f|(x) dx$ using a cautious
+adaptive Romberg extrapolation.
+The user provides |f|, a single-argument real function subprogram;
+it must be declared external in the calling program.
+|aerr| is the desired {\em absolute} error in the answer; |rerr| is the 
+desired {\em relative} error in the answer. On output |dcadre| returns
+|error|, an estimated bound on the absolute error of the integral.
+Non-zero values of the error parameter |ier| indicate one of the 
+following conditions:
+\begin{itemize}
+  \item Warning error with $|ier| = 64 + n$,
+  \begin{itemize}
+    \item $n = 1$ implies that one or more singularities were 
+successfully handled.
+    \item $n = 2$ implies that, in some subinterval(s), the estimate of 
+the integral was accepted merely because the estimated error was
+small, even though no regular behavior was recognized.
+  \end{itemize}
+  \item Terminal error with $|ier| = 128 + n$,
+  \begin{itemize}
+    \item $n = 3$, failure due to insufficient internal working storage.
+    \item $n = 4$, failure;  may be due to too much noise in the 
+function (relative to the given error requirements) or due to an 
+ill-behaved integrand.
+    \item $n = 5$ indicates that $|rerr| > 0.1$, $|rerr| < 0$, or |rerr|
+is too small for the precision of the machine.
+  \end{itemize}
+\end{itemize}
 
+This routine is similar to one found in commercial numerical software
+packages. References \cite{Davi84} and \cite{deBo71} describe this routine 
+and provide text versions of the source code. It is assumed that this
+routine is in the public domain. The code has been alteredy slightly
+to make it compatible with the rest of this (WEB) program. Otherwise,
+the ``latest revision'' date of January 27, 1977 is still applicable.
 
-@* References.  @% How do we use this?
+@<Functions...@>=
+      real function dcadre(f,lower_bound,upper_bound,aerr,rerr,error,ier)
+      implicit_none
+
+      real lower_bound,upper_bound,f,aerr,rerr        // Input
+      integer ier                                     // Output
+      real error
+
+      integer i,ibeg,iend,ii,iii,istage,istep,istep2, // Local
+     $   it,l,lm1,maxtbl,maxts,mxstge,n,n2,nnleft
+      real a,absi,aitlow,aittol,alg4o2,alpha,astep,b,beg,cadre,
+     $   curest,diff,edn,ergl,ergoal,erra,errer,erret,errr,
+     $   f_sub,fbeg,fbeg2,fend,fextm1,fextrp,fi,fn,fnsize,four,fourp5,
+     $   h2next,h2tfex,h2tol,hovn,hun,jumptl,length,p1,prever,
+     $   sing,singnx,slope,stage,step,stepmn,stepnm,sum,sumabs,
+     $   tabs,tabtlm,ten,x,vint
+      real t[10,10],r[10],ait[10],dif[10],rn[4],ts[2049],ibegs[30],
+     $   begin[30],finis[30],est[30]
+      logical h2conv,inf_integ,aitken,right,reglar
+      logical reglsv[30]
+
+      data maxts,maxtbl,mxstge
+     $   /2049,10,30/
+
+      f_sub(x)=f(x^(-integ_transform_exp))*(areal(integ_transform_exp)
+     $   /x^(integ_transform_exp+1))
+
+/*
+   In the original version the following variables were assigned
+   in data statements. We use the ``const'' macro here to ensure 
+   that proper precision is used.
+*/
+      aitlow = const(1.1)
+      h2tol = const(0.15)
+      aittol = const(0.1)
+      jumptl = const(0.01)
+      rn[1] = const(0.7142005)
+      rn[2] = const(0.3466282)
+      rn[3] = const(0.843751)
+      rn[4] = const(0.1263305)
+      p1 = const(0.1)
+      four = const(4.0)
+      fourp5 = const(4.5)
+      ten = const(10.0)
+      hun = const(100.0)
+
+      alg4o2 = log10(two)            // Initializations
+      cadre = zero
+      error = zero
+      curest = zero
+      vint = zero
+      ier = 0
+
+      if (max(one,lower_bound)/upper_bound < integ_transform_ratio) then
+         a = upper_bound^(-one/areal(integ_transform_exp))
+         b = lower_bound^(-one/areal(integ_transform_exp))
+         inf_integ=.true.
+      else
+         a = lower_bound
+         b = upper_bound
+         inf_integ=.false.
+      end if
+
+      length = abs(b-a)
+      if (length == zero) go to 215
+      if (rerr > p1 || rerr < zero) go to 210
+      if (aerr == zero && (rerr+hun) <= hun) go to 210
+      errr = rerr
+      erra = abs(aerr)
+      stepmn = (length/float(2^mxstge))
+      stepnm = max(length,abs(a),abs(b))*ten
+      stage = half
+      istage = 1
+      fnsize = zero
+      prever = zero
+      reglar = .false.
+
+/*
+   The given interval of integration is the first interval considered.
+*/
+      beg = a
+      if (inf_integ) then
+         fbeg = f_sub(beg)*half 
+      else
+         fbeg = f(beg)*half
+      end if
+      ts[1] = fbeg
+      ibeg = 1
+      edn = b
+      if (inf_integ) then
+         fend = f_sub(edn)*half
+      else
+         fend = f(edn)*half
+      end if     
+      ts[2] = fend
+      iend = 2
+    5 right = .false.
+
+/*
+   Investigation of a particular subinterval begins at this point.
+*/
+   10 step = edn - beg
+      astep =  abs(step)
+      if (astep < stepmn) go to 205
+      if (stepnm+astep == stepnm) go to 205
+      t[1,1] = fbeg + fend
+      tabs = abs(fbeg) + abs(fend)
+      l = 1
+      n = 1
+      h2conv = .false.
+      aitken = .false.
+   15 lm1 = l
+      l = l + 1
+
+/*
+   Calculate the next trapezoid sum, |t[l,1]|, which is based on |n2| + 1
+   equispaced points. Here, $|n2| = 2|n| = 2^{|l|-1}$.
+*/
+      n2 = n+n
+      fn = n2
+      istep = (iend - ibeg)/n
+      if (istep > 1) go to 25
+      ii = iend
+      iend = iend + n
+      if (iend > maxts) go to 200
+      hovn = step/fn
+      iii = iend
+      fi = one
+      do i=1,n2,2
+	 ts[iii] = ts[ii]
+         if (inf_integ) then
+            ts[iii-1] = f_sub(edn - fi * hovn)
+         else
+            ts[iii-1] = f(edn - fi * hovn)
+         end if
+	 fi = fi+two
+	 iii = iii-2
+	 ii = ii-1
+      end do
+      istep = 2
+   25 istep2 = ibeg + istep/2
+      sum = zero
+      sumabs = zero
+      do i=istep2,iend,istep
+	 sum = sum + ts[i]
+	 sumabs = sumabs + abs(ts[i])
+      end do
+      t[l,1] = t[l-1,1]*half+sum/fn
+      tabs = tabs*half+sumabs/fn
+      absi = astep*tabs
+      n = n2
+
+/*
+   Get preliminary value for |vint| from last trapezoid sum and update
+   the error requirement |ergoal| for this subinterval.
+*/
+      it = 1
+      vint = step*t[l,1]
+      tabtlm = tabs*ten
+      fnsize = max(fnsize,abs(t[l,1]))
+      ergl = astep*fnsize*ten
+      ergoal = stage*max(erra,errr*abs(curest+vint))
+
+/*
+   Complete row |l| and column |l| of |t| array.
+*/
+      fextrp = one
+      do i=1,lm1
+	 fextrp = fextrp*four
+	 t[i,l] = t[l,i] - t[l-1,i]
+	 t[l,i+1] = t[l,i] + t[i,l]/(fextrp-one)
+      end do
+      errer = astep*abs(t[1,l])
+
+/*
+   Preliminary decision procedure: if |l| = 2 and |t[2,1]| = |t[1,1]|,
+   go to 135 to follow up the impression that intergrand is a straight line.
+*/
+      if (l > 2) go to 40
+      if (tabs+p1*abs(t[1,2]) == tabs) go to 135
+      go to 15
+
+/*
+   Calculate next ratios for columns 1,...,|l|-2 of |t|-table.
+   Ratio is set to zero if difference in last two entries of column is
+   about zero.
+*/
+   40 do i=2,lm1
+	 diff = zero
+	 if (tabtlm+abs(t[i-1,l])!=tabtlm) diff = t[i-1,lm1]/t[i-1,l]
+	 t[i-1,lm1] = diff
+      end do
+      if (abs(four-t[1,lm1]) <= h2tol) go to 60
+      if (t[1,lm1] == zero) go to 55
+      if (abs(two-abs(t[1,lm1])) < jumptl) go to 130
+      if (l == 3) go to 15
+      h2conv = .false.
+      if (abs((t[1,lm1]-t[1,l-2])/t[1,lm1]) <= aittol) go to 75
+   50 if (reglar) go to 55
+      if (l == 4) go to 15
+   55 if (errer > ergoal && (ergl+errer) != ergl) go to 175
+      go to 145
+/*
+   Cautious Romberg extrapolation
+*/
+   60 if (h2conv) go to 65
+      aitken = .false.
+      h2conv = .true.
+   65 fextrp = four
+   70 it = it + 1
+      vint = step*t[l,it]
+      errer = abs(step/(fextrp-one)*t[it-1,l])
+      if (errer <= ergoal) go to 160
+      if (ergl+errer == ergl) go to 160
+      if (it == lm1) go to 125
+      if (t[it,lm1] == zero) go to 70
+      if (t[it,lm1] <= fextrp) go to 125
+      if (abs(t[it,lm1]/four-fextrp)/fextrp < aittol)
+     1	     fextrp = fextrp*four
+      go to 70
+
+/*
+   Integrand may have $x^{\alpha}$ type singularity resulting in 
+   a ratio of $|sing| = 2^{\alpha + 1}$.
+*/
+   75 if (t[1,lm1] < aitlow) go to 175
+      if (aitken) go to 80
+      h2conv = .false.
+      aitken = .true.
+   80 fextrp = t[l-2,lm1]
+      if (fextrp > fourp5) go to 65
+      if (fextrp < aitlow) go to 175
+      if (abs(fextrp-t[l-3,lm1])/t[1,lm1] > h2tol) go to 175
+      sing = fextrp
+      fextm1 = one/(fextrp - one)
+      ait[1] = zero
+      do i=2,l
+	 ait[i] = t[i,1] + (t[i,1]-t[i-1,1])*fextm1
+	 r[i] = t[1,i-1]
+	 dif[i] = ait[i] - ait[i-1]
+      end do
+      it = 2
+   90 vint = step*ait[l]
+      errer = errer*fextm1
+      if (errer > ergoal && (ergl+errer) != ergl) go to 95
+      alpha = log10(sing)/alg4o2 - one
+      ier = max(ier,65)
+      go to 160
+   95 it = it + 1
+      if (it == lm1) go to 125
+      if (it > 3) go to 100
+      h2next = four
+      singnx = sing+sing
+  100 if (h2next < singnx) go to 105
+      fextrp = singnx
+      singnx = singnx+singnx
+      go to 110
+  105 fextrp = h2next
+      h2next = four*h2next
+  110 do i=it,lm1
+	 r[i+1] = zero
+	 if (tabtlm+abs(dif[i+1]) != tabtlm) r[i+1] = dif[i]/dif[i+1]
+      end do
+      h2tfex = -h2tol*fextrp
+      if (r[l] - fextrp < h2tfex) go to 125
+      if (r[l-1]-fextrp < h2tfex) go to 125
+      errer = astep*abs(dif[l])
+      fextm1 = one/(fextrp - one)
+      do i=it,l
+	 ait[i] = ait[i] + dif[i]*fextm1
+	 dif[i] = ait[i] - ait[i-1]
+      end do
+      go to 90
+
+/*
+   Current trapezoid sum and resulting extrapolated values did not give
+   a small enough |errer|. Note, having $|prever| < |errer|$
+   is an almost certain sign of beginning trouble with in the function 
+   values. Hence, a watch for, and control of, noise should begin here.
+*/
+  125 fextrp = max(prever/errer,aitlow)
+      prever = errer
+      if (l < 5) go to 15
+      if (l-it > 2 && istage < mxstge) go to 170
+      erret = errer/(fextrp^(maxtbl-l))
+      if (erret > ergoal && (ergl+erret) != ergl) go to 170
+      go to 15
+
+/*
+   Integrand has jump
+*/
+  130 if (errer > ergoal && (ergl+errer) != ergl) go to 170
+
+      diff = abs(t[1,l])*(fn+fn)      // Note that  $2|fn| = 2^{|l|}$
+      go to 160
+
+/*
+   The integrand is a straight line: test this assumption by comparing
+   the value of the integrand at four {\em randomly chosen} points with
+   the value of the straight line interpolating the integrand at the
+   two end points of the sub-interval. If test is passed, accept |vint|.
+*/
+  135 slope = (fend-fbeg)*two
+      fbeg2 = fbeg+fbeg
+      do i=1,4
+         if (inf_integ) then
+            diff = abs(f_sub(beg+rn[i]*step) - fbeg2-rn[i]*slope)
+         else
+            diff = abs(f(beg+rn[i]*step) - fbeg2-rn[i]*slope)
+         end if
+	 if (tabtlm+diff != tabtlm) go to 155
+      end do
+      go to 160
+
+/*
+   Noise may be a dominant feature: estimate noise level by comparing
+   the value of the integrand at four {\em randomly chosen} points with
+   the value of the straight line interpolating the integrand at the
+   two endpoints. If small enough, accept |vint|.
+*/
+  145 slope = (fend-fbeg)*two
+      fbeg2 = fbeg+fbeg
+      i = 1
+  150 if (inf_integ) then
+         diff = abs(f_sub(beg+rn[i]*step) - fbeg2-rn[i]*slope)
+      else
+         diff = abs(f(beg+rn[i]*step) - fbeg2-rn[i]*slope)
+      end if
+  155 errer = max(errer,astep*diff)
+      if (errer > ergoal && (ergl+errer) != ergl) go to 175
+      i = i+1
+      if (i <= 4) go to 150
+      ier = 66
+
+/*
+   Intergration over current subinterval successful: add |vint| 
+   to |dcadre| and |errer| to |error|, then set up next 
+   subinterval, if any.
+*/
+  160 cadre = cadre + vint
+      error = error + errer
+      if (right) go to 165
+      istage = istage - 1
+      if (istage == 0) go to 220
+      reglar = reglsv[istage]
+      beg = begin[istage]
+      edn = finis[istage]
+      curest = curest - est[istage+1] + vint
+      iend = ibeg - 1
+      fend = ts[iend]
+      ibeg = ibegs[istage]
+      go to 180
+  165 curest = curest + vint
+      stage = stage+stage
+      iend = ibeg
+      ibeg = ibegs[istage]
+      edn = beg
+      beg = begin[istage]
+      fend = fbeg
+      fbeg = ts[ibeg]
+      go to 5
+
+/*
+   Integration over current subinterval is unsuccessful; mark subinterval
+   for further subdivision. Set up next subinterval.
+*/
+  170 reglar = .true.
+  175 if (istage == mxstge) go to 205
+      if (right) go to 185
+      reglsv[istage+1] = reglar
+      begin[istage] = beg
+      ibegs[istage] = ibeg
+      stage = stage*half
+  180 right = .true.
+      beg = (beg+edn)*half
+      ibeg = (ibeg+iend)/2
+      ts[ibeg] = ts[ibeg]*half
+      fbeg = ts[ibeg]
+      go to 10
+  185 nnleft = ibeg - ibegs[istage]
+      if (iend+nnleft .ge. maxts) go to 200
+      iii = ibegs[istage]
+      ii = iend
+      do i=iii,ibeg
+	 ii = ii + 1
+	 ts[ii] = ts[i]
+      end do
+      do i=ibeg,ii
+	 ts[iii] = ts[i]
+	 iii = iii + 1
+      end do
+      iend = iend + 1
+      ibeg = iend - nnleft
+      fend = fbeg
+      fbeg = ts[ibeg]
+      finis[istage] = edn
+      edn = beg
+      beg = begin[istage]
+      begin[istage] = edn
+      reglsv[istage] = reglar
+      istage = istage + 1
+      reglar = reglsv[istage]
+      est[istage] = vint
+      curest = curest + est[istage]
+      go to 5
+
+/*
+   Failure to handle given integration problem	
+*/
+  200 ier = 131
+      go to 215
+  205 ier = 132
+      go to 215
+  210 ier = 133
+  215 cadre = curest + vint
+  220 dcadre = cadre
+ 9000 continue
+ 9005 return
+      end
+
+@ Locate thresholds. This routine is designed to pin down the locations
+of ``thresholds'' in the input function. The procedure is loosely
+related to that of finding a root, except that the function may be
+discontinuous at the threshold so that a very robust (bisection) method
+must be used. An initial interval $|lower_bound| < x < |upper_bound|$
+is input. The function |f_of_x| is specified externally. The routine
+will return revised bounds |lower_bound_rev| and |upper_bound_rev| such
+that $|f_of_x|(|lower_bound_rev|) \neq 0$, but 
+$|f_of_x|(|lower_bound_rev|-\epsilon) = 0$ and 
+$|f_of_x|(|upper_bound_rev|) \neq 0$ with 
+$|f_of_x|(|upper_bound_rev|+\epsilon) = 0$, where $\epsilon$ is input
+as the error parameter |error|. It is assumed that 
+$|upper_bound| \gg |lower_bound|$ so that if there are {\em two} thresholds,
+both lie below the midpoint of this input interval.
+
+@<Functions...@>=
+      subroutine find_threshold(lower_bound,upper_bound,f_of_x,error,
+     $   lower_bound_rev,upper_bound_rev)
+
+      implicit_none
+
+      real lower_bound,upper_bound,f_of_x,error      // Input
+      real lower_bound_rev,upper_bound_rev           // Output
+      integer i,ibound                               // Local
+      real f_lower,f_upper,old_guess,guess,bisect
+      external f_of_x 
+                               // External
+/*
+   Default values of output
+*/
+      lower_bound_rev=lower_bound
+      upper_bound_rev=upper_bound
+
+      f_lower=f_of_x(lower_bound) 
+      f_upper=f_of_x(upper_bound)
+
+      if ((f_lower != zero) && (f_upper != zero)) return  // No thresholds
+
+/*
+   Begin bisecting interval until we find a point with nonzero |f_of_x|
+*/
+      old_guess=upper_bound
+      ibound=(log((upper_bound-lower_bound)/error)/log(two))+one
+      do i=1,ibound
+         guess=half*(lower_bound+old_guess)
+         if (f_of_x(guess) != zero) goto loop
+         old_guess=guess
+      end do
+
+      return                 // Cannot find a point where $|f_of_x| \neq 0$
+
+loop: continue
+
+/*
+   Having found a nonzero value of |f_of_x|, bisect the intervals above
+   and below it as needed to locate threshold(s).
+*/
+      if (f_lower == zero) 
+     $   lower_bound_rev=bisect(lower_bound,guess,error,f_of_x)
+
+      if (f_upper == zero) 
+     $   upper_bound_rev=bisect(old_guess,guess,error,f_of_x)
+
+      return
+      end
+
+@ Interval bisection routine. This function is called by |find_threshold|
+to further bisect the input interval to localize the threshold to the 
+specified accuracy. The first argument |zero_side| is the side of the
+interval at which |f_of_x| = 0; likewise, at |nonzero_side|, 
+$|f_of_x| \neq 0$. It is assumed that |find_threshold| has arranged these
+in the proper order, and they are not checked here. The interval is
+bisected until it is |error| wide. The function returns the bound of
+that interval at which $|f_of_x| \neq 0$.
+ 
+@<Functions...@>=
+      real function bisect(zero_side,nonzero_side,error,f_of_x)
+      implicit_none
+      real zero_side,nonzero_side,error,f_of_x     // Input
+      integer i,ibound                             // Local
+      real rev_zero,rev_nonzero,guess
+
+/*
+   Determine number of bisections required to shrink interval to |error|
+*/
+      ibound=(log(abs(nonzero_side-zero_side)/error)/log(two))+1
+
+      rev_zero=zero_side
+      rev_nonzero=nonzero_side
+      do i=1,ibound
+         guess=half*(rev_zero+rev_nonzero)
+         if (f_of_x(guess) == zero) then
+            rev_zero=guess
+         else
+            rev_nonzero=guess
+         end if
+      end do
+
+      bisect=rev_nonzero       // Assign point with last nonzero |f_of_x|
+
+      return
+      end
+
+@* References.
 
 \bibliographystyle{report}
 \bibliography{../../degas}
@@ -746,6 +1605,10 @@ ALADDIN is brought in by the common block |ra_common_l|.
 \bibitem{Reit93} D. Reiter, in {\em Atomic and Plasma-Material Interaction
 Processes in Controlled Thermonuclear Fusion}, R. K. Janev and H. W. Drawin,
 Eds. (Elsevier, New York, 1993), p. 243.
+\bibitem{Davi84} P. J. Davis and P. Rabinowitz, {\em Methods of Numerical
+Integration} (Academic Press, New York, 1984).
+\bibitem{deBo71} C. de Boor, in {\em Mathematical Software}, J. R. Rice, Ed.
+(Academic Press, New York, 1971), p. 417.
 \end{thebibliography}
 
 @* Index.
