@@ -1,37 +1,13 @@
+@* Read actual file names and map to corresponding symbols.
 
-@* a program to read filenames for various inputs and outputs from an
-external file. The syntax for the file is 
-{\bf symbolic-filename} [actual filename] 
-The symbolic name is assigned the filename. symbolic filenames are self 
-explanatory as to what the files may contain.
-To add more symbolic filenames simply change the assert stmt that checks 
-whether the symbolic name is a valid one, and add another 'elseif' block. The
-new index in the file name  array has to be included in the header file.
+See also documentation in |readfilenames.hweb|.
 
-A sample input file for this is as follows : 
-
-\begin{verbatim}
-\# file names for degas2 
-\# the name of this file is passed as argument to readfilenames 
-\# syntax is : symbolic filename \em {actual filename} 
-\# the filenames can be in any order, comments (starting with \#) and blank 
-\# lines will be ignored. 
-
-elementsfile  ../data/elements.nc 
-backgroundfile background.nc 
-testfile  test.nc 
-geometryfile geometry.nc 
-problemfile ../data/problem.nc 
-reactionfile ../data/reactions.nc 
-speciesfile ../data/species.nc 
-aladinfile ../data/aladinput.nc
-aladoutfile ../data/aladoutput.nc 
-elements_infile ../data/elements.input 
-problem_infile  ../data/problem.input
-reaction_infile ../data/reactions.input
-species_infile ../data/species.input
-\end{verbatim}
-
+To add more symbolic filenames, first make the changes described in
+|readfilenames.hweb|. Then,
+\begin{enumerate}
+  \item Add the new symbolic name to the |assert| statement,
+  \item Add a new assignment statement to the \verb+elseif+ block.
+\end{enumerate} 
 
 \ID{$Id$}
 
@@ -57,7 +33,7 @@ species_infile ../data/species.input
       
       character*FILELEN filename ,sym_name	
       character*LINELEN line
-      integer length,p,b,e // Local
+      integer length,p,b,e,i // Local
       @<Memory allocation interface@>
       st_decls
 
@@ -66,7 +42,13 @@ species_infile ../data/species.input
       open(unit=diskin,file=filename,status='old',form='formatted')
 
 /* read the file containing filenames */
+@#if 0
       filenames_max =0
+@#endif
+      var_alloc(filenames_array)
+      do i=1,filenames_max
+         filenames_array[i]=char_undef
+      end do
 loop:      if (! read_string(diskin,line,length) ) goto eof 
       assert(length<=len(line))
 
@@ -90,8 +72,10 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     || sym_name == 'tallyfile'
      $     || sym_name == 'outputfile')
       
+@#if 0
       filenames_max = filenames_max +1
       var_realloca(filenames_array)
+@#endif
       if ( sym_name == 'elementsfile') then
          filenames_array[elementsfile]  = line(b:e)
       elseif ( sym_name == 'backgroundfile') then
@@ -137,7 +121,9 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
       goto loop
 eof:  continue
       close(diskin)
+@#if 0
       var_reallocb(filenames_array)
+@#endif
       return
       end
 
