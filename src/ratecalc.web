@@ -2,6 +2,10 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.4  1994/06/16 19:27:05  dstotler
+% Continue working on ALADDIN routines: generalize routine for extracting
+% fit coefficients from ALADDIN data files.
+%
 % Revision 1.3  1994/06/15 20:01:27  dstotler
 % Begin incorporating ALADDING routines.
 %
@@ -204,41 +208,65 @@ infinite (value passed not used). It is assumed that the function
       return
       end
 
-* A simple test of evaluating a cross section with aladdin.  This lookup
-* up the cross section for hydrogen charge exchange and evaluates the
-* cross section at 10000 eV/amu.
+@ ALADDIN routine to read fit coefficients. This routine takes as input
+|filename|, the name of an ALADDIN data file; |lhsl|, an array of |khsl|
+hierarchical search labels; |lbasl|, an array of |kbasl| ``.and.'' boolean
+search labels; and |lbnsl|, an array of |kbnsl| ``.not.'' boolean search
+labels (see ALADDIN documentation for further details). Following the
+search through |filename|, the fit |kcf| fit coefficients are output
+in the array |cf|. The boolean label identifying the evaluation routine
+is returned in |leval|.  
 
-      subroutine aladdin_read_coefs(filename,hsl,nhsl,basl,nbasl,
-      $                             bnsl,nbnsl,cf,n,bl(nbl))
+@<Functions...@>=
+      subroutine aladdin_read_coefs(filename,lhsl,khsl,lbasl,kbasl,
+      $                             lbnsl,kbnsl,pcf,kcf,leval)
       implicit_none
-      integer lutin,lutout,ludf,luof,luqf,luef,nchlbl,nhsl,nbasl,nbnsl,
-     $        ncf,ncfmx
-      include 'ALCOM.FOR'  do we need this here?
-      integer ncfmax,nhslmax
-      parameter (ncfmax=100,nhslmax=10)
-      logical eof,match
-      character*80 errmsg,filename
-      double precision cf(ncfmax),x,res
-      character*40 hsl(nhslmax)
-      integer nhsl,i,n,k
 
-* These declarations really belong in ALPCOM.FOR
-      integer leseqn,neln,nhl,nbl,lcmptr,ncmln,lcfptr,ncfln,
-     $     nelnmx,nhlmx,nblmx
+/* Parameters: same as in ALCOM.FOR */
+      integer nslmx,ncfmx
+      parameter (nslmx=100)
+      parameter (ncfmx=200)
+
+      character*80 filename               // Input
+      character*40 lhsl(nslmx),lbasl(nslmx),lbnsl(nslmx)
+      integer khsl,kbasl,kbnsl
+
+      character*40 leval                  // Output
+      integer kcf
+      double precision pcf(ncfmx)
+
+/* Type declarations for variables in ALPCOM.FOR */
+      integer nelnmx,nhlmx,nblmx           // Parameters
+      integer leseqn,neln,nhl,nbl,         // Common block alent
+     $        lcmptr,ncmln,lcfptr,ncfln
       include 'ALPCOM.FOR'
 
-* Specify file
-      open(20,file=filename,status='old')
-* Search for labels
-      k=0
- 5    call alread(20,k,eof,errmsg)
-      assert(!eof)
-      call alcomp(hsl,nhsl,basl,nbasl,bnsl,nbnsl,match)
-      if (.not.match) goto 5
+      logical eof,match
+      character*80 errmsg
+      integer ientry
+      integer nhsl,i,n,k
 
-* Decode coefficients
-      assert(bl(1) = '$ ')
-      call alrecf(cf,n,ncfmax,errmsg)
+      open(diskin,file=filename,status='old')
+
+/* Loop through entries in |filename| */
+      ientry=0
+loop: continue
+      call alread(diskin,ientry,eof,errmsg)
+      assert(!eof)
+      assert(errmsg = ' ')
+
+/* Compare this entry with labels provided on input */
+      call alcomp(lhsl,khsl,lbasl,kbasl,lbnsl,kbnsl,match)
+      if (!match) goto loop
+      close(unit=diskin)
+
+/* Decode coefficients; check first that access label is the standard one */
+      assert(bl[1][1:2] = '$ ')
+      call alrecf(pcf,kcf,ncfmx,errmsg)
+      assert(errmsg = ' ')
+
+      leval = bl[nbl]               // Assign evaluation label variable
+
       return 
       end
 
