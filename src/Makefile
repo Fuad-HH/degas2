@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.10  1994/06/28 03:28:11  karney
+# Non-existent change
+#
 
 DEBUG=yes
 
@@ -62,6 +65,8 @@ Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
 %.el: $(SOURCEDIR)/%.el
 	cp $< $@
+%.sty: $(SOURCEDIR)/%.sty
+	cp $< $@
 
 # Set up librarys
 NETCDF=-L/usr/local/lib -lnetcdf
@@ -116,10 +121,10 @@ ifndef CROSSCOMPILE
   O=o
   %.o: %.f
 	$(FC) $(FFLAGS) $<
-  %: %.o sysdep.$O string.$O
+  %: %.o sysdep.$O string.$O idtof
 	idtof $(patsubst %.$O,%.f,$^) > $*.id.f
 	$(FC) $(FFLAGS) $*.id.f
-	$(LD) $(LDFLAGS) -o $@ $^ $*.id.o $($@_libs)
+	$(LD) $(LDFLAGS) -o $@ $(filter-out idtof,$^) $*.id.o $($@_libs)
 else # We're cross compiling
   O=f
   %: %.o
@@ -134,7 +139,7 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb
 
-%.f: %.web $(HEADERS)
+%.f: %.web $(HEADERS) fixit
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
 	fixit $@
 	$(IDENTAPPEND)
@@ -155,7 +160,7 @@ define RUN-LATEX
   rm -f $*.aux0
 endef
 
-%.dvi: %.tex fweboptions.sty
+%.dvi: %.tex fweboptions.sty fweb.sty
 	$(RUN-LATEX)
 
 %.bbl: %.aux ../../degas.bib
