@@ -1,4 +1,5 @@
 # $Id$
+# $Log$
 
 DEBUG=yes
 
@@ -150,7 +151,7 @@ endif
 define RUN-LATEX
   if [ -r $*.aux ]; then cp $*.aux $*.aux0; fi
   $(LATEX) $*.tex
-  if [ -r $*.aux ]; then cmp -s $*.aux $*.aux0 || nlatex $*.tex; fi
+  if [ -r $*.aux ]; then cmp -s $*.aux $*.aux0 || latex $*.tex; fi
   rm -f $*.aux0
 endef
 
