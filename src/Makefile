@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.62  1998/04/27 17:25:59  karney
+# Reorder common block includes to avoid complaints from DEC compilers.
+# Remove spurious -R load flag from Makefile.
+#
 # Revision 1.61  1998/04/16 15:30:57  karney
 # Various changes to clean up code in support of Linux.
 #
@@ -390,7 +394,7 @@ else  # !CRAY
     CFLAGS=-g
   else
     FFLAGS=-c $(OPT) $(PROFILE)
-    LDFLAGS=$(OPT) $(PROFILE)
+    LDFLAGS=$(OPT) $(PROFILE) $(PROF_LD)
     CFLAGS=-O
   endif
 endif
@@ -555,6 +559,10 @@ geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O collide.$O randother.$O random.$O conversions.$O
 geomtesta_libs =  $(NETCDF) $(HDF)
 geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
+
+matchout = matchout.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O 
+matchout_libs = $(NETCDF)
+matchout: $(matchout) $(foreach arg,$(subst .$O,_mods,$(matchout)),$($(arg)))
 
 reactionwrite = reactionwrite.$O
 reactionwrite_libs = $(NETCDF)
