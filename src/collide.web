@@ -2,6 +2,9 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.8  1996/03/01 20:25:07  dstotler
+% Switch to explicit includes of header files.
+%
 % Revision 1.7  1995/12/13 19:41:01  karney
 % Implement walls and symmetry selection in readgeometry.
 %
@@ -146,14 +149,14 @@ instances of the particle class.
          pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
          lc_copy(pt_loc(p),pt_loc(prod[i]))
          pt_t(prod[i])=pt_t(p)
-         if (pt_test(prod[i]) > 0) then
+  //       if (pt_test(prod[i]) > 0) then    DO THIS IN sub. follow
             pt_w(prod[i])=pt_w(p)*pt_w(prod[i])
             if (sp_z(pt_sp(prod[i])) == 0) then
                pt_type(prod[i])=pt_neutral
             else
                pt_type(prod[i])=pt_ion
             end if
-         end if
+  //       end if
       end do
 
       return
@@ -310,8 +313,6 @@ loop: continue
 
       pr_reaction_decl(pr_reac)                        // Local
       integer i,num_heavy_products,i_ediss,i_elediss,j_arr
-      save i_ediss,i_elediss
-      data i_ediss,i_elediss/0,0/
       integer product_index[2]
       vc_decl(v_iso)
       real sum,ran,indep_var,ediss,elediss,v_diss1,v_diss2
@@ -366,19 +367,17 @@ break:continue
       end do
       
 /*
-   If not set already, search through the list of miscellaneous dependent
+   Search through the list of miscellaneous dependent
    variables to find |ediss|, the dissociation energy, and |elediss|, the
    energy lost by the dissociating agent. 
 */
-      if (i_ediss == 0 && i_elediss == 0) then
-         do i=1,xs_dep_var_max
-            if (reaction_misc_var_dep[pr_reac][i] == 'ediss') then
-               i_ediss=i
-            else if (reaction_misc_var_dep[pr_reac][i] == 'elediss') then
-               i_elediss=i
-            end if
-         end do
-      end if
+      do i=1,xs_dep_var_max
+         if (reaction_misc_var_dep[pr_reac][i] == 'ediss') then
+            i_ediss=i
+         else if (reaction_misc_var_dep[pr_reac][i] == 'elediss') then
+            i_elediss=i
+         end if
+      end do
 
 /*
    Using the indices found above, obtain the values of |ediss| and |elediss|.
@@ -426,10 +425,10 @@ break:continue
       do i=1,nprod
          if (product_index[1] == i) then
             vc_xvt(v_test,v_iso,v_diss1,v_prod[i])
-            w_prod[i]=half
+            w_prod[i]=one
          else if (product_index[2] == i) then
             vc_xvt(v_test,v_iso,v_diss2,v_prod[i])
-            w_prod[i]=half
+            w_prod[i]=one
          else
             vc_set(v_prod[i],zero,zero,zero)
             w_prod[i]=zero
@@ -468,8 +467,6 @@ of reduced absorption.
       pr_reaction_decl(pr_reac)                        // Local
       integer i
       real eioniz
-      save eioniz
-      data eioniz/zero/
       
       pr_common
       rc_common
@@ -481,18 +478,16 @@ of reduced absorption.
       assert(pr_num_arrangements(test,ts_reac) == 1)
 
 /*
-   If not set already, get ionization energy |eioniz| from |rd_misc_data3|
+   Get ionization energy |eioniz| from |rd_misc_data3|
 */
-      if (eioniz == zero) then
-         do i=1,xs_dep_var_max
-            if (reaction_misc_var_dep[pr_reac][i] == 'eioniz') then
-               assert(reaction_misc_rank[pr_reac][i] == 0)
-               eioniz=rd_misc_data3(pr_reac,i,0,0,0)
-               goto break
-            end if
-         end do
+      do i=1,xs_dep_var_max
+         if (reaction_misc_var_dep[pr_reac][i] == 'eioniz') then
+            assert(reaction_misc_rank[pr_reac][i] == 0)
+            eioniz=rd_misc_data3(pr_reac,i,0,0,0)
+            goto break
+         end if
+      end do
 break:   continue
-      end if
 
 /*
    Note: the following assumes {\bf electron} impact ionization. It should
