@@ -2,6 +2,14 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.34  1999/03/25 20:55:36  dstotler
+% Replace check on "tc" in read_indep with a more careful check for
+% integers; was getting foiled by "1st_random_number".  Permit I_l...,
+% I_1..., and I_0... Update documentation also. Changed default
+% xs_mult[0,i] for actual dep. vars. from 0 to 1; likewise for used
+% indep. vars. Rearranged some asserts and other code in table_value to
+% begin permitting the evaluation of other data.
+%
 % Revision 1.33  1998/12/22 16:47:59  dstotler
 % Fill unused portion of main data table with real_unused.
 %
@@ -556,7 +564,7 @@ next_line: continue                      // Labels are defined in ratecalc.hweb
          all_ints=(lge(line(b:e),'10') && lle(line(b:e),'99'))
       else
          assert(xs_dep_var_max <= 99)
-         all_ints=FALSE
+         all_ints=.false.
       end if
 
       if (all_ints) then
