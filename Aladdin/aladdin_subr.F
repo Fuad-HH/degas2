@@ -1,157 +1,6 @@
-#if 0
-C This is just aladdin_1_0.f with the main program commented out
-      PROGRAM ALADDIN
-C                         *****************
-C                         * A L A D D I N *
-C                         *****************
-C
-C                  VERSION 1.0    30/04/1989
-C
-C                ALADDIN INTERACTIVE DATABASE PROGRAM
-C
-C     COPYRIGHT PRINCETON UNIVERSITY, PLASMA PHYSICS LABORATORY.
-C     ---------
-C
-C     INTERACTIVE ACCESS TO ALADDIN DATABASE FILES; SEARCH FOR, DISPLAY,
-C     EVALUATE, AND WRITE OUT ENTRY DATA.
-C
-C     REFERENCE,
-C     " THE ALADDIN ATOMIC PHYSICS DATABASE SYSTEM ", RUSSELL A. HULSE,
-C     ATOMIC PROCESSES IN PLASMAS, EDITORS, Y. KIM AND R. C. ELTON,
-C     PAGES 63 - 72, CONFERENCE PROCEEDINGS 206,
-C     AMERICAN INSTITUTE OF PHYSICS, NEW YORK, 1990, ISBN 0-88318-769-8.
-C
-C---------------------------------------------------------------------- --------
-C
-C
-C              MODIFICATIONS MADE TO VERSION 1.0
-C
-C     REV: 01/10/89 BY J. J. SMITH IAEA ATOMIC AND MOLECULAR DATA UNIT
-C
-C       1. THE NUMBER OF COEFFICIENTS IN THE ARRAY CF, CONTAINED IN THE
-C          VARIABLE NCF, IS SAVED BEFORE EACH CALL TO ALEV AND THE
-C          VALUE OF NCF IS RESET ON RETURN FROM SUBROUTINE ALEV.
-C          IT IS POSSIBLE FOR EVALUATION FUNCTIONS TO ADD COEFFICIENTS
-C          TO THE ARRAY. THESE ADDITIONAL COEFFICIENTS MAY NOT BE
-C          CORRECT FO A SUBSEQUNT CALL TO ALEV.
-C
-C-------------------------------------------------------------------------------
-C
-      INCLUDE 'ALPCOM.FOR'
-C
-      INCLUDE 'ALCOM.FOR'
-C
-C-------------------------------------------------------------------------------
-C
-      LOGICAL ALCIEQ
-      EXTERNAL ALCIEQ
-C
-C-------------------------------------------------------------------------------
-C
-C     INITIALIZE
-C
-      LUTIN = 5
-      LUTOUT = 6
-      LUDF = 20
-      DFNAME = '**NONE**'
-      LUOF = 21
-      OFNAME = '**NONE**'
-      LUQF = 22
-      QFNAME = '**NONE**'
-      LUEF = 23
-      EFNAME = '**NONE**'
-C
-      NHSL = 0
-      NBASL = 0
-      NBNSL = 0
-C
-C-------------------------------------------------------------------------------
-C
-C     PROMPT FOR INITIAL OPENING OF AN INPUT DATA FILE
-C
-   10 CALL ALF
-      IF(.NOT.OK) GO TO 10
-C
-C     PROMPT FOR INITIAL OPENING OF A QUERY FILE
-C
-      CALL ALQF
-C
-C*******************************************************************************
-C
-C     COMMAND PROCESSING LOOP
-C
-  100 WRITE(LUTOUT, '(/''$ALADDIN>> '')' )
-      READ(LUTIN, '(A)') CMND
-C
-C     USE IF...THEN SEQUENCE TO SELECT PROPER COMMAND SUBROUTINE TO CALL
-C
-      IF(INDEX(CMND,'?') .NE. 0) THEN
-        CALL ALQMRK
-C
-      ELSE IF(ALCIEQ(CMND(1:2),'SL')
-     &        .OR. ALCIEQ(CMND(1:1), 'L')) THEN
-        CALL ALL
-C
-      ELSE IF(ALCIEQ(CMND(1:1), 'S')) THEN
-        CALL ALS
-C
-      ELSE IF(ALCIEQ(CMND(1:1), 'G')) THEN
-        CALL ALG
-C
-      ELSE IF(ALCIEQ(CMND(1:1), 'N')) THEN
-        CALL ALN
-C
-      ELSE IF(ALCIEQ(CMND(1:1), 'D')) THEN
-        CALL ALD
-C
-      ELSE IF(ALCIEQ(CMND(1:2), 'EV')) THEN
-C
-C     BEFORE ISSUING CALL, SAVE THE NUMBER OF COEFFICIENTS IN THE
-C     ENTRY. AFTER THE CALL, RESET THE NUMBER OF COEFFICIENTS AS THE
-C     EVALUATION SUBROUTINE MAY ADD COEFFICIENTS INTO THE CF OR DCF
-C     ARRAYS. THESE  MAY NOT BE VALID FOR SBSEQUENT CALLS TO ALEV OR
-C     WHEN CALLING THE EVALUATION SUBROUTINE FROM OTHER COMMANDS.
-C
-        NCFIN = NCF
-        CALL ALEV
-        NCF = NCFIN
-C
-      ELSE IF(ALCIEQ(CMND(1:2), 'EF')) THEN
-        CALL ALEF
-C
-      ELSE IF(ALCIEQ(CMND(1:1), 'R')) THEN
-        CALL ALR
-C
-      ELSE IF(ALCIEQ(CMND(1:1), 'F')) THEN
-        CALL ALF
-C
-      ELSE IF(ALCIEQ(CMND(1:2), 'OF')) THEN
-        CALL ALOF
-C
-      ELSE IF(ALCIEQ(CMND(1:2), 'WR')) THEN
-        CALL ALWR
-C
-      ELSE IF(ALCIEQ(CMND(1:2), 'EN')
-     &        .OR. ALCIEQ(CMND(1:2), 'EX')) THEN
-        CALL ALEX
-C
-      ELSE IF(ALCIEQ(CMND(1:1), 'H')
-     &        .OR. CMND .EQ. ' ') THEN
-        CALL ALH
-C
-      ELSE IF(ALCIEQ(CMND(1:2), 'QF')) THEN
-        CALL ALQF
-C
-      ELSE
-        WRITE(LUTOUT,
-     &  '(/'' UNKNOWN COMMAND (TYPE H FOR HELP)'')' )
-C
-      ENDIF
-C
-      GO TO 100
-C
-      END
-#endif
+# 1 "aladdin_subr.F" 
+# 154 "aladdin_subr.F" 
+
 C
 C###############################################################################
 C
@@ -6220,7 +6069,64 @@ C CALCULATE SPUTTERING YIELD
      *         SN * (1-(ETH/E)**(2.0/3.0))*(1-ETH/E)**2
         RETURN
         END
-
+C
+C#############################################################################
+C
+      SUBROUTINE ELCROSS(PE, PCF, KNCF, PXS, KERMSG)
+C
+C     THIS IS A SUBROUTINE TO CALCULATE THE NEUTRAL-ION ELASTIC SCATTERING
+C     CROSS SECTION FOR A GIVEN LABORATORY ENERGY (eV)
+C
+C     PE = INCIDENT ENERGY IN LABORATORY FRAME
+C
+C     KERMSG = BLANK IN NO ERRORS
+C
+C     KNCF = NUMBER OF ENTRIES IN PCF ARRAY
+C
+C     PXS = CROSS SECTION IN cm[2]
+C
+C     PCF(1) = MINIMUM APPLICABLE ENERGY
+C
+C     PCF(2-4) = LOW ENERGY EXTRAPOLATION
+C
+C     PCF(5) = LOW ENERGY BOUND OF CROSS SECTION FIT
+C
+C     PCF(6-15) = FIT COEFFICIENTS TO CLASSICAL CROSS SECTION CALCULATIONS
+C
+C     PCF(16) = HIGH ENERGY BOUND FOR CROSS SECTION FIT
+C
+C     PCF(17-19) = HIGH ENERGY EXTRAPOLATION
+C
+C     PCF(20) = MAXIMUM APPLICABLE BOUND OF CLASSICAL CALCULATIONS
+C 
+      DOUBLE PRECISION PCF,PE,PETEMP,LNELAB,SIGSUM,PXS
+      DIMENSION PCF(20)
+      CHARACTER*(*) KERMSG
+      PETEMP = PE
+      IF ( PE .LT. 1.D-12 ) PETEMP = 1.D-12
+      LNELAB = DLOG(PETEMP)
+      SIGSUM = 0.
+      IF ( PE .LT. PCF(5) ) THEN
+         DO 10 I = 2 , 4
+            SIGSUM = SIGSUM + PCF(I) * LNELAB ** ( I - 2 )
+ 10      CONTINUE
+      ELSEIF ( PE .GT. PCF(16) ) THEN
+         DO 20 I = 17 , 19
+            SIGSUM = SIGSUM + PCF(I) * LNELAB ** (I - 17 )
+ 20      CONTINUE
+      ELSE
+         DO 30 I = 6 , 15
+            SIGSUM = SIGSUM + PCF(I) * LNELAB ** ( I - 6 )
+ 30      CONTINUE
+      ENDIF
+      PXS = DEXP ( SIGSUM )
+      RETURN   
+      END
+C
+C
+C
+C#############################################################################
+C
 C
 C              **************************************************
 C              *                 A L P A C K                    *
