@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.27  1995/05/31 19:20:56  dstotler
+# Add in pmi files and programs.
+#
 # Revision 1.26  1995/05/26 04:00:11  karney
 # Upgrade to fweb 1.51beta.
 # Initial implementation of surface segments.
@@ -149,11 +152,11 @@ FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
 ifdef DEBUG
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv -j
 else
   TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv
 endif
-WEAVEFLAGS=-f -i -W[ -ykw600
+WEAVEFLAGS=-f -i -W[ -ykw600 -j -n/
 
 ifeq ($(MACHINE),CRAY)
   FC=cft77
