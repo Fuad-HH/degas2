@@ -2,6 +2,11 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.17  1997/08/19 14:36:41  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.16  1997/08/07 19:50:45  dstotler
 % Adapt to read output.nc file and set up hdf data arrays using
 % extract_output_datum. Does ionization and H-alpha data files
@@ -80,7 +85,7 @@
 @I reaction.hweb
 @I materials.hweb
 
-@m CMOD 0    // Disable calls to |integral_region|, specific to C-Mod
+@m CMOD 1    // Enable calls to |integral_region|, specific to C-Mod
 
 @ The main program.
 
@@ -187,9 +192,8 @@
          do i=1,zn_num
             if (zn_type(i) == zn_plasma) then
                index_parameters[tl_index_zone]=i
-               density=extract_output_datum(index_parameters,
+               density=extract_output_datum(index_parameters,0,
      $              out_post_all[0][o_mean],'neutral density')
-     $              /(sp_m(pr_test(j))*zn_volume(i))
                hdf_data[i]=density           // NEUTRAL DENSITY
                ha_temp+=density*zn_volume(i)
 @#if CMOD
@@ -215,9 +219,8 @@
          do i=1,zn_num
             if (zn_type(i) == zn_plasma) then
                index_parameters[tl_index_zone]=i
-               pressure=extract_output_datum(index_parameters,
-     $              out_post_all[0][o_mean],'neutral energy')
-     $              /(const(1.5)*zn_volume(i))
+               pressure=extract_output_datum(index_parameters,0,
+     $              out_post_all[0][o_mean],'neutral pressure')
                hdf_data[i]=pressure/const(1.3332,-1)  // NEUTRAL PRESSURE
             else
                hdf_data[i]=zero
@@ -242,10 +245,10 @@
             do zone=1,zn_num
                if (zn_type(zone) == zn_plasma) then
                   index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,
+                  ha_rate=extract_output_datum(index_parameters,0,
      $                 out_post_all[0][o_mean],
      $                 trim(sp_sy(pr_test(test)))\/'alpha emission rate')
-     $                 /(const(1.8881944)*electron_charge*zn_volume(zone))
+     $                 /(const(1.8881944)*electron_charge)
                   hdf_data[zone]+=ha_rate
                   ha_temp+=ha_rate*zn_volume(zone)
                else
@@ -275,9 +278,9 @@
             do zone=1,zn_num
                if (zn_type(zone) == zn_plasma) then
                   index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,
+                  ha_rate=extract_output_datum(index_parameters,0,
      $                 out_post_all[0][o_mean],'ion source rate')
-     $                 /(sp_m(pr_background(back))*zn_volume(zone))
+     $                 /zn_volume(zone)
                   hdf_data[zone]=ha_rate
                   ha_temp+=ha_rate*zn_volume(zone)
                else
