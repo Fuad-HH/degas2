@@ -2,6 +2,10 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.27  2000/04/01 17:34:14  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.26  2000/03/27 21:15:25  dstotler
 % A little clean up following merger with Randy's branch.
 %
@@ -217,10 +221,9 @@ of the file name (x.d is degas and x.u for uedge) */
       call nc_read_reactions
       call nc_read_pmi
       call nc_read_problem
-      bk_num=pr_background_num
-      var_alloc(background_n)
-      var_alloc(background_v)
-      var_alloc(background_temp)
+
+      call setup_back_arrays
+
       if (degas == TRUE) then
          call read_degas_background(degasfilename)
       elseif (uedge == TRUE) then
@@ -234,7 +237,10 @@ of the file name (x.d is degas and x.u for uedge) */
       call init_wt_alias(uedge)   // Do likewise in boxgen?
 
       call write_background
-      call write_geometry     // Updated plasma sector properties
+/*
+    Updated plasma sector properties and possibly relabeled vacuum zones.
+*/
+      call write_geometry    
 
 
       return
@@ -271,8 +277,8 @@ of the file name (x.d is degas and x.u for uedge) */
       vc_decl(x1)
       vc_decl(x2)
 
-      external lookup_sector
-      integer lookup_sector
+      external lookup_sector,neutralize_species
+      integer lookup_sector,neutralize_species
 
       @<pardef.h@>
       @<combal.h@>
@@ -385,6 +391,7 @@ of the file name (x.d is degas and x.u for uedge) */
                      var_realloca(source_num_flights)
                      var_realloca(source_num_checkpoints)
                      var_realloca(source_species)
+                     var_realloca(source_root_species)
                      var_realloca(source_total_current)
                      var_realloca(source_weight_norm)
                      var_realloca(source_scale_factor)
@@ -396,11 +403,14 @@ of the file name (x.d is degas and x.u for uedge) */
  */
                      if (currxzt[jseg,1,jwall,js] > zero) then 
                         so_type(so_grps)=so_plate  
-                        so_species(so_grps)=
+                        so_root_sp(so_grps)=
      $                       sp_lookup(trim(sp_sy(degas_species[js])) \/ '+')
+                        so_species(so_grps)=
+     $                       neutralize_species(so_root_sp(so_grps))
                      else                                    
                         so_type(so_grps)=so_puff 
                         so_species(so_grps)=degas_species[js]
+                        so_root_sp(so_grps)=degas_species[js]
                      end if
                      assert(so_species(so_grps) > 0)
                      so_geom(so_grps)=so_surface
