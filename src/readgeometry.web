@@ -2,6 +2,10 @@
 \def\Wtitle{readgeometry}
 
 % $Log$
+% Revision 1.10  1995/05/26 04:01:47  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.9  1995/05/22 22:06:04  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -35,36 +39,121 @@
 %
 
 
-@* A program to read a geometry specification from an external file.
-the file name has to be given in the command  line. The syntax for the file is:
+@* External Geometry Interface. This program reads a geometry 
+specification from an external file, and transforms it into the form
+required by Degas 2. Namely, the hiearchy of geometry-related objects in
+Degas 2 is, from the lowest level to the highest level is:
+\begin{enumerate}
+  \item surface,
+  \item cell,
+  \item polygon,
+  \item zone.
+\end{enumerate}
+Individual cells are composed of surfaces, as discussed in the documentation
+for the internal geometry (e.g., see |geometry.web|). The next level up
+is a polygon. The code automatically breaks up (non-convex) polygons into
+cells. Finally, a zone may consist of one or more polygons; properties
+are constant across a zone. For example, a single zone might be used to
+represent the vacuum region around the plasma which is comprised of several
+(possibly disconnected) polygons. Or, a plasma flux surface on which density
+and temperature are constant might be a single zone. Note that polygons
+are used only within external interfaces such as this code. Cells and surfaces
+are essentially used only by the code itself. Zones are used primarily for the
+specification of input and output data.
 
-keyword args 
+The command line for the execution of this code must specify a file name.
+The syntax for each line in that file is:
 
-The keyword is shown in italics below and arguments in bold face.
-``keyword'' is one of |degasfile|,|new_zone|,|new_polygon|,
-|define_polygon|,
-|wall|,|outer|, | minx|, | minz|,| mindensity| | grid| |edge| . |degasfile|
-{\bf degasfile name} defines a degas input file.
-|new_zone| {\bf zone type}  starts a new zone. {\bf zone type} is a
-string that indicates the type of  the zone. It can be ``plasma'',
-``vacuum'' or ``solid''. |new_polygon| starts
-a new polygon. |define_polygon| adds the current polygon to the current
-zone. |wall| {\bf wallno start stop direction} where {\bf start} \&
-{\bf stop} can be replaced by ``*'' (meaning the whole wall segment) and 
-|direction| is optional (default = +1).  |outer| {\bf i j k} adds i'th j'th
-k'th points from outer boundary to polygon (bottom left corner = point 0,
-numbering is clockwise). |grid| {\bf j1 j2 j3 j4}
-will put the gridx and gridz values into an array containing corners of
-polygons. The vertical boundary and horizontal boundary limits are {\bf
-j1},{\bf j2} and  {\bf j3},{\bf j4}. |minx| {\bf x value}  \& | minz|
-{\bf z value} are for excluding grid indices (and hence the gridx, gridz
-values) that lie below these values. | mindensity| {\bf density value}
-is also used to exclude grid indices that define the cells containing
-plasma density less than the given value. | edge| {\bf j1 j2 j3 j4}
-defines edges of the plasma zone. The arguments indicate the same things as
-in | grid| except that here we must have either {\bf j1} = {\bf j2} or
-{\bf j3} = {\bf j4} since all edges lie on the same horizontal or vertical
-boundary. 
+{\bf keyword} {\it arguments } 
+
+In the following, keywords will be bold-faced, arguments will be italicized.
+
+  \begin{enumerate}
+    \item {\bf degasfile} {\it file\_name} provides the name of the 
+Degas input file.
+    \item  {\bf minx} {\it x\_value}  and  {\bf minz} {\it z\_value} tell the
+code to exclude grid indices for which the gridx, gridz values lie 
+below these {\it x} and {\it z}.
+    \item {\bf mindensity} {\it density value} is used to exclude 
+grid indices which correspond to cells having a plasma density less than the 
+given value.
+    \item {\bf grid} {\it j1 j2 j3 j4} is used to transform the gridx
+and gridz arrays into Degas 2 zones.
+    \begin{itemize}
+      \item The vertical boundary (or horizontal zone, i.e., the
+first index of gridx and gridz) 
+and horizontal boundary (or vertical zone, the second index) limits are 
+{\it j1}, {\it j2} and  {\it j3}, {\it j4}, repsectively.
+      \item For each pair of integer coordinates in this implied list,
+a separate Degas 2 zone of type |plasma| will be generated. Note that this
+includes points at {\it j2 + 1} and {\it j4 + 1} (hence, these are more
+properly referred to as the original Degas ``zone indices'').
+      \item Zones can be excluded from this list by using {\bf minx},
+{\bf minz}, or {\bf mindensity} entries in this input file. The code will
+also ignore zones in which the Degas arrays kzone1 or kzone2 are $\leq 0$.
+    \end{itemize}
+    \item {\bf new\_zone} {\it zone\_type}  starts a new zone; {\it zone\_type}
+is a string that indicates the type of  the zone. It can be 
+      \begin{enumerate}
+        \item {\it plasma},
+        \item {\it vacuum}, 
+        \item {\it solid}.
+      \end{enumerate}
+    \item {\bf new\_polygon} starts a new polygon. This line should be 
+followed by one or more lines which provide the code with the polygon
+coordinates, and then a line containing \ldots
+    \item {\bf define\_polygon} which terminates the definition of the current
+polygon begun by the previous {\bf new\_polygon} and adds it to the 
+current zone. 
+    \item {\bf wall} {\it wall\_number start stop direction} takes points
+from the Degas xwall and zwall arrays and adds them to the current polygon.
+    \begin{itemize}
+      \item {\it start} \& {\it stop} can be replaced by ``*'' 
+(meaning the whole wall segment),
+      \item {\it direction} is optional (default = +1),
+    \end{itemize}
+    \item {\bf outer} {\it i j k} adds the $i$th $j$th $k$th points of the 
+bounding rectangle of the problem (minimum, maximum $x$ and $z$ determined 
+by the code) to the current polygon. The numbering of the corners is clockwise
+starting from 0 at $(x_{min}, z_{min})$. There can be any number of arguments,
+although typical usage will be with three.
+    \item {\bf edge} {\it j1 j2 j3 j4} takes an ``edge'' (i.e., a section
+of a horizontal or vertical boundary) from the Degas gridx, gridz arrays
+and adds it to the current polygon. The 
+arguments indicate the same things as in  grid except that here we must have 
+either {\it j1} = {\it j2} or {\it j3} = {\it j4} in order for the edge to
+lie on a single boundary.
+  \end{enumerate}
+
+A typical file might have lines in the following order:
+\begin{verbatim}
+
+degasfile ...
+
+minx ...
+minz ...
+mindensity ...
+grid
+
+new_zone ...
+  new_polygon
+    wall ...
+    outer ...
+    edge ...
+  define_polygon
+
+  new_polygon
+    .
+    .
+    .
+
+new_zone
+   .
+   .
+   .
+
+end
+\end{verbatim}
 
 \ID{$Id$}
 
@@ -391,7 +480,11 @@ skip:          continue
             enddo
          enddo
          zone++
-         /* start from left lower corner of box and go clockwise along box till right lower corner. return along outer edge of SOL to starting pt. */
+
+/*
+   start from left lower corner of box and go clockwise along box till 
+   right lower corner. return along outer edge of SOL to starting pt. 
+*/
          n=0
          x[1,n]=xmin; x[2,n]=zmin; n++
          x[1,n]=xmin; x[2,n]=zmax; n++
@@ -555,14 +648,29 @@ eof:  continue
          enddo
       enddo
      
-/*  the cuts may depend on the number u choose for the difference. i should 
- probably take a relative measure.
- the configuration seems to be --
+/*  
+   the cuts may depend on the number u choose for the difference. i should 
+   probably take a relative measure.
+   the configuration seems to be: \newline
 
-    ^ 1--- 2  1--- 2 
-    | | i  |  | i+1| ...
-    | 3--- 4  3--- 4
-    y x --->
+
+\begin{picture}(200,80)
+\put(50.,20.){\framebox(50.,50.){i}}
+\put(120.,20.){\framebox(50.,50.){i+1}}
+\put(48.,22.){\makebox(0,0)[tr]{3}}
+\put(48.,68.){\makebox(0,0)[br]{1}}
+\put(102.,68.){\makebox(0,0)[bl]{2}}
+\put(102.,22.){\makebox(0,0)[tl]{4}}
+\put(118.,22.){\makebox(0,0)[tr]{3}}
+\put(118.,68.){\makebox(0,0)[br]{1}}
+\put(172.,68.){\makebox(0,0)[bl]{2}}
+\put(172.,22.){\makebox(0,0)[tl]{4}}
+\put(95.,5.){\vector(1,0){30}}
+\put(30.,30.){\vector(0,1){30}}
+\put(90.,5.){\makebox(0,0)[c]{x}}
+\put(30.,25.){\makebox(0,0)[tc]{y}}
+\end{picture}  \newline
+
  
  along the x direction (iy=0 along the lower edge of inner PFR) , we
  compare the bottom 
@@ -570,7 +678,8 @@ eof:  continue
  cut. this is ixcut1. from here as x increases, it traces the outer edge
  of the core and returns along the lower edge of the outer PFR. this is
  ixcut2. these two points  are the x coordinates of the x-pt if u look at
- the whole thing in rectangular geometry. */
+ the whole thing in rectangular geometry.
+*/
 
       ixcut1 =0
       ixcut2 =0
@@ -721,7 +830,7 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
       return
       end
 
-@ replace corneri of cell ix,iy with [xcorner_new, ycorner_new]
+@ replace corneri of cell ix,iy with [|xcorner_new|, |ycorner_new|]
 @<Functions...@>=
 
       subroutine replace_corners(ix,iy,corneri,xcorner_new,
