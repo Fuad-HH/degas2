@@ -3,6 +3,15 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1994/11/21 15:50:41  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.1  1994/10/17 14:34:19  dstotler
 % Further development of ratecalc.web routines. Also added header file.
 %
@@ -13,16 +22,23 @@ Define a few macros for neatness sake.
 
 @ Parameters used in integration routines
 
-@m integration_acc const(1.0,-6)     // Fractional accuracy desired 
-@m max_integ_steps 14                // Maximum number of integration steps
-@m num_extrap_pts 5                  // Points used to extrapolate estimates
+@m integration_acc const(1.0,-7)     // Fractional accuracy desired 
+@m integration_infinity const(1.0,20) // $\infty$ for upper bound of integrations; should be $>$ 1/|epsilon|
+@m integ_transform_exp 4             // Exponent for power law variable transformation
+@m integ_transform_ratio const(2.,-2) // Smaller $1/$upper bounds get variable transformation 
+@m ev_to_ergs (electron_charge*const(1.0,7)) // To convert eV to ergs
+@m atomic_mass_unit_g (atomic_mass_unit*const(1.0,3)) // 1 amu in grams
+@m max_integ_steps 20                // Maximum number of integration steps
+@m num_extrap_pts 3                  // Points used to extrapolate estimates
 @m max_interp_pts 10                 // Maximum number of interp. points
 @m msg_length 80                     // Length of ALADDIN error messages
 @m ra_search_label_length 40         // Length of labels used to identify data
 @m ra_data_filename_length 80        // Length of filename containing data
 @m ra_eval_name_length 40            // Routine used to evaluate data
 @m ra_label_max 100                  // Maximum number of search labels for data
+@m ra_unit_string_length 12          // Length of unit specifications
 @m ra_fit_coef_max 200               // Maximum number of fit coefficients
+
 
 @ variable definitions
 
@@ -33,10 +49,12 @@ Define a few macros for neatness sake.
       define_dimen_pk(ra,label_num_ind,ra_label_max)
       define_dimen_pk(ra,data_filename,ra_data_filename_length)
       define_dimen_pk(ra,eval_name,ra_eval_name_length)
+      define_dimen_pk(ra,mass_unit_string,ra_unit_string_length)
       define_var_pk(ra,ra_mass,FLOAT)
       define_var_pk(ra,ra_num_hier,INT)
       define_var_pk(ra,ra_num_bool_and,INT)
       define_var_pk(ra,ra_num_bool_not,INT)
+      define_var_pk(ra,ra_mass_units,CHAR,mass_unit_string)
       define_var_pk(ra,ra_hier_label,CHAR,search_label,label_num_ind)
       define_var_pk(ra,ra_bool_and_label,CHAR,search_label,label_num_ind)
       define_var_pk(ra,ra_bool_not_label,CHAR,search_label,label_num_ind)
@@ -58,9 +76,9 @@ Define a few macros for neatness sake.
 @m ra_common_l 
       real u,up,temperature;
       double precision fit_coef(ra_fit_coef_max);
-      integer moment_number, num_fit_coef;
+      integer moment_number, num_fit_coef, num_evaluations;
       character*ra_eval_name_length leval;
-      common u,up,temperature,fit_coef,moment_number,num_fit_coef,leval @;
+      common u,up,temperature,fit_coef,moment_number,num_fit_coef,leval,num_evaluations @;
 
 @f ra_common integer
 @m ra_common
