@@ -2,6 +2,13 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.15  1997/09/02 21:14:25  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.14  1997/08/21 19:46:56  karney
 % Use f90's portable method of specifying precision (via kind and
 % selected_real_kind).
@@ -70,6 +77,7 @@
 @I problem.hweb
 @I random.hweb
 @I background.hweb
+@I geomint.hweb
 @I vector.hweb
 @I zone.hweb
 @I species.hweb
@@ -92,7 +100,7 @@
      $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),
      $     w_prod,num_scoring_data,scoring_data,
-     $     scoring_data_label,background_sources,rn_dummy(x))
+     $     scoring_data_label,coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       rc_common                                         // Common
@@ -108,7 +116,7 @@
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
       real w_prod[rc_product_max],scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                        // Input/output
 
@@ -127,37 +135,37 @@
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_args(x))
+     $     coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'elastic') then
          call elastic(pr_test_args(test),pr_reaction_args(ts_reac),
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_args(x))
+     $     coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc') then
          call dissoc(pr_test_args(test),pr_reaction_args(ts_reac),
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_args(x))
+     $     coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_rec') then
          call dissoc(pr_test_args(test),pr_reaction_args(ts_reac),
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_args(x))
+     $     coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_cramd') then
          call dissoc_cramd(pr_test_args(test),pr_reaction_args(ts_reac),
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_args(x))
+     $     coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') then
          call ionize(pr_test_args(test),pr_reaction_args(ts_reac),
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_args(x))
+     $     coupling_scores,rn_args(x))
       else
          assert('Unsupported reaction type' == ' ')
       end if
@@ -172,7 +180,7 @@
      $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common                                        // Common
@@ -192,7 +200,7 @@
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
       real w_prod[rc_product_max],scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -206,7 +214,7 @@
       vc_decl(vt_plasma_frame)
       vc_decl(vb_therm)
       vc_decl(vrel)
-      real v_thermal,ran,sgvmax,cx,cx_v,m_i  
+      real v_thermal,ran,sgvmax,cxsec,cx_v,m_i  
 
       external eval_data                              // External
       real eval_data
@@ -263,9 +271,9 @@ loop: continue
      $     =half*independent_parameters[xs_var_m_test]*vc_abs2(vrel)
       independent_parameters[xs_var_sp_energy]=half*vc_abs2(vrel)
 
-      cx=eval_data(rd_data_args(reaction_handling,[pr_reac][i_cx]),
+      cxsec=eval_data(rd_data_args(reaction_handling,[pr_reac][i_cx]),
      $    independent_parameters,rn_args(x))
-      cx_v=cx*vc_abs(vrel)
+      cx_v=cxsec*vc_abs(vrel)
 
       assert(cx_v<=sgvmax)
       if (cx_v > tempmax) then
@@ -282,7 +290,7 @@ loop: continue
       assert(pr_num_arrangements(test,ts_reac) == 1)
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
-         if (problem_species_test(prod[i]) != 0) then
+         if (pr_test_lookup(prod[i]) != 0) then
             w_prod[i]=one
             vc_add(vb_therm,vb_flow,v_back)
             vc_copy(v_back,v_prod[i])
@@ -295,28 +303,28 @@ loop: continue
 /*
    Collision scoring - only background sources expected here.
 */
-      background_sources[back][ou_coupling_mass]+=
+      coupling_scores[back][ou_coupling_mass]+=
      $     -sp_m(pr_background(back))*rate
-      background_sources[back][ou_coupling_momentum_1]+=
+      coupling_scores[back][ou_coupling_momentum_1]+=
      $     -sp_m(pr_background(back))*v_back[1]*rate
-      background_sources[back][ou_coupling_momentum_2]+=
+      coupling_scores[back][ou_coupling_momentum_2]+=
      $     -sp_m(pr_background(back))*v_back[2]*rate
-      background_sources[back][ou_coupling_momentum_3]+=
+      coupling_scores[back][ou_coupling_momentum_3]+=
      $     -sp_m(pr_background(back))*v_back[3]*rate
-      background_sources[back][ou_coupling_energy]+=
+      coupling_scores[back][ou_coupling_energy]+=
      $     -half*sp_m(pr_background(back))*vc_abs2(v_back)*rate
       do i=1,nprod
-         back_i=problem_species_background[prod[i]]
+         back_i=pr_background_lookup(prod[i])
          if (back_i != 0) then
             m_i=sp_m(pr_background(back_i))
-            background_sources[back_i][ou_coupling_mass]+=m_i*rate
-            background_sources[back_i][ou_coupling_momentum_1]+=
+            coupling_scores[back_i][ou_coupling_mass]+=m_i*rate
+            coupling_scores[back_i][ou_coupling_momentum_1]+=
      $           m_i*v_prod[i][1]*rate 
-            background_sources[back_i][ou_coupling_momentum_2]+=
+            coupling_scores[back_i][ou_coupling_momentum_2]+=
      $           m_i*v_prod[i][2]*rate
-            background_sources[back_i][ou_coupling_momentum_3]+=
+            coupling_scores[back_i][ou_coupling_momentum_3]+=
      $           m_i*v_prod[i][3]*rate
-            background_sources[back_i][ou_coupling_energy]+=
+            coupling_scores[back_i][ou_coupling_energy]+=
      $           half*m_i*vc_abs2(v_prod[i])*rate
          end if
       end do
@@ -331,7 +339,7 @@ loop: continue
      $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common                                        // Common
@@ -350,7 +358,7 @@ loop: continue
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
       real w_prod[rc_product_max],scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -372,7 +380,7 @@ loop: continue
       integer i,i_cx,count
 
       real eval_data
-      real v_thermal,ran,sigvmax,tempmax,cx,cx_v,m_i
+      real v_thermal,ran,sigvmax,tempmax,cxsec,cx_v,m_i
       real mu_angle
       real vcm_sq,vb_cmsq,vt_cmsq
       real vcm_sqrt,vbcm_sqrt,vtcm_sqrt
@@ -440,10 +448,10 @@ loop: continue
      $     =half*independent_parameters[xs_var_m_test]*vc_abs2(vrel)
       independent_parameters[xs_var_sp_energy]=half*vc_abs2(vrel)
 
-      cx=eval_data(rd_data_args(reaction_handling,[pr_reac][i_cx]),
+      cxsec=eval_data(rd_data_args(reaction_handling,[pr_reac][i_cx]),
      $    independent_parameters,rn_args(x))
 
-      cx_v=cx*vc_abs(vrel)
+      cx_v=cxsec*vc_abs(vrel)
 
       assert(cx_v<=sigvmax)
       if (cx_v > tempmax) then
@@ -511,28 +519,28 @@ loop: continue
 /*
    Collision scoring - only background sources expected here.
 */
-      background_sources[back][ou_coupling_mass]+=
+      coupling_scores[back][ou_coupling_mass]+=
      $     -sp_m(pr_background(back))*rate
-      background_sources[back][ou_coupling_momentum_1]+=
+      coupling_scores[back][ou_coupling_momentum_1]+=
      $     -sp_m(pr_background(back))*v_back[1]*rate
-      background_sources[back][ou_coupling_momentum_2]+=
+      coupling_scores[back][ou_coupling_momentum_2]+=
      $     -sp_m(pr_background(back))*v_back[2]*rate
-      background_sources[back][ou_coupling_momentum_3]+=
+      coupling_scores[back][ou_coupling_momentum_3]+=
      $     -sp_m(pr_background(back))*v_back[3]*rate
-      background_sources[back][ou_coupling_energy]+=
+      coupling_scores[back][ou_coupling_energy]+=
      $     -half*sp_m(pr_background(back))*vc_abs2(v_back)*rate
       do i=1,nprod
-         back_i=problem_species_background[prod[i]]
+         back_i=pr_background_lookup(prod[i])
          if (back_i != 0) then
             m_i=sp_m(pr_background(back_i))
-            background_sources[back_i][ou_coupling_mass]+=m_i*rate
-            background_sources[back_i][ou_coupling_momentum_1]+=
+            coupling_scores[back_i][ou_coupling_mass]+=m_i*rate
+            coupling_scores[back_i][ou_coupling_momentum_1]+=
      $           m_i*v_prod[i][1]*rate 
-            background_sources[back_i][ou_coupling_momentum_2]+=
+            coupling_scores[back_i][ou_coupling_momentum_2]+=
      $           m_i*v_prod[i][2]*rate
-            background_sources[back_i][ou_coupling_momentum_3]+=
+            coupling_scores[back_i][ou_coupling_momentum_3]+=
      $           m_i*v_prod[i][3]
-            background_sources[back_i][ou_coupling_energy]+=
+            coupling_scores[back_i][ou_coupling_energy]+=
      $           half*m_i*vc_abs2(v_prod[i])*rate
          end if
       end do
@@ -547,7 +555,7 @@ loop: continue
      $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common                                        // Common
@@ -568,7 +576,7 @@ loop: continue
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
       real w_prod[rc_product_max],scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -667,21 +675,21 @@ break:continue
    Note: assume background is an electron so that no reagent background
    momentum is lost.
 */
-      background_sources[back][ou_coupling_mass]+=
+      coupling_scores[back][ou_coupling_mass]+=
      $  -sp_m(pr_background(back))*rate
-      background_sources[back][ou_coupling_energy]+=-elediss
+      coupling_scores[back][ou_coupling_energy]+=-elediss
       do i=1,nprod
-         back_i=problem_species_background(prod[i])
+         back_i=pr_background_lookup(prod[i])
          if (back_i != 0) then
             m_i=sp_m(pr_background(back_i))
-            background_sources[back_i][ou_coupling_mass]+=m_i*rate
-            background_sources[back_i][ou_coupling_momentum_1]+=
+            coupling_scores[back_i][ou_coupling_mass]+=m_i*rate
+            coupling_scores[back_i][ou_coupling_momentum_1]+=
      $           m_i*v_prod[i][1]*rate
-            background_sources[back_i][ou_coupling_momentum_2]+=
+            coupling_scores[back_i][ou_coupling_momentum_2]+=
      $           m_i*v_prod[i][2]*rate
-            background_sources[back_i][ou_coupling_momentum_3]+=
+            coupling_scores[back_i][ou_coupling_momentum_3]+=
      $           m_i*v_prod[i][3]*rate
-            background_sources[back_i][ou_coupling_energy]+=
+            coupling_scores[back_i][ou_coupling_energy]+=
      $           half*m_i*vc_abs2(v_prod[i])*rate
          end if
       end do
@@ -696,7 +704,7 @@ break:continue
      $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common                                        // Common
@@ -717,7 +725,7 @@ break:continue
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
       real w_prod[rc_product_max],scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -835,26 +843,26 @@ break:continue
    Collision scoring. This isn't done yet. There remain the MAR and 
    H-alpha data to implement.
 */
-      background_sources[back][ou_coupling_mass]+=
+      coupling_scores[back][ou_coupling_mass]+=
      $  -sp_m(pr_background(back))*rate
-      background_sources[back][ou_coupling_energy]+=-eloss
+      coupling_scores[back][ou_coupling_energy]+=-eloss
       do i=1,nprod
-         back_i=problem_species_background(prod[i])
+         back_i=pr_background_lookup(prod[i])
          if (back_i != 0) then
             m_i=sp_m(pr_background(back_i))
             if (sp_sy(prod[i]) == 'e') then
-               background_sources[back_i][ou_coupling_mass]+=
+               coupling_scores[back_i][ou_coupling_mass]+=
      $              m_i*(const(3.)-two*hfrac)*rate
             else
-               background_sources[back_i][ou_coupling_mass]+=
+               coupling_scores[back_i][ou_coupling_mass]+=
      $              m_i*two*(one-hfrac)*rate
-               background_sources[back_i][ou_coupling_momentum_1]+=
+               coupling_scores[back_i][ou_coupling_momentum_1]+=
      $              m_i*v_prod[i][1]*two*(one-hfrac)*rate
-               background_sources[back_i][ou_coupling_momentum_2]+=
+               coupling_scores[back_i][ou_coupling_momentum_2]+=
      $              m_i*v_prod[i][2]*two*(one-hfrac)*rate
-               background_sources[back_i][ou_coupling_momentum_3]+=
+               coupling_scores[back_i][ou_coupling_momentum_3]+=
      $              m_i*v_prod[i][3]*two*(one-hfrac)*rate
-               background_sources[back_i][ou_coupling_energy]+=
+               coupling_scores[back_i][ou_coupling_energy]+=
      $              half*m_i*vc_abs2(v_prod[i])*two*(one-hfrac)*rate-iloss
             end if
          end if
@@ -872,7 +880,7 @@ of suppressed absorption.
      $     rate,independent_parameters,
      $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common
@@ -892,7 +900,7 @@ of suppressed absorption.
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
       real w_prod[rc_product_max],scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -1009,26 +1017,26 @@ of suppressed absorption.
       end if
 
 /*
-   Collision scoring of |background_sources|
+   Collision scoring of |coupling_scores|
 */
-      background_sources[back][ou_coupling_mass]+=
+      coupling_scores[back][ou_coupling_mass]+=
      $  -sp_m(pr_background(back))*rate
-      background_sources[back][ou_coupling_energy]+=-eioniz
+      coupling_scores[back][ou_coupling_energy]+=-eioniz
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
-         back_i=problem_species_background[prod[i]]
+         back_i=pr_background_lookup(prod[i])
          if (back_i != 0) then
-            background_sources[back_i][ou_coupling_mass]+=
+            coupling_scores[back_i][ou_coupling_mass]+=
      $           sp_m(prod[i])*rate
             if (i == 2) then         // See assertion below
                vc_copy(v_test,v_prod[i])
-               background_sources[back_i][ou_coupling_momentum_1]+=
+               coupling_scores[back_i][ou_coupling_momentum_1]+=
      $              sp_m(prod[i])*v_prod[i][1]*rate 
-               background_sources[back_i][ou_coupling_momentum_2]+=
+               coupling_scores[back_i][ou_coupling_momentum_2]+=
      $              sp_m(prod[i])*v_prod[i][2]*rate
-               background_sources[back_i][ou_coupling_momentum_3]+=
+               coupling_scores[back_i][ou_coupling_momentum_3]+=
      $              sp_m(prod[i])*v_prod[i][3]*rate
-               background_sources[back_i][ou_coupling_energy]+=
+               coupling_scores[back_i][ou_coupling_energy]+=
      $              half*sp_m(prod[i])*vc_abs2(v_prod[i])*rate
             else if (i == 3) then
                vc_set(v_prod[i],zero,zero,zero)
@@ -1163,7 +1171,7 @@ loop: continue
       subroutine pick_track_reaction(pr_test_dummy(test),
      $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       rc_common                                         // Common
@@ -1178,7 +1186,7 @@ loop: continue
 
       integer num_scoring_data                          // Output
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                        // Input/output
 
@@ -1190,37 +1198,37 @@ loop: continue
          call track_chargex(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'elastic') then
          call track_elastic(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc') then
          call track_dissoc(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_rec') then
          call track_dissoc(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac))=='dissoc_cramd') then
          call track_dissoc_cramd(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') then
          call track_ionize(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress') then
          call track_ionize(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        num_scoring_data,scoring_data,scoring_data_label,
-     $        background_sources,rn_args(x))
+     $        coupling_scores,rn_args(x))
       else
          assert('Unsupported reaction type' == ' ')
       end if
@@ -1234,7 +1242,7 @@ loop: continue
       subroutine track_chargex(pr_test_dummy(test),
      $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       rc_common                                         // Common
@@ -1252,14 +1260,14 @@ loop: continue
 
       integer num_scoring_data                          // Output
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                        // Input/output
 
       pr_reaction_decl(pr_reac)                         // Local  
       pr_background_decl(back)
       integer i,nprod,back_i
-      real i_1up,i_2up2,up2,up,u_abs,uprime_abs,mom_src,m_i
+      real ni_1up,ni_2up2,up2,up,u_abs,uprime_abs,mom_src,m_i
       vc_decl(u)
       vc_decl(uprime)
       vc_decl(vb_flow)
@@ -1272,11 +1280,11 @@ loop: continue
       back=pr_ts_bk(test,ts_reac)
       do i=1,rd_dep_var_max
          if (reaction_handling_var0[pr_reac][i] == 'I_l_1*up') then
-            i_1up=independent_parameters[xs_var_density]
+            ni_1up=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
          else if (reaction_handling_var0[pr_reac][i] == 'I_l_2*up^2') then
-            i_2up2=independent_parameters[xs_var_density]
+            ni_2up2=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
          end if
@@ -1293,33 +1301,33 @@ loop: continue
       vc_difference(u,vb_flow,uprime)
       uprime_abs=vc_abs(uprime)
 
-      background_sources[back][ou_coupling_mass]+=
+      coupling_scores[back][ou_coupling_mass]+=
      $     -sp_m(pr_background(back))*rate
       mom_src=sp_m(pr_background(back))*(-half*up2*rate/uprime_abs**2
-     $     +i_1up/uprime_abs)
-      background_sources[back][ou_coupling_momentum_1]
+     $     +ni_1up/uprime_abs)
+      coupling_scores[back][ou_coupling_momentum_1]
      $     +=-sp_m(pr_background(back))*rate*u[1]
      $     + mom_src*uprime[1]
-      background_sources[back][ou_coupling_momentum_2]
+      coupling_scores[back][ou_coupling_momentum_2]
      $     +=-sp_m(pr_background(back))*rate*u[2]
      $     + mom_src*uprime[2]
-      background_sources[back][ou_coupling_momentum_3]
+      coupling_scores[back][ou_coupling_momentum_3]
      $     +=-sp_m(pr_background(back))*rate*u[3]
      $     + mom_src*uprime[3]
-      background_sources[back][ou_coupling_energy] 
+      coupling_scores[back][ou_coupling_energy] 
      $     +=sp_m(pr_background(back))*(
      $     -half*u_abs**2*rate
-     $     +vc_product(u,uprime)*i_1up/uprime_abs
-     $     -half*(up2*vc_product(u,uprime)*rate/uprime_abs**2+i_2up2))
+     $     +vc_product(u,uprime)*ni_1up/uprime_abs
+     $     -half*(up2*vc_product(u,uprime)*rate/uprime_abs**2+ni_2up2))
       do i=1,nprod
-         back_i=problem_species_background(pr_ts_prod(test,ts_reac,1,i))
+         back_i=pr_background_lookup(pr_ts_prod(test,ts_reac,1,i))
          if (back_i != 0) then
             m_i=sp_m(pr_background(back_i))
-            background_sources[back_i][ou_coupling_mass]+=m_i*rate
-            background_sources[back_i][ou_coupling_momentum_1]+=m_i*rate*u[1]
-            background_sources[back_i][ou_coupling_momentum_2]+=m_i*rate*u[2]
-            background_sources[back_i][ou_coupling_momentum_3]+=m_i*rate*u[3]
-            background_sources[back_i][ou_coupling_energy]+=
+            coupling_scores[back_i][ou_coupling_mass]+=m_i*rate
+            coupling_scores[back_i][ou_coupling_momentum_1]+=m_i*rate*u[1]
+            coupling_scores[back_i][ou_coupling_momentum_2]+=m_i*rate*u[2]
+            coupling_scores[back_i][ou_coupling_momentum_3]+=m_i*rate*u[3]
+            coupling_scores[back_i][ou_coupling_energy]+=
      $           half*m_i*rate*u_abs**2
          end if
       end do
@@ -1333,7 +1341,7 @@ loop: continue
       subroutine track_elastic(pr_test_dummy(test),
      $     pr_reaction_dummy(ts_reac),rate,independent_parameters,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       rc_common                                         // Common
@@ -1350,14 +1358,14 @@ loop: continue
 
       integer num_scoring_data                          // Output
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                        // Input/output
 
       pr_reaction_decl(pr_reac)                         // Local  
       pr_background_decl(back)
       integer i
-      real i_0,i_1up,i_2up2,up2,up,m_test,m_back,mom_src,uprime_abs
+      real ni_0,ni_1up,ni_2up2,up2,up,m_test,m_back,mom_src,uprime_abs
       vc_decl(u)
       vc_decl(uprime)
       vc_decl(vb_flow)
@@ -1368,16 +1376,16 @@ loop: continue
       pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
       back=pr_ts_bk(test,ts_reac)
       do i=1,rd_dep_var_max
-         if (reaction_handling_var0[pr_reac][i] == 'I_l_0') then
-            i_0=independent_parameters[xs_var_density]
+         if (reaction_handling_var0[pr_reac][i] == 'I_1_0') then
+            ni_0=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
          else if (reaction_handling_var0[pr_reac][i] == 'I_l_1*up') then
-            i_1up=independent_parameters[xs_var_density]
+            ni_1up=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
          else if (reaction_handling_var0[pr_reac][i] == 'I_l_2*up^2') then
-            i_2up2=independent_parameters[xs_var_density]
+            ni_2up2=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
          end if
@@ -1395,20 +1403,20 @@ loop: continue
       m_test=independent_parameters[xs_var_m_test]
       m_back=independent_parameters[xs_var_m_back]
 
-      background_sources[back][ou_coupling_mass]+=zero // NO CHANGE in species
-      mom_src=(m_test*m_back/(m_test+m_back))*(-half*up2*i_0/uprime_abs**2
-     $     +i_1up/uprime_abs)
-      background_sources[back][ou_coupling_momentum_1]
+      coupling_scores[back][ou_coupling_mass]+=zero // NO CHANGE in species
+      mom_src=(m_test*m_back/(m_test+m_back))*(-half*up2*ni_0/uprime_abs**2
+     $     +ni_1up/uprime_abs)
+      coupling_scores[back][ou_coupling_momentum_1]
      $     +=mom_src*uprime[1]
-      background_sources[back][ou_coupling_momentum_2]
+      coupling_scores[back][ou_coupling_momentum_2]
      $     +=mom_src*uprime[2]
-      background_sources[back][ou_coupling_momentum_3]
+      coupling_scores[back][ou_coupling_momentum_3]
      $     +=mom_src*uprime[3]
-      background_sources[back][ou_coupling_energy] 
+      coupling_scores[back][ou_coupling_energy] 
      $     +=(two*m_test*m_back/(m_test+m_back)**2)
-     $     *(half*m_back*i_2up2
+     $     *(half*m_back*ni_2up2
      $     +half*(m_test+m_back)*vc_product(u,uprime)
-     $     *(i_1up/uprime_abs-half*up2*i_0/uprime_abs**2))
+     $     *(ni_1up/uprime_abs-half*up2*ni_0/uprime_abs**2))
       // No product terms!
 
       return
@@ -1420,7 +1428,7 @@ loop: continue
       subroutine track_dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common                                        // Common
@@ -1439,7 +1447,7 @@ loop: continue
 
       integer num_scoring_data                         // Output
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -1482,8 +1490,8 @@ loop: continue
    dissociated velocities has been averaged out. Note: this may not work at 
    all for a time-dependent case.
 */
-      background_sources[back][ou_coupling_mass]+=-sp_m(pr_background(back))*rate
-      background_sources[back][ou_coupling_energy]+=-elediss
+      coupling_scores[back][ou_coupling_mass]+=-sp_m(pr_background(back))*rate
+      coupling_scores[back][ou_coupling_energy]+=-elediss
       do i=1,3
          v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
       end do
@@ -1492,9 +1500,9 @@ loop: continue
          mass_total=zero
          do i=1,nprod
             prod[i]=pr_ts_prod(test,ts_reac,j_arr,i)
-            back_i=problem_species_background[prod[i]]
+            back_i=pr_background_lookup(prod[i])
             if (back_i != 0) then
-               background_sources[back_i][ou_coupling_mass]+=
+               coupling_scores[back_i][ou_coupling_mass]+=
      $              sp_m(prod[i])*rate*pr_prod_mult(test,ts_reac,j_arr)
             end if
             if (sp_sy(prod[i])  != 'e') then
@@ -1506,15 +1514,15 @@ loop: continue
          end do
          assert(num_heavy_products == 2)
          do k=1,num_heavy_products
-            back_i=problem_species_background[pr_ts_prod(test,ts_reac,j_arr,product_index[k])]
+            back_i=pr_background_lookup(pr_ts_prod(test,ts_reac,j_arr,product_index[k]))
             if (back_i != 0) then
-               background_sources[back_i][ou_coupling_momentum_1]+=
+               coupling_scores[back_i][ou_coupling_momentum_1]+=
      $              mass[k]*v_test[1]*rate*pr_prod_mult(test,ts_reac,j_arr)
-               background_sources[back_i][ou_coupling_momentum_2]+=
+               coupling_scores[back_i][ou_coupling_momentum_2]+=
      $              mass[k]*v_test[2]*rate*pr_prod_mult(test,ts_reac,j_arr)
-               background_sources[back_i][ou_coupling_momentum_3]+=
+               coupling_scores[back_i][ou_coupling_momentum_3]+=
      $              mass[k]*v_test[3]*rate*pr_prod_mult(test,ts_reac,j_arr)
-               background_sources[back_i][ou_coupling_energy]+=
+               coupling_scores[back_i][ou_coupling_energy]+=
      $              (half*mass[k]*vc_abs2(v_test)+two*ediss*(one-mass[k]/mass_total))
      $              *rate*pr_prod_mult(test,ts_reac,j_arr)
             end if
@@ -1530,7 +1538,7 @@ loop: continue
       subroutine track_dissoc_cramd(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common                                        // Common
@@ -1549,7 +1557,7 @@ loop: continue
 
       integer num_scoring_data                         // Output
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -1607,20 +1615,20 @@ loop: continue
       assert(sp_count(pr_test(test),1) == 2)
 
       assert(sp_sy(pr_background(back)) == 'e')
-      background_sources[back][ou_coupling_mass]+=-sp_m(pr_background(back))*rate
-      background_sources[back][ou_coupling_energy]+=-eloss
+      coupling_scores[back][ou_coupling_mass]+=-sp_m(pr_background(back))*rate
+      coupling_scores[back][ou_coupling_energy]+=-eloss
       do j_arr=1,pr_num_arrangements(test,ts_reac)
          num_heavy_products=0
          mass_total=zero
          do i=1,nprod
-            back_i=problem_species_background[pr_ts_prod(test,ts_reac,j_arr,i)]
+            back_i=pr_background_lookup(pr_ts_prod(test,ts_reac,j_arr,i))
             if (back_i != 0) then
                if (sp_sy(prod[i]) == 'e') then
-                  background_sources[back_i][ou_coupling_mass]+=
+                  coupling_scores[back_i][ou_coupling_mass]+=
      $                 sp_m(pr_background(back_i))
      $                 *rate*(const(3.)-two*hfrac)*pr_prod_mult(test,ts_reac,j_arr)
                else
-                  background_sources[back_i][ou_coupling_mass]+=
+                  coupling_scores[back_i][ou_coupling_mass]+=
      $                 sp_m(pr_background(back_i))
      $                 *rate*two*(one-hfrac)*pr_prod_mult(test,ts_reac,j_arr)
                end if
@@ -1635,18 +1643,18 @@ loop: continue
          end do
          assert(num_heavy_products == 2)
          do k=1,num_heavy_products
-            back_i=problem_species_background[product_index[k]]
+            back_i=pr_background_lookup(product_index[k])
             if (back_i != 0) then
-               background_sources[back_i][ou_coupling_momentum_1]+=
+               coupling_scores[back_i][ou_coupling_momentum_1]+=
      $              mass[k]*v_test[1]*rate*two*(one-hfrac)
      $              *pr_prod_mult(test,ts_reac,j_arr)
-               background_sources[back_i][ou_coupling_momentum_2]+=
+               coupling_scores[back_i][ou_coupling_momentum_2]+=
      $              mass[k]*v_test[2]*rate*two*(one-hfrac)
      $              *pr_prod_mult(test,ts_reac,j_arr)
-               background_sources[back_i][ou_coupling_momentum_3]+=
+               coupling_scores[back_i][ou_coupling_momentum_3]+=
      $              mass[k]*v_test[3]*rate*two*(one-hfrac)
      $              *pr_prod_mult(test,ts_reac,j_arr)
-               background_sources[back_i][ou_coupling_energy]+=
+               coupling_scores[back_i][ou_coupling_energy]+=
      $              (half*mass[k]*vc_abs2(v_test)
      $              +two*ediss*(one-mass[k]/mass_total))
      $              *rate*two*(one-hfrac)*pr_prod_mult(test,ts_reac,j_arr)
@@ -1664,7 +1672,7 @@ loop: continue
       subroutine track_ionize(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_dummy(x))
+     $     coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       implicit_none_f90
@@ -1675,7 +1683,7 @@ loop: continue
 
       integer num_scoring_data                         // Output
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                                       // Input/output
 
@@ -1692,7 +1700,7 @@ loop: continue
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     num_scoring_data,scoring_data,scoring_data_label,
-     $     background_sources,rn_args(x))
+     $     coupling_scores,rn_args(x))
 
       return
       end
@@ -1704,11 +1712,12 @@ actually done at the source point or as a post-processor.
       subroutine recombination_data(pr_test_dummy(test),
      $   pr_reaction_dummy(bk_rc_is),est,rate,independent_parameters,
      $   num_scoring_data,scoring_data,scoring_data_label,
-     $   background_sources,rn_dummy(x))
+     $   coupling_scores,rn_dummy(x))
 
       implicit_none_f77
       pr_common                             // Common
       bk_common
+      gi_common
       rc_common
       sp_common
       rd_common
@@ -1726,7 +1735,7 @@ actually done at the source point or as a post-processor.
 
       integer num_scoring_data              // Output
       real scoring_data[scoring_data_max],
-     $     background_sources[*][ou_coupling_max]
+     $     coupling_scores[*][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
       rn_decl(x)                            // Input/output
 
@@ -1768,8 +1777,7 @@ actually done at the source point or as a post-processor.
             vc_copy(zone_center[int(independent_parameters[xs_var_zone])],
      $           lc_x(zone_loc))
             lc_set(zone_loc)
-            call transform_v(pr_background_args(back_2),
-     $           lc_args(zone_loc),vc_args(vb_flow))
+            v_ext_to_int(lc_x(zone_loc),bk_v(back_2,lc_zone(zone_loc)),vb_flow,geometry_symmetry,background_coords)
             scoring_data_label[num_scoring_data+1]='emitter_vf-Maxwell_1'
             scoring_data[num_scoring_data+1]=vb_flow[1]
             scoring_data_label[num_scoring_data+2]='emitter_vf-Maxwell_2'
@@ -1846,21 +1854,21 @@ actually done at the source point or as a post-processor.
       end if
 
 /*
-   Collision scoring of |background_sources|
+   Collision scoring of |coupling_scores|
 */
-      background_sources[back_1][ou_coupling_mass]+=
+      coupling_scores[back_1][ou_coupling_mass]+=
      $  -sp_m(pr_background(back_1))*rate
-      background_sources[back_2][ou_coupling_mass]+=
+      coupling_scores[back_2][ou_coupling_mass]+=
      $     -sp_m(pr_background(back_2))*rate
-      background_sources[back_2][ou_coupling_momentum_1]+=
+      coupling_scores[back_2][ou_coupling_momentum_1]+=
      $     sp_m(pr_background(back_2))*v_src[1]*rate 
-      background_sources[back_2][ou_coupling_momentum_2]+=
+      coupling_scores[back_2][ou_coupling_momentum_2]+=
      $     sp_m(pr_background(back_2))*v_src[2]*rate 
-      background_sources[back_2][ou_coupling_momentum_3]+=
+      coupling_scores[back_2][ou_coupling_momentum_3]+=
      $     sp_m(pr_background(back_2))*v_src[3]*rate 
-      background_sources[back_1][ou_coupling_energy]+=
+      coupling_scores[back_1][ou_coupling_energy]+=
      $     e_e_src-e_e_loss
-      background_sources[back_2][ou_coupling_energy]+=
+      coupling_scores[back_2][ou_coupling_energy]+=
      $     e_src*rate
 
       return
