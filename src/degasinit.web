@@ -1,0 +1,49 @@
+% $Id$
+\Title{DEGAS Initialization Routine}
+
+% $Log$
+
+@* DEGAS initialization routine.
+
+\ID{$Id$}
+
+@m FILE 'degasinit.web'
+
+@I macros.hweb
+@I problem.hweb
+@I reactiondata.hweb
+@I pmidata.hweb
+@I species.hweb
+@I materials.hweb
+@I pmi.hweb
+@I netcdf.hweb
+@I string.hweb
+@I readfilenames.hweb
+@I sysdep.hweb
+
+@ The main program.
+
+@a
+      @<Functions and subroutines@>
+
+@ Initialize common blocks.
+
+@<Functions...@>=
+      subroutine degas_init
+      implicit_none
+      
+      call read_geometry
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+      call nc_read_materials
+      call nc_read_pmi
+      call nc_read_problem
+      call nc_read_background
+
+      call read_cramd_data
+      
+      return
+      end
+      
+@* INDEX.
