@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  2000/04/01 17:35:09  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.8.2.1  1999/12/16 18:04:28  dstotler
 % Add tally_var_list and associated index. Remove a duplicate definition
 % of tl_index_detector. Add tl_type_undefined. Add tl_index_zone_ind_1
@@ -84,6 +88,7 @@ For further documentation, see the classes.web file.
 @m tl_type_reaction 3
 
 @m tl_est_max 3                   // Different estimators
+@m tl_est_unknown 0
 @m tl_est_track 1  
 @m tl_est_collision 2
 @m tl_est_post_process 3
@@ -174,7 +179,7 @@ accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
       define_dimen_pk(tl,tally_type_ind,tl_type_max)  
       define_dimen_pk(tl,tally_rank_ind,tl_rank_max)  
       define_dimen_pk(tl,tally_est_ind,tl_est_max)
-      define_dimen_pk(tl,tally_reac_ind,pr_reaction_dim)
+      define_dimen_pk(tl,tally_reac_ind,pr_reaction_dim+so_type_num)
       define_dimen_pk(tl,tally_name_string,tl_name_length)
       define_dimen_pk(tl,tally_tag_string,tl_tag_length) 
       define_dimen_pk(tl,tally_cv_ptr_ind,tl_cv_max_conversions)
@@ -270,9 +275,13 @@ diagnostic sector (see the sector class above).
   \item[|tl_type_test|] A tally based solely on the properties of the
 test flight itself. The most familiar example is the neutral density.
 
-  \item[|tl_type_reaction|] Tallies associated with reactions. The most
-important examples are the sources of background particles, momenta, and
-energy arising from each reaction in the problem.
+  \item[|tl_type_reaction|] Tallies associated with reactions and
+sources. The most important examples are the sources of background 
+particles, momenta, and
+energy arising from each reaction in the problem. The same set of
+tallies apply to sources. Because this capability was added later,
+and for the sake of brevity, the associated variable names refer
+only to ``reactions''.
 \end{description}
 
 In general, we envision each tally consisting of additive contributions
@@ -281,11 +290,15 @@ run time estimators, |tl_est_track| and |tl_est_collision|. The latter
 is really a catch-all category since it includes not only collision
 based scores of type |tl_type_test|, but also event-based scores
 such as those of type |tl_type_sector| and of |tl_type_reaction| which
-can only be carried out when the reaction actually occurs. The third
+can only be carried out when the reaction actually occurs or in the
+case of sources. The third
 type of estimator |tl_est_post_process| must be derived from existing
-tallies. This option is implemented presently for only certain reactions 
+tallies. This option is implemented presently for only certain reactions,
+sources 
 and tallies; no effort is made to propagate the standard deviation
-values through this process.
+values through this process. There is also a null estimator,
+|tl_est_unknown| that provides an easy way to ignore the contribution of,
+say, a particular reaction to a score.
 
 The relative contributions of each estimator to a tally are controlled
 by the arrays |tally_est_test| (for type |tl_type_est|) and
@@ -429,9 +442,10 @@ to the current test species.
 |est_ind| for tally |tally_ind|; makes sense only for tallies of 
 |tl_type_test|.
 
-  \item[|tally_est_reaction[pr_reac,est_ind,tally_ind]|] Multiplier on 
-estimator |est_ind| for tally |tally_ind| when scoring problem reaction 
-|pr_reac|; makes sense only for tallies of 
+  \item[|tally_est_reaction[reac_so,est_ind,tally_ind]|] Multiplier on 
+estimator |est_ind| for tally |tally_ind| when scoring a reaction or
+source. The index |reac_so| is a concatenated list of the problem
+reactions (first) and the source types. Makes sense only for tallies of 
 |tl_type_reaction|.
 
   \item[|tally_num_conversions[tally_ind]|] Number of conversions for tally
