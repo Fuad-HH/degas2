@@ -2,6 +2,10 @@
 \def\Wtitle{flight}
 
 % $Log$
+% Revision 1.7  1994/02/02  22:01:29  karney
+% Conditionalize Mandrekas additions.  Fix treatment of monoenergetic charge
+% exchange.
+%
 % Revision 1.6  1994/01/31  21:11:20  karney
 % Convert to monoenergetic (10eV) ions for Mandrekas benchmarks.
 %
@@ -110,10 +114,10 @@ loop2: continue                 // Track to plasma
 
 @#if MANDREKAS
       rn_iso_next(w,fl_rand(x))
-@#else
-      rn_gauss_next(w,fl_rand(x))
-@#endif
       w[3]=abs(w[3])
+@#else
+      rn_cos_next(w,fl_rand(x))
+@#endif
       pt_scatter_thru(x,w)
 
 
