@@ -1,0 +1,153 @@
+% $Id$
+\def\Wtitle{speciesetup}
+
+% $Log$
+% Revision 1.2  1993/09/23  12:34:24  karney
+% Change netcdf file extension from .cdf to .nc
+%
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Introduction\ldots
+
+@m FILE 'speciesetup.web'
+
+@I macros.hweb
+
+@i netcdf.hweb
+
+@ The unnamed module.
+
+@a
+      program speciesetup
+      implicit_none
+
+      call read_species
+      call nc_write_species
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Read is data from \verb+species.input+.
+
+@m mem_inc 100
+@m mem_size(x) (((x)+mem_inc-1)/mem_inc)*mem_inc
+
+@<Functions...@>=
+      subroutine read_species
+      implicit_none
+      el_common                 // Common
+      integer length,p,b,e // Local
+      character*80 line
+      sy_common
+      st_common
+      
+      el_num=0
+      element_version='unknown'
+      open(unit=diskin,file='../data/species.input',
+     $     form='formatted',status='old')
+      assert( read_string(diskin,line,length) )
+      assert(length<=len(line))
+      element_version=line(:length)
+loop1: continue
+      if (! read_string(diskin,line,length) ) goto eof
+      el_num=el_num+1
+      var_realloca(element_sy)
+      var_realloca(element_name)
+      var_realloca(element_m)
+      var_realloca(element_z)
+      length=parse_string(line(:length))
+      p=0
+      assert( next_token(line,b,e,p) )
+      read(line(b:e),'(i)') element_z[el_num]
+      assert( next_token(line,b,e,p) )
+      read(line(b:e),'(a)') element_sy[el_num]
+      assert( next_token(line,b,e,p) )
+      read(line(b:e),'(f)') element_m[el_num]
+      assert( next_token(line,b,e,p) )
+      read(line(b:e),'(a)') element_name[el_num]
+      goto loop1
+eof:  continue
+      close(unit=diskin)
+      var_reallocb(element_sy)
+      var_reallocb(element_name)
+      var_reallocb(element_m)
+      var_reallocb(element_z)
+      return
+      end
+
+@ Write out data into netcdf file \verb+species.nc+
+      
+@<Functions...@>=
+      subroutine nc_write_species
+      implicit_none
+      el_common                   // Common
+      decl_netcdf               // Local
+      integer fileid
+      integer el_num_id,element_sy_id,element_m_id,element_z_id,
+     $     element_name_id,element_symbol_string_id,element_name_string_id,
+     $     element_ind_id
+      character*80 description,program_version
+      external string_length,nccreate,ncvardef,ncdimdef // External
+      integer string_length,nccreate,ncvardef,ncdimdef
+
+      program_version=
+     $     '$Id$'
+
+      fileid = nccreate('../data/species.nc',NC_CLOBBER,nc_stat)
+
+      description = 'Data for species in degas 2'
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(element_version),
+     $     element_version,nc_stat)
+      
+      call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
+     $     string_length(program_version),
+     $     program_version,nc_stat)
+      
+      dimen_def(fileid,element_symbol_string)
+      dimen_def(fileid,element_name_string)
+      dimen_def(fileid,element_ind)
+      var_def(fileid,el_num)
+      var_def(fileid,element_sy)
+      var_def(fileid,element_name)
+      var_def(fileid,element_z)
+      var_def(fileid,element_m)
+      
+      call ncendef(fileid,nc_stat)
+      
+      var_write(fileid,el_num)
+      var_write(fileid,element_sy)
+      var_write(fileid,element_name)
+      var_write(fileid,element_z)
+      var_write(fileid,element_m)
+      
+      call ncclose(fileid,nc_stat)
+      
+      return
+      end
+
+      
+
+
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* Index.
+
