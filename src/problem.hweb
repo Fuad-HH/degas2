@@ -1,0 +1,93 @@
+@* Definitions of the problem.
+
+% $Id$
+
+% $Log$
+% Revision 1.2  1993/10/25 22:36:29  karney
+% Add ts_lookup.
+%
+% Revision 1.1  1993/09/30  18:43:22  karney
+% Pre PET checkin
+%
+%
+
+\ID{$Id$}
+
+Information about problem particles is held in arrays in common blocks.  An
+problem is identified by an integer indexing into these arrays.
+
+@f pr_test_decl integer
+@f pr_target_decl integer
+@f pr_reaction_decl integer
+
+@m pr_test_args(x) x
+@m pr_target_args(x) x
+@m pr_reaction_args(x) x
+
+@m pr_test_dummy(x) x
+@m pr_target_dummy(x) x
+@m pr_reaction_dummy(x) x
+
+@m pr_test_decl(x) integer x @;
+@m pr_target_decl(x) integer x @;
+@m pr_reaction_decl(x) integer x @;
+
+@m pr_test_copy(x,y) y=x @;
+@m pr_target_copy(x,y) y=x @;
+@m pr_reaction_copy(x,y) y=x @;
+
+@m pr_test_check(x) (x > 0 && x <= pr_test_num)
+@m pr_target_check(x) (x > 0 && x <= pr_target_num)
+@m pr_reaction_check(x) (x > 0 && x <= pr_reaction_num)
+
+@m pr_test(x) problem_test_sp[x]
+@m pr_target(x) problem_target_sp[x]
+@m pr_reaction(x) problem_rc[x]
+@m pr_rc_num(x) problem_reaction_num[x]
+@m pr_ts_rc(x,i) problem_test_reaction[i,x]
+@m pr_ts_tg(x,i) problem_test_target[i,x]
+@m pr_test_lookup(sp) int_lookup(sp,problem_test_sp,pr_test_num)
+@m pr_target_lookup(sp) int_lookup(sp,problem_target_sp,pr_target_num)
+@m pr_reaction_lookup(rc) int_lookup(rc,problem_rc,pr_reaction_num)
+
+@m pr_xsection_pointer(x) problem_rc_xsection_pointer[x]
+@m pr_reaction_type(x) problem_rc_type[x]
+@m pr_xsection1(x,i) problem_rc_xsection_table[problem_rc_xs_base[x]+i]
+@m pr_xsection2(x,i,j) problem_rc_xsection_table[problem_rc_xs_base[x]+i+problem_rc_xs_tab_index[x][1]*j]
+@m pr_xsection3(x,i,j,k) problem_rc_xsection_table[problem_rc_xs_base[x]+i+problem_rc_xs_tab_index[x][1]*(j+problem_rc_xs_tab_index[x][2]*k)]
+
+@ Length specifications.
+
+@m pr_reaction_max 5
+
+@ Variable definitions.
+
+@a
+      package_init(pr)
+      define_dimen_pk(pr,problem_test_ind,pr_test_num)
+      define_dimen_pk(pr,problem_target_ind,pr_target_num)
+      define_dimen_pk(pr,problem_reaction_ind,pr_reaction_num)
+      define_dimen_pk(pr,problem_reaction_ind0,pr_reaction_max)
+      define_var_pk(pr,pr_test_num,INT)
+      define_var_pk(pr,pr_target_num,INT)
+      define_var_pk(pr,pr_reaction_num,INT)
+      define_varp_pk(pr,problem_test_sp,INT,problem_test_ind)
+      define_varp_pk(pr,problem_target_sp,INT,problem_target_ind)
+      define_varp_pk(pr,problem_rc,INT,problem_reaction_ind)
+      define_varp_pk(pr,problem_reaction_num,INT,problem_test_ind)
+      define_varp_pk(pr,problem_test_reaction,INT,problem_reaction_ind0,problem_test_ind)
+      define_varp_pk(pr,problem_test_target,INT,problem_reaction_ind0,problem_test_ind)
+
+@ Common blocks definitions.
+
+@f pr_common integer
+@m pr_common
+      pr_common_a @;
+      character*LINELEN problem_version;
+      common /com_problem_c/ problem_version;
+      save /com_problem_c/ @;
+
+@m pr_ncread(fileid)
+      pr_ncreada(fileid);
+      pr_ncreadb(fileid);
+      pr_ncreadc(fileid) @;

@@ -3,6 +3,15 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1994/11/21 15:51:25  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.6  1994/05/19 17:46:34  dstotler
 % Correct definitions are rc_xsection[12].
 %
@@ -39,29 +48,21 @@ reaction is identified by an integer indexing into these arrays.
 @m rc_product_num(x) reaction_product_num[x]
 @m rc_reagant(x,i)   reaction_reagant[i,x]
 @m rc_product(x,i)   reaction_product[i,x]
-@m rc_xsection_type(x) reaction_xsection_type[x]
+@m rc_filename(x)    reaction_filename[x]
 @m rc_xsection_pointer(x) reaction_xsection_pointer[x]
 @m rc_reaction_type(x) reaction_type[x]
 @m rc_xsection1(x,i) reaction_xsection_table[reaction_xs_base[x]+i]
 @m rc_xsection2(x,i,j) reaction_xsection_table[reaction_xs_base[x]+i+reaction_xs_tab_index[x][1]*j]
 @m rc_xsection3(x,i,j,k) reaction_xsection_table[reaction_xs_base[x]+i+reaction_xs_tab_index[x][1]*(j+reaction_xs_tab_index[x][2]*k)]
+@m rc_lookup(sy) string_lookup(sy,reaction_sy,rc_num)
 
 @ Length specifications.
 
-@m rc_type_tn 1
-@m rc_type_te 2
-@m rc_type_max 2
 @m rc_sy_len 24
 @m rc_name_len 32
 @m rc_type_len 32
 @m rc_reagant_max 2
 @m rc_product_max 4
-@m rc_energy_num 47
-@m rc_density_num 10
-@m rc_logenergy_min zero
-@m rc_logdensity_min const(16.0)
-@m rc_logenergy_delta const(0.1)
-@m rc_logdensity_delta const(0.5)
 
 @ Variable definitions.
 
@@ -71,15 +72,10 @@ reaction is identified by an integer indexing into these arrays.
       define_dimen_pk(rc,reaction_name_string,rc_name_len)
       define_dimen_pk(rc,reaction_type_string,rc_type_len)
       define_dimen_pk(rc,reaction_ind,rc_num)
-      define_dimen_pk(rc,reaction_tn_ind,rc_tn_num)
-      define_dimen_pk(rc,reaction_te_ind,rc_te_num)
+      define_dimen_pk(rc,reaction_filename_string,FILELEN)
       define_dimen_pk(rc,reagant_ind,rc_reagant_max)
       define_dimen_pk(rc,product_ind,rc_product_max)
-      define_dimen_pk(rc,energy_ind,0,rc_energy_num)
-      define_dimen_pk(rc,density_ind,0,rc_density_num)
       define_var_pk(rc,rc_num,INT)
-      define_var_pk(rc,rc_tn_num,INT)
-      define_var_pk(rc,rc_te_num,INT)
       define_varp_pk(rc,reaction_name,CHAR,reaction_name_string,reaction_ind)
       define_varp_pk(rc,reaction_type,CHAR,reaction_type_string,reaction_ind)
       define_varp_pk(rc,reaction_sy,CHAR,reaction_symbol_string,reaction_ind)
@@ -87,22 +83,8 @@ reaction is identified by an integer indexing into these arrays.
       define_varp_pk(rc,reaction_product_num,INT,reaction_ind)
       define_varp_pk(rc,reaction_reagant,INT,reagant_ind,reaction_ind)
       define_varp_pk(rc,reaction_product,INT,product_ind,reaction_ind)
-      define_varp_pk(rc,tn_cross_section_table,FLOAT,energy_ind,density_ind,reaction_tn_ind)
-      define_varp_pk(rc,te_cross_section_table,FLOAT,energy_ind,energy_ind,reaction_te_ind)
+      define_varp_pk(rc,reaction_filename,CHAR,reaction_filename_string,reaction_ind)
 
-      define_dimen_pk(rc,rc_rank_ind,xs_table_rank_max)
-      define_dimen_pk(rc,rc_rank_ind0,0,xs_table_rank_max)
-      define_dimen_pk(rc,rc_cross_section_ind,0,xs_base_max-1)
-      define_var_pk(rc,xs_base_max,INT)
-      define_varp_pk(rc,reaction_organization,INT,reaction_ind)
-      define_varp_pk(rc,reaction_xs_min,FLOAT,rc_rank_ind,reaction_ind)
-      define_varp_pk(rc,reaction_xs_delta,FLOAT,rc_rank_ind,reaction_ind)
-      define_varp_pk(rc,reaction_xs_rank,INT,reaction_ind)
-      define_varp_pk(rc,reaction_xs_spacing,INT,rc_rank_ind0,reaction_ind)
-      define_varp_pk(rc,reaction_xs_tab_index,INT,rc_rank_ind,reaction_ind)
-      define_varp_pk(rc,reaction_xs_base,INT,reaction_ind)
-      define_varp_pk(rc,reaction_xs_var,INT,rc_rank_ind0,reaction_ind)
-      define_varp_pk(rc,reaction_xsection_table,FLOAT,rc_cross_section_ind)
 @ Common blocks definitions.
 
 @f rc_common integer

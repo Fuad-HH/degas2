@@ -1,0 +1,42 @@
+@* Data for reaction rates.
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+Data for reactions is held in arrays in common blocks.
+
+@m rd_xsection_pointer(x) reaction_xsection_pointer[x]
+@m rd_xsection1(x,i) reaction_xsection_table[reaction_xs_base[x]+i]
+@m rd_xsection2(x,i,j) reaction_xsection_table[reaction_xs_base[x]+i+reaction_xs_tab_index[x][1]*j]
+@m rd_xsection3(x,i,j,k) reaction_xsection_table[reaction_xs_base[x]+i+reaction_xs_tab_index[x][1]*(j+reaction_xs_tab_index[x][2]*k)]
+
+@ Variable definitions.
+
+@a
+      package_init(rd)
+      define_dimen_pk(rd,rd_rank_ind,xs_table_rank_max)
+      define_dimen_pk(rd,rd_rank_ind0,0,xs_table_rank_max)
+      define_dimen_pk(rd,rd_cross_section_ind,0,xs_base_max-1)
+      define_var_pk(rd,xs_base_max,INT)
+      define_varp_pk(rd,reaction_organization,INT,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xs_min,FLOAT,rd_rank_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xs_delta,FLOAT,rd_rank_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xs_rank,INT,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xs_spacing,INT,rd_rank_ind0,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xs_tab_index,INT,rd_rank_ind,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xs_base,INT,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xs_var,INT,rd_rank_ind0,problem_reaction_ind)
+      define_varp_pk(rd,reaction_xsection_table,FLOAT,rd_cross_section_ind)
+@ Common blocks definitions.
+
+@f rd_common integer
+@m rd_common
+      rd_common_a;
+
+@m rd_ncread(fileid)
+      rd_ncreada(fileid);
+      rd_ncreadb(fileid);
+      rd_ncreadc(fileid) @;

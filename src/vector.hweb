@@ -2,6 +2,15 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1994/11/21 15:52:04  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.5  1994/08/24 15:03:00  karney
 % Added degasgeom to read in old degas' geometry spec.
 %
@@ -46,6 +55,12 @@
 
 @m vc_abs(x)
       sqrt(x[1]^2+x[2]^2+x[3]^2)
+
+@m vc_abs(x)
+      sqrt(vc_abs2(x))
+
+@m vc_abs2(x)
+      (x[1]^2+x[2]^2+x[3]^2)
 
 @m vc_cross(x,y,z)
       vector_temp[1]=x[2]*y[3]-x[3]*y[2];

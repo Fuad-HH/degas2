@@ -1,0 +1,287 @@
+% $Id$
+\def\Wtitle{problemsetup}
+
+% $Log$
+
+@n/
+
+@* Introduction.
+
+\ID{$Id$}
+
+Introduction\ldots
+
+@m FILE 'problemsetup.web'
+
+@I macros.hweb
+
+@ The unnamed module.
+
+@a
+      program problemsetup
+      implicit_none
+
+      call read_problem
+      call nc_write_problem
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Read is data from \verb+problem.input+.
+
+@<Functions...@>=
+      subroutine read_problem
+      implicit_none
+
+      integer length            // Local
+      character*LINELEN line
+      sy_common
+      st_common
+      pr_common
+
+      problem_version='unknown'
+      open(unit=diskin,file='../data/problem.input',
+     $     form='formatted',status='old')
+      assert( read_string(diskin,line,length) )
+      assert(length<=len(line))
+      problem_version=line(:length)
+      
+      call init_problem
+      if ( ! read_string(diskin,line,length) ) then
+         line = 'END'
+      end if
+      
+loop1: continue
+
+      if ( line == 'END' ) goto eof
+      if (line == 'TEST') then
+         call read_test(diskin,line)
+      else if (line == 'TARGET') then
+         call read_target(diskin,line)
+      else if (line == 'REACTION') then
+         call read_reaction(diskin,line)
+      end if
+      
+      goto loop1
+      
+eof:  continue      
+
+      call check_problem
+      
+      return
+      end
+
+@ Initialize problem.
+
+@<Functions...@>=
+      subroutine init_problem
+      implicit_none
+      pr_common
+      
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+      pr_test_num=0
+      pr_target_num=0
+      pr_reaction_num=0
+      
+      return
+      end
+
+@ Read in test particle labels.
+      
+@<Functions...@>=
+      subroutine read_test(unit,line)
+      implicit_none
+      integer unit              // Input
+      character*(*) line        // Output
+      integer length,p,b,e      // Local
+      pr_common
+      sp_common
+      sy_common
+      st_common
+      
+loop1: continue
+      if ( ! read_string(unit,line,length) ) line='END'
+      if ( line == 'END' || line == 'TEST' || line == 'TARGET' || line == 'REACTION')
+     $     goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      
+      p=0
+loop2: continue
+      if ( ! next_token(line(:length),b,e,p) ) goto loop1
+      pr_test_num++
+      var_realloca(problem_test_sp)
+      pr_test(pr_test_num) = sp_lookup(line(b:e))
+      assert(pr_test(pr_target_num) > 0)
+      goto loop2
+
+eof:  return
+      end
+
+@ Read in target particle labels.
+      
+@<Functions...@>=
+      subroutine read_target(unit,line)
+      implicit_none
+      integer unit              // Input
+      character*(*) line        // Output
+      integer length,p,b,e      // Local
+      pr_common
+      sp_common
+      sy_common
+      st_common
+      
+loop1: continue
+      if ( ! read_string(unit,line,length) ) line='END'
+      if ( line == 'END' || line == 'TEST' || line == 'TARGET' || line == 'REACTION')
+     $     goto eof
+      
+      assert(length<=len(line))
+      length=parse_string(line)
+      
+      p=0
+loop2: continue
+      if ( ! next_token(line(:length),b,e,p) ) goto loop1
+      pr_target_num++
+      var_realloca(problem_target_sp)
+      pr_target(pr_target_num) = sp_lookup(line(b:e))
+      assert(pr_target(pr_target_num) > 0)
+      goto loop2
+
+eof:  return
+      end
+
+@ Read in reaction particle labels.
+      
+@<Functions...@>=
+      subroutine read_reaction(unit,line)
+      implicit_none
+      integer unit              // Input
+      character*(*) line        // Output
+      integer length,p,b,e      // Local
+      pr_common
+      rc_common
+      sy_common
+      st_common
+      
+loop1: continue
+      if ( ! read_string(unit,line,length) ) line='END'
+      if ( line == 'END' || line == 'TEST' || line == 'TARGET' || line == 'REACTION')
+     $     goto eof
+      
+      assert(length<=len(line))
+      length=parse_string(line)
+      
+      p=0
+loop2: continue
+      if ( ! next_token(line(:length),b,e,p) ) goto loop1
+      pr_reaction_num++
+      var_realloca(problem_rc)
+      pr_reaction(pr_reaction_num) = rc_lookup(line(b:e))
+      assert(pr_reaction(pr_reaction_num) > 0)
+      goto loop2
+
+eof:  return
+      end
+
+@ Check problem specification.
+
+@<Functions...@>=
+      subroutine check_problem
+      implicit_none
+      integer i,j,test,target                 // Local
+      pr_common
+      sp_common
+      rc_common
+      sy_common
+      st_common
+
+      var_reallocb(problem_test_sp)
+      var_reallocb(problem_target_sp)
+      var_reallocb(problem_rc)
+
+      write(stdout,*) pr_test_num,pr_target_num,pr_reaction_num
+      write(stdout,*) SP (pr_test(i),i=1,pr_test_num)
+      write(stdout,*) SP (trim(sp_name(pr_test(i))),'; ',i=1,pr_test_num)
+      write(stdout,*) SP (pr_target(i),i=1,pr_target_num)
+      write(stdout,*) SP (trim(sp_name(pr_target(i))),'; ',i=1,pr_target_num)
+      write(stdout,*) SP (pr_reaction(i),i=1,pr_reaction_num)
+      write(stdout,*) SP (trim(rc_name(pr_reaction(i))),'; ',i=1,pr_reaction_num)
+      
+      var_alloc(problem_reaction_num)
+      var_alloc(problem_test_reaction)
+      var_alloc(problem_test_target)
+      
+ /* We can only deal with binary collisions currently */
+      do j=1,pr_reaction_num
+         assert(rc_reagant_num(pr_reaction(j)) == 2)
+      end do
+      
+      do i=1,pr_test_num
+         pr_rc_num(i)=0
+      end do
+
+      do j=1,pr_reaction_num
+         test=pr_test_lookup(rc_reagant(pr_reaction(j),1))
+         target=pr_target_lookup(rc_reagant(pr_reaction(j),2))
+         assert( pr_test_check(test) && pr_target_check(target) )
+         pr_rc_num(test)++
+         assert(pr_rc_num(test) <= pr_reaction_max)
+         pr_ts_rc(test,pr_rc_num(test))=j
+         pr_ts_tg(test,pr_rc_num(test))=target
+      end do
+
+      return
+      end
+
+@ Write out data into netcdf file \verb+elements.nc+
+      
+@<Functions...@>=
+      subroutine nc_write_problem
+      implicit_none
+      pr_common                 // Common
+      nc_common                 // Local
+      integer fileid
+      pr_ncdecl
+      st_common
+      character*LINELEN description,program_version
+
+      program_version=
+     $     '$Id$'
+
+      fileid = nccreate('../data/problem.nc',NC_CLOBBER,nc_stat)
+
+      description = 'Data for problem in degas 2'
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(problem_version),
+     $     problem_version,nc_stat)
+      
+      call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
+     $     string_length(program_version),
+     $     program_version,nc_stat)
+      
+      pr_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      pr_ncwrite(fileid)
+      
+      call ncclose(fileid,nc_stat)
+      
+      return
+      end
+
+      
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* Index.
+

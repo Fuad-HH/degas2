@@ -3,6 +3,9 @@ Z% $Id$
 \def\Wtitle{Read old Degas' geometry}
 
 % $Log$
+% Revision 1.1  1994/08/24 15:02:47  karney
+% Added degasgeom to read in old degas' geometry spec.
+%
 
 @n/
 
@@ -105,6 +108,7 @@ Z% $Id$
       if(lflgc.ne.0 .or. lflgch4.gt.0)read(unit,input2)
       read(unit,arrays)
 
+@#if 0
   /* A temporary kludge, since one quadrilateral is self intersecting */
       gridz(56,25,1)=gridz(56,25,1)-.2
 
@@ -113,6 +117,7 @@ Z% $Id$
       zwall(20,6)=gridz(1,25,1)
       xwall(21,6)=gridx(1,24,1)
       zwall(21,6)=gridz(1,24,1)
+@#endif
 
   /* Convert to meters and for offset */
       xoffset = (rmajor-half*xlen)*const(0.01)
@@ -139,6 +144,203 @@ Z% $Id$
 
       return
 
+      end
+
+@ Write the Degas geometry in Degas 2 format
+      
+@<Functions...@>=
+      subroutine degas2geom_old(npptsw1,npw1,npptsvb1,npptshb1,npptskb1,xmin,xmax,zmin,zmax,xwall,zwall,nowals,nosegsxz,gridx,gridz,kzone1,kzone2,nptsvb,nptshb)
+      implicit_none
+      real xmin,xmax,zmin,zmax
+      integer npptsw1,npw1,npptsvb1,npptshb1,npptskb1
+      integer nowals,nptsvb,nptshb
+      real xwall(npptsw1,npw1),zwall(npptsw1,npw1),
+     $     gridx(npptsvb1,npptshb1,npptskb1),gridz(npptsvb1,npptshb1,npptskb1)
+      integer nosegsxz(npw1),
+     $     kzone1(npptsvb1,npptshb1),kzone2(npptsvb1,npptshb1)
+      ptr_decl(x)
+      real x[2,0:*],x1[3],x2[3],coeff[NCOEFFS],apex[3],vol,vola
+      integer i,j,seg,zone,face,surf_type,xind,seed[0:1],j1,j2
+      gi_common
+      gi_ext
+      zn_common
+      bk_common
+      vc_common
+      sy_common
+      rn_common
+      rn_decl(x)
+
+      xind=4
+      do i=1,nowals
+         xind=xind+nosegsxz[i]
+         j=i+1
+         if (i==nowals) j=1
+         assert(xwall[nosegsxz[i]+1,i] == xwall[1,j])
+         assert(zwall[nosegsxz[i]+1,i] == zwall[1,j])
+      end do
+      real_alloc(x,2*xind)
+
+      /* Perturb the positions to break the alignment -- bletch!!
+      The fix to |convex_polygon| to reject colinear edges makes this
+      unnecessary, so it's turned off */
+
+      seed[0]=0
+      seed[1]=1
+      rn_init(seed,x)
+      do i=1,nowals
+         do j=1,nosegsxz[i]
+            xwall[j,i]=xwall[j,i]+zero*const(0.01)*(random(rn_args(x))-half)
+            zwall[j,i]=zwall[j,i]+zero*const(0.01)*(random(rn_args(x))-half)
+         end do
+      end do
+
+ /* This connects up the wall segments */
+
+
+
+
+      do i=1,nowals
+         j=i+1
+         if (i==nowals) j=1
+         xwall[nosegsxz[i]+1,i] = xwall[1,j]
+         zwall[nosegsxz[i]+1,i] = zwall[1,j]
+      end do
+
+      call init_geometry
+
+  /* Set up the universal cell */
+
+      zone=0
+      i=0
+      x[1,i]=xmin; x[2,i]=zmin; i=i+1
+      x[1,i]=xmin; x[2,i]=zmax; i=i+1
+      x[1,i]=xmax; x[2,i]=zmax; i=i+1
+      x[1,i]=xmax; x[2,i]=zmin; i=i+1
+      x[1,i]=x[1,0]; x[2,i]=x[2,0]
+      
+      do i=0,3
+         vc_set(x1,x[1,i],zero,x[2,i])
+         vc_set(x2,x[1,i+1],zero,x[2,i+1])
+         call conea(x1,x2,coeff,surf_type,apex)
+         face=define_surface(coeff,.true.)
+         call add_surface(face,0,.true.)
+      end do
+      
+      vol=PI*(x[1,2]^2-x[1,0]^2)*(x[2,2]-x[2,0])
+
+  /* Set up the walls */
+
+      zone=zone+1
+      i=0; seg=6
+      do j=1,nosegsxz[seg]
+         x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+      end do
+      do seg=1,4
+         do j=1,nosegsxz[seg]
+            x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+         end do
+      end do
+      seg=4; j=nosegsxz[seg]+1
+      x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+      x[1,i]=xmax; x[2,i]=zmin; i=i+1
+      x[1,i]=xmin; x[2,i]=zmin; i=i+1
+      x[1,i]=xmin; x[2,i]=zmax; i=i+1
+      x[1,i]=x[1,0]; x[2,i]=x[2,0]
+      
+      call decompose_polygon(i,x,zone)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=polygon_volume(i,x)
+
+      i=0; seg=5
+      do j=1,nosegsxz[seg]+1
+         x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+      end do
+      x[1,i]=xmin; x[2,i]=zmax; i=i+1
+      x[1,i]=xmax; x[2,i]=zmax; i=i+1
+      x[1,i]=xmax; x[2,i]=zmin; i=i+1
+      x[1,i]=x[1,0]; x[2,i]=x[2,0]
+
+      call decompose_polygon(i,x,zone)
+      zn_volume(zone)=zn_volume(zone)+polygon_volume(i,x)
+
+ /* Set up plasma */
+
+@#if 1
+      do j2=1,nptshb-1
+         do j1=1,nptsvb-1
+            if ( j1 == 36 && j2 == 22 ) then
+               write(stderr,*) 'Here'
+            end if
+            if (kzone1(j1,j2) > 0 && kzone2(j1,j2) > 0) then
+               i=0
+               x[1,i]=gridx(j1,j2,1); x[2,i]=gridz(j1,j2,1); i=i+1
+               x[1,i]=gridx(j1,j2+1,1); x[2,i]=gridz(j1,j2+1,1); i=i+1
+               x[1,i]=gridx(j1+1,j2+1,1); x[2,i]=gridz(j1+1,j2+1,1); i=i+1
+               x[1,i]=gridx(j1+1,j2,1); x[2,i]=gridz(j1+1,j2,1); i=i+1
+               /* Remove duplicates */
+               j=0
+               do i=1,3
+                  if (x[1,i] != x[1,j] || x[2,i] != x[2,j]) then
+                     j=j+1
+                     if (j < i) then
+                        x[1,j] = x[1,i]; x[2,j] = x[2,i]
+                     end if
+                  end if
+               end do
+               if (x[1,j] != x[1,0] || x[1,j] != x[1,0]) then
+                  j=j+1
+                  x[1,j]=x[1,0]; x[2,j]=x[2,0]                  
+               end if
+               if (j >= 3) then
+                  i=j
+                  x[1,i]=x[1,0]; x[2,i]=x[2,0]
+                  vola=polygon_volume(i,x)
+                  if (vola > one*geom_epsilon) then
+                     zone = zone+1
+                     call decompose_polygon(i,x,zone)
+                     zn_type_set(zone,zn_vacuum)
+                     zn_volume(zone)=vola
+                  end if
+               end if
+            end if
+         end do
+      end do
+@#else      
+      zone=zone+1
+      i=0
+      do seg=6,1,-1
+         do j=nosegsxz(seg),1,-1
+            x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+         end do
+      end do
+      x[1,i]=x[1,0]; x[2,i]=x[2,0]
+
+      call decompose_polygon(i,x,zone)
+      zn_type_set(zone,zn_vacuum)
+      zn_volume(zone)=polygon_volume(i,x)
+      
+@#endif
+   
+      real_free(x,2*xind)
+      
+      call end_geometry
+@#if DEBUG
+      call check_geometry
+@#endif
+      
+      call write_geometry
+      vola=zero
+      do i=1,zn_num
+         assert(zn_volume(i)>0)
+         vola=vola+zn_volume(i)
+      end do
+      write(stdout,*) vol,vola
+      call erase_geometry
+@#if 0
+      call write_background
+@#endif
+      
+      return
       end
 
 @ Write the Degas geometry in Degas 2 format
@@ -177,7 +379,7 @@ Z% $Id$
 
       /* Perturb the positions to break the alignment -- bletch!!
       The fix to |convex_polygon| to reject colinear edges makes this
-      unnecessary */
+      unnecessary, so it's turned off */
 
       seed[0]=0
       seed[1]=1
@@ -188,6 +390,11 @@ Z% $Id$
             zwall[j,i]=zwall[j,i]+zero*const(0.01)*(random(rn_args(x))-half)
          end do
       end do
+
+ /* This connects up the wall segments */
+
+
+
 
       do i=1,nowals
          j=i+1

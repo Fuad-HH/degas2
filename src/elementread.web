@@ -2,6 +2,9 @@
 \def\Wtitle{elementread}
 
 % $Log$
+% Revision 1.5  1993/10/11 19:05:00  karney
+% Move zn_common declaration to make Cray happy.
+%
 % Revision 1.4  1993/09/30  18:43:22  karney
 % Pre PET checkin
 %
@@ -98,6 +101,28 @@ Introduction\ldots
       return
       end
 
+@ Read in data from netcdf file \verb+problem.nc+
+      
+@<Functions...@>=
+      subroutine nc_read_problem
+      implicit_none
+      integer fileid
+      pr_common
+      pr_ncdecl
+      nc_common
+      sy_common
+
+      fileid = ncopen('../data/problem.nc',NC_NOWRITE,nc_stat)
+      call ncattgetc(fileid,NC_GLOBAL,'data_version',
+     $     problem_version,len(problem_version),nc_stat)
+
+      pr_ncread(fileid)
+      
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
 @ Read in background data from netcdf file \verb+background.nc+
       
 @<Functions...@>=
@@ -122,7 +147,7 @@ Introduction\ldots
       return
       end
 
-@ Read in background data from netcdf file \verb+test.nc+
+@ Read in test data from netcdf file \verb+test.nc+
       
 @<Functions...@>=
       subroutine nc_read_test

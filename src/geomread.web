@@ -2,6 +2,9 @@
 \def\Wtitle{geomread}
 
 % $Log$
+% Revision 1.10  1994/08/24 15:02:54  karney
+% Added degasgeom to read in old degas' geometry spec.
+%
 % Revision 1.9  1994/07/05 11:56:18  karney
 % Sync with repository
 %
@@ -676,7 +679,7 @@ break: continue
       var_alloc(test_sp)
       var_alloc(test_reaction_num)
       var_alloc(test_reaction)
-      var_alloc(test_background)
+      var_alloc(test_target)
       
       ts_sp(1)=sp_lookup('0')
       assert(ts_sp(1) > 0)
@@ -692,7 +695,7 @@ break: continue
      $                 || (rc_reagant(j,2)==ts_sp(i) && rc_reagant(j,1)==bk_sp(k)) ) then
                      ts_rc_num(i)=ts_rc_num(i)+1
                      ts_rc(i,ts_rc_num(i))=j
-                     ts_bk(i,ts_rc_num(i))=k
+                     ts_tg(i,ts_rc_num(i))=k
                      goto break
                   end if
                end do

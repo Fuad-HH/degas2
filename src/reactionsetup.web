@@ -2,6 +2,9 @@
 \def\Wtitle{reactionsetup}
 
 % $Log$
+% Revision 1.9  1995/01/26 14:56:30  dstotler
+% Changes to this file are for insertion of or changes to comments only.
+%
 % Revision 1.8  1994/02/16 18:55:16  karney
 % Remove redundant xs_tab_index array.
 % Convert crosssection files to use strings for variables and spacings.
@@ -40,16 +43,6 @@ Introduction\ldots
 @ The unnamed module.
 
 @a
-      program reactionsetup
-      implicit_none
-
-      call nc_read_species
-      call read_reactions
-      call nc_write_reaction
-
-      stop
-      end
-
       @<Functions and Subroutines@>
 
 @ Read is data from \verb+reactions.input+.
@@ -59,14 +52,14 @@ Introduction\ldots
       implicit_none
       rc_common                 // Common
       sp_common
-      integer length,p,b,e,i,j      // Local
+      integer length,p,b,e/*,i,j*/      // Local
       character*LINELEN line
       character*FILELEN file
       sy_common
       st_common
 
       rc_num=0
-      xs_base_max=0
+/*      xs_base_max=0 */
       reaction_version='unknown'
       open(unit=diskin,file='../data/reactions.input',
      $     form='formatted',status='old')
@@ -79,8 +72,6 @@ loop1: continue
    Add next reaction
 */
       rc_num=rc_num+1
-      rc_tn_num=rc_num          // Temporary kludge; Still used?
-      rc_te_num=rc_num
       var_realloca(reaction_name)
       var_realloca(reaction_sy)
       var_realloca(reaction_reagant_num)
@@ -88,6 +79,8 @@ loop1: continue
       var_realloca(reaction_reagant)
       var_realloca(reaction_product)
       var_realloca(reaction_type)
+      var_realloca(reaction_filename)
+
       var_realloca(tn_cross_section_table)
       var_realloca(te_cross_section_table)
 /*
@@ -135,6 +128,9 @@ loop3: continue
       assert( read_string(diskin,file,length) )
       assert(length<=len(file))
       
+      rc_filename(rc_num)=file
+
+@#if 0
       call xs_read(file)
 
       var_realloca(reaction_organization)
@@ -150,6 +146,9 @@ loop3: continue
    into the corresponding reaction* arrays.
 */
       call xs_copy
+@#endif
+
+@#if 0
 /*
    What's the purpose of this?
 */
@@ -175,9 +174,11 @@ loop:    continue
             end do
          end do
       end if
+@#endif
 /*
    Get next reaction
 */
+>>>>>>> 1.9
       goto loop1
 eof:  continue
       close(unit=diskin)
@@ -188,9 +189,9 @@ eof:  continue
       var_reallocb(reaction_reagant)
       var_reallocb(reaction_product)
       var_reallocb(reaction_type)
-      var_reallocb(tn_cross_section_table)
-      var_reallocb(te_cross_section_table)
+      var_reallocb(reaction_filename)
 
+@#if 0
       var_reallocb(reaction_organization)
       var_reallocb(reaction_xs_min)
       var_reallocb(reaction_xs_delta)
@@ -199,6 +200,7 @@ eof:  continue
       var_reallocb(reaction_xs_base)
       var_reallocb(reaction_xs_tab_index)
       var_reallocb(reaction_xs_var)
+@#endif
 
       return
       end
@@ -206,6 +208,7 @@ eof:  continue
 @ Read in cross-section information from a netcdf file.
 
 @<Functions...@>=
+@#if 0
       subroutine xs_read(file)
       implicit_none
       character*(*) file        // Input
@@ -223,17 +226,18 @@ eof:  continue
       
       return
       end
+@#endif
 
 @ Copy cross-section information into reaction arrays.
 
 @<Functions...@>=
+@#if 0
       subroutine xs_copy
       implicit_none
       integer i,j,k,size // Local
       xs_common
       rc_common
       sy_common
-      implicit_none
       
       assert(xs_name==rc_sy(rc_num))
       assert(xs_organization=='table')
@@ -319,6 +323,7 @@ eof:  continue
       var_free(xs_table)
       return
       end
+@#endif
 
 @ Write out data into netcdf file \verb+reactions.nc+
       

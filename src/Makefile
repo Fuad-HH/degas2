@@ -1,5 +1,14 @@
 # $Id$
 # $Log$
+# Revision 1.15  1994/11/21 15:48:47  dstotler
+# Interim update associated with ratecalc. ratecalc.hweb and
+# xsection.hweb have undergone substantial revision, but should be
+# relatively stable from here on. Note also that all of the "ncreada", etc.
+# macros have been combined into a single ncread macro. The user is
+# responsible for ensuring that dimensions and variables are defined /
+# used in the proper order (although the built-in "assert"s should
+# help).
+#
 # Revision 1.14  1994/08/24 15:02:42  karney
 # Added degasgeom to read in old degas' geometry spec.
 #
@@ -156,7 +165,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
-    ratecalc.hweb
+    ratecalc.hweb problem.hweb
 
 %.f: %.web $(HEADERS) fixit
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -213,13 +222,13 @@ sysdeptest =
 sysdeptest_libs = 
 sysdeptest: $(sysdeptest)
 
-elementsetup =
-elementsetup_libs = $(NETCDF)
-elementsetup: $(elementsetup)
+# elementsetup =
+# elementsetup_libs = $(NETCDF)
+# elementsetup: $(elementsetup)
 
-speciesetup = elementread.$O
-speciesetup_libs = $(NETCDF)
-speciesetup: $(speciesetup)
+# speciesetup = elementread.$O
+# speciesetup_libs = $(NETCDF)
+# speciesetup: $(speciesetup)
 
 randomtest = random.$O randother.$O
 randomtest_libs =
@@ -246,9 +255,13 @@ reactionwrite =
 reactionwrite_libs = $(NETCDF)
 reactionwrite: $(reactionwrite)
 
-reactionsetup = elementread.$O
-reactionsetup_libs = $(NETCDF)
-reactionsetup: $(reactionsetup)
+datasetup = elementread.$O elementsetup.$O speciesetup.$O reactionsetup.$O
+datasetup_libs = $(NETCDF)
+datasetup: $(datasetup)
+
+problemsetup = elementread.$O
+problemsetup_libs = $(NETCDF)
+problemsetup: $(problemsetup)
 
 geomread = geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composite.$O string.$O elementread.$O
 geomread_libs = $(NETCDF)
@@ -258,10 +271,15 @@ degasgeom = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O rand
 degasgeom_libs = $(NETCDF)
 degasgeom: $(degasgeom)
 
+reactiontest = reactiontest.$O elementread.$O reaction.$O
+reactiontest_libs = $(NETCDF)
+reactiontest: $(reactiontest)
+
 ratecalc = $(ALADIR)/aladdin_subr.o
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc)
 
+>>>>>>> 1.15
 #elementread: sysdep.$O
 #test: sysdep.$O
 #sysdeptest: sysdep.$O string.$O

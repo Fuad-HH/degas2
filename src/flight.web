@@ -2,6 +2,9 @@
 \def\Wtitle{flight}
 
 % $Log$
+% Revision 1.10  1994/08/24 15:02:48  karney
+% Added degasgeom to read in old degas' geometry spec.
+%
 % Revision 1.9  1994/02/14 23:03:20  karney
 % Include mass in computation of velocity of charge exchange product.
 %
@@ -148,7 +151,7 @@ loop1: continue                 // Start a new zone
       if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
          ionize_rate=reaction_rate(pt_args(fl_current(x)),
      $        ts_rc(pt_test(fl_current(x)),1),
-     $        ts_bk(pt_test(fl_current(x)),1))
+     $        ts_tg(pt_test(fl_current(x)),1))
       else
          ionize_rate=0
       end if         
@@ -158,7 +161,7 @@ loop: continue                  // Still in same zone
          tmax=-log(random(rn_args(fl_rand(x))))
      $        /reaction_rate(pt_args(fl_current(x)),
      $        ts_rc(pt_test(fl_current(x)),2),
-     $        ts_bk(pt_test(fl_current(x)),2))
+     $        ts_tg(pt_test(fl_current(x)),2))
       else
          tmax=geom_infinity
       end if         
