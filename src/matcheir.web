@@ -2,6 +2,13 @@
 \Title{matcheir}
 
 % $Log$
+% Revision 1.3  1999/05/25 13:19:24  dstotler
+% Add assert on output_old_file since absence of output file
+% no longer generates a fatal error. Replace reads of .nc
+% files with call to degas_init, plus separate call to
+% nc_read_output.  NOTE: not yet modified for changes to
+% output_grp; will not work properly!
+%
 % Revision 1.2  1999/02/08 18:18:59  dstotler
 % Replace bins_tot with max(bins_tot,1) in last output to prevent / 0.
 %
@@ -91,7 +98,7 @@ quantities are being compared.
       integer start_lines[3]                               // Local
       integer i,is,jline,jscore,species_ind,zone
 
-      real multiplier,rsd_min,rsd_max
+      real multiplier,rsd_min,rsd_max,prob,tot_scale_curr
 
       character*80 line
       character*2 stra_name
@@ -122,6 +129,37 @@ quantities are being compared.
       end do
 
       assert(output_old_file == TRUE)
+
+/*
+   With the implementation of the restart capability, the |output_grp| array
+   is written to the netCDF file in ``raw'' form. Need to normalize it here
+   to permit comparison with the EIRENE data. The follow section of code
+   is essentially the same as in {\tt flighttest}.
+*/
+      tot_scale_curr=zero
+      do is=1,so_grps
+         tot_scale_curr+=so_scale(is)*so_tot_curr(is)
+      end do
+
+      do is=1,so_grps
+         do i=0,tally_size-1
+            prob=so_scale(is)*so_tot_curr(is)/tot_scale_curr
+            output_grp[is][i][o_mean]=output_grp[is][i][o_mean]*prob
+            if (output_weight_grp[is] > zero) then
+               output_grp[is][i][o_var]=output_grp[is][i][o_var]*prob**2/(output_weight_grp[is]-one)
+            else
+               assert(output_num_flights[is]==0 && output_grp[is][i][o_var]==zero)
+               output_grp[is][i][o_var]=zero
+            end if
+         end do
+      end do
+
+      do i=0,tally_size-1
+         do is=1,so_grps
+            output_grp[is][i][o_var]=sqrt(output_grp[is][i][o_var])/max(abs(output_grp[is][i][o_mean]),const(1.0,-100))
+            output_grp[is][i][o_mean]*=tot_scale_curr
+         end do
+      end do
 /*
    Initialize EIRENE data arrays and convert DEGAS 2 relative standard
    deviations to standard error squared (the most convenient quantity for
