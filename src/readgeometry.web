@@ -2,6 +2,9 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.33  1998/04/16 15:31:10  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.32  1998/03/11 15:23:15  dstotler
 % Trying to install various hacks for Marv's slab-single null (UEDGE
 % rectangular slab or UERS) case. Set max_corner[2]=2 pi for cylindrical
@@ -396,7 +399,7 @@ end
       integer datafile_diskin,wallfile_diskin,zone,n,wall_no,wall_start,
      $     wall_stop,wall_direction,i,j,grid_startv,grid_stopv,j1,j2,
      $     grid_starth,grid_stoph,steph,stepv,h,v,num,nx,ny,nu,ixpt1,ixpt2,iysp
-     $     trx,symmetry,ix_mirror,null_type,grid_sense
+     $     trx,symmetry,ix_mirror,null_type,grid_sense,segment
 
       character*LINELEN line,keyword,new_zone_type
       logical complete,vacuum
@@ -689,6 +692,7 @@ eof:  continue
    the type of |zone1| to match that of polygon |i|; then, the lines setting
    sector subclass type bypass plasma / vacuum polygons.
 */
+      segment=0    // UEDGE_RECT_SLAB
       do i=1,num_polygon
          do j=0,polygon_points[i]-1
             if (polygon_x[1,j,i] != polygon_x[1,j+1,i] 
@@ -704,13 +708,13 @@ eof:  continue
                      assert(zn_type(zone1) == zn_plasma 
      $                    && zn_type(zone2) == zn_plasma)
                      stratum=6
-                     sector1=define_sector(stratum,polygon_segment[j+1,i],
-     $                    face1,zone1)
+                     segment++
+                     sector1=define_sector(stratum,segment,face1,zone1)
                      temp_material=ma_lookup('mirror')
                      define_sector_wall(sector1,temp_material,
      $                    current_temperature*boltzmanns_const)
-                     sector2=define_sector(stratum,polygon_segment[j+1,i],
-     $                    -face1,zone2)
+                     segment++
+                     sector2=define_sector(stratum,segment,-face1,zone2)
                      define_sector_wall(sector2,temp_material,
      $                    current_temperature*boltzmanns_const)
                   end if
@@ -1074,7 +1078,7 @@ skip:          continue
                   assert('grid_sense improperly set' == ' ')
                end if
                polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
-               polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]    
+               polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon] 
                polygon_points[num_polygon]=n
                polygon_zone[num_polygon]=zone
                polygon_stratum[num_polygon]=current_stratum
@@ -1153,6 +1157,7 @@ skip:          continue
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
               do j1=nx,1,-1
+                 polygon_segment[n,num_polygon]=j1
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
               end do
@@ -1171,11 +1176,13 @@ skip:          continue
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
               j2=ny
               do j1=nx,ix_mirror+1,-1
+                 polygon_segment[n,num_polygon]=j1
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
               enddo
               j1=ix_mirror+1
               do j2=ny,1,-1
+                 polygon_segment[n,num_polygon]=j2
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
               enddo
@@ -1184,11 +1191,13 @@ skip:          continue
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
               j1= ix_mirror
               do j2=1,ny
+                 polygon_segment[n,num_polygon]=j2
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
               enddo
               j2=ny
               do j1=ix_mirror,1,-1
+                 polygon_segment[n,num_polygon]=j1
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
               enddo
@@ -1223,6 +1232,7 @@ skip:          continue
            do j2=ny,1,-1
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
+              polygon_segment[n,num_polygon]=j2
            end do
            j2=1
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
@@ -1252,10 +1262,12 @@ skip:          continue
            do j1=1,ixpt1
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+              polygon_segment[n,num_polygon]=j1
            end do
            do j1=ixpt2+1,nx
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+              polygon_segment[n,num_polygon]=j1
            end do
            j1=nx
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
@@ -1285,6 +1297,7 @@ skip:          continue
            do j2=1,ny
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
+              polygon_segment[n,num_polygon]=j2
            end do
            j2=ny
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
@@ -1319,12 +1332,14 @@ skip:          continue
               do j=nosegsxz[i],1,-1
                  polygon_x[1,n,num_polygon]=xwall[j,i]
                  polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+                 polygon_segment[n,num_polygon]=j
               end do
               j1=nx; j2=ny
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
 
               do j1=nx,1,-1
+                 polygon_segment[n,num_polygon]=j1
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
               end do
@@ -1369,6 +1384,7 @@ skip:          continue
               do j=1,nosegsxz[i]
                  polygon_x[1,n,num_polygon]=xwall[j,i]
                  polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+                 polygon_segment[n,num_polygon]=j
               end do
 
               j1=1
@@ -1405,12 +1421,14 @@ skip:          continue
               do j=nosegsxz[i],1,-1
                  polygon_x[1,n,num_polygon]=xwall[j,i]
                  polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+                 polygon_segment[n,num_polygon]=j
               end do
               j1=nx; j2=ny
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
 
               do j1=nx,ix_mirror+1,-1
+                 polygon_segment[n,num_polygon]=j1
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
               end do
@@ -1441,12 +1459,14 @@ skip:          continue
               do j=nosegsxz[i],1,-1
                  polygon_x[1,n,num_polygon]=xwall[j,i]
                  polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+                 polygon_segment[n,num_polygon]=j
               end do
               j1=ix_mirror; j2=ny
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
 
               do j1=ix_mirror,1,-1
+                 polygon_segment[n,num_polygon]=j1
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
               end do
@@ -1489,6 +1509,7 @@ skip:          continue
               do j=1,nosegsxz[i]
                  polygon_x[1,n,num_polygon]=xwall[j,i]
                  polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+                 polygon_segment[n,num_polygon]=j
               end do
 
               polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
@@ -1524,6 +1545,7 @@ skip:          continue
               do j=1,nosegsxz[i]
                  polygon_x[1,n,num_polygon]=xwall[j,i]
                  polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+                 polygon_segment[n,num_polygon]=j
               end do
 
               j1=1
@@ -1579,6 +1601,7 @@ skip:          continue
 
               j1=ix_mirror+1
               do j2=ny,1,-1
+                 polygon_segment[n,num_polygon]=j2
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
               enddo
@@ -1641,6 +1664,7 @@ skip:          continue
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
               j1=ix_mirror
               do j2=1,ny
+                 polygon_segment[n,num_polygon]=j2
                  polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
                  polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
               enddo
@@ -1688,6 +1712,7 @@ skip:          continue
            do j2=ny,1,-1
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
+              polygon_segment[n,num_polygon]=j2
            end do
            j2=1
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
@@ -1722,6 +1747,7 @@ skip:          continue
            do j=1,nosegsxz[i]
               polygon_x[1,n,num_polygon]=xwall[j,i]
               polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              polygon_segment[n,num_polygon]=j
            end do
            j1=nx; j2=1
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
@@ -1752,6 +1778,7 @@ skip:          continue
            do j2=1,ny
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
+              polygon_segment[n,num_polygon]=j2
            end do
            j2=ny
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
@@ -1779,10 +1806,12 @@ skip:          continue
            do j1=1,ixpt1
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+              polygon_segment[n,num_polygon]=j1
            end do
            do j1=ixpt2+1,nx
               polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
               polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+              polygon_segment[n,num_polygon]=j1
            end do
            j1=nx
            polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
@@ -1791,6 +1820,7 @@ skip:          continue
            do j=nosegsxz[i],1,-1
               polygon_x[1,n,num_polygon]=xwall[j,i]
               polygon_x[2,n,num_polygon]=zwall[j,i]; n++
+              polygon_segment[n,num_polygon]=j
            end do
            polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
            polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]               
@@ -1818,6 +1848,7 @@ skip:          continue
             do j1=ixpt1+1,ixpt2
                polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
                polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
+               polygon_segment[n,num_polygon]=j1
             enddo
             polygon_x[1,n,num_polygon]=polygon_x[1,0,num_polygon]
             polygon_x[2,n,num_polygon]=polygon_x[2,0,num_polygon]      
@@ -1838,11 +1869,13 @@ skip:          continue
             polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
             j2=1
             do j1=ix_mirror+1,ixpt2
+               polygon_segment[n,num_polygon]=j1
                polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
                polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
             enddo
             j2=1
             do j1=ixpt1+1,ix_mirror
+               polygon_segment[n,num_polygon]=j1
                polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
                polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
             enddo
@@ -1878,6 +1911,7 @@ skip:          continue
       polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
       polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
       do j2=1,ny
+         polygon_segment[n,num_polygon]=j2
          polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
          polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
       end do
@@ -1906,6 +1940,7 @@ skip:          continue
       polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner2)
       polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner2); n++
       do j1=1,nx
+         polygon_segment[n,num_polygon]=j1
          polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
          polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
       end do
@@ -1939,6 +1974,7 @@ skip:          continue
       do j1=ixpt2,1,-1
          polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
          polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
+         polygon_segment[n,num_polygon]=j1
       end do
       j1=1
       polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
@@ -1970,6 +2006,7 @@ skip:          continue
       polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
       polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
       do j1=nx,ixpt2+1,-1
+         polygon_segment[n,num_polygon]=j1
          polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner1)
          polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner1); n++
       end do
@@ -2026,6 +2063,7 @@ skip:          continue
       polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner3)
       polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner3); n++
       do j2=ny,1,-1
+         polygon_segment[n,num_polygon]=j2
          polygon_x[1,n,num_polygon]=rm(j1,j2,xcorner4)
          polygon_x[2,n,num_polygon]=zm(j1,j2,zcorner4); n++
       end do
