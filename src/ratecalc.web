@@ -2,6 +2,11 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.20  1995/07/14 13:20:39  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.19  1995/06/28 20:54:39  dstotler
 % Replace "target" with "background" everywhere (comments only).
 %
@@ -325,7 +330,7 @@ impact processes.
    an energy, temperature for the latter.
 */
                      if (xs_rank[j] == 1) then
-                        assert(xs_units[1,j] == 'eV')
+                        assert(xs_units[1,j] == 'eV' || xs_units[1,j] == 'eV/amu')
 
                         if (xs_organization[j] == 'table_calc') then
                            assert(xs_var[1,j] == 'temperature')
@@ -354,8 +359,8 @@ impact processes.
    Alternatively, treat |xs_rank| = 2: expect an {\bf ion impact process}.
 */
                      else if (xs_rank[j] == 2) then
-                        assert(xs_units[1,j] == 'eV')
-                        assert(xs_units[2,j] == 'eV')
+                        assert(xs_units[1,j] == 'eV' || xs_units[1,j] == 'eV/amu')
+                        assert(xs_units[2,j] == 'eV' || xs_units[2,j] == 'eV/amu')
                         assert(ra_mass_units == 'g')
                         if ((xs_var[1,j] == 'specific_energy') 
      $                     && (xs_var[2,j] == 'specific_temperature')) then
@@ -584,7 +589,11 @@ coefficients since the user will not know this in general.
          xs_mult[0,j]=const(1.,-2)^(j+1)
          xs_spacing[0,j]='log'
          do i=1,xs_rank[j]
-            xs_mult[i,j]=electron_charge
+            if (j <= 2) then
+               xs_mult[i,j]=electron_charge
+            else
+               xs_mult[i,j]=electron_charge/atomic_mass_unit
+            end if
             xs_spacing[i,j]='log'
          end do
       end do
@@ -607,9 +616,9 @@ coefficients since the user will not know this in general.
       xs_units[0,5]='cm^6/s^4'
       do j=3,xs_num_dep_var
          xs_var[1,j]='specific_temperature'
-         xs_units[1,j]='eV'
+         xs_units[1,j]='eV/amu'
          xs_var[2,j]='specific_energy'
-         xs_units[2,j]='eV'
+         xs_units[2,j]='eV/amu'
       end do
 
       do j=1,xs_num_dep_var

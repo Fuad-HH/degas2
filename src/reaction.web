@@ -2,6 +2,11 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.19  1995/07/14 13:20:41  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.18  1995/06/28 20:54:58  dstotler
 % Replace "target" with "background" everywhere.
 %
@@ -149,11 +154,11 @@ once per point. */
             fvar[i] = half*sp_m(t)*vc_abs2(vrel)
          else if (reaction_data_var[r][rd_rate][i] == xs_var_sp_energy) then
             vc_difference(vt,vb,vrel)
-            fvar[i] = half*atomic_mass_unit*vc_abs2(vrel)
+            fvar[i] = half*vc_abs2(vrel)
          else if (reaction_data_var[r][rd_rate][i] == xs_var_temperature) then
             fvar[i] = tb
          else if (reaction_data_var[r][rd_rate][i] == xs_var_sp_temperature) then
-            fvar[i] = tb*atomic_mass_unit/sp_m(b)
+            fvar[i] = tb/sp_m(b)
          else
             assert('Unknown variable' == ' ')
          end if
@@ -211,7 +216,7 @@ once per point. */
          if (reaction_data_var[r][rd_xs][i] == xs_var_energy) then
             fvar[i] = half*sp_m(t)*vr**2
          else if (reaction_data_var[r][rd_xs][i] == xs_var_sp_energy) then
-            fvar[i] = half*atomic_mass_unit*vr**2
+            fvar[i] = half*vr**2
          else
             assert('Unknown variable' == ' ')
          end if
