@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.23  1995/11/03 15:06:38  karney
+% Clean up for release.
+%
 % Revision 1.22  1995/08/23 14:47:04  dstotler
 % Modified arguments lists for reaction rate and cross section routines.
 %
@@ -85,6 +88,17 @@
 @m FILE 'reaction.web'
 
 @I macros.hweb
+@I zone.hweb
+@I background.hweb
+@I species.hweb
+@I problem.hweb
+@I reactiondata.hweb
+@I xsection.hweb
+@I netcdf.hweb
+@I sysdep.hweb
+@I reaction.hweb
+@I particle.hweb
+@I string.hweb
 
 @ The main program.
 
@@ -546,7 +560,7 @@ information into reaction data and miscellaneous arrays.
                   reaction_data_tab_index[num][rd_ind][i]=1
                end do
             end if
-            rd_ragged_realloc(reaction_data,reaction_data_tab_index,rd_ind,num)
+            rd_ragged_realloc(reaction_data,reaction_data_tab_index,[num][rd_ind])
 
          else if (xs_var[0,jdep] == 'unknown') then
             goto skip
@@ -570,7 +584,7 @@ information into reaction data and miscellaneous arrays.
                   reaction_misc_tab_index[num][rm_ind][i]=1
                end do
             end if
-            rd_ragged_realloc(reaction_misc,reaction_misc_tab_index,rm_ind,num)
+            rd_ragged_realloc(reaction_misc,reaction_misc_tab_index,[num][rm_ind])
          end if
 
 /*

@@ -2,6 +2,9 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.16  1995/12/13 19:41:15  karney
+% Implement walls and symmetry selection in readgeometry.
+%
 % Revision 1.15  1995/07/14 13:20:11  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -62,6 +65,10 @@
 @m FILE 'flighttest.web'
 
 @I macros.hweb
+@I sysdep.hweb
+@I string.hweb
+@I zone.hweb
+@I sources.hweb
 
 @ The main program.
 
@@ -103,6 +110,8 @@
       call nc_read_elements
       call nc_read_species
       call nc_read_reactions
+      call nc_read_materials
+      call nc_read_pmi
       call nc_read_problem
       call nc_read_background
       
