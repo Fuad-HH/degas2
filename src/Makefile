@@ -1,5 +1,10 @@
 # $Id$
 # $Log$
+# Revision 1.66  1998/09/04 17:02:03  dstotler
+# Replaced leading TAB in CRAMD line with spaces; revised JPEG library
+# specification for OSF1; added dependencies for sourcetest, flighttest,
+# geomtesta.
+#
 # Revision 1.65  1998/06/01 19:47:05  karney
 # "TARGET" is now directory name removing trailing "-JUNK".  Thus
 # ~/degas2/SUN-mpi
@@ -367,9 +372,11 @@ Makefile.depends: $(SOURCEDIR)/Makefile.depends
 degas2.in: $(SOURCEDIR)/degas2.in
 	cp $< $@
 
-ifeq ($(MACHINE),ALPHA)
-  CRAMD=$(CRAMDIR)/LIB/CRAMDlib.a $(CRAMDIR)/LIB/cramd_lib.a $(CRAMDIR)/LIB/lc_sig.a $(CRAMDIR)/LIB/lc_std.a
-endif
+# Comment out these lines as long as CRAMD is not part of the DEGAS 2
+# distribution.
+# ifeq ($(MACHINE),ALPHA)
+#  CRAMD=$(CRAMDIR)/LIB/CRAMDlib.a $(CRAMDIR)/LIB/cramd_lib.a $(CRAMDIR)/LIB/lc_sig.a $(CRAMDIR)/LIB/lc_std.a
+# endif
 
 # Cancel some built-in rules
 %: %.f
@@ -549,6 +556,10 @@ geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
 matchout = matchout.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O 
 matchout_libs = $(NETCDF)
 matchout: $(matchout) $(foreach arg,$(subst .$O,_mods,$(matchout)),$($(arg)))
+
+matcheir = matcheir.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O 
+matcheir_libs = $(NETCDF)
+matcheir: $(matcheir) $(foreach arg,$(subst .$O,_mods,$(matcheir)),$($(arg)))
 
 reactionwrite = reactionwrite.$O
 reactionwrite_libs = $(NETCDF)
