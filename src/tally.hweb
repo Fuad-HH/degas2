@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1998/03/11 15:25:46  dstotler
+% Replace pr_reaction_num with pr_reaction_dim to allow the former to be
+% 0.
+%
 % Revision 1.3  1998/01/14 21:08:54  dstotler
 % Implemented conversions.
 %
@@ -92,6 +96,11 @@ For further documentation, see the classes.web file.
 @m tl_geom_detector 3      
 @m tl_geom_global 4 
 
+@m tl_dep_var_scalar 1            // For |tally_dep_var_dim|
+@m tl_dep_var_vector 3
+
+@m tl_scoring_index(t,j,ip) pr_var_back_index(t+j-1,ip[tl_index_back])
+
 @m tl_cv_unknown 0                // Tally conversions    
 @m tl_cv_scaler_unknown 0
 @m tl_cv_partner_unknown 0
@@ -124,7 +133,7 @@ For further documentation, see the classes.web file.
 
 @m tl_cv_max_params 11  
 
-@m scoring_data_max 20            // Length of |scoring_data| array
+@m scoring_data_max 50            // Length of |scoring_data| array
 @m max_bins 200
 
 @ Variable definitions. |tally_ind| is dimensioned from zero to
@@ -157,11 +166,12 @@ accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
       define_varp_pk(tl,tally_geometry_ptr,INT,tally_ind)  
       define_varp_pk(tl,tally_base,INT,tally_ind)          
       define_varp_pk(tl,tally_type_base,INT,tally_type_ind)
-      define_varp_pk(tl,tally_rank,INT,tally_ind)          
+      define_varp_pk(tl,tally_rank,INT,tally_ind)    
+      define_varp_pk(tl,tally_dep_var_dim,INT,tally_ind)
       define_varp_pk(tl,tally_indep_var,INT,tally_rank_ind,tally_ind)  
       define_varp_pk(tl,tally_tab_index,INT,tally_rank_ind,tally_ind)
       define_varp_pk(tl,tally_name,CHAR,tally_name_string,tally_ind) 
-      define_varp_pk(tl,tally_dep_var,CHAR,tally_tag_string,tally_ind)
+      define_varp_pk(tl,tally_dep_var,INT,tally_ind)
 
       define_varp_pk(tl,tally_est_test,FLOAT,tally_est_ind,tally_ind)
       define_varp_pk(tl,tally_est_reaction,FLOAT,tally_reac_ind,tally_est_ind,tally_ind)
@@ -193,7 +203,7 @@ accomodate netcdf.  The 0 index is unused. ??? Start from 1 for now.
       $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
         inc=inc*y##subs##[I];
       }
-      if (index(x##_name##subs,'vector') > 0) inc=3*inc @;
+      inc=x##_dep_var_dim##subs*inc @;
 
 @m tl_set_base_size(x,y,subs)
       tl_set_baseinc(x,y,subs);
