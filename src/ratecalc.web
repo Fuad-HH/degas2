@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.9  1995/02/01 13:45:14  dstotler
+% Extend ratecalc to treat fits; functionality of ratecalc is complete.
+%
 % Revision 1.8  1995/01/26 14:56:46  dstotler
 % First complete version of ratecalc. Presently, input is done entirely
 % through subroutine setup_netcdf.
@@ -1096,6 +1099,37 @@ difficult to do with a single transformation if the lower limit
 is still $< 1$. Consequently,
 the interval may be split into two parts so that separate transformations
 can be used on each. 
+
+{\bf Note:} The choice of |dcadre| as the integration routine used here 
+represents a compromise. On the one hand, the routine
+needs to be portable and easy to distribute (e.g., this requirement
+rules out most commercial packages). On the other hand, the method
+must be robust and relatively efficient. Because discontinuities in
+the sorts of integrands to be used here are not unusual (particularly
+in the first derivative), simple high order schemes fail miserably.
+While a trapezoidal rule works admirably in these cases, it is terribly
+slow, requiring many millions of function evaluations to achieve a
+reasonable accuracy. A proper treatment of these situations requires
+an adaptive routine; the literature indicates that an efficient implementation
+of an adaptive scheme is tricky. This led to the identification of |dcadre|
+as a candidate routine, a public-domain routine that has been used
+previously in commercial libraries. 
+
+Even then, it was decided that the
+sudden onsets at thresholds and fit limits was causing |dcadre| to struggle
+excessively. For this reason, the |find_threshold| procedure was implemented.
+The use of a variable transformation in combination with finite limits 
+appeared to further improve the efficiency of the integrations.
+
+If an integral fails to converge, the user can try the following:
+\begin{enumerate}
+  \item Increase the error tolerance, |integration_acc|.
+  \item Try turning off the variable transformation; i.e., set
+|integ_transform_ratio| = 0.
+  \item Eliminate the threshold calculation (replace bounds in calls
+to |dcadre| with the original ones).
+  \item Get a better integration routine! (Better ones may exist).
+\end{enumerate}
 
 @<Functions...@>=
       real function infinite_integral(integrand)

@@ -2,6 +2,15 @@
 \def\Wtitle{reactionwrite}
 
 % $Log$
+% Revision 1.3  1994/11/21 15:51:33  dstotler
+% Interim update associated with ratecalc. ratecalc.hweb and
+% xsection.hweb have undergone substantial revision, but should be
+% relatively stable from here on. Note also that all of the "ncreada", etc.
+% macros have been combined into a single ncread macro. The user is
+% responsible for ensuring that dimensions and variables are defined /
+% used in the proper order (although the built-in "assert"s should
+% help).
+%
 % Revision 1.2  1994/02/16 18:55:39  karney
 % Remove redundant xs_tab_index array.
 % Convert crosssection files to use strings for variables and spacings.
@@ -152,6 +161,10 @@ format with a complete specification of the reaction.
             xs_min[i,j]=zero
             xs_max[i,j]=zero
          end do
+      end do
+
+      do j=1,xs_dep_var_max
+         xs_eval_name[j]='unknown'
       end do
       
       var_alloc(xs_table1)

@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.7  1995/01/30 21:06:48  karney
+% Merge in my changes with Daren's
+%
 % Revision 1.6  1994/07/13 19:39:49  dstotler
 % Continue development of ratecalc.web; modify code comments in reaction.web
 % to eliminate TeX errors.
@@ -288,7 +291,11 @@ constant.
       
       call xs_copy(num)
 
-      var_free(xs_table)
+      var_free(xs_table1)
+      var_free(xs_table2)
+      var_free(xs_table3)
+      var_free(xs_table4)
+      var_free(xs_table5)
 
       return
       end
@@ -298,8 +305,9 @@ constant.
 @<Functions...@>=
       subroutine xs_copy(num)
       implicit_none
-      integer num               // Input
-      integer i,j,k,size        // Local
+      integer num                     // Input
+      integer i,j,jdep,k,size        // Local
+      real table_entry
       xs_common
       pr_common
       rc_common
@@ -307,80 +315,90 @@ constant.
       sy_common
       
       assert(xs_name==rc_sy(pr_reaction(num)))
-      assert(xs_organization=='table')
-      if (xs_organization=='table') then
+
+      do j=1,xs_num_dep_var
+         if (xs_var[0,j] == 'rate') jdep=j
+      end do
+
+      assert(xs_organization[jdep]=='table')
+      if (xs_organization[jdep]=='table') then
          reaction_organization[num]=xs_organization_table
       end if
-      assert(xs_rank > 0 && xs_rank <= xs_table_rank_max)
-      reaction_xs_rank[num]=xs_rank
+      assert(xs_rank[jdep] > 0 && xs_rank[jdep] <= xs_table_rank_max)
+      reaction_xs_rank[num]=xs_rank[jdep]
       i=0
-      assert(xs_spacing[i] == 'linear' || xs_spacing[i] == 'log')
-      assert(xs_var[i] == 'rate')
-      if (xs_spacing[i] == 'linear') then
+      assert(xs_spacing[i,jdep] == 'linear' || xs_spacing[i,jdep] == 'log')
+      
+      if (xs_spacing[i,jdep] == 'linear') then
          reaction_xs_spacing[i,num]=xs_spacing_linear
-      else if (xs_spacing[i] == 'log') then
+      else if (xs_spacing[i,jdep] == 'log') then
          reaction_xs_spacing[i,num]=xs_spacing_log
       end if
-      if (xs_var[i] == 'rate') then
+      if (xs_var[i,jdep] == 'rate') then
          reaction_xs_var[i,num]=xs_var_rate
-      else if (xs_var[i] == 'density') then
+      else if (xs_var[i,jdep] == 'density') then
          reaction_xs_var[i,num]=xs_var_density
-      else if (xs_var[i] == 'temperature') then
+      else if (xs_var[i,jdep] == 'temperature') then
          reaction_xs_var[i,num]=xs_var_temperature
-      else if (xs_var[i] == 'energy') then
+      else if (xs_var[i,jdep] == 'energy') then
          reaction_xs_var[i,num]=xs_var_energy
       end if
       size=1
-      do i=1,xs_rank
-         if (i==1) then
-            reaction_xs_tab_index[i,num] = xs_tab_index1
-         else if (i==2) then
-            reaction_xs_tab_index[i,num] = xs_tab_index2
-         else if (i==3) then
-            reaction_xs_tab_index[i,num] = xs_tab_index3
-         end if
+      do i=1,xs_rank[jdep]
+         reaction_xs_tab_index[i,num] = xs_tab_index[i,jdep]
          assert(reaction_xs_tab_index[i,num] > 1)
-         if (xs_spacing[i] == 'linear') then
+         if (xs_spacing[i,jdep] == 'linear') then
             reaction_xs_spacing[i,num]=xs_spacing_linear
-         else if (xs_spacing[i] == 'log') then
+         else if (xs_spacing[i,jdep] == 'log') then
             reaction_xs_spacing[i,num]=xs_spacing_log
          end if
-         if (xs_var[i] == 'rate') then
+         if (xs_var[i,jdep] == 'rate') then
             reaction_xs_var[i,num]=xs_var_rate
-         else if (xs_var[i] == 'density') then
+         else if (xs_var[i,jdep] == 'density') then
             reaction_xs_var[i,num]=xs_var_density
-         else if (xs_var[i] == 'temperature') then
+         else if (xs_var[i,jdep] == 'temperature') then
             reaction_xs_var[i,num]=xs_var_temperature
-         else if (xs_var[i] == 'energy') then
+         else if (xs_var[i,jdep] == 'energy') then
             reaction_xs_var[i,num]=xs_var_energy
          end if
          size=size*reaction_xs_tab_index[i,num]
          if (reaction_xs_spacing[i,num] == xs_spacing_linear) then
-            reaction_xs_min[i,num]=xs_min[i]*xs_mult[i]
+            reaction_xs_min[i,num]=xs_min[i,jdep]*xs_mult[i,jdep]
             reaction_xs_delta[i,num]=
-     $           (xs_max[i]-xs_min[i])*xs_mult[i]/
+     $           (xs_max[i,jdep]-xs_min[i,jdep])*xs_mult[i,jdep]/
      $           areal(reaction_xs_tab_index[i,num]-1)
          else if (reaction_xs_spacing[i,num] == xs_spacing_log) then
-            reaction_xs_min[i,num]=log(xs_min[i]*xs_mult[i])
+            reaction_xs_min[i,num]=log(xs_min[i,jdep]*xs_mult[i,jdep])
             reaction_xs_delta[i,num]=
-     $           log(xs_max[i]/xs_min[i])/
+     $           log(xs_max[i,jdep]/xs_min[i,jdep])/
      $           areal(reaction_xs_tab_index[i,num]-1)
          else
             assert('Unknown spacing type' == ' ')
          end if
       end do
-      do i=xs_rank+1,xs_table_rank_max
+      do i=xs_rank[jdep]+1,xs_table_rank_max
          reaction_xs_tab_index[i,num]=1
       end do
       reaction_xs_base[num]=xs_base_max
       var_reallocc(reaction_xsection_table,xs_base_max-1,xs_base_max-1+size)
-      do k=0,xs_tab_index3-1
-         do j=0,xs_tab_index2-1
-            do i=0,xs_tab_index1-1
+      do k=0,xs_tab_index[3,jdep]-1
+         do j=0,xs_tab_index[2,jdep]-1
+            do i=0,xs_tab_index[1,jdep]-1
+               if (jdep == 1) then
+                  table_entry=xs_table1[i,j,k]
+               else if (jdep == 2) then
+                  table_entry=xs_table2[i,j,k]
+               else if (jdep == 3) then
+                  table_entry=xs_table3[i,j,k]
+               else if (jdep == 4) then
+                  table_entry=xs_table4[i,j,k]
+               else if (jdep == 5) then
+                  table_entry=xs_table5[i,j,k]
+               end if
                if (reaction_xs_spacing[0,num] == xs_spacing_linear) then
-                  rc_xsection3(num,i,j,k)=xs_table[i,j,k]*xs_mult[0]
+                  rc_xsection3(num,i,j,k)=table_entry*xs_mult[0,jdep]
                else
-                  rc_xsection3(num,i,j,k)=log(xs_table[i,j,k]*xs_mult[0])
+                  rc_xsection3(num,i,j,k)=log(table_entry*xs_mult[0,jdep])
                end if
             end do
          end do
