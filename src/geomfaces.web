@@ -2,6 +2,10 @@
 \Title{geometry faces}
 
 % $Log$
+% Revision 1.10  2001/07/16 20:55:40  dstotler
+% Attempted improvements to a couple of tests in conea. But, decided
+% they were probably not essential.
+%
 % Revision 1.9  1997/09/02 21:14:31  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -391,16 +395,16 @@ infinity (for a cone).
 
       assert(sqrt( (xa1[1]-xa2[1])^2 + (xa1[3]-xa2[3])^2 ) > two*geom_epsilon) // Check points aren't too close. 
 
-@#if 1
+@#if 0
       if (abs(xa1[3] - xa2[3]) <= geom_epsilon) then // It's a plane
 @#else
 /*
    A case involving small cells managed to fool the above test.
-   The following was an attempt at improving the test. However, it did
-   not solve the problem, so we're continuing with the original for now.
+   The following modification was derived from the first of the $|temp| - 1.$
+   debug tests at the bottom of the routine.
 */
       if (abs(xa1[3] - xa2[3]) <= min(geom_epsilon,
-     $                             epsilon_angle*abs(xa1[1] - xa2[1]))) then 
+     $                     sqrt(two*epsilon_angle)*abs(xa1[1] - xa2[1]))) then 
 // It's a plane
 @#endif
          vc_set(c,zero,zero,half*(x1[3]+x2[3]))
@@ -411,11 +415,11 @@ c         end do
          if (xa1[1] < xa2[1]) orientation=-orientation
          surf_type=0
          vc_set(apex,zero,zero,c[3]) // Apex
-@#if 1
+@#if 0
       else if (abs(xa1[1] - xa2[1]) <= geom_epsilon) then // It's a cylinder
 @#else
       else if (abs(xa1[1] - xa2[1]) <= min(geom_epsilon,
-     $                               epsilon_angle*abs(xa1[3] - xa2[3]))) then
+     $                      sqrt(two*epsilon_angle)*abs(xa1[3] - xa2[3]))) then
 // It's a cylinder
 @#endif
          vc_set(x0,zero,zero,zero)
