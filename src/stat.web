@@ -2,6 +2,9 @@
 \Title{statisticw}
 
 % $Log$
+% Revision 1.11  1998/06/01 15:56:35  karney
+% MPI enabled version.
+%
 % Revision 1.10  1998/05/08 14:14:03  dstotler
 % Complete rewrite of stat_acc for compression. Plus, new
 % routines. Also, temporary check of returned variances in stat_acc to
@@ -91,10 +94,6 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
       do i=0,n-1
 /* This is the same as $(w_0 m_0 + w_1 m_1)/w_a$ */
          ma=stat0[i][o_mean]+(stat1[i][o_mean]-stat0[i][o_mean])*w1/wa
-/* Original
-      statn[i][o_var]=(w0*stat0[i][o_var]+w1*stat1[i][o_var]
-     $+(stat1[i][o_mean]-stat0[i][o_mean])*(stat1[i][o_mean]-ma)*w1)/wa
- */
          stat0[i][o_var]=(w0-one)*stat0[i][o_var]+(w1-one)*stat1[i][o_var]
      $+(stat1[i][o_mean]-stat0[i][o_mean])*(stat1[i][o_mean]-ma)*w1
          if (wa > one) then
@@ -166,14 +165,27 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
          ma=base_stat[i_base][o_mean]
      $       +(inc_stat[i_inc][o_mean]-base_stat[i_base][o_mean])*inc_wt/tot_wt
 
+@#if 0
+// Move the ``-1'' factor to |flighttest.web|, as the last step.
          base_stat[i_base][o_var]=
      $        (b_wt-one)*base_stat[i_base][o_var]
      $        +(inc_wt-one)*inc_stat[i_inc][o_var]
      $        +(inc_stat[i_inc][o_mean]-base_stat[i_base][o_mean])
      $        *(inc_stat[i_inc][o_mean]-ma)*inc_wt
-// Previous:         if (tot_wt > one) then    Temporary kludge:
+// Previous:         if (|tot_wt| > one) then    Temporary kludge:
          if (tot_wt > one && base_stat[i_base][o_var] > zero) then
             base_stat[i_base][o_var]=base_stat[i_base][o_var]/(tot_wt-one)
+         else
+            base_stat[i_base][o_var]=zero         // Strictly, is infinite
+         end if
+@#endif
+         base_stat[i_base][o_var]=
+     $        b_wt*base_stat[i_base][o_var]
+     $        +inc_wt*inc_stat[i_inc][o_var]
+     $        +(inc_stat[i_inc][o_mean]-base_stat[i_base][o_mean])
+     $        *(inc_stat[i_inc][o_mean]-ma)*inc_wt
+         if (tot_wt > zero && base_stat[i_base][o_var] > zero) then
+            base_stat[i_base][o_var]=base_stat[i_base][o_var]/tot_wt
          else
             base_stat[i_base][o_var]=zero         // Strictly, is infinite
          end if
@@ -212,21 +224,23 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
       real stat[0:dim-1][o_mean:o_var],wt[0:wt_dim-1]     // Input/Output
       integer i                                           // Local
 
-      assert(wt_tot > one)
+      assert(wt_tot > zero)    // was $ > one$
       assert(wt_dim == dim)
 
       do i=0,size-1
          if (wt[i] > zero && wt[i] < wt_tot) then
+@#if 0
             stat[i][o_var]=stat[i][o_var]*(wt[i]-one)/(wt_tot-one)
      $           + stat[i][o_mean]**2 * wt[i] * (wt_tot-wt[i]) 
      $                                             / (wt_tot * (wt_tot-one))
+@#endif
+            stat[i][o_var]=stat[i][o_var]*wt[i]/wt_tot
+     $           + stat[i][o_mean]**2 * wt[i] * (wt_tot-wt[i]) 
+     $                                             / (wt_tot * wt_tot)
 
             stat[i][o_mean]*=wt[i]/wt_tot        // Must do |o_var| first!
          end if
-@#if 0
-         wt[i]=wt_tot
-@#endif
-         wt[i]=zero             // Shouldn't it be this?
+         wt[i]=zero
       end do
 
       return
