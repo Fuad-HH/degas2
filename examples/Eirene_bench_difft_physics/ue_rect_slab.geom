@@ -23,6 +23,11 @@ symmetry plane
 uedgefile ../examples/Eirene_bench_difft_physics/uedata_rs_recom.u
 null_type 1
 material mo
+# These variables apply to the UEDGE_RECT_SLAB case only and
+# must preced the "mesh" keyword.
+wall_recyc_coef 1.0
+pfr_recyc_coef 1.0
+target_recyc_coef 1.0
 mesh -0.015 0.045 -0.01 1.1 0.0 1.0
 end
 
