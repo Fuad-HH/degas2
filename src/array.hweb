@@ -2,6 +2,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.18  1995/10/04 18:33:15  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.17  1995/06/23 19:34:19  jshankar
 % corrected and cleaned up documentation
 %
@@ -439,11 +444,11 @@ same. */
       $$DEFINE(pk##_pvmgeta temp; pvm_get(name))
       $UNDEF(temp)
 
-@m define_common(pk,name,SUF)
-      $$DEFINE(temp pk##_common_##SUF)
-      $UNDEF(pk##_common_##SUF)
-      $$DEFINE(pk##_common_##SUF temp declare_var(name); common /pk##_com_##SUF/ name;)
-      $UNDEF(temp)
+@m define_common(pk,name,SUF)@/
+      $$DEFINE(temp pk##_common_##SUF)@/
+      $UNDEF(pk##_common_##SUF)@/
+      $$DEFINE(pk##_common_##SUF@, temp@, declare_var(name); common /pk##_com_##SUF/ name;)@/
+      $UNDEF(temp)@;
 
 @m define_varp_pk(pk,name,...) define_var(name,#.)
       $$DEFINE(temp pk##_common_a)
