@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.25  1996/10/30 18:00:25  dstotler
+% Insert some sector initializations. Added lookup_sector routine.
+%
 % Revision 1.24  1996/03/01 20:29:17  dstotler
 % Accomodate move of sector variables into sector.hweb.
 %
@@ -100,10 +103,10 @@ Geometry setup routines for degas.
 @I geomint.hweb
 @I readfilenames.hweb
 @I zone.hweb
-@I strata.hweb
 @I sysdep.hweb
 @I netcdf.hweb
 @I sector.hweb
+@I detector.hweb
 
 @ The unnamed module.
 
@@ -133,7 +136,7 @@ should.
       gi_common                 // Output
       zn_common
       sc_common
-      sr_common
+      de_common
       sy_common
       setup_common
 
@@ -147,36 +150,64 @@ should.
       nsurfaces=0
       nsectors=0
       ntransforms=0
-      var_realloca(strata)
-      var_realloca(sectors)
+
       var_realloca(surface_sectors)
+      var_realloca(surfaces_tx_mx)
+
+      var_realloca(strata)
+      var_realloca(sector_strata_segment)
+      var_realloca(sectors)
       var_realloca(sector_zone)
       var_realloca(sector_surface)
       var_realloca(sector_points)
-      var_realloca(surfaces_tx_mx)
+      var_realloca(sector_type_pointer)
 
-      var_realloca(sector_vacuum)
-      var_realloca(sector_plasma)
-      var_realloca(sector_solid)
-      var_realloca(sector_exit)
+      sc_vacuum_num=0
+      var_realloca(vacuum_sector)
+      
+      sc_plasma_num=0
+      var_realloca(plasma_sector)
 
-      sc_solid_num=0
-      var_realloca(sector_solid_material);
-      var_realloca(sector_solid_temperature);
+      sc_target_num=0
+      var_realloca(target_sector)
+      var_realloca(target_material)
+      var_realloca(target_temperature)
 
+      sc_wall_num=0
+      var_realloca(wall_sector)
+      var_realloca(wall_material)
+      var_realloca(wall_temperature)
+
+      sc_exit_num=0
+      var_realloca(exit_sector)
+      var_realloca(exit_albedo)
+
+      sc_diagnostic_grps=0
+      var_realloca(diagnostic_grp_name)
+      var_realloca(diagnostic_num_sectors)
+      var_realloca(diagnostic_var)
+      var_realloca(diagnostic_tab_index)
+      var_realloca(diagnostic_min)
+      var_realloca(diagnostic_delta)
+      var_realloca(diagnostic_spacing)
+      var_realloca(diagnostic_grp_base)
+
+      de_grps=0
+      var_realloca(detector_name)
+      var_realloca(detector_num_views)
+      var_realloca(detector_var)
+      var_realloca(detector_tab_index)
+      var_realloca(detector_min)
+      var_realloca(detector_delta)
+      var_realloca(detector_spacing)
+      var_realloca(de_view_base)
+      
       zn_num=0
       $DO(I,1,zn_type_max) {
           zone_type_num[I]=0;
       }
       
-      sr_num=0
-      $DO(I,1,sr_type_max) {
-          strata_type_num[I]=0;
-      }
-      
-      strata[0]=0
-      var_realloca(strata_type)
-      var_realloca(strata_pointer)
+      strata[0]=0      // Need this?
 
       pointer_offset=0
 
@@ -372,20 +403,46 @@ should.
       integer sector_list[*]    // Pointee
       ptr_decl(sector_list)
       sy_common
-      sr_common
       setup_common
 
-      /* Pack |strata| and sector-related arrays */
+/* 
+   Pack |strata| and sector-related arrays. |surface_sectors| allocated 
+   with |surfaces|; |srufaces_tx_mx| done in |boundaries_neighbors|. 
+   See below for |sectors|.
+*/
 
       var_reallocb(strata)
+      var_reallocb(sector_strata_segment)  
       var_reallocb(sector_zone)
       var_reallocb(sector_surface)
       var_reallocb(sector_points)
+      var_reallocb(sector_type_pointer)
 
-      var_reallocb(strata_type)     // Neither of these two have been used yet
-      var_reallocb(strata_pointer)
-      
-      var_alloc(sectors)   // |surface_sectors| allocated with |surfaces|
+      var_reallocb(vacuum_sector)
+
+      var_reallocb(plasma_sector)
+
+      var_reallocb(target_sector)
+      var_reallocb(target_material)
+      var_reallocb(target_temperature)
+
+      var_reallocb(wall_sector)
+      var_reallocb(wall_material)
+      var_reallocb(wall_temperature)
+
+      var_reallocb(exit_sector)
+      var_reallocb(exit_albedo)
+
+      var_reallocb(diagnostic_grp_name)
+      var_reallocb(diagnostic_num_sectors)
+      var_reallocb(diagnostic_var)
+      var_reallocb(diagnostic_tab_index)
+      var_reallocb(diagnostic_min)
+      var_reallocb(diagnostic_delta)
+      var_reallocb(diagnostic_spacing)
+      var_reallocb(diagnostic_grp_base)
+
+      var_alloc(sectors)  
       base=0
       do k=1,nsurfaces
          do sigma=s_neg,s_pos
@@ -582,7 +639,6 @@ these values match.
       ptr_decl(surf_list)
       ptr_decl(cell_list)
       sy_common
-      sr_common
       setup_common
 
       ptr_surf_list=cells[c_start,cell]+pointer_offset
@@ -626,16 +682,15 @@ these values match.
 @* Define a new sector belonging to a particular stratum.
 
 @<Functions...@>=
-      function define_sector(stratum,surface,zone)
+      function define_sector(stratum,seg,surface,zone)
       implicit_none
-      integer define_sector // Function
-      integer stratum,surface,zone // Input
-      gi_common                 // Input/Output
-      integer i,sector_count,base // Local
-      integer sector_list[*]  // Pointee
+      integer define_sector                          // Function
+      integer stratum,seg,surface,zone               // Input
+      gi_common                                      // Input/Output
+      integer i,sector_count,base                    // Local
+      integer sector_list[*]                         // Pointee
       ptr_decl(sector_list)
       sy_common
-      sr_common
       sc_common
       zn_common
       setup_common
@@ -647,16 +702,14 @@ these values match.
       nsectors++
 
       var_realloca(strata)
+      var_realloca(sector_strata_segment)
       var_realloca(sector_zone)
       var_realloca(sector_surface)
       var_realloca(sector_points)
-
-      var_realloca(sector_vacuum)
-      var_realloca(sector_plasma)
-      var_realloca(sector_solid)
-      var_realloca(sector_exit)
+      var_realloca(sector_type_pointer)
 
       strata[nsectors]=stratum
+      sector_strata_segment[nsectors]=seg
       sector_zone[nsectors]=zone
       sector_surface[nsectors]=surface
 
@@ -668,10 +721,9 @@ these values match.
          vc_copy(surface_points[1,-surface],sector_points[0,nsectors])
       end if
 
-      sector_vacuum[nsectors]=0
-      sector_plasma[nsectors]=0
-      sector_solid[nsectors]=0
-      sector_exit[nsectors]=0
+      do i=1,sc_type_max
+         sector_type_pointer[nsectors][i]=0
+      end do
 
       ptr_sector_list=surface_sectors[s_sign(surface),s_start,abs(surface)]+pointer_offset
       sector_count=surface_sectors[s_sign(surface),s_count,abs(surface)]
@@ -693,15 +745,6 @@ these values match.
       assert(.false.)
 break: continue
 
-      if (stratum > sr_num) then
-         var_reallocc(strata_type,sr_num,stratum)
-         var_reallocc(strata_pointer,sr_num,stratum)
-         do i=sr_num+1,stratum
-            sr_type(i)=sr_undefined
-         end do
-         sr_num=stratum
-      end if
-      
       define_sector=nsectors
       
       return
@@ -881,6 +924,7 @@ break1:        continue
       implicit_none
       gi_common                 // Input/Output
       sc_common
+      de_common
 
       var_free(cells)
       var_free(surfaces)
@@ -892,10 +936,40 @@ break1:        continue
       var_free(surfaces_tx_ind)
       var_free(surfaces_tx_mx)
       var_free(strata)
+      var_free(sector_strata_segment)
       var_free(sectors)
       var_free(sector_zone)
       var_free(sector_surface)
       var_free(sector_points)
+      var_free(sector_type_pointer)
+      var_free(vacuum_sector)
+      var_free(plasma_sector)
+      var_free(target_sector)
+      var_free(target_material)
+      var_free(target_temperature)
+      var_free(wall_sector)
+      var_free(wall_material)
+      var_free(wall_temperature)
+      var_free(exit_sector)
+      var_free(exit_albedo)
+      var_free(diagnostic_grp_name)
+      var_free(diagnostic_num_sectors)
+      var_free(diagnostic_var)
+      var_free(diagnostic_tab_index)
+      var_free(diagnostic_min)
+      var_free(diagnostic_delta)
+      var_free(diagnostic_spacing)
+      var_free(diagnostic_grp_base)
+      var_free(diagnostic_sector_tab)
+      var_free(detector_name)
+      var_free(detector_num_views)
+      var_free(detector_var)
+      var_free(detector_tab_index)
+      var_free(detector_min)
+      var_free(detector_delta)
+      var_free(detector_spacing)
+      var_free(de_view_base)
+      var_free(de_view_tab)
 
       ncells=-1
       nsurfaces=0
@@ -919,10 +993,10 @@ break1:        continue
       zn_ncdecl
       vc_ncdecl
       rf_common
-      sr_common
-      sr_ncdecl
       sc_common
       sc_ncdecl
+      de_common
+      de_ncdecl
       integer fileid
       character*FILELEN tempfile
 
@@ -931,14 +1005,14 @@ break1:        continue
       vc_ncdef(fileid)
       gi_ncdef(fileid)
       zn_ncdef(fileid)
-      sr_ncdef(fileid)
       sc_ncdef(fileid)
+      de_ncdef(fileid)
       call ncendef(fileid,nc_stat);
       vc_ncwrite(fileid)
       gi_ncwrite(fileid)
       zn_ncwrite(fileid)
-      sr_ncwrite(fileid)
       sc_ncwrite(fileid)
+      de_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
 
       return
