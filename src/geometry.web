@@ -2,6 +2,9 @@
 \def\Wtitle{geometry}
 
 % $Log$
+% Revision 1.7  1993/10/11  19:07:49  karney
+% Fix bug in do-loop indexing in cell_enter.
+%
 % Revision 1.6  1993/09/30  18:43:22  karney
 % Pre PET checkin
 %
@@ -29,7 +32,7 @@
 
 Each cell is described by a equations of the form
 $$
-C_j = \bigcap_{k\in K_j\cup K'_j} \{ {\bf x} : \sigma_k f_k({\bf x}) \ge 0 \}.
+C_j = \bigcap_{k\in K_j\cup K'_j} \{ \vect x : \sigma_k f_k(\vect x) \ge 0 \}.
 $$
 where each $f_k$ is a quadratic surface and $\sigma_k$ is an orientation
 ($\pm 1$).  $K_j$ is the set of {\it faces} of cell $C_j$, and $K'_j$ is
@@ -116,7 +119,7 @@ succeeded.
 |track(type,tmax,x0,v,cell,t,x,cell1,exit_face,cell2)| tracks a
 particle $\vect x = \vect x_0 + \vect v t$ through a zone stopping either
 at the boundary of the zone (and returning |.false.|) or after a time
-$t_{\rm max}$ (and returning |.true.|), whichever comes first.  The updated
+$t_{\mathrm{max}}$ (and returning |.true.|), whichever comes first.  The updated
 position is given in $\vect x$.  |cell| is the starting cell.  If the
 result is |.true.|, then the particle did not leave the zone, |t = tmax|,
 |cell1=cell2| is the ending cell, and |exit_face=0|.  Else, the particle
@@ -733,7 +736,7 @@ indicates that the particle is exiting the universal cell.
 
 @ Track a particle $\vect x = \vect x_0 + \vect v t$
 through a zone stopping either at the boundary of the zone (and
-returning |.false.|) or after a time $t_{\rm max}$ (and returning
+returning |.false.|) or after a time $t_{\mathrm{max}}$ (and returning
 |.true.|), whichever comes first.  Give the updated position $\vect x$ and
 the new cell |cell1|.  If an intersection is found, the |cell1| belongs to
 the original zone and, in addition, the face through which the particle
@@ -754,7 +757,7 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
       real cell_intersect
       integer new_cell
 
-      assert(type == TRACK_BASIC)
+      assert(type == pt_geometry || type == pt_neutral)
       assert(cell>0)
       j = cell
       vc_copy(x0,x)
