@@ -2,6 +2,24 @@
 
 % $Id$
 % $Log$
+% Revision 1.18  1999/07/19 19:28:54  karney
+% (1) Remove much dead code in random.web.
+%
+% (2) Add more timing tests in randomtest.web.
+%
+% (3) Implement |geometry_symmetry_oned| where $y$ and $z$ coordinates are
+% ignored.
+%
+% This is treated exactly like goemetry_symmetry_plane, except that there's a
+% additional transformation defined to carry a particle from zmin to zmax and
+% vice versa.
+%
+% (4) Implement partitioning of symmetry direction via additional
+% zonearray[0:ndiv-1], ndiv, and facearray[0:ndiv] arguments to
+% decompose_polygon.  zonearray[k] has additional faces facearray[k] and
+% -facearray[k-1] added.  (See boxgen.web for sample code, although the
+% zonearray feature is not properly exercised yet.)
+%
 % Revision 1.17  1998/04/16 15:31:02  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -192,9 +210,12 @@ specialization to plance surfaces.
 @m decl_surface_args real coeff[NCOEFFS];
       integer sigma @;
 
-@ Passing information about cells.
+@ Passing information about cells. NOTE: the \verb+[1,1]+ subscript was 
+added to |surface_coeffs| to encourage the Lahey / Fujitsu compiler to 
+pass the array by reference rather than be copying. May be able to
+remove this eventually.
 
-@m cell_info(j) cells[c_faces,j],cells[c_surfaces,j],nsurfaces,boundaries[cells[c_start,j]],surface_coeffs // All the informaion on the $j$th cell
+@m cell_info(j) cells[c_faces,j],cells[c_surfaces,j],nsurfaces,boundaries[cells[c_start,j]],surface_coeffs[1,1] // All the informaion on the $j$th cell
 @m cell_args nface,nsurface,nsurfaces,surf_list,surface_coeffs // as dummy arguments
 @f decl_cell_args integer
 @m decl_cell_args integer nface,nsurface,nsurfaces,surf_list[nsurface];
