@@ -3,6 +3,10 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.23  1996/03/01 20:23:47  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.22  1995/11/03 15:06:20  karney
 % Clean up for release.
 %
@@ -141,7 +145,7 @@ associated with each surface: a count,
 |surface_sectors[s_neg,s_count,k]|, of the number of sectors for
 this surface on the negative side; a pointer,
 |surface_sectors[s_neg,s_start,k]|, to |sectors|, giving the
-sectors for that surface zones; and then the corresponding information for the
+sectors for that surface; and then the corresponding information for the
 positive side, |surface_sectors[s_pos,s_count,k]| and
 |surface_sectors[s_pos,s_start,k]|.
 
@@ -654,7 +658,7 @@ intersect the first face in its direction.
       if ( surface_intersect < zero ) then
          assert( c < zero )     // Should only have a negative intersection if point is on wrong side
       end if
-
+/* Check result, except cases with no intersection or zero velocity */
       if ( surface_intersect*vc_abs(v) < geom_large ) then
          vc_xvt(x0,v,surface_intersect,temp)
          assert(in_surface(surface_args,temp,.false.,zero))
@@ -901,7 +905,12 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
 loop: continue
       cell1 = j                 // Update cell
       tleft = tmax-t1
-      dt = min(tleft,cell_intersect(cell_info(cell1),x,v1,k))
+/* Some things in |cell_intersect| and so forth choke on $|v1| \equiv 0$ */
+      if (vc_abs(v1) > zero) then 
+         dt = min(tleft,cell_intersect(cell_info(cell1),x,v1,k))
+      else
+         dt = tleft
+      end if
       t1 = t1+dt
       vc_xvt(x,v1,dt,x)       // Update position
       if ( dt == tleft ) then  // We're done
