@@ -2,6 +2,9 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.9  1998/09/04 17:15:16  dstotler
+% Minor changes to satisfy FWEAVE and TeX.
+%
 % Revision 1.8  1998/03/11 15:12:24  dstotler
 % Add section and subroutine to read TRIM data file from EIRENE and
 % write to pmiformat data file. Interpolate onto uniform grid in *all
@@ -84,39 +87,39 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       implicit_none_f90
       character*LINELEN tag,data_tag,v_type,version
       tag='t -> c'
-      version='V. 1.0, T reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      version='V. 1.1, T reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
       tag='h -> c'
-      version='V. 1.0, H reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      version='V. 1.1, H reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
       tag='d -> c'
-      version='V. 1.0, D reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      version='V. 1.1, D reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
       tag='h -> mo'
-      version='V. 1.0, H reflection on Mo data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      version='V. 1.1, H reflection on Mo data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
       tag='d -> mo'
-      version='V. 1.0, D reflection on Mo data from refl.dat with Ruzic lrflct1=2 angle dep.'
+      version='V. 1.1, D reflection on Mo data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
       tag='he -> fe'
-      version='V. 1.0, He reflection on Fe, marlowe data from marl.dat'
+      version='V. 1.1, He reflection on Fe, marlowe data from marl.dat'
       call pmi_write_degas_marl(tag,version)
       tag='h -> fe'
-      version='V. 1.0, H reflection on Fe, marlowe data from marl.dat'
+      version='V. 1.1, H reflection on Fe, marlowe data from marl.dat'
       call pmi_write_degas_marl(tag,version)
       tag='hmirror'
-      version='V. 1.0, simple data for unit yield, specular reflection of H on a mirror'
+      version='V. 1.1, simple data for unit yield, specular reflection of H on a mirror'
       call pmi_write_mirror(tag,version)
       tag='h2mirror'
-      version='V. 1.0, simple data for unit yield, specular reflection of H2 on a mirror'
+      version='V. 1.1, simple data for unit yield, specular reflection of H2 on a mirror'
       call pmi_write_mirror(tag,version)
       tag='hadsorbc'
       v_type='none'
-      version='V. 1.0, simple data for adsorption of H on C'
+      version='V. 1.1, simple data for adsorption of H on C'
       call pmi_write_misc(tag,const(0.1),v_type,version)
       tag='h2adsorbc'
       v_type='none'
-      version='V. 1.0, simple data for adsorption of H on C'
+      version='V. 1.1, simple data for adsorption of H on C'
       call pmi_write_misc(tag,const(0.2),v_type,version)
 //      Try doing these manually... 
 @#if 0
@@ -129,18 +132,18 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
 @#endif
       tag='hadsorbex'
       v_type='none'
-      version='V. 1.0, simple data for adsorption of H at exit'
+      version='V. 1.1, simple data for adsorption of H at exit'
       call pmi_write_misc(tag,one,v_type,version)
       tag='h2adsorbex'
       v_type='none'
-      version='V. 1.0, simple data for adsorption of H2 at exit'
+      version='V. 1.1, simple data for adsorption of H2 at exit'
       call pmi_write_misc(tag,one,v_type,version)
 
       call readfilenames
       call nc_read_elements     // Needed to rescale TRIM data
       tag='D -> Mo'             // Capitalize to match element symbols
       data_tag='D -> Fe'
-      version='V. 1.0. D reflection on Mo, trim data scaled from D on Fe'
+      version='V. 1.1. D reflection on Mo, trim data scaled from D on Fe'
       call pmi_write_trim(tag,data_tag,version)
 
       stop
@@ -157,7 +160,7 @@ combination. An angular dependence is added to the reflection coefficient.
       pf_common                                      // Common
       implicit_none_f90
       character*LINELEN tag,version
-      integer i,j,fileid,b,e,p,bin,ein,bm,em          // Local
+      integer i,j,k,l,m,n,fileid,b,e,p,bin,ein,bm,em // Local
       real delta,theta_in,delta2
       character*LINELEN full_tag,description
       character*FILELEN filein,fileout
@@ -353,7 +356,25 @@ combination. An angular dependence is added to the reflection coefficient.
 /*
    Set fit coefficient for the third dependent variable
 */
-      if (cosspec) pf_data_table(0,0,0,0,0,3)=1.7
+      if (cosspec) then
+         pf_data_table(0,0,0,0,0,3)=1.7
+      else
+         pf_data_table(0,0,0,0,0,3)=real_undef
+      end if
+
+      do n=pf_num_dep_var+1,pf_dep_var_max
+         do m=0,pf_tab_index[5,n]-1
+            do l=0,pf_tab_index[4,n]-1
+               do k=0,pf_tab_index[3,n]-1
+                  do j=0,pf_tab_index[2,n]-1
+                     do i=0,pf_tab_index[1,n]-1
+                        pf_data_table(i,j,k,l,m,n)=real_unused
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
 
 /*
    Write netCDF file and close everything up
@@ -422,7 +443,7 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       implicit_none_f90
       pf_decls
       character*LINELEN tag,version
-      integer i,j,fileid,b,e,p,bin,ein,bm,em,jspecies,k,l,m    // Local
+      integer i,j,fileid,b,e,p,bin,ein,bm,em,jspecies,k,l,m,n  // Local
       character*LINELEN description,line
       character*FILELEN filein,fileout
       real old_energies[0:num_energies-1],new_energies[0:num_energies-1],
@@ -702,6 +723,19 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
          end do
       end do
 
+      do n=pf_num_dep_var+1,pf_dep_var_max
+         do m=0,pf_tab_index[5,n]-1
+            do l=0,pf_tab_index[4,n]-1
+               do k=0,pf_tab_index[3,n]-1
+                  do j=0,pf_tab_index[2,n]-1
+                     do i=0,pf_tab_index[1,n]-1
+                        pf_data_table(i,j,k,l,m,n)=real_unused
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
 /*
    Write netCDF file and close everything up
 */
@@ -759,7 +793,7 @@ four of these.
       pf_decls
       character*LINELEN tag,data_tag,version
       integer i,j,fileid,b,e,p,bin,ein,bm,em,jpair,k,l,m,ipoint,  // Local
-     $        kold,lold,mold
+     $        kold,lold,mold,n
       character*LINELEN description,line
       character*FILELEN filein,fileout
       character*el_sy_len proj,target,data_proj,data_target
@@ -1214,7 +1248,16 @@ four of these.
                do k=0,pf_tab_index[1,3]-1
                   kold=min(max(k,1),pf_tab_index[1,3]-2)
                   if (l == 0) then
+@#if 0
+        // Sensible definite value for endpoint
+
                      pf_data_table(l,k,i,j,0,3)=cos(theta_max)
+@#else
+        // Hack endpoint to duplicate extrapolation done in EIRENE
+
+                     pf_data_table(l,k,i,j,0,3)=max(cos(theta_max),
+     $                 const(1.5)*new_dist_2d[1][kold]-half*new_dist_2d[3][kold])
+@#endif
                   else if (l == pf_tab_index[2,3]-1) then
                      pf_data_table(l,k,i,j,0,3)=one
                   else
@@ -1280,6 +1323,19 @@ four of these.
          end do
       end do
                   
+      do n=pf_num_dep_var+1,pf_dep_var_max
+         do m=0,pf_tab_index[5,n]-1
+            do l=0,pf_tab_index[4,n]-1
+               do k=0,pf_tab_index[3,n]-1
+                  do j=0,pf_tab_index[2,n]-1
+                     do i=0,pf_tab_index[1,n]-1
+                        pf_data_table(i,j,k,l,m,n)=real_unused
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
 /*
    Write netCDF file and close everything up
 */
@@ -1530,7 +1586,7 @@ the characteristics of which can be summarized in this short argument list.
       implicit_none_f90
       character*LINELEN tag,v_type,version           // Input
       real yield
-      integer i,j,fileid                             // Local
+      integer i,j,k,l,m,n,fileid                     // Local
       character*LINELEN description
       character*FILELEN fileout
       nc_decls
@@ -1606,6 +1662,19 @@ the characteristics of which can be summarized in this short argument list.
       
       pf_data_table(0,0,0,0,0,1)=yield
 
+      do n=pf_num_dep_var+1,pf_dep_var_max
+         do m=0,pf_tab_index[5,n]-1
+            do l=0,pf_tab_index[4,n]-1
+               do k=0,pf_tab_index[3,n]-1
+                  do j=0,pf_tab_index[2,n]-1
+                     do i=0,pf_tab_index[1,n]-1
+                        pf_data_table(i,j,k,l,m,n)=real_unused
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
 /*
    Write netCDF file and close everything up
 */
@@ -1640,7 +1709,7 @@ the characteristics of which can be summarized in this short argument list.
       pf_common                                      // Common
       implicit_none_f90
       character*LINELEN tag,version                  // Input
-      integer i,j,fileid                             // Local
+      integer i,j,k,l,m,n,fileid                     // Local
       character*LINELEN description
       character*FILELEN fileout
       nc_decls
@@ -1736,6 +1805,20 @@ the characteristics of which can be summarized in this short argument list.
 
       pf_data_table(0,0,0,0,0,3)=pf_min[1,3]   // ``$E_{out} = E_{in}$''
       pf_data_table(1,0,0,0,0,3)=pf_max[1,3]
+
+      do n=pf_num_dep_var+1,pf_dep_var_max
+         do m=0,pf_tab_index[5,n]-1
+            do l=0,pf_tab_index[4,n]-1
+               do k=0,pf_tab_index[3,n]-1
+                  do j=0,pf_tab_index[2,n]-1
+                     do i=0,pf_tab_index[1,n]-1
+                        pf_data_table(i,j,k,l,m,n)=real_unused
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
 /*
    Write netCDF file and close everything up
 */
