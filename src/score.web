@@ -2,6 +2,14 @@
 \Title{score}
 
 % $Log$
+% Revision 1.15  2001/07/16 21:03:47  dstotler
+% Added complete scoring of sources, adding routines for scoring puff
+% and plate sources. Changed post_process_back_scores to
+% post_process_source_scores and added a new score_sources,  eliminating
+% score_recombination in the process. Set velocity=1 for post processing
+% unless we can fix the divide_number conversion. Added xz_stress to
+% scoring_data for Couette flow example.
+%
 % Revision 1.14  2000/04/01 17:34:34  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -1128,7 +1136,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
 @ Moved post-processed scores from |flighttest| main routine to here.
 
 @<Functions...@>=
-      subroutine post_process_test_scores(is,scores,estimator_factors)
+      subroutine post_process_test_scores(is,estimator_factors)
 
       implicit_none_f77
       zn_common                                         // Common 
@@ -1136,11 +1144,10 @@ bins. The treated variables thus far are energy and angle of incicidence.
       tl_common
       sp_common
       so_common
+      sa_common
       implicit_none_f90
 
       integer is                                        // Input
-
-      real scores[0:*][o_mean:o_var]                    // Output
 
       real estimator_factors[*]                         // Scratch
       integer jscore,jscore_v,i,j,k,l,m,irank_test,irank_zone,test,zone,
@@ -1205,14 +1212,14 @@ bins. The treated variables thus far are energy and angle of incicidence.
                         lc_set_a(zone_loc)
                         assert(lc_zone(zone_loc) == zone)
 
-                        particle_no=scores[out_array_index(1,ind_val,jscore)][o_mean]
+                        particle_no=stat_flt[out_array_index(1,ind_val,jscore)][o_mean]
                         do ic=1,tally_dep_var_dim[jscore_v]
 @#if 0
 /*
    THE DIVIDE NUMBER CONVERSION IS BROKEN - NEEDS TO DIVIDE BY TOTAL
    PARTICLE NUMBER NOT BY NUMBER PER GROUP. DO WITHOUT VELOCITY FOR NOW HERE.
 */
-                           velocity[ic]=scores[out_array_index(ic,ind_val,jscore_v)][o_mean]
+                           velocity[ic]=stat_flt[out_array_index(ic,ind_val,jscore_v)][o_mean]
 @#else
                            velocity[ic]=one
 @#endif
