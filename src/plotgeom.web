@@ -2,6 +2,10 @@
 \Title{plot geometry}
 
 % $Log$
+% Revision 1.15  1996/10/30 18:03:30  dstotler
+% Add routine to write HDF data files. Handle new test species index in
+% stat array.
+%
 % Revision 1.14  1996/03/01 20:21:04  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -338,75 +342,6 @@ loop1:   continue
      $        (max_char-min_char))
          ti_func=min(max(ti_func,min_char),max_char-1)
       end if
-
-      return
-      end
-
-@ The stat value.
-
-@<Functions...@>=
-      function stat_func(lc_dummy(x),min_char,max_char)
-      implicit_none
-      integer stat_func         // Function
-      integer min_char,max_char // Input
-      lc_decl(x)
-      zn_common
-      bk_common
-      pr_common
-      ptr_decl(stat)
-      real stat[2,zn_num,2*(pr_test_num-1)],smin,smax
-      common /stat_com/ smin,smax,ptr_stat
-      
-      if (zn_type(lc_zone(x)) == zn_exit) then
-         stat_func=2
-      else if (zn_type(lc_zone(x)) == zn_solid) then
-         stat_func=max_char
-      else
-         assert(zn_type(lc_zone(x)) == zn_plasma || zn_type(lc_zone(x)) == zn_vacuum )
-         if (stat[1,lc_zone(x),1] <= zero) then
-            stat_func=min_char
-         else
-            stat_func=min_char+
-     $           int((log( stat[1,lc_zone(x),1] )-
-     $           log(smin))/
-     $           (log(smax)-log(smin))*
-     $           (max_char-min_char))
-            stat_func=min(max(stat_func,min_char),max_char-1)
-         end if
-      end if
-
-      return
-      end
-
-      subroutine stat_read
-      implicit_none
-      zn_common
-      sy_common
-      pr_common
-      integer j,sp_dim
-      ptr_decl(stat)
-      real stat[2,zn_num,2*(pr_test_num-1)],smin,smax
-      common /stat_com/ smin,smax,ptr_stat
-
-      sp_dim=2*(pr_test_num-1)
-      real_alloc(stat,2*zn_num*sp_dim)
-      open(unit=diskin,file='stat.dat',status='old')
-      read(diskin,*) stat
-      close(diskin)
-      smin=one
-      smax=zero
-      do j=1,zn_num
- /* This is now done in flighttest
-         stat[1,j,1]=stat[1,j,1]/zn_volume(j) */
-         if (stat[1,j,1]>0) then                  // Note: not generalized for
-            smin=min(smin,stat[1,j,1])            // "species" index; just 
-            smax=max(smax,stat[1,j,1])            // using "1" so it works.
-         end if
-      end do
-      
-      if (smin/smax < const(1.0,-10)) smin=const(1.0,-10)*smax
-
-      write(stdout,*) 'smin/smax', smin,smax
 
       return
       end
