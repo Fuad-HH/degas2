@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.12  1996/05/24 18:55:08  dstotler
+% Add arrays for handling PMI and their products.
+%
 % Revision 1.11  1996/03/01 20:32:00  dstotler
 % Add problem-level PMI and material variables.
 %
@@ -111,6 +114,10 @@ problem is identified by an integer indexing into these arrays.
 @m pr_ts_prod(i,j,k,l) problem_test_products[l,k,j,i]
 @m pr_prod_mult(i,j,k) problem_prod_mult[k,j,i]
 
+@m pr_bk_rc(i) problem_background_reaction[i]
+@m pr_bkrc_rg(i,j) problem_bkrc_reagents[j,i]
+@m pr_bkrc_prod(i,j) problem_bkrc_products[j,i]
+
 @m pr_pm_ref(x) problem_pmi_ref[x]
 @m pr_pm_case_num(x) problem_pmi_case_num[x]
 @m pr_pm_cases(x,i) problem_pmi_cases[i,x]
@@ -129,6 +136,7 @@ problem is identified by an integer indexing into these arrays.
 @m pr_arrangement_max 4
 @m pr_pmi_max 8
 @m pr_max_equiv 8
+@m pr_bkrc_reagent_max 2
 
 @ Variable definitions.
 
@@ -137,6 +145,8 @@ problem is identified by an integer indexing into these arrays.
       define_var_pk(pr,pr_test_num,INT)
       define_var_pk(pr,pr_background_num,INT)
       define_var_pk(pr,pr_reaction_num,INT)
+      define_var_pk(pr,pr_bkrc_num,INT)
+      define_var_pk(pr,pr_bkrc_dim,INT)
       define_var_pk(pr,pr_materials_num,INT)
       define_var_pk(pr,pr_pmi_num,INT)
       define_dummy_pk(pr,pr_ignore,INT)
@@ -145,6 +155,8 @@ problem is identified by an integer indexing into these arrays.
       define_dimen_pk(pr,problem_background_ind,pr_background_num)
       define_dimen_pk(pr,problem_reaction_ind,pr_reaction_num)
       define_dimen_pk(pr,problem_reaction_ind0,pr_reaction_max)
+      define_dimen_pk(pr,problem_bkrc_ind,pr_bkrc_dim)
+      define_dimen_pk(pr,problem_bkrc_rg_ind,pr_bkrc_reagent_max)
       define_dimen_pk(pr,problem_species_ind,sp_num)
       define_dimen_pk(pr,problem_materials_ref_ind,ma_num)
       define_dimen_pk(pr,problem_materials_sub_ind,pr_materials_num)
@@ -169,6 +181,10 @@ problem is identified by an integer indexing into these arrays.
       define_varp_pk(pr,problem_num_arrangements,INT,problem_reaction_ind0,problem_test_ind)
       define_varp_pk(pr,problem_test_products,INT,problem_product_ind,problem_arr_ind,problem_reaction_ind0,problem_test_ind)
       define_varp_pk(pr,problem_prod_mult,FLOAT,problem_arr_ind,problem_reaction_ind0,problem_test_ind)
+
+      define_varp_pk(pr,problem_background_reaction,INT,problem_bkrc_ind)
+      define_varp_pk(pr,problem_bkrc_reagents,INT,problem_bkrc_rg_ind,problem_bkrc_ind)
+      define_varp_pk(pr,problem_bkrc_products,INT,problem_product_ind,problem_bkrc_ind)
 
       define_varp_pk(pr,problem_pmi_ref,INT,problem_pmi_sub_ind)
       define_varp_pk(pr,problem_pmi_sub,INT,problem_pmi_ref_ind)
