@@ -18,7 +18,7 @@ explicitly), and calls CRAMD at each point. The ``problem'' file is also
 read in at the start; at this point, entries corresponding to the CRAMD
 data have been made in the problem file and in the reactions list. However,
 the data in those tables are just placeholders, their locations denoted 
-by |organization| = ``CRAMD''. In this code, the data table array is 
+by |eval_name| = ``cramd''. In this code, the data table array is 
 reallocated to make room for the data (the number of data values is
 problem-specific) and the new data are added in following the loop over
 zones. Finally, the problem file is written out again and the code run
@@ -49,8 +49,8 @@ of hardwired components:
 @I string.hweb
 @I species.hweb
 
-@m tmp_rd_data(x,m,i,j,k) tmp_rd_table[tmp_rd_base[x][m]+i+tmp_rd_tab_index[x][m][1]*(j+tmp_rd_tab_index[x][m][2]*k)]
-@m tmp_rm_data(x,m,i,j,k) tmp_rm_table[tmp_rm_base[x][m]+i+tmp_rm_tab_index[x][m][1]*(j+tmp_rm_tab_index[x][m][2]*k)]
+@m tmp_rate(i,j,k,r) tmp_rr_tab[tmp_rr_base[r]+i+tmp_rr_tab_index[r][1]*(j+tmp_rr_tab_index[r][2]*k)]
+@m tmp_handling(i,j,k,d,r) tmp_rh_tab[tmp_rh_base[r][d]+i+tmp_rh_tab_index[r][d][1]*(j+tmp_rh_tab_index[r][d][2]*k)]
 
 @m bt const(2.0)
 @m h_of const(1.0)
@@ -75,24 +75,23 @@ of hardwired components:
 
       integer pr_reac, jdep, jrank, i, j, k, i_elec, i_ion,
      $        pr_reac_eion, jd_eion_e_los, jd_eion_ha, pr_reac_iion, 
-     $        jd_iion_e_los, pr_reac_rec, jd_rec_ha, jd_rec_e_los, jd_rec_i_los, 
-     $        jd_rec_e_gain, pr_reac_dis, jd_dis_hf, jd_dis_ha, 
+     $        jd_iion_e_los, pr_reac_rec, jd_rec_ha, jd_rec_e_los, 
+     $        jd_rec_e_src, pr_reac_dis, jd_dis_hf, jd_dis_ha, 
      $        jd_dis_e_los, jd_dis_i_los, jd_dis_mar, zone, ierr
       real n_ion, t_ion, t_elec
       real output_data[num_output_params,num_test_species]
-      logical have_cramd_data
       character*LINELEN cwd
       character*FILELEN tempfile
 
-      integer tmp_rd_size
-      ptr_decl(tmp_rd_tab_index) 
-      ptr_decl(tmp_rd_base)
-      ptr_decl(tmp_rd_table)
+      integer tmp_rr_size
+      ptr_decl(tmp_rr_tab_index) 
+      ptr_decl(tmp_rr_base)
+      ptr_decl(tmp_rr_tab)
 
-      integer tmp_rm_size
-      ptr_decl(tmp_rm_tab_index)
-      ptr_decl(tmp_rm_base)
-      ptr_decl(tmp_rm_table)
+      integer tmp_rh_size
+      ptr_decl(tmp_rh_tab_index)
+      ptr_decl(tmp_rh_base)
+      ptr_decl(tmp_rh_tab)
 
       external cramd_ini
       integer cramd_ini
@@ -100,13 +99,13 @@ of hardwired components:
       rd_common
       zn_common
       pr_common
-      integer tmp_rd_tab_index[pr_reaction_num][xs_dep_var_max][xs_table_rank_max]
-      integer tmp_rd_base[pr_reaction_num][xs_dep_var_max]
-      real tmp_rd_table[0:reaction_data_size-1]
+      integer tmp_rr_tab_index[pr_reaction_num][xs_table_rank_max]
+      integer tmp_rr_base[pr_reaction_num]
+      real tmp_rr_tab[0:reaction_rate_size-1]
 
-      integer tmp_rm_tab_index[pr_reaction_num][xs_dep_var_max][xs_table_rank_max]
-      integer tmp_rm_base[pr_reaction_num][xs_dep_var_max]
-      real tmp_rm_table[0:reaction_misc_size-1]
+      integer tmp_rh_tab_index[pr_reaction_num][rd_dep_var_max][xs_table_rank_max]
+      integer tmp_rh_base[pr_reaction_num][rd_dep_var_max]
+      real tmp_rh_tab[0:reaction_handling_size-1]
 
       bk_common
       sy_common
@@ -115,14 +114,12 @@ of hardwired components:
       sp_common
       rf_common
 
-      have_cramd_data=.false.
       do pr_reac=1,pr_reaction_num
-         do jdep=1,xs_dep_var_max
-            if (reaction_organization[pr_reac][jdep] == xs_organization_cramd)
-     $           have_cramd_data=.true.
-         end do
+         if (reaction_rate_eval_name[pr_reac] == 'cramd') 
+     $        goto break
       end do
-      if (!have_cramd_data) return
+      return       // No CRAMD data
+break: continue    // Have CRAMD data
 
 // SHOULD CHANGE background.hweb!!!
 // I.e., the dimension of the background arrays should be expressly zn_num,
@@ -131,83 +128,85 @@ of hardwired components:
 // a different (and confusing) index for a given plasma zone to be used in
 // referencing a background array than with the geometry zone.
 
-      int_alloc(tmp_rd_tab_index,pr_reaction_num*xs_dep_var_max*xs_table_rank_max)
-      int_alloc(tmp_rd_base,pr_reaction_num*xs_dep_var_max)
-      real_alloc(tmp_rd_table,reaction_data_size)
+      int_alloc(tmp_rr_tab_index,pr_reaction_num*xs_table_rank_max)
+      int_alloc(tmp_rr_base,pr_reaction_num)
+      real_alloc(tmp_rr_tab,reaction_rate_size)
 
-      int_alloc(tmp_rm_tab_index,pr_reaction_num*xs_dep_var_max*xs_table_rank_max)
-      int_alloc(tmp_rm_base,pr_reaction_num*xs_dep_var_max)
-      real_alloc(tmp_rm_table,reaction_misc_size)
+      int_alloc(tmp_rh_tab_index,pr_reaction_num*rd_dep_var_max*xs_table_rank_max)
+      int_alloc(tmp_rh_base,pr_reaction_num*rd_dep_var_max)
+      real_alloc(tmp_rh_tab,reaction_handling_size)
 
-      tmp_rd_size=reaction_data_size
-      tmp_rm_size=reaction_misc_size
+      tmp_rr_size=reaction_rate_size
+      tmp_rh_size=reaction_handling_size
       do pr_reac=1,pr_reaction_num
-         do jdep=1,xs_dep_var_max
-            tmp_rd_base[pr_reac][jdep]=reaction_data_base[pr_reac][jdep]
-            tmp_rm_base[pr_reac][jdep]=reaction_misc_base[pr_reac][jdep]
-            do jrank=1,xs_table_rank_max
-               tmp_rd_tab_index[pr_reac][jdep][jrank]=reaction_data_tab_index[pr_reac][jdep][jrank]
-               tmp_rm_tab_index[pr_reac][jdep][jrank]=reaction_misc_tab_index[pr_reac][jdep][jrank]
-            end do
-            do k=0,reaction_data_tab_index[pr_reac][jdep][3]-1
-               do j=0,reaction_data_tab_index[pr_reac][jdep][2]-1
-                  do i=0,reaction_data_tab_index[pr_reac][jdep][1]-1
-                     tmp_rd_data(pr_reac,jdep,i,j,k)=rd_data3(pr_reac,jdep,i,j,k)
-                  end do
+
+         tmp_rr_base[pr_reac]=reaction_rate_base[pr_reac]
+         do jrank=1,xs_table_rank_max
+            tmp_rr_tab_index[pr_reac][jrank]=reaction_rate_tab_index[pr_reac][jrank]
+         end do
+         do k=0,reaction_rate_tab_index[pr_reac][3]-1
+            do j=0,reaction_rate_tab_index[pr_reac][2]-1
+               do i=0,reaction_rate_tab_index[pr_reac][1]-1
+                  tmp_rate(i,j,k,pr_reac)=rd_rate(i,j,k,pr_reac)
                end do
             end do
-            do k=0,reaction_misc_tab_index[pr_reac][jdep][3]-1
-               do j=0,reaction_misc_tab_index[pr_reac][jdep][2]-1
-                  do i=0,reaction_misc_tab_index[pr_reac][jdep][1]-1
-                     tmp_rm_data(pr_reac,jdep,i,j,k)=rd_misc_data3(pr_reac,jdep,i,j,k)
+         end do
+
+         do jdep=1,rd_dep_var_max
+            tmp_rh_base[pr_reac][jdep]=reaction_handling_base[pr_reac][jdep]
+            do jrank=1,xs_table_rank_max
+               tmp_rh_tab_index[pr_reac][jdep][jrank]=reaction_handling_tab_index[pr_reac][jdep][jrank]
+            end do
+            do k=0,reaction_handling_tab_index[pr_reac][jdep][3]-1
+               do j=0,reaction_handling_tab_index[pr_reac][jdep][2]-1
+                  do i=0,reaction_handling_tab_index[pr_reac][jdep][1]-1
+                     tmp_handling(i,j,k,jdep,pr_reac)=rd_handling(i,j,k,jdep,pr_reac)
                   end do
                end do
             end do
          end do
       end do
       
-      var_free(reaction_data_table)
-      var_free(reaction_misc_table)
+      var_free(reaction_rate_tab)
+      var_free(reaction_handling_tab)
 
-      rd_ragged_alloc(reaction_data)
-      rd_ragged_alloc(reaction_misc)
+      rd_ragged_alloc(reaction_rate)
+      rd_ragged_alloc(reaction_handling)
       do pr_reac=1,pr_reaction_num
-         do jdep=1,xs_dep_var_max
-            if (reaction_organization[pr_reac][jdep] == xs_organization_cramd) then
-               reaction_data_tab_index[pr_reac][jdep][1]=zn_num
-               
-            end if
-            rd_ragged_realloc(reaction_data,reaction_data_tab_index,[pr_reac][jdep])
-            if (reaction_misc_organization[pr_reac][jdep] == xs_organization_cramd) then
-               reaction_misc_tab_index[pr_reac][jdep][1]=zn_num
-            end if
-            rd_ragged_realloc(reaction_misc,reaction_misc_tab_index,[pr_reac][jdep])
+         if (reaction_rate_eval_name[pr_reac] == 'cramd')
+     $        reaction_rate_tab_index[pr_reac][1]=zn_num
+         rd_ragged_realloc(reaction_rate,reaction_rate_tab_index,[pr_reac])
+         do jdep=1,rd_dep_var_max
+            if (reaction_handling_eval_name[pr_reac][jdep] == 'cramd')
+     $           reaction_handling_tab_index[pr_reac][jdep][1]=zn_num
+            rd_ragged_realloc(reaction_handling,reaction_handling_tab_index,[pr_reac][jdep])
          end do
       end do
 
 /* Replace old data first */
 
       do pr_reac=1,pr_reaction_num
-            do jdep=1,xs_dep_var_max
-               if (reaction_organization[pr_reac][jdep] != xs_organization_cramd) then
-                  do k=0,reaction_data_tab_index[pr_reac][jdep][3]-1
-                     do j=0,reaction_data_tab_index[pr_reac][jdep][2]-1
-                        do i=0,reaction_data_tab_index[pr_reac][jdep][1]-1
-                           rd_data3(pr_reac,jdep,i,j,k)=tmp_rd_data(pr_reac,jdep,i,j,k)
-                        end do
-                     end do
+         if (reaction_rate_eval_name[pr_reac] != 'cramd') then
+            do k=0,reaction_rate_tab_index[pr_reac][3]-1
+               do j=0,reaction_rate_tab_index[pr_reac][2]-1
+                  do i=0,reaction_rate_tab_index[pr_reac][1]-1
+                     rd_rate(i,j,k,pr_reac)=tmp_rate(i,j,k,pr_reac)
                   end do
-               end if
-               if (reaction_misc_organization[pr_reac][jdep] != xs_organization_cramd) then
-                  do k=0,reaction_misc_tab_index[pr_reac][jdep][3]-1
-                     do j=0,reaction_misc_tab_index[pr_reac][jdep][2]-1
-                        do i=0,reaction_misc_tab_index[pr_reac][jdep][1]-1
-                           rd_misc_data3(pr_reac,jdep,i,j,k)=tmp_rm_data(pr_reac,jdep,i,j,k)
-                        end do
-                     end do
-                  end do
-               end if
+               end do
             end do
+         end if
+
+         do jdep=1,rd_dep_var_max
+            if (reaction_handling_eval_name[pr_reac][jdep] != 'cramd') then
+               do k=0,reaction_handling_tab_index[pr_reac][jdep][3]-1
+                  do j=0,reaction_handling_tab_index[pr_reac][jdep][2]-1
+                     do i=0,reaction_handling_tab_index[pr_reac][jdep][1]-1
+                        rd_handling(i,j,k,jdep,pr_reac)=tmp_handling(i,j,k,jdep,pr_reac)
+                     end do
+                  end do
+               end do
+            end if
+         end do
       end do
 /* Loop over zones, calculate CRAMD data and insert into data tables.
    Contents of |plasma_parameters| are (constant multipliers are defined
@@ -218,7 +217,7 @@ of hardwired components:
 
       i_elec=problem_species_background[sp_lookup('e')]
       i_ion=problem_species_background[sp_lookup('D+')]
-      assert(i_elec != 0 && i_ion != 0)
+      assert(sp_check(i_elec) && sp_check(i_ion))
 
 /* Determine array indices corresponding to CRAMD reactions and dependent
    variables.
@@ -227,45 +226,43 @@ of hardwired components:
       pr_reac_eion=int_lookup(rc_lookup('heioncramd'),
      $     problem_rc,pr_reaction_num)
       if (pr_reac_eion != 0) then
-         jd_eion_ha=string_lookup('halpha_rate',
-     $        reaction_misc_var_dep[1,pr_reac_eion],xs_dep_var_max)
-         jd_eion_e_los=string_lookup('elec_e_loss_rate',
-     $        reaction_misc_var_dep[1,pr_reac_eion],xs_dep_var_max)
+         jd_eion_ha=string_lookup('emission_rate_H_alpha',
+     $        reaction_handling_var0[1,pr_reac_eion],rd_dep_var_max)
+         jd_eion_e_los=string_lookup('background_energy_loss_rate',
+     $        reaction_handling_var0[1,pr_reac_eion],rd_dep_var_max)
       end if
 
       pr_reac_iion=int_lookup(rc_lookup('hiioncramd'),
      $     problem_rc,pr_reaction_num)
       if (pr_reac_iion != 0) then
-         jd_iion_e_los=string_lookup('ion_e_loss_rate',
-     $        reaction_misc_var_dep[1,pr_reac_iion],xs_dep_var_max)
+         jd_iion_e_los=string_lookup('background_energy_loss_rate',
+     $        reaction_handling_var0[1,pr_reac_iion],rd_dep_var_max)
       end if
 
       pr_reac_rec=int_lookup(rc_lookup('herecramd'),
      $     problem_rc,pr_reaction_num)
       if (pr_reac_rec != 0) then
-         jd_rec_ha=string_lookup('halpha_rate',
-     $        reaction_misc_var_dep[1,pr_reac_rec],xs_dep_var_max)
-         jd_rec_e_los=string_lookup('elec_e_loss_rate',
-     $        reaction_misc_var_dep[1,pr_reac_rec],xs_dep_var_max)
-         jd_rec_i_los=string_lookup('ion_e_loss_rate',
-     $        reaction_misc_var_dep[1,pr_reac_rec],xs_dep_var_max)
-         jd_rec_e_gain=string_lookup('3body_e_gain_rate',
-     $        reaction_misc_var_dep[1,pr_reac_rec],xs_dep_var_max)
+         jd_rec_ha=string_lookup('emission_rate_H_alpha',
+     $        reaction_handling_var0[1,pr_reac_rec],rd_dep_var_max)
+         jd_rec_e_los=string_lookup('background_energy_loss_rate',
+     $        reaction_handling_var0[1,pr_reac_rec],rd_dep_var_max)
+         jd_rec_e_src=string_lookup('background_energy_source_rate',
+     $        reaction_handling_var0[1,pr_reac_rec],rd_dep_var_max)
       end if
 
       pr_reac_dis=int_lookup(rc_lookup('h2discramd'),
      $     problem_rc,pr_reaction_num)
       if (pr_reac_dis != 0) then
-         jd_dis_hf=string_lookup('hfrac',
-     $        reaction_misc_var_dep[1,pr_reac_dis],xs_dep_var_max)
-         jd_dis_ha=string_lookup('halpha_rate',
-     $        reaction_misc_var_dep[1,pr_reac_dis],xs_dep_var_max)
-         jd_dis_e_los=string_lookup('elec_e_loss_rate',
-     $        reaction_misc_var_dep[1,pr_reac_dis],xs_dep_var_max)
-         jd_dis_i_los=string_lookup('ion_e_loss_rate',
-     $        reaction_misc_var_dep[1,pr_reac_dis],xs_dep_var_max)
+         jd_dis_hf=string_lookup('H_fraction',
+     $        reaction_handling_var0[1,pr_reac_dis],rd_dep_var_max)
+         jd_dis_ha=string_lookup('emission_rate_H_alpha',
+     $        reaction_handling_var0[1,pr_reac_dis],rd_dep_var_max)
+         jd_dis_e_los=string_lookup('background_energy_loss_rate',
+     $        reaction_handling_var0[1,pr_reac_dis],rd_dep_var_max)
+         jd_dis_i_los=string_lookup('proton_energy_loss_rate',
+     $        reaction_handling_var0[1,pr_reac_dis],rd_dep_var_max)
          jd_dis_mar=string_lookup('mar_rate',
-     $        reaction_misc_var_dep[1,pr_reac_dis],xs_dep_var_max)
+     $        reaction_handling_var0[1,pr_reac_dis],rd_dep_var_max)
       end if
 
       call get_cwd(cwd)
@@ -291,51 +288,49 @@ of hardwired components:
    conversions to bring everything into MKS units.
  */
             if (pr_reac_eion != 0) then
-               rd_data3(pr_reac_eion,rd_rate,zone-1,0,0)=
+               rd_rate(zone-1,0,0,pr_reac_eion)=
      $              output_data[1][1]*const(1.,-6)
-               rd_misc_data3(pr_reac_eion,jd_eion_ha,zone-1,0,0)=
+               rd_handling(zone-1,0,0,jd_eion_ha,pr_reac_eion)=
      $              output_data[1][6]*const(1.,-6)*electron_charge
-               rd_misc_data3(pr_reac_eion,jd_eion_e_los,zone-1,0,0)=
+               rd_handling(zone-1,0,0,jd_eion_e_los,pr_reac_eion)=
      $              output_data[1][3]*const(1.,-6)*electron_charge
             end if
 
             if (pr_reac_iion != 0) then
-               rd_data3(pr_reac_iion,rd_rate,zone-1,0,0)=
+               rd_rate(zone-1,0,0,pr_reac_iion)=
      $              output_data[1][2]*const(1.,-6)
-               rd_misc_data3(pr_reac_iion,jd_iion_e_los,zone-1,0,0)=
+               rd_handling(zone-1,0,0,jd_iion_e_los,pr_reac_iion)=
      $              output_data[1][4]*const(1.,-6)*electron_charge
             end if
 
             if (pr_reac_rec != 0) then
-               rd_data3(pr_reac_rec,rd_rate,zone-1,0,0)=
+               rd_rate(zone-1,0,0,pr_reac_rec)=
      $              output_data[1][7]*const(1.,-6)
-               rd_misc_data3(pr_reac_rec,jd_rec_ha,zone-1,0,0)=
+               rd_handling(zone-1,0,0,jd_rec_ha,pr_reac_rec)=
      $              output_data[1][15]*const(1.,-6)*electron_charge
-               rd_misc_data3(pr_reac_rec,jd_rec_e_los,zone-1,0,0)=
+               rd_handling(zone-1,0,0,jd_rec_e_los,pr_reac_rec)=
      $              output_data[1][8]*const(1.,-6)*electron_charge
-               rd_misc_data3(pr_reac_rec,jd_rec_i_los,zone-1,0,0)=
-     $              output_data[1][9]*const(1.,-6)*electron_charge
-               rd_misc_data3(pr_reac_rec,jd_rec_e_gain,zone-1,0,0)=
+               rd_handling(zone-1,0,0,jd_rec_e_src,pr_reac_rec)=
      $              output_data[1][13]*const(1.,-6)*electron_charge
             end if
 
             if (pr_reac_dis != 0) then
-               rd_data3(pr_reac_dis,rd_rate,zone-1,0,0)=
+               rd_rate(zone-1,0,0,pr_reac_dis)=
      $              output_data[2][1]*const(1.,-6)
                if (jd_dis_hf != 0) 
-     $              rd_misc_data3(pr_reac_dis,jd_dis_hf,zone-1,0,0)=
+     $              rd_handling(zone-1,0,0,jd_dis_hf,pr_reac_dis)=
      $              output_data[2][3] 
                if (jd_dis_ha != 0) 
-     $              rd_misc_data3(pr_reac_dis,jd_dis_ha,zone-1,0,0)=
+     $              rd_handling(zone-1,0,0,jd_dis_ha,pr_reac_dis)=
      $              output_data[2][8]*const(1.,-6)*electron_charge
                if (jd_dis_e_los != 0) 
-     $              rd_misc_data3(pr_reac_dis,jd_dis_e_los,zone-1,0,0)=
+     $              rd_handling(zone-1,0,0,jd_dis_e_los,pr_reac_dis)=
      $              output_data[2][5]*const(1.,-6)*electron_charge
                if (jd_dis_i_los != 0)
-     $              rd_misc_data3(pr_reac_dis,jd_dis_i_los,zone-1,0,0)=
+     $              rd_handling(zone-1,0,0,jd_dis_i_los,pr_reac_dis)=
      $              output_data[2][6]*const(1.,-6)*electron_charge
                if (jd_dis_mar != 0)
-     $              rd_misc_data3(pr_reac_dis,jd_dis_mar,zone-1,0,0)=
+     $              rd_handling(zone-1,0,0,jd_dis_mar,pr_reac_dis)=
      $              output_data[2][2]*const(1.,-6)
             end if
             
@@ -349,24 +344,22 @@ of hardwired components:
 @#endif
 
       do pr_reac=1,pr_reaction_num
-         do jdep=1,xs_dep_var_max
-            if (reaction_organization[pr_reac][jdep] == xs_organization_cramd) then
-               reaction_organization[pr_reac][jdep]=xs_organization_table
-            end if
-            if (reaction_misc_organization[pr_reac][jdep] == xs_organization_cramd) then
-               reaction_misc_organization[pr_reac][jdep]=xs_organization_table
-            end if
+         if (reaction_rate_eval_name[pr_reac] == 'cramd')
+     $        reaction_rate_eval_name[pr_reac]='table'
+         do jdep=1,rd_dep_var_max
+            if (reaction_handling_eval_name[pr_reac][jdep] == 'cramd') 
+     $           reaction_handling_eval_name[pr_reac][jdep]='table'
          end do
       end do
                      
-      int_free(tmp_rd_tab_index,pr_reaction_num*xs_dep_var_max*xs_table_rank_max)
+      int_free(tmp_rr_tab_index,pr_reaction_num*xs_table_rank_max)
       
-      int_free(tmp_rd_base,pr_reaction_num*xs_dep_var_max)
-      real_free(tmp_rd_table,tmp_rd_size)
+      int_free(tmp_rr_base,pr_reaction_num)
+      real_free(tmp_rr_tab,tmp_rr_size)
 
-      int_free(tmp_rm_tab_index,pr_reaction_num*xs_dep_var_max*xs_table_rank_max)
-      int_free(tmp_rm_base,pr_reaction_num*xs_dep_var_max)
-      real_free(tmp_rm_table,tmp_rm_size)
+      int_free(tmp_rh_tab_index,pr_reaction_num*rd_dep_var_max*xs_table_rank_max)
+      int_free(tmp_rh_base,pr_reaction_num*rd_dep_var_max)
+      real_free(tmp_rh_tab,tmp_rh_size)
 
       tempfile=filenames_array[problemfile]
       filenames_array[problemfile]=filenames_array[cramdproblemfile]
