@@ -2,6 +2,10 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.15  1996/03/01 20:32:36  dstotler
+% Add problem-level PMI and material variables; incorporate pmidata into
+% problem data file.
+%
 % Revision 1.14  1995/11/03 15:06:34  karney
 % Clean up for release.
 %
@@ -55,7 +59,12 @@
 
 \ID{$Id$}
 
-Introduction\ldots
+The routines in this file extract from the reference physics classes
+(species, reaction classes, etc.) those objects required to deal with
+the species and processes spelled out in the |problem_infile|. All of the
+data are read in from the netCDF files; those which are needed are
+collated accordingly and written to the single output netCDF file
+|problemfile|.
 
 @m FILE 'problemsetup.web'
 
@@ -72,6 +81,43 @@ Introduction\ldots
 @I reactiondata.hweb
 @I pmidata.hweb
 @I element.hweb
+
+/* The following variables are required in a number of these routines, but
+not in any outside of |problemsetup|; hence, they exist only in this local
+common block rather than being declared in |problem.hweb|.
+
+The mechanism for dealing with isotopic variations involves defining a
+``generic species'', a single species which represents all of the isotopic
+combinations equivalent to it.
+E.g., for the all-important case of hydrogen,
+the generic archetype for a given molecule is defined (or at least
+it should be) as the one containing only protium isotopes.
+
+\begin{description}
+  \item{|num_generics|} Total number of "generic species" appearing
+in the lists of test and background species.
+  \item{|generics[$i_{s}$]|} Provides the index $i_{g}$ (used below)
+of the "generic species" which is being used to represent (the isotopically
+equivalent) species $i_{s}$ of the reference species list.
+  \item{|num_equiv[$i_{g}$]|} Total number of entries in the test and 
+background species lists which are equivalent to "generic species" $i_{g}$.
+  \item{|equivalents[$i_{g}$,$j$]|} Provides the index into the 
+reference species list of
+the $j$th particle equivalent to generic species $i_{g}$, where $j = 1 
+\rightarrow |num_equiv|[i_{g}]$.
+\end{description}
+*/
+
+@f pr_common_l integer
+@m pr_common_l
+      integer num_generics;
+      ptr_decl(generics);
+      integer generics[*];
+      ptr_decl(num_equiv);
+      integer num_equiv[*];
+      ptr_decl(equivalents);
+      integer equivalents[pr_max_equiv,*];
+      common/pr_set_com_l/num_generics,ptr_generics,ptr_num_equiv,ptr_equivalents @;
 
 @ The unnamed module.
 
@@ -99,10 +145,11 @@ Introduction\ldots
       subroutine read_problem
       implicit_none
 
-      integer length            // Local
+      integer length               // Local
       character*LINELEN line
-      character*FILELEN tempfile     //local
-      sy_common
+      character*FILELEN tempfile
+
+      sy_common                    // Common
       st_common
       pr_common
       rf_common
@@ -139,9 +186,6 @@ loop1: continue
       
 eof:  continue      
 
-/* Need to set |pr_max_equiv| before |check_problem|
-is called for arrays to work properly. */
-      pr_max_equiv=max(pr_test_num,pr_background_num)
       call check_problem
       
       return
@@ -153,7 +197,9 @@ is called for arrays to work properly. */
       subroutine init_problem
       implicit_none
       integer i                // Local
-      pr_common
+
+      pr_common                // Common
+      pr_common_l
       sp_common
       sy_common
       
@@ -162,21 +208,24 @@ is called for arrays to work properly. */
       call nc_read_reactions
       call nc_read_materials
       call nc_read_pmi
+
       pr_test_num=0
       pr_background_num=0
       pr_reaction_num=0
       pr_materials_num=0
       pr_pmi_num=0
-      pr_num_generics=0
-      var_alloc(problem_generics)
+
+      num_generics=0
+      int_alloc(generics,sp_num)
       do i=1,sp_num
-         pr_gen(i)=0
+         generics[i]=0
       end do
       
       return
       end
 
-@ Read in test particle labels.
+@ Read in test particle labels; make required entries in generic species
+arrays.
       
 @<Functions...@>=
       subroutine read_test(unit,line)
@@ -184,7 +233,9 @@ is called for arrays to work properly. */
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
-      pr_common
+
+      pr_common                 // Common
+      pr_common_l
       sp_common
       sy_common
       st_common
@@ -210,19 +261,23 @@ loop2: continue
       assert(pr_test(pr_test_num) > 0)
       problem_species_test(pr_test(pr_test_num)) = pr_test_num
       
-      if (pr_gen(sp_generic(pr_test(pr_test_num)))==0) then  
-/* New generic species: increment count of generic species and make
-   corresponding entry in |pr_gen| which provides a map from entries 
-   in the species list to this index of generic species represented in 
-   the test and background lists. */
-         pr_num_generics++                            
-         pr_gen(sp_generic(pr_test(pr_test_num)))=pr_num_generics
+      if (generics[sp_generic(pr_test(pr_test_num))]==0) then  
+/* First appearance of this generic species; update |num_generics| and 
+|generics|. In case this entry in the test 
+list is {\em not} the archetype generic of 
+its isotopic family (i.e., the value of |sp_generic|), need to also enter
+|num_generics| in its slot in the |generics| array. E.g., if D$_{2}$ were
+in a problem, but the archetype generic H$_{2}$ were not. */
+         num_generics++                            
+         generics[sp_generic(pr_test(pr_test_num))]=num_generics
 
-/* The following two assignments treat tests which are not generic. */
          if (pr_test(pr_test_num) != sp_generic(pr_test(pr_test_num))) 
-     $        pr_gen(pr_test(pr_test_num))=pr_num_generics
+     $        generics[pr_test(pr_test_num)]=num_generics
+
       else
-         pr_gen(pr_test(pr_test_num))=pr_gen(sp_generic(pr_test(pr_test_num)))
+/* This entry is equivalent to a generic species which has already been added
+to the |generics| array. */
+         generics[pr_test(pr_test_num)]=generics[sp_generic(pr_test(pr_test_num))]
       end if
 
       goto loop2
@@ -230,7 +285,8 @@ loop2: continue
 eof:  return
       end
 
-@ Read in background particle labels.
+@ Read in background particle labels; make required entries in generic species
+arrays.
       
 @<Functions...@>=
       subroutine read_background(unit,line)
@@ -238,7 +294,9 @@ eof:  return
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
-      pr_common
+
+      pr_common                 // Common
+      pr_common_l
       sp_common
       sy_common
       st_common
@@ -265,19 +323,14 @@ loop2: continue
       assert(pr_background(pr_background_num) > 0)
       problem_species_background(pr_background(pr_background_num)) = pr_background_num
       
-      if (pr_gen(sp_generic(pr_background(pr_background_num)))==0) then 
-/* New generic species: increment count of generic species and make
-   corresponding entry in |pr_gen| which provides a map from generic entries 
-   in the species list to this index of generic species represented in 
-   the test and background lists */
-         pr_num_generics++
-         pr_gen(sp_generic(pr_background(pr_background_num)))=pr_num_generics
-
-/* The following two assignments treat backgrounds which are not generic */
+/* Handle generics just as we did for test species: */
+      if (generics[sp_generic(pr_background(pr_background_num))]==0) then 
+         num_generics++
+         generics[sp_generic(pr_background(pr_background_num))]=num_generics
          if (pr_background(pr_background_num) != sp_generic(pr_background(pr_background_num))) 
-     $        pr_gen(pr_background(pr_background_num))=pr_num_generics
+     $        generics[pr_background(pr_background_num)]=num_generics
       else
-         pr_gen(pr_background(pr_background_num))=pr_gen(sp_generic(pr_background(pr_background_num)))
+         generics[pr_background(pr_background_num)]=generics[sp_generic(pr_background(pr_background_num))]
       end if
 
       goto loop2
@@ -293,7 +346,8 @@ eof:  return
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e      // Local
-      pr_common
+
+      pr_common                 // Common
       rc_common
       sy_common
       st_common
@@ -326,7 +380,8 @@ eof:  return
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
-      pr_common
+
+      pr_common                 // Common
       ma_common
       sy_common
       st_common
@@ -366,7 +421,8 @@ eof:  return
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
-      pr_common
+
+      pr_common                 // Common
       pm_common
       sy_common
       st_common
@@ -399,7 +455,9 @@ eof:  return
       end
 
 @ Check problem specification. This routine sets up the arrays
-which will actually be used to implement reactions in the run.
+which will actually be used to implement reactions and PMI in the run. This
+involves not only matching up reactions and PMI with the test species, but
+also allowing for the isotopically equivalent combinations.
 
 @<Functions...@>=
       subroutine check_problem
@@ -411,11 +469,11 @@ which will actually be used to implement reactions in the run.
       pr_generic_decl(generic)
       pr_generic_decl(generic_ts)
       pr_generic_decl(generic_bk)
-      pr_materials_decl(mat)
 
       sp_decl(reagents[rc_reagent_max])
 
-      pr_common
+      pr_common                                      // Common
+      pr_common_l
       sp_common
       rc_common
       ma_common
@@ -429,24 +487,48 @@ which will actually be used to implement reactions in the run.
       var_reallocb(problem_materials_ref)
       var_reallocb(problem_pmi_ref)
 
-      write(stdout,*) pr_test_num,pr_background_num,pr_reaction_num
-      write(stdout,*) SP (pr_test(i),i=1,pr_test_num)
-      write(stdout,*) SP (trim(sp_name(pr_test(i))),'; ',i=1,pr_test_num)
-      write(stdout,*) SP (pr_background(i),i=1,pr_background_num)
-      write(stdout,*) SP (trim(sp_name(pr_background(i))),'; ',i=1,pr_background_num)
-      write(stdout,*) SP (pr_reaction(i),i=1,pr_reaction_num)
-      write(stdout,*) SP (trim(rc_name(pr_reaction(i))),'; ',i=1,pr_reaction_num)
+      write(stdout,*) 'Number of:'
+      write(stdout,*) '  test species = ',pr_test_num
+      write(stdout,*) '  background species = ',pr_background_num
+      write(stdout,*) '  materials = ',pr_materials_num
+      write(stdout,*) '  reactions = ',pr_reaction_num
+      write(stdout,*) '  plasma-material interactions = ',pr_pmi_num
+      write(stdout,*) 'Test species are:'
+      do i=1,pr_test_num
+         write(stdout,*) pr_test(i),', ',trim(sp_name(pr_test(i)))
+      end do
+      write(stdout,*) 'Background species are:'
+      do i=1,pr_background_num
+         write(stdout,*) pr_background(i),', ',trim(sp_name(pr_background(i)))
+      end do
+      write(stdout,*) 'Reference material indices are:'
+      do i=1,pr_materials_num
+         write(stdout,*) pr_mat_ref(i),', ',trim(ma_name(pr_mat_ref(i)))
+      end do
+      write(stdout,*) 'Reference reaction indices are:'
+      do i=1,pr_reaction_num
+         write(stdout,*) pr_reaction(i),', ',trim(rc_name(pr_reaction(i)))
+      end do
+      write(stdout,*) 'Reference PMI indices are:'
+      do i=1,pr_pmi_num
+         write(stdout,*) pr_pm_ref(i),', ',trim(pm_name(pr_pm_ref(i)))
+      end do
       
       var_alloc(problem_reaction_num)
       var_alloc(problem_test_reaction)
       var_alloc(problem_test_background)
       var_alloc(problem_pmi_case_num)
       var_alloc(problem_pmi_cases)
-      var_alloc(problem_num_equiv)
-      var_alloc(problem_equiv)
+      var_alloc(problem_pmi_num_arrange)
+      var_alloc(problem_pmi_prod_mult)
+      var_alloc(problem_pmi_products)
       var_alloc(problem_num_arrangements)
       var_alloc(problem_prod_mult)
       var_alloc(problem_test_products)
+
+      assert(pr_max_equiv >= max(pr_test_num,pr_background_num))
+      int_alloc(num_equiv,sp_num)
+      int_alloc(equivalents,pr_max_equiv*sp_num)
 
       do i=1,pr_test_num
          do j=1,pr_reaction_max
@@ -462,28 +544,28 @@ which will actually be used to implement reactions in the run.
          end do
       end do
 
-      do i=1,pr_num_generics
-         pr_num_eq(i)=0
+      do i=1,num_generics
+         num_equiv[i]=0
          do j=1,pr_max_equiv
-            pr_eq(i,j)=0
+            equivalents[i,j]=0
          end do
       end do
 
-/* For each generic species, first obtain the index for the
-   list of generics |generic|, then count the number 
-   of equivalent test species, and store the corresponding 
-   {\em species} index in |pr_eq|. */
+/* For each test species, first obtain the index of the corresponding
+   generic archetype, |generic|, increment the number 
+   of equivalents to this archetype, and store the {\em species} index 
+   of this test in the |equivalents| array. */
       do i=1,pr_test_num
-         generic=pr_gen(pr_test(i))
-         pr_num_eq(generic)++
-         pr_eq(generic,pr_num_eq(generic))=pr_test(i)
+         generic=generics[pr_test(i)]
+         num_equiv[generic]++
+         equivalents[generic,num_equiv[generic]]=pr_test(i)
       end do
 
 /* Do same for generics of background species */
       do i=1,pr_background_num
-         generic=pr_gen(pr_background(i))
-         pr_num_eq(generic)++
-         pr_eq(generic,pr_num_eq(generic))=pr_background(i)
+         generic=generics[pr_background(i)]
+         num_equiv[generic]++
+         equivalents[generic,num_equiv[generic]]=pr_background(i)
       end do
       
 /* We can only deal with binary collisions currently */
@@ -504,28 +586,28 @@ which will actually be used to implement reactions in the run.
          generic_ts=0
          generic_bk=0
          do i=1,rc_reagent_num(pr_reaction(j))
-            generic=pr_gen(rc_reagent(pr_reaction(j),i))
+            generic=generics[rc_reagent(pr_reaction(j),i)]
 
-            if (problem_species_test(pr_eq(generic,1)) == 0) then              
+            if (problem_species_test(equivalents[generic,1]) == 0) then      
 
 /* If not a test, then it must be a background */
-               assert(problem_species_background(pr_eq(generic,1))!=0 && generic_bk==0)
+               assert(problem_species_background(equivalents[generic,1])!=0 && generic_bk==0)
                generic_bk=generic
 
 /* Check for the converse, as well. Use |ts_reagent| to record which
 is which for later use. */
-            else if (problem_species_background(pr_eq(generic,1)) == 0) then
-               assert(problem_species_test(pr_eq(generic,1))!=0 && generic_ts==0)
+            else if (problem_species_background(equivalents[generic,1]) == 0) then
+               assert(problem_species_test(equivalents[generic,1])!=0 && generic_ts==0)
                ts_reagent=i
                generic_ts=generic
             end if
          end do
 
 /* Done setting |generic_ts| and |generic_bk|; use to assign remaining |pr| arrays */
-         do k=1,pr_num_eq(generic_ts)
-            test=problem_species_test(pr_eq(generic_ts,k))
-            do l=1,pr_num_eq(generic_bk)
-               background=problem_species_background(pr_eq(generic_bk,l))
+         do k=1,num_equiv[generic_ts]
+            test=problem_species_test(equivalents[generic_ts,k])
+            do l=1,num_equiv[generic_bk]
+               background=problem_species_background(equivalents[generic_bk,l])
                assert( pr_test_check(test) && pr_background_check(background) )
                pr_rc_num(test)=pr_rc_num(test)+1
                assert(pr_rc_num(test) <= pr_reaction_max)
@@ -546,25 +628,55 @@ is which for later use. */
       end do
 
       do i=1,pr_test_num
-         do j=1,pr_materials_num
-            pr_pm_case_num(i,j)=0
-            do k=1,pr_pmi_max
-               pr_pm_cases(i,j,k)=0
-            end do
+         pr_pm_case_num(i)=0
+         do j=1,pr_pmi_max
+            pr_pm_cases(i,j)=0
          end do
       end do
-
+/* Here is the analogous code for PMI which sets up the list of PMI in which
+   each |test| species participates. Species-specific PMI are dealt with
+   first:
+*/
       do j=1,pr_pmi_num
-         test=problem_species_test(pm_reagent(pr_pm_ref(j)))
-         mat=problem_materials_sub(pm_materials(pr_pm_ref(j)))
-         pr_pm_case_num(test,mat)++
-         pr_pm_cases(test,mat,pr_pm_case_num(test,mat))=j
+         if (pm_gen(pr_pm_ref(j)) == pmi_generic_no) then
+            test=problem_species_test(pm_reagent(pr_pm_ref(j)))
+            pr_pm_case_num(test)++
+            pr_pm_cases(test,pr_pm_case_num(test))=j
+
+/* For species-specific PMI, the products can be set directly:
+*/
+            pr_pm_num_arrange(test,pr_pm_case_num(test))=1
+            pr_pm_prod_mult(test,pr_pm_case_num(test),1)=one
+            do k=1,pm_product_num(pr_pm_ref(j))
+               pr_pm_prod(test,pr_pm_case_num(test),1,k)
+     $              =pm_product(pr_pm_ref(j),k)
+            end do
+
+/* For PMI which refer to generic reagents and product species, proceed as
+   above for reactions. The process is simplified because (1) there are
+   no generic materials, (2) the ordering of test and materials is hardwired.
+*/
+         else if (pm_gen(pr_pm_ref(j)) == pmi_generic_yes) then
+            generic_ts=generics[pm_reagent(pr_pm_ref(j))]
+            do k=1,num_equiv[generic_ts]
+               test=problem_species_test(equivalents[generic_ts,k])
+               assert(pr_test_check(test))
+               pr_pm_case_num(test)++
+               pr_pm_cases(test,pr_pm_case_num(test))=j
+
+               call set_pmi_products(pr_test_args(test),pm_args(pr_pm_ref(j)))
+            end do
+
+         else
+            assert('Illegal value of pm_gen(j)' == ' ')
+         end if
       end do
 
       return
       end
 
-@ Set up isotopic variants of reaction products.
+@ This is a clearing-house routine used to select the product-setting
+routine specific for each reaction. 
 
 @<Functions...@>=
       subroutine set_products(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
@@ -626,6 +738,7 @@ note that B could be charged to start with.
 
       rc_common
       pr_common
+      pr_common_l
       sp_common
       st_common
 
@@ -649,8 +762,8 @@ equivalents to the second |rc_product|, we ensure that any details
 (e.g., quantum state) not checked by |species_add_check| are 
 correctly carried through. */
       product[2]=rc_product(r,3)
-      do i=1,pr_num_eq(pr_gen(rc_product(r,2)))
-         product[1]=pr_eq(pr_gen(rc_product(r,2)),i)
+      do i=1,num_equiv[generics[rc_product(r,2)]]
+         product[1]=equivalents[generics[rc_product(r,2)],i]
          if (species_add_check(2,sp_args(product),1,sp_args(reagents[2]))) then
             pr_ts_prod(ts,pr_rc_num(ts),1,2)=product[1]
             return
@@ -670,7 +783,6 @@ the superscript ``+''s are used only to indicate a change in charge state;
 the actual charge states of A and B are intended to be arbitrary.
 
 @<Functions...@>=
-
       subroutine set_prod_chargex(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
       implicit_none
 
@@ -687,6 +799,7 @@ the actual charge states of A and B are intended to be arbitrary.
 
       rc_common
       pr_common
+      pr_common_l
       sp_common
       st_common
 
@@ -697,9 +810,9 @@ the actual charge states of A and B are intended to be arbitrary.
 /* The first product should match up with the first reagent plus an electron. */
       product[1]=sp_lookup('e')
       product[2]=reagents[1]
-      do i=1,pr_num_eq(pr_gen(rc_product(r,1)))
-         if (species_add_check(2,sp_args(product),1,sp_args(pr_eq(pr_gen(rc_product(r,1)),i)))) then
-            pr_ts_prod(ts,pr_rc_num(ts),1,1)=pr_eq(pr_gen(rc_product(r,1)),i)
+      do i=1,num_equiv[generics[rc_product(r,1)]]
+         if (species_add_check(2,sp_args(product),1,sp_args(equivalents[generics[rc_product(r,1)],i]))) then
+            pr_ts_prod(ts,pr_rc_num(ts),1,1)=equivalents[generics[rc_product(r,1)],i]
             goto loop1
          end if
       end do
@@ -709,8 +822,8 @@ loop1: continue
 
 /* Likewise, the second reagent should match the second product plus an
 electron. */
-      do i=1,pr_num_eq(pr_gen(rc_product(r,2)))
-         product[2]=pr_eq(pr_gen(rc_product(r,2)),i)
+      do i=1,num_equiv[generics[rc_product(r,2)]]
+         product[2]=equivalents[generics[rc_product(r,2)],i]
          if (species_add_check(2,sp_args(product),1,sp_args(reagents[2]))) then
             pr_ts_prod(ts,pr_rc_num(ts),1,2)=product[2]
             return
@@ -791,6 +904,152 @@ by the recombination of A and B.
       return
       end 
       
+@ This is a clearing-house routine used to select the product-setting routine
+specific for each PMI.
+
+@<Functions...@>=
+      subroutine set_pmi_products(pr_test_dummy(ts),pm_dummy(p))
+      implicit none
+
+      pr_test_decl(ts)          // Input
+      pm_decl(p)
+
+      integer i                 // Local
+      real sum
+
+      pr_common
+      pm_common
+
+      if (pm_pmi_type(p)=='reflection') then
+         call set_prod_reflection(pr_test_args(ts),pm_args(p))
+      else if (pm_pmi_type(p)=='adsorption') then
+         call set_prod_adsorption(pr_test_args(ts),pm_args(p))
+      else if (pm_pmi_type(p)=='desorption') then
+         call set_prod_desorption(pr_test_args(ts),pm_args(p))
+      else if (pm_pmi_type(p)=='sputter') then
+         assert('set_product for sputter not available' == ' ')
+      end if
+
+/* Rescale multiplicity so that it becomes a probability */
+      sum=zero
+      do i=1,pr_pm_num_arrange(ts,pr_pm_case_num(ts))
+         sum=sum+pr_pm_prod_mult(ts,pr_pm_case_num(ts),i)
+      end do
+      if (sum > zero) then   // In some cases, |pr_pm_prod_mult| is $\equiv 0$.
+         do i=1,pr_pm_num_arrange(ts,pr_pm_case_num(ts))
+            pr_pm_prod_mult(ts,pr_pm_case_num(ts),i)
+     $           =pr_pm_prod_mult(ts,pr_pm_case_num(ts),i)/sum
+         end do
+      end if
+
+      return
+      end
+
+@ Set up isotopic variations of reflections. This is a simple case of ``what
+comes in must go out.''
+
+@<Functions...@>=
+      subroutine set_prod_reflection(pr_test_dummy(ts),pm_dummy(p))
+      implicit none
+
+      pr_test_decl(ts)          // Input
+      pm_decl(p)
+      
+      pr_common                 // Common
+      pm_common
+      sp_common
+
+      assert(pm_product_num(p)==1)
+      pr_pm_num_arrange(ts,pr_pm_case_num(ts))=1
+      pr_pm_prod_mult(ts,pr_pm_case_num(ts),1)=one
+
+/* The only product had better be the same as the incoming test particle */
+      assert(sp_generic(pm_product(p,1))==sp_generic(pr_test(ts)))
+      pr_pm_prod(ts,pr_pm_case_num(ts),1,1)=pr_test(ts)
+
+      return
+      end
+
+@ Set up isotopic variations for adsorptions. It doesn't get any easier
+than this.
+
+@<Functions...@>=
+      subroutine set_prod_adsorption(pr_test_dummy(ts),pm_dummy(p))
+      implicit none
+
+      pr_test_decl(ts)          // Input
+      pm_decl(p)
+
+      pr_common                 // Common
+      pm_common
+
+      assert(pm_product_num(p)==0)
+      pr_pm_num_arrange(ts,pr_pm_case_num(ts))=1
+      pr_pm_prod_mult(ts,pr_pm_case_num(ts),1)=one
+
+      pr_pm_prod(ts,pr_pm_case_num(ts),1,1)=0
+
+      return
+      end
+
+@ Set up isotopic variations for desorptions. The assumptions made here reflect
+the algorithm used in the original DEGAS code. Namely, for most incident
+neutral species, the desorbed species is the same as the incident one. For
+an incident hydrogen atom, however, the possibility existed for desorption
+as a molecule. It is intended that this option be represented by
+two products in the reference description of the PMI, only one of which is used
+at a time here. In the event that a molecule is returned, the isotope
+of one of the atoms is required to match that of the incident H. The other atom
+will be assigned in a general way here based on the other isotopes present
+in the problem. It is
+assumed that the weights of these various options are established in the
+particular data file for this PMI and will be implemented only at
+run time. An analogous description holds for carbon as well as the
+various methane fragments.
+
+@<Functions...@>=
+      subroutine set_prod_desorption(pr_test_dummy(ts),pm_dummy(p))
+      implicit none
+
+      pr_test_decl(ts)                      // Input
+      pm_decl(p)
+
+      external species_el_count             // External
+      integer species_el_count
+
+      integer i,ic,j,count_ts,count_prod    // Local
+      logical match
+      pr_generic_decl(generic_prod)
+
+      pr_common                             // Common
+      pr_common_l
+      pm_common
+      el_common
+
+      pr_pm_num_arrange(ts,pr_pm_case_num(ts))=0
+      do i=1,pm_product_num(p)
+         generic_prod=generics[pm_product(p,i)]
+         assert(generic_prod > 0 && generic_prod <= num_generics)
+         do j=1,num_equiv[generic_prod]
+            match=.true.
+            do ic=1,el_num
+               count_ts=species_el_count(pr_test(ts),el_args(ic))
+               count_prod=species_el_count(equivalents[generic_prod,j],el_args(ic))
+               if (count_ts > count_prod) match=.false.
+            end do
+            if (match) then
+               pr_pm_num_arrange(ts,pr_pm_case_num(ts))++
+/* Set this to zero; it will be determined at run time. */
+               pr_pm_prod_mult(ts,pr_pm_case_num(ts),pr_pm_num_arrange(ts,pr_pm_case_num(ts)))=zero
+               pr_pm_prod(ts,pr_pm_case_num(ts),pr_pm_num_arrange(ts,pr_pm_case_num(ts)),1)=equivalents[generic_prod,j]
+            end if
+         end do
+      end do
+      assert(pr_pm_num_arrange(ts,pr_pm_case_num(ts)) > 0)
+
+      return
+      end
+
 @ Assemble and check permutations of two products arising from the dissociation
 of |num_sp| species |sp| in reaction |r|. The test species |ts| is carried into the 
 routine since to be used as an array index. Note that for simplicity duplicates
@@ -819,6 +1078,7 @@ through additional logic.
       rc_common
       sp_common
       pr_common
+      pr_common_l
 
 /* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
 the actual first product will be the dissociating agent; the
@@ -834,17 +1094,17 @@ where all products come from dissociation. */
       end if
 
 /* Obtain generic indices of the two products */
-      generic_1=pr_gen(rc_product(r,first_product))
-      generic_2=pr_gen(rc_product(r,first_product+1))
+      generic_1=generics[rc_product(r,first_product)]
+      generic_2=generics[rc_product(r,first_product+1)]
 
 /* Loop over the species equivalent to each generic and
 see which combinations are consistent with the given
 reagents. */
       pr_num_arrangements(ts,pr_rc_num(ts))=0
-      do i=1,pr_num_eq(generic_1)
-         product[1]=pr_eq(generic_1,i)
-         do j=1,pr_num_eq(generic_2)
-            product[2]=pr_eq(generic_2,j)
+      do i=1,num_equiv[generic_1]
+         product[1]=equivalents[generic_1,i]
+         do j=1,num_equiv[generic_2]
+            product[2]=equivalents[generic_2,j]
             if (species_add_check(2,sp_args(product),num_sp,sp_args(sp))) then
                pr_num_arrangements(ts,pr_rc_num(ts))++      // Valid arrangement
                assert(pr_num_arrangements(ts,pr_rc_num(ts))<=pr_arrangement_max)
@@ -887,6 +1147,7 @@ through additional logic.
       rc_common
       sp_common
       pr_common
+      pr_common_l
 
 /* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
 the actual first product will be the dissociating agent; the
@@ -902,20 +1163,20 @@ where all products come from dissociation. */
       end if
 
 /* Obtain generic indices for each product */
-      generic_1=pr_gen(rc_product(r,first_product))
-      generic_2=pr_gen(rc_product(r,first_product+1))
-      generic_3=pr_gen(rc_product(r,first_product+2))
+      generic_1=generics[rc_product(r,first_product)]
+      generic_2=generics[rc_product(r,first_product+1)]
+      generic_3=generics[rc_product(r,first_product+2)]
 
 /* Loop over the species equivalent to each generic and
 see which combinations are consistent with the given
 reagents. */
       pr_num_arrangements(ts,pr_rc_num(ts))=0
-      do i=1,pr_num_eq(generic_1)
-         product[1]=pr_eq(generic_1,i)
-         do j=1,pr_num_eq(generic_2)
-            product[2]=pr_eq(generic_2,j)
-            do k=1,pr_num_eq(generic_3)
-               product[3]=pr_eq(generic_3,k)
+      do i=1,num_equiv[generic_1]
+         product[1]=equivalents[generic_1,i]
+         do j=1,num_equiv[generic_2]
+            product[2]=equivalents[generic_2,j]
+            do k=1,num_equiv[generic_3]
+               product[3]=equivalents[generic_3,k]
                if (species_add_check(3,sp_args(product),num_sp,sp_args(sp))) then
                   pr_num_arrangements(ts,pr_rc_num(ts))++       // Valid arrangement
                   assert(pr_num_arrangements(ts,pr_rc_num(ts))<=pr_arrangement_max)
