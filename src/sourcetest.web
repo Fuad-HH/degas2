@@ -2,6 +2,9 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.6  1998/12/22 16:49:31  dstotler
+% Add averages to bottom of segment test.
+%
 % Revision 1.5  1998/09/04 17:21:16  dstotler
 % Added computation of chi-squared for global profile comparison.
 %
@@ -89,10 +92,12 @@
       real chi_sqd(max_num_chis)
       integer num,i,xseg,nsample,zone,nseg,j,num_chis
       integer num_points(max_num_chis)
-      rn_seed_decl(seed)
       integer length,p,b,e
       character*LINELEN line
 
+      rn_seed_decl(seed)
+      rn_seed_decl(temp_seed)
+      rn_decl(temp_rand)
       lc_decl(xsrc)
       so_decl(isource)
       sp_decl(spsrc)
@@ -125,7 +130,20 @@
       var_alloc(segment_zone)   // Upper bound on size
       var_alloc(prob_seg)
 
+@#if 0
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
+@#endif
+      call string_to_seed(so_seed_string,rn_seed_args(seed))
+      if (so_sampling == so_direct) then
+         rn_seed_copy(seed,temp_seed)
+         call next_seed(-1,rn_seed_args(temp_seed))
+         rn_init(rn_seed_args(temp_seed),temp_rand)
+         rn_next(so_direct_delta,temp_rand)
+      else if (so_sampling == so_random) then
+         so_direct_delta=zero
+      else
+         assert('Illegal value of so_sampling' == ' ')
+      end if
 
       open(unit=diskout,file='sourcetest.out',status='unknown')
 
@@ -173,11 +191,16 @@ loop1: continue
 
       weight_tot=zero
 
+@#if 0
       do num=1,nsample
+@#endif
+      do num=0,nsample-1
+         rn_init(seed,fl_rand(x))
          fl_label(x,num,isource)
          call sample_sources(fl_args(x),rel_wt) 
          stat[lc_zone(pt_loc(fl_origin(x)))]+=rel_wt
          weight_tot+=rel_wt
+         call next_seed(1,seed)
       end do
 
       min_prob=const(1.,1)**max(int(log10(min_prob))-1,-10)
