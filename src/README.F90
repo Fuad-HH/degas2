@@ -175,14 +175,8 @@ f90 is flakely on Suns and NERSC computers.  I'm almost certain this is due
 to compiler bugs and not my interpretation of f90.  So check out all the
 f90 stuff on hydra for now.
 
-I've converted all the .hweb and .web files EXCEPT
-
-    geomsetup.web
-    problemsetup.web
-    readgeometry.web
-
-These will work with f77 but not with f90.  I'll fix these soon.
-
 set_inc in xsection.hweb was behaving unpredicably.  (Sometimes, one of the
 do loop indices is missing from the body.)  Can this be replaced by a
 fortran do loop (see alternate definition in xsection.hweb).
+
+All the memory allocation in degas2 is now standard f90.

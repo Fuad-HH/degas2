@@ -1,4 +1,5 @@
 ifeq ($(FORTRAN90),yes)
+al_MOD:=allocate_mod.$O
 bk_MOD:=background_mod.$O
 de_MOD:=detector_mod.$O
 el_MOD:=element_mod.$O
@@ -10,6 +11,7 @@ pm_MOD:=pmi_mod.$O
 pd_MOD:=pmidata_mod.$O
 pf_MOD:=pmiformat_mod.$O
 pr_MOD:=problem_mod.$O
+ps_MOD:=problem_mod.$O
 ra_MOD:=ratecalc_mod.$O
 rc_MOD:=reaction_mod.$O
 rd_MOD:=reactiondata_mod.$O
@@ -21,6 +23,8 @@ tl_MOD:=tally_mod.$O
 tg_MOD:=target_mod.$O
 xs_MOD:=xsection_mod.$O
 zn_MOD:=zone_mod.$O
+allocate_mods:= $(al_MOD)
+allocate.o: $(allocate_mods)
 boxgen_mods:= $(bk_MOD) $(de_MOD) $(ma_MOD) $(sc_MOD) $(so_MOD) $(sp_MOD) $(zn_MOD)
 boxgen.o: $(boxgen_mods)
 collide_mods:= $(bk_MOD) $(pr_MOD) $(rc_MOD) $(rd_MOD) $(sp_MOD) $(zn_MOD)
@@ -45,7 +49,7 @@ geometry_mods:= $(de_MOD) $(gi_MOD) $(rf_MOD) $(sc_MOD) $(zn_MOD)
 geometry.o: $(geometry_mods)
 geomfront_mods:= $(gi_MOD) $(sc_MOD)
 geomfront.o: $(geomfront_mods)
-geomsetup_mods:= $(de_MOD) $(gi_MOD) $(rf_MOD) $(sc_MOD) $(zn_MOD)
+geomsetup_mods:= $(al_MOD) $(de_MOD) $(gi_MOD) $(rf_MOD) $(sc_MOD) $(zn_MOD)
 geomsetup.o: $(geomsetup_mods)
 geomtest_mods:= $(bk_MOD) $(zn_MOD)
 geomtest.o: $(geomtest_mods)
@@ -65,7 +69,7 @@ pmitest_mods:= $(ma_MOD) $(pd_MOD) $(pm_MOD) $(pr_MOD) $(rc_MOD) $(sp_MOD)
 pmitest.o: $(pmitest_mods)
 pmiwrite_mods:= $(pf_MOD)
 pmiwrite.o: $(pmiwrite_mods)
-problemsetup_mods:= $(el_MOD) $(ma_MOD) $(pm_MOD) $(pr_MOD) $(rc_MOD) $(rf_MOD) $(sp_MOD) $(tl_MOD)
+problemsetup_mods:= $(el_MOD) $(ma_MOD) $(pm_MOD) $(pr_MOD) $(ps_MOD) $(rc_MOD) $(rf_MOD) $(sp_MOD) $(tl_MOD)
 problemsetup.o: $(problemsetup_mods)
 pvmmaster_mods:= $(zn_MOD)
 pvmmaster.o: $(pvmmaster_mods)
@@ -85,7 +89,7 @@ readbackground_mods:= $(bk_MOD) $(el_MOD) $(gi_MOD) $(pr_MOD) $(rc_MOD) $(sc_MOD
 readbackground.o: $(readbackground_mods)
 readfilenames_mods:= $(rf_MOD)
 readfilenames.o: $(readfilenames_mods)
-readgeometry_mods:= $(de_MOD) $(gi_MOD) $(ma_MOD) $(sc_MOD) $(setup_MOD) $(zn_MOD)
+readgeometry_mods:= $(de_MOD) $(gi_MOD) $(ma_MOD) $(sc_MOD) $(zn_MOD)
 readgeometry.o: $(readgeometry_mods)
 score_mods:= $(de_MOD) $(gi_MOD) $(ou_MOD) $(pr_MOD) $(rc_MOD) $(rd_MOD) $(sc_MOD) $(so_MOD) $(sp_MOD) $(tl_MOD)
 score.o: $(score_mods)
@@ -101,6 +105,7 @@ writeback_mods:= $(bk_MOD) $(pr_MOD) $(rf_MOD) $(so_MOD) $(sp_MOD) $(zn_MOD)
 writeback.o: $(writeback_mods)
 endif
 ifeq ($(STANDALONE),yes)
+allocate.f: allocate.hweb array.hweb constants.hweb macros.hweb sysdep.hweb vector.hweb
 boxgen.f: array.hweb background.hweb constants.hweb detector.hweb geomint.hweb macros.hweb materials.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb vector.hweb zone.hweb
 classes.f: array.hweb background.hweb classes.hweb detector.hweb element.hweb flight.hweb location.hweb materials.hweb netcdf.hweb output.hweb particle.hweb pmi.hweb pmidata.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb sector.hweb sources.hweb species.hweb string.hweb tally.hweb vector.hweb xsection.hweb zone.hweb
 collide.f: array.hweb background.hweb constants.hweb location.hweb macros.hweb materials.hweb output.hweb particle.hweb problem.hweb random.hweb reaction.hweb reactiondata.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb xsection.hweb zone.hweb
@@ -119,7 +124,7 @@ flighttest.f: array.hweb constants.hweb location.hweb macros.hweb materials.hweb
 geometry.f: array.hweb constants.hweb detector.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb particle.hweb problem.hweb reaction.hweb readfilenames.hweb sector.hweb sources.hweb species.hweb sysdep.hweb vector.hweb zone.hweb
 geomfaces.f: array.hweb constants.hweb geomint.hweb location.hweb macros.hweb sysdep.hweb vector.hweb
 geomfront.f: array.hweb constants.hweb geomint.hweb location.hweb macros.hweb materials.hweb particle.hweb problem.hweb reaction.hweb sector.hweb sources.hweb species.hweb sysdep.hweb vector.hweb
-geomsetup.f: array.hweb constants.hweb detector.hweb geomint.hweb macros.hweb netcdf.hweb readfilenames.hweb sector.hweb sysdep.hweb vector.hweb zone.hweb
+geomsetup.f: allocate.hweb array.hweb constants.hweb detector.hweb geomint.hweb macros.hweb netcdf.hweb readfilenames.hweb sector.hweb sysdep.hweb vector.hweb zone.hweb
 geomtest.f: array.hweb background.hweb constants.hweb geomint.hweb location.hweb macros.hweb materials.hweb particle.hweb problem.hweb reaction.hweb sources.hweb species.hweb sysdep.hweb vector.hweb zone.hweb
 geomtesta.f: array.hweb background.hweb constants.hweb geomint.hweb macros.hweb materials.hweb netcdf.hweb output.hweb problem.hweb reaction.hweb readfilenames.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
 geomtestb.f: array.hweb constants.hweb geomint.hweb macros.hweb sysdep.hweb vector.hweb

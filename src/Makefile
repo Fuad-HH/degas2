@@ -1,5 +1,10 @@
 # $Id$
 # $Log$
+# Revision 1.52  1997/08/19 14:36:25  karney
+# Changes to support compilation under f90.  This involved extensive changes
+# in array.hweb and sysdep.web.  Nearly all other files needed some
+# modifications.
+#
 # Revision 1.51  1997/08/07 19:01:19  dstotler
 # Added tallysetup. Numerous .$O dependencies altered.
 #
@@ -456,7 +461,7 @@ flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O st
 flighttest_libs = $(NETCDF)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
-geomtest = geomtest.$O geometry.$O geomsetup.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O
+geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O dediagsetup.$O
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 
@@ -480,7 +485,7 @@ problemsetup = problemsetup.$O elementread.$O pmimatread.$O reaction.$O readfile
 problemsetup_libs = $(NETCDF)
 problemsetup: $(problemsetup) $(foreach arg,$(subst .$O,_mods,$(problemsetup)),$($(arg)))
 
-geomread = geomread.$O geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O elementread.$O pmimatread.$O
+geomread = geomread.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O elementread.$O pmimatread.$O
 geomread_libs = $(NETCDF)
 geomread: $(geomread) $(foreach arg,$(subst .$O,_mods,$(geomread)),$($(arg)))
 
@@ -492,19 +497,19 @@ cramdtesta = cramdtesta.$O cramdadd.$O sysdep.$O string.$O pmimatread.$O
 cramdtesta_libs = $(CRAMD) $(NETCDF)  
 cramdtesta: $(cramdtesta) $(foreach arg,$(subst .$O,_mods,$(cramdtesta)),$($(arg)))
 
-degasgeom = degasgeom.$O geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O random.$O
+degasgeom = degasgeom.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O random.$O
 degasgeom_libs = $(NETCDF)
 degasgeom: $(degasgeom) $(foreach arg,$(subst .$O,_mods,$(degasgeom)),$($(arg)))
 
-test = test.$O geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O
+test = test.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O
 test_libs = $(NETCDF)
 test: $(test) $(foreach arg,$(subst .$O,_mods,$(test)),$($(arg)))
 
-readgeometry = readgeometry.$O geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O pmimatread.$O dediagsetup.$O
+readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O pmimatread.$O dediagsetup.$O
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
 
-boxgen = boxgen.$O readfilenames.$O geomsetup.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O random.$O
+boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O random.$O
 boxgen_libs = $(CRAMD) $(NETCDF)
 boxgen: $(boxgen) $(foreach arg,$(subst .$O,_mods,$(boxgen)),$($(arg)))
 
@@ -516,7 +521,7 @@ readfilenames=  readfilenames.$O readfilenames.$O sysdep.$O string.$O
 readfilename_libs =
 readfilenames: $(readfilenames) $(foreach arg,$(subst .$O,_mods,$(readfilenames)),$($(arg)))
 
-readbackground = readbackground.$O readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O reaction.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O random.$O
+readbackground = readbackground.$O readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O allocate.$O reaction.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O random.$O
 readbackground_libs = $(CRAMD) $(NETCDF)
 readbackground: $(readbackground) $(foreach arg,$(subst .$O,_mods,$(readbackground)),$($(arg)))
 
@@ -544,13 +549,17 @@ tallysetup = tallysetup.$O elementread.$O pmimatread.$O readfilenames.$O string.
 tallysetup_libs = $(NETCDF)
 tallysetup: $(tallysetup) $(foreach arg,$(subst .$O,_mods,$(tallysetup)),$($(arg)))
 
+allocate = allocate.$O
+allocate_libs =
+allocate: $(allocate) $(foreach arg,$(subst .$O,_mods,$(allocate)),$($(arg)))
+
 #elementread: $(SYSDEPO)
 #test: $(SYSDEPO)
 #sysdeptest: $(SYSDEPO) string.$O
 array: $(SYSDEPO)
 teststring: $(SYSDEPO) string.$O
 #geomtesta: geometry.$O $(SYSDEPO) string.$O plotgeom.$O elementread.$O
-#geomread: geomsetup.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
+#geomread: geomsetup.$O allocate.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
 #pvmmaster: pvmmaster.$O $(SYSDEPO) random.$O stat.$O geometry.$O
 #pvmslave: pvmslave.$O $(SYSDEPO) random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O string.$O reaction.$O geomfront.$O
 elementlookup: $(SYSDEPO) string.$O

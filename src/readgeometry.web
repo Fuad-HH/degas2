@@ -2,6 +2,11 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.28  1997/08/19 14:37:02  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.27  1997/08/07 20:22:39  dstotler
 % Apparently have fixed a bug in the default sectors and strata
 % section. Did this by first setting face1 more definitely in
@@ -287,6 +292,7 @@ end
 
 @m next_surface #:0     // Statement label
 
+@#if 0
 @m increment_num_polygon if (mod(num_polygon,mem_delta) == 0) then;
       real_realloc(polygon_x,xz_index*num_points*num_polygon,xz_index*num_points*(num_polygon+mem_delta));
       int_realloc(polygon_points,num_polygon,num_polygon+mem_delta);
@@ -296,10 +302,17 @@ end
       int_realloc(polygon_segment,num_points*num_polygon,num_points*(num_polygon+mem_delta));
       end if;
       num_polygon++ @;
-@f setup_common integer
-@m setup_common save /geomsetup_common/;
-      address pointer_offset;
-      common /geomsetup_common/ pointer_offset @;
+@#endif
+
+@m increment_num_polygon if (mod(num_polygon,mem_delta) == 0) then;
+      var_realloc(polygon_x,num_polygon-1,num_polygon-1+mem_delta);
+      var_realloc(polygon_points,num_polygon-1,num_polygon-1+mem_delta);
+      var_realloc(polygon_zone,num_polygon-1,num_polygon-1+mem_delta);
+      var_realloc(polygon_material,num_polygon-1,num_polygon-1+mem_delta);
+      var_realloc(polygon_stratum,num_polygon-1,num_polygon-1+mem_delta);
+      var_realloc(polygon_segment,num_polygon-1,num_polygon-1+mem_delta);
+      end if;
+      num_polygon++ @;
 
 @<Functions...@>=
       program readgeometry
@@ -320,7 +333,23 @@ end
 
 @<Functions...@>=
       subroutine readgeomfile(filename)
+
+      define_dimen(poly_ind,num_polygon)
+      define_dimen(xz_ind,xz_index)
+      define_dimen(points_ind0,0,num_points-1)
+      define_dimen(points_ind,num_points-1)
+      define_varp(polygon_x,FLOAT,xz_ind,points_ind0,poly_ind)
+      define_varp(polygon_points,INT,poly_ind)
+      define_varp(polygon_zone,INT,poly_ind)
+      define_varp(polygon_stratum,INT,poly_ind)
+      define_varp(polygon_material,INT,poly_ind)
+      define_varp(polygon_segment,INT,points_ind,poly_ind)
+
       implicit_none_f77
+      gi_common
+      sc_common
+      zn_common
+      ma_common
       implicit_none_f90
       integer mx,my
       parameter (mx=120,my=100)
@@ -338,33 +367,29 @@ end
       real mindensity,minx,minz
       real rm[mx,my,0:4],zm[mx,my,0:4],x_test[2,0:4]
       real min_corner[3],max_corner[3]
-      ptr_decl(polygon_x)
-      real polygon_x[xz_index,0:num_points-1,*]
-      ptr_decl(polygon_points)
-      integer polygon_points[*]
-      ptr_decl(polygon_zone)
-      integer polygon_zone[*]
-      ptr_decl(polygon_stratum)
-      integer polygon_stratum[*]
-      ptr_decl(polygon_material)
-      integer polygon_material[*] 
-      ptr_decl(polygon_segment)
-      integer polygon_segment[num_points-1,*]
+
+c      real polygon_x[xz_index,0:num_points-1,*]
+c      integer polygon_points[*]
+c      integer polygon_zone[*]
+c      integer polygon_stratum[*]
+c      integer polygon_material[*] 
+c      integer polygon_segment[num_points-1,*]
+
+      declare_varp(polygon_x)
+      declare_varp(polygon_points)
+      declare_varp(polygon_zone)
+      declare_varp(polygon_stratum)
+      declare_varp(polygon_material)
+      declare_varp(polygon_segment)
+
       integer num_polygon,current_material,current_stratum,temp_material
       integer face1,zone1,zone2,stratum,sector1,sector2
-      external define_sector
-      integer define_sector
       integer xcorner1,xcorner2,xcorner3,xcorner4, zcorner1,zcorner2
      $     ,zcorner3,zcorner4
       character*100 plot
       @<Memory allocation interface@>
       st_decls
-      gi_common
       gi_ext
-      sc_common
-      zn_common
-      ma_common
-      setup_common
 
       @<pardef.h@>
       @<combal.h@>
@@ -1679,15 +1704,15 @@ geometry-specific!}
       subroutine rg_detector_setup
 
       implicit_none_f77
+      de_common
+      zn_common
       implicit_none_f90
 
       integer view,num,var,tab_index,spacing,i
       integer grp_views[total_views]
       real var_min,var_max,mult
 
-      de_common
       @<Memory allocation interface@>
-      zn_common
 
       detector_total_views=0       // test
       var_alloc(de_view_points)
@@ -1746,6 +1771,8 @@ geometry-specific!}
 @<Functions...@>=
       subroutine find_poly_zone(xa,xb,type,zone1,face1,zone2)
       implicit_none_f77
+      gi_common
+      zn_common
       implicit_none_f90
       real xa[xz_index],xb[xz_index]                         // Input
       integer type
@@ -1756,9 +1783,6 @@ geometry-specific!}
       integer lookup_surface
       vc_decl(x1)
       vc_decl(x2)
-
-      gi_common
-      zn_common
 
       vc_set(x1,xa[1],zero,xa[2])  // Use |zero| to match |process_polygon|
       vc_set(x2,xb[1],zero,xb[2])

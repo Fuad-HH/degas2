@@ -2,6 +2,11 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.23  1997/08/19 14:36:51  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.22  1997/08/07 20:06:29  dstotler
 % Removed reaction.hweb from list of included files. Add
 % ionize_suppress to list of reaction types for product setup (for
@@ -235,10 +240,10 @@ eof:  continue
       implicit_none_f77
       pr_common                // Common
       sp_common
+      ps_common
       implicit_none_f90
       integer i                // Local
 
-      pr_localcommon
       @<Memory allocation interface@>
       
       call nc_read_elements
@@ -257,7 +262,7 @@ eof:  continue
 @#endif
 
       num_generics=0
-      int_alloc(generics,sp_num)
+      var_alloc(generics)
       do i=1,sp_num
          generics[i]=0
       end do
@@ -273,12 +278,12 @@ arrays.
       implicit_none_f77
       pr_common                 // Common
       sp_common
+      ps_common
       implicit_none_f90
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
 
-      pr_localcommon
       @<Memory allocation interface@>
       st_decls
 
@@ -335,12 +340,12 @@ arrays.
       implicit_none_f77
       pr_common                 // Common
       sp_common
+      ps_common
       implicit_none_f90
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
 
-      pr_localcommon
       @<Memory allocation interface@>
       st_decls
       
@@ -513,6 +518,7 @@ also allowing for the isotopically equivalent combinations.
       rc_common
       ma_common
       pm_common
+      ps_common
       implicit_none_f90
       integer i,j,k,l,m,ts_reagent                   // Local
 
@@ -524,7 +530,6 @@ also allowing for the isotopically equivalent combinations.
 
       sp_decl(reagents[rc_reagent_max])
 
-      pr_localcommon
       @<Memory allocation interface@>
       st_decls
 
@@ -574,8 +579,8 @@ also allowing for the isotopically equivalent combinations.
       var_alloc(problem_test_products)
 
       assert(pr_max_equiv >= max(pr_test_num,pr_background_num))
-      int_alloc(num_equiv,sp_num)
-      int_alloc(equivalents,pr_max_equiv*sp_num)
+      var_alloc(num_equiv)
+      var_alloc(equivalents)
 
       do i=1,pr_test_num
          do j=1,pr_reaction_max
@@ -845,6 +850,7 @@ note that B could be charged to start with.
 @<Functions...@>=
       subroutine set_prod_ionize(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
       implicit_none_f77
+      ps_common
       rc_common
       pr_common
       sp_common
@@ -861,7 +867,6 @@ note that B could be charged to start with.
 
       sp_decl(product[2])
 
-      pr_localcommon
       st_decls
 
       assert(rc_product_num(r)==3)
@@ -910,6 +915,7 @@ the actual charge states of A and B are intended to be arbitrary.
       rc_common
       pr_common
       sp_common
+      ps_common
       implicit_none_f90
 
       pr_test_decl(ts)
@@ -923,7 +929,6 @@ the actual charge states of A and B are intended to be arbitrary.
 
       sp_decl(product[2])
 
-      pr_localcommon
       st_decls
 
       assert(rc_product_num(r)==2)
@@ -1110,6 +1115,7 @@ note that B could be charged to start with.
       rc_common
       pr_common
       sp_common
+      ps_common
       implicit_none_f90
 
       integer bkrc_ind
@@ -1123,7 +1129,6 @@ note that B could be charged to start with.
 
       sp_decl(product[2])
 
-      pr_localcommon
       st_decls
 
       r=pr_reaction(pr_bk_rc(bkrc_ind))
@@ -1260,6 +1265,7 @@ various methane fragments.
       pr_common                             // Common
       pm_common
       el_common
+      ps_common
       implicit_none_f90
 
       pr_test_decl(ts)                      // Input
@@ -1272,7 +1278,6 @@ various methane fragments.
       logical match
       pr_generic_decl(generic_prod)
 
-      pr_localcommon
 
       pr_pm_num_arrange(ts,pr_pm_case_num(ts))=0
       do i=1,pm_product_num(p)
@@ -1312,6 +1317,7 @@ through additional logic.
       rc_common
       sp_common
       pr_common
+      ps_common
       implicit_none_f90
 
       integer num_sp                    // Input
@@ -1327,7 +1333,6 @@ through additional logic.
       pr_generic_decl(generic_1)
       pr_generic_decl(generic_2)
 
-      pr_localcommon
 
 /* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
 the actual first product will be the dissociating agent; the
@@ -1381,6 +1386,7 @@ through additional logic.
       rc_common
       sp_common
       pr_common
+      ps_common
       implicit_none_f90
       
       integer num_sp                    // Input
@@ -1397,7 +1403,6 @@ through additional logic.
       pr_generic_decl(generic_2)
       pr_generic_decl(generic_3)
 
-      pr_localcommon
 
 /* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
 the actual first product will be the dissociating agent; the

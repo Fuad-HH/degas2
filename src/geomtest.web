@@ -2,6 +2,11 @@
 \Title{geomtest}
 
 % $Log$
+% Revision 1.12  1997/08/19 14:36:41  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.11  1996/03/01 20:20:38  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -89,7 +94,7 @@
       parameter (nx=2,nz=3)
       @<Memory allocation interface@>
       real x1[3],x2[3],x[2,0:4],xa[2,0:nx+2],xx1[3],xx2[3],vol // Local
-      integer n,zone,i,j,stratum,sector
+      integer n,zone,i,j,stratum,sector,segment
       gi_ext
       external init_geometry,
      $     add_surface,plane,boundaries_neighbors,check_geometry,print_geometry,
@@ -102,6 +107,7 @@
       call universal_cell(geometry_symmetry_plane,x1,x2,vol)
       write(stdout,*) vol
       zone=0
+      segment=0
       do i=0,nx-1
          do j=0,nz-1
             zone++
@@ -114,19 +120,6 @@
             call decompose_polygon(n,x,zone)
             zn_type_set(zone,zn_plasma)
             zn_volume(zone)=polygon_volume(n,x)
-            if (i==0 && j<=1) then
-               stratum=1
-               vc_set(xx1,x[1,2],zero,x[2,2])
-               vc_set(xx2,x[1,3],zero,x[2,3])
-               sector=define_sector(stratum,lookup_surface(xx1,xx2),zone)
-               write(stderr,*) sector
-            else if (i==1 && j>=1) then
-               stratum=2
-               vc_set(xx1,x[1,0],zero,x[2,0])
-               vc_set(xx2,x[1,1],zero,x[2,1])
-               sector=define_sector(stratum,lookup_surface(xx1,xx2),zone)
-               write(stderr,*) sector
-            end if
          end do
       end do
       
@@ -180,13 +173,43 @@
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
 
       call boundaries_neighbors
+
+      segment=0
+      zone=0
+      do i=0,nx-1
+         do j=0,nz-1
+            zone++
+            n=0
+            x[1,n]=i;   x[2,n]=j; n++
+            x[1,n]=i;   x[2,n]=j+1; n++
+            x[1,n]=i+1; x[2,n]=j+1; n++
+            x[1,n]=i+1; x[2,n]=j; n++
+            x[1,n]=i;   x[2,n]=j
+            if (i==0 && j<=1) then
+               stratum=1
+               vc_set(xx1,x[1,2],zero,x[2,2])
+               vc_set(xx2,x[1,3],zero,x[2,3])
+               sector=define_sector(stratum,segment,lookup_surface(xx1,xx2),zone)
+               write(stderr,*) sector
+            else if (i==1 && j>=1) then
+               stratum=2
+               vc_set(xx1,x[1,0],zero,x[2,0])
+               vc_set(xx2,x[1,1],zero,x[2,1])
+               sector=define_sector(stratum,segment,lookup_surface(xx1,xx2),zone)
+               write(stderr,*) sector
+            end if
+         end do
+      end do
+
+      call end_sectors
+
+      call check_geometry
       call write_geometry
 /*
       call print_geometry(stdout)
 */
-      call check_geometry
             
-      call erase_geometry
+/*       call erase_geometry */
 
       return
       end

@@ -3,6 +3,11 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.27  1997/08/19 14:36:40  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.26  1997/08/07 19:49:38  dstotler
 % Absorb changes to sector.hweb & eliminatation of strata.hweb.
 %
@@ -110,6 +115,7 @@ Geometry setup routines for degas.
 @I netcdf.hweb
 @I sector.hweb
 @I detector.hweb
+@I allocate.hweb
 
 @ The unnamed module.
 
@@ -120,18 +126,11 @@ Geometry setup routines for degas.
 |ptr_boundaries|, |nneighbors|, and |ptr_neighbors| are left
 uninitialized; these are set in |boundaries_neighbors|.
 
-The ugliness with |geomsetup_common| is a temporary expedient to deal
-with 8-byte address with integers are 4 bytes.  The basic assumption is
-that although the addresses returned by the memory allocation routines
-don't fit in four bytes, the {\it differences} between the addresses
-should.
-
 @m mem_delta 10
 @m mem_frag(x) ((((x)+mem_delta-1)/mem_delta)*mem_delta)
-@f setup_localcommon integer
-@m setup_localcommon save /geomsetup_common/;
-      address pointer_offset;
-      common /geomsetup_common/ pointer_offset @;
+@m surf_list(x) memory[ptr_surf_list+(x)-1]
+@m cell_list(x) memory[ptr_cell_list+(x)-1]
+@m sector_list(x) memory[ptr_sector_list+(x)-1]
 
 @<Functions...@>=
       subroutine init_geometry
@@ -140,9 +139,10 @@ should.
       zn_common
       sc_common
       de_common
+      al_common
       implicit_none_f90
       @<Memory allocation interface@>
-      setup_localcommon
+      al_decls
 
       ncells=0
       var_realloca(cells)
@@ -213,7 +213,7 @@ should.
       
       strata[0]=0      // Need this?
 
-      pointer_offset=0
+      call init_mem
 
       return
       end
@@ -309,20 +309,19 @@ should.
       return
       end
 
-@ Set up arrays describing cell boundaries and surface neighbors
+@ Set up arrays describing cell boundaries and surface neighbors.
 
 @<Functions...@>=
       subroutine boundaries_neighbors
       implicit_none_f77
       gi_common                 // Input/Output
       zn_common
+      al_common
       implicit_none_f90
       integer j,k,i,base,sigma  // Local
-      integer surf_list[*],cell_list[*]  // Pointee
-      ptr_decl(surf_list)
-      ptr_decl(cell_list)
+      integer ptr_surf_list,ptr_cell_list  // Pointers
       @<Memory allocation interface@>
-      setup_localcommon
+      al_decls
 
       /* Pack |cells| and |surfaces| */
 
@@ -352,11 +351,12 @@ should.
 
       base=0
       do j=0,ncells
-         ptr_surf_list=cells[c_start,j]+pointer_offset
+         ptr_surf_list=cells[c_start,j]
          do i=1,cells[c_surfaces,j]
-            boundaries[base+i]=surf_list[i]
+            boundaries[base+i]=surf_list(i)
          end do
-         int_free(surf_list,mem_frag(cells[c_surfaces,j]))
+         assert(check_mem())
+         call free_mem(ptr_surf_list,mem_frag(cells[c_surfaces,j]))
          cells[c_start,j]=base+1
          base=base+cells[c_surfaces,j]
       end do
@@ -379,38 +379,39 @@ should.
       base=ncells
       do k=1,nsurfaces
          do sigma=s_neg,s_pos
-            ptr_cell_list=surfaces[sigma,s_start,k]+pointer_offset
+            ptr_cell_list=surfaces[sigma,s_start,k]
             if (surfaces[sigma,s_count,k]==1) then
-               surfaces[sigma,s_start,k]=cell_list[1]
+               surfaces[sigma,s_start,k]=cell_list(1)
             else
                do i=1,surfaces[sigma,s_count,k]
-                  neighbors[base+i]=cell_list[i]
+                  neighbors[base+i]=cell_list(i)
                end do
                surfaces[sigma,s_start,k]=base+1
                base=base+surfaces[sigma,s_count,k]
             end if
-            int_free(cell_list,mem_frag(surfaces[sigma,s_count,k]))
+            assert(check_mem())
+            call free_mem(ptr_cell_list,mem_frag(surfaces[sigma,s_count,k]))
          end do
       end do
 
       check(base == nneighbors)
-      
+      assert(check_mem())
       return
       end
 
-@* Set up arrays mapping surfaces into sectors
+@* Set up arrays mapping surfaces into sectors.
 
 @<Functions...@>=
       subroutine end_sectors
       implicit_none_f77
       gi_common                 // Input/Output
       sc_common
+      al_common
       implicit_none_f90
       integer k,i,base,sigma    // Local
-      integer sector_list[*]    // Pointee
-      ptr_decl(sector_list)
+      integer ptr_sector_list    // Pointer
       @<Memory allocation interface@>
-      setup_localcommon
+      al_decls
 
 /* 
    Pack |strata| and sector-related arrays. |surface_sectors| allocated 
@@ -453,18 +454,19 @@ should.
       base=0
       do k=1,nsurfaces
          do sigma=s_neg,s_pos
-            ptr_sector_list=surface_sectors[sigma,s_start,k]+pointer_offset
+            ptr_sector_list=surface_sectors[sigma,s_start,k]
             do i=1,surface_sectors[sigma,s_count,k]
-               sectors[base+i]=sector_list[i]
+               sectors[base+i]=sector_list(i)
             end do
             surface_sectors[sigma,s_start,k]=base+1
             base=base+surface_sectors[sigma,s_count,k]
-            int_free(sector_list,mem_frag(surface_sectors[sigma,s_count,k]))
+            assert(check_mem())
+            call free_mem(ptr_sector_list,mem_frag(surface_sectors[sigma,s_count,k]))
          end do
       end do
       
       check(base == nsectors)
-         
+      assert(check_mem())
       return
       end
 
@@ -644,48 +646,48 @@ these values match.
       subroutine add_surface(surface,cell,face)
       implicit_none_f77
       gi_common                 // Input/Output
+      al_common
       implicit_none_f90
       integer surface,cell // Input
       logical face
       integer i,surface_count,cell_count // Local
-      integer surf_list[*],cell_list[*] // Pointee
-      ptr_decl(surf_list)
-      ptr_decl(cell_list)
+      integer ptr_surf_list,ptr_cell_list // Pointers
       @<Memory allocation interface@>
-      setup_localcommon
+      al_decls
 
-      ptr_surf_list=cells[c_start,cell]+pointer_offset
+      ptr_surf_list=cells[c_start,cell]
       surface_count=cells[c_surfaces,cell]
       if (mod(surface_count,mem_delta) == 0) then
-         int_realloc(surf_list,
-     $        surface_count,(surface_count+mem_delta))
-         if (pointer_offset == 0) pointer_offset=ptr_surf_list
-         cells[c_start,cell]=ptr_surf_list-pointer_offset
+         assert(check_mem())
+         ptr_surf_list=realloc_mem(ptr_surf_list,
+     $        surface_count,surface_count+mem_delta)
+         cells[c_start,cell]=ptr_surf_list
       end if
       cells[c_surfaces,cell]=surface_count+1
 
       if (face) then            // We have to move the cut surfaces up one
          cells[c_faces,cell]=cells[c_faces,cell]+1
          do i=cells[c_surfaces,cell],cells[c_faces,cell]+1,-1
-            surf_list[i]=surf_list[i-1]
+            surf_list(i)=surf_list(i-1)
          end do
-         surf_list[cells[c_faces,cell]]=surface
+         surf_list(cells[c_faces,cell])=surface
       else                      // |! face| --- it's a cut surface
-         surf_list[cells[c_surfaces,cell]]=surface
+         surf_list(cells[c_surfaces,cell])=surface
       end if
 
       if (face) then            // Register the cell for this face
-         ptr_cell_list=surfaces[s_sign(surface),s_start,abs(surface)]+pointer_offset
+         ptr_cell_list=surfaces[s_sign(surface),s_start,abs(surface)]
          cell_count=surfaces[s_sign(surface),s_count,abs(surface)]
 
          if (mod(cell_count,mem_delta) == 0) then
-            int_realloc(cell_list,cell_count,2*(cell_count+mem_delta))
-            if (pointer_offset == 0) pointer_offset=ptr_cell_list
+            assert(check_mem())
+            ptr_cell_list=realloc_mem(ptr_cell_list,
+     $           cell_count,cell_count+mem_delta)
          end if
          cell_count++
-         cell_list[cell_count]=cell
+         cell_list(cell_count)=cell
 
-         surfaces[s_sign(surface),s_start,abs(surface)]=ptr_cell_list-pointer_offset
+         surfaces[s_sign(surface),s_start,abs(surface)]=ptr_cell_list
          surfaces[s_sign(surface),s_count,abs(surface)]=cell_count
       end if
             
@@ -700,14 +702,14 @@ these values match.
       gi_common                                      // Input/Output
       sc_common
       zn_common
+      al_common
       implicit_none_f90
       integer define_sector                          // Function
       integer stratum,seg,surface,zone               // Input
       integer i,sector_count,base                    // Local
-      integer sector_list[*]                         // Pointee
-      ptr_decl(sector_list)
+      integer ptr_sector_list                         // Pointer
       @<Memory allocation interface@>
-      setup_localcommon
+      al_decls
 
       assert(stratum > 0)
       assert(surface != 0)
@@ -739,17 +741,18 @@ these values match.
          sector_type_pointer[nsectors][i]=0
       end do
 
-      ptr_sector_list=surface_sectors[s_sign(surface),s_start,abs(surface)]+pointer_offset
+      ptr_sector_list=surface_sectors[s_sign(surface),s_start,abs(surface)]
       sector_count=surface_sectors[s_sign(surface),s_count,abs(surface)]
 
       if (mod(sector_count,mem_delta) == 0) then
-         int_realloc(sector_list,sector_count,2*(sector_count+mem_delta))
-         if (pointer_offset == 0) pointer_offset=ptr_sector_list
+         assert(check_mem())
+         ptr_sector_list=realloc_mem(ptr_sector_list,
+     $        sector_count,sector_count+mem_delta)
       end if
       sector_count++
-      sector_list[sector_count]=nsectors
+      sector_list(sector_count)=nsectors
 
-      surface_sectors[s_sign(surface),s_start,abs(surface)]=ptr_sector_list-pointer_offset
+      surface_sectors[s_sign(surface),s_start,abs(surface)]=ptr_sector_list
       surface_sectors[s_sign(surface),s_count,abs(surface)]=sector_count
 
       base=surfaces[s_sign(surface),s_start,abs(surface)]-1
@@ -778,7 +781,6 @@ break: continue
       real coeff[NCOEFFS]
 @#endif
       @<Memory allocation interface@>
-      setup_localcommon
 
       ntransforms++
       var_realloca(surfaces_tx_mx)
@@ -803,14 +805,17 @@ break: continue
 
 @<Functions...@>=
       subroutine check_geometry
+
+      define_dimen(outer_surf_ind,num_outer_surfaces)
+      define_varp(outer_surfaces,INT,outer_surf_ind)
+
       implicit_none_f77
       gi_common             // Input
       implicit_none_f90
       @<Memory allocation interface@>
       integer n,j,k,sigma       // Local
       logical outer
-      ptr_decl(outer_surfaces)
-      integer outer_surfaces[*]
+      declare_varp(outer_surfaces)
       integer num_outer_surfaces,orientation
       external surface_equal
       logical surface_equal
@@ -859,7 +864,7 @@ break:      continue
             assert(surfaces[s_neg,s_count,k]==0 || surfaces[s_pos,s_count,k]==0)
             assert(surfaces[s_neg,s_count,k]>0 || surfaces[s_pos,s_count,k]>0)
             if (mod(num_outer_surfaces,mem_delta) == 0)
-     $           int_realloc(outer_surfaces,num_outer_surfaces,num_outer_surfaces+mem_delta)
+     $           var_realloc(outer_surfaces,num_outer_surfaces,num_outer_surfaces+mem_delta)
             num_outer_surfaces++
             outer_surfaces[num_outer_surfaces]=k
 

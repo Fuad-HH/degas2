@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.20  1997/08/19 14:36:51  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.19  1997/08/07 20:05:31  dstotler
 % Change a comment to make fweave happy.
 %
@@ -241,3 +246,14 @@ problem is identified by an integer indexing into these arrays.
 @#endif
       define_varlocal_pk(pr,problem_version,CHAR,string)
       package_end(pr)
+
+@ Variables for problemsetup.
+
+@a
+      package_init(ps)
+      define_var_pk(ps,num_generics,INT)
+      define_dimen_pk(ps,pr_equiv_ind,pr_max_equiv)
+      define_varp_pk(ps,generics,INT,problem_species_ind)
+      define_varp_pk(ps,num_equiv,INT,problem_species_ind)
+      define_varp_pk(ps,equivalents,INT,pr_equiv_ind,problem_species_ind)
+      package_end(ps)
