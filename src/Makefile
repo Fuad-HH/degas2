@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.56  1997/09/29 17:17:33  karney
+# Implement mem_check.
+#
 # Revision 1.55  1997/09/02 21:14:15  karney
 # New initializer for random numbers.
 # Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -232,6 +235,7 @@ ifeq ($(STANDALONE),yes)
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
 else
+  SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
 endif
