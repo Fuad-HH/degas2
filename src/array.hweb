@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1995/03/07 18:56:36  karney
+% Use * as the upper limit of the last dimension ONLY for pointer arrays.
+%
 % Revision 1.8  1995/03/07 18:46:05  karney
 % Use * as the upper limit of the last dimension (since Solaris doesn't
 % allow array referencess for array bounds.
@@ -282,34 +285,166 @@
       _DEFINE(pk##_pvmgeta temp; var_alloc(name); pvm_get(name))
       _UNDEF(temp)
 
-@* External interface to array.  These macros aid in defining array
-operations.
+@* External Interface to Arrays.  
 
-Dimension ranges are defined by |define_dimen(dimname,min,max)|.
-Arrays are defined by |define_var(array,dimname1,dimname2,...)|.
-These don't produce any code.
+These macros aid in defining array
+operations. The way the macros are used is outlined below; they are largely
+invoked in other header files. The primary exceptions to this rule are
+the pointer-related macros, |var_alloc|, |var_realloc|, and |var_free|.
+Perhaps the {\em best} way to see what 
+these macros do is to examine the FORTRAN
+code produced by the WEB preprocessor.
 
-A pointer declaration is produce by |pointer(array)|.  The
-convention is that the pointer name is produced by a |ptr_| prefix.
+The macros used most frequently are those associated with ``package
+definition'':
+\begin{description}
+  \item [|package_init(CL)|] This would be the first macro executed for the
+class with abbreviation |CL|. It begins the package definition process by
+telling WEB to define ``variables'' (really they are macros the names of which
+are defined ``on-the-fly'' using the class abbreviations) 
+like |CL_common_b|, |CL_ncreada|, and
+|CL_pvmput|. Then, in the actual WEB code, the programmer uses these
+phrases to symbolize a complete set of declarations or definitions for this
+class. This set of definitions, etc. 
+are built up by subsequent macro calls made in the header 
+file as the various dimensions and variables are defined. It is worth
+going through these macros or ``variables'' one by one:
+  \item [|CL_common_a|] Produces common blocks containing scalar (FORTRAN)
+variables. This includes a ``save'' statement for each one. The suffix
+``\_a'' is used to represent scalars; likewise, ``\_b'' is used for 
+``dimensions'' (see below) and
+``\_c'' for arrays. Note that typically one finds in the header
+file for the class a macro |CL_common| which concatenates one or more
+of these macros into a single one. 
+  \item [|CL_ncdef|] Handles the dimensions and variable definitions required
+for the ``definition'' phase of creating a new netCDF file.
+  \item [|CL_ncwrite|] Writes all of the netCDF variables in class |CL| into
+the netCDF file specified.
+  \item [|CL_ncread|] Reads all of the netCDF variables in class |CL| from the
+specified netCDF file into the FORTRAN code.
+  \item [|CL_ncdecl|] Declares for the FORTRAN compiler the integer identifiers
+netCDF uses to identify the various dimensions and variables in the class
+|CL|.
+  \item [|CL_pvmput|] Associated with PVM\ldots
+  \item [|CL_pvmget|] Associated with PVM\ldots
+  \item [|define_dimen_pk|(|CL,dimname|,\ldots)] 
+This defines a dimension, i.e., 
+assigns a name, |dimname|, to an integer range. This macro is primarily
+required only for the netCDF-related macros listed above; the resulting
+``dimensions'' do not appear in the final FORTRAN code except as numbers
+in these netCDF calls.
+  \item [|define_var_pk|(|CL,varname,type|,\ldots)] Defines a 
+FORTRAN variable |varname|.
+This can be a scalar, array, or a character variable. |varname| is also added
+to the corresponding netCDF and PVM macro definitions.
+  \item [|define_varp_pk|(|CL,varname|,\ldots)] Defines a FORTRAN pointer to be
+associated with |varname|. Again, the macro appends entries 
+to all of the corresponding
+netCDF and PVM macro definitions. Note that in the case of |CL_ncread|, the
+macro |var_alloc(varname)| (see below) is included. 
+In general, a pointer should
+be used for variables with dimensions which are not known at compile time.
+\end{description}
 
-To declare a defined array, use, e.g., |declare_var(array)|.  If it
-is a point array use |declare_varp(array)|.  The size of an array is
-given by |array_size(array)|.  The size with the upper limit of the
-last index set to |m| is given by |array_sizev(array,m)|.
+These ``package'' macros are largely built up on the other macros defined
+in this header file. The most significant of these are:
+\begin{description}
+  \item [|define_dimen(dimname,min,max)|] Defines a dimension range |dimname|
+as running from |min| to |max|; produces no code.
+  \item [|define_var|(|array,type,dimname1,dimname2|,\ldots)] 
+Defines |array| of type |type| (|CHAR|, |INT|, or |FLOAT|) as having
+first dimension |dimname1| (as declared with a |define_dimen| or 
+|define_dimen_pk| macro), and so on. The number of dimensions in the
+argument list is the rank of |array|. This macro is used for scalars as
+well (rank 0). Again, no code is produced by this
+macro.
+  \item [|declare_var(varname)|] Once a variable |varname| 
+is defined, this macro is used
+to actually declare it in the FORTRAN code; the result is a type
+(including dimensions for arrays and string length for character strings)
+declaration statement. The variable type 
+is handled automatically by the macro. Note that for character strings,
+the first dimension provides the length of each element of the array. This
+makes interaction with netCDF easier where only single character variables
+are permitted.
+  \item [|declare_varp(varname)|] Same as |declare_var|, 
+but also uses |ptr_decl|
+to actually declare the pointer variable itself (see below).
+  \item [|array_size(arrayname)|] Gives the size of |arrayname|, 
+i.e., the total number of
+elements in an array.
+  \item [|array_unit(arrayname)|] Number of elements in one 
+``slice'' (i.e., one
+unit of the last array index) of the array |arrayname|.
+  \item [|array_sizev(arrayname,newmax)|] Gives the size of the array 
+|arrayname| if the upper
+limit of the last index were set to |newmax|.
+  \item [|ptr_decl(arrayname)|] Declares a pointer names |ptr_arrayname| 
+to be associated
+with the array |arrayname|.
+  \item [|var_alloc(arrayname)|] Allocates space for array |arrayname|; 
+this assumes that all
+of its dimensions have been defined.
+  \item [|var_realloc(arrayname,oldmax,newmax)|] Is used when there 
+is an increase in the
+last dimension of an array |arrayname|; |oldmax| is the old value for the upper
+limit and |newmax| is the new value.
+  \item [|var_free(arrayname)|] Deallocates the memory associated with the 
+array |arrayname|.
+  \item [|var_realloca(arrayname)|] Used to reallocate space  when the last 
+dimension of array |arrayname| grows by one. 
+The allocation will only take place
+every |mem_inc| (defined in this file) steps. 
+  \item [|var_reallocb(arrayname)|] Once |arrayname| has grown to its 
+final size
+(via repeated invocations of |var_realloca|), this macro is used to repack
+the array in the smallest possible space.
+  \item [|var_reallocc(arrayname,oldmax,newmax)|] Used to reallocate 
+space when the
+last dimension of array |arrayname| is growing by steps other than one; 
+|oldmax| and
+|newmax| are the old and new values of the upper limit of the last dimension,
+respectively.
+\end{description}
 
-To allocate space for an array, assuming the dimensions have all been
-defined, use |var_alloc(array)|.  If an array is growing, because of a
-change in its last dimension, then use
-|var_realloc(array,oldmax,newmax)| where |oldmax| and |newmax| are the
-old and new values of the upper limit of the last dimension.
-|var_free(array)| deallocates the memory.
-
-If the last dimension of an array is growing by increments of one, then
-use |var_realloca(array)| to reallocate the space each time.  The
-allocation will only take place every |mem_inc| steps.  Once the final
-size is reached use |var_reallocb(array)| to repack the array in the
-smallest possible space.
-
-In the last dimension is growing by steps other than one, then use
-|var_reallocc(array,oldmax,newmax)| where |oldmax| and |newmax| are the
-old and new values of the upper limit of the last dimension.
+If one wishes to understand more completely these macros, it is useful
+to be familiar with some of the predefined WEB macros. Throughout the
+macro definitions also be aware of which quantities are the arguments 
+of the macros, which are other macros, and which are strings meant to
+appear in the final FORTRAN code. The binary operators used in the
+macros are the same as those used in C; see the section entitled
+``Expression Evaluation'' in the WEB manual if these are unfamiliar
+to you.
+\begin{description}
+  \item [@@f] Denotes a formatting declaration for WEB; affects only the
+typeset output.
+  \item [@@m] A macro definition.
+  \item [\#\#] Is the concatenation or paste operator. It is typically used
+to paste a string argument to a macro into a string inside the macro 
+definition. For example, if we used somewhere |ptr_decl(foo)|, the
+definition |ptr_##x| would be expanded as |ptr_foo| in the FORTRAN code.
+  \item [\ldots] When an ellipsis appears in an argument list, it means that this
+macro has a variable number of arguments. The ellipsis may be preceded by
+specified arguments as well.
+  \item [\mbox{\#0}] When the macro has a variable number of arguments, `\#0' 
+expands during WEB processing into the actual number of variable arguments
+used in this particular invocation of the macro; note that this number does
+not include any arguments explicitly specified at the beginning of the
+macro argument list.
+  \item[\mbox{\#1}] Also for a variable number of arguments, `\#n' with $n>0$ is 
+replaced during WEB processing by the n-th argument in the actual invocation
+of the macro. Again, this does not count any explicit arguments in the 
+macro definition.
+  \item[\_DEFINE] This WEB macro is typically used to assign a particular
+value, usually obtained from a macro argument, to a local (i.e., to the
+preprocessor) variable, the
+name of a which is also likely constructed using a macro arguement. The
+other macros whose names begin with an underscore 
+such as ``\_IFCASE'' are described in the WEB manual; their usage should
+be obvious. The most effective use of the ``\_DEFINE'' macro arises in the
+construction lengthy package 
+declarations such as |pk_ncdecl| where |pk| represents
+one of the two letter class designations. Through repeated use of 
+``\_DEFINE'' and ``\_UNDEF'', these macros are built up piece by piece during
+the execution of other macros such as |define_dimen_pk| and |define_var_pk|.
+\end{description}
