@@ -2,6 +2,9 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.14  1996/05/24 18:57:11  dstotler
+% Add calls to read materials and PMI files.
+%
 % Revision 1.13  1996/03/01 20:22:16  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -70,6 +73,7 @@
 @I strata.hweb
 @I string.hweb
 @I netcdf.hweb
+@I sector.hweb
 
 @f namelist integer
 @ The unnamed module.
@@ -102,6 +106,7 @@
       zn_common
       pr_common
       bk_common
+      gi_common
 
       call readfilenames
       
@@ -148,7 +153,14 @@ of the file name (x.d is degas and x.u for uedge) */
       elseif (uedge) then
          call read_uedge_background(uedgefilename)         
       endif
-      stop
+
+      call add_cramd_data         // So we'll have recomb. rates
+
+      call set_background_sources
+
+      call write_background
+
+      return
       end
 
 @ Set the background data
@@ -157,10 +169,18 @@ of the file name (x.d is degas and x.u for uedge) */
       subroutine read_degas_background(file)
       implicit_none
 
-      integer i,j1,j2,symmetry // Local
-      real mindensity,minx,minz
-      real xmin,xmax,zmin,zmax
+      integer zone,jh,jv,js,jsp,jwall,jseg,nohyds,zone,seg // Local
+      real xmin,xmax,zmin,zmax,curr_tot
       character*FILELEN file
+      logical new_group
+      sp_decl(sp_hyd[3])
+      sp_decl(degas_species[9])
+      sc_decl(sector)
+      vc_decl(x1)
+      vc_decl(x2)
+
+      external lookup_sector
+      integer lookup_sector
 
       zn_common
       pr_common
@@ -170,6 +190,9 @@ of the file name (x.d is degas and x.u for uedge) */
       rc_common
       so_common
       sy_common
+      gi_common
+      st_common
+      sc_common
 
       @<pardef.h@>
       @<combal.h@>
@@ -184,74 +207,162 @@ of the file name (x.d is degas and x.u for uedge) */
       @<compar.h@>
 
       open(unit=diskin,file=file,status='old',form='formatted')
-      symmetry=geometry_symmetry_cylindrical     // DIII-D case
-@#if 0
-       symmetry=geometry_symmetry_plane          // Box
-@#endif
-      call inpt(diskin,symmetry,xmin,xmax,zmin,zmax)
-      close(unit=diskin)
-/*       For DIII-D case   */
-      minx=0.995
-      minz=0.18
-      mindensity=const(1.1,16)
 
-      i=0
+      call inpt(diskin,geometry_symmetry,xmin,xmax,zmin,zmax)
+      close(unit=diskin)
+
+      sp_hyd[1]=sp_lookup('H')
+      sp_hyd[2]=sp_lookup('D')
+      sp_hyd[3]=sp_lookup('T')
+      nohyds=0                                                       
+      do js=1,nphyd
+         if (nhyd[js] != 0) nohyds=nohyds+1
+      end do
+      if (nohyds == 1) then
+         degas_species[1]=sp_hyd[nhyd[1]]
+         degas_species[2]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[1]])) \/ '2')
+      else if (nohyds == 2) then
+         degas_species[1]=sp_hyd[nhyd[1]]
+         degas_species[2]=sp_hyd[nhyd[2]]
+         degas_species[3]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[1]])) \/ '2')
+         degas_species[4]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[1]])) \/ 
+     $        trim(sp_sy(sp_hyd[nhyd[2]])))
+         if (degas_species[4] == 0) then
+            degas_species[4]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[2]])) \/ 
+     $           trim(sp_sy(sp_hyd[nhyd[1]])))
+         end if
+         degas_species[5]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[2]])) \/ '2')
+      else if (nohyds == 3) then
+         degas_species[1]=sp_hyd[nhyd[1]]
+         degas_species[2]=sp_hyd[nhyd[2]]
+         degas_species[3]=sp_hyd[nhyd[3]]
+         degas_species[4]=sp_lookup(sp_sy(sp_hyd[nhyd[1]]) \/ '2')
+         degas_species[5]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[1]])) \/ 
+     $        trim(sp_sy(sp_hyd[nhyd[2]])))
+         if (degas_species[5] == 0) then
+            degas_species[5]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[2]])) \/ 
+     $           trim(sp_sy(sp_hyd[nhyd[1]])))
+         end if
+         degas_species[6]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[2]])) \/ '2')
+         degas_species[7]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[1]])) \/ 
+     $        trim(sp_sy(sp_hyd[nhyd[3]])))
+         if (degas_species[7] == 0) then
+            degas_species[7]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[3]])) \/ 
+     $           trim(sp_sy(sp_hyd[nhyd[1]])))
+         end if
+         degas_species[8]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[2]])) \/ 
+     $        trim(sp_sy(sp_hyd[nhyd[3]])))
+         if (degas_species[8] == 0) then
+            degas_species[8]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[3]])) \/ 
+     $           trim(sp_sy(sp_hyd[nhyd[2]])))
+         end if
+         degas_species[9]=sp_lookup(trim(sp_sy(sp_hyd[nhyd[3]])) \/ '2')
+      end if
+      assert(npis <= 9)    // Assume no impurity species !!
+
       assert(sp_sy(pr_background(1))=='e')
-      assert(sp_sy(pr_background(2))=='H+')
-      do j2=1,novzs
-         do j1=1,nohzs
-            if (kzone1(j1,j2) <= 0 || kzone2(j1,j2) <= 0) then
-               goto skip
-            else if (denehvt(j1,j2,1) <= mindensity) then
-               goto skip
-            else if (gridx(j1,j2,1)<=minx || gridx(j1,j2+1,1)<=minx ||
-     $              gridx(j1+1,j2+1,1)<=minx || gridx(j1+1,j2,1)<=minx) then
-               goto skip
-            else if (gridz(j1,j2,1)<=minz || gridz(j1,j2+1,1)<=minz ||
-     $              gridz(j1+1,j2+1,1)<=minz || gridz(j1+1,j2,1)<=minz) then
-               goto skip
-            endif
-            i++
-            assert(i<=zone_type_num[zn_plasma])
-            background_n[1,i]=denehvt[j1,j2,1]
-            background_n[2,i]=denihvt[j1,j2,1,1]
-            background_temp[1,i]=electron_charge*tehvt[j1,j2,1]
-            background_temp[2,i]=electron_charge*tihvt[j1,j2,1,1]
-            vc_set(background_v[1,i],zero,zero,zero)
-            vc_set(background_v[2,i],zero,zero,zero)
-skip:       continue
+      do zone=1,zn_num
+         if (zn_type(zone) == zn_plasma) then
+            jh=zn_index(zone,1)
+            jv=zn_index(zone,2)
+/* Check that both |jh| and |jv| are valid. If not, could set some default */
+            assert(jh*jv != 0)       
+            bk_n(1,zone)=denehvt[jh,jv,1]
+            bk_temp(1,zone)=electron_charge*tehvt[jh,jv,1]
+            vc_set(bk_v(1,zone),zero,zero,zero)
+            do js=1,nohyds
+/* This assumes only singly charged ions. Same assumption made below. */
+               jsp=problem_species_background[sp_lookup(trim(sp_sy(degas_species[js])) \/ '+')]
+               assert(jsp > 1)
+               bk_n(jsp,zone)=denihvt[jh,jv,1,js]
+               bk_temp(jsp,zone)=electron_charge*tihvt[jh,jv,1,js]
+               vc_set(bk_v(jsp,zone),zero,zero,zero)
+            end do
+         end if
+      end do
+
+/* DEGAS only uses cartesian flow velocities */
+      background_coords=plasma_coords_cartesian
+                                                       
+      so_grps=0
+      so_seg_tot=0
+      do js=1,npis
+         do jwall=1,nowals
+            new_group=.true.
+            curr_tot=zero
+            do jseg=1,nosegsxz[jwall]
+               curr_tot+=abs(currxzt[jseg,1,jwall,js])
+            end do
+            if (curr_tot > zero) then
+               do jseg=1,nosegsxz[jwall]
+                  if (new_group) then
+                     so_grps++
+                     var_realloca(source_base_ptr)
+                     var_realloca(source_num_segments)
+                     var_realloca(source_type)
+                     var_realloca(source_geometry)
+                     var_realloca(source_num_flights)
+                     var_realloca(source_species)
+                     var_realloca(source_total_current)
+                     var_realloca(source_weight_norm)
+                     var_realloca(source_scale_factor)
+                     so_base(so_grps)=so_seg_tot+1
+                     so_nseg(so_grps)=nosegsxz[jwall]
+                     so_nflights(so_grps)=100
+/* Assume these are same for all segments: 
+ */
+                     if (currxzt[jseg,1,jwall,js] > zero) then 
+                        so_type(so_grps)=so_plate  
+                        so_species(so_grps)=
+     $                       sp_lookup(trim(sp_sy(degas_species[js])) \/ '+')
+                     else                                    
+                        so_type(so_grps)=so_puff 
+                        so_species(so_grps)=degas_species[js]
+                     end if
+                     assert(so_species(so_grps) > 0)
+                     so_geom(so_grps)=so_surface
+                     so_tot_curr(so_grps)=zero
+                     so_scale(so_grps)=one       // Default
+                     seg=so_seg_tot
+                     so_seg_tot+=nosegsxz[jwall]
+                     var_reallocc(source_current,seg,so_seg_tot)
+                     var_reallocc(source_segment_ptr,seg,so_seg_tot)
+                     var_reallocc(source_segment_rel_wt,seg,so_seg_tot)
+                     var_reallocc(source_segment_prob_alias,seg,so_seg_tot)
+                     var_reallocc(source_segment_ptr_alias,seg,so_seg_tot)
+                     new_group=.false.
+                  end if
+
+                  seg++
+                  source_current[seg]=abs(currxzt[jseg,1,jwall,js])
+                  so_tot_curr(so_grps)+=source_current[seg]
+                  source_segment_rel_wt[seg]=one     // Default
+                  vc_set(x1,xwall(jseg,jwall),zero,zwall(jseg,jwall))
+                  vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
+                  sector=lookup_sector(x1,x2)
+                  if (zn_type(sector_zone(sector)) == zn_solid) then
+                     sector=lookup_sector(x2,x1)
+                  end if
+                  if (zn_type(sector_zone(sector)) == zn_vacuum) then
+                     assert(so_type(so_grps) == so_puff)
+                  else
+                     assert(zn_type(sector_zone(sector)) == zn_plasma)
+                  end if
+                  source_segment_ptr[seg]=sector
+               end do
+               call set_prob_alias(so_nseg(so_grps),
+     $              source_current[so_base(so_grps)],
+     $              source_segment_rel_wt[so_base(so_grps)],
+     $              source_segment_ptr[so_base(so_grps)],
+     $              source_segment_prob_alias[so_base(so_grps)],
+     $              source_segment_ptr_alias[so_base(so_grps)],
+     $              so_wt_norm(so_grps))
+
+            end if
          end do
       end do
-/* DIII-D Core plasma  */
-      i++
-      assert(i==zone_type_num[zn_plasma])
-      background_n[1,i]=const(1.0,20)
-      background_n[2,i]=const(1.0,20)
-      background_temp[1,i]=const(200.0)
-      background_temp[2,i]=const(200.0)
-      vc_set(background_v[1,i],zero,zero,zero)
-      vc_set(background_v[2,i],zero,zero,zero)
-      background_coords=plasma_coords_cylindrical
-/* 
-      background_coords=plasma_coords_cartesian        // Box
-      so_num=nosegsxz[nowals]
-      var_alloc(source_type)
-      var_alloc(source_current)
-      var_alloc(source_element)
-      var_alloc(source_pos)
-      source_total=zero
-      do j2=1,so_num
-         source_type[j2]=so_surface
-         source_current[j2]=-currxzt[j2,1,nowals,1]     // ``-'' for gas puff
-         source_total=source_total+source_current[j2]
-         vc_set(source_pos[j2][0],xwall[j2,nowals],zero,
-     $                            zwall[j2,nowals])
-         vc_set(source_pos[j2][1],xwall[j2+1,nowals],zero,
-     $                            zwall[j2+1,nowals])
-      end do
-*/
-      call write_background
-      stop
+
+      return
       end
 
 @ read uedge background data 
@@ -260,11 +371,17 @@ skip:       continue
       implicit_none
       integer mx,my
       parameter (mx=120,my=100)
-      integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3
+      integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3,max_rc,test
       real rm[mx,my,0:4],zm[mx,my,0:4],ni[mx,my],vr[mx,my],vz[mx,my],
      $     vphi[mx,my],te[mx,my],ti[mx,my],
      $     flux1[my],flux2[my],dummy
       character*FILELEN file
+      vc_decl(x1)
+      vc_decl(x2)
+      sc_decl(sector)
+      
+      external lookup_sector
+      integer lookup_sector
 
       sy_common
       zn_common
@@ -274,6 +391,8 @@ skip:       continue
       el_common
       rc_common
       so_common
+      sc_common
+      st_common
       
       print *, 'in read_uedge'
 
@@ -323,71 +442,189 @@ skip:       continue
       assert(i==zone_type_num[zn_plasma])
       background_coords=plasma_coords_cylindrical
       
-      so_num=2*ny
+      so_grps=2
+      so_seg_tot=2*ny
+      var_alloc(source_base_ptr)
+      var_alloc(source_num_segments)
       var_alloc(source_type)
-      var_alloc(source_current)
-      var_alloc(source_element)
-      var_alloc(source_pos)
-      source_total=zero
+      var_alloc(source_geometry)
+      var_alloc(source_num_flights)
+      var_alloc(source_species)
+      var_alloc(source_total_current)
+      var_alloc(source_weight_norm)
+      var_alloc(source_scale_factor)
+/*
+   Note: using |var_reallocc| here rather than |var_alloc| since
+   we use |var_realloca| in |set_background_sources|. This way we
+   are allocating memory in |mem_inc| chunks in every case. This
+   is the way it's done in |read_degas_background| as well.
+*/
+      var_reallocc(source_segment_ptr,0,so_seg_tot)
+      var_reallocc(source_current,0,so_seg_tot)
+      var_reallocc(source_segment_rel_wt,0,so_seg_tot)
+      var_reallocc(source_segment_prob_alias,0,so_seg_tot)
+      var_reallocc(source_segment_ptr_alias,0,so_seg_tot)
+
+/* Figure what the test species by searching for the
+   one which participates in the most reactions. This
+   reasoning probably needs to be improved.
+ */
+/*      max_rc=0
+      test=0
+      do i=1,pr_test_num
+         if (pr_rc_num(i) > max_rc) then
+            test = i
+            max_rc = pr_rc_num(i)
+         end if
+      end do
+      assert(test > 0)
+*/
+      do i=1,so_grps
+         so_type(i)=so_plate
+//         so_species(i)=pr_test(test)
+         so_species(i)=sp_lookup('D+')
+         so_nseg(i)=ny
+         so_nseg(i)=ny
+         so_geom(i)=so_surface
+         so_tot_curr(i)=zero
+         so_scale(i)=one
+         so_nflights(i)=100
+      end do
+
+      so_base(1)=1
       i=0
       j1=1
       do j2=ny,1,-1
          i++
-         source_type[i]=so_surface
          source_current[i]=flux1[j2]
-         source_total=source_total+source_current[i]
-         vc_set(source_pos[i][0],rm[j1,j2,3],zero,zm[j1,j2,3])
-         vc_set(source_pos[i][1],rm[j1,j2,1],zero,zm[j1,j2,1])
+         so_tot_curr(1)+=source_current[i]
+         source_segment_rel_wt[i]=one
+         vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
+         vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
+         sector=lookup_sector(x1,x2)
+         if (zn_type(sector_zone(sector)) == zn_solid) then
+            sector=lookup_sector(x2,x1)
+         end if
+         source_segment_ptr[i]=sector
       end do
+      call set_prob_alias(so_nseg(1),
+     $     source_current[so_base(1)],
+     $     source_segment_rel_wt[so_base(1)],
+     $     source_segment_ptr[so_base(1)],
+     $     source_segment_prob_alias[so_base(1)],
+     $     source_segment_ptr_alias[so_base(1)],so_wt_norm(1))
+
+      so_base(2)=ny+1
       j1=nx
       do j2=1,ny
          i++
-         source_type[i]=so_surface
          source_current[i]=flux2[j2]
-         source_total=source_total+source_current[i]
-         vc_set(source_pos[i][0],rm[j1,j2,2],zero,zm[j1,j2,2])
-         vc_set(source_pos[i][1],rm[j1,j2,4],zero,zm[j1,j2,4])
+         so_tot_curr(2)+=source_current[i]
+         source_segment_rel_wt[i]=one
+         vc_set(x1,rm[j1,j2,2],zero,zm[j1,j2,2])
+         vc_set(x2,rm[j1,j2,4],zero,zm[j1,j2,4])
+         sector=lookup_sector(x1,x2)
+         if (zn_type(sector_zone(sector)) == zn_solid) then
+            sector=lookup_sector(x2,x1)
+         end if
+         source_segment_ptr[i]=sector
       end do
+      call set_prob_alias(so_nseg(2),
+     $     source_current[so_base(2)],
+     $     source_segment_rel_wt[so_base(2)],
+     $     source_segment_ptr[so_base(2)],
+     $     source_segment_prob_alias[so_base(2)],
+     $     source_segment_ptr_alias[so_base(2)],so_wt_norm(2))
 
-      call write_background
       return
  6    write (stderr,*) 'error occurred in reading uedge data file'
       assert (.false.)
       return
       end
 
-@ Write out background information.
+@ Set sources due to background reactions (recombination).
 
 @<Functions...@>=
-      subroutine write_background
+      subroutine set_background_sources
       implicit_none
-      integer fileid
-      character *FILELEN tempfile
-      zn_common
-      bk_common
-      bk_ncdecl
-      vc_ncdecl
-      nc_common
-      so_common
-      so_ncdecl
-      sr_common
-      sr_ncdecl
-      rf_common
 
-      tempfile = filenames_array[backgroundfile]
-      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
-      vc_ncdef(fileid)
-      bk_ncdef(fileid)
-      so_ncdef(fileid)
-      sr_ncdef(fileid)
-      call ncendef(fileid,nc_stat);
-      vc_ncwrite(fileid)
-      bk_ncwrite(fileid)
-      so_ncwrite(fileid)
-      sr_ncwrite(fileid)
-      call ncclose(fileid,nc_stat)
+      integer jr,zone
+      real rate
+
+      external reaction_rate_a
+      real reaction_rate_a
+
+      pr_common
+      bk_common
+      so_common
+      zn_common
+      sy_common
+
+      if (pr_bkrc_num > 0) then
+         var_realloc(source_base_ptr,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_num_segments,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_type,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_geometry,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_num_flights,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_species,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_total_current,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_weight_norm,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_scale_factor,so_grps,so_grps+pr_bkrc_num)
+         so_grps+=pr_bkrc_num
+         do jr=1,pr_bkrc_num
+            so_base(so_grps)=so_seg_tot+1
+            so_type(so_grps)=so_recomb
+/* In |set_prod_recomb|, assumed that these reactions had just one product:
+   the test species being sourced.
+ */
+            so_species(so_grps)=pr_bkrc_prod(jr,1)
+            so_nseg(so_grps)=0
+            so_geom(so_grps)=so_volume
+            so_nflights(so_grps)=100
+            so_tot_curr(so_grps)=zero
+            so_scale(so_grps)=one
+/* In |check_problem|, order of reagents was established: the ``background''
+   species to be used in the rate calculation is the first one. Using 
+   |bk_v(2,zone)| here just as a dummy since it's not a real test velocity.
+   Furthermore, if |bk_v| were really used, we would need to transform
+   from cylindrical to cartesian coordinates in the appropriate cases.
+ */
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  rate=bk_n(pr_bkrc_rg(jr,2),zone)*reaction_rate_a(
+     $                 sp_args(pr_background(pr_bkrc_rg(jr,2))),
+     $                 vc_args(bk_v(pr_bkrc_rg(jr,2),zone)),
+     $                 sp_args(pr_background(pr_bkrc_rg(jr,1))),
+     $                 bk_n(pr_bkrc_rg(jr,1),zone),
+     $                 vc_args(bk_v(pr_bkrc_rg(jr,1),zone)),
+     $                 bk_temp(pr_bkrc_rg(jr,1),zone),zone,
+     $                 pr_reaction_args(pr_bk_rc(jr)))
+     $                 *zn_volume(zone)
+                  if (rate > zero) then
+                     so_seg_tot++
+                     so_nseg(so_grps)++
+                     var_realloca(source_segment_ptr)
+                     var_realloca(source_current)
+                     var_realloca(source_segment_rel_wt)
+                     var_realloca(source_segment_prob_alias)
+                     var_realloca(source_segment_ptr_alias)
+                     source_current[so_seg_tot]=rate
+                     so_tot_curr(so_grps)+=rate
+                     source_segment_rel_wt[so_seg_tot]=one     // Default
+                     source_segment_ptr[so_seg_tot]=zone
+                  end if
+               end if
+            end do 
+            call set_prob_alias(so_nseg(so_grps),
+     $           source_current[so_base(so_grps)],
+     $           source_segment_rel_wt[so_base(so_grps)],
+     $           source_segment_ptr[so_base(so_grps)],
+     $           source_segment_prob_alias[so_base(so_grps)],
+     $           source_segment_ptr_alias[so_base(so_grps)],
+     $           so_wt_norm(so_grps))
+         end do    
+      end if
 
       return
       end
 
-      
