@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.25  1996/05/24 18:56:10  dstotler
+% Add interpolation routines for 4 and 5 dimensions.
+%
 % Revision 1.24  1996/03/01 20:20:11  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -150,10 +153,11 @@ once per point. */
          assert(.false.)
       end if
 
-      reaction_rate=reaction_rate_a(pr_test_args(pt_test(p)),vc_args(pt_v(p)),
-     $     bk_args(back),bk_n(back,lc_zone(pt_loc(p))),
+      reaction_rate=reaction_rate_a(sp_args(pt_sp(p)),vc_args(pt_v(p)),
+     $     sp_args(pr_background(back)),bk_n(back,lc_zone(pt_loc(p))),
      $     vc_args(vb_flow),bk_temp(back,lc_zone(pt_loc(p))),
-     $     pr_reaction_args(ts_reac))
+     $     lc_zone(pt_loc(p)),
+     $     pr_reaction_args(pr_ts_rc(pt_test(p),ts_reac)))
       
       return
       end
@@ -166,27 +170,29 @@ once per point. */
   \item[|nb|] its density,
   \item[|vb_flow|] its flow velocity,
   \item[|tb|] and its temperature,
-  \item[|ts_reac|] reaction index into the list of reactions participated 
-in by |test|.
+  \item[|zone|] the geometry zone, for those rates which have been
+                interpolated onto the geometry ahead of time.
+  \item[|pr_reac|] reaction index into the list of reactions in the
+problem.
 \end{description}
 The intention here is to make these variables as ``physical'' as possible
 so this routine can easily be used in standalone codes, such as |reaction_test|.
       
 @<Functions...@>=
-      function reaction_rate_a(pr_test_dummy(test),vc_dummy(v_test),
-     $    pr_background_dummy(back),nb,vc_dummy(vb_flow),tb,
-     $    pr_reaction_dummy(ts_reac))
+      function reaction_rate_a(sp_dummy(test_sp),vc_dummy(v_test),
+     $    sp_dummy(back_sp),nb,vc_dummy(vb_flow),tb,zone,
+     $    pr_reaction_dummy(pr_reac))
 
       implicit_none
       real reaction_rate_a                               // Function
-      pr_test_decl(test)                                 // Input
+      sp_decl(test_sp)                                   // Input
       vc_decl(v_test)
-      pr_background_decl(back)
+      sp_decl(back_sp)
       real nb,tb
+      integer zone
       vc_decl(vb_flow)
-      pr_reaction_decl(ts_reac)
-
       pr_reaction_decl(pr_reac)  
+
       integer i                                         // Local
       real sigma_v,fvar[xs_table_rank_max],vrel[3]
       external interpolate1,interpolate2,interpolate3   // External
@@ -196,8 +202,6 @@ so this routine can easily be used in standalone codes, such as |reaction_test|.
       pr_common
       sp_common
 
-      pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
-
       assert( reaction_organization[pr_reac][rd_rate] == xs_organization_table )
       assert( reaction_data_var[pr_reac][rd_rate][0] == xs_var_rate )
 
@@ -206,14 +210,16 @@ so this routine can easily be used in standalone codes, such as |reaction_test|.
             fvar[i] = nb
          else if (reaction_data_var[pr_reac][rd_rate][i] == xs_var_energy) then
             vc_difference(v_test,vb_flow,vrel)
-            fvar[i] = half*sp_m(pr_test(test))*vc_abs2(vrel)
+            fvar[i] = half*sp_m(test_sp)*vc_abs2(vrel)
          else if (reaction_data_var[pr_reac][rd_rate][i] == xs_var_sp_energy) then
             vc_difference(v_test,vb_flow,vrel)
             fvar[i] = half*vc_abs2(vrel)
          else if (reaction_data_var[pr_reac][rd_rate][i] == xs_var_temperature) then
             fvar[i] = tb
          else if (reaction_data_var[pr_reac][rd_rate][i] == xs_var_sp_temperature) then
-            fvar[i] = tb/sp_m(pr_background(back))
+            fvar[i] = tb/sp_m(back_sp)
+         else if (reaction_data_var[pr_reac][rd_rate][i] == xs_var_zone) then
+            fvar[i] = zone
          else
             assert('Unknown variable' == ' ')
          end if
@@ -566,11 +572,7 @@ loop1: continue
       
       call xs_copy(num)
 
-      var_free(xs_tab1)
-      var_free(xs_tab2)
-      var_free(xs_tab3)
-      var_free(xs_tab4)
-      var_free(xs_tab5)
+      var_free(xs_data_tab)
 
       return
       end
@@ -622,9 +624,11 @@ information into reaction data and miscellaneous arrays.
    variables to store internal representations of data. */
       do jdep=1,xs_num_dep_var
 
-         assert(xs_organization[jdep]SP(1:5)=='table')
+         assert(xs_organization[jdep]SP(1:5)=='table' || xs_organization[jdep]=='cramd')
          if (xs_organization[jdep]SP(1:5)=='table') then
             organization=xs_organization_table
+         else if (xs_organization[jdep]=='cramd') then
+            organization=xs_organization_cramd
          end if
 
          i=0
@@ -656,6 +660,8 @@ information into reaction data and miscellaneous arrays.
                   var[i]=xs_var_sp_temperature
                else if (xs_var[i,jdep] == 'specific_energy') then
                   var[i]=xs_var_sp_energy
+               else if (xs_var[i,jdep] == 'plasma_zone') then
+                  var[i]=xs_var_zone
                end if
 
                if (spacing[i] == xs_spacing_linear) then
@@ -740,17 +746,9 @@ information into reaction data and miscellaneous arrays.
          do k=0,xs_tab_index[3,jdep]-1
             do j=0,xs_tab_index[2,jdep]-1
                do i=0,xs_tab_index[1,jdep]-1
-                  if (jdep == 1) then
-                     table_entry=xs_table1(i,j,k)
-                  else if (jdep == 2) then
-                     table_entry=xs_table2(i,j,k)
-                  else if (jdep == 3) then
-                     table_entry=xs_table3(i,j,k)
-                  else if (jdep == 4) then
-                     table_entry=xs_table4(i,j,k)
-                  else if (jdep == 5) then
-                     table_entry=xs_table5(i,j,k)
-                  end if
+
+                  table_entry=xs_data_table(i,j,k,jdep)
+
                   if (spacing[0] == xs_spacing_log) then
                      if (table_entry > zero) then
                         table_entry=log(table_entry*xs_mult[0,jdep])
