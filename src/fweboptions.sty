@@ -1,5 +1,8 @@
 % $Id$
 % $Log$
+% Revision 1.9  1995/03/01 17:17:26  karney
+% Minor changes to fweboptions.sty and Makefile.
+%
 % Revision 1.8  1994/06/27 21:40:48  karney
 % Convert to LaTeX2e
 %
@@ -24,38 +27,6 @@
 \SetMathAlphabet{\mathsf}{normal}{\encodingdefault}{\sfdefault}%
 	{\bfdefault}{n}
 \def\tens#1{{\mathsf #1}}   % Tensors
-
-% Update some stuff in fwebmac.sty
-
-% Use \mathit{ } instead of {\it }
-\def\WXA#1{\begingroup
-%% We don't want the identifiers to be in hboxes, because we want to get
-%% |\scriptstyle| for subscripts.  (We should always be in math mode here.)
-	\def\Wshort##1{##1}%
-	\def\Wid##1{\mathit{##1\/\kern.05em}}%
-	\global\WARRAYarga{#1}%
-	\futurelet\Wnext\WARRAYm}
-
-% Use \mathrm{ } instead of {\rm }
-\def\defin#1#2{\4\saveind
-	\1\Wreserved{#1}\hbox{$^{\mathrm{#2}}$}\Hspace}% Begin @d, @m, or @f.
-
-% Use \mathrm{ } instead of {\rm }
-\def\WX#1:#2\X#3\X{\ifmmode\gdef\XX{\null$\null}\else\gdef\XX{}\fi
-	\XX$\langle\,$#2{\eightrm\kern.5em#1}$\,\rangle^{\mathrm{#3}}$\XX}
-
-% Use $\S$ instead of \tensy x
-\def\lheader{\mainfont\the\pageno\eightrm\qquad\Whead\hfill\Wtitle\qquad
-	\ifnum\pageno=\contentspageno\else
-		$\S$\mainfont\Wmodno
-	\fi}
-
-
-\def\rheader{\ifnum\pageno=\contentspageno\else
-		$\S$\mainfont\Wmodno
-	\fi
-	\eightrm\qquad\Wtitle\hfill\Whead
-	\qquad\mainfont\the\pageno}
 
 % Change some of FWEB's formatting macros.
 

@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1995/03/14 16:48:27  dstotler
+% Add documentation for netcdf macros, including brief examples of how
+% to read and write netcdf files.
+%
 % Revision 1.4  1993/09/27 22:09:39  karney
 % Include external declarations in nc_common
 %
@@ -87,22 +91,22 @@ Convert to LaTeX/NFSS
       dimid(name) = ncdimdef(fileid,#name,range_size(name),nc_stat) @;
 
 @m var_def(fileid,name)
-      _IF(rank_##name >= 1, nc_dims(1)=dimid(ind_##name##_1);,)
-      _IF(rank_##name >= 2, nc_dims(2)=dimid(ind_##name##_2);,)
-      _IF(rank_##name >= 3, nc_dims(3)=dimid(ind_##name##_3);,)
-      _IF(rank_##name >= 4, nc_dims(4)=dimid(ind_##name##_4);,)
-      _IF(rank_##name >= 5, nc_dims(5)=dimid(ind_##name##_5);,)
+      $IF(rank_##name >= 1, nc_dims(1)=dimid(ind_##name##_1);,)
+      $IF(rank_##name >= 2, nc_dims(2)=dimid(ind_##name##_2);,)
+      $IF(rank_##name >= 3, nc_dims(3)=dimid(ind_##name##_3);,)
+      $IF(rank_##name >= 4, nc_dims(4)=dimid(ind_##name##_4);,)
+      $IF(rank_##name >= 5, nc_dims(5)=dimid(ind_##name##_5);,)
       dimid(name) = ncvardef(fileid,#name,
-      _IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL),
+      $IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL),
       rank_##name,nc_dims,nc_stat) @;
 
 @m var_write(fileid,name)
-      _IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
-      _IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
-      _IF(rank_##name >= 3, nc_corner(3)=1; nc_edge(3)=range_size(ind_##name##_3);,)
-      _IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
-      _IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
-      _IF(type_##name == CHAR,
+      $IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
+      $IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
+      $IF(rank_##name >= 3, nc_corner(3)=1; nc_edge(3)=range_size(ind_##name##_3);,)
+      $IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
+      $IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
+      $IF(type_##name == CHAR,
         call ncvarputc(fileid,dimid(name),nc_corner,nc_edge,name,array_size(name),nc_stat),
         call ncvarput(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
 
@@ -116,20 +120,20 @@ Convert to LaTeX/NFSS
       call ncvarinq(fileid,dimid(name),nc_dummy,nc_type,nc_rank,nc_dims,nc_attr,nc_stat);
       assert(nc_rank >= 0 && nc_rank <= MAX_DIM);
       assert(nc_rank == rank_##name);
-      _IF(rank_##name >= 1, assert( nc_dims(1) == dimid(ind_##name##_1) );,)
-      _IF(rank_##name >= 2, assert( nc_dims(2) == dimid(ind_##name##_2) );,)
-      _IF(rank_##name >= 3, assert( nc_dims(3) == dimid(ind_##name##_3) );,)
-      _IF(rank_##name >= 4, assert( nc_dims(4) == dimid(ind_##name##_4) );,)
-      _IF(rank_##name >= 5, assert( nc_dims(5) == dimid(ind_##name##_5) );,)
-      assert( _IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL) == nc_type ) @;
+      $IF(rank_##name >= 1, assert( nc_dims(1) == dimid(ind_##name##_1) );,)
+      $IF(rank_##name >= 2, assert( nc_dims(2) == dimid(ind_##name##_2) );,)
+      $IF(rank_##name >= 3, assert( nc_dims(3) == dimid(ind_##name##_3) );,)
+      $IF(rank_##name >= 4, assert( nc_dims(4) == dimid(ind_##name##_4) );,)
+      $IF(rank_##name >= 5, assert( nc_dims(5) == dimid(ind_##name##_5) );,)
+      assert( $IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL) == nc_type ) @;
 
 @m var_read(fileid,name)
-      _IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
-      _IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
-      _IF(rank_##name >= 3, nc_corner(3)=1; nc_edge(3)=range_size(ind_##name##_3);,)
-      _IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
-      _IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
-      _IF(type_##name == CHAR,
+      $IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
+      $IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
+      $IF(rank_##name >= 3, nc_corner(3)=1; nc_edge(3)=range_size(ind_##name##_3);,)
+      $IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
+      $IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
+      $IF(type_##name == CHAR,
         call ncvargetc(fileid,dimid(name),nc_corner,nc_edge,name,array_size(name),nc_stat),
         call ncvarget(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
 

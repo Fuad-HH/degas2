@@ -1,6 +1,9 @@
 @* Macros for machine dependencies.
 % $Id$
 % $Log$
+% Revision 1.3  1994/01/03 19:30:57  karney
+% Update to include ALPHA support
+%
 % Revision 1.2  1993/10/26  22:22:20  karney
 % Add set_cwd.
 %
@@ -76,14 +79,14 @@
 @#if CRAY                       // Use single precision on the Cray
   @m real     REAL
   @m areal    REAL
-  @m const(x,...) x@&_IFCASE(#0,e0,e###1)
+  @m const(x,...) x@&$IFCASE(#0,e0,e###1)
   @m epsilon  1.0e-16
   @m single_precision REAL
   @m single   REAL
 @#else
   @m real     DOUBLE PRECISION  // Default precision
   @m areal    DBLE              // Coerce to default precision
-  @m const(x,...) x@&_IFCASE(#0,d0,d###1) // Constant in default precision
+  @m const(x,...) x@&$IFCASE(#0,d0,d###1) // Constant in default precision
   @m epsilon  1.0d-16           // Approximate round-off error
   @m single_precision REAL      // Declare single precision
   @m single   REAL              // Coerce to single precision

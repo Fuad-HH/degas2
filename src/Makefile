@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.25  1995/05/22 22:04:37  karney
+# Update for fweb 1.50.  Several minor changes.  Implement collide.web.
+#
 # Revision 1.24  1995/04/25 22:14:27  karney
 # Initial version of sources.web
 #
@@ -142,9 +145,9 @@ FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
 ifdef DEBUG
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn6000 -n/ -n')' -Tv
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv
 else
-  TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn6000 -n/ -n')' -Tv
+  TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv
 endif
 WEAVEFLAGS=-f -i -W[ -ykw600
 
@@ -194,7 +197,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
-    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb
+    ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb segment.hweb
 
 %.f: %.web $(HEADERS) fixit
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<

@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.13  1995/04/24 14:21:11  karney
+% Remove some unused variables.  Introduce a coordinate system for plasma
+% flow.
+%
 % Revision 1.12  1995/04/12 18:34:03  karney
 % Merge in comments to array.hweb and changes for Sherwood '95 meeting.
 %
@@ -69,9 +73,9 @@ on either side of it after appropriate expansions, hence 'name' is expanded
 to the variable's name. #n represents the nth argument represented by the
 dots. */
 @m define_dimen(name,...)
-      _ASSERT( #0 == 1 || #0 == 2)
-      _IF(#0 == 1, _DEFINE(min_##name 1),_DEFINE(min_##name #1))
-      _IF(#0 == 1, _DEFINE(max_##name #1),_DEFINE(max_##name #2))
+      $ASSERT( #0 == 1 || #0 == 2)
+      $IF(#0 == 1, $DEFINE(min_##name 1),$DEFINE(min_##name #1))
+      $IF(#0 == 1, $DEFINE(max_##name #1),$DEFINE(max_##name #2))
 
 @m range(name) range_min(name):range_max(name)
 @m range_star(name) range_min(name):*
@@ -101,16 +105,16 @@ does not vary (just a fixed string). |ind_x_m| equals the value of the last
 argument or the last dimension for an array. eg.. for x, ind_x_m =0, for
 x(5), ind_x_m =5, for y(2,10), ind_y_m =10, for z(1,5,10), ind_z_m=10 */ 
 
-@m define_var(x,type,...) _ASSERT( #0 <= MAX_DIM && #0 >= 0)
-      _ASSERT( type >= CHAR && type <= FLOAT )
-      _DEFINE(type_##x type)
-      _DEFINE(rank_##x #0)
-      _IF(#0 >= 1, _DEFINE(ind_##x##_1 #1),)
-      _IF(#0 >= 2, _DEFINE(ind_##x##_2 #2),)
-      _IF(#0 >= 3, _DEFINE(ind_##x##_3 #3),)
-      _IF(#0 >= 4, _DEFINE(ind_##x##_4 #4),)
-      _IF(#0 >= 5, _DEFINE(ind_##x##_5 #5),)
-      _DEFINE(ind_##x##_m _IFCASE(#0,0,#1,#2,#3,#4,#5))
+@m define_var(x,type,...) $ASSERT( #0 <= MAX_DIM && #0 >= 0)
+      $ASSERT( type >= CHAR && type <= FLOAT )
+      $DEFINE(type_##x type)
+      $DEFINE(rank_##x #0)
+      $IF(#0 >= 1, $DEFINE(ind_##x##_1 #1),)
+      $IF(#0 >= 2, $DEFINE(ind_##x##_2 #2),)
+      $IF(#0 >= 3, $DEFINE(ind_##x##_3 #3),)
+      $IF(#0 >= 4, $DEFINE(ind_##x##_4 #4),)
+      $IF(#0 >= 5, $DEFINE(ind_##x##_5 #5),)
+      $DEFINE(ind_##x##_m $IFCASE(#0,0,#1,#2,#3,#4,#5))
 
 @f declare_var integer
 /* |declare_var(x)| declares the variable x. it may be a character, real or
@@ -127,19 +131,19 @@ real x ; or integer x. For arrays, it is of the form: real
  x(dim1L:dim1U,dim2L:dim2U... dimnL:dimnU) where dim1L,dim2L ... and
 dim1U,dim2U ... are lower and upper dimensions also given by ranges of
 |ind_x_1|, |ind_x_2| etc.  same goes for integers.
-NB: the syntax of the _IF statement is :
-_IF (expression,true,false). note the position of the commas
+NB: the syntax of the $IF statement is :
+$IF (expression,true,false). note the position of the commas
 carefully. They seperate the true  and false parts. */
 @m declare_var(x)
-      _IFCASE(type_##x, character, integer, real)
-      _IF(type_##x == CHAR,
+      $IFCASE(type_##x, character, integer, real)
+      $IF(type_##x == CHAR,
           *range_max(ind_##x##_1)
-          _IFCASE(rank_##x,,x,
+          $IFCASE(rank_##x,,x,
           x(range(ind_##x##_2)),
           x(range(ind_##x##_2),range(ind_##x##_3)),
           x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
           x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5))),
-          _IFCASE(rank_##x,x,x(range(ind_##x##_1)),
+          $IFCASE(rank_##x,x,x(range(ind_##x##_1)),
           x(range(ind_##x##_1),range(ind_##x##_2)),
           x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3)),
           x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
@@ -151,16 +155,16 @@ pointer to an array x of at least dim 1 . Also,
 here, the range of the dimension is not from min to max but from min to
 ``*'' which puts no upper limit. */
 @m declare_varp(x)
-      _IF(rank_##x > 1 || (type_##x != CHAR && rank_##x > 0),ptr_decl(x);,)
-      _IFCASE(type_##x, character, integer, real)
-      _IF(type_##x == CHAR,
+      $IF(rank_##x > 1 || (type_##x != CHAR && rank_##x > 0),ptr_decl(x);,)
+      $IFCASE(type_##x, character, integer, real)
+      $IF(type_##x == CHAR,
           *range_max(ind_##x##_1)
-          _IFCASE(rank_##x,,x,
+          $IFCASE(rank_##x,,x,
           x(range_star(ind_##x##_2)),
           x(range(ind_##x##_2),range_star(ind_##x##_3)),
           x(range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
           x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5))),
-          _IFCASE(rank_##x,x,x(range_star(ind_##x##_1)),
+          $IFCASE(rank_##x,x,x(range_star(ind_##x##_1)),
           x(range(ind_##x##_1),range_star(ind_##x##_2)),
           x(range(ind_##x##_1),range(ind_##x##_2),range_star(ind_##x##_3)),
           x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
@@ -170,7 +174,7 @@ here, the range of the dimension is not from min to max but from min to
 of the  ranges of the dimensions. The range is defined by a macro
 |range_size| and is basically - dimU - dimL +1	*/
 @m array_size(x)
-      _IFCASE(rank_##x,1,(range_size(ind_##x##_1)),
+      $IFCASE(rank_##x,1,(range_size(ind_##x##_1)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)),
@@ -178,7 +182,7 @@ of the  ranges of the dimensions. The range is defined by a macro
 /* |array_unit(x)| is the size calculated by leaving out the last dimension of
 the array x.	*/
 @m array_unit(x)
-      _IFCASE(rank_##x,,1,
+      $IFCASE(rank_##x,,1,
       (range_size(ind_##x##_1)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
@@ -230,17 +234,17 @@ freeing has to be done for a real, integer or character. It finds out the
 size of the array too, using the macro |array_size(x)|. note the use of
 |array_sizev(x,y)| to get the size of x with the last dimension set to ``n''
 and ``on''	*/
-@m var_alloc(x) _IFCASE(type_##x,
+@m var_alloc(x) $IFCASE(type_##x,
       char_alloc(x,array_size(x)),
       int_alloc(x,array_size(x)),
       real_alloc(x,array_size(x)))
 
-@m var_realloc(x,on,n) _IFCASE(type_##x,
+@m var_realloc(x,on,n) $IFCASE(type_##x,
       char_realloc(x,array_sizev(x,on),array_sizev(x,n)),
       int_realloc(x,array_sizev(x,on),array_sizev(x,n)),
       real_realloc(x,array_sizev(x,on),array_sizev(x,n)))
 
-@m var_free(x) _IFCASE(type_##x,
+@m var_free(x) $IFCASE(type_##x,
       char_free(x,array_size(x)),
       int_free(x,array_size(x)),
       real_free(x,array_size(x)))
@@ -282,7 +286,7 @@ this value minus |mem_inc| which is what the macros |array_sizea(x)| and
 |array_sizeb(x)| return.*/
 
 @m var_realloca(x) if (mod(range_size(ind_##x##_m),mem_inc) == 1) then;
-      _IFCASE(type_##x,
+      $IFCASE(type_##x,
       char_realloc(x,array_sizeb(x),array_sizea(x)),
       int_realloc(x,array_sizeb(x),array_sizea(x)),
       real_realloc(x,array_sizeb(x),array_sizea(x)));
@@ -293,7 +297,7 @@ time given by |array_size| , if the range size of the last index is not a
 multiple of |mem_inc| (which means the growth has saturated ) */
 
 @m var_reallocb(x) if (mod(range_size(ind_##x##_m),mem_inc) != 0) then;
-      _IFCASE(type_##x,
+      $IFCASE(type_##x,
       char_realloc(x,array_sizea(x),array_size(x)),
       int_realloc(x,array_sizea(x),array_size(x)),
       real_realloc(x,array_sizea(x),array_size(x)));
@@ -307,7 +311,7 @@ same. */
 
 @m var_reallocc(x,on,n) if (mem_size((on)-range_min(ind_##x##_m)+1) !=
       mem_size((n)-range_min(ind_##x##_m)+1)) then;
-      _IFCASE(type_##x,
+      $IFCASE(type_##x,
       char_realloc(x,array_sizec(x,on),array_sizec(x,n)),
       int_realloc(x,array_sizec(x,on),array_sizec(x,n)),
       real_realloc(x,array_sizec(x,on),array_sizec(x,n)));
@@ -315,93 +319,95 @@ same. */
 
 @ Define package functions.
 
-@m package_init(pk) _DEFINE(pk##_common_a save /pk##_com_a/;)
-      _DEFINE(pk##_common_b save /pk##_com_b/;)
-      _DEFINE(pk##_ncdef(fileid))
-      _DEFINE(pk##_ncwrite(fileid))
-      _DEFINE(pk##_ncread(fileid))
-      _DEFINE(pk##_ncdecl)
-      _DEFINE(pk##_pvmput)
-      _DEFINE(pk##_pvmgeta)
-      _DEFINE(pk##_pvmgetb)
+@m $$DEFINE(defn) $DEFINE(defn)
+
+@m package_init(pk) $DEFINE(pk##_common_a save /pk##_com_a/;)
+      $DEFINE(pk##_common_b save /pk##_com_b/;)
+      $DEFINE(pk##_ncdef(fileid))
+      $DEFINE(pk##_ncwrite(fileid))
+      $DEFINE(pk##_ncread(fileid))
+      $DEFINE(pk##_ncdecl)
+      $DEFINE(pk##_pvmput)
+      $DEFINE(pk##_pvmgeta)
+      $DEFINE(pk##_pvmgetb)
 
 
 @m define_dimen_pk(pk,name,...) define_dimen(name,#.)
-      _DEFINE(temp(fileid) pk##_ncdef(fileid))
-      _UNDEF(pk##_ncdef)
-      _DEFINE(pk##_ncdef(fileid) temp(fileid); dimen_def(fileid,name);)
-      _UNDEF(temp)
-      _DEFINE(temp pk##_ncdecl)
-      _UNDEF(pk##_ncdecl)
-      _DEFINE(pk##_ncdecl temp; integer dimid(name);)
-      _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncread(fileid))
-      _UNDEF(pk##_ncread)
-      _DEFINE(pk##_ncread(fileid) temp(fileid); dimen_inq(fileid,name);)
-      _UNDEF(temp)
+      $$DEFINE(temp(fileid) pk##_ncdef(fileid))
+      $UNDEF(pk##_ncdef)
+      $$DEFINE(pk##_ncdef(fileid) temp(fileid); dimen_def(fileid,name);)
+      $UNDEF(temp)
+      $$DEFINE(temp pk##_ncdecl)
+      $UNDEF(pk##_ncdecl)
+      $$DEFINE(pk##_ncdecl temp; integer dimid(name);)
+      $UNDEF(temp)
+      $$DEFINE(temp(fileid) pk##_ncread(fileid))
+      $UNDEF(pk##_ncread)
+      $$DEFINE(pk##_ncread(fileid) temp(fileid); dimen_inq(fileid,name);)
+      $UNDEF(temp)
       
 @m define_var_pk(pk,name,type,...) define_var(name,type,#.)
-      _IF(type == CHAR,define_common(pk,name,b),define_common(pk,name,a))
-      _DEFINE(temp(fileid) pk##_ncdef(fileid))
-      _UNDEF(pk##_ncdef)
-      _DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
-      _UNDEF(temp)
-      _DEFINE(temp pk##_ncdecl)
-      _UNDEF(pk##_ncdecl)
-      _DEFINE(pk##_ncdecl temp; integer dimid(name);)
-      _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncwrite(fileid))
-      _UNDEF(pk##_ncwrite)
-      _DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
-      _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncread(fileid))
-      _UNDEF(pk##_ncread)
-      _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
-      _UNDEF(temp)
-      _DEFINE(temp pk##_pvmput)
-      _UNDEF(pk##_pvmput)
-      _DEFINE(pk##_pvmput temp; pvm_put(name))
-      _UNDEF(temp)
-      _DEFINE(temp pk##_pvmgeta)
-      _UNDEF(pk##_pvmgeta)
-      _DEFINE(pk##_pvmgeta temp; pvm_get(name))
-      _UNDEF(temp)
+      $IF(type == CHAR,define_common(pk,name,b),define_common(pk,name,a))
+      $$DEFINE(temp(fileid) pk##_ncdef(fileid))
+      $UNDEF(pk##_ncdef)
+      $$DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
+      $UNDEF(temp)
+      $$DEFINE(temp pk##_ncdecl)
+      $UNDEF(pk##_ncdecl)
+      $$DEFINE(pk##_ncdecl temp; integer dimid(name);)
+      $UNDEF(temp)
+      $$DEFINE(temp(fileid) pk##_ncwrite(fileid))
+      $UNDEF(pk##_ncwrite)
+      $$DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
+      $UNDEF(temp)
+      $$DEFINE(temp(fileid) pk##_ncread(fileid))
+      $UNDEF(pk##_ncread)
+      $$DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
+      $UNDEF(temp)
+      $$DEFINE(temp pk##_pvmput)
+      $UNDEF(pk##_pvmput)
+      $$DEFINE(pk##_pvmput temp; pvm_put(name))
+      $UNDEF(temp)
+      $$DEFINE(temp pk##_pvmgeta)
+      $UNDEF(pk##_pvmgeta)
+      $$DEFINE(pk##_pvmgeta temp; pvm_get(name))
+      $UNDEF(temp)
 
 @m define_common(pk,name,SUF)
-      _DEFINE(temp pk##_common_##SUF)
-      _UNDEF(pk##_common_##SUF)
-      _DEFINE(pk##_common_##SUF temp declare_var(name); common /pk##_com_##SUF/ name;)
-      _UNDEF(temp)
+      $$DEFINE(temp pk##_common_##SUF)
+      $UNDEF(pk##_common_##SUF)
+      $$DEFINE(pk##_common_##SUF temp declare_var(name); common /pk##_com_##SUF/ name;)
+      $UNDEF(temp)
 
 @m define_varp_pk(pk,name,...) define_var(name,#.)
-      _DEFINE(temp pk##_common_a)
-      _UNDEF(pk##_common_a)
-      _DEFINE(pk##_common_a temp declare_varp(name); common /pk##_com_a/ ptr_##name;)
-      _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncdef(fileid))
-      _UNDEF(pk##_ncdef)
-      _DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
-      _UNDEF(temp)
-      _DEFINE(temp pk##_ncdecl)
-      _UNDEF(pk##_ncdecl)
-      _DEFINE(pk##_ncdecl temp; integer dimid(name);)
-      _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncwrite(fileid))
-      _UNDEF(pk##_ncwrite)
-      _DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
-      _UNDEF(temp)
-      _DEFINE(temp(fileid) pk##_ncread(fileid))
-      _UNDEF(pk##_ncread)
-      _DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_alloc(name); var_read(fileid,name);)
-      _UNDEF(temp)
-      _DEFINE(temp pk##_pvmput)
-      _UNDEF(pk##_pvmput)
-      _DEFINE(pk##_pvmput temp; pvm_put(name))
-      _UNDEF(temp)
-      _DEFINE(temp pk##_pvmgeta)
-      _UNDEF(pk##_pvmgeta)
-      _DEFINE(pk##_pvmgeta temp; var_alloc(name); pvm_get(name))
-      _UNDEF(temp)
+      $$DEFINE(temp pk##_common_a)
+      $UNDEF(pk##_common_a)
+      $$DEFINE(pk##_common_a temp declare_varp(name); common /pk##_com_a/ ptr_##name;)
+      $UNDEF(temp)
+      $$DEFINE(temp(fileid) pk##_ncdef(fileid))
+      $UNDEF(pk##_ncdef)
+      $$DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
+      $UNDEF(temp)
+      $$DEFINE(temp pk##_ncdecl)
+      $UNDEF(pk##_ncdecl)
+      $$DEFINE(pk##_ncdecl temp; integer dimid(name);)
+      $UNDEF(temp)
+      $$DEFINE(temp(fileid) pk##_ncwrite(fileid))
+      $UNDEF(pk##_ncwrite)
+      $$DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
+      $UNDEF(temp)
+      $$DEFINE(temp(fileid) pk##_ncread(fileid))
+      $UNDEF(pk##_ncread)
+      $$DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_alloc(name); var_read(fileid,name);)
+      $UNDEF(temp)
+      $$DEFINE(temp pk##_pvmput)
+      $UNDEF(pk##_pvmput)
+      $$DEFINE(pk##_pvmput temp; pvm_put(name))
+      $UNDEF(temp)
+      $$DEFINE(temp pk##_pvmgeta)
+      $UNDEF(pk##_pvmgeta)
+      $$DEFINE(pk##_pvmgeta temp; var_alloc(name); pvm_get(name))
+      $UNDEF(temp)
 
 @* External Interface to Arrays.  
 
@@ -553,16 +559,16 @@ macro argument list.
 replaced during WEB processing by the n-th argument in the actual invocation
 of the macro. Again, this does not count any explicit arguments in the 
 macro definition.
-  \item[\_DEFINE] This WEB macro is typically used to assign a particular
+  \item[\$DEFINE] This WEB macro is typically used to assign a particular
 value, usually obtained from a macro argument, to a local (i.e., to the
 preprocessor) variable, the
 name of a which is also likely constructed using a macro arguement. The
 other macros whose names begin with an underscore 
-such as ``\_IFCASE'' are described in the WEB manual; their usage should
-be obvious. The most effective use of the ``\_DEFINE'' macro arises in the
+such as ``\$IFCASE'' are described in the WEB manual; their usage should
+be obvious. The most effective use of the ``\$DEFINE'' macro arises in the
 construction lengthy package 
 declarations such as |pk_ncdecl| where |pk| represents
 one of the two letter class designations. Through repeated use of 
-``\_DEFINE'' and ``\_UNDEF'', these macros are built up piece by piece during
+``\$DEFINE'' and ``\$UNDEF'', these macros are built up piece by piece during
 the execution of other macros such as |define_dimen_pk| and |define_var_pk|.
 \end{description}

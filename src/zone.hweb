@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1995/04/12 18:34:28  karney
+% Merge in comments to array.hweb and changes for Sherwood '95 meeting.
+%
 % Revision 1.8  1995/03/28 20:37:48  jshankar
 % Initial version of readgeometry.
 %
@@ -75,6 +78,7 @@ identified by an integer indexing into these arrays.
 @a
       package_init(zn)
       define_var_pk(zn,zn_num,INT)
+      define_var_pk(zn,zn_ignore,INT)
       define_dimen_pk(zn,zone_type_ind,zn_type_max)
       define_dimen_pk(zn,zone_index_ind,zn_index_max)
       define_dimen_pk(zn,zone_ind,zn_num)
@@ -98,46 +102,3 @@ identified by an integer indexing into these arrays.
 @m zn_type_set(zone,type) zn_type(zone)=type;
       zone_type_num[type]=zone_type_num[type]+1;
       zn_pointer(zone)=zone_type_num[type] @;
-
-@ NETCDF read/write of geometry.
-
-@#if 0
-@m netcdf_zone_decls
-      integer zn_num_id,zone_type_id,zone_index_id,zone_pointer_id,zone_index_ind_id,zone_ind_id,zone_type_num_id,zone_type_ind_id @;
-
-@m netcdf_write_zone(fileid)
-      var_def(fileid,zn_num);
-      dimen_def(fileid,zone_type_ind);
-      dimen_def(fileid,zone_index_ind);
-      dimen_def(fileid,zone_ind);
-      var_def(fileid,zone_type_num);
-      var_def(fileid,zone_type);
-      var_def(fileid,zone_index);
-      var_def(fileid,zone_pointer);
-      call ncendef(fileid,nc_stat);
-      var_write(fileid,zn_num);
-      var_write(fileid,zone_type_num);
-      var_write(fileid,zone_type);
-      var_write(fileid,zone_index);
-      var_write(fileid,zone_pointer) @;
-      
-@m netcdf_read_zone(fileid)
-      var_inq(fileid,zn_num);
-      var_read(fileid,zn_num);
-      dimen_inq(fileid,zone_type_ind);
-      dimen_inq(fileid,zone_index_ind);
-      dimen_inq(fileid,zone_ind);
-      var_inq(fileid,zone_type_num);
-      var_inq(fileid,zone_type);
-      var_inq(fileid,zone_index);
-      var_inq(fileid,zone_pointer);
-      var_alloc(zone_type);
-      var_alloc(zone_index);
-      var_alloc(zone_pointer);
-      var_read(fileid,zone_type_num);
-      var_read(fileid,zone_type);
-      var_read(fileid,zone_index);
-      var_read(fileid,zone_pointer)@;
-
-@#endif
-
