@@ -2,6 +2,9 @@
 \def\Wtitle{flight}
 
 % $Log$
+% Revision 1.8  1994/02/02  22:05:34  karney
+% Fix up last change (standard source dist should be cos).
+%
 % Revision 1.7  1994/02/02  22:01:29  karney
 % Conditionalize Mandrekas additions.  Fix treatment of monoenergetic charge
 % exchange.
@@ -181,7 +184,7 @@ loop: continue                  // Still in same zone
          rn_iso_next(w,fl_rand(x))
          vc_scale(wa,w,pt_v(fl_current(x)))
 @#else
-         wa=sqrt(two*bk_temp(2,lc_zone(pt_loc(fl_current(x))))*electron_charge/atomic_mass_unit)
+         wa=sqrt(two*bk_temp(2,lc_zone(pt_loc(fl_current(x))))*electron_charge/(atomic_mass_unit*sp_m(pt_sp(fl_current(x)))))
          do i=1,3
             rn_gauss_next(rnd,fl_rand(x))
             pt_v(fl_current(x))[i]=wa*rnd
