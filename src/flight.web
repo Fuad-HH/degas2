@@ -2,6 +2,10 @@
 \def\Wtitle{flight}
 
 % $Log$
+% Revision 1.5  1994/01/31  19:56:19  karney
+% Use isotropic distribution at the plate.  This is a temporary kludge to
+% allow John Mandrakis to make a comparison with his code.
+%
 % Revision 1.4  1993/11/15  21:43:52  karney
 % Pre APS checkin.
 %
@@ -97,6 +101,7 @@ loop2: continue                 // Track to plasma
       assert( lc_cell(pt_loc(x)) != 0 )
       if (zn_type(lc_zone_next(pt_loc(x))) != zn_plasma) goto loop2
 
+*      rn_gauss_next(w,fl_rand(x))
       rn_iso_next(w,fl_rand(x))
       w[3]=abs(w[3])
       pt_scatter_thru(x,w)
@@ -110,7 +115,8 @@ loop2: continue                 // Track to plasma
       lc_copy(pt_loc(x),pt_loc(fl_origin(x))) // Copy location
 
       rn_gauss_next(rnd,fl_rand(x)) // Copy and scale velocity
-      wa=abs(rnd)*sqrt(electron_charge*const(10.0)/atomic_mass_unit)
+*      wa=abs(rnd)*sqrt(electron_charge*const(10.0)/atomic_mass_unit)
+      wa=sqrt(electron_charge*two*const(10.0)/atomic_mass_unit)
       vc_scale(wa,pt_v(x),pt_v(fl_origin(x)))
 
       fl_init(x,num,'H')
@@ -154,10 +160,12 @@ loop: continue                  // Still in same zone
       if (done) then            // Process a charge exchange
          assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
          wa=sqrt(two*bk_temp(2,lc_zone(pt_loc(fl_current(x))))*electron_charge/atomic_mass_unit)
-         do i=1,3
-            rn_gauss_next(rnd,fl_rand(x))
-            pt_v(fl_current(x))[i]=wa*rnd
-         end do
+         rn_iso_next(w,fl_rand(x))
+*         do i=1,3
+*            rn_gauss_next(rnd,fl_rand(x))
+*            pt_v(fl_current(x))[i]=wa*rnd
+*         end do
+         vc_scale(wa,w,pt_v(fl_current(x)))
          goto loop
       else                      // Go to next zone or reflect
          if (lc_cell_next(pt_loc(fl_current(x))) == 0) then
