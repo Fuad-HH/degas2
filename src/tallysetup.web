@@ -2,6 +2,10 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.11  2000/04/01 17:35:13  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.10  2000/03/27 21:15:35  dstotler
 % A little clean up following merger with Randy's branch.
 %
@@ -98,9 +102,10 @@ diagnostic sector.
   \item[|tl_type_test|] A tally based solely on the properties of the
 test flight itself. The most familiar example is the neutral density.
 
-  \item[|tl_type_reaction|] Tallies associated with reactions. The most
+  \item[|tl_type_reaction|] Tallies associated with reactions and 
+sources. The most
 important examples are the sources of background particles, momenta, and
-energy arising from each reaction in the problem.
+energy arising from each reaction or source in the problem.
 \end{description}
 
 Correspondingly, the input file for this code is divided up into three
@@ -228,6 +233,12 @@ reactions, the instantaneous kinetic velocity is needed to compute
 the spectrum properly.
 \end{itemize}
 
+A fourth estimator, \verb+N+, corresponding to ``none'', is provided for
+debugging purposes and for specific cases. When specified, the contributions
+made to a tally of type reaction by a particular reaction or source 
+are ignored. This functionality is not needed for the other tally types
+since the effect would be a null tally. 
+
 The default estimator for reaction type tallies is collision.
 \end{description}
 
@@ -310,9 +321,11 @@ this ``equivalence'' is defined in the species input file.
 @m pr_rc_elastic 4
 @m pr_rc_dissociation 5
 @m pr_rc_test_ion 6
-@m pr_rc_recombination 7
-@m pr_rc_unknown 8
-@m pr_rc_max 8
+@m pr_rc_plate 7
+@m pr_rc_puff 8
+@m pr_rc_recombination 9
+@m pr_rc_unknown 10
+@m pr_rc_max 10
 
 @ To simplify the specification of the conversions to be used to change
   tallies from their internal values to the external quantities of interest
@@ -337,7 +350,13 @@ this ``equivalence'' is defined in the species input file.
                               // coordinates; must be done during tracking.
 
 @  The last three are needed largely just to help define the particle number 
-   and velocity used during the computation of post-processing tallies.
+   and velocity used during the computation of post-processing tallies. 
+   However, the |divide_number| conversion has been found to not work as
+   intended (for multiple source group runs) and should not be used.  
+   Namely, the ``number'' used in the denominator corresponds to only the 
+   current source group, and not to the sum over all groups. Providing the 
+   desired functionality may be difficult, leading to the development of 
+   alternative means of accomplishing the same task (e.g., via explicit code).
 
 @m cv_post_scale_test_mass 7  // During post-processing, scale by the test mass
 
@@ -425,7 +444,7 @@ this ``equivalence'' is defined in the species input file.
      $     conversions[tl_cv_max_conversions],estimator[pr_rc_max],
      $     conversion_packages[cv_max_package][cv_max_parameter],
      $     equivalents[pr_max_equiv]
-      character*1 est_name[tl_est_max]
+      character*1 est_name[tl_est_unknown:tl_est_max]
       character*tl_tag_length cv_name[cv_max_package]
       character*FILELEN filename,name,name_equiv,dep_var,dep_var_equiv
       character*LINELEN line
@@ -451,7 +470,7 @@ this ``equivalence'' is defined in the species input file.
       assert(max_bins >= max(sc_diag_max_bins,de_max_bins))
       assert(scoring_data_max > pr_var0_num)  // Dimension of |scoring_data|.
 
-      do pr_reac=1,pr_reaction_num
+      do pr_reac=1,pr_reaction_num+so_type_num
          pr_rc_type[pr_reac]=pr_rc_unknown
       end do
 
@@ -473,7 +492,7 @@ this ``equivalence'' is defined in the species input file.
                pr_rc_type[pr_reac]=pr_rc_dissociation
             else if (rc_reaction_type(pr_reaction(pr_reac)) 
      $              == 'recombination') then
-               pr_rc_type[pr_reac]=pr_rc_recombination
+               pr_rc_type[pr_reac]=pr_rc_recombination // is a duplicate
             else
                pr_rc_type[pr_reac]=pr_rc_unknown
             end if
@@ -489,6 +508,9 @@ this ``equivalence'' is defined in the species input file.
             end if
          end do
       end if
+      pr_rc_type[pr_reaction_num+so_plate]=pr_rc_plate
+      pr_rc_type[pr_reaction_num+so_puff]=pr_rc_puff
+      pr_rc_type[pr_reaction_num+so_recomb]=pr_rc_recombination
 
       nconversions=0
       do icv=1,tl_cv_max_conversions
@@ -498,6 +520,7 @@ this ``equivalence'' is defined in the species input file.
 
       call set_var_list(var_num)
 
+      est_name[tl_est_unknown]='N'
       est_name[tl_est_track]='T'
       est_name[tl_est_collision]='C'
       est_name[tl_est_post_process]='P'
@@ -536,8 +559,16 @@ loop1: continue
       else if (line == 'ESTIMATORS') then
          if (sub_section != sec_skip) sub_section=sec_est
       else if (line(1:1) == '-') then
+@#if 0
+/*
+   Having added the sources, there will always be reaction type tallies
+   even if |pr_reaction_num| = 0.
+*/
          if (sub_section != sec_skip 
      $        && !(type == tl_type_reaction && pr_reaction_num == 0)) then
+@#else
+         if (sub_section != sec_skip) then
+@#endif
             @<Call Define Tally@>
          end if
          sub_section=sec_name
@@ -669,7 +700,7 @@ eof: continue
       else if (type == tl_type_test) then
          assert( next_token(line(:length),b,e,p) )   
          estimator[1]=string_lookup(read_text(line(b:e)),
-     $        est_name,tl_est_max)
+     $        est_name[1],tl_est_max)
          if (estimator[1] <= 0 || estimator[1] > tl_est_max) then
             write(stdout,*) line(b:e)
             assert(' Unknown estimator' == ' ')
@@ -678,10 +709,12 @@ eof: continue
          do i=1,pr_rc_max
             if ( next_token(line(:length),b,e,p) ) then
                estimator[i]=string_lookup(read_text(line(b:e)),
-     $              est_name,tl_est_max)
-               if (estimator[i] <= 0 || estimator[i] > tl_est_max) then
+     $              est_name[1],tl_est_max)
+               if (estimator[i] < 0 || estimator[i] > tl_est_max) then
                   write(stdout,*) line(b:e)
                   assert(' Unknown estimator' == ' ')
+               else if (estimator[i] == 0) then
+                  assert(line(b:e) == 'N')
                end if
             else
                estimator[i]=tl_est_collision  // default
@@ -693,8 +726,10 @@ eof: continue
 */
          if (estimator[pr_rc_ionize_suppress] == tl_est_collision) then
             assert(' Collision estimator not possible for ionize supress' == ' ')
-         else if (estimator[pr_rc_recombination] == tl_est_track) then
-            assert(' Track length estimator not possible for recombination' == ' ')
+         else if (estimator[pr_rc_recombination] == tl_est_track 
+     $           || estimator[pr_rc_plate] == tl_est_track
+     $           || estimator[pr_rc_puff] == tl_est_track) then
+            assert(' Track length estimator not possible for sources' == ' ')
          else if (estimator[pr_rc_test_ion] != tl_est_collision) then
             assert(' Test ions must use collision estimator' == ' ')
          else if (int_lookup(tl_index_wavelength_bin,indep_var,rank) > 0) then
@@ -925,19 +960,21 @@ eof: continue
 
       if (tally_type[tl_num] == tl_type_reaction) then
          do est=1,tl_est_max
-            do pr_reac=1,pr_reaction_num
+            do pr_reac=1,pr_reaction_num+so_type_num
                tally_est_reaction[tl_num][est][pr_reac]=zero   // Default
             end do
             tally_est_test[tl_num][est]=real_unused
          end do
-         do pr_reac=1,pr_reaction_num
-            tally_est_reaction[tl_num][estimator[arg_type[pr_reac]]][pr_reac]=one
+         do pr_reac=1,pr_reaction_num+so_type_num
+            if (estimator[arg_type[pr_reac]] != tl_est_unknown) then
+               tally_est_reaction[tl_num][estimator[arg_type[pr_reac]]][pr_reac]=one
+            end if
          end do
 
       else if (tally_type[tl_num] == tl_type_test) then
          do est=1,tl_est_max
             tally_est_test[tl_num][est]=zero    // Default
-            do pr_reac=1,pr_reaction_num
+            do pr_reac=1,pr_reaction_num+so_type_num
                tally_est_reaction[tl_num][est][pr_reac]=real_unused
             end do
          end do
@@ -948,7 +985,7 @@ eof: continue
       else if (tally_type[tl_num] == tl_type_sector) then
          do est=1,tl_est_max
             tally_est_test[tl_num][est]=real_unused
-            do pr_reac=1,pr_reaction_num
+            do pr_reac=1,pr_reaction_num+so_type_num
                tally_est_reaction[tl_num][est][pr_reac]=real_unused
             end do
          end do
@@ -1199,7 +1236,7 @@ possibly be used to {\em replace} the separate arrays in the tally class.
       var_num[tl_index_test]=pr_test_num
       var_num[tl_index_problem_sp]=pr_background_num+pr_test_num
       var_num[tl_index_test_author]=so_type_num+pr_reaction_num+pr_pmi_num
-      var_num[tl_index_reaction]=pr_reaction_num
+      var_num[tl_index_reaction]=pr_reaction_num+so_type_num
       var_num[tl_index_source_group]=so_grps
 
       var_num[tl_index_zone_ind_1]=zone_index_max[1]
