@@ -1,8 +1,10 @@
-
 % $Id$
 \Title{score}
 
 % $Log$
+% Revision 1.8  1998/09/29 13:17:22  dstotler
+% In score_reaction, return immediately if rate == 0.
+%
 % Revision 1.7  1998/09/04 17:19:42  dstotler
 % Inserted Stark broadening as in APS_1977_Hacks_Done, but with a
 % compiler switch. Added the corresponding post-processing capability
@@ -158,7 +160,7 @@
       pt_decl(p)                                       // Input
       real estimator_factors[*]                        // Scratch
 
-      integer i,jscore,pr_reac                         // Local
+      integer i,jscore,pr_reac,idiag1,idiag2           // Local
       real scoring_data[scoring_data_max]
       logical need_scores
 
@@ -171,8 +173,29 @@
    This assumes that only scores involving |lc_sector| and |lc_sector_next|
    are being updated here. This is as in |handle_diagnostics|.
 */
-         if ((sector_type_pointer[lc_sector(pt_loc(p))][sc_diagnostic(tally_geometry_ptr[jscore])] != 0) ||
-     $        (sector_type_pointer[lc_sector_next(pt_loc(p))][sc_diagnostic(tally_geometry_ptr[jscore])] != 0)) then
+         idiag1=sector_type_pointer[lc_sector(pt_loc(p))][sc_diagnostic(tally_geometry_ptr[jscore])]
+         idiag2=sector_type_pointer[lc_sector_next(pt_loc(p))][sc_diagnostic(tally_geometry_ptr[jscore])]
+@#if 0
+         if (sc_diag_check(idiag1,tally_geometry_ptr[jscore]) ||
+     $        sc_diag_check(idiag2,tally_geometry_ptr[jscore])) then
+            estimator_factors[jscore]=pt_w(p)
+            need_scores=.true.
+         else
+            estimator_factors[jscore]=zero
+         end if
+@#endif
+/*
+   Disable scores for which direction-dependent dependent variables are 
+   going the wrong way for the current pair of sectors (flight is going
+   out of |sector| and coming into |sector_next|).
+*/
+         if ((sc_diag_check(idiag1,tally_geometry_ptr[jscore]) 
+     $      && !(tally_dep_var[jscore] >= pr_var_mass_in 
+     $          && tally_dep_var[jscore] <= pr_var_mass_in+pr_num_diag_vars-1))
+     $    || (sc_diag_check(idiag2,tally_geometry_ptr[jscore])
+     $      && !(tally_dep_var[jscore] >= pr_var_mass_out 
+     $        && tally_dep_var[jscore] <= pr_var_mass_out+pr_num_diag_vars-1)))
+     $   then
             estimator_factors[jscore]=pt_w(p)
             need_scores=.true.
          else
@@ -203,6 +226,7 @@
 
       implicit_none_f77
       sp_common                                     // Common
+      sc_common
       implicit_none_f90
 
       pt_decl(p)                                    // Input
@@ -214,7 +238,7 @@
       real intersection_direction      
 
 /* 
-   Should we take these instead from |independent_parameters|? 
+   The original set (angle and energy will still be used for distributions.
 */
       scoring_data[pr_var_mass]=sp_m(pt_sp(p))
 
@@ -223,6 +247,23 @@
       scoring_data[pr_var_angle]=acos(cos_angle)
 
       scoring_data[pr_var_energy]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
+
+/*
+   We originally thought to enforce the directionality here by zeroing
+   one or the other set of data. The better plan turned out to be
+   to do this in |score_diagnostics|.
+*/
+      scoring_data[pr_var_mass_out]=scoring_data[pr_var_mass]
+      scoring_data[pr_var_momentum_out_vector]=sp_m(pt_sp(p))*pt_v(p)[1]
+      scoring_data[pr_var_momentum_out_2]=sp_m(pt_sp(p))*pt_v(p)[2]
+      scoring_data[pr_var_momentum_out_3]=sp_m(pt_sp(p))*pt_v(p)[3]
+      scoring_data[pr_var_energy_out]=scoring_data[pr_var_energy]
+
+      scoring_data[pr_var_mass_in]=scoring_data[pr_var_mass]
+      scoring_data[pr_var_momentum_in_vector]=sp_m(pt_sp(p))*pt_v(p)[1]
+      scoring_data[pr_var_momentum_in_2]=sp_m(pt_sp(p))*pt_v(p)[2]
+      scoring_data[pr_var_momentum_in_3]=sp_m(pt_sp(p))*pt_v(p)[3]
+      scoring_data[pr_var_energy_in]=scoring_data[pr_var_energy]
 
       return
       end
@@ -451,10 +492,10 @@ For now it only handles recombination.
 
 @ Loop through and fill all of the scores of this type.    
 The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
-   Since more than one detector may be affected by this reaction, this routine
-   actually returns an array |segments|. Likewise, in the simulation of certain
-   detectors (e.g., spectrometers), it might be desirable to score signals on
-   more than one scoring bin. Again, the affected bins are in an array |bins|.
+Since more than one detector may be affected by this reaction, this routine
+actually returns an array |segments|. Likewise, in the simulation of certain
+detectors (e.g., spectrometers), it might be desirable to score signals on
+more than one scoring bin. Again, the affected bins are in an array |bins|.
 
 @<Functions...@>=
       subroutine add_scores(type,pt_dummy(p),
@@ -992,16 +1033,26 @@ bins. The treated variables thus far are energy and angle of incicidence.
    {\em Note: if this code is modified so that sectors other than |lc_sector|
    or |lc_sector_next| are added to this |segments| list, a similar change
    needs to be made to |score_sector| where |estimator_factors| are set.}
+
+   Had also thought to enforce directionality here. Opted to do it instead
+   in |score_diagnostics| since otherwise this routine might return
+   |number_segments| = 0.
 */
       idiag=sector_type_pointer[sector1][sc_diagnostic(diag_grp)]
+@#if 0
       if (idiag != 0) then
+@#endif
+      if (sc_diag_check(idiag,diag_grp)) then
          number_segments++
          assert(number_segments <= max_segments)
          segments[number_segments]=idiag
       end if
 
       idiag=sector_type_pointer[sector2][sc_diagnostic(diag_grp)]
+@#if 0
       if (idiag != 0) then
+@#endif
+      if (sc_diag_check(idiag,diag_grp)) then
          number_segments++
          assert(number_segments <= max_segments)
          segments[number_segments]=idiag
