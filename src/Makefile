@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.68  1999/03/25 20:58:57  dstotler
+# Replace reaction.$O with interpolate.$O or add same, where needed. Add
+# datamatch.
+#
 # Revision 1.67  1998/12/22 16:42:25  dstotler
 # Comment out CRAMD library setting as long as it is not part of the
 # distribution. Add matcheir.
@@ -253,7 +257,8 @@ LATEX=latex
 # These are the old tangle flags -- not needed any more since we
 # now don't stress tangle so much
 # TANGLEFLAGS=-mINLINE -W[ -ytt40000000 -yn8000 -ymb65536 -n/ -n')' -Tv -j
-TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000
+# TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000 -- it's a little stressed
+TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
 WEAVEFLAGS=-f -i! -W[ -ykw600 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
@@ -553,15 +558,15 @@ geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfac
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 
-geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O interpolate.$O collide.$O randother.$O random.$O conversions.$O voigt.$O
+geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O interpolate.$O collide.$O randother.$O random.$O conversions.$O voigt.$O degasinit.$O
 geomtesta_libs =  $(NETCDF) $(HDF)
 geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
 
-matchout = matchout.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O 
+matchout = matchout.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O degasinit.$O
 matchout_libs = $(NETCDF)
 matchout: $(matchout) $(foreach arg,$(subst .$O,_mods,$(matchout)),$($(arg)))
 
-matcheir = matcheir.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O 
+matcheir = matcheir.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O degasinit.$O
 matcheir_libs = $(NETCDF)
 matcheir: $(matcheir) $(foreach arg,$(subst .$O,_mods,$(matcheir)),$($(arg)))
 
@@ -620,6 +625,10 @@ readfilenames: $(readfilenames) $(foreach arg,$(subst .$O,_mods,$(readfilenames)
 readbackground = readbackground.$O readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O allocate.$O reaction.$O interpolate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O random.$O
 readbackground_libs = $(CRAMD) $(NETCDF)
 readbackground: $(readbackground) $(foreach arg,$(subst .$O,_mods,$(readbackground)),$($(arg)))
+
+updatebackground = updatebackground.$O elementread.$O readfilenames.$O geomsetup.$O allocate.$O writeback.$O pmimatread.$O random.$O geomutils.$O geometry.$O geomfaces.$O reaction.$O interpolate.$O
+updatebackground_libs = $(CRAMD) $(NETCDF)
+updatebackground: $(updatebackground) $(foreach arg,$(subst .$O,_mods,$(updatebackground)),$($(arg)))
 
 reactiontest = reactiontest.$O elementread.$O reaction.$O interpolate.$O readfilenames.$O random.$O randother.$O collide.$O pmimatread.$O geometry.$O
 reactiontest_libs = $(NETCDF)
