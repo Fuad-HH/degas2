@@ -2,6 +2,11 @@
 \Title{random numbers}
 
 % $Log$
+% Revision 1.7  1997/08/19 14:36:53  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.6  1995/08/01 17:56:30  karney
 % Various changes to make compilation clean on ALPHA.
 %
@@ -120,26 +125,26 @@ a top-level routine, allocates space for them.
 
 The externally callable routines are:
 
-|call random_init(seed,rn_args(tag))| which initializes the random number
+|call random_init_old(seed,rn_args(tag))| which initializes the random number
 using a two-element integer array |seed[0:1]|.  |seed| must satisfy
 |0<=seed[0]<2^24| and |0<=seed[1]<2^23|.
 
-|call random_seed(seed)| initializes a two-element integer array
+|call random_seed_old(seed)| initializes a two-element integer array
 |seed[0:1]| ``randomly'', based on the current time and the processor id.
-The array |seed| is suitable for passing to |random_init|.
+The array |seed| is suitable for passing to |random_init_old|.
 
-|call next_seed(n,seed,newseed)| advances the seed $n$ step forward.  This
+|call next_seed_old(n,seed,newseed)| advances the seed $n$ step forward.  This
 allows independent threads of random numbers to be initialized.
 
-|call random_init_1(seed,rn_args(tag))| which initializes the random
-number using a six-element integer array |seed[0:5]|.  Each element of
-|seed| must satisfy |0<=seed[0]<2^14|.
+|call random_init(seed,rn_args(tag))| which initializes the random
+number using a four-element integer array |seed[0:3]|.  Each element of
+|seed| must satisfy |0<=seed[i]<2^14|.
 
-|call random_seed_1(seed)| initializes a six-element integer array
-|seed[0:5]| ``randomly'', based on the current time and the processor id.
+|call set_random_seed(seed)| initializes a four-element integer array
+|seed[0:3]| ``randomly'', based on the current time and the processor id.
 The array |seed| is suitable for passing to |random_init|.
 
-|call next_seed_1(n,seed,newseed)| advances the seed $n$ step forward.  This
+|call next_seed(n,seed)| advances the seed $n$ step forward.  This
 allows independent threads of random numbers to be initialized.
 
 |x = random(rn_args(tag))| which returns the next random number in |x|.
@@ -166,14 +171,16 @@ like:
 @#if 0
 @a
       integer ntasks,nflights,n,num
-      integer seed0[0:1],seed[0:1,0:ntasks-1]
+      rn_seed_decl(seed0)
+      rn_seed_decl(seed[0:ntasks-1])
       
-      call random_seed(seed0)   // Write out the seed!
+      call set_random_seed(seed0)   // Write out the seed!
 
       num=(nflights+ntasks-1)/ntasks // number of flights/task
 
       do n=0,nflights-1,num
-         call next_seed(n,seed0,seed[0,n/num])
+         rn_seed_copy(seed0,seed0[n/num])
+         call next_seed(n,seed[0,n/num])
          call tskstart(xxx,doflights,min(nflights-n,num),seed[0,n/num],xxx)
       end do
 @#endif
@@ -185,14 +192,14 @@ like:
       subroutine doflights(num,seed,xxx)
       rn_decl(x)          // Allocate space for |rn_args|
       integer i,num
-      integer seed[0:1]
+      rn_seed_decl(seed)
 
       do i=0,num-1
          call random_init(seed,rn_args(x)) // Initialize |rn_args|
 
   /* follow a flight with many calls to |random| or |fast_random| */
 
-        call next_seed(1,seed,seed) // Get next seed
+        call next_seed(1,seed) // Get next seed
       end do
 
       return
@@ -362,7 +369,8 @@ $0 \le s_1 < 2^{23}$.  These seeds are used by combining them into a single
 47-bit integer $s_0 + s_1 2^{24}$.
 
 @<Functions...@>=
-      subroutine random_init(seed,rn_dummy(x))
+@#if 0
+      subroutine random_init_old(seed,rn_dummy(x))
       implicit_none_f77
       implicit_none_f90
       real ran_delta,ran_epsilon
@@ -408,6 +416,7 @@ $0 \le s_1 < 2^{23}$.  These seeds are used by combining them into a single
       rn_cos_index(x) = 0
 
       end
+@#endif
 
 @* Choose random seed depending on current time and processor id.  This
 returns the seed as two integers $s_i$ for $i=0,1$.  These seeds are to
@@ -416,13 +425,14 @@ We begin by setting the seed to the 14-digit (decimal) number formed by
 concatenating the year (mod 100), month, day, hour, minute, second, and
 process id (mod 100).  (Note that $2^{47} > 10^{14}$.)
 
-The function |next_seed| is then called to randomize the result, so that
+The function |next_seed_old| is then called to randomize the result, so that
 successive runs have very different starting seeds.  Within a run,
-|next_seed| may be called repeatedly to generate a random sequence of
+|next_seed_old| may be called repeatedly to generate a random sequence of
 starting seeds.
 
 @<Functions...@>=
-      subroutine random_seed(seed)
+@#if 0
+      subroutine random_seed_old(seed)
       implicit_none_f77
       implicit_none_f90
       integer seed[0:1]         // Output
@@ -434,7 +444,7 @@ starting seeds.
       temp[7]=get_pid()
       goto skip
 
-      entry random_seed_test(seed)
+      entry random_seed_old_test(seed)
       do i=1,7
          temp[i]=99
       end do
@@ -454,13 +464,14 @@ because $2^{31}/|ran_m0|=128$. */
          s[1]=mod(s[1],ran_m1)
       end do
 
-      call next_seed(1,s,s)
+      call next_seed_old(1,s,s)
 
       seed[0]=s[0]
       seed[1]=s[1]
 
       return
       end
+@#endif
 
 @* Generating a sequence of random seeds.  We use the simple linear
 congruential formula
@@ -492,7 +503,7 @@ holds to the high 23 bits.
 @m ran_d0 0x462AA9
 @m ran_d1 0x615C0E
 
-@ |next_seed| steps the seed forward $n$ steps.  Thus, if $X_0 = x$, then
+@ |next_seed_old| steps the seed forward $n$ steps.  Thus, if $X_0 = x$, then
 we have $X_n = y$.  $n$ is decomposed in binary and $x$ is stepped forward
 by powers of 2.  We do this by composing equation (\ref{linear}) with
 itself to give, e.g.,
@@ -503,7 +514,8 @@ where $a'=a^2 \bmod 2^{47}$ and $c'= (a+1)c \bmod 2^{47}$.  The cpu time is
 proportional to $\log n$.  Input and output can overlap.
 
 @<Functions...@>=
-      subroutine next_seed(n,x,y)
+@#if 0
+      subroutine next_seed_old(n,x,y)
       implicit_none_f77
       implicit_none_f90
       integer n,x[0:1]          // Input
@@ -547,10 +559,12 @@ loop: continue
       goto loop
 
       end
+@#endif
 
 @ Add two 47-bit numbers, $z=x+y$.  Output can overlap with input.
 
 @<Functions...@>=
+@#if 0
       subroutine rand_add(x,y,z)
       implicit_none_f77
       implicit_none_f90
@@ -563,12 +577,14 @@ loop: continue
 
       return
       end
+@#endif
 
 @ Multiply two 47-bit numbers, $z=xy$.  Output can overlap with input.
 
 @m ran_base 2^12                // The base used in |rand_mult|
 
 @<Functions...@>=
+@#if 0
       subroutine rand_mult(x,y,z)
       implicit_none_f77
       implicit_none_f90
@@ -598,8 +614,9 @@ loop: continue
 
       return
       end
+@#endif
 
-@* Replacement routines for |random_init|, |random_seed|, and |next_seed|.
+@* New versions of |random_init|, |set_random_seed|, and |next_seed|.
 
 This initializes the random number array using the high 47 bits of
 successive numbers from the |drand48| linear congruential converted to
@@ -623,19 +640,19 @@ carefully.)
 To generate the seeds for subsequent random number thread we jump the
 generator ahead multiples of 63 using $T^{63}$.
 
-@ Here is |random_init_1|.  This iterates $T$ 63 times.  We make use of
+@ Here is |random_init|.  This iterates $T$ 63 times.  We make use of
 the fact that $a_1$ and $c_1$ are (relatively) small to save on the
 number of arithmetic operations here.  Finally the generator is warmed
 up by coimputing 10 batches of numbers.
 
 @<Functions...@>=
-      subroutine random_init_1(seed,rn_dummy(x))
+      subroutine random_init(seed,rn_dummy(x))
       implicit_none_f77
       implicit_none_f90
       integer base
       real ran_delta,ran_epsilon
       parameter (ran_delta=const(0.5)^14,ran_epsilon=const(0.5)^48,base=2^14)
-      integer seed[0:3]         // Input
+      rn_seed_decl(seed)        // Input
       rn_decl(x)                // Output
       integer i,j,s[0:3],z[0:3]          // Local
       integer a0,a1,a2,c0,t
@@ -653,7 +670,7 @@ so on with the other bytes; finally we place the five most significant
 bits from the least significant byte in the five most significant bit
 positions in |rn_array(x)|. */
 
-      rn_array(x)[0]=((((s[3]*ran_delta+s[2]))*ran_delta+
+      rn_array(x)[0]=(((s[3]*ran_delta+s[2])*ran_delta+
      $      s[1])*ran_delta+int(s[0]/512))*const(512.0)*ran_delta+ran_epsilon
 
       do j=1,ran_k-1
@@ -670,7 +687,7 @@ positions in |rn_array(x)|. */
             s[i]=z[i]
          end do
 
-         rn_array(x)[j]=((((s[3]*ran_delta+s[2]))*ran_delta+
+         rn_array(x)[j]=(((s[3]*ran_delta+s[2])*ran_delta+
      $      s[1])*ran_delta+int(s[0]/512))*const(512.0)*ran_delta+ran_epsilon
 
       end do
@@ -692,16 +709,18 @@ positions in |rn_array(x)|. */
 
 @* Set the seed from a decimal integer.  |decimal| is a positive decimal
 number of arbitrary length (as a character string).  |seed| is set by
-taking the low 56 bits of |decimal|.
+taking the low 56 bits of |decimal|.  This is now replaced by the more
+general |string_to_seed|.
 
 @<Functions...@>=
+@#if 0
       subroutine decimal_to_seed(decimal,seed)
       implicit_none_f77
       implicit_none_f90
       integer pow,decbase
       parameter (pow=4,decbase=10^pow)
       character*(*) decimal
-      integer seed[0:3]
+      rn_seed_decl(seed)
       integer l,i,a[0:3],c[0:3],o
       data a/decbase,3*0/
       
@@ -720,24 +739,78 @@ taking the low 56 bits of |decimal|.
          
       return
       end
+@#endif
 
-@* Convert a seed to its decimal equivalent.  |decimal| should be at
-least 26 characters long; otherwise the high digits are lost.
+@* Set the seed from an arbitrary string |string| is a string arbitrary
+length.  |seed| is initialized to zero. Whitespace is ignored in the
+string.  Initial digits 0--9 cause the operation |seed=10*seed+digit|.
+Other characters cause the operation |seed=rotr(seed)+digit|, where
+|rotr| is a circular right shift by one bit; this is the operation
+carried out by the BSD sum utility.
 
 @<Functions...@>=
-      subroutine seed_to_decimal(seed,decimal)
+      subroutine string_to_seed(string,seed)
+      implicit_none_f77
+      implicit_none_f90
+      integer decbase,base
+      parameter (decbase=10,base=2^14)
+      character*(*) string
+      rn_seed_decl(seed)
+      logical digits
+      integer t,r,i,k,a[0:3],c[0:3],ch
+      data a/decbase,3*0/
+      
+      do i=0,3
+         seed[i]=0
+         c[i]=0
+      end do
+      
+      digits=.true.
+      do i=1,len(string)
+         ch=ichar(string(i:i))
+         if (digits && ch >= ichar('0') && ch <= ichar('9')) then
+            c[0]=ch-ichar('0')
+            call rand_axc(a,seed,c)
+         else if (!(ch == ichar(' ') || ch == 9)) then // 9 is a tab
+            digits=.false.
+            seed[0]+=2*ch
+            t=mod(seed[0],2)
+            r=0
+            do k=0,3
+               seed[k]=int(seed[k]/2)
+               if (k<3) then
+                  seed[k]+=mod(seed[k+1],2)*(base/2)+r
+               else
+                  seed[k]+=t*(base/2)+r
+               end if
+               r=int(seed[k]/base)
+               seed[k]=mod(seed[k],base)
+            end do
+//       else the character is whitespace and we skip it.
+         end if
+      end do
+         
+      return
+      end
+
+@* Convert a seed to its decimal equivalent.  |string| should be at
+least 17 characters long; otherwise the high digits are lost.
+
+@<Functions...@>=
+      subroutine seed_to_string(seed,string)
       implicit_none_f77
       implicit_none_f90
       integer pow,decbase,base
       parameter (pow=4,decbase=10^pow,base=2^14)
-      character*(*) decimal
-      integer seed[0:3]
+      character*(*) string
+      rn_seed_decl(seed)
       integer z[0:3],i,t,j,k
       character*20 b
       
       k=-1
       do i=0,3
          z[i]=seed[i]
+         assert(0<=z[i] && z[i]<base)
          if (z[i]>0) k=i
       end do
       
@@ -762,11 +835,11 @@ loop: continue
       end if
       if (k>=0) goto loop
 
-      if (len(decimal)>len(b)) then
-         decimal(:len(decimal)-len(b)) = ' '
-         decimal(len(decimal)-len(b)+1:) = b
+      if (len(string)>len(b)) then
+         string(:len(string)-len(b)) = ' '
+         string(len(string)-len(b)+1:) = b
       else
-         decimal = b(len(b)-len(decimal)+1:)
+         string = b(len(b)-len(string)+1:)
       end if
       
       return
@@ -777,49 +850,45 @@ initializes the seed with |yyyymmddhhmmsspp| where |yyyy| is the year,
 etc. and |pp| is the procoss id (mod 100).
 
 @<Functions...@>=
-      subroutine random_seed_1(seed)
+      subroutine set_random_seed(seed)
       implicit_none_f77
       implicit_none_f90
-      integer seed[0:3]         // Output
+      rn_seed_decl(seed)        // Output
       integer temp[7]           // Local
-      character*16 c
+      character*17 c
       external date_time,get_pid // External
       integer get_pid
 
       call date_time(temp)
-      temp[7]=mod(get_pid(),100)
-      write(c,'(i4.4,6i2.2)') temp
-      call decimal_to_seed(c,seed)
+      temp[7]=mod(get_pid(),1000)
+      write(c,'(i4.4,5i2.2,i3.3)') temp
+      call string_to_seed(c,seed)
 
       return
       end
 
-@ |next_seed_1| steps the seed forward $n$ steps.  Thus, if $X_0 = x$, then
+@ |next_seed| steps the seed forward $n$ steps.  Thus, if $X_0 = x$, then
 we have $X_n = y$.  $n$ is decomposed in binary and $x$ is stepped forward
 by powers of 2.  We do this by composing equation (\ref{linear}) with
 itself to give, e.g.,
 $$
-X_{n+2}=(a'X_n + c') \bmod 2^{47}.
+X_{n+2}=(a'X_n + c') \bmod 2^{56}.
 $$
-where $a'=a^2 \bmod 2^{47}$ and $c'= (a+1)c \bmod 2^{47}$.  The cpu time is
-proportional to $\log n$.  Input and output can overlap.
+where $a'=a^2 \bmod 2^{56}$ and $c'= (a+1)c \bmod 2^{56}$.  The cpu time is
+proportional to $\log n$.
 
 @<Functions...@>=
-      subroutine next_seed_1(n,x,y)
+      subroutine next_seed(n,y)
       implicit_none_f77
       implicit_none_f90
-      integer n,x[0:3]          // Input
-      integer y[0:3]            // Output
-      integer af[0:3],cf[0:3],ab[0:3],cb[0:3],a[0:3],c[0:3],z[0:3],m,i
+      integer n          // Input
+      rn_seed_decl(y)           // Input/Output
+      integer af[0:3],cf[0:3],ab[0:3],cb[0:3],a[0:3],c[0:3],z[0:3],t[0:3],m,i
       data af/  101,14806, 6710,12194/ // $a_{63}$
       data cf/ 2537, 9167, 5981, 8579/ // $c_{63}$
       data ab/12653, 2052,13943, 8909/ // $a_{-63}$
       data cb/11979,10897, 6902, 4864/ // $c_{-63}$
       data z/4*0/
-
-      do i=0,3
-         y[i]=x[i]
-      end do
 
       if (n == 0) return
 
@@ -843,8 +912,10 @@ loop: continue
       end if
       m = int(m/2)
       if (m == 0) return
-      call rand_axc(a,c,c) /* $c'=(a+1)c$ */
-      call rand_axc(a,a,z) /* $a'=a^2$ */
+      rn_seed_copy(c,t)
+      call rand_axc(a,c,t) /* $c'=(a+1)c$ */
+      rn_seed_copy(a,t)
+      call rand_axc(t,a,z) /* $a'=a^2$ */
       goto loop
 
       end
@@ -866,7 +937,7 @@ loop: continue
       do i=0,3
          t=c[i]+t
          do j=0,i
-            t=t+a[j]*x[i-j]
+            t+=a[j]*x[i-j]
          end do
          z[i]=mod(t,base)
          t=int(t/base)

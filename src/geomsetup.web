@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.28  1997/08/21 01:46:17  karney
+% Convert rest of memory allocation to fortran 90 standard.
+%
 % Revision 1.27  1997/08/19 14:36:40  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -143,6 +146,7 @@ uninitialized; these are set in |boundaries_neighbors|.
       implicit_none_f90
       @<Memory allocation interface@>
       al_decls
+      integer i,j
 
       ncells=0
       var_realloca(cells)
@@ -157,6 +161,12 @@ uninitialized; these are set in |boundaries_neighbors|.
 
       var_realloca(surface_sectors)
       var_realloca(surfaces_tx_mx)
+      
+      do j=1,4
+         do i=1,3
+            surfaces_tx_mx[ntransforms][i,j]=real_unused
+         end do
+      end do
 
       var_realloca(strata)
       var_realloca(sector_strata_segment)
@@ -165,6 +175,17 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_realloca(sector_surface)
       var_realloca(sector_points)
       var_realloca(sector_type_pointer)
+
+      strata[nsectors]=int_unused
+      sector_strata_segment[nsectors]=int_unused
+      sectors[nsectors]=int_unused
+      sector_zone[nsectors]=int_unused
+      sector_surface[nsectors]=int_unused
+      vc_set(sector_points[nsectors][sc_neg],real_unused,real_unused,real_unused)
+      vc_set(sector_points[nsectors][sc_pos],real_unused,real_unused,real_unused)
+      do i=1,sc_type_max
+         sector_type_pointer[nsectors][i]=int_unused
+      end do
 
       sc_vacuum_num=0
       var_realloca(vacuum_sector)
@@ -450,7 +471,9 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(diagnostic_spacing)
       var_reallocb(diagnostic_grp_base)
 
-      var_alloc(sectors)  
+      var_alloc(sectors)
+      sectors[0]=int_unused
+
       base=0
       do k=1,nsurfaces
          do sigma=s_neg,s_pos
@@ -520,6 +543,9 @@ then search for duplicates and return the duplicate index if it exists.
       surfaces_tx_ind[s_neg,t_mx,nsurfaces] = 0
       surfaces_tx_ind[s_pos,t_surf,nsurfaces] = 0
       surfaces_tx_ind[s_pos,t_mx,nsurfaces] = 0
+      
+      vc_set(surface_points[0,nsurfaces],real_undef,real_undef,real_undef)
+      vc_set(surface_points[1,nsurfaces],real_undef,real_undef,real_undef)
 
       define_surface=nsurfaces
 
@@ -613,6 +639,7 @@ these values match.
       implicit_none_f90
       integer start_cell        // Function
       integer zone            // Input
+      integer z
       @<Memory allocation interface@>
       
 
@@ -635,6 +662,16 @@ these values match.
       var_reallocc(zone_min,zn_num,max(zn_num,zone))
       var_reallocc(zone_max,zn_num,max(zn_num,zone))
       
+      do z=zn_num+1,max(zn_num,zone)
+         zone_type[z]=int_undef
+         zone_index[z][1]=int_undef
+         zone_index[z][2]=int_undef
+         vc_set(zone_center[z],real_undef,real_undef,real_undef)
+         zone_volume[z]=real_undef
+         vc_set(zone_min[z],real_undef,real_undef,real_undef)
+         vc_set(zone_max[z],real_undef,real_undef,real_undef)
+      end do
+
       zn_num=max(zn_num,zone)
 
       return
@@ -948,6 +985,7 @@ break1:        continue
       sc_common
       de_common
       implicit_none_f90
+      @<Memory allocation interface@>
 
       var_free(cells)
       var_free(surfaces)

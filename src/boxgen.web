@@ -2,6 +2,10 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.4  1997/08/21 19:46:52  karney
+% Use f90's portable method of specifying precision (via kind and
+% selected_real_kind).
+%
 % Revision 1.3  1997/08/19 14:36:28  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -1940,6 +1944,25 @@ c-----------------------------------------------------------------------
 \end{verbatim}
 
 @<Functions...@>=
+      block data ls0001_data
+      implicit_none_f77
+      implicit_none_f90
+      integer illin, init, lyh, lewt, lacor, lsavf, lwm, liwm,
+     1   mxstep, mxhnil, nhnil, ntrep, nslast, nyh, iowns
+      integer icf, ierpj, iersl, jcur, jstart, kflag, l, meth, miter,
+     1   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
+      real rowns,
+     1   ccmax, el0, h, hmin, hmxi, hu, rc, tn, uround
+      common /ls0001/ rowns(209),
+     1   ccmax, el0, h, hmin, hmxi, hu, rc, tn, uround,
+     2   illin, init, lyh, lewt, lacor, lsavf, lwm, liwm,
+     3   mxstep, mxhnil, nhnil, ntrep, nslast, nyh, iowns(6),
+     4   icf, ierpj, iersl, jcur, jstart, kflag, l, meth, miter,
+     5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
+c
+      data illin/0/, ntrep/0/
+      end
+
       subroutine lsode (f, neq, y, t, tout, itol, rtol, atol, itask,
      1            istate, iopt, rwork, lrw, iwork, liw, jac, mf)
       implicit_none_f77
@@ -1984,7 +2007,7 @@ c-----------------------------------------------------------------------
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
 c
       data  mord(1),mord(2)/12,5/, mxstp0/500/, mxhnl0/10/
-      data illin/0/, ntrep/0/
+c     data illin/0/, ntrep/0/
 c-----------------------------------------------------------------------
 c block a.
 c this code block is executed on every call.
@@ -3638,6 +3661,16 @@ c-----------------------------------------------------------------------
 \end{verbatim}
 
 @<Functions...@>=
+      block data eh0001_data
+      implicit_none_f77
+      implicit_none_f90
+      integer lunit, mesflg
+      common /eh0001/ mesflg, lunit
+
+      data mesflg/1/, lunit/6/
+      
+      end
+
       subroutine xerrwv (msg, nmes, nerr, level, ni, i1, i2, nr, r1, r2)
       implicit_none_f77
       implicit_none_f90
@@ -3647,7 +3680,7 @@ c-----------------------------------------------------------------------
       dimension msg(nmes)
       common /eh0001/ mesflg, lunit
 c
-      data mesflg/1/, lunit/6/
+c     data mesflg/1/, lunit/6/
 c-----------------------------------------------------------------------
 c the following data-loaded value of ncpw is valid for the cdc-6600
 c and cdc-7600 computers.

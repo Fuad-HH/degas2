@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.54  1997/08/21 19:46:46  karney
+# Use f90's portable method of specifying precision (via kind and
+# selected_real_kind).
+#
 # Revision 1.53  1997/08/21 01:46:11  karney
 # Convert rest of memory allocation to fortran 90 standard.
 #
@@ -154,6 +158,7 @@
 DEBUG=yes
 STANDALONE=yes
 FORTRAN90=no
+NETCDFV2=no
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -295,15 +300,15 @@ LATEX=latex
 # TANGLEFLAGS=-mINLINE -W[ -ytt40000000 -yn8000 -ymb65536 -n/ -n')' -Tv -j
 TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000
 ifeq ($(DEBUG),yes)
-  TANGLEDEBUG=-mDEBUG
-else
-  TANGLEDEBUG=
+  TANGLEFLAGS+=-mDEBUG
 endif
 
 ifeq ($(FORTRAN90),yes)
-  TANGLEFORTRAN=-mFORTRAN90
-else
-  TANGLEFORTRAN=
+  TANGLEFLAGS+=-mFORTRAN90
+endif
+
+ifeq ($(NETCDFV2),yes)
+  TANGLEFLAGS+=-mNETCDFV2
 endif
 
 WEAVEFLAGS=-f -i! -W[ -ykw600 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
@@ -336,12 +341,17 @@ endif
 
 ifeq ($(FORTRAN90),yes)
     FC=f90
-    FFLAGS=-c -g
+    ifeq ($(DEBUG),yes)
+      FFLAGS=-c -g
+    else
+      FFLAGS=-c -O -fast
+    endif
 ifeq ($(MACHINE),SUN)
     F90MODS=-M.
 endif
 ifeq ($(MACHINE),CRAY)
     F90MODS=-p.
+    FFLAGS+=-Ca
     LD=$(FC)
 endif
 ifeq ($(MACHINE),ALPHA)
@@ -374,7 +384,7 @@ IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 .PRECIOUS: %.mweb %.tex %.dvi %.f %_mod.f %.cft %.o %.dum fweb.sty fweboptions.sty
 
 %.f: %.web
-	$(FTANGLE) $(TANGLEFLAGS) $(TANGLEDEBUG) $(TANGLEFORTRAN) -m$(TARGET) $<
+	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
 	$(IDENTAPPEND)
 
 ifeq ($(STANDALONE),yes)
@@ -385,11 +395,11 @@ endif
 	./makemodule $< $@
 
 %_mod.f: %.mweb array.hweb sysdep.hweb
-	$(FTANGLE) -I$(SOURCEDIR) $(TANGLEFLAGS) $(TANGLEDEBUG) $(TANGLEFORTRAN) -m$(TARGET) -=n=#_mod.f $<
+	$(FTANGLE) -I$(SOURCEDIR) $(TANGLEFLAGS) -m$(TARGET) -=n=#_mod.f $<
 
 ifeq ($(TARGET),IBM)
   sysdep.f sysdepc.c: sysdep.web macros.hweb
-	$(FTANGLE) $(TANGLEFLAGS) $(TANGLEDEBUG) $(TANGLEFORTRAN) -m$(TARGET) -=c=#c.c $<
+	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
 	$(IDENTAPPEND)
 endif
 
@@ -596,5 +606,5 @@ TAGS:
 .PHONY: clean %.view %.print TAGS depends
 
 clean:
-	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum *.M *.mweb
+	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum *.M *.mweb *.T
 

@@ -3,6 +3,11 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.27  1997/08/19 14:36:38  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.26  1997/08/07 19:47:16  dstotler
 % Eliminated sr_common, etc. from read_geometry.
 %
@@ -195,7 +200,7 @@ After the geometry is set up, information about the geometry is held in
 
 @* External interface to geometry routines.
 
-The geometry is held in |geom_args|.  This should not not be altered by any
+The geometry is held in |geom_args|.  This should not be altered by any
 external routine.  |decl_geom| declares |geom_args|.
 
 The externally callable routines are:
@@ -915,7 +920,7 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
       real t,x[3]               // Output
       integer cell1,exit_face,cell2,sector1,sector2
       integer j,k,k1,tx,i,start,count // Local
-      real dt,tleft,t1,v1[3]
+      real dt,tleft,t1,v1[3],temp[3]
       external cell_intersect,new_cell,in_surface   // External
       real cell_intersect
       integer new_cell
@@ -978,8 +983,10 @@ break1:  continue
             write(stderr,*) 'Old x,v: ',(x[i],i=1,3),(v1[i],i=1,3)
 @#endif
             k=k1
-            call transform(surfaces_tx_mx[1,1,tx],x,x)
-            call transform_velocity(surfaces_tx_mx[1,1,tx],v1,v1)
+            vc_copy(x,temp)
+            call transform(surfaces_tx_mx[1,1,tx],temp,x)
+            vc_copy(v1,temp)
+            call transform_velocity(surfaces_tx_mx[1,1,tx],temp,v1)
             if (type != pt_ion) then
                vc_copy(v1,v)
             end if
@@ -1253,6 +1260,7 @@ cells, it checks that the cells are neighbors.
 
 @* The basic transformation routines. Transform a position vector,
 $\vect y = \tens M \cdot \vect x$.  $\vect x$ and $\vect y$ can overlap.
+THIS SHOULD NOT BE ASSUMED.
 
 @<Functions...@>=
       subroutine transform(m,x,y)
@@ -1274,7 +1282,7 @@ $\vect y = \tens M \cdot \vect x$.  $\vect x$ and $\vect y$ can overlap.
       end
 
 @ Transform a velocity vector, $\vect w = \tens M \cdot \vect v$.  $\vect
-x$ and $\vect y$ can overlap.
+x$ and $\vect y$ can overlap.  THIS SHOULD NOT BE ASSUMED.
 
 @<Functions...@>=
       subroutine transform_velocity(m,v,w)

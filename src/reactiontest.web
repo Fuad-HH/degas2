@@ -2,6 +2,11 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.17  1997/08/19 14:36:59  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.16  1997/08/07 20:14:15  dstotler
 % Update to use revised reaction_rate and reaction processing
 % interfaces. Actually updated some even older fixes as well
@@ -115,7 +120,7 @@
 
       character*LINELEN line                         // Local
       integer length,p,b,e,i,nprod,num_scoring_data
-      integer seed[0:5]
+      rn_seed_decl(seed)
       real vtest,energy,density,temperature,rate,rr
       real independent_parameters[xs_max_indep_params],w_prod[rc_product_max],
      $     scoring_data[scoring_data_max]
@@ -142,8 +147,7 @@
       var_alloc(background_sources)
 
 /* |process_reaction| needs random number thread */
-      seed[0]=1234
-      seed[1]=5678
+      call string_to_seed('12345678',seed)
       call random_init(seed,rn_args(tag))  
 
 loop: continue

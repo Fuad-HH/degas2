@@ -2,6 +2,10 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.14  1997/08/21 19:46:56  karney
+% Use f90's portable method of specifying precision (via kind and
+% selected_real_kind).
+%
 % Revision 1.13  1997/08/19 14:36:30  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -1761,7 +1765,7 @@ actually done at the source point or as a post-processor.
          assert(rc_emitter(reac) == 1)
          independent_parameters[xs_var_m_emitter]=sp_m(pr_test(test))
          if (est == tl_est_post_process) then
-            vc_copy(zone_center[independent_parameters[xs_var_zone]],
+            vc_copy(zone_center[int(independent_parameters[xs_var_zone])],
      $           lc_x(zone_loc))
             lc_set(zone_loc)
             call transform_v(pr_background_args(back_2),

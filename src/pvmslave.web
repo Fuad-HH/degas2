@@ -2,6 +2,11 @@
 \Title{pvmslave}
 
 % $Log$
+% Revision 1.8  1997/08/19 14:36:52  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.7  1996/03/01 20:21:30  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -38,6 +43,7 @@
 @I zone.hweb
 @I sysdep.hweb
 @I string.hweb
+@I random.hweb
 
 @ The main program.
 
@@ -91,7 +97,8 @@ flights.
       implicit_none_f77
       zn_common
       implicit_none_f90
-      integer nstart,num,seed[0:1]     // Local
+      integer nstart,num        // Local
+      rn_seed_decl(seed)
       integer mytid,mastertid,ret,msgtype
       @<Memory allocation interface@>
       st_decls

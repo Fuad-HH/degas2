@@ -2,6 +2,10 @@
 \Title{geometry faces}
 
 % $Log$
+% Revision 1.8  1997/08/21 19:47:00  karney
+% Use f90's portable method of specifying precision (via kind and
+% selected_real_kind).
+%
 % Revision 1.7  1997/08/19 14:36:39  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -456,7 +460,7 @@ meaning as in |conea|.
       real x0[3],a[3],x1[3],x2[3] // Input
       real coeff[NCOEFFS],apex[3] // Output
       integer surf_type
-      real m[3,4],xa1[3],xa2[3] // Local
+      real m[3,4],xa1[3],xa2[3],tempa[3] // Local
       external conea,init_identity,geom_translate,geom_rotatea,transform,transform_face // External
 @#if DEBUG
       real temp                 // Local
@@ -476,7 +480,8 @@ meaning as in |conea|.
       call transform_face(coeff,m,coeff)
 
       call invert(m,m)
-      call transform(m,apex,apex)
+      vc_copy(apex,tempa)
+      call transform(m,tempa,apex)
       
 
 @#if DEBUG
@@ -509,7 +514,7 @@ the points $\vect x_1$ and $\vect x_2$.
      $     geom_scalea,transform,transform_face,vector_compare // External
       integer vector_compare
 @#if DEBUG
-      real temp,minv[3,4]         // Local
+      real temp,minv[3,4],tempa[3] // Local
       external in_surface,surface_gradient,invert // External
       logical in_surface
 @#endif
@@ -576,14 +581,14 @@ the points $\vect x_1$ and $\vect x_2$.
       if (vector_compare(x1,x2) < 0) then
          vc_swap(xa1,xa2)       // Swap transformed points back
       end if
-      call transform(minv,xa1,xa1)
-      call transform(minv,xa2,xa2)
+      vc_copy(xa1,tempa)
+      call transform(minv,tempa,xa1)
+      vc_copy(xa2,tempa)
+      call transform(minv,tempa,xa2)
       assert(in_surface(coeff,1,xa1,.false.,temp)) // Check transformed points
       assert(in_surface(coeff,1,xa2,.false.,temp))
-      c[1]=zero
-      c[2]=one
-      c[3]=zero
-      call transform(minv,c,c)
+      vc_set(tempa,zero,one,zero)
+      call transform(minv,tempa,c)
       vc_difference(c,x0,c)
       assert(abs(vc_abs(c)-one) <= epsilon_angle)
       assert(abs(vc_product(c,a)/vc_abs(a)) <= epsilon_angle)

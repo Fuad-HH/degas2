@@ -2,6 +2,11 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.24  1997/08/19 14:36:37  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.23  1997/08/07 19:43:10  dstotler
 % Rename reaction_rate to find_rate. Add random number thread to
 % argument list. Implement flight source and particle v-author labels.
@@ -127,17 +132,18 @@
       tl_common
       implicit_none_f90
       tl_decls
-      integer nstart,nflights,seed0[0:1] // Input
+      integer nstart,nflights   // Input
+      rn_seed_decl(seed0)
       so_decl(isource)
       @<Memory allocation interface@>
       real scores[0:*][o_mean:o_var],weight // Output
       real scores1[0:*][o_mean:o_var],estimator_factors[0:*]       // Scratch
-      integer seed[0:1],i,j     // Local 
+      integer i,j               // Local 
+      rn_seed_decl(seed)
       fl_decl(x)
       real weight1
       
-      seed[0]=seed0[0]
-      seed[1]=seed0[1]
+      rn_seed_copy(seed0,seed)
 
       weight=zero
       do i=0,tally_size-1
@@ -148,8 +154,8 @@
       do j=nstart,nstart+nflights-1
          fl_label(x,j,isource)
          call follow(fl_args(x),scores1,weight1,seed,estimator_factors)
-         call stat_add(tally_size,weight1,scores1,weight,scores,weight,scores)
-         call next_seed(1,seed,seed)
+         call stat_acc(tally_size,weight1,scores1,weight,scores)
+         call next_seed(1,seed)
       end do
       
       return
@@ -171,7 +177,8 @@
       pt_decls
       fl_decl(x)
       real rel_wt
-      integer seed[0:1],i,nprod
+      integer i,nprod
+      rn_seed_decl(seed)
       real scores(o_mean:o_var,0:*),t,tmax,ionize_rate,rnd,other_rate,
      $     rate[pr_reaction_max],rate_all[pr_reaction_max],sum,t_fac
       real estimator_factors         // Scratch

@@ -2,6 +2,11 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.20  1997/08/19 14:36:38  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.19  1997/08/07 19:46:20  dstotler
 % Add in normalization of group stats. Explicitly calculate and
 % normalize separate scores and variances for each source group. Switch from
@@ -147,7 +152,8 @@ PVM more straightforward.
 
       integer nflights,nfrag                                // Input
       integer i,j,is,zone,nprod,seg,seg_tot,test,bk_rc_is   // Local
-      integer seed[0:1],index_parameters[tl_index_max]
+      integer index_parameters[tl_index_max]
+      rn_seed_decl(seed)
       real weight_frag,tot_scale_curr,prob,density,rate,est_fac,
      $     dens_rsd,pressure,pres_rsd
       lc_decl(zone_loc)
@@ -180,8 +186,7 @@ c      real weight_grp[so_grps]
       var_alloc(estimator_factors)
       var_alloc(weight_grp)
 
-      seed[0]=1                 // Initialize random number seed
-      seed[1]=2
+      call string_to_seed('12',seed) // Initialize random number seed
 
       assert(ou_back_max >= pr_background_num) // Dimension for a local array
 
@@ -212,10 +217,9 @@ c      real weight_grp[so_grps]
             call do_flights(j,min(nfrag,nflights-j),so_args(is),seed,
      $           output_frag,weight_frag,output_flt,estimator_factors) 
 
-            call stat_add(tally_size,weight_frag,output_frag,
-     $           weight_grp[is],output_grp[is][0][o_mean],
+            call stat_acc(tally_size,weight_frag,output_frag,
      $           weight_grp[is],output_grp[is][0][o_mean])
-            call next_seed(nfrag,seed,seed) // Advance the seed
+            call next_seed(nfrag,seed) // Advance the seed
          end do
          
          tot_scale_curr+=so_scale(is)*so_tot_curr(is)

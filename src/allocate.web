@@ -2,6 +2,9 @@
 \Title{Simple memory allocation routines}
 
 % $Log$
+% Revision 1.1  1997/08/21 01:46:16  karney
+% Convert rest of memory allocation to fortran 90 standard.
+%
 %
 
 @* A template FWEB file.
@@ -72,7 +75,7 @@ magnitude is the size of the memory block PLUS 2.
 @ Check the integrity of the data structures.
 
 @<Functions...@>=
-      function check_mem
+      function check_mem()
       implicit_none_f77
       al_common
       implicit_none_f90
@@ -201,9 +204,11 @@ break1: continue
       memory[ptr+(n+2)-1]=-(n+2)
       memory[ptr]=-(n+2)
       alloc_mem=ptr+1
+@#if DEBUG
       do i=0,n-1
-         memory[alloc_mem+i]=314159
+         memory[alloc_mem+i]=int_uninit
       end do
+@#endif
       return
       end
 
