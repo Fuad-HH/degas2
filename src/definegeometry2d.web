@@ -2,6 +2,16 @@
 \Title{definegeometry2d}
 
 % $Log$
+% Revision 1.3  2001/07/16 20:45:11  dstotler
+% Moved read_sonnet_mesh to aux2dsetup.web. Refine zone_center setting
+% for vacuum zones broken up by decompose polygon. Initial attempt at
+% describing how to generate a new geometry from scratch. Add new knobs
+% for holes and area specification to use with Triangle. Also eliminated
+% duplicate points and segments from input to Triangle. For Sonnet mesh,
+% use triangle_centroid to find center of triangular zones if not
+% specified. Attempt to retain original segment numbers through
+% triangulation for use in setting strata_segment.
+%
 % Revision 1.2  2000/04/01 17:38:50  dstotler
 % Added during merger with dps_2_6_changes.
 %
@@ -9,40 +19,360 @@
 % Added to repository.
 %
 
-@* Program for defining 2-D geometries. This routine is intended
+@* A program for Defining 2-D Geometries. This program is intended
 to be an extension of the logic used in |readgeometry|. Potential couplings
 to other geometry packages, such as the DG code developed in Garching and
 AVS/Express, have been taken into consideration. The initial implementation
 will be with a text-based input file, but eventually this will be expanded
-to provide an interactive (graphic?) interface. The intermediate specification
-of the geometry in terms of polygons is written out to a netCDF file; the
+to provide an interactive (graphical?) interface. The intermediate 
+specification 
+of the geometry purely 
+in terms of polygons is written out to a netCDF file; the
 option of reading this file and completing the geometry specification
 from there should be added.
 
-At present this code is considered ``not ready for public consumption''
-and is, consequently, essentially undocumented. 
+Note that this program makes extensive use of Jonathan Shewchuck's
+{\tt Triangle} package to break polygons up into triangles. The user
+needs to download its source code from 
+\verb+http://www.cs.cmu.edu/~quake/triangle.html+ and arrange for
+the {\tt Makefile} to find it (the default location is
+\verb+$HOME/Triangle+).
 
-Here's the first step toward some documentation: an outline on how to use
-this code to generate new geometries from scratch.
+The DG code as currently distributed is already very useful in creating
+input for {\tt definegeometry2d}. DG may eventually be modified so that
+it will permit the graphical construction of the polygons that now must
+be assembled manually, usually with some trial and error. DG is distributed
+as part of the {\tt SOLPS} package. For more information, see
+\verb+http://www.rzg.mpg.de/~dpc/solps.html+.
 
-There are two possible approaches to generating a new geometry from scratch.
+\section{Introduction}
+This code takes a human-readable input file that, 
+together with the other file(s) it references, describes
+a geometry you want to use in {\tt DEGAS 2}. The purpose of this code
+is to transform that description into {\tt DEGAS 2}'s internal
+description. The hiearchy of geometry-related objects in
+{\tt DEGAS 2} is, from the lowest level to the highest level is:
+\begin{enumerate}
+  \item surface,
+  \item cell,
+  \item polygon,
+  \item zone.
+\end{enumerate}
+Individual cells are composed of surfaces, as discussed in the documentation
+for the internal geometry (e.g., see |geometry.web|). The next level up
+is a polygon. This program will call various routines to break up 
+(non-convex) polygons into
+cells. Finally, a zone may consist of one or more polygons; properties
+are constant across a zone. For example, a single zone might be used to
+represent the vacuum region around the plasma which is comprised of several
+(possibly disconnected) polygons. Or, a plasma flux surface on which density
+and temperature are constant might be a single zone. Note that polygons
+are used only within external interfaces such as this code. Cells and surfaces
+are essentially used only by the code itself. Zones are used primarily for the
+specification of input and output data.
+
+The interfaces between the plasma (or vacuum)  and a solid surface (or exit)
+are represented by sectors, which are established for diagnostic purposes.
+In general, a sector is defined by a surface and a zone. This code makes 
+an attempt to identify and label these sectors automatically. 
+Somewhat arbitrarily, a sector between solid and plasma zones is a
+``target'' sector and one between a solid and vacuum zone is a 
+``wall'' sector. For further details, see the sector class
+described in |sector.hweb|. Currently, this code provides no facility for
+defining ``diagnostics'' from these sectors or for defining 
+``detectors'' from the input file. Instead, these have to be defined
+explicitly in the code.
+
+Note that the input file for {\tt definegeometry2d} is not listed
+in {\tt degas2.in}. Although this might be viewed as an omission,
+it is consistent in that {\tt definegeometry2d} is, in principle,
+one of many different means of generating {\tt DEGAS 2} geometries and,
+thus, is not as fundamental as the other entries in
+{\tt degas2.in}. 
+
+Instead, the command line for the execution of {\tt definegeometry2d}
+specifies the name of the main {\tt definegeometry2d} input file. 
+This file will contain pointers to
+other files that provide externally generated, detailed
+information about the geometry. 
+
+\begin{verbatim}
+definegeometry2d an_input_file
+\end{verbatim}
+
+Like other text input files used in {\tt DEGAS 2}, blank lines,
+spaces, and lines 
+beginning with a comment character \verb+#+ are ignored (comments can
+also appear at the end of a line). 
+
+\section{Example Input File}
+
+Let us introduce the components of the input file with a nontrivial
+example:
+
+\begin{verbatim}
+
+# There are two parts to the input file. The first provides global
+# information. 
+#
+# It's a good idea to set the symmetry of the problem first.
+
+symmetry cylindrical
+
+# The bulk of the data describing the "hardware" in this problem are
+# in a file generated by the DG code.
+
+dg_file Run35/bypass_12.dgo
+
+# The bounds keyword specifies the size of the universal cell.
+
+bounds 0.3 1.1 -0.8 0.7
+
+# Another big chunk of data required in setting up the problem is the
+# mesh which will store the plasma-related data. In this case, the
+# mesh is provided in the Sonnet format.
+
+sonnet_mesh Run10/cmod.carre.008 61 26
+
+# The end_prep command terminates the first part of the input file. The
+# primary task undertaken with the execution of this command is the
+# generation of plasma zones from the quadrilaterals described by the
+# plasma mesh.
+
+end_prep
+
+# In the second part of the input file, the user must define zones that
+# will completely fill (without overlap) the universal cell. These
+# zones are specified as the union of one or more polygons. The
+# new_zone command begins the definition of the next zone; in this
+# case, a solid zone. The zone definition is terminated by the next
+# "new_zone" command (or an "end" or "quit"). The code will assume that
+# the polygon will be closed by connecting the last point specified
+# to the first point. All polygons should be convex. 
+
+new_zone solid
+
+# The following five polygons all belong to that single zone.
+# The polygons are enumerated and labeled to facilitate external reference.
+
+# The definition of a polygon is initiated by a "new_polygon" command
+# and finished "breakup_polygon", "triangulate_polygon", or 
+# "triangulate_to_zones". Each of these breaks the polygon down into
+# DEGAS 2's internal description consisting of cells and surfaces.
+# In the last case, each of the resulting triangles is assigned a new
+# zone number.
+#
+# Keywords like "outer", "wall", and "edge" specify single points or a
+# range of points used to construct the polygon. Other keywords like
+# "stratum" or "material" specify properties associated with the polygon.
+# Note, however, that these properties will apply to all subsequent
+# polygons until overridden by new property settings. Finally, the
+# "print_polygon" command (commented out since this input file was well
+# past the testing stage) writes out the points in the polygon to a 
+# text file so they can be analyzed or plotted externally. This is
+# useful for debugging problem polygons.
+
+# Polygon 1: inner limiter
+  new_polygon
+    stratum 1
+    material mo       # For all solid zones (default temp. and recycling)
+    outer 0 1
+    wall 6 0 1
+    wall 3 3 3
+    edge 0 0 * reverse
+#     print_polygon poly_1
+   breakup_polygon
+
+# Polygon 2: upper divertor
+  new_polygon
+    stratum 2
+    outer 1 2
+    wall 5 11 0
+#     print_polygon poly_2
+  breakup_polygon
+
+# Polygon 3: outer limiter
+  new_polygon
+    stratum 3
+    outer 2 3
+    wall 5 49 11
+#    print_polygon poly_3
+  triangulate_polygon
+
+# Polygon 4: gas box, right side
+  new_polygon
+    stratum 4
+    outer 3 0
+    wall 5 68 49
+#    print_polygon poly_4
+  breakup_polygon
+
+# Polygon 5: gas box, left side
+  new_polygon
+    stratum 5
+    outer 0
+    edge 0 0 0 0
+    wall 2 0 2
+    wall 4 1 15
+    wall 5 71 68
+#     print_polygon poly_5
+  breakup_polygon
+
+new_zone solid
+
+# Polygon 6: outer target
+  new_polygon
+    stratum 6
+    wall 7 0 15
+    edge 61 61 *
+    wall 7 24 26
+#     print_polygon poly_6
+  breakup_polygon
+
+new_zone vacuum
+
+# Polygon 7: private flux region
+  new_polygon
+    stratum 7
+    edge 0 10 0 0
+    edge 52 61 0 0
+    wall 4 6 0
+    wall 2 1 0  
+#     print_polygon poly_7
+  triangulate_to_zones
+
+new_zone vacuum
+
+# Polygon 8: gas box entrance
+  new_polygon
+    stratum 8
+    edge 61 61 0 0
+    wall 7 15 15
+    wall 4 7 6
+#    print_polygon poly_8
+  breakup_polygon
+
+new_zone vacuum
+
+# Polygon 9: gas box
+  new_polygon
+    stratum 9
+    wall 7 15 3
+    wall 5 51 71
+    wall 4 15 7
+#     print_polygon poly_9
+  triangulate_to_zones
+
+new_zone vacuum
+
+# Polygon 10: gas box exit
+    new_polygon
+      stratum 10
+      wall 7 3 2
+      wall 5 50 51
+#       print_polygon poly_10
+    breakup_polygon
+
+new_zone vacuum
+
+# Polygon 11: lower main chamber
+  new_polygon
+    stratum 11
+    edge 61 42 26 26
+    wall 5 38 50
+    wall 7 2 0 
+    wall 7 26 24
+#     print_polygon poly_11
+  triangulate_to_zones
+
+new_zone vacuum
+
+# Polygon 12: upper main chamber
+  new_polygon
+    stratum 12
+    edge 42 0 26 26
+    wall 3 3 3
+    wall 6 1 1
+    wall 5 0 38
+#     print_polygon poly_12
+  triangulate_to_zones
+
+new_zone exit
+
+# Polygon 13: core plasma
+  new_polygon
+    stratum 13
+    edge 11 51 0 0
+#     print_polygon poly_13
+  breakup_polygon
+
+# The description of this geometry in terms of polygons is written out
+# to a netCDF file with this name so that it may be used again later.
+
+polygon_nc_file Run35/bypass_12_poly_a.nc
+
+# The "end" command instructs the code to finish setting up the
+# internal geometry arrays, to check the geometry for consistency,
+# and to write its netCDF file. Since the process of generating 
+# a geometry as complex as this one is understandably iterative, the
+# code also has a "quit" command (that can be used anywhere except
+# within a polygon definition) that quietly terminates the code without
+# performing any of these finalization steps.
+
+end
+\end{verbatim}
+
+\section{How To Use This Code}
+
+Again, this input file consists of two sections:
+
+\begin{enumerate}
+  \item A preparatory stage in which global parameters are set and file names
+are specified,
+  \item A ``construction'' section containing the specification of polygons
+that will fill the universal cell.
+\end{enumerate}
+
+Virtually all of the information in the input file is ``high level'', e.g.,
+point coordinates rarely appear. Instead, most of the detailed information
+regarding points and their connectivity is contained in the other files that
+can, and should, be generated by other packages. The names of these
+files are specified in the preparatory stage. The formats that are
+currently in use are (all of these are text files):
+
+\begin{description}
+  \item[|dg_file|] An output (with extension \verb+.dgo+) file from
+the DG code.
+  \item[|wallfile|] A simple text file containing a specified number of
+simply connected ``walls'', with each wall consisting of a sequence of
+$(X,Z)$ values.
+  \item[|sonnet_mesh|] A 2-D mesh specified in the Sonnet format; e.g.,
+as generated by the {\tt Sonnet} or {\tt Carre} codes. 
+  \item[|uedge_mesh|] A specific format used to transfer data between the
+{\tt UEDGE} and {\tt DEGAS 2} codes.
+\end{description}
+
+Both |dg_file| and |wallfile| result in the definition of ``walls'' that will
+be used to construct the polygons in the second section using the
+|wall| keyword.
+A portion of the boundary of a plasma mesh imported via
+|sonnet_mesh| or |uedge_mesh| can be incorporated into a polygon
+via the |edge| command. The corners of the universal cell can be added
+to a polygon with the |outer| keyword.
+
+There are then two possible approaches to generating a new geometry:
 \begin{enumerate}
   \item If the problem possesses a basic symmetry, e.g., ``plasma parameters
 are constant on a flux surface'', you can specify only those bounding
 surfaces and let |definegeometry2d| subdivide them (semi-arbitrarily) into
 smaller zones. First, construct a wall file containing the coordinates of
 each of the bounding surfaces, with each as a separate wall (see below under
-``|wallfile| format''). Then, in the |definegeometry2d| input file,
+the |wallfile| keyword). Then, in the |definegeometry2d| input file,
 create a polygon out of each pair of adjacent walls, i.e., surfaces. 
-If these surfaces enclose a ``hole'', you should actually define a pair
-of polygons so that neither of them, by themselves, encloses that hole.
 Using the |triangulate_to_zones| keyword will then break these polygons
 up into smaller zones. The sizes of the triangles will be almost entirely
-controlled by the number of points used in the walls. You may wish to
-define a separate |stratum| number for each pair of surfaces to facilitate
-subsequent assignment of the plasma properties to these zones (the stratum
-number for each zone is currently written out to a text file; this needs
-to be instead incorporated into the polygon netCDF file).
+controlled by the number of points used in the walls (see, however, the
+|triangle_area| keyword).
   \item If a mesh composed of triangles or quadrilaterals already exists,
 the easier approach may be to write that information in the Sonnet format.
 Each mesh zone in the Sonnet file format is defined by five points. These
@@ -53,32 +383,387 @@ a clockwise fashion. While there is some freedom in the way these points
 are labeled, for definiteness, we will say that the first line contains
 the second and third points (in that order) of a quadrilateral; the third
 line has the first and fourth points. For a triangle, just make the two
-points on the third line the same. Once the mesh has been read into 
-|definegeometry2d|, the mesh indices defined in the Sonnet file can be
-used to extract mesh edge points for use in setting up other polygons
-around the edge of the mesh (e.g., to define solid zones).
+points on the third line the same (the code will also agree to call it a
+triangle if the third and fourth points are the same).  If the center
+point is set exactly to zero, built in routines will be used to compute
+an appropriate center. As in the above example, additional data about
+the hardware can be specified and translated into ``walls''. The mesh
+edges can be used together with the walls to specify the rest of the
+polygons required to fill the universal cell.
 \end{enumerate}
 
-|wallfile| format: \\
-Unlike other DEGAS 2 text files, |wallfiles| are read in directly as numbers
-using free format FORTRAN read statements. Hence, there may be no blank
-lines or comments. Spacing should not matter.
+The need for and assignment of properties to a polygon or zone varies from
+one problem to another; their usage should be largely obvious. The |stratum|
+label is in a sense completely arbitrary. However, it is worth assigning
+its value with some thought since it can be used in specifying
+source locations. The code keeps track of the 
+segment number of each polygon (with the first segment being denoted by
+``0'', the second by ``1'', etc.; the same labels can be thought of as
+applying to the first point of the segment) as the polygon is broken up and
+translated into internal geometry components. Together, the segment and 
+stratum numbers
+allow the user to later refer back to individual segments (e.g., as the
+location of a surface source) of
+each polygon.
 
-The first line provides the number of walls in the file, |num_new_walls|
+\section{Keyword Reference}
 
+Each line in the input file is of the form:
+
+{\it keyword} {\tt arguments}
+
+with some keywords having multiple arguments, others having none at all.
+Lower case single letters (perhaps with subscripts) are used to
+represent integer arguments. Upper case single letters correspond
+to real (i.e., floating point) arguments. All other arguments are strings.
+This first group of keywords is intended only for use
+in the preparatory stage of the code; invoking them after the
+|end_prep| command will likely result in the code crashing or
+behaving strangely.
+
+\subsection{Preparatory Section}
+
+\begin{description}
+  \item[|symmetry|] {\tt sym} describes the symmetry of the geometry with
+{\tt sym} = {\tt plane}, {\tt cylindrical} (``toroidal symmetry''),
+or {\tt oned} (for a system with two symmetry directions).
+This must appear prior to the |end_prep| keyword.
+  \item[|dg_file|] {\tt filename} specifies the name of an output file
+from the DG code (with the extension \verb+.dgo+). If {\tt filename}
+does in fact contain \verb+.dgo+, the dimensions therein are assumed
+to be in millimeters; filenames without this extension are assumed to
+have data in meters (data perhaps generated by some other means). The
+coordinates of the ``nodes'' (or points) specified in the file are read in.
+Their ordering in the file is that of the ``elements'' (or segments) to
+which the nodes belong. A list of elements in terms of the node numbers
+is compiled as the file is read in. Each of the nodes is then characterized
+as being of a particular type:
+\begin{enumerate}
+  \item \verb+node_no_elements+ if the node has no corresponding elements,
+  \item \verb+node_one_element+ if the node is associated with only
+one element,
+  \item \verb+node_regular+ if the node is associated with two
+elements with normals of the same sense,
+  \item \verb+node_mixed_normals+ if the node is associated with two
+elements having normals in opposite sense (i.e., the node is either
+the ``start'' or the ``end'' of both elements),
+  \item \verb+mode_many_elements+ if the node represents the intersection
+of more than two elements.
+\end{enumerate}
+Once each of the nodes has been characterized, the resulting information
+permits the translation of the elements into ``walls'' that can be used
+in the subsequent specification of polygons. The code loops over all 
+of the irregular nodes (that are connected to at least one element). 
+Each of these serves as the start of a wall. 
+The rest of the wall is mapped out from the adjacent elements using the
+well-defined connectivity associated with the regular nodes comprising
+those elements. The process is  stopped, of course, when the trail ends
+at another irregular node. A subsequent search of the elements that have
+not been assigned to walls is performed to identify closed surfaces
+consisting of only regular nodes. The upshot of this procedure is to
+be cognizant of the location of irregular nodes when using DG. Handling
+them carefully there can result in a simpler set of walls and, hence, 
+ease the task of designing the polygons.
+  \item[|sonnet_mesh|] {\tt filename} $n_{x}$ $n_{z}$ specifies a file, 
+{\tt filename}, containing a plasma mesh in the Sonnet format. Files
+not generated by Sonnet (or, equivalently, by Carre) can be used, but
+the user should familiarize themselves with the details of the 
+routine that reads the file, |read_sonnet_mesh|. The Sonnet format
+specifies the plasma mesh as a $n_{x}$ by $n_{z}$ rectangular grid
+of quadrilaterals. The designation of the $x$ and $z$ directions is
+somewhat arbitrary and does not necessarily have any correspondence
+with the (Cartesian) $X$ and $Z$ coordiantes referred to elsewhere in
+this program. The usual tokamak configuration has the $x$ coordinate
+following along flux surfaces and the $z$ coordinate going across
+flux surfaces. Each quadrilateral is given as a set of four
+corners and a center so that the mesh can be treated as completely
+unstructured and no connectivity information is needed. On the other
+hand, corners of adjacent mesh cells that are intended to match should
+match {\em exactly}. In defining the surrounding polygons, the user will
+undoubtedly need to be familiar with the mesh's Connectivity in defining the
+surrounding polygons. The ordering of the corners is important.  See
+below and in |read_sonnet_mesh| for more details.
+  \item[|uedge_mesh|] {\tt filename} specifies the name of a file,
+{\tt filename}, 
+generated by the \verb+UEDGE+ code for the purpose of transferring data to
+{\tt DEGAS 2}. The file contains both geometry and plasma data, although
+only the former is read in by the |read_uedge_mesh| routine. The first
+few lines of the file contain additional information describing the
+mesh. The first line is assumed to be a comment. The first number on
+the second line is assumed to be $n_{x}$.  Likewise, the third line provides
+$n_{z}$. The next three lines are ignored. 
+As with the Sonnet format, a center and four corners are given for each
+quadrilateral and no connectivity information is needed. See the
+routine |read_uedge_mesh| for more details on the order of the corners.
+  \item[|wallfile|] {\tt filename} specifies the name of a file, 
+{\tt filename}, that contains a list of walls, each comprised by two
+or more points. Like other {\tt DEGAS 2} text files, 
+|wallfiles| can contain blank
+lines and comments (beginning with \verb+#+). Spacing should not matter.
+The first line provides the number of walls in the file, |num_new_walls|.
 The second line lists the number of points comprising each wall. I.e.,
-this line contains |num_new_walls| integers.
-
+this line must contain |num_new_walls| integers.
 The rest of the file contains the coordinates in ordered pairs, with one
-$(R,Z)$ pair per line, starting with the first point of the first wall.
+$(X,Z)$ pair per line, starting with the first point of the first wall.
 The other points in that wall follow on consecutive lines. The points in
 the second wall (if there is one) come immediately after that with no
 delimiter (the code is using only the number of points provided in
 line two to determine which point goes in which wall), and so on.
-
 For simple one wall systems, the file can be easily created by hand. For
 more complicated systems involving several walls, the user may benefit
 from writing a code to generate the file.
+  \item[|print_min_max|] loops over all of the nodes (read in via the
+|dg_file| or |wallfile| keywords) and prints to standard out the maximum
+and minimum $R$ and $Z$ values (in meters). These can be useful in choosing
+suitable bounds for the universal cell.
+  \item[|bounds|] $X_{\rm min}$ $X_{\rm max}$ $Z_{\rm min}$ $Z_{\rm max}$ 
+specifies the 
+corners of the universal cell in $X$ ($X_{\rm min} \rightarrow X_{\rm max}$) 
+and $Z$ ($Z_{\rm min} \rightarrow Z_{\rm max}$). The |outer| keyword can be
+used to incorporate these points into polygons.
+  \item[|print_walls|] {\tt format filename} instructs the code to
+write out the current set of walls. If {\tt filename} is not
+provided, the data are written to standard out. There are two
+possible {\tt formats}. The first, {\tt tabular}, has the walls laid out in
+successive columns, suitable for plotting with an external program.
+The second, {\tt linear}) is consistent with the format used by the 
+|wallfile| keyword.
+  \item[|end_prep|] terminates the preparatory stage of the code. 
+Dynamically allocated arrays associated with nodes, elements, and walls
+are trimmed to their final sizes, and the universal cell is established.
+If a plasma mesh has been specified via the |sonnet_mesh| or |uedge_mesh|
+keywords, the constituent quadrilaterals are translated into polygons
+and then decomposed into the internal elements of the {\tt DEGAS 2}
+geometry with each quadrilateral corresponding to a plasma zone.
+One advantage of making these the first zones defined in the problem is
+that transfer of zone-based output information to other codes  
+(such as a fluid plasma code) is simplified.
+\end{description}
+
+\subsection{Construction Section}
+
+The rest of the keywords are associated with the ``construction'' section
+of the input file. While they may (even legally) be used prior to the
+|end_prep| command, such usage is not encouraged in the interest of
+maintaining the simplicity of the input file. One exception is the
+|quit| keyword that can be used anywhere in the input file (except inside
+a polygon definition). There is a further subdivision 
+in that all keywords regarding a specific polygon must appear between
+its |new_polygon| command and the command that denotes its completion
+(|clear_polygon|, |breakup_polygon|, |triangulate_polygon|, or
+|triangulate_to_zones|).
+
+\begin{description}
+  \item[|new_zone|] {\tt type} starts a new zone of type {\tt type}. 
+All polygons specified after this command and prior to the next 
+|new_zone| command will be added to this zone. The possible values of
+{\tt type} are {\tt vacuum}, {\tt plasma}, {\tt solid}, and
+{\tt exit}.
+  \item[|polygon_nc_file|] {\tt filename} will cause the netCDF file
+containing the polygon description of the geometry (based on the
+{\tt g2} class, as described in the file {\tt geometry2d.hweb})
+to be named {\tt filename}. The default file name is {\tt polygon.nc}.
+  \item[|quit|] causes the code to terminate immediately. This is useful
+for preliminary runs in which the geometry is known to be inconsistent
+or incomplete, but the code needs to be run so that walls or polygons can
+be printed out for external examination.
+  \item[|end|] denotes completion of the geometry specification.
+A variety of derived relationships are set up by subroutine calls.
+The geometry is checked (thoroughly) and written to its netCDF file.
+  \item[|new_polygon|] begins the definition of a new polygon. The
+following keywords can be used in describing this polygon.
+  \item[|outer|] $i$ $j$ $k$ adds to the current polygon 
+the $i$th, $j$th, and
+$k$th points of the bounding rectangle of the problem (defined with
+the |bounds| keyword, i.e., the minimum and
+maximum $X$ and $Z$ used to define DEGAS 2's ``universal cell''). 
+The numbering of the corners is clockwise:
+\begin{tabbing}
+    0 (or 4)  \= $(X_{\rm min}, Z_{\rm min}) $  \\
+    1  \> $(X_{\rm min}, Z_{\rm max})$   \\
+    2  \> $(X_{\rm max}, Z_{\rm max})$   \\
+    3  \> $(X_{\rm max}, Z_{\rm min})$   \\
+\end{tabbing}
+There can be any number of arguments (e.g., see the above
+example input file).
+  \item[|wall|] $i_{\tt wall}$ $j_{\rm start}$ $j_{\rm stop}$ {\tt reverse} 
+takes points from wall
+number $i_{\rm wall}$ that was specified with either the |wallfile| or
+|dg_file| command.  The parameters $j_{\rm start}$ and $j_{\rm stop}$ prescribe
+which points from that wall to use. Note that the first point of the
+wall is numbered 0 so that the only valid values of $j_{\rm start}$ and
+$j_{\rm stop}$ are between 0 and the number of elements in the wall.
+If the wall needs to be traversed in the reverse direction, $j_{\rm stop}$
+can be set less than $j_{\rm start}$. If $j_{\rm start} = j_{\rm stop}$, 
+a single
+point is added to the polygon. If both $j_{\rm start}$ and $j_{\rm stop}$ are
+replaced by \verb+*+, all of the points in the wall are used. The
+wildcard character can also be used as: $j_{\rm start}$ \verb+*+ to indicate
+that all of the points from $j_{\rm start}$ to the end of the wall should
+be used. The additional argument {\tt reverse} can be added at the
+end of the line to reverse the ordering of the points indicated by
+$j_{\rm start}$, $j_{\rm stop}$, and / or \verb+*+. The primary usage of
+{\tt reverse}, however, will be in conjunction with \verb+*+.
+  \item[|edge|] $i_{x,{\rm start}}$ $i_{x,{\rm stop}}$ $i_{z,{\rm start}}$ $i_{z,{\rm stop}}$ {\tt reverse} 
+takes an ``edge'' from a plasma mesh defined with either the
+|sonnet_mesh| or |uedge_mesh| keywords 
+and adds it to the current polygon. To properly refer to an edge,
+the arguments must be such that either $i_{x,{\rm start}} = i_{x,{\rm stop}}$
+or $i_{z,{\rm start}} = i_{z,{\rm stop}}$. Valid values of $i_{x,{\rm start}}$
+and $i_{x,{\rm stop}}$ will be between $n_{x}$, inclusive. Likewise,
+$i_{z,{\rm start}}$ and $i_{z,{\rm stop}}$ will be between 0 and $n_{z}$.
+Either pair can be replaced with \verb+*+ to indicate that the
+entire edge should be added to the polygon.
+The code used to process the arguments ``knows'' about the four corners
+comprising each mesh zone so that \verb+edge * 0 0+ actually
+refers $n_{x} + 1$ points (see also the additional detail below on corners). 
+As with the |wall| keyword, the |reverse|
+argument can be used to indicate that the points should be added to the
+polygon in the order opposite to that indicated by the other arguments.
+  \item[|stratum|] $i_{\rm stratum}$ labels the polygon as belonging
+to stratum number $i_{\rm stratum}$. This is a semi-arbitary label that 
+can be used in specifying sources, setting up diagnostics, etc. It
+will be applied to subsequent polygons until used again.
+  \item[|material|] {\tt mat} sets the material for the polygon to 
+the material having the symbol {\tt mat}. A material with this
+symbol must appear in the |materials_infile| (from the |degas2.in|
+file) for this run. It will be applied to all subsequent polygons
+until used again. Note that this setting only affects the
+calculation when one edge of this polygon ends up being a target or wall
+sector.
+  \item[|temperature|] $T$ associates a temperature of $T$
+Kelvin (a real number) 
+to the polygon. This value can affect, e.g., the energy of
+desorbed or puffed molecules. It will be applied to all subsequent polygons
+until used again. Note that this setting only affects the
+calculation when one edge of this polygon ends up being a target or wall
+sector.
+  \item[|recyc_coef|] $R$ associates a recycling coefficient of
+$R$ ($R$ a real number, $0 < R \leq 1$) to the polygon.
+It will be applied to all subsequent polygons
+until used again. Note that this setting only affects the
+calculation when one edge of this polygon ends up being a target or wall
+sector. 
+  \item[|triangle_area|] $A$ specifies a minimum area in square meters
+for the triangles
+to be created by {\tt Triangle} (with $A$ a real number) when the
+|triangulate_to_zones| command is executed. Practically,
+it seems that this ends up as little more than a suggestion. The reason
+is that we cannot allow {\tt Triangle} to add points along the boundary
+of the polygon. Although this would not compromise the definition of 
+{\tt DEGAS 2} surfaces from the triangulation of the current polygon, 
+the surface(s) of the adjacent polygon(s) would not be subdivided in the
+same way. Hence, the exact correspondence of adjacent surfaces that the
+code relies upon for establishing connectivity would be destroyed.
+{\tt Triangle} can, however, add points to the interior of a polygon; this
+parameter $A$ can be used to control that process.
+  \item[|triangle_hole|] $n$ $X$ $Z$ specifies an integer number of holes,
+$n$. This is currently constrained to be a single hole, $n$ = 1.
+The coordinates (real numbers) of the hole are given as $X$ and $Z$.
+The hole location is used by {\tt Triangle} when either the 
+|triangulate_polygon| or |triangulate_to_zones| command is
+executed on a polygon that encircles are region that is {\em not} to
+be broken up into triangles. The hole location can be anywhere in
+this interior region.
+  \item[|print_polygon|] {\tt filename} prints the points of the
+current polygon to a file, {\tt filename}. If {\tt filename} is not
+present, the coordinates are written to standard out.
+  \item[|clear_polygon|] will cause the code to completely forget about
+this polygon in subsequent operations. This is useful for checking the
+integrity of several polygons with a single run of the code.
+  \item[|breakup_polygon|] instructs the code to use {\tt DEGAS 2}'s
+original |decompose_polygon| routine to break the polygon up into 
+the internal geometry elements. This routine expects the polygon to be
+traced out in a clockwise direction. Note also that |decompose_polygon|
+is far from foolproof and will occasionally fail with a ``unable to
+decompose polygon'' error. This problem can usually be remedied by
+choosing a different point of the polygon as the first point. On the
+other hand, the functionality of the vastly more robust 
+|triangulate_polygon| routine is equivalent. The two approaches
+may result in different run efficiencies, but no such variability
+has ever been established.
+  \item[|triangulate_polygon|] instructs the code to use the
+{\tt Triangle} package to break the polygon up into {\tt DEGAS 2}'s
+internal geometry elements. The {\tt Triangle} routine is extremely
+tolerant and robust; the input polygon can be traced out in either
+direction. However, a clockwise orientation is recommended since this
+will preserve (as |strata_segment| labels) the relationship between 
+the resulting bounding segments and the original polygon points.
+This command does only a basic triangulation and is 
+only recommended for use with polygons in solid zones.
+  \item[|triangulate_to_zones|] instructs the code to use the
+{\tt Triangle} package to break the polygon up into {\tt DEGAS 2}'s
+internal geometry elements. The {\tt Triangle} routine is extremely
+tolerant and robust; the input polygon can be traced out in either
+direction. Each resulting triangle is added to the geometry as a 
+separate zone (of the current type). A second refining call to 
+{\tt Triangle} beyond the one analogous to that done with 
+|triangulate_to_zones|
+is performed that permits the application
+of additional constraints such as a minimum area.
+A clockwise orientation is recommended since this
+will preserve (as |strata_segment| labels) the relationship between 
+the resulting bounding segments and the original polygon points.
+\end{description}
+
+\section{Other Considerations}
+
+{\em Regarding corners with the |edge| keyword:} Because the {\tt UEDGE}
+and {\tt Sonnet} mesh formats both provide four corners for each mesh
+zone, the number of points along each ``edge'' of the mesh is one greater
+than the number of zones along that edge. This fact must be taken into 
+account in defining polygons along these edges.
+
+For clarity, here is the convention used to number the corners in 
+|definegeometry2d|:
+
+\begin{picture}(200,150)
+\put(50.,20.){\framebox(50.,50.){($i_{x}$,$i_{z}$)}}
+\put(120.,20.){\framebox(50.,50.){($i_{x}+1$,$i_{z}$)}}
+\put(50.,90.){\framebox(50.,50.){($i_{x}$,$i_{z}+1$)}}
+\put(48.,22.){\makebox(0,0)[tr]{1}}
+\put(48.,68.){\makebox(0,0)[br]{2}}
+\put(102.,68.){\makebox(0,0)[bl]{3}}
+\put(102.,22.){\makebox(0,0)[tl]{4}}
+\put(118.,22.){\makebox(0,0)[tr]{1}}
+\put(118.,68.){\makebox(0,0)[br]{2}}
+\put(172.,68.){\makebox(0,0)[bl]{3}}
+\put(172.,22.){\makebox(0,0)[tl]{4}}
+\put(48.,92.){\makebox(0,0)[tr]{1}}
+\put(48.,138.){\makebox(0,0)[br]{2}}
+\put(102.,138.){\makebox(0,0)[bl]{3}}
+\put(102.,92.){\makebox(0,0)[tl]{4}}
+\put(100.,5.){\vector(1,0){30}}
+\put(30.,70.){\vector(0,1){30}}
+\put(95.,5.){\makebox(0,0)[c]{$x$}}
+\put(30.,65.){\makebox(0,0)[tc]{$z$}}
+\end{picture}  \newline
+
+In the {\tt Sonnet} mesh format, the first line contains corners 2 and 3.
+The second line specifies the center. Corners 1 and 4 are on the third
+line. The {\tt UEDGE} mesh format specifies the corners for each point
+in the order 0 (center), 1, 4, 2, and 3.
+
+For a particular $(i_{x},i_{z})$ specified via arguments to the |edge|
+keyword, the logic that determines the corner to be used is:
+\begin{enumerate}
+  \item If $i_{x} = 0$ and $i_{z} = 0$, corner 1 of the $(1,1)$ zone (recall
+that there is no $(0,0)$ zone).
+  \item If $i_{x} = 0$, but $i_{z} \neq 0$, corner 2 of the $(1,i_{z})$ zone.
+  \item If $i_{x} \neq 0$, but $i_{z} = 0$, corner 4 of the $(i_{x},1)$ zone.
+  \item Otherwise, use corner 3 of the $(i_{x},i_{z})$ zone.
+\end{enumerate}
+
+{\em Regarding detectors and diagnostics:} Ideally the user would
+also be able to specify detectors and diagnostic sectors via this
+input file. Some such facility may be possible without a great deal
+of effort. However, a graphical approach to their specification would
+likely prove more flexible and
+easier to use. Once an overall graphical approach to running 
+{\tt definegeometry2d} has been contemplated, a decision regarding the
+handling of detectors and diagnostic sectors will be made. In the interim,
+the best approach is to insert hardwired code into this file; specific
+examples can be made available on request.
 
 {\em Special note on comments and debuggers:} Part of this file is written
 in C. The current Sun Workshop debugger (there may be others) utilizes the
@@ -121,7 +806,7 @@ be other requirements as well.
 #include "triangle.h"   // Dependency explicitly included in Makefile
       @<C Functions@>
 
-@ The main program.
+@* The Main Program.
 @m element_start 0
 @m element_end 1
 
@@ -155,17 +840,22 @@ be other requirements as well.
 @m triangulate_polygon 2
 @m triangulate_to_zones 3
 
+@m max_triangles 1700
+
 @m increment_num_elements       num_elements++;
+      dim_elements=max(dim_elements,num_elements);
       var_realloca(element_nodes);
       var_realloca(element_missing);
       var_realloca(element_assigned) @;
 
 @m increment_num_nodes      num_nodes++;
+      dim_nodes=max(dim_nodes,num_nodes);
       var_realloca(nodes);
       var_realloca(node_type);
       var_realloca(node_element_count) @;
 
 @m increment_num_walls      num_walls++;
+      dim_walls=max(dim_walls,num_walls);
       var_realloca(wall_nodes);
       var_realloca(wall_elements);
       var_realloca(wall_element_count) @;
@@ -178,9 +868,11 @@ be other requirements as well.
       var_realloca(g2_polygon_stratum);
       var_realloca(poly_int_props);
       var_realloca(poly_real_props);
+      g2_polygon_stratum[g2_num_polygons]=int_unused;
       do i_inc_g2=0,g2_num_points-1;
          g2_polygon_xz[g2_num_polygons][i_inc_g2][g2_x]=zero;
          g2_polygon_xz[g2_num_polygons][i_inc_g2][g2_z]=zero;
+         g2_polygon_segment[g2_num_polygons][i_inc_g2]=int_unused;
       end do @;
 
 @m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
@@ -206,17 +898,17 @@ be other requirements as well.
       stop
       end
 
-@ Main subroutine.
+@* Main Subroutine.
 @<Functions...@>=
       subroutine def_geom_2d_main(filename)
       
-      define_dimen(node_ind,num_nodes)
-      define_dimen(element_ind,num_elements)
+      define_dimen(node_ind,dim_nodes)
+      define_dimen(element_ind,dim_elements)
       define_dimen(element_ends_ind,element_start,element_end)
 /*
    Add ``2d'' to distinguish from |wall_ind| in |sector.hweb|.
 */
-      define_dimen(wall2d_ind,num_walls)   
+      define_dimen(wall2d_ind,dim_walls)   
       define_dimen(mesh_corner_ind,0,4)
       define_dimen(mesh_xz_ind,nxd*nzd)
       define_dimen(poly_int_ind,poly_int_max)
@@ -253,9 +945,10 @@ be other requirements as well.
 */
       integer diskin2,length,p,b,e,open_stat,zone,fileid,   // Main section
      $        prep_done,i_inc_g2,i_prop
-      integer current_int_props[1:poly_int_max]
+      integer current_int_props[1:poly_int_max],zonearray[1],facearray[0:1]
       real current_real_props[1:poly_real_max]
       character*LINELEN line,keyword
+      character*FILELEN tmpfilename
 
       integer ielement,section,i,inode,                     // Process DG File
      $     miss_elem,start,end,iwall,iseg,ielement2
@@ -285,9 +978,9 @@ be other requirements as well.
 
       integer process_polygon,ntriangles,refine,j            // Zone, Polygon
       integer temp_int_props[1:poly_int_max],
-     $     temp_segment[0:g2_num_points-1][0:3]
+     $     temp_segment[0:max_triangles-1][0:3]
       real temp_polygon[0:g2_num_points-1][g2_x:g2_z],
-     $     temp_triangles[0:g2_num_points-1][0:3][g2_x:g2_z],
+     $     temp_triangles[0:max_triangles-1][0:3][g2_x:g2_z],
      $     temp_real_props[1:poly_real_max],
      $     temp_holes[0:0][g2_x:g2_z]
       character*LINELEN new_zone_type     
@@ -295,7 +988,8 @@ be other requirements as well.
       integer write_poly_nc                                // |polygon.nc| file
       character*FILELEN polygon_nc_file
 
-      integer num_nodes,num_elements,num_walls,nxd,nzd     // Local pointers
+      integer num_nodes,num_elements,num_walls,            // Local pointers
+     $        dim_nodes,dim_elements,dim_walls,nxd,nzd
 
       declare_varp(nodes)
       declare_varp(node_type)
@@ -340,6 +1034,28 @@ be other requirements as well.
       num_walls=0
       num_nodes=0
       num_elements=0
+      facearray[0]=0
+      facearray[1]=0
+/*
+   To permit these to be reallocated by any of the three possible macros,
+   helps to make the initial allocation of size |mem_inc|. 
+*/
+      dim_walls=mem_inc
+      dim_nodes=mem_inc
+      dim_elements=mem_inc
+
+      var_alloc(nodes)
+      var_alloc(node_type)
+      var_alloc(node_element_count)
+
+      var_alloc(element_nodes)
+      var_alloc(element_missing)
+      var_alloc(element_assigned)
+
+      var_alloc(wall_nodes)
+      var_alloc(wall_elements)
+      var_alloc(wall_element_count)
+
       prep_done=FALSE
       current_int_props[poly_stratum]=0
       current_int_props[poly_material]=0
@@ -366,7 +1082,8 @@ loop1: continue
 
       else if (keyword == 'sonnet_mesh' || keyword == 'uedge_mesh') then
          assert(next_token(line,b,e,p))
-         open_file(diskin2,line(b:e))
+         tmpfilename=line(b:e)           // Sun F90 chokes if don't do this
+         open_file(diskin2,tmpfilename)
 /*
    E.g., \verb+sonnet_mesh filename 120 24+
 */
@@ -448,6 +1165,8 @@ eof:  continue
       var_reallocb(g2_polygon_points)
       var_reallocb(g2_polygon_zone)
       var_reallocb(g2_polygon_stratum)
+      var_reallocb(poly_int_props)
+      var_reallocb(poly_real_props)
 
       if (write_poly_nc == TRUE) then
          fileid=nccreate(trim(polygon_nc_file),NC_CLOBBER,nc_stat)
@@ -478,6 +1197,19 @@ eof:  continue
 
          call erase_geometry
       end if
+
+      var_free(nodes)
+      var_free(node_type)
+      var_free(node_element_count)
+      var_free(element_nodes)
+      var_free(element_missing)
+      var_free(element_assigned)
+      var_free(wall_nodes)
+      var_free(wall_elements)
+      var_free(wall_element_count)
+      var_free(mesh_xz)
+      var_free(poly_int_props)
+      var_free(poly_real_props)
 
       return
       end
@@ -519,14 +1251,18 @@ eof:  continue
 @ End preparation stage.
 
 @<End Prep@>=
+      
+      dim_elements=num_elements
       var_reallocb(element_nodes)
       var_reallocb(element_missing)
       var_reallocb(element_assigned)
 
+      dim_nodes=num_nodes
       var_reallocb(nodes)
       var_reallocb(node_type)
       var_reallocb(node_element_count) 
 
+      dim_walls=num_walls
       var_reallocb(wall_nodes)
       var_reallocb(wall_elements)
       var_reallocb(wall_element_count)
@@ -545,6 +1281,13 @@ eof:  continue
 
       if (nxd*nzd > 0) then
          @<Set Mesh Polygons@>
+      else
+/*
+   Allocate something since it appears in argument lists later.
+*/
+         nxd=1
+         nzd=1
+         var_alloc(mesh_xz)
       end if
       prep_done=TRUE
 
@@ -552,7 +1295,8 @@ eof:  continue
 
 @<Process DG File@>=
       assert(next_token(line,b,e,p))
-      open_file(diskin2,line(b:e))
+      tmpfilename=line(b:e)
+      open_file(diskin2,tmpfilename)
 /*
    Read DG's .dgo file
 */    
@@ -787,25 +1531,47 @@ are used later in the code.
       wallinfile=line(b:e)
       open(unit=diskin2,file=wallinfile,status='old',form='formatted')
 
-      read(diskin2,*) num_new_walls
-      var_reallocc(wall_nodes,num_walls,num_walls+num_new_walls)
-      var_reallocc(wall_elements,num_walls,num_walls+num_new_walls) // not used
-      var_reallocc(wall_element_count,num_walls,num_walls+num_new_walls)
+      assert(read_string(diskin2,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
 
-      read(diskin2,*) SP
-     $     (wall_element_count[num_walls+iwall],iwall=1,num_new_walls)
+      assert(next_token(line,b,e,p))
+      num_new_walls=read_int_soft_fail(line(b:e))
+      var_reallocc(wall_nodes,dim_walls,num_walls+num_new_walls)
+      var_reallocc(wall_elements,dim_walls,num_walls+num_new_walls) // not used
+      var_reallocc(wall_element_count,dim_walls,num_walls+num_new_walls)
+
+      assert(read_string(diskin2,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      do iwall=1,num_new_walls
+         assert(next_token(line,b,e,p))
+         wall_element_count[num_walls+iwall]=read_int_soft_fail(line(b:e))
+      end do
+
       do iwall=num_walls+1,num_walls+num_new_walls
          wall_element_count[iwall]--         // |iseg| starts at 0
          do iseg=0,wall_element_count[iwall]
-            read(diskin2,*) x_wall,z_wall
+            assert(read_string(diskin2,line,length))
+            assert(length<=len(line))
+            length=parse_string(line(:length))
+            p=0
+            assert(next_token(line,b,e,p))
+            x_wall=read_real_soft_fail(line(b:e))
+            assert(next_token(line,b,e,p))
+            z_wall=read_real_soft_fail(line(b:e))
 
-            do inode=1,num_nodes
-               if ((abs(x_wall - nodes[inode][g2_x]) < geom_epsilon) 
-     $              && (abs(z_wall - nodes[inode][g2_z]) < geom_epsilon)) then
-                  this_node=inode
-                  go to wall_break
-               end if
-            end do
+            if (num_nodes > 0) then
+               do inode=1,num_nodes
+                  if ((abs(x_wall - nodes[inode][g2_x]) < geom_epsilon) 
+     $                 && (abs(z_wall - nodes[inode][g2_z]) < geom_epsilon)) then
+                     this_node=inode
+                     go to wall_break
+                  end if
+               end do
+            end if
             increment_num_nodes
             nodes[num_nodes][g2_x]=x_wall
             nodes[num_nodes][g2_z]=z_wall
@@ -816,6 +1582,7 @@ wall_break: continue
          end do
       end do
       num_walls+=num_new_walls
+      dim_walls=max(dim_walls,num_walls)
 
       close(unit=diskin2)
 
@@ -908,18 +1675,25 @@ wall_break: continue
      $                 =current_real_props[i_prop]
                end do
 
+               zonearray[1]=zone
                call decompose_polygon(n,
-     $              g2_polygon_xz[g2_num_polygons][0][g2_x],zone,1,0)
+     $              g2_polygon_xz[g2_num_polygons][0][g2_x],
+     $              zonearray,1,facearray)
 /*
-   Generalize this to handle quadrilaterals as well.
+   Check to see if the mesh center is zero. If so, set using existing
+   routines (note: triangles can now be specified in a Sonnet mesh 
+   format, but only if corner 4 matches corner 1 or 3).
 */
-               if ((((mesh_xzm(g2_x,4,ix,iz) == mesh_xzm(g2_x,1,ix,iz))
+               if ((mesh_xzm(g2_x,0,ix,iz) == zero)
+     $              && (mesh_xzm(g2_z,0,ix,iz) == zero)) then
+                  if (((mesh_xzm(g2_x,4,ix,iz) == mesh_xzm(g2_x,1,ix,iz))
      $              && (mesh_xzm(g2_z,4,ix,iz) == mesh_xzm(g2_z,1,ix,iz)))
      $          || ((mesh_xzm(g2_x,4,ix,iz) == mesh_xzm(g2_x,3,ix,iz))
-     $              && (mesh_xzm(g2_z,4,ix,iz) == mesh_xzm(g2_z,3,ix,iz))))
-     $         && (mesh_xzm(g2_x,0,ix,iz) == zero)
-     $         && (mesh_xzm(g2_z,0,ix,iz) == zero)) then
-                  call triangle_centroid(mesh_xzm(g2_x,1,ix,iz),center)
+     $            && (mesh_xzm(g2_z,4,ix,iz) == mesh_xzm(g2_z,3,ix,iz)))) then
+                     call triangle_centroid(mesh_xzm(g2_x,1,ix,iz),center)
+                  else 
+                     call quad_center(mesh_xzm(g2_x,1,ix,iz),center)
+                  end if
                else
                   vc_set(center,mesh_xzm(g2_x,0,ix,iz),zero,
      $                 mesh_xzm(g2_z,0,ix,iz))
@@ -973,8 +1747,10 @@ wall_break: continue
                poly_real_props[g2_num_polygons][i_prop]
      $              =current_real_props[i_prop]
             end do
+            zonearray[1]=zone
             call decompose_polygon(n,
-     $           g2_polygon_xz[g2_num_polygons][0][g2_x],zone,1,0)
+     $           g2_polygon_xz[g2_num_polygons][0][g2_x],
+     $           zonearray,1,facearray)
 /*
    Try to handle carefully those cases where we can. For $|n| > 4$,
    just use the first point. If this zone really needs a center,
@@ -1003,6 +1779,10 @@ wall_break: continue
 /*
    Not sure of the need for multiple holes. Easiest to implement
    just a single one.
+
+   Note that the segment labels for the initial polygon are
+   assigned in |poly2triangles| and transferred to the resulting
+   triangles in |temp_segment|.
 */
                assert(current_int_props[poly_num_holes] == 1)
                temp_holes[0][g2_x]=current_real_props[poly_hole_x]
@@ -1012,7 +1792,7 @@ wall_break: continue
      $           current_real_props[poly_min_area],
      $           current_int_props[poly_num_holes],temp_holes[0][g2_x],refine,
      $           ntriangles,temp_triangles[0][0][g2_x],temp_segment[0][0])
-            assert(ntriangles < g2_num_points)
+            assert(ntriangles < max_triangles)
             n=3    // Number of points in a triangle !
             do j=0,ntriangles-1
                increment_g2_num_polygons
@@ -1036,6 +1816,7 @@ wall_break: continue
                end if
 @#endif
                g2_polygon_zone[g2_num_polygons]=zone
+               g2_polygon_stratum[g2_num_polygons]=current_int_props[poly_stratum]
                do i_prop=1,poly_int_max
                   poly_int_props[g2_num_polygons][i_prop]
      $                 =current_int_props[i_prop]
@@ -1044,8 +1825,10 @@ wall_break: continue
                   poly_real_props[g2_num_polygons][i_prop]
      $                 =current_real_props[i_prop]
                end do
+               zonearray[1]=zone
                call decompose_polygon(n,
-     $              g2_polygon_xz[g2_num_polygons][0][g2_x],zone,1,0)
+     $              g2_polygon_xz[g2_num_polygons][0][g2_x],
+     $              zonearray,1,facearray)
                if (j == 0 || process_polygon == triangulate_to_zones)
      $              call triangle_centroid(temp_triangles[j][0][g2_x],center)
                call update_zone_info(zone,ix,iz,new_zone_type,n,
@@ -1069,6 +1852,7 @@ wall_break: continue
       
       integer ix,iz,i                                       // Local
       integer corner_ptr[0:4]
+      real dummy
 /*
   Have decided to not deal with this information explicitly here.
   The main reason for doing this is that we need to know the null type
@@ -1096,6 +1880,37 @@ wall_break: continue
      $     i=0,4)
       read(nunit,*) SP (((mesh_xz[iz][ix][corner_ptr[i]][g2_z],ix=1,nxd),iz=1,nzd),
      $     i=0,4)
+
+      dummy=zero
+      open(unit=nunit+1,file='uedge_sonnet',status='unknown',form='formatted')
+      write(nunit+1,*)
+      write(nunit+1,*) '  Element output:'
+      write(nunit+1,*)
+      write(nunit+1,'(a,f16.13)') '    R*Btor =   ',dummy
+      write(nunit+1,*) '   ncut   =  0'
+      write(nunit+1,*)
+      do iz=1,nzd
+         do ix=1,nxd
+/*
+   The specific ordering to be used in the rest of this code is that a 
+   polygon will be traced out in the clockwise direction by following
+   the corners in order $1 \rightarrow 4$. The corners used here with
+   |mesh_x| and |mesh_z| are chosen so as to translate the known orientation 
+   of the Sonnet mesh corners into the desired one. The center is denoted
+   as corner $0$.
+*/
+            write(nunit+1,'(a,i4,a,i3,a,i3,a,e17.10,a,e17.10,a,6x,a,e17.10,a,e17.10,a)') 
+     $           '   Element ',(iz-1)*nxd+ix-1,' = (',ix-1,',',iz-1,'): (',mesh_xz[iz][ix][2][g2_x],',',mesh_xz[iz][ix][2][g2_z],')','(',
+     $           mesh_xz[iz][ix][3][g2_x],',',mesh_xz[iz][ix][3][g2_z],')'
+            write(nunit+1,'(a,e17.10,13x,a,e17.10,a,e17.10,a)') '   Field ratio  = ',dummy,
+     $           '(',mesh_xz[iz][ix][0][g2_x],',',mesh_xz[iz][ix][0][g2_z],')'
+            write(nunit+1,'(29x,a,e17.10,a,e17.10,a,6x,a,e17.10,a,e17.10,a)')
+     $           '(',mesh_xz[iz][ix][1][g2_x],',',mesh_xz[iz][ix][1][g2_z],')','(',
+     $           mesh_xz[iz][ix][4][g2_x],',',mesh_xz[iz][ix][4][g2_z],')'
+            write(nunit+1,*) '  ----------------------------------------------------------------------------------------'
+         end do
+      end do
+      close(unit=nunit+1)
 
       return
       end
@@ -1166,7 +1981,7 @@ the data are written to stdout.
      $     iwall,iseg,inode,b,e
       character*1 csec
       character*130 wall_line      // Holds |table_size| (i.e., 4) pairs
-      character*30 wall_chunk      // Space to write $x$,$z$ pair
+      character*31 wall_chunk      // Space to write $x$,$z$ pair
       
       st_decls
 
@@ -1179,7 +1994,7 @@ the data are written to stdout.
          do iwall=1,num_walls
             do iseg=0,wall_element_count[iwall]
                inode=wall_nodes[iwall][iseg]
-               write(nunit,'(1x,1pe14.6,2x,e14.6)') nodes[inode][g2_x],
+               write(nunit,'(1x,1pe18.10,2x,e18.10)') nodes[inode][g2_x],
      $              nodes[inode][g2_z]
             end do
          end do
@@ -2058,7 +2873,6 @@ int (*markers)[4];
 
 
   nh=*nholes;
-//  in.pointmarkerlist=(int *) NULL;
   in.numberofholes=nh;
   if (nh > 0) {
     in.holelist=(double *) malloc(in.numberofholes * 2 * sizeof(double));
@@ -2133,7 +2947,7 @@ int (*markers)[4];
   if (final->numberofcorners != 3) {
     printf("STOP!!! Triangle thinks triangles have %i corners",final->numberofcorners);  
   }
-  if (final->numberoftriangles > g2_num_points-1) {
+  if (final->numberoftriangles > max_triangles-1) {
     printf("STOP!!! Number of triangles %i exceeds dimensions of triangles array!",final->numberoftriangles);
   }
 
@@ -2163,7 +2977,6 @@ int (*markers)[4];
   free(mid.segmentlist);
   free(mid.pointmarkerlist);
   free(mid.trianglelist);
-  free(mid.segmentlist);
   free(mid.segmentmarkerlist);
   free(mid.edgelist);
   free(mid.edgemarkerlist);
@@ -2172,7 +2985,6 @@ int (*markers)[4];
   free(out.segmentlist);
   free(out.pointmarkerlist);
   free(out.trianglelist);
-  free(out.segmentlist);
   free(out.segmentmarkerlist);
   free(out.edgelist);
   free(out.edgemarkerlist);
