@@ -7,6 +7,17 @@ $Id$
 # (1) the full name of the reaction.  
 # (2) the second is a blank-delimited sequence of entries of the form
 # name particle + particle + ... -> particle + particle + ...
+#
+# When problemsetup is, run it will assume binary collisions with
+# the first reagent being a background species and the second being a
+# test species. Reactions between two background species are also
+# permitted provided they yield test species; these reactions enter the
+# problem as a source.
+#
+# With the "->" separating reagents and products, reactions are assumed to
+# apply to all appropriate isotopically equivalent combinations. If the
+# separator is "=>", the reaction will apply to only the species listed.
+#
 # (3) the file name with cross section data
 # (4) the reaction classification
 
@@ -76,27 +87,27 @@ h2discramd e + H2 -> e + H * + H+ + e
 dissoc_cramd
 
 atomic deuterium ion elastic scattering
-dd_00_elastic D+ + D -> D+ + D 
+dd_00_elastic D+ + D => D+ + D 
 ../data/dd_00_elastic.nc
 elastic
 
 atomic deuterium ion elastic scattering 5 Degree Cut-off
-dd_05_elastic D+ + D -> D+ + D
+dd_05_elastic D+ + D => D+ + D
 ../data/dd_05_elastic.nc
 elastic
 
 deuterium charge exchange - Krstic data
-dd_chargex D+ + D -> D + D+
+dd_chargex D+ + D => D + D+
 ../data/dd_chargex.nc
 chargex
 
 molecular deuterium ion elastic scattering
-dd2_00_elastic D+ + D2 -> D+ + D2 
+dd2_00_elastic D+ + D2 => D+ + D2 
 ../data/dd2_00_elastic.nc
 elastic
 
 molecular deuterium ion elastic scattering 5 Degree Cut-off
-dd2_05_elastic D+ + D2 -> D+ + D2 
+dd2_05_elastic D+ + D2 => D+ + D2 
 ../data/dd2_05_elastic.nc
 elastic
 
