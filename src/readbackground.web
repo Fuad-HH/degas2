@@ -2,6 +2,11 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.24  1999/05/25 13:33:40  dstotler
+% Allocate & set default value for source_num_checkpoints.
+% Completely rewritten to facilitate creation of updatebackground.
+% Add so_set_run_flags macro calls.
+%
 % Revision 1.23  1999/04/20 20:15:44  dstotler
 % Modify sector lookup to search directly for the sector (rather than
 % trying both orientations of the surface end points); able to do this
@@ -210,7 +215,6 @@ of the file name (x.d is degas and x.u for uedge) */
       var_alloc(background_n)
       var_alloc(background_v)
       var_alloc(background_temp)
-
       if (degas) then
          call read_degas_background(degasfilename)
       elseif (uedge) then
@@ -481,7 +485,7 @@ of the file name (x.d is degas and x.u for uedge) */
      $     ti1[bk_my],te1[bk_my],flux1[bk_my],
      $     ni2[bk_my],vr2[bk_my],vz2[bk_my],vphi2[bk_my],
      $     ti2[bk_my],te2[bk_my],flux2[bk_my]
-      integer i,tot                              // Other local
+      integer i,tot,update                        // Other local
       real flux1_tot,flux2_tot
 
       st_decls
@@ -559,9 +563,10 @@ of the file name (x.d is degas and x.u for uedge) */
          tot+=ny
       end do
 
+      update=FALSE
       call set_uedge_plate_sources(nx,ny,rm,zm,
      $     vr1,vz1,vphi1,te1,ti1,flux1,
-     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot)
+     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot,update)
 
       return
       end

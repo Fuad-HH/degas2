@@ -2,6 +2,9 @@
 \Title{updatebackground}
 
 % $Log$
+% Revision 1.1  1999/05/25 13:08:47  dstotler
+% Added to repository.
+%
 
 @* This program updates the background plasma parameters and DEGAS 2 sources
 in iterations with a fluid plasma code. 
@@ -112,7 +115,7 @@ for the next run.
      $     ti1[bk_my],te1[bk_my],flux1[bk_my],
      $     ni2[bk_my],vr2[bk_my],vz2[bk_my],vphi2[bk_my],
      $     ti2[bk_my],te2[bk_my],flux2[bk_my]
-      integer grp,i_seg,jr,old_seg_tot
+      integer grp,i_seg,jr,old_seg_tot,update
       real flux1_tot,flux2_tot
 
       declare_varp(old_current)
@@ -156,15 +159,16 @@ for the next run.
          assert('Zero fluxes in UEDGE background' == ' ')
       end if
 
+      update=TRUE    
       call set_uedge_plate_sources(nx,ny,rm,zm,
      $     vr1,vz1,vphi1,te1,ti1,flux1,
-     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot)
+     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot,update)
 
       if (pr_bkrc_num > 0) then
          do jr=1,pr_bkrc_num
             grp++
             so_seg_tot=so_base(grp)-1
-            call set_background_rate(jr,grp)
+            call set_background_rate(jr,grp,update)
 c...Do asserts on results...
          end do
       end if
