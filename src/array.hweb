@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.14  1995/05/26 04:00:14  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.13  1995/04/24 14:21:11  karney
 % Remove some unused variables.  Introduce a coordinate system for plasma
 % flow.
@@ -68,9 +72,9 @@ given, it puts the lower limit = 1 and upper limit = the first (and
 only) argument in |define_dimen|. If 2 args. are given,  it puts the lower
 limit as the first arg and the upper limit as the second.
 @f define_dimen integer
-/* #0 is the number of args represented by the dots. ## pastes the strings
+/* \#0 is the number of args represented by the dots. \#\# pastes the strings
 on either side of it after appropriate expansions, hence 'name' is expanded
-to the variable's name. #n represents the nth argument represented by the
+to the variable's name. \#n represents the nth argument represented by the
 dots. */
 @m define_dimen(name,...)
       $ASSERT( #0 == 1 || #0 == 2)
@@ -93,17 +97,18 @@ actually dimensions of the array or character x.these are of the form
 |type_x|, |rank_x| and |ind_x_n| where 
 ``x'' is substituted by the name of the array/character variable  and ``n''
 is the no. of the  
-dimension.(1 to MAX_DIM).  ``type'' is 0,1 or 2 for a character, integer or
+dimension.(1 to |MAX_DIM|).  ``type'' is 0,1 or 2 for a character, integer or
 real variable and |rank_x| is the no. of args represented by the dots. 
-eg.. for x(5) we have ind_x_1 =5, for y(2,10) we have ind_y_1 =
-2 & ind_y_2= 10 , for z(1,5,10) we have ind_z_1 =1 ,ind_z_2 =5 & ind_z_3=
+eg.. for x(5) we have |ind_x_1| =5, for y(2,10) we have |ind_y_1| =
+2 and |ind_y_2|= 10 , for z(1,5,10) we have |ind_z_1| =1 ,|ind_z_2| =5 
+and |ind_z_3|=
 10 . For a character variable x, in place of the first dimension, the size
 of x is used for |ind_x_1|, the first dimension is |ind_x_2| and so
-on. eg.. for x(20)* 5 ind_x_1 =5  and ind_x_2 = 20. The other thing is
+on. eg.. for x(20)* 5 |ind_x_1| =5  and |ind_x_2| = 20. The other thing is
 |ind_x_m| which is similar to above but, here m  
 does not vary (just a fixed string). |ind_x_m| equals the value of the last
-argument or the last dimension for an array. eg.. for x, ind_x_m =0, for
-x(5), ind_x_m =5, for y(2,10), ind_y_m =10, for z(1,5,10), ind_z_m=10 */ 
+argument or the last dimension for an array. eg.. for x, |ind_x_m| =0, for
+x(5), |ind_x_m| =5, for y(2,10), |ind_y_m| =10, for z(1,5,10), |ind_z_m|=10 */ 
 
 @m define_var(x,type,...) $ASSERT( #0 <= MAX_DIM && #0 >= 0)
       $ASSERT( type >= CHAR && type <= FLOAT )
@@ -122,7 +127,7 @@ integer and can have 0 to |MAX_DIM| dimensions. For this to work, the
 values of |ind_x_n| and corresponding |range| must be known. For a
 character variable ``x''  it produces a declaration of the form : character
 * size x , where ``size'' is same as |ind_x_1|. for an array of dimension
-``n'' (n<= MAX_DIM) , it is :
+``n'' (n<= |MAX_DIM|) , it is :
 character * size x(dim1L:dim1U,dim2L:dim2U... dimnL:dimnU) where
 dim1L,dim2L ... and dim1U,dim2U ... are lower and upper dimensions also
 given by  ranges of |ind_x_2|, |ind_x_3| .. etc. For integer and real
@@ -194,7 +199,7 @@ an array x if it's last dimension is changed. It's basically the product of
 the size calculated by leaving out the last dimension (|array_unit(x)| and
 the new size of the last dimension which is just = (dimnU -dimnL +1) where
 dimnU is y and dimnL is known.( lower limit of last dimension given by
-range_min(ind_x_m) */
+|range_min(ind_x_m)| */
 @m array_sizev(x,y) array_unit(x)*((y)-range_min(ind_##x##_m)+1)
 
 @ Macros to simplify memory allocation
