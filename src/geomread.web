@@ -2,6 +2,9 @@
 \def\Wtitle{geomread}
 
 % $Log$
+% Revision 1.5  1993/10/11  19:08:22  karney
+% Normalize temperature of center cell correctly.
+%
 % Revision 1.4  1993/09/30  18:43:22  karney
 % Pre PET checkin
 %
@@ -458,14 +461,16 @@ break: continue
       zn_common
       integer i,j,k
       
-      ts_num=1
+      ts_num=2
       var_alloc(test_sp)
       var_alloc(test_reaction_num)
       var_alloc(test_reaction)
       var_alloc(test_background)
       
-      ts_sp(1)=sp_lookup('H')
+      ts_sp(1)=sp_lookup('0')
       assert(ts_sp(1) > 0)
+      ts_sp(2)=sp_lookup('H')
+      assert(ts_sp(2) > 0)
       
       do i=1,ts_num
          ts_rc_num(i)=0
