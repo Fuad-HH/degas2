@@ -2,6 +2,9 @@
 \Title{aux2dsetup}
 
 % $Log$
+% Revision 1.4  2001/11/16 15:35:57  dstotler
+% Explicitly initialize de_max_bins to 0 in null_detector_setup.
+%
 % Revision 1.3  2001/07/16 20:36:06  dstotler
 % Move read_sonnet_mesh here from definegeometry2d so readbackground can
 % get it. Inserted as a comment some code that can be used to compute
@@ -112,32 +115,6 @@ routines are called by both |readgeometry| and |definegeometry2d|.
       return
       end
 
-@ Default detector setup. Just allocates arrays; no views are defined.
-
-@<Functions...@>=
-      subroutine null_detector_setup
-
-      implicit_none_f77
-      de_common
-      zn_common
-      implicit_none_f90
-
-      @<Memory allocation interface@>
-
-      detector_total_views=0   
-      var_alloc(de_view_points)
-      var_alloc(de_view_algorithm)
-      var_alloc(de_view_halfwidth)
-      var_alloc(de_zone_frags)
-      
-      de_grps=0
-      de_view_size=1
-      var_alloc(de_view_tab)
-      de_max_bins=0
-
-      return
-      end
-
 @* Read Sonnet format mesh.
 
 @m sonnet_loop #:0
@@ -155,8 +132,30 @@ routines are called by both |readgeometry| and |definegeometry2d|.
 
       character*LINELEN line                                // Local
       integer length,ix,iz,ixl,izl
+      real pitch
+@#if 0
+      real dummy,absx34,absx32,absx41,absx43,cosgam4,singam4,
+     $     cosgam3,singam3,sinalf,rave,as
 
+      vc_decl(x34)
+      vc_decl(x32)
+      vc_decl(x41)
+      vc_decl(x43)
+@#endif
       st_decls
+
+@#if 0 
+      dummy=zero
+      open(unit=nunit+1,file='sonnet_mod4',status='unknown',form='formatted')
+      open(unit=nunit+2,file='sonnet_angles_1',status='unknown',form='formatted')
+      open(unit=nunit+3,file='sonnet_angles_nx',status='unknown',form='formatted')
+      write(nunit+1,*)
+      write(nunit+1,*) '  Element output:'
+      write(nunit+1,*)
+      write(nunit+1,'(a,f16.13)') '    R*Btor =   ',dummy
+      write(nunit+1,*) '   ncut   =  0'
+      write(nunit+1,*)
+@#endif
 
 sonnet_loop: continue
       assert(read_string(nunit,line,length))
@@ -179,8 +178,13 @@ sonnet_loop: continue
      $           mesh_xz[iz][ix][3][g2_x],mesh_xz[iz][ix][3][g2_z]
             assert(ixl == ix-1)
             assert(izl == iz-1)
+@#if 0
             read(nunit,'(49x,e17.10,1x,e17.10)')
      $           mesh_xz[iz][ix][0][g2_x],mesh_xz[iz][ix][0][g2_z]
+@#else
+            read(nunit,'(18x,e17.10,14x,e17.10,1x,e17.10)') pitch,
+     $           mesh_xz[iz][ix][0][g2_x],mesh_xz[iz][ix][0][g2_z]
+@#endif
             read(nunit,'(30x,e17.10,1x,e17.10,8x,e17.10,1x,e17.10)')
      $           mesh_xz[iz][ix][1][g2_x],mesh_xz[iz][ix][1][g2_z],
      $           mesh_xz[iz][ix][4][g2_x],mesh_xz[iz][ix][4][g2_z]
@@ -214,12 +218,43 @@ sonnet_loop: continue
             sinalf=half*(singam4+singam3)*pitch
             rave=half*(mesh_xz[iz][ix][3][g2_x]+mesh_xz[iz][ix][4][g2_x])
             as=absx34*two*PI*rave
-
-            write (45,*) ix, iz, sinalf,sinalf*as
+/*
+   For DIVIMP, write out just the angles at the targets. Skip the very
+   first and last zones (as below). Because the first zones are so small,
+   the accuracy of this computation could suffer.
+*/
+            if ((iz != 1) && (iz != nzd)) then
+               if (ix == 2) then
+                  write (nunit+2,'(1x,i3,2x,i3,1p,2(2x,e17.10))') 
+     $                 ix-1,iz-1,sinalf,sinalf*as
+               else if (ix == nxd-1) then
+                  write (nunit+3,'(1x,i3,2x,i3,1p,2(2x,e17.10))') 
+     $                 ix-1,iz-1,sinalf,sinalf*as
+               end if
+            end if
+@#endif
+@#if 0
+         if  ((iz != 1) && (iz != nzd) 
+     $         && (ix != 1) && (ix != nxd)) then
+            write(nunit+1,'(a,i4,a,i3,a,i3,a,e17.10,a,e17.10,a,6x,a,e17.10,a,e17.10,a)') 
+     $           '   Element ',(iz-2)*(nxd-2)+ix-2,' = (',ix-2,',',iz-2,'): (',mesh_xz[iz][ix][2][g2_x],',',
+     $           mesh_xz[iz][ix][2][g2_z]-const(7.,-1),')','(',
+     $           mesh_xz[iz][ix][3][g2_x],',',mesh_xz[iz][ix][3][g2_z]-const(7.,-1),')'
+            write(nunit+1,'(a,e17.10,13x,a,e17.10,a,e17.10,a)') '   Field ratio  = ',pitch,
+     $           '(',mesh_xz[iz][ix][0][g2_x],',',mesh_xz[iz][ix][0][g2_z]-const(7.,-1),')'
+            write(nunit+1,'(29x,a,e17.10,a,e17.10,a,6x,a,e17.10,a,e17.10,a)')
+     $           '(',mesh_xz[iz][ix][1][g2_x],',',mesh_xz[iz][ix][1][g2_z]-const(7.,-1),')','(',
+     $           mesh_xz[iz][ix][4][g2_x],',',mesh_xz[iz][ix][4][g2_z]-const(7.,-1),')'
+            write(nunit+1,*) '  ----------------------------------------------------------------------------------------'
+         end if
 @#endif
          end do
       end do
-                  
+@#if 0
+      close(unit=nunit+1)
+      close(unit=nunit+2)
+      close(unit=nunit+3)
+@#endif
       return
 
 sonnet_eof: continue
