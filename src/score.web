@@ -3,6 +3,11 @@
 \Title{score}
 
 % $Log$
+% Revision 1.7  1998/09/04 17:19:42  dstotler
+% Inserted Stark broadening as in APS_1977_Hacks_Done, but with a
+% compiler switch. Added the corresponding post-processing capability
+% using the new Voigt function.
+%
 % Revision 1.6  1998/05/08 14:10:54  dstotler
 % Add compression of intermediate scoring arrays. Modify to use
 % pr_var0_list for string variables.
@@ -267,6 +272,7 @@ instances of the particle class.
 
       need_scores=.false.
       nprod=0
+      if (rate == zero) return
       do i=1,tally_type_num[tl_type_reaction]
          jscore=tally_type_base[tl_type_reaction]+i-1
          assert(rate > zero)
