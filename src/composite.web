@@ -2,6 +2,9 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.19  1996/03/01 20:25:27  dstotler
+% Switch to explicit includes of header files.
+%
 % Revision 1.18  1995/12/13 19:41:09  karney
 % Implement walls and symmetry selection in readgeometry.
 %
@@ -87,6 +90,7 @@ the $\hat {\vect z}$ axis.
 @I macros.hweb
 @I sysdep.hweb
 @I location.hweb
+@I zone.hweb
 
 @i geomint.hweb
 
@@ -711,6 +715,34 @@ break:continue
       return
       end
       
+@ Set minimum and maximum points on a zone.
+
+@<Functions...@>=
+      subroutine set_zn_min_max(n,x,zone,init)
+      implicit_none
+      integer n,zone       // Input
+      real x[2,0:n]
+      logical init
+
+      integer i            // Local
+
+      zn_common
+
+      if (init) then
+         vc_set(zone_min[zone],x[1,0],zero,x[2,0])
+         vc_set(zone_max[zone],x[1,0],zero,x[2,0])
+      end if
+
+      do i=0,n
+         zone_min[zone][1]=min(zone_min[zone][1],x[1,i])
+         zone_min[zone][3]=min(zone_min[zone][3],x[2,i])
+         zone_max[zone][1]=max(zone_max[zone][1],x[1,i])
+         zone_max[zone][3]=max(zone_max[zone][3],x[2,i])
+      end do
+
+      return
+      end
+         
 @* References.
 
 \bibliographystyle{report}
