@@ -2,6 +2,10 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.7  1999/05/25 13:32:54  dstotler
+% Allocate & set default value for source_num_checkpoints.
+% Completely rewritten to facilitate creation of updatebackground.
+%
 % Revision 1.6  1999/03/25 20:52:56  dstotler
 % Added check(s) on filenames_array.
 %
@@ -206,12 +210,13 @@ Introduction\ldots
       so_ncdecl
 
       tempfile=filenames_array[oldsourcefile]
-      assert(tempfile != char_undef)
-      fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
-      so_ncdef(fileid)
-      call ncendef(fileid,nc_stat);
-      so_ncwrite(fileid)
-      call ncclose(fileid,nc_stat)
+      if (tempfile != char_undef) then
+         fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
+         so_ncdef(fileid)
+         call ncendef(fileid,nc_stat);
+         so_ncwrite(fileid)
+         call ncclose(fileid,nc_stat)
+      end if
 
       return
       end
@@ -221,12 +226,12 @@ Introduction\ldots
 @<Functions...@>=
       subroutine set_background_sources
       implicit_none_f77
-      pr_common
+      pr_common                             // Common
       bk_common
       so_common
       implicit_none_f90
 
-      integer jr,i_seg
+      integer jr,i_seg,update               // Local
 
       @<Memory allocation interface@>
 
@@ -244,6 +249,7 @@ Introduction\ldots
 @#if 0
          so_grps+=pr_bkrc_num  <--- THIS IS A BUG!!!
 @#endif
+         update=FALSE        // Argument for |set_background_rate|
          do jr=1,pr_bkrc_num
             so_grps++
             so_base(so_grps)=so_seg_tot+1
@@ -257,7 +263,7 @@ Introduction\ldots
             so_nflights(so_grps)=100
             so_chkpt(so_grps)=0
             so_scale(so_grps)=one
-            call set_background_rate(jr,so_grps)
+            call set_background_rate(jr,so_grps,update)
             so_nseg(so_grps)=so_seg_tot-so_base(so_grps)+1
          end do    
       end if
@@ -269,7 +275,7 @@ Introduction\ldots
 
 @<Functions...@>=
 
-      subroutine set_background_rate(jr,grp)
+      subroutine set_background_rate(jr,grp,update)
 
       implicit_none_f77
       pr_common                   // Common
@@ -280,7 +286,7 @@ Introduction\ldots
       sp_common
       implicit_none_f90
 
-      integer jr                  // Input
+      integer jr,update           // Input
       so_decl(grp)
 
       integer jr,zone             // Local
@@ -316,7 +322,8 @@ Introduction\ldots
      $           *zn_volume(zone)
             if (rate > zero) then
                so_seg_tot++
-               if (so_seg_check(source_segment_ptr[so_seg_tot])) then
+               if (update == TRUE) then
+                  
 /*
    Be sure we don't have a zone oscillating between zero and nonzero rates
    on iterations with the plasma code.
@@ -344,7 +351,7 @@ Introduction\ldots
 @<Functions...@>=
       subroutine set_uedge_plate_sources(nx,ny,rm,zm,
      $     vr1,vz1,vphi1,te1,ti1,flux1,
-     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot)
+     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot,update)
 
       implicit_none_f77
       so_common                                  // Common
@@ -359,6 +366,7 @@ Introduction\ldots
      $     ni2[bk_my],vr2[bk_my],vz2[bk_my],vphi2[bk_my],
      $     ti2[bk_my],te2[bk_my],flux2[bk_my]
       real flux1_tot,flux2_tot
+      integer update
 
       integer i_seg,j1,j2                         // Local           
       so_decl(grp)
@@ -376,7 +384,7 @@ Introduction\ldots
          end do
 
          call set_uedge_sheath(grp,j1,ny,1,rm[1,1,1],rm[1,1,3],zm[1,1,1],
-     $        zm[1,1,3],vr1,vz1,vphi1,te1,ti1)
+     $        zm[1,1,3],vr1,vz1,vphi1,te1,ti1,update)
 
       end if
 
@@ -391,7 +399,7 @@ Introduction\ldots
          end do
 
          call set_uedge_sheath(grp,j1,1,ny,rm[1,1,2],rm[1,1,4],zm[1,1,2],
-     $        zm[1,1,4],vr2,vz2,vphi2,te2,ti2)
+     $        zm[1,1,4],vr2,vz2,vphi2,te2,ti2,update)
       end if
 
       return
@@ -401,14 +409,14 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine set_uedge_sheath(grp,j1,ny_start,ny_stop,
-     $        rmm,rmp,zmm,zmp,vr_b,vz_b,vphi_b,te_b,ti_b)
+     $        rmm,rmp,zmm,zmp,vr_b,vz_b,vphi_b,te_b,ti_b,update)
 
       implicit_none_f77
       so_common                                         // Common
       sc_common
       implicit_none_f90
 
-      integer j1,ny_start,ny_stop                       // Input
+      integer j1,ny_start,ny_stop,update                // Input
       so_decl(grp)
       real rmm[bk_mx,bk_my],rmp[bk_mx,bk_my],zmm[bk_mx,bk_my],zmp[bk_mx,bk_my],
      $     vr_b[bk_my],vz_b[bk_my],vphi_b[bk_my],te_b[bk_my],ti_b[bk_my]
@@ -432,7 +440,7 @@ Introduction\ldots
       i_seg=so_base(grp)-1
       do j2=ny_start,ny_stop,dirn
          i_seg++
-         if (so_seg_check(source_segment_ptr[i_seg])) then
+         if (update == TRUE) then
             sector=source_segment_ptr[i_seg]
          else
             vc_set(x1,rmp[j1,j2],zero,zmp[j1,j2])
