@@ -2,6 +2,10 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.31  1998/09/29 13:12:47  dstotler
+% Zeroed rate_all[i] and rate[i]; were permitting reaction scores in
+% vacuum zones.
+%
 % Revision 1.30  1998/09/04 17:09:37  dstotler
 % Minor changes to satisfy FWEAVE and TeX.
 %
@@ -121,7 +125,7 @@
 @m FILE 'flight.web'
 
 @m MANDREKAS 0
-
+@m EIR_REC_BENCH 0
 
 @I macros.hweb
 @I zone.hweb
@@ -336,11 +340,6 @@ loop: continue                  // Still in same zone
       end if
 
       pt_w(fl_current(x))=exp(-ionize_rate*t)*pt_w(fl_current(x))
-@#if 0
-      if (fl_number(x) == 4 && fl_source(x) == 1) then
-         write(stderr,*) 'weight = ',pt_w(fl_current(x))
-      end if
-@#endif
       
       if (done) then            // Have a collision
          assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
@@ -373,13 +372,6 @@ break1:  continue
                if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
                   fl_pointer(x)++
                   pt_copy(prod[i],fl_current(x))
-@#if 0
-                  if (fl_number(x) == 75) then
-                     do jtemp=1,3
-                        write(stderr,*) lc_x(pt_loc(fl_current(x)))[jtemp],pt_v(fl_current(x))[jtemp]
-                     end do
-                  end if
-@#endif
                end if
             end do
          end if
@@ -408,13 +400,6 @@ break1:  continue
       end if
 
 break: continue     // End of flight!
-@#if 0
-      fl_pointer(x)++
-      write(stderr,*) ' wt = ',pt_w(fl_current(x)),' x,v ='
-      do i=1,3
-         write(stderr,*) lc_x(pt_loc(fl_current(x)))[i],pt_v(fl_current(x))[i]
-      end do
-@#endif
 
       return
       end
@@ -530,6 +515,10 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
             yield[ts_pmi]=find_yield(pt_args(fl_current(x)),
      $           pr_pmi_args(ts_pmi),independent_parameters,
      $           rn_args(fl_rand(x)))
+@#if EIR_REC_BENCH
+// Duplicate EIRENE behavior of setting yield = 0 for incident energies < 1 eV.
+            if (pr_pm_ref(pr_pm_cases(pt_test(fl_current(x)),ts_pmi)) == 8 && independent_parameters[pf_var_energy_in] <= electron_charge) yield[ts_pmi]=zero
+@#endif
             if (yield[ts_pmi] < zero) then
                default_pmi=ts_pmi
                yield[ts_pmi]=zero
