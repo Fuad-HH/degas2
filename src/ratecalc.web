@@ -2,6 +2,11 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.26  1996/10/30 18:17:21  dstotler
+% Modify to use single 1-D data table in lieu of the previous 5 3-D
+% tables. Refine dependent variable options in light of experience with
+% elastic scattering.
+%
 % Revision 1.25  1996/03/01 20:21:39  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -131,10 +136,10 @@ database are in the |ra| class.
 Output from this code is stored in netCDF files using the |xs|
 class (see file classes.web for descriptions of both classes).
 
-If the requested data organization is ``fit'', the parameters used to
+If the requested data represent a fit, the parameters used to
 describe the fit and the name of the function required to evaluate it are
 retrieved from the database and stored in the output data file. Alternatively,
-if the organization for a particular dependent variable is ``table'', 
+if the data for a particular dependent variable are in a ``table'', 
 the input information specifies the range, number, and spacing of the
 corresponding independent variables. At each set of independent
 variables, the dependent variable (cross section,
@@ -227,8 +232,8 @@ rate'', which is used in computing the local probability of the reaction.
 For inelastic collisions, $\ell = 1$ represents the diffusion cross
 section and is associated with momentum transport; its $n = 0$ moment
 is designated ``I\_1\_0'' to distinguish it from the reaction rate. 
-Higher moments of either $\ell$ are denoted by ``I\_l\_1*u'' and
-``I\_l\_2*u\^2''. Note that
+Higher moments of either $\ell$ are denoted by ``I\_l\_1*up'' and
+``I\_l\_2*up\^2''. Note that
 $I_{\ell, |n|}  u_{p}^{n}$ has
  the same dimensions as 
 $\langle \sigma v v^{n} \rangle$. In practice, moments $|n| > 0$ for
@@ -313,7 +318,7 @@ specific values. Those variables are:
 dependent variables specified.
   \item[|xs_rank|] Set by counting the number of independent variables.
   \begin{itemize}
-    \item Note that when the organization is ``fit'', the |xs_table| array will
+    \item Note that when the data are a fit, the |xs_table| array will
 effectively be of rank one, i.e., containing the fit coefficients.
     \item Also in this case |xs_tab_index| is set temporarily
 to the parameter used to specify the maximum number of fit
@@ -390,7 +395,7 @@ next_dep_var: continue      // Label macros are defined in ratecalc.hweb
       read(line(b:e),'(a)') xs_var[0,xs_num_dep_var]
 
       assert( next_token(line(:length),b,e,p) )
-      read(line(b:e),'(a)') xs_organization[xs_num_dep_var]  // Organization
+      read(line(b:e),'(a)') xs_eval_name[xs_num_dep_var]     // Eval. name
 
       if ( next_token(line(:length),b,e,p) ) then
          read(line(b:e),'(a)') xs_spacing[0,xs_num_dep_var]  // And spacing
@@ -416,10 +421,10 @@ end_dep_var: continue
          else if (xs_var[0,i] == 'I_1_0') then
             xs_units[0,i]='cm^3/s'
             xs_mult[0,i]=const(1.,-6)
-         else if (xs_var[0,i] == 'I_l_1*u') then
+         else if (xs_var[0,i] == 'I_l_1*up') then
             xs_units[0,i]='cm^4/s^2'
             xs_mult[0,i]=const(1.,-8)
-         else if (xs_var[0,i] == 'I_l_2*u^2') then
+         else if (xs_var[0,i] == 'I_l_2*up^2') then
             xs_units[0,i]='cm^5/s^3'
             xs_mult[0,i]=const(1.,-10)
          else if (xs_var[0,i] == 'sigv_max') then
@@ -429,7 +434,6 @@ end_dep_var: continue
             xs_units[0,i]='unknown'
             xs_mult[0,i]=zero
          end if
-         xs_eval_name[i]='unknown'
       end do
 
 /*
@@ -439,7 +443,6 @@ end_dep_var: continue
          do j=xs_num_dep_var+1,xs_dep_var_max
 
             xs_rank[j]=1
-            xs_organization[j]='unknown'
             xs_eval_name[j]='unknown'
             xs_var[0,j]='unknown'
             xs_spacing[0,j]='unknown'
@@ -533,7 +536,7 @@ next_dep_var:   continue
             if ( next_token(line(:length),b,e,p) ) then
                xs_tab_index[xs_rank[dep_var[1]],dep_var[1]]=read_integer(line(b:e))
             else
-               if (xs_organization[dep_var[1]] == 'fit' && xs_rank[dep_var[1]] == 1) then
+               if (xs_eval_name[dep_var[1]] == 'fit' && xs_rank[dep_var[1]] == 1) then
                   xs_tab_index[xs_rank[dep_var[1]],dep_var[1]]=ra_fit_coef_max
                else
                   xs_tab_index[xs_rank[dep_var[1]],dep_var[1]]=1
@@ -786,17 +789,17 @@ fits) or via subroutine |table_value|.
 /* 
    Get fit information from ALADDIN. 
 */
-         if (xs_organization[j] != 'table_external') 
+         if (xs_eval_name[j] != 'table_external') 
      $      call aladdin_read_coefs(ra_data_filename,ra_hier_label,
      $      ra_num_hier,ra_bool_and_label[1,j],ra_num_bool_and[j],
      $      ra_bool_not_label[1,j],ra_num_bool_not[j],fit_coef,
      $      num_fit_coef,leval)
 
-         if ((xs_organization[j] == 'table_eval')  // Either {\bf table} or fit
-     $      || (xs_organization[j] == 'table_calc')) then
+         if ((xs_eval_name[j] == 'table_eval')
+     $      || (xs_eval_name[j] == 'table_calc')) then
 
 /*
-   Find all |delta| values at this |j|
+   For {\bf tables}, find all |delta| values at this |j|
 */
             do k=1,xs_table_rank_max   
                call find_delta(xs_spacing[k,j],xs_min[k,j],one,xs_max[k,j],
@@ -832,7 +835,7 @@ fits) or via subroutine |table_value|.
    For {\bf fits}, store name of evaluation function, number of fit
    coefficients, and the coefficients themselves. 
 */
-         else if (xs_organization[j] == 'fit') then
+         else if (xs_eval_name[j] == 'fit') then
 
             xs_eval_name[j]=leval
             xs_tab_index[1,j]=num_fit_coef
@@ -846,7 +849,7 @@ fits) or via subroutine |table_value|.
    For {\bf externally specified data}, fill table with the
    appropriate number of zeroes.
 */
-         else if (xs_organization[j] == 'table_external') then
+         else if (xs_eval_name[j] == 'table_external') then
             do k=0,xs_tab_index[3,j]-1
                do l=0,xs_tab_index[2,j]-1
                   do m=0,xs_tab_index[1,j]-1
@@ -859,7 +862,7 @@ fits) or via subroutine |table_value|.
 
          else
             assert('Unknown organization' == ' ')
-         end if          // End for ``if'' on |xs_organization|
+         end if          // End for ``if'' on |xs_eval_name|
       end do             // End of ``do'' over dependent variables
  
 /*
@@ -926,17 +929,17 @@ index into the |xs| class variables for this dependent variable and
    Determine the required value from the contents of |xs_var[0,j]|.
 */
       if (xs_var[0,j] == 'cross_section') then
-         assert(xs_organization[j] == 'table_eval')
+         assert(xs_eval_name[j] == 'table_eval')
       else if (xs_var[0,j] == 'reaction_rate') then
          moment_number=0
       else if (xs_var[0,j] == 'I_1_0') then
          moment_number=0
-      else if (xs_var[0,j] == 'I_l_1*u') then
+      else if (xs_var[0,j] == 'I_l_1*up') then
          moment_number=1
-      else if (xs_var[0,j] == 'I_l_2*u^2') then
+      else if (xs_var[0,j] == 'I_l_2*up^2') then
          moment_number=2
       else if (xs_var[0,j] == 'sigv_max') then
-         assert(xs_organization[j] == 'table_external')
+         assert(xs_eval_name[j] == 'table_external')
       else
          assert('Unknown dependent variable' == ' ')
       end if
@@ -951,7 +954,7 @@ index into the |xs| class variables for this dependent variable and
       if (xs_rank[j] == 1) then
          assert(xs_units[1,j] == 'eV' || xs_units[1,j] == 'eV/amu')
 
-         if (xs_organization[j] == 'table_calc') then
+         if (xs_eval_name[j] == 'table_calc') then
             assert(xs_var[1,j] == 'temperature')
             temperature=ind_var[1]   // {\bf Calculate} integral
             norm_constant=infinite_integral(electron_norm_integrand)
@@ -993,7 +996,7 @@ index into the |xs| class variables for this dependent variable and
          else
             assert('Unexpected values of xs_var' == ' ')
          end if
-         if (xs_organization[j] == 'table_calc') then
+         if (xs_eval_name[j] == 'table_calc') then
            
             up=sqrt(two*ztemperature)
             u=sqrt(two*zenergy)
