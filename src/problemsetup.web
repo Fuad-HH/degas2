@@ -2,6 +2,9 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.24  1997/08/21 01:46:20  karney
+% Convert rest of memory allocation to fortran 90 standard.
+%
 % Revision 1.23  1997/08/19 14:36:51  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -119,43 +122,6 @@ collated accordingly and written to the single output netCDF file
 @ Turn off scoring?
 
 @m SCORING 0
-
-/* The following variables are required in a number of these routines, but
-not in any outside of |problemsetup|; hence, they exist only in this local
-common block rather than being declared in |problem.hweb|.
-
-The mechanism for dealing with isotopic variations involves defining a
-``generic species'', a single species which represents all of the isotopic
-combinations equivalent to it.
-E.g., for the all-important case of hydrogen,
-the generic archetype for a given molecule is defined (or at least
-it should be) as the one containing only protium isotopes.
-
-\begin{description}
-  \item{|num_generics|} Total number of "generic species" appearing
-in the lists of test and background species.
-  \item{|generics[$i_{s}$]|} Provides the index $i_{g}$ (used below)
-of the "generic species" which is being used to represent (the isotopically
-equivalent) species $i_{s}$ of the reference species list.
-  \item{|num_equiv[$i_{g}$]|} Total number of entries in the test and 
-background species lists which are equivalent to "generic species" $i_{g}$.
-  \item{|equivalents[$i_{g}$,$j$]|} Provides the index into the 
-reference species list of
-the $j$th particle equivalent to generic species $i_{g}$, where $j = 1 
-\rightarrow |num_equiv|[i_{g}]$.
-\end{description}
-*/
-
-@f pr_localcommon integer
-@m pr_localcommon
-      integer num_generics;
-      ptr_decl(generics);
-      integer generics[*];
-      ptr_decl(num_equiv);
-      integer num_equiv[*];
-      ptr_decl(equivalents);
-      integer equivalents[pr_max_equiv,*];
-      common/pr_set_com_l/num_generics,ptr_generics,ptr_num_equiv,ptr_equivalents @;
 
 @ The unnamed module.
 
@@ -643,16 +609,16 @@ also allowing for the isotopically equivalent combinations.
          do i=1,rc_reagent_num(pr_reaction(j))
             generic=generics[rc_reagent(pr_reaction(j),i)]
 
-            if (problem_species_test(equivalents[generic,1]) == 0) then      
+            if (pr_test_lookup(equivalents[generic,1]) == 0) then      
 
 /* If not a test, then it must be a background */
-               assert(problem_species_background(equivalents[generic,1])!=0)
+               assert(pr_background_lookup(equivalents[generic,1])!=0)
                generic_reagents[i]=generic
 
 /* Check for the converse, as well. Use |ts_reagent| to record which
 is which for later use. */
-            else if (problem_species_background(equivalents[generic,1]) == 0) then
-               assert (problem_species_test(equivalents[generic,1])!=0 && ts_reagent==0) 
+            else if (pr_background_lookup(equivalents[generic,1]) == 0) then
+               assert (pr_test_lookup(equivalents[generic,1])!=0 && ts_reagent==0) 
                ts_reagent=i
                generic_reagents[i]=generic
             end if
@@ -661,9 +627,9 @@ is which for later use. */
 /* Done setting |generic_reagents|; use to assign remaining |pr| arrays */
          if (ts_reagent > 0) then
             do k=1,num_equiv[generic_reagents[ts_reagent]]
-               test=problem_species_test(equivalents[generic_reagents[ts_reagent],k])
+               test=pr_test_lookup(equivalents[generic_reagents[ts_reagent],k])
                do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1]]
-                  background=problem_species_background(
+                  background=pr_background_lookup(
      $                 equivalents[generic_reagents[pr_bkrc_reagent_max-ts_reagent+1],l])
                   assert( pr_test_check(test) && pr_background_check(background) )
                   pr_rc_num(test)=pr_rc_num(test)+1
@@ -698,10 +664,10 @@ is which for later use. */
    for determining the velocity of the sourced test species.
  */
             do k=1,num_equiv[generic_reagents[1]]
-               back[1]=problem_species_background(equivalents[generic_reagents[1],k])
+               back[1]=pr_background_lookup(equivalents[generic_reagents[1],k])
                assert(pr_background_check(back[1]))
                do l=1,num_equiv[generic_reagents[pr_bkrc_reagent_max]]
-                  back[pr_bkrc_reagent_max]=problem_species_background(
+                  back[pr_bkrc_reagent_max]=pr_background_lookup(
      $                 equivalents[generic_reagents[pr_bkrc_reagent_max],l])
                   assert(pr_background_check(back[pr_bkrc_reagent_max]))
                   pr_bkrc_dim++  
@@ -755,7 +721,7 @@ is which for later use. */
 */
       do j=1,pr_pmi_num
          if (pm_gen(pr_pm_ref(j)) == pmi_generic_no) then
-            test=problem_species_test(pm_reagent(pr_pm_ref(j)))
+            test=pr_test_lookup(pm_reagent(pr_pm_ref(j)))
             pr_pm_case_num(test)++
             pr_pm_cases(test,pr_pm_case_num(test))=j
 
@@ -775,7 +741,7 @@ is which for later use. */
          else if (pm_gen(pr_pm_ref(j)) == pmi_generic_yes) then
             generic_reagents[1]=generics[pm_reagent(pr_pm_ref(j))]
             do k=1,num_equiv[generic_reagents[1]]
-               test=problem_species_test(equivalents[generic_reagents[1],k])
+               test=pr_test_lookup(equivalents[generic_reagents[1],k])
                assert(pr_test_check(test))
                pr_pm_case_num(test)++
                pr_pm_cases(test,pr_pm_case_num(test))=j
