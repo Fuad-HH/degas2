@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1996/03/01 20:38:16  dstotler
+% Add to repository.
+%
 
 \ID{$Id$}
 
@@ -23,27 +26,30 @@ in the  |pd_handling| array.
 
 @m pd_handling_indep_var(i,r,d,p) pmi_handling_indep_var_tab[i+pmi_handling_indep_var_base[r,d,p]]
 
+@m pd_data_args(x,subs)
+      x##_eval_name##subs,x##_rank##subs,x##_var##subs[1],x##_tab_index##subs[1],x##_spacing##subs[0],x##_min##subs[1],x##_delta##subs[1],x##_indep_var_tab[0],x##_indep_var_base##subs[1],x##_tab[0],x##_base##subs
+
 @m pd_dep_var_max pf_dep_var_max-1
 
 @ Variable definitions.
 
 @a
       package_init(pd)
-/*
-      define_dummy_pk(pd,pd_ignore,INT)
-*/
+
       define_dimen_pk(pd,pd_rank_ind,pf_table_rank_max)
       define_dimen_pk(pd,pd_dep_var_ind,pd_dep_var_max)
       define_dimen_pk(pd,pd_rank_ind0,0,pf_table_rank_max)
       define_dimen_pk(pd,pd_tag_string,pf_tag_string_length)
+      define_dimen_pk(pd,pd_eval_string,pf_eval_string_length)
 
-      define_varp_pk(pd,pmi_yield_organization,INT,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_min,FLOAT,pd_rank_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_delta,FLOAT,pd_rank_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_rank,INT,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_spacing,INT,pd_rank_ind0,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_yield_eval_name,CHAR,pd_eval_string,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_tab_index,INT,pd_rank_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_var,INT,pd_rank_ind0,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_yield_num_random,INT,problem_pmi_sub_ind)
 
       define_var_pk(pd,pmi_yield_size,INT)
       define_dimen_pk(pd,pd_yield_ind,0,pmi_yield_size-1)
@@ -55,13 +61,15 @@ in the  |pd_handling| array.
       define_varp_pk(pd,pmi_yield_indep_var_base,INT,pd_rank_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_yield_indep_var_tab,FLOAT,pd_yield_i_v_ind)
 
-      define_varp_pk(pd,pmi_handling_organization,INT,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_min,FLOAT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_delta,FLOAT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_rank,INT,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_spacing,INT,pd_rank_ind0,pd_dep_var_ind,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_handling_eval_name,CHAR,pd_eval_string,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_tab_index,INT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
-      define_varp_pk(pd,pmi_handling_var,CHAR,pd_tag_string,pd_rank_ind0,pd_dep_var_ind,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_handling_var0,CHAR,pd_tag_string,pd_dep_var_ind,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_handling_var,INT,pd_rank_ind,pd_dep_var_ind,problem_pmi_sub_ind)
+      define_varp_pk(pd,pmi_handling_num_random,INT,problem_pmi_sub_ind)
 
       define_var_pk(pd,pmi_handling_size,INT)
       define_dimen_pk(pd,pd_handling_ind,0,pmi_handling_size-1)
@@ -133,19 +141,19 @@ in the  |pd_handling| array.
 */
 
 @m pd_set_baseinc1(x,y,subs)
-      x##_base##subs##=x##_size;
+      x##_base##subs=x##_size;
       inc=1;
       $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
-        inc=inc*y##subs##[I];
+        inc=inc*y##subs[I];
       }
 
 @m pd_set_baseinc0(x,y,subs)
       $ASSERT( range_min(ind_##x##_base_1) == range_min(ind_##y##_1) && range_max(ind_##x##_base_1) == range_max(ind_##y##_1)) 
-      x##_base##subs##[range_min(ind_##x##_base_1)] = x##_size;
+      x##_base##subs[range_min(ind_##x##_base_1)] = x##_size;
       $DO(I,range_min(ind_##x##_base_1)+1,range_max(ind_##x##_base_1)) {
-         x##_base##subs##[I]=x##_base##subs##[I-1]+y##subs##[I-1];
+         x##_base##subs[I]=x##_base##subs[I-1]+y##subs[I-1];
       }
-      inc=x##_base##subs##[range_max(ind_##x##_base_1)]-x##_base##subs##[range_min(ind_##x##_base_1)]+y##subs##[range_max(ind_##y##_1)];
+      inc=x##_base##subs[range_max(ind_##x##_base_1)]-x##_base##subs[range_min(ind_##x##_base_1)]+y##subs[range_max(ind_##y##_1)];
 
 @m pd_ragged_alloc(x) 
       x##_size=0;
