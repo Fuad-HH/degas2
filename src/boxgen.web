@@ -2,6 +2,10 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.15  2000/04/01 17:31:14  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.14  2000/01/27 18:34:45  karney
 % Portability fixes and minor updates to random.
 %
@@ -126,9 +130,21 @@ extraneous material should be stripped out.
 
       call setup_box_geometry
 
+@#if 0
       call init_background
-
+@#else
+/*
+   Replace with this routine that knows about BGK background species.
+   Will zero their parameters and relabel vacuum zones to plasma.
+*/
+      call setup_back_arrays
+@#endif
       call setup_box_background
+
+/*
+   Do last in case background set up has changed anything.
+*/
+      call write_geometry
 
       call erase_geometry
       call mem_check
@@ -161,7 +177,11 @@ purposes of scoring.
 @m temp_max const(10.)      // so that these remain the defaults.
 @m puff_species 'H'
 
+@m x_max one
+@m z_max one
+
 @m BOXRUN 0
+@m SOLN 1
 
 @#if (BOXRUN == 32)         // DEGAS 2 benchmark runs
 
@@ -179,6 +199,30 @@ purposes of scoring.
 
 @m nx 4
 
+@#elif (BOXRUN == 40)
+
+@m nx 110
+@m puff_species 'D'
+
+@m den_min const(1.,10)    // Frequently adjusted parameters, override
+@m temp_min const(5.)      // using blocks like below (as for |puff_species|)
+@m temp_max const(5.)      // so that these remain the defaults.
+
+@m mden_max const(1.8,20)
+@m l_plasma const(5.,-3)
+@m l_wall const(1.,-1)
+
+@m x_max l_plasma+l_wall
+@m z_max const(0.05)
+
+@#elif (BOXRUN == 41)
+
+@m temp_min const(2.58,-2) 
+@m nx 8
+@m puff_species 'D2'       
+
+@m x_max const(1.,-1)
+
 @#else                        // Debugging runs
 
 @m nx 5
@@ -190,9 +234,7 @@ purposes of scoring.
 @m nxtot nx+2
 @m nmax nxtot
 @m x_min zero
-@m x_max one
 @m z_min zero
-@m z_max one
 @m ny 1
 @m y_min (-one)
 @m y_max one
@@ -230,7 +272,11 @@ purposes of scoring.
       call init_geometry
 
       border_frac=const(1.,-2)   // relative size of the border outside the box
+@#if (BOXRUN != 41)
       guard_frac=const(1.,-3)    // relative size of guard cells in |x|
+@#else
+      guard_frac=one/(areal(nx)+two)  // Makes guard cells same size as others
+@#endif
 
 /* Absolute sizes of borders and guard cells */
       x_border=border_frac*(x_max - x_min)
@@ -265,6 +311,7 @@ purposes of scoring.
       vc_set(a,zero,one,zero)
       vc_copy(univ_min,b)
       do k=0,ny
+@#if 0
          if (k==0) then         // Avoid roundoff on end faces
             y=y_min
          else if (k==ny) then
@@ -273,6 +320,22 @@ purposes of scoring.
             y=y_min+areal(k)/areal(ny)*(y_max-y_min)
          end if
          b[2]=y
+@#else
+/*
+   Rework this to match more exactly the process in |process_polygon_plane|.
+   Ran into a problem with one of the end surfaces not matching the 
+   corresponding universal cell surface as expected.
+*/
+         if (k==0) then         // Avoid roundoff on end faces
+            vc_copy(univ_min,b)
+         else if (k==ny) then
+            vc_copy(univ_max,b)
+         else
+            vc_copy(univ_min,b)
+            y=y_min+areal(k)/areal(ny)*(y_max-y_min)
+            b[2]=y
+         end if
+@#endif
          call plane(b,a,coeff)
          facearray[k]=define_surface(coeff,.true.)
       end do
@@ -414,7 +477,18 @@ purposes of scoring.
          vc_set(point_2,x_grid[nxtot],zero,z_grid[j+1])
          sector1=define_sector(stratum,j,lookup_surface(point_2,point_1),
      $                         plasma_zones[nxtot-1,j],boundary_zones[stratum])
+@#if (BOXRUN == 40)
+         material=ma_lookup('mo')
+         recyc_coef=const(8.5,-1)
+         define_sector_target(sector1,material,const(1.,-1)*electron_charge,
+     $        recyc_coef)
+@#elif (BOXRUN == 41)
+         material=ma_lookup('C')
+         define_sector_target(sector1,material,
+     $        temp_min*electron_charge,recyc_coef)
+@#else
          define_sector_exit(sector1)
+@#endif
 @#if 0
          sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
      $                         plasma_zones[nxtot-1,j])
@@ -422,6 +496,10 @@ purposes of scoring.
 @#endif
       end do
 
+@#if (BOXRUN == 40 || BOXRUN == 41)
+      material=ma_lookup('mirror')
+      recyc_coef=one               // It's a mirror!!
+@#endif
       stratum=3
       do i=nxtot,1,-1                                       // Top
          vc_set(point_1,x_grid[i],zero,z_grid[nz])
@@ -437,6 +515,10 @@ purposes of scoring.
 @#endif
       end do
 
+@#if (BOXRUN == 41)
+      material=ma_lookup('C')
+      recyc_coef=zero
+@#endif
       stratum=4
       do j=nz,1,-1                                           // Left
          vc_set(point_1,x_grid[0],zero,z_grid[j])
@@ -462,7 +544,10 @@ purposes of scoring.
 
       call check_geometry
 
+@#if 0
+// Move to after background setup
       call write_geometry
+@#endif
 @#if 0
       call print_geometry(stdout)
 @#endif
@@ -512,7 +597,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
 
       real density,temperature,den_norm_2,x_mid            // Local
       real den_soln1(0:nxtot-1),den_soln2(0:nxtot-1)
-      integer zone,sector,ix
+      integer zone,sector,ix,uedge
 
       external n_of_x,t_of_x                               // External
       real n_of_x,t_of_x
@@ -521,19 +606,21 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       @<Memory allocation interface@>
       st_decls
 
+@#if (BOXRUN != 40)
       den_max=temp_max * den_min / temp_min
+@#endif
 
 /* Set densities and temperatures */
       do zone=1,zn_num
          if (zn_type(zone) == zn_plasma) then
             density=n_of_x(zone_center[1,zone])
             temperature=t_of_x(zone_center[1,zone])*electron_charge
-            background_n[1,zone]=density
-            background_n[2,zone]=density
-            background_temp[1,zone]=temperature
-            background_temp[2,zone]=temperature
-            vc_set(background_v[1,zone],zero,zero,zero)
-            vc_set(background_v[2,zone],zero,zero,zero)
+            bk_n(1,zone)=density
+            bk_n(2,zone)=density
+            bk_temp(1,zone)=temperature
+            bk_temp(2,zone)=temperature
+            vc_set(bk_v(1,zone),zero,zero,zero)
+            vc_set(bk_v(2,zone),zero,zero,zero)
          end if
       end do
       background_coords=plasma_coords_cartesian  
@@ -549,6 +636,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_realloca(source_num_flights)
       var_realloca(source_num_checkpoints)
       var_realloca(source_species)
+      var_realloca(source_root_species)
       var_realloca(source_total_current)
       var_realloca(source_weight_norm)
       var_realloca(source_scale_factor)
@@ -558,6 +646,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_nflights(so_grps)=100       // Should be reset manually prior to run
       so_chkpt(so_grps)=0
       so_species(so_grps)=sp_lookup(puff_species)
+      so_root_sp(so_grps)=so_species(so_grps)     // Same for now
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
       do sector=1,nsectors
@@ -572,7 +661,11 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
             var_realloca(source_segment_rel_wt)
             var_realloca(source_segment_prob_alias)
             var_realloca(source_segment_ptr_alias)
+@#if (BOXRUN == 40)
+            source_current[so_seg_tot]=const(4.,21)/areal(nz)
+@#else
             source_current[so_seg_tot]=const(1.,19)/areal(nz)
+@#endif
             so_tot_curr(so_grps)+=source_current[so_seg_tot]
             source_segment_ptr[so_seg_tot]=sector
             source_segment_rel_wt[so_seg_tot]=one
@@ -587,10 +680,12 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_reallocb(source_num_flights)
       var_reallocb(source_num_checkpoints)
       var_reallocb(source_species)
+      var_reallocb(source_root_species)
       var_reallocb(source_total_current)
       var_reallocb(source_weight_norm)
       var_reallocb(source_scale_factor)
 
+@#if 0
       call set_prob_alias(so_nseg(so_grps),
      $     source_current[so_base(so_grps)],
      $     source_segment_rel_wt[so_base(so_grps)],
@@ -598,11 +693,16 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
      $     source_segment_prob_alias[so_base(so_grps)],
      $     source_segment_ptr_alias[so_base(so_grps)],
      $     so_wt_norm(so_grps))
+@#endif
 
       call set_background_sources
 
+      uedge=FALSE
+      call init_wt_alias(uedge)
+
       call write_background
 
+@#if SOLN
       open(unit=diskin,file='soln1',status='unknown',form='formatted')
 
 /* Call subroutines to compute analytic solutions. */
@@ -623,6 +723,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
   925 format(2x,'x',9x,'N1(x)/N(0)',4x,'N2(x)/N(0)',7x,
      *       'Ti(x)',7x,'Ni(x)')
   926 format(1x,f7.4,2x,1pe12.4,3(2x,e12.4))
+@#endif
 
       return
       end
@@ -642,8 +743,16 @@ This is all strictly 1-D.
 
       box_localcommon             // Common
 
+@#if (BOXRUN != 40)
       grad_t = (temp_max - temp_min) / (x_max - x_min) 
       t_of_x = temp_min + (x-x_min) * grad_t
+@#else
+      if (x <= l_plasma) then
+         t_of_x=temp_max
+      else
+         t_of_x=temp_min
+      end if
+@#endif
 
       return
       end
@@ -666,7 +775,15 @@ from the corresponding function. This is all strictly 1-D.
       external t_of_x
       real t_of_x
      
+@#if (BOXRUN != 40)
       n_of_x = temp_max * den_min / t_of_x(x)
+@#else
+      if (x <= l_plasma) then
+         n_of_x=mden_max
+      else
+         n_of_x=den_min
+      end if
+@#endif
 
       return
       end
