@@ -1,0 +1,54 @@
+@* Materials identifiers
+
+% $Id$
+
+% $Log$
+
+\ID{$Id$}
+
+Information about materials is held in arrays in common blocks.  A
+material is identified by an integer indexing into these arrays.
+
+@f ma_decl integer
+
+@m ma_args(x) x
+
+@m ma_dummy(x) x
+
+@m ma_decl(x) integer x @;
+
+@m ma_copy(x,y) y=x @;
+
+@m ma_check(x) (x > 0 && x <= ma_num)
+
+@m ma_name(x) materials_name[x]
+@m ma_sy(x)   materials_sy[x]
+@m ma_lookup(sy) string_lookup(sy,materials_sy,ma_num)
+
+@ Length specifications.
+
+@m ma_sy_len 8
+@m ma_name_len 32
+
+@ Variable definitions.
+
+@a
+      package_init(ma)
+      define_dimen_pk(ma,materials_symbol_string,ma_sy_len)
+      define_dimen_pk(ma,materials_name_string,ma_name_len)
+      define_var_pk(ma,ma_num,INT)
+      define_dummy_pk(ma,ma_ignore,INT)
+      define_dimen_pk(ma,materials_ind,ma_num)
+
+      define_varp_pk(ma,materials_name,CHAR,materials_name_string,materials_ind)
+      define_varp_pk(ma,materials_sy,CHAR,materials_symbol_string,materials_ind)
+
+@ Common blocks definitions.
+
+@f ma_common integer
+@m ma_common
+      ma_common_a;
+      character*LINELEN materials_version;
+      common /com_materials_c/ materials_version;
+      save /com_materials_c/ @;
+
