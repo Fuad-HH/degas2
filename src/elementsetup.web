@@ -2,6 +2,9 @@
 \def\Wtitle{elementsetup}
 
 % $Log$
+% Revision 1.2  1993/09/23  12:34:24  karney
+% Change netcdf file extension from .cdf to .nc
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -18,7 +21,7 @@ Introduction\ldots
 
 @I macros.hweb
 
-@i netcdf.hweb
+@I netcdf.hweb
 
 @ The unnamed module.
 
@@ -35,9 +38,6 @@ Introduction\ldots
       @<Functions and Subroutines@>
 
 @ Read is data from \verb+elements.input+.
-
-@m mem_inc 100
-@m mem_size(x) (((x)+mem_inc-1)/mem_inc)*mem_inc
 
 @<Functions...@>=
       subroutine read_elements
@@ -90,9 +90,7 @@ eof:  continue
       el_common                   // Common
       decl_netcdf               // Local
       integer fileid
-      integer el_num_id,element_sy_id,element_m_id,element_z_id,
-     $     element_name_id,element_symbol_string_id,element_name_string_id,
-     $     element_ind_id
+      el_ncdecl
       character*80 description,program_version
       external string_length,nccreate,ncvardef,ncdimdef // External
       integer string_length,nccreate,ncvardef,ncdimdef
@@ -115,22 +113,9 @@ eof:  continue
      $     string_length(program_version),
      $     program_version,nc_stat)
       
-      dimen_def(fileid,element_symbol_string)
-      dimen_def(fileid,element_name_string)
-      dimen_def(fileid,element_ind)
-      var_def(fileid,el_num)
-      var_def(fileid,element_sy)
-      var_def(fileid,element_name)
-      var_def(fileid,element_z)
-      var_def(fileid,element_m)
-      
+      el_ncdef(fileid)
       call ncendef(fileid,nc_stat)
-      
-      var_write(fileid,el_num)
-      var_write(fileid,element_sy)
-      var_write(fileid,element_name)
-      var_write(fileid,element_z)
-      var_write(fileid,element_m)
+      el_ncwrite(fileid)
       
       call ncclose(fileid,nc_stat)
       

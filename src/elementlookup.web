@@ -2,17 +2,8 @@
 \def\Wtitle{element lookup}
 
 % $Log$
-# Revision 1.1  1993/06/01  22:15:13  karney
-# Redo pre-Albuquerque checkin
-#
-% Revision 1.1  1993/04/24  23:15:43  karney
-% Pre-Albuquerque checkin
-%
-% Revision 1.1  1993/03/17  20:34:57  karney
-% Prior to array reorganization
-%
-% Revision 1.1  1992/11/13  17:58:51  karney
-% Initial checkin
+% Revision 1.1  1993/09/26  23:14:44  karney
+% Initial revision
 %
 
 @n/
@@ -26,7 +17,6 @@ Introduction\ldots
 @m FILE 'elementlookup.web'
 
 @I macros.hweb
-@I elements.hweb
 @I netcdf.hweb
 
 @ The unnamed module.
@@ -41,10 +31,10 @@ table of elements or zero if no such symbol.
       function element_lookup(symbol)
       integer element_lookup    // Function
       character*(*) symbol      // Input
-      decl_elements             // Common
+      el_common                 // Common
       integer i                 // Local
       
-      do i=1,nelements
+      do i=1,el_num
          if (element_sy[i]==symbol) then
             element_lookup=i
             return
@@ -59,7 +49,7 @@ table of elements or zero if no such symbol.
 @ A testing program
 
 @<Functions...@>=
-@#if 0
+@#if 1
       program element_test
       implicit_none
       call element_testa
@@ -68,14 +58,14 @@ table of elements or zero if no such symbol.
 
       subroutine element_testa
       implicit_none
-      character*(element_symbol_length) sy
+      character*(el_sy_len) sy
       integer key
       external string_length,element_lookup
       integer string_length,element_lookup
-      decl_elements
+      el_common
 
       call nc_read_elements
-      write(stdout,'(1x,a)') trim(elements_version)
+      write(stdout,'(1x,a)') trim(element_version)
 
 loop: write(stdout,'(1x,a)') 'Enter element'
       read(stdin,'(a)',end=eof) sy
@@ -90,43 +80,25 @@ eof:  continue
       end
 @#endif
 
-@ Read in data from netcdf file \verb+elements.cdf+
+@ Read in data from netcdf file \verb+elements.nc+
       
 @<Functions...@>=
       subroutine nc_read_elements
       implicit_none
-      decl_elements
+      el_common
       decl_netcdf
       integer fileid
-      integer nelements_id,element_sy_id,element_m_id,element_z_id,
-     $     element_name_id,element_symbol_string_id,element_name_string_id,
-     $     element_ind_id
+      el_ncdecl
       external mem_alloc,ncopen,ncvarid,ncdimid
       integer mem_alloc,ncopen,ncvarid,ncdimid
 
-      fileid = ncopen('../data/elements.cdf',NC_NOWRITE,nc_stat)
+      fileid = ncopen('../data/elements.nc',NC_NOWRITE,nc_stat)
       call ncattgetc(fileid,NC_GLOBAL,'data_version',
-     $     elements_version,len(elements_version),nc_stat)
-      var_inq(fileid,nelements)
-      var_read(fileid,nelements)
+     $     element_version,len(element_version),nc_stat)
 
-      dimen_inq(fileid,element_symbol_string)
-      dimen_inq(fileid,element_name_string)
-      dimen_inq(fileid,element_ind)
-
-      var_inq(fileid,element_sy)
-      var_inq(fileid,element_name)
-      var_inq(fileid,element_z)
-      var_inq(fileid,element_m)
-      
-      var_alloc(element_sy)
-      var_alloc(element_name)
-      var_alloc(element_z)
-      var_alloc(element_m)
-      var_read(fileid,element_sy)
-      var_read(fileid,element_name)
-      var_read(fileid,element_z)
-      var_read(fileid,element_m)
+      el_ncreada(fileid)
+      el_ncreadb(fileid)
+      el_ncreadc(fileid)
       
       call ncclose(fileid,nc_stat)
 

@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1993/09/23  12:17:11  karney
+% Checkin under RCS
+%
 % Revision 1.1  1992/11/13  17:58:50  karney
 % Initial checkin
 %
@@ -38,25 +41,21 @@ these arrays.
 @ Variable definitions.
 
 @a
-      define_dimen(element_symbol_string,el_sy_len)
-      define_dimen(element_name_string,el_name_len)
-      define_dimen(element_ind,el_num)
-      define_var(el_num,INT)
-      define_var(element_name,CHAR,element_name_string,element_ind)
-      define_var(element_sy,CHAR,element_symbol_string,element_ind)
-      define_var(element_z,INT,element_ind)
-      define_var(element_m,FLOAT,element_ind)
+      package_init(el)
+      define_dimen_pk(el,element_symbol_string,el_sy_len)
+      define_dimen_pk(el,element_name_string,el_name_len)
+      define_dimen_pk(el,element_ind,el_num)
+      define_var_pk(el,el_num,INT)
+      define_varp_pk(el,element_name,CHAR,element_name_string,element_ind)
+      define_varp_pk(el,element_sy,CHAR,element_symbol_string,element_ind)
+      define_varp_pk(el,element_z,INT,element_ind)
+      define_varp_pk(el,element_m,FLOAT,element_ind)
 
 @ Common blocks definitions.
 
 @f el_common integer
 @m el_common
-      declare_var(el_num);
-      declare_varp(element_name);
-      declare_varp(element_sy);
-      declare_varp(element_z);
-      declare_varp(element_m);
-      common /com_element/ el_num,ptr_element_m,ptr_element_z,ptr_element_name,ptr_element_sy;
+      el_common_a;
       character*80 element_version;
       common /com_element_c/ element_version;
-      save /com_element/,/com_element_c/ @;
+      save /com_element_c/ @;
