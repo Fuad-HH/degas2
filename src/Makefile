@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.67  1998/12/22 16:42:25  dstotler
+# Comment out CRAMD library setting as long as it is not part of the
+# distribution. Add matcheir.
+#
 # Revision 1.66  1998/09/04 17:02:03  dstotler
 # Replaced leading TAB in CRAMD line with spaces; revised JPEG library
 # specification for OSF1; added dependencies for sourcetest, flighttest,
@@ -537,11 +541,11 @@ pvmmaster = pvmmaster.$O random.$O stat.$O geometry.$O readfilenames.$O
 pvmmaster_libs = $(NETCDF) $(PVM)
 pvmmaster: $(pvmmaster) $(foreach arg,$(subst .$O,_mods,$(pvmmaster)),$($(arg)))
 
-pvmslave = pvmslave.$O random.$O randother.$O stat.$O geometry.$O elementread.$O pmimatread.$O flight.$O reaction.$O geomfront.$O readfilenames.$O
+pvmslave = pvmslave.$O random.$O randother.$O stat.$O geometry.$O elementread.$O pmimatread.$O flight.$O reaction.$O interpolate.$O geomfront.$O readfilenames.$O
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave) $(foreach arg,$(subst .$O,_mods,$(pvmslave)),$($(arg)))
 
-flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O
+flighttest = flighttest.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O interpolate.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O
 flighttest_libs = $(NETCDF) $(MPILIBSA)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
@@ -549,7 +553,7 @@ geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfac
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 
-geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O collide.$O randother.$O random.$O conversions.$O voigt.$O
+geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O interpolate.$O collide.$O randother.$O random.$O conversions.$O voigt.$O
 geomtesta_libs =  $(NETCDF) $(HDF)
 geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
 
@@ -565,7 +569,7 @@ reactionwrite = reactionwrite.$O
 reactionwrite_libs = $(NETCDF)
 reactionwrite: $(reactionwrite) $(foreach arg,$(subst .$O,_mods,$(reactionwrite)),$($(arg)))
 
-pmiwrite = pmiwrite.$O reaction.$O random.$O readfilenames.$O elementread.$O 
+pmiwrite = pmiwrite.$O interpolate.$O random.$O readfilenames.$O elementread.$O 
 pmiwrite_libs = $(NETCDF)
 pmiwrite: $(pmiwrite) $(foreach arg,$(subst .$O,_mods,$(pmiwrite)),$($(arg)))
 
@@ -573,7 +577,7 @@ datasetup = datasetup.$O elementread.$O pmimatread.$O elementsetup.$O speciesetu
 datasetup_libs = $(NETCDF)
 datasetup: $(datasetup) $(foreach arg,$(subst .$O,_mods,$(datasetup)),$($(arg)))
 
-problemsetup = problemsetup.$O elementread.$O pmimatread.$O reaction.$O readfilenames.$O plate.$O geometry.$O random.$O randother.$O
+problemsetup = problemsetup.$O elementread.$O pmimatread.$O reaction.$O interpolate.$O readfilenames.$O plate.$O geometry.$O random.$O randother.$O
 problemsetup_libs = $(NETCDF) 
 problemsetup: $(problemsetup) $(foreach arg,$(subst .$O,_mods,$(problemsetup)),$($(arg)))
 
@@ -601,7 +605,7 @@ readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
 
-boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O random.$O
+boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O interpolate.$O random.$O
 boxgen_libs = $(CRAMD) $(NETCDF)
 boxgen: $(boxgen) $(foreach arg,$(subst .$O,_mods,$(boxgen)),$($(arg)))
 
@@ -613,19 +617,19 @@ readfilenames=  readfilenames.$O readfilenames.$O sysdep.$O string.$O
 readfilename_libs =
 readfilenames: $(readfilenames) $(foreach arg,$(subst .$O,_mods,$(readfilenames)),$($(arg)))
 
-readbackground = readbackground.$O readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O allocate.$O reaction.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O random.$O
+readbackground = readbackground.$O readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O allocate.$O reaction.$O interpolate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O random.$O
 readbackground_libs = $(CRAMD) $(NETCDF)
 readbackground: $(readbackground) $(foreach arg,$(subst .$O,_mods,$(readbackground)),$($(arg)))
 
-reactiontest = reactiontest.$O elementread.$O reaction.$O readfilenames.$O random.$O randother.$O collide.$O pmimatread.$O geometry.$O
+reactiontest = reactiontest.$O elementread.$O reaction.$O interpolate.$O readfilenames.$O random.$O randother.$O collide.$O pmimatread.$O geometry.$O
 reactiontest_libs = $(NETCDF)
 reactiontest: $(reactiontest) $(foreach arg,$(subst .$O,_mods,$(reactiontest)),$($(arg)))
 
-pmitest = pmitest.$O elementread.$O pmimatread.$O plate.$O readfilenames.$O random.$O randother.$O geometry.$O reaction.$O
+pmitest = pmitest.$O elementread.$O pmimatread.$O plate.$O readfilenames.$O random.$O randother.$O geometry.$O interpolate.$O
 pmitest_libs = $(NETCDF)
 pmitest: $(pmitest) $(foreach arg,$(subst .$O,_mods,$(pmitest)),$($(arg)))
 
-sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O reaction.$O
+sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O interpolate.$O
 sourcetest_libs = $(CRAMD) $(NETCDF)
 sourcetest: $(sourcetest) $(foreach arg,$(subst .$O,_mods,$(sourcetest)),$($(arg)))
 
@@ -637,13 +641,17 @@ voigtspec = voigtspec.$O voigt.$O
 voigtspec_libs = 
 voigtspec: $(voigtspec) $(foreach arg,$(subst .$O,_mods,$(voigtspec)),$($(arg)))
 
-ratecalc = ratecalc.$O aladdin_subr.o readfilenames.$O
+ratecalc = ratecalc.$O aladdin_subr.o readfilenames.$O interpolate.$O
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc) $(foreach arg,$(subst .$O,_mods,$(ratecalc)),$($(arg)))
 
 dataexam = dataexam.$O readfilenames.o elementread.o
 dataexam_libs = $(NETCDF)
 dataexam: $(dataexam) $(foreach arg,$(subst .$O,_mods,$(dataexam)),$($(arg)))
+
+datamatch = datamatch.$O 
+datamatch_libs = $(NETCDF)
+datamatch: $(datamatch) $(foreach arg,$(subst .$O,_mods,$(datamatch)),$($(arg)))
 
 tallysetup = tallysetup.$O elementread.$O pmimatread.$O readfilenames.$O string.$O geometry.$O
 tallysetup_libs = $(NETCDF)
