@@ -2,6 +2,11 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.17  1995/07/14 13:20:09  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.16  1995/06/28 20:54:02  dstotler
 % Replace "target" with "background" everywhere.
 %
@@ -177,9 +182,7 @@ loop: continue                  // Still in same zone
       other_rate=zero
       if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
          do i=1,pr_rc_num(pt_test(fl_current(x)))
-            rate[i]=reaction_rate(pt_args(fl_current(x)),
-     $           pr_ts_rc(pt_test(fl_current(x)),i),
-     $           pr_ts_bk(pt_test(fl_current(x)),i))
+            rate[i]=reaction_rate(pt_args(fl_current(x)),pr_reaction_args(i))
             if (rc_reaction_type(pr_ts_rc(pt_test(fl_current(x)),i))=='ionize') then
                ionize_rate=ionize_rate+rate[i]
                rate[i]=zero
@@ -226,9 +229,7 @@ loop: continue                  // Still in same zone
          do i=1,pr_rc_num(pt_test(fl_current(x)))
             sum=sum+rate[i]
             if (sum >= rnd) then
-               call process_reaction(pt_args(fl_current(x)),
-     $              pr_ts_rc(pt_test(fl_current(x)),i),
-     $              pr_ts_bk(pt_test(fl_current(x)),i),
+               call process_reaction(pt_args(fl_current(x)),pr_reaction_args(i),
      $              nprod,pt_args(prod[1]),
      $              rn_args(fl_rand(x)))
                goto break1
@@ -237,12 +238,10 @@ loop: continue                  // Still in same zone
          assert(.false.)
 break1:  continue
          fl_pointer(x)--
-         j=0
          do i=1,nprod
             if (pt_test(prod[i]) > 0) then
-               j++
                fl_pointer(x)++
-               pt_copy(prod[j],fl_current(x))
+               pt_copy(prod[i],fl_current(x))
             end if
          end do
 @#else
