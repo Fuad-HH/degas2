@@ -1,0 +1,256 @@
+% $Id$
+\Title{sourcetest}
+
+% $Log$
+
+@* Test source sampling routines.
+
+\ID{$Id$}
+
+@m FILE 'sourcetest.web'
+
+@I macros.hweb
+@I zone.hweb
+@I sysdep.hweb
+@I particle.hweb
+@I flight.hweb
+@I random.hweb
+@I background.hweb
+@I species.hweb
+@I string.hweb
+@I problem.hweb
+@I location.hweb
+@I sector.hweb
+@I sources.hweb
+@I vector.hweb
+
+@ The main program.
+
+@a
+      program sourcetest
+      implicit_none
+
+      call readfilenames
+      call degas_init
+      call do_src_tests
+
+      stop
+      end
+
+      @<Functions and subroutines@>
+
+@ Routine to actually do tests.
+
+@<Functions...@>=
+      subroutine do_src_tests
+      implicit_none
+      real rel_wt,weight_tot,energy,fr,vsrc_mag,vnorm_mag,cos_theta,
+     $     deltax_mag,vpar1,vpar2,vplane2_mag
+      integer seed[0:1],num,i,xseg,nsample,zone,nseg
+      integer length,p,b,e
+      character*LINELEN line
+
+      lc_decl(xsrc)
+      so_decl(isource)
+      sp_decl(spsrc)
+      fl_decl(x)
+      vc_decl(vzero)
+      vc_decl(vone)
+      vc_decl(deltax)
+      vc_decl(xp)
+      vc_decl(xp2)
+      vc_decl(vsrc)
+      vc_decl(vnorm)
+      vc_decl(vplane2)
+
+      sy_common
+      rn_common
+      zn_common
+      sp_common
+      st_common
+      pt_common
+      lc_common
+      vc_common
+      sc_common
+      so_common
+
+      ptr_decl(stat)
+      ptr_decl(zone_segment)
+      ptr_decl(segment_zone)
+
+      real stat(zn_num)
+      integer zone_segment(zn_num)
+      integer segment_zone(so_seg_tot)
+
+      int_alloc(zone_segment,zn_num)
+      real_alloc(stat,zn_num)
+      int_alloc(segment_zone,so_seg_tot)   // Upper bound on size
+
+      rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
+
+      open(unit=diskout,file='sourcetest.out',status='unknown')
+
+loop1: continue
+
+      write(stdout,*) 'Enter index for a source group, 1 to ',so_grps,
+     $     ' And number of samples'
+      if (! read_string(stdin,line,length)) goto break
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      isource=read_integer(line(b:e)) 
+      assert(isource > 0 && isource <= so_grps)
+      assert(next_token(line,b,e,p))
+      nsample=read_integer(line(b:e))
+
+      do i=1,zn_num
+         zone_segment[i]=0
+      end do
+
+      if (so_geom(isource) == so_surface) then
+         do i=1,so_nseg(isource)
+            zone=sector_zone[source_segment_ptr[so_base(isource)+i-1]]
+            assert(zone_segment[zone] == 0)
+            zone_segment[zone]=i
+            segment_zone[i]=zone
+         end do
+      else if (so_geom(isource) == so_volume) then
+         do i=1,so_nseg(isource)
+            zone=source_segment_ptr[so_base(isource)+i-1]
+            assert(zone_segment[zone] == 0)
+            zone_segment[zone]=i
+            segment_zone[i]=zone
+         end do
+      else
+         assert("Unsupported source geometry" == " ")
+      end if
+
+      do i=1,zn_num
+         stat[i]=zero
+      end do
+
+      weight_tot=zero
+
+      do num=1,nsample
+         call sample_sources(num,so_args(isource),fl_args(x),rel_wt)
+         stat[lc_zone(pt_loc(fl_origin(x)))]+=rel_wt
+         weight_tot+=rel_wt
+      end do
+
+      write(diskout,*)
+      write(diskout,*) '   For source group = ',isource
+      write(diskout,*) 
+     $  '  Seg  Ptr    Weight      Rel.Wt.   Rel.Curr.' 
+      do i=1,so_nseg(isource)
+        write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
+     $        i,source_segment_ptr[so_base(isource)+i-1],
+     $        stat[segment_zone[i]],stat[segment_zone[i]]/weight_tot,
+     $        source_current[so_base(isource)+i-1]/so_tot_curr(isource)
+      end do
+
+break:  continue
+
+      real_free(stat,zn_num)
+      int_free(zone_segment,zn_num)
+      int_free(segment_zone,so_seg_tot)
+
+loop2: continue
+
+      write(stdout,*) 'Segment test: enter source group, 1 to ',so_grps
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      isource=read_integer(line(b:e)) 
+      assert(isource > 0 && isource <= so_grps)
+      write(stdout,*) 'Enter segment number, 1 to ',so_nseg(isource),
+     $     ', and number of samples'
+
+      if (! read_string(stdin,line,length)) goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,b,e,p))
+      nseg=read_integer(line(b:e)) 
+      assert(nseg > 0 && nseg <= so_nseg(isource))
+      assert(next_token(line,b,e,p))
+      nsample=read_integer(line(b:e))
+
+      xseg=source_segment_ptr[so_base(isource)+nseg-1]
+
+      vc_set(vzero,zero,zero,zero)
+      vc_set(vone,zero,zero,one)
+
+      write(diskout,*)
+      write(diskout,*) 'For source group ',isource,', segment ',
+     $     nseg,', which points to geometry element ',xseg
+      write(diskout,*) '   i      x            y            z            vx           vy           vz         energy         fr         cos_th       vpar1       vpar2'
+      do i=1,nsample
+         call set_source_x(so_args(isource),xseg,rn_args(fl_rand(x)),
+     $        lc_args(xsrc))
+         call set_source_v(so_args(isource),xseg,lc_args(xsrc),
+     $        rn_args(fl_rand(x)),vc_args(vsrc),sp_args(spsrc))
+         energy=half*sp_m(spsrc)*vc_abs2(vsrc)/electron_charge
+/* For surface sources, break |xsrc| and |vsrc| down into components
+   relative to surface.
+ */
+         if (so_geom(isource) == so_surface) then
+// Distance along segment (as in |set_puff_source_v|)
+            vc_difference(sector_points[xseg][1],sector_points[xseg][0],deltax)
+            vc_difference(lc_x(xsrc),sector_points[xseg][0],xp)
+            fr=vc_product(xp,deltax)/vc_abs2(deltax)
+            assert(fr >= 0 && fr <= one)
+            vc_xvt(sector_points[xseg][0],deltax,fr,xp2)
+
+// Normal velocity 
+            vsrc_mag=vc_abs(vsrc)
+            call surface_reflect(sector_surface[xseg],vc_args(xp2),
+     $           vc_args(vzero),vc_args(vone),vc_args(vnorm))
+            vnorm_mag=vc_abs(vnorm)
+            if (vnorm_mag != zero && vsrc_mag != zero) then
+               cos_theta=vc_product(vnorm,vsrc)/(vnorm_mag*vsrc_mag)
+            else
+               cos_theta=zero
+            end if
+
+// Components in plane of surface
+            deltax_mag=vc_abs(deltax)  // deltax is one direction in plane
+            if (deltax_mag != zero && vsrc_mag != zero) then
+               assert(abs(vc_product(deltax,vnorm)/(deltax_mag*vnorm_mag)) 
+     $              < geom_epsilon)   // Check that normal is normal
+               vpar1=vc_product(deltax,vsrc)/(deltax_mag*vsrc_mag)
+            else
+               vpar1=zero
+            end if
+
+            vc_cross(vnorm,deltax,vplane2)  // A second direction in plane
+            vplane2_mag=vc_abs(vplane2)
+            if (vplane2_mag != zero && vsrc_mag != zero) then
+               vpar2=vc_product(vplane2,vsrc)/(vplane2_mag*vsrc_mag)
+            else
+               vpar2=zero
+            end if
+ 
+         else               // Not a surface source
+            fr=zero
+            cos_theta=zero
+            vpar1=zero
+            vpar2=zero
+         end if
+
+         write(diskout,'(i5,1x,1p,11(e11.4,2x))') i,lc_x(xsrc)[1],
+     $        lc_x(xsrc)[2],lc_x(xsrc)[3],
+     $        vsrc[1],vsrc[2],vsrc[3],energy,fr,cos_theta,vpar1,vpar2
+
+      end do
+      go to loop2
+
+eof: continue
+      close(unit=diskout)
+
+      return
+      end
+
+@*INDEX
