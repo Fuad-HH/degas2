@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.46  1996/02/28 19:41:10  karney
+# Implement makedepend and make depend.
+#
 # Revision 1.45  1996/01/25 14:59:17  dstotler
 # Added dependencies (for materials, pmi stuff) to datasetup and
 # readgeometry.
@@ -296,7 +299,8 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
     element.hweb species.hweb particle.hweb flight.hweb random.hweb \
     background.hweb zone.hweb vector.hweb reaction.hweb xsection.hweb \
     ratecalc.hweb problem.hweb reactiondata.hweb sources.hweb \
-    pmi.hweb pmiformat.hweb readfilenames.hweb strata.hweb materials.hweb
+    pmi.hweb pmiformat.hweb readfilenames.hweb strata.hweb materials.hweb \
+    pmidata.hweb sector.hweb
 
 %.f: %.web
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -396,7 +400,7 @@ datasetup = elementread.$O elementsetup.$O speciesetup.$O reactionsetup.$O mater
 datasetup_libs = $(NETCDF)
 datasetup: $(datasetup)
 
-problemsetup = elementread.$O reaction.$O readfilenames.$O
+problemsetup = elementread.$O reaction.$O readfilenames.$O plate.$O
 problemsetup_libs = $(NETCDF)
 problemsetup: $(problemsetup)
 
