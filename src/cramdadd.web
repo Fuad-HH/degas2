@@ -53,6 +53,8 @@ of hardwired components:
 @m tmp_rate(i,j,k,r) tmp_rr_tab[tmp_rr_base[r]+i+tmp_rr_tab_index[r][1]*(j+tmp_rr_tab_index[r][2]*k)]
 @m tmp_handling(i,j,k,d,r) tmp_rh_tab[tmp_rh_base[r][d]+i+tmp_rh_tab_index[r][d][1]*(j+tmp_rh_tab_index[r][d][2]*k)]
 
+@m CRAMD 0      // Set to 1 to enable actual CRAMD calls (library is required!)
+
 @m bt const(2.0)
 @m h_of const(1.0)
 @m cha const(0.1)
@@ -279,7 +281,7 @@ break: continue    // Have CRAMD data
       call get_cwd(cwd)
       cwd=trim(cwd)\/'/../CRAMD/DATA/'
       call null_terminate(cwd)
-@#if ALPHA
+@#if ALPHA && CRAMD
       ierr=cramd_ini(cwd)
 @#else
       assert("CRAMD only available on DEC-Alpha" == " ")
@@ -348,7 +350,7 @@ break: continue    // Have CRAMD data
          end if
       end do
       
-@#if ALPHA
+@#if ALPHA && CRAMD
       call cramd_finish()
 @#else
       assert("CRAMD only available on DEC-Alpha" == " ")
@@ -409,7 +411,7 @@ break: continue    // Have CRAMD data
       plasma_parameters[8]=chm*n_i_norm
       plasma_parameters[9]=ctm*t_i_norm
 
-@#if ALPHA
+@#if ALPHA && CRAMD
       ierr=cramd_do(plasma_parameters,output_data)
 @#else
       assert("CRAMD only available on DEC-Alpha" == " ")
