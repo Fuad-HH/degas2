@@ -1,0 +1,24 @@
+% Change some of FWEB's formatting macros.
+\iftrue
+\input times.sty
+\font \eightrm=ptmr at 8pt
+\let \SC=\eightrm
+\font \mainfont=ptmr at 10pt
+\let \cmntfont=\mainfont
+\font \titlefont=phvb at 14pt
+\font \ttitlefont=pcrr at 14pt
+\font \Csc=ptmrc at 10pt
+\font \tenbfit=ptmbi at 10pt
+\let \bfit=\tenbfit
+\font \tentex=pcrr at 10pt
+\fi
+\let \.=\?
+\def\\#1{\leavevmode\hbox{\def\${{\sl \char`\$}}\def\%{\char`\%}%
+                          \it#1\/\kern.05em}} % Italic type for identifiers
+\def\@#1{\leavevmode\hbox{\def\${\char`\$}\def\%{\char`\%}%
+                           \rm#1\kern.05em}} % Roman intrinsic functions
+\def\FALSE{\hbox{\SC FALSE}}% '$\FALSE$'.
+\def\TRUE{\hbox{\SC TRUE}}% '$\TRUE$'.
+{\catcode`\$=12 \catcode`\_=12 \catcode`\%=12
+ \gdef\idprintx#1{\tt #1 \special{"% #1} \egroup}}
+\def\idprint{\bgroup \catcode`\$=12 \catcode`\_=12 \idprintx}
