@@ -3,6 +3,10 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.39  2000/04/01 17:32:27  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.38.2.1  1999/12/16 18:50:37  dstotler
 % Set zone_index_min & max in boundaries_neighbors.
 %
@@ -178,6 +182,7 @@ Geometry setup routines for degas.
 @I sector.hweb
 @I detector.hweb
 @I allocate.hweb
+@I location.hweb
 
 @ The unnamed module.
 
@@ -370,8 +375,14 @@ uninitialized; these are set in |boundaries_neighbors|.
       x[1,i]=max_corner[1]; x[2,i]=zero; x[3,i]=min_corner[3]; i++
       vc_copy(x[0],x[i])
 
+@#if 0
       if (symmetry==geometry_symmetry_cylindrical) then
          assert(min_corner[2]==zero && max_corner[2]==two*PI)
+@#else
+      if (symmetry==geometry_symmetry_cylindrical) then
+         assert(min_corner[2]==zero 
+     $        && (abs(max_corner[2]-two*PI) < geom_epsilon))
+@#endif
 
          do i=0,3
             call conea(x[i][1],x[i+1][1],coeff,surf_type,apex)
