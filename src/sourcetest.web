@@ -2,6 +2,10 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.9  2000/04/01 17:34:39  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.8  1999/08/09 15:18:41  karney
 % An extensive revision of the random number routines
 % (1) make the routines available for export,
@@ -270,6 +274,7 @@ the variance).
 @I vector.hweb
 @I reaction.hweb
 @I materials.hweb
+@I tally.hweb
 
 @ The main program.
 
@@ -290,6 +295,10 @@ the variance).
 @ Routine to actually do tests.
 
 @m max_num_chis 10
+@f sources_localcommon integer
+@m sources_localcommon save /sources_common/;
+      vc_decl(x_surface);
+      common /sources_common/ x_surface @;
 
 @<Functions...@>=
       subroutine do_src_tests
@@ -307,10 +316,10 @@ the variance).
       real rel_wt,weight_tot,energy,fr,vsrc_mag,vnorm_mag,cos_theta,
      $     deltax_mag,vpar1,vpar2,vplane2_mag,
      $     min_prob,max_prob,energy_avg,fr_avg,costh_avg,vpar1_avg,
-     $     vpar2_avg
-      real chi_sqd(max_num_chis)
+     $     vpar2_avg,dummy
+      real chi_sqd[max_num_chis],estimator_factors[1]
       integer num,i,xseg,nsample,zone,nseg,j,num_chis
-      integer num_points(max_num_chis)
+      integer num_points[max_num_chis]
       integer length,p,b,e
       character*LINELEN line
 
@@ -334,6 +343,8 @@ the variance).
       vc_decl(vsrc_avg)
       vc_decl(vnorm)
       vc_decl(vplane2)
+
+      sources_localcommon
 
       @<Memory allocation interface@>
       rn_decls
@@ -390,77 +401,83 @@ loop1: continue
          zone_segment[i]=0
       end do
 
-      min_prob=one
-      max_prob=zero
-      do i=1,so_nseg(isource)
-         if (so_geom(isource) == so_surface) then
-            zone=sector_zone[source_segment_ptr[so_base(isource)+i-1]]
-         else if (so_geom(isource) == so_volume) then
-            zone=source_segment_ptr[so_base(isource)+i-1]
-         else
-            assert("Unsupported source geometry" == " ")
-         end if
-         assert(zone_segment[zone] == 0)
-         zone_segment[zone]=i
-         segment_zone[i]=zone
-         prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
-         min_prob=min(min_prob,prob_seg[i])
-         max_prob=max(max_prob,prob_seg[i])
-      end do
-      assert(min_prob > zero)
-      assert(max_prob < one)
+      if (so_nseg(isource) > 1) then
+         min_prob=one
+         max_prob=zero
+         do i=1,so_nseg(isource)
+            if (so_geom(isource) == so_surface) then
+               zone=sector_zone[source_segment_ptr[so_base(isource)+i-1]]
+            else if (so_geom(isource) == so_volume) then
+               zone=source_segment_ptr[so_base(isource)+i-1]
+            else
+               assert("Unsupported source geometry" == " ")
+            end if
+            assert(zone_segment[zone] == 0)
+            zone_segment[zone]=i
+            segment_zone[i]=zone
+            prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
+            min_prob=min(min_prob,prob_seg[i])
+            max_prob=max(max_prob,prob_seg[i])
+         end do
+         assert(min_prob > zero)
+         assert(max_prob < one)
 
-      do i=1,zn_num
-         stat[i]=zero
-      end do
+         do i=1,zn_num
+            stat[i]=zero
+         end do
 
-      weight_tot=zero
+         weight_tot=zero
 
 @#if 0
       do num=1,nsample
 @#endif
-      do num=0,nsample-1
-         rn_init(seed,fl_rand(x))
-         fl_label(x,num,isource)
+         do num=0,nsample-1
+            rn_init(seed,fl_rand(x))
+            fl_label(x,num,isource)
+            call sample_sources(tl_est_unknown,fl_args(x),
+     $           estimator_factors,rel_wt)
+@#if 0
          call sample_sources(fl_args(x),rel_wt) 
-         stat[lc_zone(pt_loc(fl_origin(x)))]+=rel_wt
-         weight_tot+=rel_wt
-         call next_seed(1,seed)
-      end do
+@#endif
+            stat[lc_zone(pt_loc(fl_origin(x)))]+=rel_wt
+            weight_tot+=rel_wt
+            call next_seed(1,seed)
+         end do
 
-      min_prob=const(1.,1)**max(int(log10(min_prob))-1,-10)
-      num_chis=int(log10(max_prob/min_prob))+1
-      assert(num_chis <= max_num_chis)
-      do j=1,num_chis
-         chi_sqd[j]=zero
-         num_points[j]=0
-      end do
+         min_prob=const(1.,1)**max(int(log10(min_prob))-1,-10)
+         num_chis=int(log10(max_prob/min_prob))+1
+         assert(num_chis <= max_num_chis)
+         do j=1,num_chis
+            chi_sqd[j]=zero
+            num_points[j]=0
+         end do
 
-      write(diskout,*)
-      write(diskout,*) '   For source group = ',isource
-      write(diskout,*) 
-     $  '  Seg  Ptr    Weight      Rel.Wt.   Rel.Curr.' 
-      do i=1,so_nseg(isource)
-        write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
-     $        i,source_segment_ptr[so_base(isource)+i-1],
-     $        stat[segment_zone[i]],stat[segment_zone[i]]/weight_tot,
-     $        prob_seg[i]
-        do j=1,num_chis
-           if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
-              num_points[j]++
-              chi_sqd[j]+=(stat[segment_zone[i]]-weight_tot*prob_seg[i])**2
-     $             /(weight_tot*prob_seg[i])
-           end if
-        end do
-      end do
+         write(diskout,*)
+         write(diskout,*) '   For source group = ',isource
+         write(diskout,*) 
+     $        '  Seg  Ptr    Weight      Rel.Wt.   Rel.Curr.' 
+         do i=1,so_nseg(isource)
+            write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
+     $           i,source_segment_ptr[so_base(isource)+i-1],
+     $           stat[segment_zone[i]],stat[segment_zone[i]]/weight_tot,
+     $           prob_seg[i]
+            do j=1,num_chis
+               if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
+                  num_points[j]++
+                  chi_sqd[j]+=(stat[segment_zone[i]]-weight_tot*prob_seg[i])**2
+     $                 /(weight_tot*prob_seg[i])
+               end if
+            end do
+         end do
 
-      write(diskout,*) ' Min. Prob.  Num. Points    Chi Sqd./Num.Pts.    Prob.'
-      do j=1,num_chis
-         assert(num_points[j] > 0)
-         write(diskout,'(2x,1pe8.1,7x,i5,11x,0pf9.6,5x,f9.6)') min_prob*const(1.,1)**(j-1),num_points[j],
-     $        chi_sqd[j]/num_points[j],gammq(areal(num_points[j])*half,
-     $        chi_sqd[j]*half)
-      end do
+         write(diskout,*) ' Min. Prob.  Num. Points    Chi Sqd./Num.Pts.    Prob.'
+         do j=1,num_chis
+            assert(num_points[j] > 0)
+            write(diskout,'(2x,1pe8.1,7x,i5,11x,0pf9.6,5x,f9.6)') min_prob*const(1.,1)**(j-1),num_points[j],
+     $           chi_sqd[j]/num_points[j],gammq(areal(num_points[j])*half,
+     $           chi_sqd[j]*half)
+         end do
+      end if
 
 break:  continue
 
@@ -515,16 +532,32 @@ loop3: continue
       costh_avg=zero
       vpar1_avg=zero
       vpar2_avg=zero
+/*
+   Try to sync these samples with a normal run, too. 
+*/
+      call decimal_to_seed(so_seed_string,rn_seed_args(seed))
+      
+@#if 0
       do i=1,nsample
-         call set_source_x(so_args(isource),xseg,rn_args(fl_rand(x)),
-     $        lc_args(xsrc))
+@#else
+      do i=0,nsample-1
+@#endif
+         rn_init(seed,fl_rand(x))
+         if (so_sampling == so_random) then
+            rn_next(dummy,fl_rand(x))     // Match one used for segment choice.
+         end if
+         call set_source_x(tl_est_unknown,so_args(isource),xseg,
+     $        rn_args(fl_rand(x)),lc_args(xsrc))
          call set_source_v(so_args(isource),xseg,lc_args(xsrc),
-     $        rn_args(fl_rand(x)),vc_args(vsrc),sp_args(spsrc))
+     $        rn_args(fl_rand(x)),vc_args(vsrc))
+         call next_seed(1,seed)
+         spsrc=so_species(isource)
          energy=half*sp_m(spsrc)*vc_abs2(vsrc)/electron_charge
 /* For surface sources, break |xsrc| and |vsrc| down into components
    relative to surface.
  */
          if (so_geom(isource) == so_surface) then
+@#if 0
 // Distance along segment (as in |set_puff_source_v|)
             vc_difference(sector_points[xseg][1],sector_points[xseg][0],deltax)
             vc_difference(lc_x(xsrc),sector_points[xseg][0],xp)
@@ -536,12 +569,25 @@ loop3: continue
             vsrc_mag=vc_abs(vsrc)
             call surface_reflect(sector_surface[xseg],vc_args(xp2),
      $           vc_args(vzero),vc_args(vone),vc_args(vnorm))
+@#else
+/*
+   Modify to use |x_surface| set in |set_source_x|, just as in main code.
+*/
+            call surface_reflect(sector_surface[xseg],vc_args(x_surface),
+     $           vc_args(vzero),vc_args(vone),vc_args(vnorm))
             vnorm_mag=vc_abs(vnorm)
+            vsrc_mag=vc_abs(vsrc)
             if (vnorm_mag != zero && vsrc_mag != zero) then
                cos_theta=vc_product(vnorm,vsrc)/(vnorm_mag*vsrc_mag)
             else
                cos_theta=zero
             end if
+// Distance along segment 
+            vc_difference(sector_points[xseg][1],sector_points[xseg][0],deltax)
+            vc_difference(x_surface,sector_points[xseg][0],xp)
+            fr=vc_product(xp,deltax)/vc_abs2(deltax)
+            assert(fr >= 0 && fr <= one)
+@#endif
 
 // Components in plane of surface
             deltax_mag=vc_abs(deltax)  // deltax is one direction in plane
