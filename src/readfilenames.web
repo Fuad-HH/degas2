@@ -70,7 +70,8 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     sym_name == 'pmi_infile' || sym_name == 'pmifile' 
      $     || sym_name == 'cramdproblemfile' 
      $     || sym_name == 'tallyfile'
-     $     || sym_name == 'outputfile')
+     $     || sym_name == 'outputfile'
+     $     || sym_name == 'oldsourcefile')
       
 @#if 0
       filenames_max = filenames_max +1
@@ -116,6 +117,8 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
          filenames_array[tallyfile] = line(b:e)
       elseif ( sym_name == 'outputfile') then
          filenames_array[outputfile] = line(b:e)
+      elseif ( sym_name == 'oldsourcefile') then
+         filenames_array[oldsourcefile] = line(b:e)
       endif
 
       goto loop
