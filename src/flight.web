@@ -2,6 +2,9 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.30  1998/09/04 17:09:37  dstotler
+% Minor changes to satisfy FWEAVE and TeX.
+%
 % Revision 1.29  1998/06/01 15:56:32  karney
 % MPI enabled version.
 %
@@ -239,7 +242,7 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
       pt_decls
       fl_decl(x)
       real rel_wt
-      integer i,nprod
+      integer i,nprod,jtemp
       rn_seed_decl(seed)
       real t,tmax,ionize_rate,rnd,other_rate,
      $     rate[pr_reaction_max],rate_all[pr_reaction_max],sum,t_fac
@@ -275,6 +278,10 @@ loop: continue                  // Still in same zone
 
       ionize_rate=zero
       other_rate=zero
+      do i=1,pr_rc_num(pt_test(fl_current(x)))  
+         rate[i]=zero                       
+         rate_all[i]=zero
+      end do
       if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma 
      $     && pr_rc_num(pt_test(fl_current(x))) > 0) then
          do i=1,pr_rc_num(pt_test(fl_current(x)))
@@ -296,7 +303,7 @@ loop: continue                  // Still in same zone
          tmax=geom_infinity
       end if         
 
-      if (pt_w(fl_current(x)) < const(0.001)) then
+      if (pt_w(fl_current(x)) < const(0.001)) then  
          if (random(rn_args(fl_rand(x))) > half) then
             fl_pointer(x)--
             if (fl_pointer(x) <= 0) goto break
@@ -329,6 +336,11 @@ loop: continue                  // Still in same zone
       end if
 
       pt_w(fl_current(x))=exp(-ionize_rate*t)*pt_w(fl_current(x))
+@#if 0
+      if (fl_number(x) == 4 && fl_source(x) == 1) then
+         write(stderr,*) 'weight = ',pt_w(fl_current(x))
+      end if
+@#endif
       
       if (done) then            // Have a collision
          assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
@@ -361,6 +373,13 @@ break1:  continue
                if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
                   fl_pointer(x)++
                   pt_copy(prod[i],fl_current(x))
+@#if 0
+                  if (fl_number(x) == 75) then
+                     do jtemp=1,3
+                        write(stderr,*) lc_x(pt_loc(fl_current(x)))[jtemp],pt_v(fl_current(x))[jtemp]
+                     end do
+                  end if
+@#endif
                end if
             end do
          end if
@@ -389,6 +408,13 @@ break1:  continue
       end if
 
 break: continue     // End of flight!
+@#if 0
+      fl_pointer(x)++
+      write(stderr,*) ' wt = ',pt_w(fl_current(x)),' x,v ='
+      do i=1,3
+         write(stderr,*) lc_x(pt_loc(fl_current(x)))[i],pt_v(fl_current(x))[i]
+      end do
+@#endif
 
       return
       end
