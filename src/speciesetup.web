@@ -2,6 +2,9 @@
 \def\Wtitle{speciesetup}
 
 % $Log$
+% Revision 1.4  1994/01/05  21:49:57  karney
+% Fix some compatibility problems with Cray.
+%
 % Revision 1.3  1993/09/27  22:06:54  karney
 % Change netcdf interface.  Change format of species file.
 %
@@ -83,7 +86,7 @@ loop2: continue
       if( !next_token(line,b,e,p) ) goto loop1
       sp_ncomp(sp_num) = sp_ncomp(sp_num) + 1
       assert(sp_ncomp(sp_num) > 0 && sp_ncomp(sp_num) <= sp_ncomp_max)
-      read(line(b:e),'(i99)') sp_count(sp_num,sp_ncomp(sp_num))
+      sp_count(sp_num,sp_ncomp(sp_num))=read_integer(line(b:e))
       assert( next_token(line,b,e,p) )
       sp_el(sp_num,sp_ncomp(sp_num)) = el_lookup(line(b:e))
       assert( sp_el(sp_num,sp_ncomp(sp_num)) > 0)
