@@ -2,6 +2,10 @@
 \def\Wtitle{flight}
 
 % $Log$
+% Revision 1.15  1995/05/26 04:00:37  karney
+% Upgrade to fweb 1.51beta.
+% Initial implementation of surface segments.
+%
 % Revision 1.14  1995/05/22 22:05:34  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -172,7 +176,7 @@ loop: continue                  // Still in same zone
          do i=1,pr_rc_num(pt_test(fl_current(x)))
             rate[i]=reaction_rate(pt_args(fl_current(x)),
      $           pr_ts_rc(pt_test(fl_current(x)),i),
-     $           pr_ts_tg(pt_test(fl_current(x)),i))
+     $           pr_ts_bk(pt_test(fl_current(x)),i))
             if (rc_reaction_type(pr_ts_rc(pt_test(fl_current(x)),i))=='ionize') then
                ionize_rate=ionize_rate+rate[i]
                rate[i]=zero
@@ -221,7 +225,7 @@ loop: continue                  // Still in same zone
             if (sum >= rnd) then
                call process_reaction(pt_args(fl_current(x)),
      $              pr_ts_rc(pt_test(fl_current(x)),i),
-     $              pr_ts_tg(pt_test(fl_current(x)),i),
+     $              pr_ts_bk(pt_test(fl_current(x)),i),
      $              nprod,pt_args(prod[1]),
      $              rn_args(fl_rand(x)))
                goto break1

@@ -2,6 +2,9 @@
 \def\Wtitle{problemsetup}
 
 % $Log$
+% Revision 1.7  1995/06/27 13:23:16  dstotler
+% Allow arbitrary ordering of test and target in reaction specification.
+%
 % Revision 1.6  1995/06/21 20:05:39  jshankar
 % updated to include readfilenames
 %
@@ -78,8 +81,8 @@ loop1: continue
       if ( line == 'END' ) goto eof
       if (line == 'TEST') then
          call read_test(diskin,line)
-      else if (line == 'TARGET') then
-         call read_target(diskin,line)
+      else if (line == 'BACKGROUND') then
+         call read_background(diskin,line)
       else if (line == 'REACTION') then
          call read_reaction(diskin,line)
       end if
@@ -104,7 +107,7 @@ eof:  continue
       call nc_read_species
       call nc_read_reactions
       pr_test_num=0
-      pr_target_num=0
+      pr_background_num=0
       pr_reaction_num=0
       
       return
@@ -130,7 +133,7 @@ eof:  continue
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'TARGET' || line == 'REACTION')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION')
      $     goto eof
       assert(length<=len(line))
       length=parse_string(line(:length))
@@ -148,10 +151,10 @@ loop2: continue
 eof:  return
       end
 
-@ Read in target particle labels.
+@ Read in background particle labels.
       
 @<Functions...@>=
-      subroutine read_target(unit,line)
+      subroutine read_background(unit,line)
       implicit_none
       integer unit              // Input
       character*(*) line        // Output
@@ -161,14 +164,14 @@ eof:  return
       sy_common
       st_common
       
-      var_alloc(problem_species_target)
+      var_alloc(problem_species_background)
       do i=1,sp_num
-         problem_species_target[i]=0
+         problem_species_background[i]=0
       end do
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'TARGET' || line == 'REACTION')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION')
      $     goto eof
       
       assert(length<=len(line))
@@ -177,11 +180,11 @@ loop1: continue
       p=0
 loop2: continue
       if ( ! next_token(line(:length),b,e,p) ) goto loop1
-      pr_target_num++
-      var_realloca(problem_target_sp)
-      pr_target(pr_target_num) = sp_lookup(line(b:e))
-      assert(pr_target(pr_target_num) > 0)
-      problem_species_target(pr_target(pr_target_num)) = pr_target_num
+      pr_background_num++
+      var_realloca(problem_background_sp)
+      pr_background(pr_background_num) = sp_lookup(line(b:e))
+      assert(pr_background(pr_background_num) > 0)
+      problem_species_background(pr_background(pr_background_num)) = pr_background_num
       goto loop2
 
 eof:  return
@@ -202,7 +205,7 @@ eof:  return
       
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'TARGET' || line == 'REACTION')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION')
      $     goto eof
       
       assert(length<=len(line))
@@ -225,8 +228,8 @@ eof:  return
 @<Functions...@>=
       subroutine check_problem
       implicit_none
-      integer i,j,test,target                 // Local
-      integer temp_test[rc_reagent_max],temp_target[rc_reagent_max]
+      integer i,j,test,background                 // Local
+      integer temp_test[rc_reagent_max],temp_background[rc_reagent_max]
       pr_common
       sp_common
       rc_common
@@ -234,20 +237,20 @@ eof:  return
       st_common
 
       var_reallocb(problem_test_sp)
-      var_reallocb(problem_target_sp)
+      var_reallocb(problem_background_sp)
       var_reallocb(problem_rc)
 
-      write(stdout,*) pr_test_num,pr_target_num,pr_reaction_num
+      write(stdout,*) pr_test_num,pr_background_num,pr_reaction_num
       write(stdout,*) SP (pr_test(i),i=1,pr_test_num)
       write(stdout,*) SP (trim(sp_name(pr_test(i))),'; ',i=1,pr_test_num)
-      write(stdout,*) SP (pr_target(i),i=1,pr_target_num)
-      write(stdout,*) SP (trim(sp_name(pr_target(i))),'; ',i=1,pr_target_num)
+      write(stdout,*) SP (pr_background(i),i=1,pr_background_num)
+      write(stdout,*) SP (trim(sp_name(pr_background(i))),'; ',i=1,pr_background_num)
       write(stdout,*) SP (pr_reaction(i),i=1,pr_reaction_num)
       write(stdout,*) SP (trim(rc_name(pr_reaction(i))),'; ',i=1,pr_reaction_num)
       
       var_alloc(problem_reaction_num)
       var_alloc(problem_test_reaction)
-      var_alloc(problem_test_target)
+      var_alloc(problem_test_background)
       
  /* We can only deal with binary collisions currently */
       do j=1,pr_reaction_num
@@ -260,49 +263,49 @@ eof:  return
 
       do j=1,pr_reaction_num
 
-/* Allow for arbitrary ordering of |test| and |target| in reagent 
+/* Allow for arbitrary ordering of |test| and |background| in reagent 
    specification. Despite a general appearance, this still assumes 
    binary collisions. NOTE: this is also where isotopic variations of
    reactions should be dealt with. */
          test=0
-         target=0
+         background=0
          do i=1,rc_reagent_num(pr_reaction(j))
             temp_test[i]=problem_species_test(rc_reagent(pr_reaction(j),i))
-            temp_target[i]=problem_species_target(rc_reagent(pr_reaction(j),i))
+            temp_background[i]=problem_species_background(rc_reagent(pr_reaction(j),i))
             if (temp_test[i] == 0) then              
 
-/* If not a test, then it must be a target */
-               assert(temp_target[i]!=0 && target==0)
-               target=temp_target[i]
+/* If not a test, then it must be a background */
+               assert(temp_background[i]!=0 && background==0)
+               background=temp_background[i]
 
 /* Check for the converse, as well */
-            else if (temp_target[i] == 0) then
+            else if (temp_background[i] == 0) then
                assert(temp_test[i]!=0 && test==0)
                test=temp_test[i]
             end if
          end do
 
-/* If one of |test| or |target| remains unset, it is because one species is 
-   on both test and target lists. Loop through reagents again to find it and
-   assignment to either |test| or |target|, whichever is unset. */
-         if (test==0 || target==0) then
+/* If one of |test| or |background| remains unset, it is because one species 
+   is on both test and background lists. Loop through reagents again to find 
+   it and assignment to either |test| or |background|, whichever is unset. */
+         if (test==0 || background==0) then
             do i=1,rc_reagent_num(pr_reaction(j))
-               if (temp_test[i]!=0 && temp_target[i]!=0) then
-                  if (target == 0) then
-                     target=temp_target[i]
+               if (temp_test[i]!=0 && temp_background[i]!=0) then
+                  if (background == 0) then
+                     background=temp_background[i]
                   else if (test == 0) then
                      test=temp_test[i]
                   end if
                end if
             end do
          end if
-         assert( pr_test_check(test) && pr_target_check(target) )
+         assert( pr_test_check(test) && pr_background_check(background) )
 
-/* Done setting |test| and |target|; use to assign remaining |pr| arrays */
+/* Done setting |test| and |background|; use to assign remaining |pr| arrays */
          pr_rc_num(test)=pr_rc_num(test)+1
          assert(pr_rc_num(test) <= pr_reaction_max)
          pr_ts_rc(test,pr_rc_num(test))=j
-         pr_ts_tg(test,pr_rc_num(test))=target
+         pr_ts_bk(test,pr_rc_num(test))=background
       end do
 
       return

@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.6  1995/06/12 13:07:09  karney
+% Add in dummy elements into common blocks to avoid complaints from
+% Alpha.
+%
 % Revision 1.5  1995/05/22 22:05:49  karney
 % Update for fweb 1.50.  Several minor changes.  Implement collide.web.
 %
@@ -33,37 +37,37 @@ Information about problem particles is held in arrays in common blocks.  An
 problem is identified by an integer indexing into these arrays.
 
 @f pr_test_decl integer
-@f pr_target_decl integer
+@f pr_background_decl integer
 @f pr_reaction_decl integer
 
 @m pr_test_args(x) x
-@m pr_target_args(x) x
+@m pr_background_args(x) x
 @m pr_reaction_args(x) x
 
 @m pr_test_dummy(x) x
-@m pr_target_dummy(x) x
+@m pr_background_dummy(x) x
 @m pr_reaction_dummy(x) x
 
 @m pr_test_decl(x) integer x @;
-@m pr_target_decl(x) integer x @;
+@m pr_background_decl(x) integer x @;
 @m pr_reaction_decl(x) integer x @;
 
 @m pr_test_copy(x,y) y=x @;
-@m pr_target_copy(x,y) y=x @;
+@m pr_background_copy(x,y) y=x @;
 @m pr_reaction_copy(x,y) y=x @;
 
 @m pr_test_check(x) (x > 0 && x <= pr_test_num)
-@m pr_target_check(x) (x > 0 && x <= pr_target_num)
+@m pr_background_check(x) (x > 0 && x <= pr_background_num)
 @m pr_reaction_check(x) (x > 0 && x <= pr_reaction_num)
 
 @m pr_test(x) problem_test_sp[x]
-@m pr_target(x) problem_target_sp[x]
+@m pr_background(x) problem_background_sp[x]
 @m pr_reaction(x) problem_rc[x]
 @m pr_rc_num(x) problem_reaction_num[x]
 @m pr_ts_rc(x,i) problem_test_reaction[i,x]
-@m pr_ts_tg(x,i) problem_test_target[i,x]
+@m pr_ts_bk(x,i) problem_test_background[i,x]
 @m pr_test_lookup(sp) int_lookup(sp,problem_test_sp,pr_test_num)
-@m pr_target_lookup(sp) int_lookup(sp,problem_target_sp,pr_target_num)
+@m pr_background_lookup(sp) int_lookup(sp,problem_background_sp,pr_background_num)
 @m pr_reaction_lookup(rc) int_lookup(rc,problem_rc,pr_reaction_num)
 
 @ Length specifications.
@@ -75,22 +79,22 @@ problem is identified by an integer indexing into these arrays.
 @a
       package_init(pr)
       define_var_pk(pr,pr_test_num,INT)
-      define_var_pk(pr,pr_target_num,INT)
+      define_var_pk(pr,pr_background_num,INT)
       define_var_pk(pr,pr_reaction_num,INT)
       define_dummy_pk(pr,pr_ignore,INT)
       define_dimen_pk(pr,problem_test_ind,pr_test_num)
-      define_dimen_pk(pr,problem_target_ind,pr_target_num)
+      define_dimen_pk(pr,problem_background_ind,pr_background_num)
       define_dimen_pk(pr,problem_reaction_ind,pr_reaction_num)
       define_dimen_pk(pr,problem_reaction_ind0,pr_reaction_max)
       define_dimen_pk(pr,problem_species_ind,sp_num)
       define_varp_pk(pr,problem_species_test,INT,problem_species_ind)
-      define_varp_pk(pr,problem_species_target,INT,problem_species_ind)
+      define_varp_pk(pr,problem_species_background,INT,problem_species_ind)
       define_varp_pk(pr,problem_test_sp,INT,problem_test_ind)
-      define_varp_pk(pr,problem_target_sp,INT,problem_target_ind)
+      define_varp_pk(pr,problem_background_sp,INT,problem_background_ind)
       define_varp_pk(pr,problem_rc,INT,problem_reaction_ind)
       define_varp_pk(pr,problem_reaction_num,INT,problem_test_ind)
       define_varp_pk(pr,problem_test_reaction,INT,problem_reaction_ind0,problem_test_ind)
-      define_varp_pk(pr,problem_test_target,INT,problem_reaction_ind0,problem_test_ind)
+      define_varp_pk(pr,problem_test_background,INT,problem_reaction_ind0,problem_test_ind)
 
 @ Common blocks definitions.
 

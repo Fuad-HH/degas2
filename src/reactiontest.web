@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.8  1995/06/27 13:24:35  dstotler
+% Begin using specific energy and temperature variable types.
+%
 % Revision 1.7  1995/06/21 20:06:29  jshankar
 % updated to include readfilenames
 %
@@ -46,7 +49,7 @@
       real reaction_rate_a
       
       sp_decl(test)
-      sp_decl(target)
+      sp_decl(background)
       rc_decl(reaction)
 
       st_common
@@ -58,7 +61,7 @@
       call init_reactiontest
 
 loop: continue
-      write(stdout,*) 'Enter symbols for test particle, target particle, reaction'
+      write(stdout,*) 'Enter symbols for test particle, background particle, reaction'
 
       if (! read_string(stdin,line,length)) goto eof
       assert(length<=len(line))
@@ -67,20 +70,20 @@ loop: continue
       assert(next_token(line,b,e,p))
       test=sp_lookup(line(b:e))
       assert(next_token(line,b,e,p))
-      target=sp_lookup(line(b:e))
+      background=sp_lookup(line(b:e))
       assert(next_token(line,b,e,p))
       reaction=rc_lookup(line(b:e))
       
       assert(test == rc_reagent(reaction,1))
-      assert(target == rc_reagent(reaction,2))
+      assert(background == rc_reagent(reaction,2))
       
-      write(stdout,*) '     Test species is:   ',sp_name(test)
-      write(stdout,*) '     Target species is: ',sp_name(target)
-      write(stdout,*) '     Reaction name is:  ',rc_name(reaction)
+      write(stdout,*) '     Test species is:       ',sp_name(test)
+      write(stdout,*) '     Background species is: ',sp_name(background)
+      write(stdout,*) '     Reaction name is:      ',rc_name(reaction)
 
 loop1: continue
 
-      write(stdout,'(/a)') 'Enter test energy, target density, temperature'
+      write(stdout,'(/a)') 'Enter test energy, background density, temperature'
       
       if (! read_string(stdin,line,length)) goto loop
       assert(length<=len(line))
@@ -97,10 +100,10 @@ loop1: continue
       vc_set(vt,vrel,zero,zero)
       vc_set(vb,zero,zero,zero)
       
-      rate=reaction_rate_a(sp_args(test),vt,sp_args(target),density,vb,temperature,rc_args(reaction))
+      rate=reaction_rate_a(sp_args(test),vt,sp_args(background),density,vb,temperature,rc_args(reaction))
       write(stdout,*) '    Test energy = ',energy,' J'
-      write(stdout,*) '    Target density = ',density,' m**-3'
-      write(stdout,*) '    Target temperature = ',temperature,' J'
+      write(stdout,*) '    Background density = ',density,' m**-3'
+      write(stdout,*) '    Background temperature = ',temperature,' J'
       write(stdout,*) '      => Reaction rate = ',rate,' m**3/s'
       
       goto loop1

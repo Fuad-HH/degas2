@@ -2,6 +2,9 @@
 \def\Wtitle{readbackground}
 
 % $Log$
+% Revision 1.6  1995/06/21 20:06:37  jshankar
+% updated to include readfilenames
+%
 % Revision 1.5  1995/05/26 04:01:42  karney
 % Upgrade to fweb 1.51beta.
 % Initial implementation of surface segments.
@@ -87,7 +90,7 @@ of the file name (x.d is degas and x.u for uedge) */
       call nc_read_species
       call nc_read_reactions
       call nc_read_problem
-      bk_num=pr_target_num
+      bk_num=pr_background_num
       var_alloc(background_n)
       var_alloc(background_v)
       var_alloc(background_temp)
@@ -138,8 +141,8 @@ of the file name (x.d is degas and x.u for uedge) */
       minz=0.18
       mindensity=const(1.1,16)
       i=0
-      assert(sp_sy(pr_target(1))=='e')
-      assert(sp_sy(pr_target(2))=='H+')
+      assert(sp_sy(pr_background(1))=='e')
+      assert(sp_sy(pr_background(2))=='H+')
       do j2=1,novzs
          do j1=1,nohzs
             if (kzone1(j1,j2) <= 0 || kzone2(j1,j2) <= 0) then
