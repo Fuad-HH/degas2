@@ -2,6 +2,10 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.9  1998/09/04 17:05:25  dstotler
+% Generalized detector_setup to use dimensions for the box specified as
+% macro parameters.
+%
 % Revision 1.8  1998/03/11 14:55:46  dstotler
 % Define some parameter sets (via macros) for benchmark runs.
 %
@@ -162,7 +166,7 @@ is an exit.
       implicit_none_f90
 
       real border_frac,guard_frac,                                // Local
-     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,albedo
+     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,albedo,recyc_coef
       real z_grid[0:nz],univ_min[3],univ_max[3],
      $     poly_corners[2,0:4],poly_points[2,0:nmax+3],point_1[3],point_2[3]
       integer n,zone,i,j,stratum,sector1,sector2
@@ -315,6 +319,7 @@ is an exit.
  */
 
       material=ma_lookup('mirror')
+      recyc_coef=one               // It's a mirror!!
 
       stratum=1                                           // Bottom
       do i=0,nxtot-1
@@ -322,7 +327,8 @@ is an exit.
          vc_set(point_2,x_grid[i+1],zero,z_grid[0])
          sector1=define_sector(stratum,i,lookup_surface(point_1,point_2),
      $                         boundary_zones[stratum])
-         define_sector_target(sector1,material,temp_min*electron_charge)
+         define_sector_target(sector1,material,temp_min*electron_charge,
+     $        recyc_coef)
          sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
      $                         plasma_zones[i,0])
          define_sector_plasma(sector2)
@@ -347,7 +353,8 @@ is an exit.
          vc_set(point_2,x_grid[i-1],zero,z_grid[nz])
          sector1=define_sector(stratum,i,lookup_surface(point_1,point_2),
      $                         boundary_zones[stratum])
-         define_sector_target(sector1,material,temp_min*electron_charge)
+         define_sector_target(sector1,material,temp_min*electron_charge,
+     $        recyc_coef)
          sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
      $                         plasma_zones[i-1,nz-1]) 
          define_sector_plasma(sector2)
@@ -359,7 +366,8 @@ is an exit.
          vc_set(point_2,x_grid[0],zero,z_grid[j-1])
          sector1=define_sector(stratum,j,lookup_surface(point_1,point_2),
      $                         boundary_zones[stratum])
-         define_sector_target(sector1,material,temp_min*electron_charge)
+         define_sector_target(sector1,material,temp_min*electron_charge,
+     $        recyc_coef)
          sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
      $                         plasma_zones[0,j-1]) 
          define_sector_plasma(sector2)
