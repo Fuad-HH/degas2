@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.4  1993/10/26  14:38:09  karney
+% Revert to correct test on hitting plasma.
+%
 % Revision 1.3  1993/10/25  22:31:18  karney
 % Add particle tracking macros.
 %
@@ -31,7 +34,7 @@
       implicit_none
 
       call degas_init
-      call do_flights(100000)
+      call do_flights_master(100000,1000)
 
       stop
       end
@@ -54,23 +57,27 @@
       return
       end
       
-@ Run some flights.
+@ The master controller.
 
 @<Functions...@>=
-      subroutine do_flights(nflights)
+      subroutine do_flights_master(nflights,nfrag)
       implicit_none
-      integer nflights          // Input
-      integer seed[0:1],i,j     // local
+      integer nflights,nfrag     // Input
+      integer seed[0:1],i,j     // Local
       zn_common
       sy_common
+      real weight,weight1
       ptr_decl(stat)
       ptr_decl(stat1)
-      real stat(2,zn_num),weight
+      ptr_decl(stat2)
+      real stat(2,zn_num)
       real stat1(2,zn_num)
+      real stat2(2,zn_num)
       
-      real_alloc(stat,4*zn_num)
-      real_alloc(stat1,4*zn_num)
-      
+      real_alloc(stat,2*zn_num)
+      real_alloc(stat1,2*zn_num)
+      real_alloc(stat2,2*zn_num)
+
       seed[0]=1
       seed[1]=2
       
@@ -80,143 +87,23 @@
             stat[j,i]=zero
          end do
       end do
-      
-      do j=0,nflights-1
-         if (mod(j,100)==0) write(stdout,*) 'FLIGHTNO: ',j
-         call follow(j,stat1,seed)
-         call stat_add(zn_num,one,stat1,weight,stat,weight,stat)
-         call next_seed(1,seed,seed)
+
+      do j=0,nflights-1,nfrag
+         call do_flights(j,min(nfrag,nflights-j),seed,stat1,weight1,stat2)
+         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
+         call next_seed(nfrag,seed,seed)
       end do
+
+      real_free(stat,2*zn_num)
+      real_free(stat1,2*zn_num)
+      real_free(stat2,2*zn_num)
+
       open(unit=diskout,file='stat.dat')
       write(diskout,*) stat
       close(unit=diskout)
-      
-      return
-      end
-      
-@ Follow a single particle.
-
-@<Functions...@>=
-      subroutine follow(num,stat,seed)
-      implicit_none
-      zn_common
-      integer seed[0:1],num,i,j,count
-      real stat[2,zn_num],w[3],r,phi,wa,t,tmax,ionize_rate,rnd
-      logical done
-      pt_decl(x)
-      fl_decl(x)
-      rn_common
-      ts_common
-      bk_common
-      sp_common
-      st_common
-      pt_common
-      lc_common
-      external reaction_rate
-      real reaction_rate
-      
-      rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
-      pt_init(x,'0')            // Initialize geometry locator
-      rn_next(rnd,fl_rand(x))
-      r=2.2+0.2*rnd
-      rn_next(rnd,fl_rand(x))
-      phi=2*PI*rnd
-      vc_set(lc_x(pt_loc(x)),r*cos(phi),r*sin(phi),-const(2.5))
-      lc_set(pt_loc(x))
-      vc_set(pt_v(x),zero,zero,one)
-
-loop2: continue                 // Track to plasma
-      pt_thru_face(x)
-      done=pt_track(geom_infinity,t,x)
-      assert(!done)
-      assert( lc_cell(pt_loc(x)) != 0 )
-      if (zn_type(lc_zone_next(pt_loc(x))) != zn_plasma) goto loop2
-
-      rn_cos_next(w,fl_rand(x))
-      pt_scatter_thru(x,w)
-
-
-      do j=1,zn_num
-         stat[1,j]=zero
-         stat[2,j]=zero
-      end do
-c      write(stdout,*) 'Start: ',lc_x(x)
-
-      lc_copy(pt_loc(x),pt_loc(fl_origin(x))) // Copy location
-
-      rn_gauss_next(rnd,fl_rand(x)) // Copy and scale velocity
-      wa=abs(rnd)*sqrt(electron_charge*const(10.0)/atomic_mass_unit)
-      vc_scale(wa,pt_v(x),pt_v(fl_origin(x)))
-
-      fl_init(x,num,'H')
-
-      count=0
-      
-loop1: continue                 // Start a new zone
-
-      if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
-         ionize_rate=reaction_rate(pt_args(fl_current(x)),
-     $        ts_rc(pt_test(fl_current(x)),1),
-     $        ts_bk(pt_test(fl_current(x)),1))
-      else
-         ionize_rate=0
-      end if         
-
-loop: continue                  // Still in same zone
-      if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
-         tmax=-log(random(rn_args(fl_rand(x))))
-     $        /reaction_rate(pt_args(fl_current(x)),
-     $        ts_rc(pt_test(fl_current(x)),2),
-     $        ts_bk(pt_test(fl_current(x)),2))
-      else
-         tmax=geom_infinity
-      end if         
-
-      if (pt_w(fl_current(x)) < const(0.1)) then
-         if (random(rn_args(fl_rand(x))) > half) then
-            fl_pointer(x)=fl_pointer(x)-1
-            if (fl_pointer(x) <= 0) goto break
-         else
-            pt_w(fl_current(x)) = two*pt_w(fl_current(x))
-         end if
-      end if
-
-c      write(stdout,*) SP 2,(lc_x(pt_loc(fl_current(x)))(i),i=1,3),tmax,pt_w(fl_current(x))
-      
-      count=count+1
-      done=pt_track(tmax,t,fl_current(x))
-
-c      write(stdout,*) lc_cell(pt_loc(fl_current(x)))
-c      write(stdout,*) SP 3,(lc_x(pt_loc(fl_current(x)))(i),i=1,3),t
-c      if (t==zero || count > 1000) goto break
-
-      stat[1,lc_zone(pt_loc(fl_current(x)))]=
-     $     stat[1,lc_zone(pt_loc(fl_current(x)))]+
-     $     ionize_rate*t*pt_w(fl_current(x))
-      pt_w(fl_current(x))=exp(-ionize_rate*t)*pt_w(fl_current(x))
-      
-      if (done) then            // Process a charge exchange
-         assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
-         wa=sqrt(two*bk_temp(2,lc_zone(pt_loc(fl_current(x))))*electron_charge/atomic_mass_unit)
-         do i=1,3
-            rn_gauss_next(rnd,fl_rand(x))
-            pt_v(fl_current(x))[i]=wa*rnd
-         end do
-         goto loop
-      else                      // Go to next zone or reflect
-         if (lc_cell_next(pt_loc(fl_current(x))) == 0) then
-            goto break
-         else if (zn_type(lc_zone_next(pt_loc(fl_current(x)))) == zn_solid) then
-            assert(lc_check(pt_loc(fl_current(x))))
-            pt_specular(fl_current(x))
-         else
-            pt_thru_face(fl_current(x))
-         end if
-         goto loop1
-      end if
-break: continue
 
       return
       end
+
 
 @* Index.
