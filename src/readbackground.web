@@ -2,6 +2,12 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.23  1999/04/20 20:15:44  dstotler
+% Modify sector lookup to search directly for the sector (rather than
+% trying both orientations of the surface end points); able to do this
+% with the new set of plasma-zone-based default sectors. Replace
+% plasma_e_ion_delta & mult with corresponding target variables.
+%
 % Revision 1.22  1999/02/04 19:12:43  dstotler
 % If the boundary values are all = 0, leave plasma_e_ion... variables at
 % their default values.
@@ -122,7 +128,6 @@
       @<Functions and Subroutines@>
 
 @ The main program
-@m OLD_UEDATA 0
 
 @<Functions...@>=
       program readbackground
@@ -149,7 +154,9 @@
       implicit_none_f90
       character*FILELEN datafilename,degasfilename,uedgefilename
       logical uedge,degas
+@#if 0
       integer i,ii
+@#endif
       @<Memory allocation interface@>
 
       call readfilenames
@@ -159,6 +166,7 @@
 /* find out whether the data file is degas or uedge depending on the extension 
 of the file name (x.d is degas and x.u for uedge) */
 
+@#if 0
       do i=1,FILELEN
          if (datafilename(i:i) == '.') then 
             ii =i
@@ -178,6 +186,17 @@ of the file name (x.d is degas and x.u for uedge) */
          else
             assert (.false.)
          endif
+@#else
+      if (index(datafilename,'.d') > 0) then
+         degasfilename = datafilename
+         degas = .true.
+      else if (index(datafilename,'.u') > 0) then
+         uedgefilename = datafilename
+         uedge = .true.
+      else
+         assert('File name must end in .d or .u' == ' ')
+      end if
+@#endif
 
       call read_geometry
             
@@ -202,8 +221,11 @@ of the file name (x.d is degas and x.u for uedge) */
 
       call set_background_sources
 
+      call init_wt_alias(uedge)   // Do likewise in boxgen?
+
       call write_background
       call write_geometry     // Updated plasma sector properties
+
 
       return
       end
@@ -334,6 +356,7 @@ of the file name (x.d is degas and x.u for uedge) */
                                                        
       so_grps=0
       so_seg_tot=0
+      so_set_run_flags
       do js=1,npis
          do jwall=1,nowals
             new_group=.true.
@@ -350,6 +373,7 @@ of the file name (x.d is degas and x.u for uedge) */
                      var_realloca(source_type)
                      var_realloca(source_geometry)
                      var_realloca(source_num_flights)
+                     var_realloca(source_num_checkpoints)
                      var_realloca(source_species)
                      var_realloca(source_total_current)
                      var_realloca(source_weight_norm)
@@ -357,6 +381,7 @@ of the file name (x.d is degas and x.u for uedge) */
                      so_base(so_grps)=so_seg_tot+1
                      so_nseg(so_grps)=nosegsxz[jwall]
                      so_nflights(so_grps)=100
+                     so_chkpt(so_grps)=0
 /* Assume these are same for all segments: 
  */
                      if (currxzt[jseg,1,jwall,js] > zero) then 
@@ -386,7 +411,9 @@ of the file name (x.d is degas and x.u for uedge) */
                      seg++
                      source_current[seg]=abs(currxzt[jseg,1,jwall,js])
                      so_tot_curr(so_grps)+=source_current[seg]
+@#if 0
                      source_segment_rel_wt[seg]=one     // Default
+@#endif
                      vc_set(x1,xwall(jseg,jwall),zero,zwall(jseg,jwall))
                      vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
                      sector=lookup_sector(x2,x1)
@@ -418,6 +445,8 @@ of the file name (x.d is degas and x.u for uedge) */
                      so_nseg(so_grps)--
                   end if
                end do
+@#if 0
+// Now in |init_wt_alias|
                call set_prob_alias(so_nseg(so_grps),
      $              source_current[so_base(so_grps)],
      $              source_segment_rel_wt[so_base(so_grps)],
@@ -425,6 +454,7 @@ of the file name (x.d is degas and x.u for uedge) */
      $              source_segment_prob_alias[so_base(so_grps)],
      $              source_segment_ptr_alias[so_base(so_grps)],
      $              so_wt_norm(so_grps))
+@#endif
 
             end if
          end do
@@ -438,109 +468,33 @@ of the file name (x.d is degas and x.u for uedge) */
       subroutine read_uedge_background(file)
 
       implicit_none_f77
-      zn_common
-      pr_common
-      bk_common
-      sp_common
-      el_common
-      rc_common
+      sp_common                                  // Common
       so_common
-      sc_common
       implicit_none_f90
+      character*FILELEN file                     // Input
+                                               
+      integer nx,ny                              // Local; UEDGE file data:
+      real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
+     $     ni[bk_mx,bk_my],vr[bk_mx,bk_my],vz[bk_mx,bk_my],vphi[bk_mx,bk_my],
+     $     te[bk_mx,bk_my],ti[bk_mx,bk_my],
+     $     ni1[bk_my],vr1[bk_my],vz1[bk_my],vphi1[bk_my],
+     $     ti1[bk_my],te1[bk_my],flux1[bk_my],
+     $     ni2[bk_my],vr2[bk_my],vz2[bk_my],vphi2[bk_my],
+     $     ti2[bk_my],te2[bk_my],flux2[bk_my]
+      integer i,tot                              // Other local
+      real flux1_tot,flux2_tot
+
       st_decls
       @<Memory allocation interface@>
-      integer mx,my
-      parameter (mx=120,my=100)
-      integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3,max_rc,test,grp
-      real rm[mx,my,0:4],zm[mx,my,0:4],ni[mx,my],vr[mx,my],vz[mx,my],
-     $     vphi[mx,my],te[mx,my],ti[mx,my],
-     $     flux1[my],flux2[my],ni1[my],ni2[my],
-     $     vr1[my],vr2[my],vz1[my],vz2[my],vphi1[my],vphi2[my],
-     $     ti1[my],ti2[my],te1[my],te2[my]
-      real flux1_tot,flux2_tot,dummy
-      character*FILELEN file
-      vc_decl(x1)
-      vc_decl(x2)
-      vc_decl(v_bdy)
-      sc_decl(sector)
-      sc_target_decl(target_sc_ptr)
-      
-      external lookup_sector,inc_ion_energy
+
+      external lookup_sector,inc_ion_energy      // External
       integer lookup_sector
       real inc_ion_energy
       
-      print *, 'in read_uedge'
+      call init_uedge_background(file,nx,ny,rm,zm,ni,vr,vz,vphi,
+     $     ti,te,ni1,vr1,vz1,vphi1,ti1,te1,flux1,ni2,vr2,vz2,vphi2,
+     $     ti2,te2,flux2,flux1_tot,flux2_tot)
 
-      open(unit=diskin,file=file,status='old',form='formatted')
-      nu =diskin
-/* skip first comment line */
-      read(nu,*)
-      read(nu,*) nx
-      read(nu,*) ny
-      assert(nx <= mx && ny <= my)
-      read(nu,*) ixpt1
-      read(nu,*) ixpt2
-      read(nu,*) iysptrx
-
-      read(nu,*) SP (((rm[j1,j2,j3],j1=1,nx),j2=1,ny),j3=0,4)
-      read(nu,*) SP (((zm[j1,j2,j3],j1=1,nx),j2=1,ny),j3=0,4)
-
-         /* skip data for br,bz,bphi */
-
-      do i=1,3
-         read(nu,*) SP (((dummy,j1=1,nx),j2=1,ny),j3=0,4)
-      enddo
-      print*,'last  dummy', dummy
-      read (nu,*,err= 6)SP ((ni[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((vr[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((vz[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((vphi[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((ti[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((te[j1,j2],j1=1,nx),j2=1,ny)
-@#if !OLD_UEDATA
-      read (nu,*,err= 6)SP (ni1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vr1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vz1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vphi1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (ti1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (te1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (ni2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vr2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vz2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vphi2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (ti2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (te2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
-@#else
-      read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
-@#endif
-
-      i=0
-      do j1=1,nx
-         do j2=1,ny
-            i++
-            assert(i<=zone_type_num[zn_plasma])
-            assert(j1==zn_index(i,1) && j2==zn_index(i,2))
-            background_n[1,i]= ni[j1,j2]
-            background_n[2,i]= ni[j1,j2]
-            background_temp[1,i]= te[j1,j2]
-            background_temp[2,i]= ti[j1,j2]
-            vc_set(background_v[1,i],vr[j1,j2],vphi[j1,j2],vz[j1,j2])
-            vc_copy(background_v[1,i],background_v[2,i])
-         enddo
-      enddo
-      assert(i==zone_type_num[zn_plasma])
-      background_coords=plasma_coords_cylindrical
-
-      flux1_tot=zero
-      flux2_tot=zero
-      do j2=1,ny
-         flux1_tot+=flux1[j2]
-         flux2_tot+=flux2[j2]
-      end do
-      
       if (flux1_tot > zero && flux2_tot > zero) then
          so_grps=2
          so_seg_tot=2*ny
@@ -550,12 +504,14 @@ of the file name (x.d is degas and x.u for uedge) */
       else
          assert('Zero fluxes in UEDGE background' == ' ')
       end if
+      so_set_run_flags
 
       var_alloc(source_base_ptr)
       var_alloc(source_num_segments)
       var_alloc(source_type)
       var_alloc(source_geometry)
       var_alloc(source_num_flights)
+      var_alloc(source_num_checkpoints)
       var_alloc(source_species)
       var_alloc(source_total_current)
       var_alloc(source_weight_norm)
@@ -587,6 +543,7 @@ of the file name (x.d is degas and x.u for uedge) */
       end do
       assert(test > 0)
 @#endif
+      tot=0
       do i=1,so_grps
          so_type(i)=so_plate
 @#if 0
@@ -594,140 +551,18 @@ of the file name (x.d is degas and x.u for uedge) */
 @#endif
          so_species(i)=sp_lookup('D+')
          so_nseg(i)=ny
-         so_nseg(i)=ny
          so_geom(i)=so_surface
-         so_tot_curr(i)=zero
          so_scale(i)=one
          so_nflights(i)=100
+         so_chkpt(i)=0
+         so_base(i)=tot+1
+         tot+=ny
       end do
 
-      i=0
-      grp=0
-      if (flux1_tot > zero) then
-         grp++
-         so_base(grp)=i+1
-         j1=1
-         do j2=ny,1,-1
-            i++
-            source_current[i]=flux1[j2]
-            so_tot_curr(grp)+=source_current[i]
-            source_segment_rel_wt[i]=one
-            vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
-            vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
-            sector=lookup_sector(x1,x2)
-            if (!sc_check(sector)) then
-               sector=lookup_sector(x2,x1)
-            end if
-@#if 0
-            if (zn_type(sector_zone(sector)) == zn_solid) then
-               sector=lookup_sector(x2,x1)
-            end if
-@#endif
-
-@#if !OLD_UEDATA
-@#if 0
-            plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
-            assert(sc_plasma_check(plasma_sc_ptr))
-@#endif
-            target_sc_ptr=sector_type_pointer[sector][sc_target]
-            assert(sc_target_check(target_sc_ptr))
-            vc_set(v_bdy,vr1[j2],vphi1[j2],vz1[j2])
-            if (vc_abs(v_bdy) > zero || te1[j2] > zero) then
-@#if 0
-               plasma_e_ion_delta[plasma_sc_ptr]
-     $              =inc_ion_energy(vc_args(v_bdy),ti1[j2],te1[j2])
-               plasma_e_ion_mult[plasma_sc_ptr]=zero
-@#endif
-               target_e_ion_delta[target_sc_ptr]
-     $              =inc_ion_energy(vc_args(v_bdy),ti1[j2],te1[j2])
-               target_e_ion_mult[target_sc_ptr]=zero
-            end if                           // else: using default values
-@#endif
-            source_segment_ptr[i]=sector
-         end do
-         call set_prob_alias(so_nseg(grp),
-     $        source_current[so_base(grp)],
-     $        source_segment_rel_wt[so_base(grp)],
-     $        source_segment_ptr[so_base(grp)],
-     $        source_segment_prob_alias[so_base(grp)],
-     $        source_segment_ptr_alias[so_base(grp)],so_wt_norm(grp))
-      end if
-
-      if (flux2_tot > zero) then
-         grp++
-         so_base(grp)=i+1
-         j1=nx
-         do j2=1,ny
-            i++
-            source_current[i]=flux2[j2]
-            so_tot_curr(grp)+=source_current[i]
-            source_segment_rel_wt[i]=one
-            vc_set(x1,rm[j1,j2,2],zero,zm[j1,j2,2])
-            vc_set(x2,rm[j1,j2,4],zero,zm[j1,j2,4])
-            sector=lookup_sector(x1,x2)
-            if (!sc_check(sector)) then
-               sector=lookup_sector(x2,x1)
-            end if
-@#if 0
-            if (zn_type(sector_zone(sector)) == zn_solid) then
-               sector=lookup_sector(x2,x1)
-            end if
-@#endif
-
-@#if !OLD_UEDATA
-@#if 0
-            plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
-            assert(sc_plasma_check(plasma_sc_ptr))
-@#endif
-            target_sc_ptr=sector_type_pointer[sector][sc_target]
-            assert(sc_target_check(target_sc_ptr))
-            vc_set(v_bdy,vr2[j2],vphi2[j2],vz2[j2])
-            if (vc_abs(v_bdy) > zero || te2[j2] > zero) then
-@#if 0
-               plasma_e_ion_delta[plasma_sc_ptr]
-     $              =inc_ion_energy(vc_args(v_bdy),ti2[j2],te2[j2])
-               plasma_e_ion_mult[plasma_sc_ptr]=zero
-@#endif
-               target_e_ion_delta[target_sc_ptr]
-     $              =inc_ion_energy(vc_args(v_bdy),ti2[j2],te2[j2])
-               target_e_ion_mult[target_sc_ptr]=zero
-            end if                           // else: using default values
-@#endif
-            source_segment_ptr[i]=sector
-         end do
-         call set_prob_alias(so_nseg(grp),
-     $        source_current[so_base(grp)],
-     $        source_segment_rel_wt[so_base(grp)],
-     $        source_segment_ptr[so_base(grp)],
-     $        source_segment_prob_alias[so_base(grp)],
-     $        source_segment_ptr_alias[so_base(grp)],so_wt_norm(grp))
-      end if
-
-      return
- 6    write (stderr,*) 'error occurred in reading uedge data file'
-      assert (.false.)
-      return
-      end
-
-@ Compute incident ion energy. Use a simple prescription based on the
-one applied by EIRENE in the benchmark runs.
-
-@<Functions...@>=
-      function inc_ion_energy(vc_dummy(vi),ti,te)
-
-      implicit_none_f77
-      implicit_none_f90
-      @<Memory allocation interface@>
-      real inc_ion_energy                // Function
-      vc_decl(vi)                        // Input
-      real ti,te
-
-      real ce,phi_sheath                 // Local
-
-      ce=sqrt(te/electron_mass)
-      phi_sheath=-log(sqrt(two*PI)*vc_abs(vi)/ce)
-
-      inc_ion_energy=const(3.0)*ti+(half+phi_sheath)*te
+      call set_uedge_plate_sources(nx,ny,rm,zm,
+     $     vr1,vz1,vphi1,te1,ti1,flux1,
+     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot)
 
       return
       end
+
