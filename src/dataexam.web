@@ -24,6 +24,7 @@
       implicit_none
       character*LINELEN line    // Local
       character*FILELEN tempfile,reaction_file
+      character*rc_sy_len symbol
 
       real value
       real min(xs_table_rank_max),delta(xs_table_rank_max)
@@ -50,39 +51,47 @@
       call readfilenames
       call nc_read_reactions
       write(stdout,*)
-      write(stdout,*) 'Enter the name of the netCDF file to examine.'
+      write(stdout,*) 'Enter the symbol of the reaction for the examined file:'
 
       if (! read_string(stdin,line,length)) goto eof
       assert(length<=len(line))
       length=parse_string(line(:length))
       p=0
       assert(next_token(line,b,e,p))
-      tempfile = line(b:e)
+      symbol = line(b:e)
+      reaction=rc_lookup(symbol)
 
-      do i = b , e
-         if(line(i:i) == '.' ) then
-            reaction_file = line(b:i-1) 
-         endif
-      end do    
+      if (reaction > 0) then
+         tempfile=rc_filename(reaction)
+         write(stdout,*) ' Reaction file is: ',tempfile
+      else
+         write(stdout,*) 'Reaction not in reactions file.'
+         write(stdout,*) '   Enter instead name of netCDF file:'
+         if (!read_string(stdin,line,length)) goto eof
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,b,e,p))
+         tempfile=line(b:e)
+      end if
 
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
       xs_ncread(fileid)
       call ncclose(fileid,nc_stat)
 
-      reaction=rc_lookup(reaction_file)
-
 loop: continue
 
       write(stdout,*)
-      write(stdout,*) 'Reaction Name:',rc_name(reaction)
+      if (reaction > 0)
+     $     write(stdout,*) 'Reaction Name:',rc_name(reaction)
       write(stdout,*) 
       write(stdout,*) xs_num_dep_var,' Dependent variables used.'
       write(stdout,*)      
-      write(stdout,*)'Variable Number      Name    Organization'
+      write(stdout,*)'Variable Number      Name (Units)'
       write(stdout,*)      
 
       do i = 1 , xs_num_dep_var 
-           write(stdout,*) i,'         ',xs_var(0,i),xs_organization(i)
+           write(stdout,*) i,'         ',xs_var(0,i),' (',xs_units[0,i],')'
       end do
 
       write(stdout,*)
@@ -99,7 +108,7 @@ loop: continue
 
       write(stdout,*)
       write(stdout,*)'The independent variables for ',xs_var(0,dep_choice),' are:'
-      write(stdout,*)'Independent Variable #    Name     # of Values   Min   Max'
+      write(stdout,*)'Independent Variable #    Name     # of Values   Min   Max (Units)'
       write(stdout,*)
 
       if ( xs_rank(dep_choice) == 0 ) then
@@ -113,7 +122,8 @@ loop: continue
 
          do i = 1 , xs_rank(dep_choice)
             write(stdout,*) i,'  ',xs_var(i,dep_choice),' ',xs_tab_index(i,dep_choice),
-     &      '  ',xs_min(i,dep_choice),'  ',xs_max(i,dep_choice)
+     &      '  ',xs_min(i,dep_choice),'  ',xs_max(i,dep_choice),
+     &           ' (',xs_units(i,dep_choice),')'
          end do 
 
       endif
@@ -128,7 +138,7 @@ loop: continue
       p=0
       assert(next_token(line,b,e,p))
       tempfile = line(b:e)
-      if(tempfile == 'n') goto loop1
+      if(tempfile == 'n' || tempfile == 'N') goto loop1
 
       do i = 1 , xs_table_rank_max
          do j = 1 , xs_dep_var_max
@@ -146,12 +156,15 @@ loop: continue
          p=0
          assert(next_token(line,b,e,p))
          min_slice(i,dep_choice) = read_integer(line(b:e))
-         assert(next_token(line,b,e,p))
-         max_slice(i,dep_choice) = read_integer(line(b:e))
+         if (next_token(line,b,e,p)) then
+            max_slice(i,dep_choice) = read_integer(line(b:e))
+         else
+            max_slice(i,dep_choice) = min_slice(i,dep_choice)
+         end if
       end do
 
       write(stdout,*)
-      write(stdout,*)'Display this on S for Screen or F for File.'
+      write(stdout,*)'Display this on s for Screen or f for File.'
       if (! read_string(stdin,line,length)) goto eof
       assert(length<=len(line))
       length=parse_string(line(:length))
@@ -182,7 +195,7 @@ loop: continue
       j = 0
       k = 0
 
-      if(tempfile == 'S') then
+      if(tempfile == 'S' || tempfile == 's') then
          if ( xs_rank(dep_choice) == 1 ) then
 
             write(stdout,*)
@@ -270,7 +283,7 @@ loop: continue
 
          endif    
 
-      elseif(tempfile == 'F') then
+      elseif(tempfile == 'F' || tempfile == 'f') then
 
          write(stdout,*)
          write(stdout,*)'Enter filename to store information'
@@ -384,7 +397,7 @@ loop1: continue
       length=parse_string(line(:length))
       p=0
       assert(next_token(line,b,e,p))
-      if ( line(b:e) == 'y' ) goto loop
+      if ( line(b:e) == 'y' || line(b:e) == 'Y') goto loop
 
 eof:  continue
 
