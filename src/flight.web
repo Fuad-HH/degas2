@@ -2,6 +2,10 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.32  1998/12/22 16:44:15  dstotler
+% Removed some older commented out test sections. Leave in with macro
+% switch EIR_REC_BENCH the hack to set yield = 0 for energies < 1 eV.
+%
 % Revision 1.31  1998/09/29 13:12:47  dstotler
 % Zeroed rate_all[i] and rate[i]; were permitting reaction scores in
 % vacuum zones.
@@ -418,7 +422,7 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       real estimator_factors[*]                        // Scratch
 
       integer type,type_ptr_1,type_ptr_2,type_ptr       // Local
-      real mat_temp
+      real mat_temp,mat_recyc_coef
       sc_decl(sector1)
       sc_decl(sector2)
       ma_decl(mat_ref)
@@ -450,11 +454,13 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
             else if (type == sc_wall) then
                mat_ref=wall_material[type_ptr]
                mat_temp=wall_temperature[type_ptr]
-               call process_pmi(fl_args(x),mat_ref,mat_temp)
+               mat_recyc_coef=wall_recyc_coef[type_ptr]
+               call process_pmi(fl_args(x),mat_ref,mat_temp,mat_recyc_coef)
             else if (type == sc_target) then
                mat_ref=target_material[type_ptr]
                mat_temp=target_temperature[type_ptr]
-               call process_pmi(fl_args(x),mat_ref,mat_temp)
+               mat_recyc_coef=target_recyc_coef[type_ptr]
+               call process_pmi(fl_args(x),mat_ref,mat_temp,mat_recyc_coef)
             end if
          end if
       end do
@@ -465,7 +471,7 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
 @ Select and execute a plasma-material interaction.
 
 @<Functions...@>=
-      subroutine process_pmi(fl_dummy(x),mat_ref,mat_temp)
+      subroutine process_pmi(fl_dummy(x),mat_ref,mat_temp,mat_recyc_coef)
 
       implicit_none_f77
       pr_common
@@ -475,10 +481,10 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
 
       fl_decl(x)                         // Input
       ma_decl(mat_ref)
-      real mat_temp
+      real mat_temp,mat_recyc_coef
 
       integer i,nprod                    // Local
-      real yield[pr_pmi_max],independent_parameters[pf_max_indep_params]
+      real yield[0:pr_pmi_max],independent_parameters[pf_max_indep_params]
       real cos_angle,sum,rnd
 
       pr_pmi_decl(ts_pmi)
@@ -507,7 +513,13 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       independent_parameters[pf_var_polar_angle_in]=acos(cos_angle)
       independent_parameters[pf_var_t_wall]=mat_temp
                
+      assert(mat_recyc_coef >= zero)
+      assert(mat_recyc_coef <= one)
+@#if 0
       sum=zero
+@#endif 
+      yield[0]=one-mat_recyc_coef // This is the absorbed fraction
+      sum=yield[0]
       default_pmi=0
       assert(pr_pm_case_num(pt_test(fl_current(x))) > 0)
       do ts_pmi=1,pr_pm_case_num(pt_test(fl_current(x)))
@@ -529,15 +541,21 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
          sum=sum+yield[ts_pmi]
       end do
 
-/* Factor in adsorption as probability[i+1]=one-sum? !!! */
       if (pr_pm_case_num(pt_test(fl_current(x))) > 1) then 
          rn_next(rnd,x)
       else            
          rnd=zero     
       end if          
+@#if 0
+/*
+   Leave |rnd| alone to get precisely a unit interval. Did we have
+   the following to allow for sputtering, with |sum| $> 1$, possibly?
+*/
       rnd=rnd*max(sum,one)      // region from sum to ``one'' is default
+@#endif
+
       sum=zero
-      do i=1,pr_pm_case_num(pt_test(fl_current(x)))
+      do i=0,pr_pm_case_num(pt_test(fl_current(x)))  // Includes abs. term
          sum=sum+yield[i]
          if (sum >= rnd) then
             ts_pmi=i
@@ -546,10 +564,40 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       end do
       ts_pmi=default_pmi
 break1:     continue
-      assert(ts_pmi > 0)
+      if (ts_pmi > 0) then                            // Using a real PMI
+         call pick_pmi(pt_args(fl_current(x)),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,pt_args(prod[1]),rn_args(fl_rand(x)))
+         fl_pointer(x)--
+         do i=1,nprod
+            if (pt_test(prod[i]) > 0) then
+               fl_pointer(x)++
+               pt_copy(prod[i],fl_current(x))
+            end if
+         end do
+      else                                           // Use absorption!
+         fl_pointer(x)--                        
+      end if
+@#if 0
+// Alternate approach using suppressed absorption, as in EIRENE
+      sum=zero
+      do i=1,pr_pm_case_num(pt_test(fl_current(x)))  
+         sum=sum+yield[i]
+         if (sum >= rnd) then
+            ts_pmi=i
+            goto break1
+         end if
+      end do
+      ts_pmi=default_pmi
+      assert(sum < one)
+      if (yield[0] > zero) then
+         pt_w(fl_current(x))*=one-yield[0]/(one-sum)
+      end if
+      assert(pt_w(fl_current(x)) > const(1.,-4))
+break1:     continue
       call pick_pmi(pt_args(fl_current(x)),pr_pmi_args(ts_pmi),
-     $     independent_parameters,
-     $     nprod,pt_args(prod[1]),rn_args(fl_rand(x)))
+     $              independent_parameters,
+     $              nprod,pt_args(prod[1]),rn_args(fl_rand(x)))
       fl_pointer(x)--
       do i=1,nprod
          if (pt_test(prod[i]) > 0) then
@@ -557,7 +605,7 @@ break1:     continue
             pt_copy(prod[i],fl_current(x))
          end if
       end do
-
+@#endif
       return
       end
 
