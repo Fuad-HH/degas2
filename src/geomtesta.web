@@ -2,6 +2,10 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.14  1996/03/01 20:20:46  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.13  1995/12/13 19:41:26  karney
 % Implement walls and symmetry selection in readgeometry.
 %
@@ -54,6 +58,13 @@
 @I macros.hweb
 @I string.hweb
 @I geomint.hweb
+@I zone.hweb
+@I background.hweb
+@I problem.hweb
+@I species.hweb
+@I reactiondata.hweb
+@I xsection.hweb
+@I reaction.hweb
 
 @ The main program.
 
@@ -62,6 +73,15 @@
       implicit_none
 
       call readfilenames
+      call read_geometry
+      call nc_read_species
+      call nc_read_reactions
+      call nc_read_materials
+      call nc_read_pmi
+      call nc_read_problem
+      call nc_read_background
+      call read_cramd_data
+
       call exercise
 
       stop
@@ -74,14 +94,38 @@
 @<Functions...@>=
       subroutine exercise
       implicit_none
-      real x[3],a[3],b[3],alen,blen // Local
-      integer i
+      real x[3],a[3],b[3],alen,blen,fvar[2],ha_rate,halpha_tot,  // Local
+     $     ha_temp,mar_rate,hfrac,dis_rate,net_ion_rate,mar_atom_rate
+      integer i,j,k,l,izone,pr_reac,k_mar,k_hfrac
       external zone_func,density_func,te_func,ti_func,stat_func
       integer zone_func,density_func,te_func,ti_func,stat_func
+      external interpolate1,interpolate2
+      real interpolate1,interpolate2
+      zn_common
+      pr_common
+
+      ptr_decl(hdf_data)
+      real hdf_data(zn_num)
       
-      call read_geometry
+      ptr_decl(stat)
+      real stat[2,zn_num,2*(pr_test_num-1)],smin,smax
+      common /stat_com/ smin,smax,ptr_stat
+
+      bk_decl(back1)
+      bk_decl(back2)
+      vc_decl(vdummy)
+
+      bk_common
+      sy_common
+      st_common
+      sp_common
+      rd_common
+      rc_common
+      
+      real reaction_rate_a
+      external reaction_rate_a
+
 @#if 1
-      call nc_read_background
 
       call stat_read
 @#endif
@@ -91,14 +135,358 @@
       
 /* to plot just the geometry keep only this call to output_slice */
       call output_slice('geomtesta.hdf',.true.,x,a,b,alen,blen,zone_func)
-@#if 1     
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,density_func)
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,te_func)
-      call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,ti_func)
-
-
+//      call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,ti_func)
+@#if 1     
       call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,stat_func)
 @#endif
+
+      real_alloc(hdf_data,zn_num)
+
+@#if 0
+      do i=1,zn_num
+         if (zn_type(i) == zn_plasma) then
+            hdf_data[i]=bk_n(1,i)
+         else
+            hdf_data[i]=zero
+         end if
+      end do
+      call data_slice('bk_n1.hdf',hdf_data,'electron density','m**-3','E11.3',
+     $     x,a,b,alen,blen)
+
+      do i=1,zn_num
+         if (zn_type(i) == zn_plasma) then
+            hdf_data[i]=bk_temp(1,i)/electron_charge
+         else
+            hdf_data[i]=zero
+         end if
+      end do
+      call data_slice('bk_t1.hdf',hdf_data,'electron temperature','eV','E11.3',
+     $     x,a,b,alen,blen)
+
+@#endif
+@#if 0
+      do j=2,pr_test_num
+         do i=1,zn_num
+            if (zn_type(i) == zn_plasma) then
+               hdf_data[i]=stat[1,i,2*j-3]           // density
+            else
+               hdf_data[i]=zero
+            end if
+         end do
+         call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'den.hdf',hdf_data,
+     $        'sp'\/trim(sp_sy(pr_test(j)))\/' density','m**-3','E11.3',
+     $        x,a,b,alen,blen)
+
+         do i=1,zn_num
+            if (zn_type(i) == zn_plasma) then
+               hdf_data[i]=stat[1,i,2*j-2]/const(1.3332,-1)    // pressure
+            else
+               hdf_data[i]=zero
+            end if
+         end do
+         call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'prs.hdf',hdf_data,
+     $        'sp'\/trim(sp_sy(pr_test(j)))\/' pressure','mTorr','E11.3',
+     $        x,a,b,alen,blen)
+
+      end do
+
+      do i=1,zn_num
+         hdf_data[i]=zero
+      end do
+
+      do i=1,pr_test_num
+         do j=1,pr_rc_num(i)
+            pr_reac=pr_ts_rc(i,j)
+            do k=1,xs_dep_var_max
+               if (reaction_misc_var_dep[pr_reac][k] 
+     $              == 'N(3)/N(1)') then
+                  assert(i > 1)
+                  assert(sp_sy(pr_background(1))=='e')
+                  ha_temp=zero
+                  do izone=1,zn_num
+                     if (zn_type(izone) == zn_plasma) then
+                        fvar[1]=bk_temp(1,izone)    // electron dens. and temp.
+                        fvar[2]=bk_n(1,izone)
+                        do l=1,2
+                           if (reaction_misc_spacing[pr_reac][k][l] 
+     $                          == xs_spacing_log) fvar[l]=log(fvar[l])
+                           fvar[l]=(fvar[l]-reaction_misc_min[pr_reac][k][l])
+     $                          /reaction_misc_delta[pr_reac][k][l]
+                        end do
+                        ha_rate=interpolate2(fvar,
+     $                       rd_misc_data3(pr_reac,k,0,0,0),
+     $                       reaction_misc_tab_index[pr_reac][k][1])
+                        if (reaction_misc_spacing[pr_reac][k][0] 
+     $                       == xs_spacing_log) ha_rate=exp(ha_rate)
+                        hdf_data[izone]+=ha_rate*stat[1,izone,2*i-3]
+     $                       *const(4.41,7)
+                        ha_temp+=ha_rate*stat[1,izone,2*i-3]
+     $                       *const(4.41,7)*zn_volume(izone)
+                     else
+                        hdf_data[izone]=zero
+                     end if
+                  end do
+                  write(stdout,*) 'test i = ',i,', pr_reac = ',pr_reac,
+     $                 ', ha = ',ha_temp 
+               else if (reaction_misc_var_dep[pr_reac][k] 
+     $                 == 'halpha_rate') then
+                  assert(i > 1)
+                  assert(sp_sy(pr_background(1))=='e')
+                  ha_temp=zero
+                  do izone=1,zn_num
+                     if (zn_type(izone) == zn_plasma) then
+                        fvar[1]=izone
+                        if (reaction_misc_spacing[pr_reac][k][1] 
+     $                       == xs_spacing_log) fvar[1]=log(fvar[1])
+                        fvar[1]=(fvar[1]-reaction_misc_min[pr_reac][k][1])
+     $                       /reaction_misc_delta[pr_reac][k][1]
+                        ha_rate=interpolate1(fvar,
+     $                       rd_misc_data3(pr_reac,k,0,0,0),
+     $                       reaction_misc_tab_index[pr_reac][k][1])
+                        if (reaction_misc_spacing[pr_reac][k][0] 
+     $                       == xs_spacing_log) ha_rate=exp(ha_rate)
+                        hdf_data[izone]+=ha_rate*stat[1,izone,2*i-3]
+     $                       *bk_n(1,izone)/(const(1.889)*electron_charge)
+                        ha_temp+=ha_rate*stat[1,izone,2*i-3]
+     $                       *bk_n(1,izone)*zn_volume(izone)
+     $                       /(const(1.889)*electron_charge)
+                     else
+                        hdf_data[izone]=zero
+                     end if
+                  end do
+                  write(stdout,*) 'test i = ',i,', pr_reac = ',pr_reac,
+     $                 ', ha = ',ha_temp 
+               end if
+            end do
+         end do
+      end do
+
+      if (pr_bkrc_num > 0) then
+         do i=1,pr_bkrc_num
+            pr_reac=pr_bk_rc(i)
+            do k=1,xs_dep_var_max
+               if (reaction_misc_var_dep[pr_reac][k] == 'N(3)/N(1)') then
+                  back1=pr_bkrc_rg(i,1)
+                  assert(sp_sy(pr_background(back1))=='e')
+                  back2=pr_bkrc_rg(i,2)
+                  ha_temp=zero
+                  do izone=1,zn_num
+                     if (zn_type(izone) == zn_plasma) then
+                        fvar[1]=bk_temp(back1,izone) 
+                        fvar[2]=bk_n(back1,izone)
+                        do l=1,2
+                           if (reaction_misc_spacing[pr_reac][k][l] 
+     $                          == xs_spacing_log) fvar[l]=log(fvar[l])
+                           fvar[l]=(fvar[l]-reaction_misc_min[pr_reac][k][l])
+     $                          /reaction_misc_delta[pr_reac][k][l]
+                        end do
+                        ha_rate=interpolate2(fvar,
+     $                       rd_misc_data3(pr_reac,k,0,0,0),
+     $                       reaction_misc_tab_index[pr_reac][k][1])
+                        if (reaction_misc_spacing[pr_reac][k][0] 
+     $                       == xs_spacing_log) ha_rate=exp(ha_rate)
+                        hdf_data[izone]+=ha_rate*bk_n(back2,izone)
+     $                       *const(4.41,7)
+                        ha_temp+=ha_rate*bk_n(back2,izone)
+     $                       *const(4.41,7)*zn_volume(izone)
+                     else
+                        hdf_data[izone]=zero
+                     end if
+                  end do
+                  write(stdout,*) 'bkrc i = ',i,', ha = ',ha_temp 
+               else if (reaction_misc_var_dep[pr_reac][k] == 'halpha_rate') then
+                  back1=pr_bkrc_rg(i,1)
+                  assert(sp_sy(pr_background(back1))=='e')
+                  back2=pr_bkrc_rg(i,2)
+                  ha_temp=zero
+                  do izone=1,zn_num
+                     if (zn_type(izone) == zn_plasma) then
+                        fvar[1]=izone
+                        if (reaction_misc_spacing[pr_reac][k][1] 
+     $                       == xs_spacing_log) fvar[1]=log(fvar[1])
+                        fvar[1]=(fvar[1]-reaction_misc_min[pr_reac][k][1])
+     $                       /reaction_misc_delta[pr_reac][k][1]
+                        ha_rate=interpolate1(fvar,
+     $                       rd_misc_data3(pr_reac,k,0,0,0),
+     $                       reaction_misc_tab_index[pr_reac][k][1])
+                        if (reaction_misc_spacing[pr_reac][k][0] 
+     $                       == xs_spacing_log) ha_rate=exp(ha_rate)
+                        hdf_data[izone]+=ha_rate*bk_n(back1,izone)
+     $                       *bk_n(back2,izone)/(const(1.889)*electron_charge)
+                        ha_temp+=ha_rate*bk_n(back1,izone)
+     $                       *bk_n(back2,izone)*zn_volume(izone)
+     $                       /(const(1.889)*electron_charge)
+                     else
+                        hdf_data[izone]=zero
+                     end if
+                  end do
+                  write(stdout,*) 'bkrc i = ',i,', ha = ',ha_temp 
+               end if
+            end do
+         end do
+      end if
+
+      halpha_tot=zero
+      do izone=1,zn_num
+         halpha_tot+=hdf_data[izone]*zn_volume(izone)
+      end do
+      write(stdout,*) ' Halpha_tot = ',halpha_tot
+
+      call data_slice('halpha.hdf',hdf_data,
+     $     'H_alpha_rate','photons / s','E11.3',
+     $     x,a,b,alen,blen)
+@#endif
+@#if 0
+      do i=1,zn_num
+         hdf_data[i]=zero
+      end do
+
+      vc_set(vdummy,zero,zero,zero)
+      do i=1,pr_test_num
+         do j=1,pr_rc_num(i)
+            pr_reac=pr_ts_rc(i,j)
+            if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress') then
+               assert(i > 1)
+               back1=pr_ts_bk(i,j)
+               assert(sp_sy(pr_background(1))=='e')
+               ha_temp=zero
+               do izone=1,zn_num
+                  if (zn_type(izone) == zn_plasma) then
+                     ha_rate=reaction_rate_a(pr_test(i),vc_args(vdummy),
+     $                    pr_background(back1),bk_n(1,izone),vc_args(vdummy),
+     $                    bk_temp(1,izone),izone,pr_reac)
+                     hdf_data[izone]+=ha_rate*stat[1,izone,2*i-3]
+                     ha_temp+=ha_rate*stat[1,izone,2*i-3]*zn_volume(izone)
+                  else
+                     hdf_data[izone]=zero
+                  end if
+               end do
+               write(stdout,*) 'test i = ',i,', pr_reac = ',pr_reac,
+     $              ', ionization = ',ha_temp
+            end if
+         end do
+      end do
+
+      halpha_tot=zero
+      do izone=1,zn_num
+         halpha_tot+=hdf_data[izone]*zn_volume(izone)
+      end do
+      write(stdout,*) ' Total suppressed ionization = ',halpha_tot
+
+      call data_slice('ionize.hdf',hdf_data,
+     $     'Ionization_rate','s**-1','E11.3',
+     $     x,a,b,alen,blen)
+
+      do i=1,zn_num
+         hdf_data[i]=zero
+      end do
+
+      if (pr_bkrc_num > 0) then
+         do i=1,pr_bkrc_num
+            pr_reac=pr_bk_rc(i)
+            if (rc_reaction_type(pr_reaction(pr_reac)) == 'recombination') then
+               back1=pr_bkrc_rg(i,1)
+               assert(sp_sy(pr_background(back1))=='e')
+               back2=pr_bkrc_rg(i,2)
+               ha_temp=zero
+               do izone=1,zn_num
+                  if (zn_type(izone) == zn_plasma) then
+                     ha_rate=reaction_rate_a(pr_background(back2),
+     $                    vc_args(vdummy),pr_background(back1),
+     $                    bk_n(back1,izone),vc_args(vdummy),
+     $                    bk_temp(back1,izone),izone,pr_reac)
+                     hdf_data[izone]+=ha_rate*bk_n(back2,izone)
+                     ha_temp+=ha_rate*bk_n(back2,izone)*zn_volume(izone)
+                  else
+                     hdf_data[izone]=zero
+                  end if
+               end do
+               write(stdout,*) 'bkrc i = ',i,
+     $              ', recombination = ',ha_temp
+            end if
+         end do
+      end if
+
+      halpha_tot=zero
+      do izone=1,zn_num
+         halpha_tot+=hdf_data[izone]*zn_volume(izone)
+      end do
+      write(stdout,*) ' Total recombination = ',halpha_tot
+
+      call data_slice('recomb.hdf',hdf_data,
+     $     'Recombination_rate','s**-1','E11.3',
+     $     x,a,b,alen,blen)
+
+      do i=1,zn_num
+         hdf_data[i]=zero
+      end do
+
+      net_ion_rate=zero
+      mar_atom_rate=zero
+      do i=1,pr_test_num
+         do j=1,pr_rc_num(i)
+            pr_reac=pr_ts_rc(i,j)
+            do k=1,xs_dep_var_max
+               if (reaction_misc_var_dep[pr_reac][k] 
+     $              == 'mar_rate') k_mar = k
+               if (reaction_misc_var_dep[pr_reac][k]
+     $              == 'hfrac') k_hfrac = k
+            end do
+
+            if (k_mar != 0 && k_hfrac != 0) then
+               assert(i > 1)
+               back1=pr_ts_bk(i,j)
+               assert(sp_sy(pr_background(1))=='e')
+               do izone=1,zn_num
+                  if (zn_type(izone) == zn_plasma) then
+                     fvar[1]=izone
+                     if (reaction_misc_spacing[pr_reac][k_mar][1] 
+     $                    == xs_spacing_log) fvar[1]=log(fvar[1])
+                     fvar[1]=(fvar[1]-reaction_misc_min[pr_reac][k_mar][1])
+     $                    /reaction_misc_delta[pr_reac][k_mar][1]
+                     mar_rate=interpolate1(fvar,
+     $                    rd_misc_data3(pr_reac,k_mar,0,0,0),
+     $                    reaction_misc_tab_index[pr_reac][k_mar][1])
+                     if (reaction_misc_spacing[pr_reac][k_mar][0] 
+     $                    == xs_spacing_log) mar_rate=exp(mar_rate)
+
+                     fvar[1]=izone
+                     if (reaction_misc_spacing[pr_reac][k_hfrac][1] 
+     $                    == xs_spacing_log) fvar[1]=log(fvar[1])
+                     fvar[1]=(fvar[1]-reaction_misc_min[pr_reac][k_hfrac][1])
+     $                    /reaction_misc_delta[pr_reac][k_hfrac][1]
+                     hfrac=interpolate1(fvar,
+     $                    rd_misc_data3(pr_reac,k_hfrac,0,0,0),
+     $                    reaction_misc_tab_index[pr_reac][k_hfrac][1])
+                     if (reaction_misc_spacing[pr_reac][k_hfrac][0] 
+     $                    == xs_spacing_log) hfrac=exp(hfrac)
+                     dis_rate=reaction_rate_a(pr_test(i),vc_args(vdummy),
+     $                    pr_background(back1),bk_n(1,izone),vc_args(vdummy),
+     $                    bk_temp(1,izone),izone,pr_reac)
+                     net_ion_rate+=two*dis_rate*(one-hfrac)*stat[1,izone,2*i-3]*zn_volume(izone)
+                     hdf_data[izone]=two*dis_rate*(one-hfrac)*stat[1,izone,2*i-3]
+                     mar_atom_rate+=bk_n(1,izone)*mar_rate*stat[1,izone,2*i-3]*zn_volume(izone)
+                  else
+                     hdf_data[izone]=zero
+                  end if
+               end do
+               write(stdout,*) 'Net ion rate from H2 = ',net_ion_rate
+               write(stdout,*) 'Atom rate from MAR = ',mar_atom_rate
+               k_mar=0
+               k_hfrac=0
+            end if
+         end do
+      end do
+
+      call data_slice('h2ion.hdf',hdf_data,
+     $     'H2_Ion_rate','s**-1','E11.3',
+     $     x,a,b,alen,blen)
+
+@#endif
+      real_free(hdf_data,zn_num)
+
       return
       end
 
