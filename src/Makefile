@@ -1,5 +1,10 @@
 # $Id$
 # $Log$
+# Revision 1.37  1995/07/14 13:19:57  karney
+# Coding for strata added.
+# Switch \Wtitle to \Title.
+# Update to use standard etags.
+#
 # Revision 1.36  1995/06/21 20:03:30  jshankar
 # updated to include readfilenames
 #
@@ -215,7 +220,7 @@ else  # !CRAY
     LDFLAGS=
     CFLAGS=-g
   else
-    FFLAGS=-c -O $(PROFILE)
+    FFLAGS=-c -O -fast $(PROFILE)
     LDFLAGS=$(PROFILE)
     CFLAGS=-O
   endif

@@ -2,6 +2,9 @@
 \Title{random numbers}
 
 % $Log$
+% Revision 1.5  1995/07/18 15:02:53  karney
+% Add extern.web.  New seeding procedures for random numbers implemented.
+%
 % Revision 1.4  1995/07/14 13:20:35  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -616,7 +619,8 @@ up by coimputing 10 batches of numbers.
 @<Functions...@>=
       subroutine random_init_1(seed,rn_dummy(x))
       implicit_none
-      real ran_delta,ran_epsilon,base
+      integer base
+      real ran_delta,ran_epsilon
       parameter (ran_delta=const(0.5)^14,ran_epsilon=const(0.5)^48,base=2^14)
       integer seed[0:3]         // Input
       rn_decl(x)                // Output

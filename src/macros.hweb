@@ -1,6 +1,9 @@
 @* Header macros degas2.
 % $Id$
 % $Log$
+% Revision 1.6  1994/04/11 17:10:13  karney
+% Set stderr for HP
+%
 % Revision 1.5  1994/02/14  22:19:24  karney
 % Increase FILELEN.
 %
@@ -89,14 +92,14 @@
 @#if DEBUG
 @m assert(condition) if (!(condition)) call error_exit('Assertion failed ('\/FILE\/'): '\/#condition) @;
 @#else
-@m assert(condition) if (.false.) write(stdout,*) condition @;
+@m assert(condition) if (condition) continue @;
 @#endif
 
 
 @#if DEBUG
     @m check(condition) assert(condition) @;
 @#else
-    @m check(condition) if (.false.) write(stdout,*) condition @;
+    @m check(condition) assert(condition) @;
 @#endif
 
 @ Some labels.
