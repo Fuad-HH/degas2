@@ -1,11 +1,17 @@
 # $Id$
 # $Log$
+# Revision 1.71  2000/01/27 18:34:45  karney
+# Portability fixes and minor updates to random.
+#
 # Revision 1.70  1999/08/09 15:18:31  karney
 # An extensive revision of the random number routines
 # (1) make the routines available for export,
 # (2) remove some undesirable properties in the old routines (it's unlikely
 # that this has had any effect),
 # (3) allow different sources groups to be initialized easily.
+#
+# Revision 1.69.4.1  2000/03/27 15:18:32  dstotler
+# Brought up to date relative to version on dps_2_6_changes branch.
 #
 # Revision 1.69  1999/05/25 13:30:41  dstotler
 # Raise tangle's yn flag to 7000. Add yb flag = 100000. Added

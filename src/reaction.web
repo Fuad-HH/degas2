@@ -2,6 +2,16 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.33  1999/08/09 15:18:40  karney
+% An extensive revision of the random number routines
+% (1) make the routines available for export,
+% (2) remove some undesirable properties in the old routines (it's unlikely
+% that this has had any effect),
+% (3) allow different sources groups to be initialized easily.
+%
+% Revision 1.32.4.1  2000/01/22 01:04:03  kanzlr
+% Add trap to ensure nonzero density.  Possibly occurs during BGK runs.
+%
 % Revision 1.32  1999/03/25 20:53:26  dstotler
 % Remove routines split off into interpolate.web.
 %
@@ -181,12 +191,17 @@ the more specific information required by the lower level routine.
       
       call set_indep_params(pt_args(p),pr_background_args(back),
      $     reaction_rate_num_rand[pr_reac],rn_args(x),independent_parameters)
-
-      find_rate=eval_data(rd_data_args(reaction_rate,[pr_reac]),
+/*
+   This check on density was put in with the BGK stuff. Not clear
+   why it is needed, except that it avoids needless calls to |eval_data|.
+*/ 
+      if (independent_parameters[xs_var_density] != zero) then
+         find_rate=eval_data(rd_data_args(reaction_rate,[pr_reac]),
      $     independent_parameters,rn_args(x))
-
-
-      find_rate*=independent_parameters[xs_var_density]
+         find_rate*=independent_parameters[xs_var_density]
+      else
+         find_rate=zero
+      endif
 
       return
       end
@@ -238,6 +253,7 @@ are passed back in the |independent_parameters| array.
       independent_parameters[xs_var_v_flow_3]=vb_flow[3]
       independent_parameters[xs_var_m_test]=sp_m(pt_sp(p))
       independent_parameters[xs_var_m_back]=sp_m(pr_background(back))
+
       if (num_random > 0) then
          assert(num_random <= xs_max_random)
          call random_array(independent_parameters[xs_var_1st_random_number],
@@ -292,6 +308,7 @@ Note that the {\em calling} argument list is defined via a macro.
                else
                   assert('Unsupported spacing' == ' ')
                end if
+
             end do
          end if
          

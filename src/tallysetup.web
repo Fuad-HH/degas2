@@ -2,6 +2,22 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.9.4.2  2000/03/27 15:23:03  dstotler
+% Relabel some of the pr_rc's to be consistent with their usage in the
+% examples. Replace code used to set up spectrum (including inclusion of
+% sources.hweb).
+%
+% Revision 1.9.4.1  2000/01/22 00:48:32  kanzlr
+% Addition of pr_rc_elastic.  BGK collisions belong to pr_rc_unknown.
+%
+% Revision 1.9  1999/04/20 20:21:51  dstotler
+% Replace "mass" and "energy" dep. vars. for sector tallies with
+% "mass_out" and "energy_out" to keep answers same. Add assert that
+% scoring_data_max > pr_var0_num (I believe we explicitly dimension
+% scoring_data to avoid allocating array space in the low level
+% routines). Make further modifications to permit purely diagnostic
+% sectors.
+%
 % Revision 1.8  1999/03/25 20:52:49  dstotler
 % Added check(s) on filenames_array.
 %
@@ -76,7 +92,9 @@ interface can be developed to replace this code.
 @m pr_rc_ionize_suppress 3
 @m pr_rc_dissociation 4
 @m pr_rc_test_ion 5
-@m pr_rc_max 5
+@m pr_rc_elastic 6
+@m pr_rc_chargex 7
+@m pr_rc_max 7
 
 @ To simplify the specification of the conversions to be used to change
   tallies from their internal values to the external quantities of interest
@@ -432,6 +450,12 @@ interface can be developed to replace this code.
             else if (rc_reaction_type(pr_reaction(pr_reac)) 
      $              == 'recombination') then
                pr_rc_type[pr_reac]=pr_rc_recombination
+            else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $              == 'elastic') then
+               pr_rc_type[pr_reac]=pr_rc_elastic
+            else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $              == 'chargex') then
+               pr_rc_type[pr_reac]=pr_rc_chargex
             else
                pr_rc_type[pr_reac]=pr_rc_unknown
             end if
@@ -455,10 +479,16 @@ interface can be developed to replace this code.
          tab_index[2]=pr_background_num
 
          num_conversions=1
-         conversions[1]=cv_out_scale_back_mass      // Leave as volume integrated
+         conversions[1]=cv_out_scale_back_mass    // Leave as volume integrated
 
- //      estimator[pr_rc_unknown]=tl_est_track
-         estimator[pr_rc_unknown]=tl_est_collision
+//         estimator[pr_rc_unknown]=tl_est_track
+         estimator[pr_rc_unknown]=tl_est_collision // Using for BGK Collision
+
+         estimator[pr_rc_elastic]=tl_est_track   // "elastic" & "chargex"
+//         estimator[pr_rc_elastic]=tl_est_collision
+//         estimator[pr_rc_chargex]=tl_est_track 
+         estimator[pr_rc_chargex]=tl_est_collision
+
 @#if !OPTIMIZE
          estimator[pr_rc_recombination]=tl_est_post_process 
 //         estimator[pr_rc_recombination]=tl_est_collision 
