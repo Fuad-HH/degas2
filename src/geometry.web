@@ -3,6 +3,9 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.25  1996/10/30 17:59:26  dstotler
+% Restrict surface_intersection_direction to be between -1 and 1.
+%
 % Revision 1.24  1996/05/24 18:48:21  dstotler
 % Comment change; bug fix in track (for v = 0 case).
 %
@@ -183,9 +186,9 @@ After the geometry is set up, information about the geometry is held in
 @I zone.hweb
 @I netcdf.hweb
 @I sysdep.hweb
-@I strata.hweb
 @I location.hweb
 @I particle.hweb
+@I detector.hweb
 
 @* External interface to geometry routines.
 
@@ -1201,10 +1204,10 @@ cells, it checks that the cells are neighbors.
       vc_ncdecl
       sy_common
       rf_common
-      sr_common
-      sr_ncdecl
       sc_common
       sc_ncdecl
+      de_common
+      de_ncdecl
       integer fileid
       character*FILELEN tempfile    //local
 
@@ -1213,8 +1216,8 @@ cells, it checks that the cells are neighbors.
       vc_ncread(fileid)
       gi_ncread(fileid)
       zn_ncread(fileid)
-      sr_ncread(fileid)
       sc_ncread(fileid)
+      de_ncread(fileid)
       call ncclose(fileid,nc_stat)
 
       return
