@@ -3,6 +3,9 @@
 \def\Wtitle{Read old Degas' geometry}
 
 % $Log$
+% Revision 1.3  1995/03/10 22:11:15  karney
+% Reorder variable definitions in various header files
+%
 % Revision 1.2  1995/01/30 21:06:32  karney
 % Merge in my changes with Daren's
 %
@@ -125,10 +128,29 @@
 
   /* Convert to meters and for offset */
       xoffset = (rmajor-half*xlen)*const(0.01)
+      assert(nowals<=npw)
       do i=1,nowals
+	assert(nosegsxz[i]+1<=npptsw)
          do j=1,nosegsxz[i]+1
             xwall[j,i]=xoffset+xwall[j,i]*const(0.01)
             zwall[j,i]=zwall[j,i]*const(0.01)
+         end do
+      end do
+/* remove some points -- js 
+        do j=1,nptshb-1
+        do i=1,nptsvb-1
+	if (gridx[i,j,1].eq.17.69) gridx[i,j,1]= gridx[i-1,j,1]
+	if (gridz[i,j,1].eq.17.69) gridz[i,j,1]= gridz[i-1,j,1]
+	enddo
+	enddo	
+*/
+
+      do j=1,nptshb-1
+         do i=1,nptsvb-1
+/*            if (kzone1(i,j) > 0 && kzone2(i,j) > 0 && denehvt(i,j,1) > 1.1e10 ) then
+               write(stdout,'(5f12.4)') gridx(i,j,1),gridx(i,j+1,1),gridx(i+1,j+1,1),gridx(i+1,j,1),gridx(i,j,1)
+               write(stdout,'(5f12.4)') gridz(i,j,1),gridz(i,j+1,1),gridz(i+1,j+1,1),gridz(i+1,j,1),gridz(i,j,1)
+            end if  */
          end do
       end do
       do j=1,nptshb
@@ -375,10 +397,11 @@
       do i=1,nowals
          xind=xind+nosegsxz[i]
          j=i+1
-         if (i==nowals) j=1
+/*       if (i==nowals) j=1
          assert(xwall[nosegsxz[i]+1,i] == xwall[1,j])
-         assert(zwall[nosegsxz[i]+1,i] == zwall[1,j])
+         assert(zwall[nosegsxz[i]+1,i] == zwall[1,j])  */
       end do
+
       real_alloc(x,2*xind)
 
       /* Perturb the positions to break the alignment -- bletch!!
@@ -400,23 +423,23 @@
 
 
 
-      do i=1,nowals
+/*      do i=1,nowals
          j=i+1
          if (i==nowals) j=1
          xwall[nosegsxz[i]+1,i] = xwall[1,j]
          zwall[nosegsxz[i]+1,i] = zwall[1,j]
-      end do
-
+      end do 
+*/
       call init_geometry
 
   /* Set up the universal cell */
 
       zone=0
       i=0
-      x[1,i]=xmin; x[2,i]=zmin; i=i+1
+      x[1,i]=xmin ; x[2,i]=zmin; i=i+1
       x[1,i]=xmin; x[2,i]=zmax; i=i+1
-      x[1,i]=xmax; x[2,i]=zmax; i=i+1
-      x[1,i]=xmax; x[2,i]=zmin; i=i+1
+      x[1,i]=xmax ; x[2,i]=zmax ; i=i+1
+      x[1,i]=xmax ; x[2,i]=zmin ; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
       
       do i=0,3
@@ -428,10 +451,12 @@
       end do
       
       vol=PI*(x[1,2]^2-x[1,0]^2)*(x[2,2]-x[2,0])
+	write (stderr,*)'universal cell done ' 	/* js */
 
   /* Set up the walls */
 
       zone=zone+1
+@#if 0
       i=0; seg=6
       do j=1,nosegsxz[seg]
          x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
@@ -441,32 +466,95 @@
             x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
          end do
       end do
+
       seg=4; j=nosegsxz[seg]+1
       x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
       x[1,i]=xmax; x[2,i]=zmin; i=i+1
       x[1,i]=xmin; x[2,i]=zmin; i=i+1
       x[1,i]=xmin; x[2,i]=zmax; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
-      
-      call decompose_polygon(i,x,zone)
+@#endif
+/* try seg=1 only for now */
+/* j goes from 1 -> nosegsxz[seg]+1 ie.. nosegsxz[seg]+1 pts.
+ i goes from 0 -> nosegxz[seg] same pts. as above; but i is incremented at the 
+end and comes out as 1+ nosegsxz[]+1	-js */
+	i=0; seg =1
+/* put in 3 pts in the start  have to go clockwise hence backwards for xwall*/
+      x[1,i] = xmin ; x[2,i] = zmin; i=i+1      
+       x[1,i] = xmin ; x[2,i] = zmax; i=i+1    
+       x[1,i] = xmax ; x[2,i] = zmax; i=i+1  
+       
+       do j=12,1,-1        /*nosegsxz[seg]+1 */
+          x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+	enddo
+/* and 1 pt  to bring it back  to pt no 1 */
+      x[1,i] = xmin ; x[2,i] = zmin; i=i+1
+
+	write (stderr,*) 'call to decomp --1, pts are:' 	/* js */      
+	 do j1=0,i-1		/* js */
+	write (stderr,*) x[1,j1],x[2,j1] 
+	enddo
+
+      call decompose_polygon(i-1,x,zone)
       zn_type_set(zone,zn_solid)
-      zn_volume(zone)=polygon_volume(i,x)
+      zn_volume(zone)=polygon_volume(i-1,x)
+      write (stderr,*)' decomposed wall no', seg,'complement of core part 1'
+   	/* js */	
+
+/*      zone=zone+1    not sure we need this */
+/* do 2nd complement of core */
+      i=0
+
+        x[1,i] = xmin ; x[2,i] = zmin; i=i+1
+
+	do j=nosegsxz[seg]+1,12,-1        /*nosegsxz[seg]+1 */
+            x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+	enddo          
+        x[1,i] = xmax ; x[2,i] = zmax; i=i+1
+        x[1,i] = xmax ; x[2,i] = zmin; i=i+1
+        x[1,i] = xmin ; x[2,i] = zmin; i=i+1
+
+      call decompose_polygon(i-1,x,zone)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=polygon_volume(i-1,x)
+      write (stderr,*)' decomposed wall no', seg,'complement of core part 2'
+   	/* js */	
+       
+/* core region */   
+      i=0
+      zone = zone +1
+	do j=1,nosegsxz[seg]+1
+            x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
+	enddo          
+
+      call decompose_polygon(i-1,x,zone)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=polygon_volume(i-1,x)
+      write (stderr,*)' decomposed core region '   	/* js */	
+@#if 0      
 
       i=0; seg=5
       do j=1,nosegsxz[seg]+1
          x[1,i]=xwall[j,seg]; x[2,i]=zwall[j,seg]; i=i+1
       end do
+
       x[1,i]=xmin; x[2,i]=zmax; i=i+1
       x[1,i]=xmax; x[2,i]=zmax; i=i+1
       x[1,i]=xmax; x[2,i]=zmin; i=i+1
       x[1,i]=x[1,0]; x[2,i]=x[2,0]
 
+	write (stderr,*) 'call to decomp --2, pts are:' 	/* js */      
+	 do j1=0,i		/* js */
+	write (stdout,*) x[1,j1],x[2,j1] 
+	enddo
       call decompose_polygon(i,x,zone)
+	write (stderr,*)' decomposed wall no', seg   	/* js */	
       zn_volume(zone)=zn_volume(zone)+polygon_volume(i,x)
+@#endif
 
  /* Set up plasma */
 
-@#if 1
+@#if 0
       do j2=1,nptshb-1
          do j1=1,nptsvb-1
             if ( j1 == 36 && j2 == 22 ) then
@@ -506,7 +594,8 @@
             end if
          end do
       end do
-@#else      
+
+
       zone=zone+1
       i=0
       do seg=6,1,-1
@@ -521,6 +610,7 @@
       zn_volume(zone)=polygon_volume(i,x)
       
 @#endif
+
    
       real_free(x,2*xind)
       

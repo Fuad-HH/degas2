@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.19  1995/03/10 22:11:13  karney
+# Reorder variable definitions in various header files
+#
 # Revision 1.18  1995/03/01 17:17:23  karney
 # Minor changes to fweboptions.sty and Makefile.
 #
@@ -280,6 +283,10 @@ geomread: $(geomread)
 degasgeom = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O random.$O
 degasgeom_libs = $(NETCDF)
 degasgeom: $(degasgeom)
+
+readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O
+readgeometry_libs = $(NETCDF)
+readgeometry: $(readgeometry)
 
 reactiontest = reactiontest.$O elementread.$O reaction.$O
 reactiontest_libs = $(NETCDF)
