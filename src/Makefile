@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.29  1995/06/02 14:34:08  csk
+# Remove fixit from Makefile.  (Not needed any more.)
+#
 # Revision 1.28  1995/06/02 09:10:13  karney
 # Test of CVS under AFS.
 #
@@ -243,8 +246,8 @@ endef
 
 %.print: %.dvi
 ifndef PAGES
-#	dvips -f $^ | rsh leo.gat.com lp
-	lpr $(LPRFLAGS) -d $^
+	dvips -f $^
+#	lpr $(LPRFLAGS) -d $^
 else
 	dviselect $(PAGES) $^ | lpr $(LPRFLAGS) -d
 #	dviselect $(PAGES) $^ | dvips-filter | rsh leo.gat.com lp
@@ -362,14 +365,14 @@ idtof: idtof.sh
 	cp $< $@
 	chmod a+x $@
 
-etags: etags.c getopt.c getopt1.c getopt.h
-	gcc -o etags -g -DETAGS -Demacs etags.c getopt.c getopt1.c
+../$(MACHINE)/etags: etags.c getopt.c getopt1.c getopt.h
+	gcc -o $@ -g -DETAGS -Demacs etags.c getopt.c getopt1.c
 
 #aladdin_subr.o: $(ALADIR)/ALPCOM.FOR $(ALADIR)/ALCOM.FOR
 #	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
 
-TAGS:  etags
-	./etags *.web *.hweb
+TAGS:  ../$(MACHINE)/etags
+	$< *.web *.hweb
 
 .PHONY: clean %.view %.print TAGS
 
