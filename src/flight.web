@@ -2,6 +2,11 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.22  1996/10/30 17:55:05  dstotler
+% Added check on fl_pointer(x) <= 0 following process_reaction. Put test
+% index on stat array. Change scoring to use (1. - exp(-ionize_rate*t))
+% / ionize_rate instead of just t.
+%
 % Revision 1.21  1996/05/24 18:47:39  dstotler
 % Add routine and other code to process sectors. Also, bug fix when
 % killing low weight flight: added "goto loop1".
@@ -95,10 +100,11 @@
 @I location.hweb
 @I reaction.hweb
 @I sector.hweb
-@I strata.hweb
 @I pmiformat.hweb
 @I pmidata.hweb
 @I sources.hweb
+@I tally.hweb
+@I output.hweb
 
 @ The main program.
 
@@ -108,35 +114,33 @@
 @ Follow a bunch of flights.
 
 @<Functions...@>=
-      subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,stat,weight,stat1)
+      subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scores1,estimator_factors)
       implicit_none
       integer nstart,nflights,seed0[0:1] // Input
       so_decl(isource)
       zn_common
       sy_common
       pr_common
-      real stat(2,zn_num,2*(pr_test_num-1)),weight // Output
-      real stat1(2,zn_num,2*(pr_test_num-1))      // Scratch
-      integer seed[0:1],i,j,k,sp_dim     // Local
+      tl_common
+      real scores[0:*][o_mean:o_var],weight // Output
+      real scores1[0:*][o_mean:o_var],estimator_factors[0:*]       // Scratch
+      integer seed[0:1],i,j     // Local 
+      fl_decl(x)
       real weight1
       
       seed[0]=seed0[0]
       seed[1]=seed0[1]
 
-      sp_dim=2*(pr_test_num-1)
       weight=zero
-      do i=1,sp_dim
-         do j=1,zn_num
-            do k=1,2
-               stat[i][j][k]=zero
-            end do
-         end do
+      do i=0,tally_size-1
+         scores[i][o_mean]=zero
+         scores[i][o_var]=zero
       end do
       
       do j=nstart,nstart+nflights-1
-         call follow(j,so_args(isource),stat1,weight1,seed)
-//         call stat_add(zn_num,one,stat1,weight,stat,weight,stat)
-         call stat_add(zn_num,sp_dim,weight1,stat1,weight,stat,weight,stat)
+         fl_label(x,j,isource)
+         call follow(fl_args(x),scores1,weight1,seed,estimator_factors)
+         call stat_add(tally_size,weight1,scores1,weight,scores,weight,scores)
          call next_seed(1,seed,seed)
       end do
       
@@ -146,19 +150,20 @@
 @ Follow a single particle.
 
 @<Functions...@>=
-      subroutine follow(num,so_dummy(isource),stat,rel_wt,seed)
+      subroutine follow(fl_dummy(x),scores,rel_wt,seed,estimator_factors)
       implicit_none
       zn_common
       pr_common
-      so_decl(isource)
+      so_common
+      fl_decl(x)
       real rel_wt
-      integer seed[0:1],num,i,j,nprod
-      real stat[2,zn_num,2*(pr_test_num-1)],t,tmax,ionize_rate,rnd,other_rate,
-     $     rate[pr_reaction_max],albedo,sum,energy,t_fac
+      integer seed[0:1],i,nprod
+      real scores(o_mean:o_var,0:*),t,tmax,ionize_rate,rnd,other_rate,
+     $     rate[pr_reaction_max],rate_all[pr_reaction_max],sum,t_fac
+      real estimator_factors         // Scratch
       logical done
 
-      fl_decl(x)
-      pt_decl(prod[rc_product_max])
+      pt_decl(prod[0:rc_product_max])
       rn_common
       bk_common
       sp_common
@@ -166,23 +171,19 @@
       pt_common
       lc_common
       rc_common
-      external reaction_rate
-      real reaction_rate
+      tl_common
+      external find_rate
+      real find_rate
       
-      albedo=one             // SHOULD BE REMOVED!!!
-//      albedo=const(0.95)  
+
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
-//      pt_init(x,'0')            // Initialize geometry locator
 
-      call sample_sources(num,so_args(isource),fl_args(x),rel_wt)
-
-      do i=1,2*(pr_test_num-1)
-         do j=1,zn_num
-            stat[i][j][1]=zero
-            stat[i][j][2]=zero
-         end do
+      do i=0,tally_size-1
+         scores[i][o_mean]=zero
+         scores[i][o_var]=zero
       end do
 
+      call sample_sources(fl_args(x),rel_wt,scores,estimator_factors)
 
 loop1: continue                 // Start a new 
 
@@ -195,7 +196,8 @@ loop: continue                  // Still in same zone
       other_rate=zero
       if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
          do i=1,pr_rc_num(pt_test(fl_current(x)))
-            rate[i]=reaction_rate(pt_args(fl_current(x)),pr_reaction_args(i))
+            rate[i]=find_rate(pt_args(fl_current(x)),pr_background_args(pr_ts_bk(pt_test(fl_current(x)),i)),pr_reaction_args(pr_ts_rc(pt_test(fl_current(x)),i)),rn_args(fl_rand(x)))
+            rate_all[i]=rate[i]
             if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(fl_current(x)),i)))=='ionize_suppress') then
                ionize_rate=ionize_rate+rate[i]
                rate[i]=zero
@@ -224,39 +226,44 @@ loop: continue                  // Still in same zone
 
       done=pt_track(tmax,t,fl_current(x))
 
-@#if 0
-      stat[1,lc_zone(pt_loc(fl_current(x)))]=
-     $     stat[1,lc_zone(pt_loc(fl_current(x)))]+
-     $     ionize_rate*t*pt_w(fl_current(x))
-@#else
       if (ionize_rate > epsilon) then
          t_fac=(one-exp(-ionize_rate*t))/ionize_rate
       else
          t_fac=t
       end if   
          
-      stat[1,lc_zone(pt_loc(fl_current(x))),2*pt_test(fl_current(x))-3]=
-     $stat[1,lc_zone(pt_loc(fl_current(x))),2*pt_test(fl_current(x))-3]+
-     $     t_fac*pt_w(fl_current(x))
-      energy=(half*sp_m(pr_test(pt_test(fl_current(x))))
-     $         *vc_abs2(pt_v(fl_current(x))))*(two/const(3.0))
-      stat[1,lc_zone(pt_loc(fl_current(x))),2*pt_test(fl_current(x))-2]=
-     $     stat[1,lc_zone(pt_loc(fl_current(x))),2*pt_test(fl_current(x))-2]+
-     $     energy*t_fac*pt_w(fl_current(x))    // pressure in Pascals
-@#endif
+      call score_test(tl_est_track,t_fac,pt_args(fl_current(x)),scores,estimator_factors)
+
+      pt_copy(fl_current(x),prod[0])
+      do i=1,pr_rc_num(pt_test(fl_current(x)))
+         call score_reaction(tl_est_track,t_fac,
+     $        pr_reaction_args(i),rate_all[i],
+     $        nprod,pt_args(prod[0]),scores,estimator_factors,
+     $        rn_args(fl_rand(x)))
+         assert(nprod == 0)
+      end do
+
       pt_w(fl_current(x))=exp(-ionize_rate*t)*pt_w(fl_current(x))
       
-      if (done) then            // Process a charge exchange
+      if (done) then            // Have a collision
          assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
-@#if 1
+
          rn_next(rnd,fl_rand(x))
          rnd=rnd*other_rate
          sum=zero
          do i=1,pr_rc_num(pt_test(fl_current(x)))
             sum=sum+rate[i]
             if (sum >= rnd) then
-               call process_reaction(pt_args(fl_current(x)),pr_reaction_args(i),
-     $              nprod,pt_args(prod[1]),
+               assert(rate[i] > zero)
+  //             call score_test(tl_est_collision,one/rate[i],
+               call score_test(tl_est_collision,one/other_rate,
+     $              pt_args(fl_current(x)),
+     $              scores,estimator_factors)
+
+               pt_copy(fl_current(x),prod[0])
+               call score_reaction(tl_est_collision,  // {\em And process!}
+     $              one/rate[i],pr_reaction_args(i),rate[i],
+     $              nprod,pt_args(prod[0]),scores,estimator_factors,
      $              rn_args(fl_rand(x)))
                goto break1
             end if
@@ -264,80 +271,118 @@ loop: continue                  // Still in same zone
          assert(.false.)
 break1:  continue
          fl_pointer(x)--
-         do i=1,nprod
-            if (pt_test(prod[i]) > 0) then
-               fl_pointer(x)++
-               pt_copy(prod[i],fl_current(x))
-            end if
-         end do
+         if (nprod > 0) then
+            do i=1,nprod
+               if (pt_test(prod[i]) > 0) then
+                  fl_pointer(x)++
+                  pt_copy(prod[i],fl_current(x))
+               end if
+            end do
+         end if
          if (fl_pointer(x) <= 0) goto break
          assert(fl_check(x))
-@#else
-         wa=sqrt(bk_temp(2,lc_zone(pt_loc(fl_current(x))))/sp_m(pt_sp(fl_current(x))))
-         do i=1,3
-            rn_gauss_next(rnd,fl_rand(x))
-            pt_v(fl_current(x))[i]=wa*rnd
-         end do
-@#endif
 
          goto loop
-      else                      // Go to next zone or reflect
-@#if 1                          // Proposed revision for treating sectors here
-         if (lc_cell_next(pt_loc(fl_current(x))) == 0) then
+      else               
 
-/* Universal cell crossings should have been handled by a transformation or
-   an explicit exit. So, indicate an error here now? */
+/* 
+   Go to next zone or process a sector.
+   Universal cell crossings should have been handled by a transformation or
+   an explicit exit. 
+*/
+         if (lc_cell_next(pt_loc(fl_current(x))) == 0) then
             assert("Leaving universal cell" == " ")
          else if (lc_sector(pt_loc(fl_current(x))) != 0 
      $           || lc_sector_next(pt_loc(fl_current(x))) != 0) then
-            call process_sector(fl_args(x))
+            call score_sector(fl_args(x),scores,estimator_factors)
             if (fl_pointer(x) <= 0) goto break
             assert(fl_check(x))
-            pt_w(fl_current(x))=albedo*pt_w(fl_current(x))  // TEST!!!!
          else
             pt_thru_face(fl_current(x))
          end if
          goto loop1
-@#else
-         if (lc_cell_next(pt_loc(fl_current(x))) == 0 ||
-     $        zn_type(lc_zone_next(pt_loc(fl_current(x)))) == zn_exit) then
-            fl_pointer(x)--
-            if (fl_pointer(x) <= 0) goto break
-         else if (zn_type(lc_zone_next(pt_loc(fl_current(x)))) == zn_solid) then
-            assert(lc_check(pt_loc(fl_current(x))))
-            pt_specular(fl_current(x))
-            pt_w(fl_current(x))=albedo*pt_w(fl_current(x))
-         else
-            pt_thru_face(fl_current(x))
-         end if
-         goto loop1
-@#endif
       end if
-break: continue
+
+break: continue     // End of flight!
 
       return
       end
-@#if 1        // Temporary location for this routine?
-      subroutine process_sector(fl_dummy(x))
+
+@ Carry out sector-related tasks. Principally, this includes processing
+plasma-material interactions and scoring at ``diagnostic'' surfaces.
+
+@<Functions...@>=
+      subroutine score_sector(fl_dummy(x),scores,estimator_factors)
 
       implicit_none
 
-      fl_decl(x)
+      fl_decl(x)                                       // Input / Output
+      real scores[0:*][o_mean:o_var]
+      real estimator_factors[0:*]                      // Scratch
 
-      integer i,nprod
+      integer type,type_ptr_1,type_ptr_2,type_ptr       // Local
+      real mat_temp
+      sc_decl(sector1)
+      sc_decl(sector2)
+      ma_decl(mat_ref)
+      
+      sc_common                                        // Common
+
+      sector1=lc_sector(pt_loc(fl_current(x)))
+      sector2=lc_sector_next(pt_loc(fl_current(x)))
+
+      call score_diagnostics(pt_args(fl_current(x)),scores,estimator_factors) // Do diagnostic types
+
+      do type=1,sc_diagnostic(0)            // Loop over non-diagnostic types
+         type_ptr_1=sector_type_pointer[sector1][type]
+         type_ptr_2=sector_type_pointer[sector2][type]
+         if (type_ptr_1 != 0) then
+            assert(type_ptr_2 == 0)
+            type_ptr=type_ptr_1
+         else if (type_ptr_2 != 0) then
+            assert(type_ptr_1 == 0)
+            type_ptr=type_ptr_2
+         else
+            type_ptr=0
+         end if
+
+         if (type_ptr != 0) then
+            if (type == sc_exit) then
+               fl_pointer(x)--          // Need to add corresponding PMI
+            else if (type == sc_wall) then
+               mat_ref=wall_material[type_ptr]
+               mat_temp=wall_temperature[type_ptr]
+               call process_pmi(fl_args(x),mat_ref,mat_temp)
+            else if (type == sc_target) then
+               mat_ref=target_material[type_ptr]
+               mat_temp=target_temperature[type_ptr]
+               call process_pmi(fl_args(x),mat_ref,mat_temp)
+            end if
+         end if
+      end do
+
+      return
+      end
+
+@ Select and execute a plasma-material interaction.
+
+@<Functions...@>=
+      subroutine process_pmi(fl_dummy(x),mat_ref,mat_temp)
+
+      implicit_none
+
+      fl_decl(x)                         // Input
+      ma_decl(mat_ref)
+      real mat_temp
+
+      integer i,nprod                    // Local
       real yield[pr_pmi_max],independent_parameters[pf_max_indep_params]
       real cos_angle,sum,rnd
 
-      sc_decl(sector1)
-      sc_decl(sector2)
-      sr_decl(stratum)
-      ma_decl(mat_ref)
       pr_pmi_decl(ts_pmi)
       pr_pmi_decl(default_pmi)
       pt_decl(prod[pm_product_max])
       
-      sc_common
-      sr_common
       pr_common
       sp_common
       pm_common
@@ -345,102 +390,70 @@ break: continue
       external find_yield,intersection_direction
       real find_yield,intersection_direction
 
-      sector1=lc_sector(pt_loc(fl_current(x)))
-      sector2=lc_sector_next(pt_loc(fl_current(x)))
-
-      if (sector1 != 0) then
-         stratum=strata[sector1]
-         if (sr_type(stratum) == sr_exit) then
-            assert(sector2 != 0 && stratum == strata[sector2])
-            fl_pointer(x)--                     // What we had before,
- //           handle_exit(pt_args(fl_current(x)))  Can do better!!!
-         else if (sr_type(stratum) == sr_wall 
-     $           || sr_type(stratum) == sr_target) then
-            assert(sector2 != 0 && stratum == strata[sector2])
-
-/* Explicitly included |sector1| in the argument list with the idea that we
-   we use it to obtain the zone information we will need for $T_{e}$, etc.
-   But, clearly, we could just as easily have gotten this from |pt_loc(fl_current(x))|,
-   right? If so, do we really need two sectors / default stratum? */
-// Implement 3Te for now!!       if (sr_type(stratum) == sr_target) cross_sheath(pt_args(fl_current(x)),sector1)  <--Should neutralize ions, do nothing to neutrals.
-            mat_ref=sc_solid_mat(sector_solid[sector2])
-            do i=1,pf_max_indep_params
-               independent_parameters[i]=zero
-            end do
-            independent_parameters[pf_var_energy_in]=
-     $           half*sp_m(pr_test(pt_test(fl_current(x))))
-     $           *vc_abs2(pt_v(fl_current(x)))
-            independent_parameters[pf_var_vel_1_in]=pt_v(fl_current(x))[1]
-            independent_parameters[pf_var_vel_2_in]=pt_v(fl_current(x))[2]
-            independent_parameters[pf_var_vel_3_in]=pt_v(fl_current(x))[3]
-            cos_angle=intersection_direction(lc_face(pt_loc(fl_current(x))),
-     $           lc_x(pt_loc(fl_current(x)))[1],pt_v(fl_current(x))[1])
-            independent_parameters[pf_var_polar_angle_in]=acos(cos_angle)
-            independent_parameters[pf_var_t_wall]=
-     $           sc_solid_temp(sector_solid[sector2])
-
-            sum=zero
-            default_pmi=0
-            assert(pr_pm_case_num(pt_test(fl_current(x))) > 0)
-            do ts_pmi=1,pr_pm_case_num(pt_test(fl_current(x)))
-               if (pm_materials(pr_pm_ref(pr_pm_cases(pt_test(fl_current(x)),ts_pmi))) == mat_ref) then
-                  yield[ts_pmi]=find_yield(pt_args(fl_current(x)),
-     $                 pr_pmi_args(ts_pmi),independent_parameters,
-     $                 rn_args(fl_rand(x)))
-                  if (yield[ts_pmi] < zero) then
-                     default_pmi=ts_pmi
-                     yield[ts_pmi]=zero
-                  end if
-               else
-                  yield[ts_pmi]=zero
-               end if
-               sum=sum+yield[ts_pmi]
-            end do
+      assert(mat_ref != 0)
+               
+      do i=1,pf_max_indep_params
+         independent_parameters[i]=zero
+      end do
+      
+      independent_parameters[pf_var_energy_in]=
+     $     half*sp_m(pr_test(pt_test(fl_current(x))))
+     $     *vc_abs2(pt_v(fl_current(x)))
+      independent_parameters[pf_var_vel_1_in]=pt_v(fl_current(x))[1]
+      independent_parameters[pf_var_vel_2_in]=pt_v(fl_current(x))[2]
+      independent_parameters[pf_var_vel_3_in]=pt_v(fl_current(x))[3]
+      cos_angle=intersection_direction(lc_face(pt_loc(fl_current(x))),
+     $     lc_x(pt_loc(fl_current(x)))[1],pt_v(fl_current(x))[1])
+      independent_parameters[pf_var_polar_angle_in]=acos(cos_angle)
+      independent_parameters[pf_var_t_wall]=mat_temp
+               
+      sum=zero
+      default_pmi=0
+      assert(pr_pm_case_num(pt_test(fl_current(x))) > 0)
+      do ts_pmi=1,pr_pm_case_num(pt_test(fl_current(x)))
+         if (pm_materials(pr_pm_ref(pr_pm_cases(pt_test(fl_current(x)),ts_pmi))) == mat_ref) then
+            yield[ts_pmi]=find_yield(pt_args(fl_current(x)),
+     $           pr_pmi_args(ts_pmi),independent_parameters,
+     $           rn_args(fl_rand(x)))
+            if (yield[ts_pmi] < zero) then
+               default_pmi=ts_pmi
+               yield[ts_pmi]=zero
+            end if
+         else
+            yield[ts_pmi]=zero
+         end if
+         sum=sum+yield[ts_pmi]
+      end do
 
 /* Factor in adsorption as probability[i+1]=one-sum? !!! */
-            if (pr_pm_case_num(pt_test(fl_current(x))) > 1) then     // TEST!!!
-               rn_next(rnd,x)
-            else                // TEST!!!
-               rnd=zero         // TEST!!!
-            end if              // TEST!!!
-            rnd=rnd*max(sum,one)      // region from sum to ``one'' is default
-            sum=zero
-            do i=1,pr_pm_case_num(pt_test(fl_current(x)))
-               sum=sum+yield[i]
-               if (sum >= rnd) then
-                  ts_pmi=i
-                  goto break1
-               end if
-            end do
-            ts_pmi=default_pmi
+      if (pr_pm_case_num(pt_test(fl_current(x))) > 1) then 
+         rn_next(rnd,x)
+      else            
+         rnd=zero     
+      end if          
+      rnd=rnd*max(sum,one)      // region from sum to ``one'' is default
+      sum=zero
+      do i=1,pr_pm_case_num(pt_test(fl_current(x)))
+         sum=sum+yield[i]
+         if (sum >= rnd) then
+            ts_pmi=i
+            goto break1
+         end if
+      end do
+      ts_pmi=default_pmi
 break1:     continue
-            assert(ts_pmi > 0)
-            call process_pmi(pt_args(fl_current(x)),pr_pmi_args(ts_pmi),
-     $                       independent_parameters,
-     $                       nprod,pt_args(prod[1]),rn_args(fl_rand(x)))
-            fl_pointer(x)--
-            do i=1,nprod
-               if (pt_test(prod[i]) > 0) then
-         //         pt_thru_face(prod[j]) Have to do this somewhere; here? WHY?
-                  fl_pointer(x)++
-                  pt_copy(prod[i],fl_current(x))
-               end if
-            end do
-         else if (sr_type(stratum) == sr_diagnostic) then
-            assert("No diagnostic stratum routines yet" == 0)
-         else 
-            assert("Undefined stratum" == 0)
+      assert(ts_pmi > 0)
+      call pick_pmi(pt_args(fl_current(x)),pr_pmi_args(ts_pmi),
+     $     independent_parameters,
+     $     nprod,pt_args(prod[1]),rn_args(fl_rand(x)))
+      fl_pointer(x)--
+      do i=1,nprod
+         if (pt_test(prod[i]) > 0) then
+            fl_pointer(x)++
+            pt_copy(prod[i],fl_current(x))
          end if
-      else if (sector2 != 0) then
-         stratum=strata[sector2]
-         if (sr_type(stratum) == sr_diagnostic) then
-            assert("No diagnostic stratum routines yet" == 0)
-         else
-            assert("Unhandled sector" == 0)
-         end if
-      end if
+      end do
 
       return
       end
-@#endif
 
