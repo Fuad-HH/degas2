@@ -3,6 +3,10 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.35  1999/02/02 15:03:05  dstotler
+% Allocation calls etc. for recyc_coef arrays analogous to temperature
+% arrays.
+%
 % Revision 1.34  1998/09/04 17:13:35  dstotler
 % Minor changes to satisfy FWEAVE and TeX.
 %
@@ -1128,6 +1132,7 @@ break1:        continue
       character*FILELEN tempfile
 
       tempfile = filenames_array[geometryfile]
+      assert(tempfile != char_undef)
       fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
       cm_ncdef(fileid)
       gi_ncdef(fileid)

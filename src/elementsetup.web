@@ -2,6 +2,9 @@
 \Title{elementsetup}
 
 % $Log$
+% Revision 1.18  1998/04/16 15:31:00  karney
+% Various changes to clean up code in support of Linux.
+%
 % Revision 1.17  1997/08/19 14:36:36  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -97,6 +100,7 @@ Introduction\ldots
       el_num=0
       element_version='unknown'
       tempfile = filenames_array[elements_infile]
+      assert(tempfile != char_undef)
       open(unit=diskin,file=tempfile,
      $     form='formatted',status='old')
       assert( read_string(diskin,line,length) )
@@ -149,6 +153,7 @@ eof:  continue
 
 
       tempfile = filenames_array[elementsfile]
+      assert(tempfile != char_undef)
       fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
 
       description = 'Data for elements in degas 2'

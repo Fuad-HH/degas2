@@ -2,6 +2,9 @@
 \Title{elementread}
 
 % $Log$
+% Revision 1.19  1998/06/01 15:56:32  karney
+% MPI enabled version.
+%
 % Revision 1.18  1997/08/19 14:36:36  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -109,6 +112,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile = filenames_array[elementsfile]
+         assert(tempfile != char_undef)
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
          call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $        element_version,len(element_version),nc_stat)
@@ -139,6 +143,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile =  filenames_array[speciesfile]
+         assert(tempfile != char_undef)
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
          call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $        species_version,len(species_version),nc_stat)
@@ -171,6 +176,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile =  filenames_array[reactionfile]
+         assert(tempfile != char_undef)
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
          call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $        reaction_version,len(reaction_version),nc_stat)
@@ -208,6 +214,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile =  filenames_array[backgroundfile]
+         assert(tempfile != char_undef)
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
 
          cm_ncread(fileid)

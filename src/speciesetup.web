@@ -2,6 +2,9 @@
 \Title{speciesetup}
 
 % $Log$
+% Revision 1.21  1998/09/04 17:22:20  dstotler
+% Minor changes to satisfy FWEAVE and TeX.
+%
 % Revision 1.20  1998/04/16 15:31:11  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -116,6 +119,7 @@ Introduction\ldots
       sp_num=0
       species_version='unknown'
       tempfile = filenames_array[species_infile]
+      assert(tempfile != char_undef)
       open(unit=diskin,file=tempfile,
      $     form='formatted',status='old')
       assert( read_string(diskin,line,length) )
@@ -231,6 +235,7 @@ eof:  continue
      $     '$Id$'
 
       tempfile = filenames_array[speciesfile]
+      assert(tempfile != char_undef)
       fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
 
       description = 'Data for species in degas 2'

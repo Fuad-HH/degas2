@@ -2,6 +2,9 @@
 \Title{pmimattread}
 
 % $Log$
+% Revision 1.6  1998/06/01 15:56:34  karney
+% MPI enabled version.
+%
 % Revision 1.5  1998/05/08 13:55:54  dstotler
 % Add nc_read_output from readgeometry.
 %
@@ -71,6 +74,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile =  filenames_array[materialsfile]
+         assert(tempfile != char_undef)
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
          call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $        materials_version,len(materials_version),nc_stat)
@@ -103,6 +107,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile =  filenames_array[pmifile]
+         assert(tempfile != char_undef)
 
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
          call ncattgetc(fileid,NC_GLOBAL,'data_version',
@@ -144,6 +149,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile =  filenames_array[problemfile]
+         assert(tempfile != char_undef)
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
          call ncattgetc(fileid,NC_GLOBAL,'data_version',
      $        problem_version,len(problem_version),nc_stat)
@@ -183,6 +189,7 @@ Introduction\ldots
 
       if (mpi_master) then
          tempfile=filenames_array[tallyfile]
+         assert(tempfile != char_undef)
          fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
          call ncattgetc(fileid,NC_GLOBAL,'tally_version',
      $        tally_version,len(tally_version),nc_stat)
@@ -218,6 +225,7 @@ Introduction\ldots
       character*FILELEN tempfile
 
       tempfile=filenames_array[outputfile]
+      assert(tempfile != char_undef)
       fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
 
       ou_ncread(fileid)
@@ -253,6 +261,7 @@ Introduction\ldots
       if (!have_cramd_data) return
 
       tempfile=filenames_array[problemfile]
+      assert(tempfile != char_undef)
       filenames_array[problemfile]=filenames_array[cramdproblemfile]
       call nc_read_problem
       filenames_array[problemfile]=tempfile
@@ -287,6 +296,7 @@ Introduction\ldots
      $     '$Id$'
 
       tempfile = filenames_array[problemfile]
+      assert(tempfile != char_undef)
       fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
 
       description = 'Data for problem in degas 2'

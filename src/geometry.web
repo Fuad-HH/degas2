@@ -3,6 +3,14 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.31  1998/09/29 13:16:04  dstotler
+% Modified the test in surface_reflect on e1 to go with the change to
+% sources.web. Despite efforts to make the incident v normal to the
+% surface, this routine is still coming up with nonzero e1's. Change the
+% test to compare with epsilon. Added a check to trap anything that's
+% bigger than epsilon, but still pretty small. May want to remove this
+% test eventually.
+%
 % Revision 1.30  1998/06/01 15:56:33  karney
 % MPI enabled version.
 %
@@ -1292,6 +1300,7 @@ cells, it checks that the cells are neighbors.
 
       if (mpi_master) then
          tempfile = filenames_array[geometryfile]
+         assert(tempfile != char_undef)
          fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
          cm_ncread(fileid)
          gi_ncread(fileid)
