@@ -40,6 +40,7 @@ species_infile ../data/species.input
 @I readfilenames.hweb
 @I sysdep.hweb
 @I string.hweb
+
 @f namelist integer
 @ The unnamed module.
 
@@ -83,7 +84,8 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
      $     'problem_infile' || symbolic_fname =='reaction_infile' ||
      $     symbolic_fname == 'species_infile' || symbolic_fname == 
      $     'materials_infile' || symbolic_fname == 'materialsfile' ||
-     $     symbolic_fname == 'pmi_infile' || symbolic_fname == 'pmifile' )
+     $     symbolic_fname == 'pmi_infile' || symbolic_fname == 'pmifile' 
+     $     || symbolic_fname == 'cramdproblemfile')
       
       filenames_max = filenames_max +1
       var_realloca(filenames_array)
@@ -121,6 +123,8 @@ loop:      if (! read_string(diskin,line,length) ) goto eof
          filenames_array[pmi_infile] = line(b:e)
       elseif ( symbolic_fname == 'pmifile')  then
          filenames_array[pmifile] = line(b:e)
+      elseif ( symbolic_fname == 'cramdproblemfile') then
+         filenames_array[cramdproblemfile] = line(b:e)
       endif
 
       goto loop
@@ -129,6 +133,7 @@ eof:  continue
       var_reallocb(filenames_array)
       return
       end
+
 
 @* INDEX
 
