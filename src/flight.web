@@ -2,6 +2,9 @@
 \def\Wtitle{flight}
 
 % $Log$
+% Revision 1.2  1993/10/26  16:00:35  karney
+% Initial checkin
+%
 %
 
 @n/
@@ -25,10 +28,10 @@
       subroutine do_flights(nstart,nflights,seed0,stat,weight,stat1)
       implicit_none
       integer nstart,nflights,seed0[0:1] // Input
-      real stat(2,zn_num),weight,stat1(2,zn_num)
-      integer seed[0:1],i,j               // Local
       zn_common
       sy_common
+      real stat(2,zn_num),weight,stat1(2,zn_num)
+      integer seed[0:1],i,j               // Local
       
       seed[0]=seed0[0]
       seed[1]=seed0[1]
@@ -40,7 +43,6 @@
          end do
       end do
       
-      write(stdout,*) 'START: ',nstart,nflights
       do j=nstart,nstart+nflights-1
          if (mod(j,100)==0) write(stdout,*) 'FLIGHTNO: ',j
          call follow(j,stat1,seed)
