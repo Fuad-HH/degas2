@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.59  1998/01/14 19:59:53  dstotler
+# Update object list for flighttest, geomtesta, and sourcetest.
+#
 # Revision 1.58  1998/01/09 15:45:49  karney
 # Optimization for Cray f90 modified.
 # Accomodate variuos netcdf versions.
@@ -519,7 +522,7 @@ reactionwrite = reactionwrite.$O
 reactionwrite_libs = $(NETCDF)
 reactionwrite: $(reactionwrite) $(foreach arg,$(subst .$O,_mods,$(reactionwrite)),$($(arg)))
 
-pmiwrite = pmiwrite.$O reaction.$O random.$O
+pmiwrite = pmiwrite.$O reaction.$O random.$O readfilenames.$O elementread.$O 
 pmiwrite_libs = $(NETCDF)
 pmiwrite: $(pmiwrite) $(foreach arg,$(subst .$O,_mods,$(pmiwrite)),$($(arg)))
 
