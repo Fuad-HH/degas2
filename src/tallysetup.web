@@ -2,6 +2,10 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.4  1998/03/11 15:27:17  dstotler
+% Allow pr_reaction_num=0. Add an "OPTIMIZE" flag which turns off a few
+% scores.
+%
 % Revision 1.3  1998/01/14 21:09:00  dstotler
 % Implemented conversions.
 %
@@ -176,6 +180,7 @@ c      integer pr_rc_type[pr_reaction_num]
       tl_num=0
       do i=1,tl_type_max
          tally_type_num[i]=0
+         tally_type_base[i]=int_unused
       end do
       tally_size=0
       assert(max_bins >= max(sc_diag_max_bins,de_max_bins))
@@ -297,6 +302,8 @@ c      integer pr_rc_type[pr_reaction_num]
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
       
+@#if !OPTIMIZE
+
       num_conversions=1
       conversions[1]=cv_post_scale_test_mass
 
@@ -305,19 +312,15 @@ c      integer pr_rc_type[pr_reaction_num]
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
 
-@#if !OPTIMIZE
-
       num_conversions=3
       conversions[1]=cv_out_scale_test_mass
       conversions[2]=cv_out_scale_volume
       conversions[3]=cv_track_v_to_external
 
       call define_tally('neutral flux vector',
-     $     tl_type_test,tl_geom_volume,pointer,'momentum vector',2,
+     $     tl_type_test,tl_geom_volume,pointer,'momentum_vector',2,
      $     indep_var,tab_index,num_conversions,conversions,
      $     conversion_packages,estimator,pr_rc_type)
-
-@#endif
 
       num_conversions=4
       conversions[1]=cv_post_divide_number
@@ -328,7 +331,7 @@ c      integer pr_rc_type[pr_reaction_num]
       conversions[4]=cv_post_v_to_internal
 
       call define_tally('particle velocity vector',
-     $     tl_type_test,tl_geom_volume,pointer,'momentum vector',2,
+     $     tl_type_test,tl_geom_volume,pointer,'momentum_vector',2,
      $     indep_var,tab_index,num_conversions,conversions,
      $     conversion_packages,estimator,pr_rc_type)
 
@@ -341,7 +344,7 @@ c      integer pr_rc_type[pr_reaction_num]
      $     tl_type_test,tl_geom_volume,pointer,'energy',2,indep_var,
      $     tab_index,num_conversions,conversions,conversion_packages,
      $     estimator,pr_rc_type)
-
+@#endif
 /*
    {\bf REACTION TALLIES}
    \begin{itemize}
@@ -360,7 +363,8 @@ c      integer pr_rc_type[pr_reaction_num]
      $           == 'dissoc') then
                pr_rc_type[pr_reac]=pr_rc_dissociation
             else if (rc_reaction_type(pr_reaction(pr_reac)) 
-     $              == 'ionize_suppress') then
+     $              == 'ionize_suppress' 
+     $          || rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') then
                pr_rc_type[pr_reac]=pr_rc_ionize_suppress
             else if (rc_reaction_type(pr_reaction(pr_reac)) 
      $              == 'recombination') then
@@ -392,37 +396,44 @@ c      integer pr_rc_type[pr_reaction_num]
 
  //      estimator[pr_rc_unknown]=tl_est_track
          estimator[pr_rc_unknown]=tl_est_collision
+@#if !OPTIMIZE
          estimator[pr_rc_recombination]=tl_est_post_process
-//       estimator[pr_rc_recombination]=tl_est_collision
          estimator[pr_rc_ionize_suppress]=tl_est_post_process
+@#else
+         estimator[pr_rc_recombination]=tl_est_collision
+         estimator[pr_rc_ionize_suppress]=tl_est_track
+//         estimator[pr_rc_ionize_suppress]=tl_est_collision
+@#endif
          estimator[pr_rc_dissociation]=tl_est_track
- //      estimator[pr_rc_dissociation]=tl_est_collision
+//         estimator[pr_rc_dissociation]=tl_est_collision
          estimator[pr_rc_test_ion]=tl_est_collision
 
          call define_tally('ion source rate',
-     $        tl_type_reaction,tl_geom_volume,pointer,'back mass',2,indep_var,
+     $        tl_type_reaction,tl_geom_volume,pointer,'back_mass',2,indep_var,
      $        tab_index,num_conversions,conversions,conversion_packages,
      $        estimator,pr_rc_type)
 
          num_conversions=1
          conversions[1]=cv_track_v_to_external
 
-//       estimator[pr_rc_dissociation]=tl_est_track
+//         estimator[pr_rc_dissociation]=tl_est_track
          estimator[pr_rc_dissociation]=tl_est_collision
 
          call define_tally('ion momentum source vector',tl_type_reaction,
      $        tl_geom_volume,pointer,
-     $        'back momentum vector',2,indep_var,tab_index,
+     $        'back_momentum_vector',2,indep_var,tab_index,
      $        num_conversions,conversions,conversion_packages,
      $        estimator,pr_rc_type)
  
          num_conversions=0
       
          estimator[pr_rc_ionize_suppress]=tl_est_track
+//         estimator[pr_rc_ionize_suppress]=tl_est_collision
 
-         call define_tally('ion energy source',
-     $        tl_type_reaction,tl_geom_volume,pointer,'back energy',2,indep_var,
-     $        tab_index,num_conversions,conversions,conversion_packages,estimator,pr_rc_type)
+         call define_tally('ion energy source',tl_type_reaction,
+     $        tl_geom_volume,pointer,'back_energy',2,indep_var,
+     $        tab_index,num_conversions,conversions,conversion_packages,
+     $        estimator,pr_rc_type)
 
 @#if !OPTIMIZE
 
@@ -487,6 +498,7 @@ c      integer pr_rc_type[pr_reaction_num]
       var_reallocb(tally_geometry)
       var_reallocb(tally_geometry_ptr)
       var_reallocb(tally_rank)
+      var_reallocb(tally_dep_var_dim)
       var_reallocb(tally_indep_var)
       var_reallocb(tally_dep_var)
       var_reallocb(tally_base)
@@ -524,11 +536,19 @@ c      integer pr_rc_type[pr_reaction_num]
      $     estimator[pr_rc_max],arg_type[*]
       character*(*) name,dep_var
 
-      integer i,est,pr_reac                                   // Local
+      integer i,i_var0,est,pr_reac                             // Local
       tl_decls
       st_decls
 
       @<Memory allocation interface@>
+
+      i_var0=string_lookup(dep_var,pr_var0_list,pr_var0_num)
+      if (i_var0 <= 1) then             // ``1'' is 'unknown'
+         write(stdout,*) ' Tally ',trim(name),
+     $        ' skipped since dep. var. ',trim(dep_var),
+     $        ' does not appear in this problem.'
+         return
+      end if
 
       tl_num++
 
@@ -537,6 +557,7 @@ c      integer pr_rc_type[pr_reaction_num]
       var_realloca(tally_geometry)
       var_realloca(tally_geometry_ptr)
       var_realloca(tally_rank)
+      var_realloca(tally_dep_var_dim)
       var_realloca(tally_indep_var)
       var_realloca(tally_dep_var)
       var_realloca(tally_base)
@@ -558,12 +579,17 @@ c      integer pr_rc_type[pr_reaction_num]
       tally_name[tl_num]=name
       if (index(name,'vector') > 0) then
          assert(index(dep_var,'vector') > 0)
+         tally_dep_var_dim[tl_num]=tl_dep_var_vector
+      else
+         tally_dep_var_dim[tl_num]=tl_dep_var_scalar
       end if
       tally_type[tl_num]=type
       tally_type_num[type]++
       tally_geometry[tl_num]=geometry
       tally_geometry_ptr[tl_num]=pointer
-      tally_dep_var[tl_num]=dep_var
+
+      tally_dep_var[tl_num]=i_var0
+
       tally_rank[tl_num]=rank
       do i=1,rank
          tally_indep_var[tl_num][i]=indep_var[i]
@@ -630,6 +656,7 @@ c      integer pr_rc_type[pr_reaction_num]
             do pr_reac=1,pr_reaction_num
                tally_est_reaction[tl_num][est][pr_reac]=zero   // Default
             end do
+            tally_est_test[tl_num][est]=real_unused
          end do
          do pr_reac=1,pr_reaction_num
             tally_est_reaction[tl_num][estimator[arg_type[pr_reac]]][pr_reac]=one
@@ -638,11 +665,21 @@ c      integer pr_rc_type[pr_reaction_num]
       else if (tally_type[tl_num] == tl_type_test) then
          do est=1,tl_est_max
             tally_est_test[tl_num][est]=zero    // Default
+            do pr_reac=1,pr_reaction_num
+               tally_est_reaction[tl_num][est][pr_reac]=real_unused
+            end do
          end do
 /* 
    There's only one ``type'' of test particle in this context:
 */
          tally_est_test[tl_num][estimator[1]]=one
+      else if (tally_type[tl_num] == tl_type_sector) then
+         do est=1,tl_est_max
+            tally_est_test[tl_num][est]=real_unused
+            do pr_reac=1,pr_reaction_num
+               tally_est_reaction[tl_num][est][pr_reac]=real_unused
+            end do
+         end do
       end if
 
       return
