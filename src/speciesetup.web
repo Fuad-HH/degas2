@@ -2,12 +2,8 @@
 \def\Wtitle{speciesetup}
 
 % $Log$
-% Revision 1.2  1993/09/23  12:34:24  karney
-% Change netcdf file extension from .cdf to .nc
-%
-% Revision 1.1  1993/09/23  12:17:11  karney
-% Checkin under RCS
-%
+% Revision 1.1  1993/09/26  23:37:48  karney
+% Initial revision
 
 @n/
 
@@ -29,6 +25,7 @@ Introduction\ldots
       program speciesetup
       implicit_none
 
+      call nc_read_elements
       call read_species
       call nc_write_species
 
@@ -45,43 +42,68 @@ Introduction\ldots
 @<Functions...@>=
       subroutine read_species
       implicit_none
-      el_common                 // Common
-      integer length,p,b,e // Local
+      sp_common                 // Common
+      el_common
+      integer length,p,b,e,i // Local
       character*80 line
       sy_common
       st_common
+      external element_lookup   // External
+      integer element_lookup
       
-      el_num=0
-      element_version='unknown'
+      sp_num=0
+      species_version='unknown'
       open(unit=diskin,file='../data/species.input',
      $     form='formatted',status='old')
       assert( read_string(diskin,line,length) )
       assert(length<=len(line))
-      element_version=line(:length)
+      species_version=line(:length)
 loop1: continue
       if (! read_string(diskin,line,length) ) goto eof
-      el_num=el_num+1
-      var_realloca(element_sy)
-      var_realloca(element_name)
-      var_realloca(element_m)
-      var_realloca(element_z)
+      sp_num=sp_num+1
+      var_realloca(species_name)
+      var_realloca(species_sy)
+      var_realloca(species_z)
+      var_realloca(species_m)
+      var_realloca(species_ncomp)
+      var_realloca(species_el)
+      var_realloca(species_count)
+
       length=parse_string(line(:length))
+      species_name[sp_num]=line(:length)
+      assert(read_string(diskin,line,length))
+      length=parse_string(line(:length))
+      
       p=0
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(i)') element_z[el_num]
+      read(line(b:e),'(a)') sp_sy(sp_num)
       assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') element_sy[el_num]
-      assert( next_token(line,b,e,p) )
-      read(line(b:e),'(f)') element_m[el_num]
-      assert( next_token(line,b,e,p) )
-      read(line(b:e),'(a)') element_name[el_num]
+      read(line(b:e),'(i)') sp_ncomp(sp_num)
+      assert(sp_ncomp(sp_num) > 0 && sp_ncomp(sp_num) <= sp_ncomp_max)
+      sp_z(sp_num)=0
+      sp_m(sp_num)=zero
+      do i=1,sp_ncomp(sp_num)
+         assert( next_token(line,b,e,p) )
+         sp_el(sp_num,i) = element_lookup(line(b:e))
+         assert( sp_el(sp_num,i) > 0)
+         assert( next_token(line,b,e,p) )
+         read(line(b:e),'(i)') sp_count(sp_num,i)
+         if (el_z(sp_el(sp_num,i)) == -1) then // Only the electron is charged
+            sp_z(sp_num)=sp_z(sp_num)+sp_count(sp_num,i)*el_z(sp_el(sp_num,i))
+         end if
+         sp_m(sp_num)=sp_m(sp_num)+sp_count(sp_num,i)*el_m(sp_el(sp_num,i))
+      end do
       goto loop1
 eof:  continue
       close(unit=diskin)
-      var_reallocb(element_sy)
-      var_reallocb(element_name)
-      var_reallocb(element_m)
-      var_reallocb(element_z)
+      var_reallocb(species_name)
+      var_reallocb(species_sy)
+      var_reallocb(species_z)
+      var_reallocb(species_m)
+      var_reallocb(species_ncomp)
+      var_reallocb(species_el)
+      var_reallocb(species_count)
+
       return
       end
 
@@ -90,12 +112,10 @@ eof:  continue
 @<Functions...@>=
       subroutine nc_write_species
       implicit_none
-      el_common                   // Common
+      sp_common                   // Common
       decl_netcdf               // Local
       integer fileid
-      integer el_num_id,element_sy_id,element_m_id,element_z_id,
-     $     element_name_id,element_symbol_string_id,element_name_string_id,
-     $     element_ind_id
+      sp_ncdecl
       character*80 description,program_version
       external string_length,nccreate,ncvardef,ncdimdef // External
       integer string_length,nccreate,ncvardef,ncdimdef
@@ -111,30 +131,16 @@ eof:  continue
      $     description,nc_stat)
 
       call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
-     $     string_length(element_version),
-     $     element_version,nc_stat)
+     $     string_length(species_version),
+     $     species_version,nc_stat)
       
       call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
      $     string_length(program_version),
      $     program_version,nc_stat)
       
-      dimen_def(fileid,element_symbol_string)
-      dimen_def(fileid,element_name_string)
-      dimen_def(fileid,element_ind)
-      var_def(fileid,el_num)
-      var_def(fileid,element_sy)
-      var_def(fileid,element_name)
-      var_def(fileid,element_z)
-      var_def(fileid,element_m)
-      
+      sp_ncdef(fileid)
       call ncendef(fileid,nc_stat)
-      
-      var_write(fileid,el_num)
-      var_write(fileid,element_sy)
-      var_write(fileid,element_name)
-      var_write(fileid,element_z)
-      var_write(fileid,element_m)
-      
+      sp_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
       
       return
