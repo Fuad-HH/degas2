@@ -2,6 +2,11 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.15  1996/10/30 18:24:07  dstotler
+% Simplify by using zn_index and other geometry information. Automate
+% calculation of sources for DEGAS & UEDGE files. Add routines to set up
+% "alias" arrays which will be used to sample those sources.
+%
 % Revision 1.14  1996/05/24 18:57:11  dstotler
 % Add calls to read materials and PMI files.
 %
@@ -70,7 +75,6 @@
 @I element.hweb
 @I reaction.hweb
 @I sources.hweb
-@I strata.hweb
 @I string.hweb
 @I netcdf.hweb
 @I sector.hweb
@@ -333,22 +337,27 @@ of the file name (x.d is degas and x.u for uedge) */
                      new_group=.false.
                   end if
 
-                  seg++
-                  source_current[seg]=abs(currxzt[jseg,1,jwall,js])
-                  so_tot_curr(so_grps)+=source_current[seg]
-                  source_segment_rel_wt[seg]=one     // Default
-                  vc_set(x1,xwall(jseg,jwall),zero,zwall(jseg,jwall))
-                  vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
-                  sector=lookup_sector(x1,x2)
-                  if (zn_type(sector_zone(sector)) == zn_solid) then
-                     sector=lookup_sector(x2,x1)
-                  end if
-                  if (zn_type(sector_zone(sector)) == zn_vacuum) then
-                     assert(so_type(so_grps) == so_puff)
+                  if (xwall(jseg,jwall) != xwall(jseg+1,jwall)
+     $                 || zwall(jseg,jwall) != zwall(jseg+1,jwall)) then
+                     seg++
+                     source_current[seg]=abs(currxzt[jseg,1,jwall,js])
+                     so_tot_curr(so_grps)+=source_current[seg]
+                     source_segment_rel_wt[seg]=one     // Default
+                     vc_set(x1,xwall(jseg,jwall),zero,zwall(jseg,jwall))
+                     vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
+                     sector=lookup_sector(x1,x2)
+                     if (zn_type(sector_zone(sector)) == zn_solid) then
+                        sector=lookup_sector(x2,x1)
+                     end if
+                     if (zn_type(sector_zone(sector)) == zn_vacuum) then
+                        assert(so_type(so_grps) == so_puff)
+                     else
+                        assert(zn_type(sector_zone(sector)) == zn_plasma)
+                     end if
+                     source_segment_ptr[seg]=sector
                   else
-                     assert(zn_type(sector_zone(sector)) == zn_plasma)
+                     so_nseg(so_grps)--
                   end if
-                  source_segment_ptr[seg]=sector
                end do
                call set_prob_alias(so_nseg(so_grps),
      $              source_current[so_base(so_grps)],
@@ -542,89 +551,4 @@ of the file name (x.d is degas and x.u for uedge) */
       return
       end
 
-@ Set sources due to background reactions (recombination).
-
-@<Functions...@>=
-      subroutine set_background_sources
-      implicit_none
-
-      integer jr,zone
-      real rate
-
-      external reaction_rate_a
-      real reaction_rate_a
-
-      pr_common
-      bk_common
-      so_common
-      zn_common
-      sy_common
-
-      if (pr_bkrc_num > 0) then
-         var_realloc(source_base_ptr,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_num_segments,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_type,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_geometry,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_num_flights,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_species,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_total_current,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_weight_norm,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_scale_factor,so_grps,so_grps+pr_bkrc_num)
-         so_grps+=pr_bkrc_num
-         do jr=1,pr_bkrc_num
-            so_base(so_grps)=so_seg_tot+1
-            so_type(so_grps)=so_recomb
-/* In |set_prod_recomb|, assumed that these reactions had just one product:
-   the test species being sourced.
- */
-            so_species(so_grps)=pr_bkrc_prod(jr,1)
-            so_nseg(so_grps)=0
-            so_geom(so_grps)=so_volume
-            so_nflights(so_grps)=100
-            so_tot_curr(so_grps)=zero
-            so_scale(so_grps)=one
-/* In |check_problem|, order of reagents was established: the ``background''
-   species to be used in the rate calculation is the first one. Using 
-   |bk_v(2,zone)| here just as a dummy since it's not a real test velocity.
-   Furthermore, if |bk_v| were really used, we would need to transform
-   from cylindrical to cartesian coordinates in the appropriate cases.
- */
-            do zone=1,zn_num
-               if (zn_type(zone) == zn_plasma) then
-                  rate=bk_n(pr_bkrc_rg(jr,2),zone)*reaction_rate_a(
-     $                 sp_args(pr_background(pr_bkrc_rg(jr,2))),
-     $                 vc_args(bk_v(pr_bkrc_rg(jr,2),zone)),
-     $                 sp_args(pr_background(pr_bkrc_rg(jr,1))),
-     $                 bk_n(pr_bkrc_rg(jr,1),zone),
-     $                 vc_args(bk_v(pr_bkrc_rg(jr,1),zone)),
-     $                 bk_temp(pr_bkrc_rg(jr,1),zone),zone,
-     $                 pr_reaction_args(pr_bk_rc(jr)))
-     $                 *zn_volume(zone)
-                  if (rate > zero) then
-                     so_seg_tot++
-                     so_nseg(so_grps)++
-                     var_realloca(source_segment_ptr)
-                     var_realloca(source_current)
-                     var_realloca(source_segment_rel_wt)
-                     var_realloca(source_segment_prob_alias)
-                     var_realloca(source_segment_ptr_alias)
-                     source_current[so_seg_tot]=rate
-                     so_tot_curr(so_grps)+=rate
-                     source_segment_rel_wt[so_seg_tot]=one     // Default
-                     source_segment_ptr[so_seg_tot]=zone
-                  end if
-               end if
-            end do 
-            call set_prob_alias(so_nseg(so_grps),
-     $           source_current[so_base(so_grps)],
-     $           source_segment_rel_wt[so_base(so_grps)],
-     $           source_segment_ptr[so_base(so_grps)],
-     $           source_segment_prob_alias[so_base(so_grps)],
-     $           source_segment_ptr_alias[so_base(so_grps)],
-     $           so_wt_norm(so_grps))
-         end do    
-      end if
-
-      return
-      end
 
