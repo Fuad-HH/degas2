@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.33  1998/05/08 13:51:45  dstotler
+% Initialize unused (index = 0) elements in sector and detector arrays.
+%
 % Revision 1.32  1998/04/16 15:31:03  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -195,7 +198,9 @@ uninitialized; these are set in |boundaries_neighbors|.
       strata[nsectors]=int_unused
       sector_strata_segment[nsectors]=int_unused
 // |sectors| hasn't been allocated yet and isn't used until |end_sectors|
- //     sectors[nsectors]=int_unused   
+@#if 0
+      sectors[nsectors]=int_unused   
+@#endif
       sector_zone[nsectors]=int_unused
       sector_surface[nsectors]=int_unused
       vc_set(sector_points[nsectors][sc_neg],real_unused,real_unused,real_unused)

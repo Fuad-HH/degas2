@@ -2,6 +2,11 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.8  1998/03/11 15:12:24  dstotler
+% Add section and subroutine to read TRIM data file from EIRENE and
+% write to pmiformat data file. Interpolate onto uniform grid in *all
+% variables* (extrapolate random variables as well).
+%
 % Revision 1.7  1997/08/19 14:36:50  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -113,14 +118,15 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       v_type='none'
       version='V. 1.0, simple data for adsorption of H on C'
       call pmi_write_misc(tag,const(0.2),v_type,version)
-/*      Try doing these manually... 
+//      Try doing these manually... 
+@#if 0
       tag='hdesorbc'
       v_type='cosine'
       call pmi_write_misc(tag,const(-1.0),v_type)
       tag='h2desorbc'
       v_type='cosine'
       call pmi_write_misc(tag,const(-1.0),v_type)
-*/
+@#endif
       tag='hadsorbex'
       v_type='none'
       version='V. 1.0, simple data for adsorption of H at exit'
@@ -1306,19 +1312,19 @@ from W. Eckstein, {\em Computer Simulation of Ion-Solid Interactions}
 are indicated below. The binary collision approach to
 dealing with reflections of an atom off of a material can be parameterized
 by a dimensionless energy
-\[
+$$
 \varepsilon = \frac{A E_{0}}{1 + A} / \frac{Z_{p} Z_{t} {\rm e}^{2}}{a},
 \eqno(2.7.31)
-\]
+$$
 where $A = M_{t} / M_{p}$ is the ratio of the target to projectile 
 mass, $E_{0}$ is the projectile's incident energy, $Z_{t} {\rm e}$ and
 $Z_{p} {\rm e}$ are the nuclear charges, and $a$ is the screening 
 length for the nuclear potentials. Following EIRENE, we use here the
 Lindhard expression for the screening length
-\[ 
+$$
 a = \left( \frac{9 \pi^{2}}{12} \right)^{1/3} a_{B} 
 (Z_{p}^{2/3} + Z_{t}^{2/3})^{-1/2}, \eqno(4.1.6)
-\]
+$$
 with $a_{B}$ being the Bohr radius.
 
 For convenience and clarity of expression, we define the ``reduced energy''

@@ -2,6 +2,9 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.29  1998/06/01 15:56:32  karney
+% MPI enabled version.
+%
 % Revision 1.28  1998/05/08 13:50:04  dstotler
 % Add compression of intermediate scoring arrays.
 %
@@ -146,7 +149,9 @@
 @ Follow a bunch of flights.
 
 @<Functions...@>=
-//      subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scores1,estimator_factors)
+@#if 0      
+subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scores1,estimator_factors)
+@#endif
       subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,estimator_factors)
       implicit_none_f77
       zn_common
@@ -179,7 +184,9 @@
       do j=nstart,nstart+nflights-1
          fl_label(x,j,isource)
 
-//         call follow(fl_args(x),scores1,weight1,seed,estimator_factors)
+@#if 0
+         call follow(fl_args(x),scores1,weight1,seed,estimator_factors)
+@#endif
          call follow(fl_args(x),seed,rel_wt,estimator_factors)
          stat_wt_tot_flt=rel_wt
 
@@ -195,7 +202,9 @@
             stat_wt_dim_frag=new_dim
          end if
 
-//         call stat_acc(tally_size,weight1,scores1,weight,scores)
+@#if 0
+         call stat_acc(tally_size,weight1,scores1,weight,scores)
+@#endif
          call stat_acc(stat_comp_flt,stat_wt_tot_flt,stat_size_flt,
      $         stat_dim_flt,stat_flt,stat_pf_dim_flt,stat_ptr2full_flt,
      $         stat_ps_dim_flt,stat_ptr2short_flt,
@@ -232,7 +241,6 @@
       real rel_wt
       integer i,nprod
       rn_seed_decl(seed)
-  //    real scores(o_mean:o_var,0:*),t,tmax,ionize_rate,rnd,other_rate,
       real t,tmax,ionize_rate,rnd,other_rate,
      $     rate[pr_reaction_max],rate_all[pr_reaction_max],sum,t_fac
       real estimator_factors[*]         // Scratch

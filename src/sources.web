@@ -2,6 +2,10 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.11  1998/03/11 15:25:00  dstotler
+% In set_plate_source_v, take ion_energy from plasma_e_ion_mult and
+% plasma_e_ion_delta.
+%
 % Revision 1.10  1998/01/14 21:07:57  dstotler
 % Replace transform_v routine with a macro. Moved score_sources up to
 % subroutine follow so we could get sourcetest working again. Replace
@@ -447,7 +451,9 @@ with an isotropic distribution; we would need another routine for that.
    is another piece of miscellaneous info that needs a home in the
    source class.
  */
-//      vpuff=sqrt(vpuff*electron_charge*const(3.,-2)/sp_m(spsrc))
+@#if 0
+      vpuff=sqrt(vpuff*electron_charge*const(3.,-2)/sp_m(spsrc))
+@#endif
       xseg2=int_lookup(-sector_surface[xseg],sector_surface[1],nsectors)
       assert(strata[xseg2]==strata[xseg])
       if (sector_type_pointer[xseg2][sc_wall] != 0) then
