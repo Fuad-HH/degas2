@@ -2,6 +2,10 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.19  1998/05/08 13:47:49  dstotler
+% Replace usage of strings in filling scoring_data with locally
+% initialized integers. Defined v_test in track_dissoc_cramd.
+%
 % Revision 1.18  1998/04/16 15:30:59  karney
 % Various changes to clean up code in support of Linux.
 %
@@ -289,7 +293,9 @@ loop: continue
      $    independent_parameters,rn_args(x))
       cx_v=cxsec*vc_abs(vrel)
 
- //     assert(cx_v<=sgvmax)    // Can disable rejection with |sgvmax| = 0.
+@#if 0
+      assert(cx_v<=sgvmax)    // Can disable rejection with |sgvmax| = 0.
+@#endif
       if (cx_v > tempmax) then
          tempmax=cx_v
       end if
@@ -612,7 +618,7 @@ loop: continue
 
       external eval_data                               // External
       real eval_data
-      save init,i_ediss
+      save init,i_ediss,i_elediss
       data init/.true./
 
       if (init) then
@@ -1132,9 +1138,10 @@ of suppressed absorption.
   This check turns out to be inordinately time consuming. Comment out for
   now. This is the same check which is used in |set_prod_ionize|
   during problemsetup.
-
-      assert(species_add_check(2,sp_args(prod[2]),1,sp_args(pr_test(test))))
 */
+@#if 0
+      assert(species_add_check(2,sp_args(prod[2]),1,sp_args(pr_test(test))))
+@#endif
       return
       end
 
