@@ -2,6 +2,11 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.18  1996/10/30 17:56:58  dstotler
+% Adapt to handling multiple-source groups and other features associated
+% with full-fledged source class. Add index over test species,etc. to
+% stat.
+%
 % Revision 1.17  1996/03/01 20:23:39  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -71,9 +76,14 @@
 @I macros.hweb
 @I sysdep.hweb
 @I string.hweb
-@I zone.hweb
 @I sources.hweb
-@I problem.hweb
+@I tally.hweb
+@I output.hweb
+@I netcdf.hweb
+@I readfilenames.hweb
+@I location.hweb
+@I particle.hweb
+@I random.hweb
 
 @ The main program.
 
@@ -113,63 +123,83 @@ PVM more straightforward.
 
 @<Functions...@>=
       subroutine do_flights_master(nflights,nfrag)
+
       implicit_none
-      integer nflights,nfrag     // Input
-      integer seed[0:1],i,j,k,is,sp_dim     // Local
+
+      integer nflights,nfrag                                // Input
+      integer i,j,is,zone,nprod,seg,seg_tot,test,bk_rc_is   // Local
+      integer seed[0:1],index_parameters[tl_index_max]
+      real weight_frag,tot_scale_curr,prob,density,rate,est_fac,
+     $     dens_rsd,pressure,pres_rsd
+      lc_decl(zone_loc)
+      pt_decl(fake_pt)
+      pt_decl(fake_prod[0:rc_product_max])
+      vc_decl(vel_test)
+      rn_decl(fake_rn)
+
+      sy_common                                             // Common
+      sp_common
       zn_common
-      sy_common
-      so_common
       pr_common
-      real weight_frag,tot_scale_curr,prob
-      ptr_decl(stat_tot)
-      ptr_decl(stat_grp)
-      ptr_decl(stat_frag)
-      ptr_decl(stat_flt)
+      rn_common
+      so_common
+      tl_common
+      ou_common
+      lc_common
+      st_common
+
+      real find_rate,extract_output_datum                    // External
+      external find_rate,extract_output_datum
+
+      ptr_decl(output_frag)                                  // Pointees
+      ptr_decl(output_flt)
+      ptr_decl(estimator_factors)
       ptr_decl(weight_grp)
-      real stat_tot(2,zn_num,2*(pr_test_num-1))
-      real stat_grp(2,zn_num,2*(pr_test_num-1),so_grps)
-      real stat_frag(2,zn_num,2*(pr_test_num-1))
-      real stat_flt(2,zn_num,2*(pr_test_num-1))
-      real weight_grp(so_grps)
+      real output_frag[0:tally_size-1][o_mean:o_var]
+      real output_flt[0:tally_size-1][o_mean:o_var]
+      real estimator_factors[0:tally_size-1]
+      real weight_grp[so_grps]
       
-      sp_dim=2*(pr_test_num-1)
-      real_alloc(stat_tot,2*zn_num*sp_dim)
-      real_alloc(stat_grp,2*zn_num*sp_dim*so_grps)
-      real_alloc(stat_frag,2*zn_num*sp_dim)
-      real_alloc(stat_flt,2*zn_num*sp_dim)
+      real_alloc(output_frag,(o_var-o_mean+1)*tally_size)
+      real_alloc(output_flt,(o_var-o_mean+1)*tally_size)
+      real_alloc(estimator_factors,tally_size)
       real_alloc(weight_grp,so_grps)
 
       seed[0]=1                 // Initialize random number seed
       seed[1]=2
+
+      assert(ou_back_max >= pr_background_num) // Dimension for a local array
+
+      var_alloc(output_all)
+      var_alloc(output_grp)
       
-      tot_scale_curr=zero
-      do i=1,sp_dim 
-         do j=1,zn_num
-            do k=1,2
-               stat_tot[i][j][k]=zero
-            end do
+      do i=0,tally_size-1
+         output_all[i][o_mean]=zero
+         output_all[i][o_var]=zero
+      end do
+
+      do is=1,so_grps
+         do i=0,tally_size-1
+            output_grp[is][i][o_mean]=zero
+            output_grp[is][i][o_var]=zero
          end do
       end do
+
+      tot_scale_curr=zero
 
       do is=1,so_grps
          nflights=so_nflights(is)
          nfrag=nflights                      // Temporary fudge!
 
          weight_grp[is]=zero
-         do i=1,sp_dim
-            do j=1,zn_num
-               do k=1,2
-                  stat_grp[is][i][j][k]=zero
-               end do
-            end do
-         end do
-
          do j=0,nflights-1,nfrag
+                                             // Calculate the flights
             call do_flights(j,min(nfrag,nflights-j),so_args(is),seed,
-     $           stat_frag,weight_frag,stat_flt) // Calculate the flights
-            call stat_add(zn_num,sp_dim,weight_frag,stat_frag,
-     $           weight_grp[is],stat_grp[1,1,1,is],
-     $           weight_grp[is],stat_grp[1,1,1,is]) // Accumulate the results
+     $           output_frag,weight_frag,output_flt,estimator_factors) 
+
+            call stat_add(tally_size,weight_frag,output_frag,
+     $           weight_grp[is],output_grp[is][0][o_mean],
+     $           weight_grp[is],output_grp[is][0][o_mean])
             call next_seed(nfrag,seed,seed) // Advance the seed
          end do
          
@@ -189,47 +219,238 @@ PVM more straightforward.
    mean (stat_tot[2]) are taken from Brandt.
 */
       do is=1,so_grps
-         do i=1,sp_dim
-            do j=1,zn_num
-               prob=so_scale(is)*so_tot_curr(is)/tot_scale_curr
-               stat_tot[i][j][1]+=prob*stat_grp[is][i][j][1]
-               assert(weight_grp[is] > zero)
-               stat_tot[i][j][2]+=prob**2*stat_grp[is][i][j][2]/weight_grp[is]
+         do i=0,tally_size-1
+            prob=so_scale(is)*so_tot_curr(is)/tot_scale_curr
+            output_grp[is][i][o_mean]*=prob
+            output_all[i][o_mean]+=output_grp[is][i][o_mean]
+            assert(weight_grp[is] > zero)
+            output_grp[is][i][o_var]*=prob**2/weight_grp[is]
+            output_all[i][o_var]+=output_grp[is][i][o_var]
+         end do
+      end do
+/*
+   NOTE: the loop below previously divided the volume out of all of the
+   means. Temporarily skip this: the appropriate normalizing factor will
+   depend on the particular geometry. Furthermore, would need to extract
+   from the tally arrays the particular geometry index for each tally.
+*/
+
+      do i=0,tally_size-1
+         output_all[i][o_var]=sqrt(output_all[i][o_var])/max(output_all[i][o_mean],const(1.0,-100))
+         output_all[i][o_mean]*=tot_scale_curr
+         do is=1,so_grps
+            output_grp[is][i][o_var]=sqrt(output_grp[is][i][o_var])/max(output_grp[is][i][o_mean],const(1.0,-100))
+            output_grp[is][i][o_mean]*=tot_scale_curr
+         end do
+      end do
+
+/*
+   Post-process scores
+*/
+      var_alloc(out_post_grp)
+      var_alloc(out_post_all)
+      do is=1,so_grps
+         do i=0,tally_size-1
+            out_post_grp[is][i][o_mean]=output_grp[is][i][o_mean]
+            out_post_grp[is][i][o_var]=zero
+         end do
+      end do
+      do i=0,tally_size-1
+         out_post_all[i][o_mean]=zero
+         out_post_all[i][o_var]=zero
+      end do
+
+      est_fac=one
+
+      do is=1,so_grps
+         do zone=1,zn_num
+            if (zn_type(zone) == zn_plasma) then
+               vc_copy(zone_center[zone],lc_x(zone_loc))
+               lc_set(zone_loc)
+               assert(lc_zone(zone_loc) == zone)
+               do test=1,pr_test_num
+                  index_parameters[tl_index_test]=test
+                  index_parameters[tl_index_zone]=zone
+/*
+    Should be specifying multiplicative factors as part of the tally input;
+    do explicitly here for testing purposes.
+*/
+                  density=extract_output_datum(index_parameters,
+     $                 output_grp[is][0][o_mean],'neutral density')
+     $                 /sp_m(pr_test(test))
+                  vel_test[1]=extract_output_datum(index_parameters,
+     $                 output_grp[is][0][o_mean],'neutral velocity 1')
+                  vel_test[2]=extract_output_datum(index_parameters,
+     $                 output_grp[is][0][o_mean],'neutral velocity 2')
+                  vel_test[3]=extract_output_datum(index_parameters,
+     $                 output_grp[is][0][o_mean],'neutral velocity 3')
+/* 
+   If we had a particle attribute for energy, we would do that here as well
+   and increase the potential number of post-process scores.
+*/
+                  if (density > zero) then
+                     do i=1,3
+                        vel_test[i]/=(density*sp_m(pr_test(test)))
+                     end do
+
+                     pt_init(fake_prod[0],sp_sy(pr_test(test)),is)
+                     lc_copy(zone_loc,pt_loc(fake_prod[0]))
+                     pt_w(fake_prod[0])=density
+                     vc_copy(vel_test,pt_v(fake_prod[0]))
+                     do i=1,pr_rc_num(pt_test(fake_prod[0]))
+                        rate=find_rate(pt_args(fake_prod[0]),
+     $                   pr_background_args(pr_ts_bk(pt_test(fake_prod[0]),i)),
+     $                   pr_reaction_args(pr_ts_rc(pt_test(fake_prod[0]),i)),
+     $                   rn_args(fake_rn))
+                        call score_reaction(tl_est_post_process,est_fac,
+     $                    pr_reaction_args(i),rate,nprod,pt_args(fake_prod[0]),
+     $                    out_post_grp[is][0][o_mean],estimator_factors,
+     $                    rn_args(fake_rn))
+                     end do
+                  end if
+               end do // test
+            end if
+         end do    // zone
+
+         if (so_type(is) == so_recomb) then      
+/*
+   Catch reaction-post-process scores for recombination. Could be generalized
+   by removing the if-then and calling |score_sources| below.
+*/
+            bk_rc_is=0
+            do i=1,pr_bkrc_num
+               if (pr_bkrc_prod(i,1) == so_species(is)) then
+                  assert(bk_rc_is == 0)
+                  bk_rc_is=i
+               end if
             end do
-         end do
-      end do
+            assert(bk_rc_is != 0)
+            est_fac=one
 
-      do i=1,sp_dim
-         do j=1,zn_num
-            if (zone_type[j] == zn_plasma) then
-               stat_tot[i][j][2]=sqrt(stat_tot[i][j][2])/max(stat_tot[i][j][1],const(1.0,-100))
-               stat_tot[i][j][1]=stat_tot[i][j][1]*tot_scale_curr/zn_volume(j)
-            end if
+            do seg=1,so_nseg(is) 
+               seg_tot=so_base(is)+seg-1
+               assert(so_geom(is) == so_volume)
+               zone=source_segment_ptr[seg_tot]
+               vc_copy(zone_center[zone],lc_x(zone_loc))
+               lc_set(zone_loc)
+               pt_init(fake_pt,sp_sy(so_species(is)),is)
+               lc_copy(zone_loc,pt_loc(fake_pt))
+               call transform_v(pr_background_args(pr_bkrc_rg(bk_rc_is,2)),
+     $              lc_args(zone_loc),pt_v(fake_pt))
+               rate=find_rate(pt_args(fake_pt),
+     $              pr_background_args(pr_bkrc_rg(bk_rc_is,1)),
+     $              pr_reaction_args(pr_bk_rc(bk_rc_is)),rn_args(fake_rn))
+               pt_w(fake_pt)=so_scale(is)*source_current[so_base(is)+seg-1]
+     $              / rate       // i.e., weight $\rightarrow$ ion density
+               call score_recombination(tl_est_post_process,est_fac,
+     $              pr_reaction_args(bk_rc_is),rate,
+     $              pt_args(fake_pt),out_post_grp[is][0][o_mean],
+     $              estimator_factors,rn_args(fake_rn))
+            end do  // seg
+         end if
+         do i=0,tally_size-1
+            out_post_all[i][o_mean]+=out_post_grp[is][i][o_mean]
          end do
-      end do
-      open(unit=diskout,file='stat.dat',status='unknown')
-      write(diskout,*) stat_tot
-      close(unit=diskout)
+      end do       // is
+
       open(unit=diskout,file='density.out',status='unknown')
-      do i=1,sp_dim,2
-         do j=1,zn_num
-            if (zone_type[j] == zn_plasma) then
-               write(diskout,'(2i6,1p4e20.4)') zone_index[j][1],
-     $              zone_index[j][2],stat_tot[i][j][1],stat_tot[i][j][2],
-     $              stat_tot[i+1][j][1],stat_tot[i+1][j][2]
+      est_fac=zero
+      do test=2,pr_test_num    // Exclude ``0'' test species
+         do zone=1,zn_num
+            if (zone_type[zone] == zn_plasma) then
+                  index_parameters[tl_index_test]=test
+                  index_parameters[tl_index_zone]=zone
+                  density=extract_output_datum(index_parameters,
+     $                 out_post_all[0][o_mean],'neutral density')
+     $                 /(sp_m(pr_test(test))*zn_volume(zone))
+                  dens_rsd=extract_output_datum(index_parameters,
+     $                 output_all[0][o_var],'neutral density')
+                  pressure=extract_output_datum(index_parameters,
+     $                 out_post_all[0][o_mean],'neutral energy')
+     $                 /(const(1.5)*zn_volume(zone))
+                  pres_rsd=extract_output_datum(index_parameters,
+     $                 output_all[0][o_var],'neutral energy')
+                  write(diskout,'(2i6,1p6e13.4)') zone_index[zone][1],
+     $              zone_index[zone][2],density,dens_rsd,pressure,pres_rsd,
+     $              est_fac,est_fac
             end if
          end do
       end do
       close(unit=diskout)
+      call nc_write_output
+      call clear_output
 
-      real_free(stat_tot,2*zn_num*sp_dim)
-      real_free(stat_grp,2*zn_num*sp_dim*so_grps)
-      real_free(stat_frag,2*zn_num*sp_dim)
-      real_free(stat_flt,2*zn_num*sp_dim)
+      real_free(output_frag,(o_var-o_mean+1)*tally_size)
+      real_free(output_flt,(o_var-o_mean+1)*tally_size)
+      real_free(estimator_factors,tally_size)
       real_free(weight_grp,so_grps)
 
       return
       end
+
+
+@ Write out data into netcdf file \verb+output.nc+ 
+
+@<Functions...@>=
+      subroutine nc_write_output
+      implicit_none
+      tl_common                  // Common
+      ou_common
+      nc_common
+      st_common
+      rf_common
+      so_common
+      pr_common
+      integer fileid             // Local
+      ou_ncdecl
+      character*LINELEN description,program_version
+      character*FILELEN tempfile
+
+      program_version=
+     $     '$Id$'
+
+      tempfile=filenames_array[outputfile]
+      fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
+
+      description = 'Output from DEGAS 2'
+
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'program_version',NC_CHAR,
+     $     string_length(program_version),
+     $     program_version,nc_stat)
+
+      ou_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      ou_ncwrite(fileid)
+
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Clear output arrays.
+
+@<Functions...@>=
+      subroutine clear_output
+      implicit_none
+
+      ou_common
+      tl_common
+      sy_common
+      so_common
+      pr_common
+
+      var_free(output_all)
+      var_free(output_grp)
+      var_free(out_post_all)
+      var_free(out_post_grp)
+
+      return
+      end
+
 
 
 @* INDEX.
