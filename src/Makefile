@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.48  1996/05/24 18:42:34  dstotler
+# Add pmitest as a target; split elementread.web into two pieces to form
+# also pmimatread.web.
+#
 # Revision 1.47  1996/03/01 20:18:31  dstotler
 # Add pmidata.hweb, sector.hweb to header list, plate.$O to problemsetup
 # dependencies.
@@ -198,6 +202,8 @@ endif
 
 ALADIR=$(DEGASROOT)/degas2/Aladdin
 
+CRAMDIR=$(DEGASROOT)/degas2/CRAMD
+
 Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
 %.sh: $(SOURCEDIR)/%.sh
@@ -212,9 +218,18 @@ degas2.in: $(SOURCEDIR)/degas2.in
 # Set up librarys
 LIBROOT=/usr/local
 
-NETCDF=-L$(LIBROOT)/lib -lnetcdf -lnsl
-HDF=-L$(LIBROOT)/lib -ldf
+ifeq ($(MACHINE),SUN)
+  NETCDF=-L$(LIBROOT)/lib -lnetcdf -lnsl
+  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
+else
+  NETCDF=-L$(LIBROOT)/lib -lnetcdf
+  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -R/opt/SUNWspro/lib:/usr/local/lib -lz
+endif
 PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
+
+ifeq ($(MACHINE),ALPHA)
+	CRAMD=$(CRAMDIR)/LIB/CRAMDlib.a $(CRAMDIR)/LIB/cramd_lib.a $(CRAMDIR)/LIB/lc_sig.a $(CRAMDIR)/LIB/lc_std.a
+endif
 
 # Cancel some built-in rules
 %: %.f
@@ -242,12 +257,12 @@ endif
 FWEAVE=fweave
 LATEX=latex
 ifeq ($(DEBUG),yes)
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt4000000 -yn8000 -n/ -n')' -Tv -j
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt4200000 -yn8000 -n/ -n')' -Tv -j
 else
   TANGLEFLAGS=-mINLINE -W[ -ytt4000000 -yn8000 -n/ -n')' -Tv
 endif
 
-WEAVEFLAGS=-f -i! -W[ -ykw600 -j -n/  # Added the '!', OK? (DPS)
+WEAVEFLAGS=-f -i! -W[ -ykw600 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 
 ifeq ($(MACHINE),CRAY)
   FC=cft77
@@ -380,7 +395,7 @@ pvmslave = random.$O randother.$O stat.$O geometry.$O elementread.$O pmimatread.
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave)
 
-flighttest = elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O
+flighttest = elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O geomsetup.$O geomutils.$O geomfaces.$O degasinit.$O 
 flighttest_libs = $(NETCDF)
 flighttest: $(flighttest)
 
@@ -388,8 +403,8 @@ geomtest = geometry.$O geomsetup.$O geomutils.$O geomfaces.$O composite.$O strin
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest)
 
-geomtesta = geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O
-geomtesta_libs = $(HDF) $(NETCDF)
+geomtesta = geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O reaction.$O
+geomtesta_libs =  $(NETCDF) $(HDF)
 geomtesta: $(geomtesta)
 
 reactionwrite = 
@@ -412,6 +427,14 @@ geomread = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O strin
 geomread_libs = $(NETCDF)
 geomread: $(geomread)
 
+cramdtest = cramdadd.$O readfilenames.$O elementread.$O pmimatread.$O geometry.$O degasinit.$O
+cramdtest_libs = $(CRAMD) $(NETCDF)
+cramdtest: $(cramdtest)
+
+cramdtesta = cramdadd.$O sysdep.$O string.$O pmimatread.$O
+cramdtesta_libs = $(CRAMD) $(NETCDF)  
+cramdtesta: $(cramdtesta)
+
 degasgeom = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O random.$O
 degasgeom_libs = $(NETCDF)
 degasgeom: $(degasgeom)
@@ -424,12 +447,16 @@ readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O s
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry)
 
+boxgen = readfilenames.$O geomsetup.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O
+boxgen_libs = $(NETCDF)
+boxgen: $(boxgen)
+
 readfilenames=  readfilenames.$O sysdep.$O string.$O
 readfilename_libs =
 readfilenames: $(readfilenames)
 
-readbackground = readdegas.$O geometry.$O elementread.$O readfilenames.$O pmimatread.$O
-readbackground_libs = $(NETCDF)
+readbackground = readdegas.$O geometry.$O elementread.$O readfilenames.$O geomsetup.$O reaction.$O composite.$O geomutils.$O geomfaces.$O geometry.$O writeback.$O pmimatread.$O cramdadd.$O
+readbackground_libs = $(CRAMD) $(NETCDF)
 readbackground: $(readbackground)
 
 reactiontest = reactiontest.$O elementread.$O reaction.$O readfilenames.$O random.$O randother.$O collide.$O pmimatread.$O
@@ -440,9 +467,17 @@ pmitest = pmitest.$O elementread.$O pmimatread.$O plate.$O readfilenames.$O rand
 pmitest_libs = $(NETCDF)
 pmitest: $(pmitest)
 
+sourcetest = sourcetest.$O sources.$O degasinit.$O readfilenames.$O randother.$O random.$O pmimatread.$O elementread.$O geometry.$O cramdadd.$O 
+sourcetest_libs = $(NETCDF)
+sourcetest: $(sourcetest)
+
 ratecalc = $(ALADIR)/aladdin_subr.o readfilenames.$O
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc)
+
+dataexam = readfilenames.o elementread.o
+dataexam_libs = $(NETCDF)
+dataexam: $(dataexam)
 
 #elementread: $(SYSDEPO)
 #test: $(SYSDEPO)
