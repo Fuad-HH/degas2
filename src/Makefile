@@ -1,5 +1,12 @@
 # $Id$
 # $Log$
+# Revision 1.55  1997/09/02 21:14:15  karney
+# New initializer for random numbers.
+# Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+# Minor bug in collide.web (array index was a real).
+# Eliminate some uses of repeated actual args (transform, transform_velocity,
+# stat_add, next_seed, rand_axc).
+#
 # Revision 1.54  1997/08/21 19:46:46  karney
 # Use f90's portable method of specifying precision (via kind and
 # selected_real_kind).
@@ -155,10 +162,12 @@
 # Revision 1.11  1994/06/28 19:44:21  karney
 # Get Makefiles working to update fixit, idtof when needed.
 
+# The following may be overridden by Makefile.local
 DEBUG=yes
 STANDALONE=yes
 FORTRAN90=no
 NETCDFV2=no
+#DEGASROOT
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -177,6 +186,10 @@ ifeq ($(SYSTEM),HP-UX)
   MACHINE=HP
 endif
 ifeq ($(SYSTEM),IRIX)
+  MACHINE=SGI
+  PVMARCH=SGI
+endif
+ifeq ($(SYSTEM),IRIX64)
   MACHINE=SGI
   PVMARCH=SGI
 endif
@@ -219,22 +232,8 @@ ifeq ($(STANDALONE),yes)
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
 else
-ifeq ($(MACHINE),CRAY)
-  SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
-else
-ifeq ($(MACHINE),HP)
-  SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
-  %.f: $(SOURCEDIR)/%.f
-	cp $< $@
-else
-  STANDALONE=yes
-  SOURCEDIR=$(DEGASROOT)/degas2/src
-  vpath %.web $(SOURCEDIR)
-  vpath %.hweb $(SOURCEDIR)
-endif
-endif
 endif
 
 ALADIR=$(DEGASROOT)/degas2/Aladdin

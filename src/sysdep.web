@@ -2,6 +2,13 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.15  1997/09/02 21:14:47  karney
+% New initializer for random numbers.
+% Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
+% Minor bug in collide.web (array index was a real).
+% Eliminate some uses of repeated actual args (transform, transform_velocity,
+% stat_add, next_seed, rand_axc).
+%
 % Revision 1.14  1997/08/21 19:47:05  karney
 % Use f90's portable method of specifying precision (via kind and
 % selected_real_kind).
@@ -74,7 +81,6 @@
 % Initial implementation of system dependent routine
 %
 
-
 @* Introduction.
 
 \ID{$Id$}
@@ -103,7 +109,7 @@ System dependent routines for degas.
 #include <sys/time.h>
       @<C Functions@>
 @#endif
-      
+
 @* Handling floating point errors.
 
 This is from \verb&f77/f77_floatingpoint.h&.
@@ -277,7 +283,7 @@ date_time(date_array)
 
   return;
 }
-  
+
 @#endif
 
 @ Return wall clock time as the number of seconds since 00:00, January 1,
@@ -503,7 +509,7 @@ overflow until 2068.
          mem_alloc=0
          return
       end if
-      
+
 @#if DEBUG
       sizea=size+2
 @#else
@@ -531,7 +537,7 @@ overflow until 2068.
 @#else
       mem_alloc=ptr
 @#endif
-      
+
       return
       end
 @#endif /* FORTRAN77 */
@@ -582,7 +588,6 @@ overflow until 2068.
          return
       end if
 
-
 @#if !CRAY
 @#if IBM
       nptr=malloc(%val(mem_unit*newsizea))
@@ -629,7 +634,7 @@ overflow until 2068.
 @#if CRAY
       integer stat              // Local
 @#endif
-      
+
       assert(size >= 0)
       if (size == 0) return
 
@@ -641,7 +646,7 @@ overflow until 2068.
       optr=oldptr
       sizea = size
 @#endif
-      
+
 @#if !CRAY
       call free(optr)
 @#else
@@ -653,24 +658,51 @@ overflow until 2068.
       end
 @#endif /* FORTRAN77 */
 
-@* Fortran 90 memory allocation.  In Fortran 90 we need a separate call
-for each type and rank of data.  So the basic routines are named
-|mem_alloc|, |mem_realloc|, |mem_free|, with |_TYPE&RANK|, (e.g., |_r2|
-appended).  WE can'T conveniently IMPLEMENT guard cells (since we can't
-do pointer arithmetic).
+@* Fortran 90 memory allocation routines.  In Fortran 90 we need a
+separate call for each type and rank of data.  So the basic routines are
+named |mem_alloc|, |mem_realloc|, |mem_free|, with |_TYPE&RANK|, (e.g.,
+|_r2| appended).  We can't conveniently implement guard cells (since we
+can't do pointer arithmetic).
+
+@#if FORTRAN90
+@m array_num 300
+@m mem_name_size 24
+@m mem_common character(len=mem_name_size) mem_array_name(array_num);
+      integer mem_array_bound(array_num);
+      common/mem_common_c/ mem_array_name;
+      common/mem_common_i/ mem_array_bound;
+      save/mem_common_c/;
+      save/mem_common_i/ @;
+@#endif
 
 @<Functions...@>=
 @#if FORTRAN90
-      function mem_alloc_c1(size,l1,u1) result(p)
+      block data mem_common_data
+      mem_common
+      data mem_array_name/array_num*' '/
+      end
+@#endif
+
+@ Here are the routines to allocate memory.
+
+@<Functions...@>=
+@#if FORTRAN90
+      function mem_alloc_c1(size,l1,u1,name) result(p)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1
       character(len=size), dimension(:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       assert(size > 0)
       if (u1 == l1-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1)
+      assert(mem_alloc_check(name,u1))
       allocate(p(l1:u1))
 @#if DEBUG
       p=char_uninit
@@ -678,16 +710,22 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_c2(size,l1,u1,l2,u2) result(p)
+      function mem_alloc_c2(size,l1,u1,l2,u2,name) result(p)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2
       character(len=size), dimension(:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       assert(size > 0)
       if (u2 == l2-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2)
+      assert(mem_alloc_check(name,u2))
       allocate(p(l1:u1,l2:u2))
 @#if DEBUG
       p=char_uninit
@@ -695,16 +733,22 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3) result(p)
+      function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3,name) result(p)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
       character(len=size), dimension(:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       assert(size > 0)
       if (u3 == l3-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3)
+      assert(mem_alloc_check(name,u3))
       allocate(p(l1:u1,l2:u2,l3:u3))
 @#if DEBUG
       p=char_uninit
@@ -712,16 +756,22 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+      function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
       character(len=size), dimension(:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       assert(size > 0)
       if (u4 == l4-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4)
+      assert(mem_alloc_check(name,u4))
       allocate(p(l1:u1,l2:u2,l3:u3,l4:u4))
 @#if DEBUG
       p=char_uninit
@@ -729,15 +779,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_i1(l1,u1) result(p)
+      function mem_alloc_i1(l1,u1,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1
       integer, dimension(:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u1 == l1-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1)
+      assert(mem_alloc_check(name,u1))
       allocate(p(l1:u1))
 @#if DEBUG
       p=int_uninit
@@ -745,15 +801,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_i2(l1,u1,l2,u2) result(p)
+      function mem_alloc_i2(l1,u1,l2,u2,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2
       integer, dimension(:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u2 == l2-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2)
+      assert(mem_alloc_check(name,u2))
       allocate(p(l1:u1,l2:u2))
 @#if DEBUG
       p=int_uninit
@@ -761,15 +823,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_i3(l1,u1,l2,u2,l3,u3) result(p)
+      function mem_alloc_i3(l1,u1,l2,u2,l3,u3,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3
       integer, dimension(:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u3 == l3-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3)
+      assert(mem_alloc_check(name,u3))
       allocate(p(l1:u1,l2:u2,l3:u3))
 @#if DEBUG
       p=int_uninit
@@ -777,15 +845,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+      function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
       integer, dimension(:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u4 == l4-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4)
+      assert(mem_alloc_check(name,u4))
       allocate(p(l1:u1,l2:u2,l3:u3,l4:u4))
 @#if DEBUG
       p=int_uninit
@@ -793,15 +867,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+      function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
       integer, dimension(:,:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u5 == l5-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4 && l5 <= u5)
+      assert(mem_alloc_check(name,u5))
       allocate(p(l1:u1,l2:u2,l3:u3,l4:u4,l5:u5))
 @#if DEBUG
       p=int_uninit
@@ -809,15 +889,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_r1(l1,u1) result(p)
+      function mem_alloc_r1(l1,u1,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1
       real, dimension(:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u1 == l1-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1)
+      assert(mem_alloc_check(name,u1))
       allocate(p(l1:u1))
 @#if DEBUG
       p=real_uninit
@@ -825,15 +911,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_r2(l1,u1,l2,u2) result(p)
+      function mem_alloc_r2(l1,u1,l2,u2,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2
       real, dimension(:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u2 == l2-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2)
+      assert(mem_alloc_check(name,u2))
       allocate(p(l1:u1,l2:u2))
 @#if DEBUG
       p=real_uninit
@@ -841,15 +933,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_r3(l1,u1,l2,u2,l3,u3) result(p)
+      function mem_alloc_r3(l1,u1,l2,u2,l3,u3,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3
       real, dimension(:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u3 == l3-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3)
+      assert(mem_alloc_check(name,u3))
       allocate(p(l1:u1,l2:u2,l3:u3))
 @#if DEBUG
       p=real_uninit
@@ -857,15 +955,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+      function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
       real, dimension(:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u4 == l4-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4)
+      assert(mem_alloc_check(name,u4))
       allocate(p(l1:u1,l2:u2,l3:u3,l4:u4))
 @#if DEBUG
       p=real_uninit
@@ -873,15 +977,21 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+      function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name) result(p)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
       real, dimension(:,:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_alloc_check
+      external mem_alloc_check
+      mem_common
+
       if (u5 == l5-1) then
          nullify(p)
          return
       end if
       assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4 && l5 <= u5)
+      assert(mem_alloc_check(name,u5))
       allocate(p(l1:u1,l2:u2,l3:u3,l4:u4,l5:u5))
 @#if DEBUG
       p=real_uninit
@@ -894,17 +1004,22 @@ do pointer arithmetic).
 
 @<Functions...@>=
 @#if FORTRAN90
-      function mem_realloc_c1(p,size,l1,u1,nu) result(np)
+      function mem_realloc_c1(p,size,l1,u1,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,nu
       character(len=size), dimension(:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_c1(size,l1,u1) result(p)
+         function mem_alloc_c1(size,l1,u1,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1
          character(len=size), dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
@@ -912,7 +1027,7 @@ do pointer arithmetic).
       assert( l1 <= nu )
 @#if !CHARPOINTERBUG
       if (u1 == l1-1) then
-         np ASSIGN mem_alloc_c1(size,l1,nu)
+         np ASSIGN mem_alloc_c1(size,l1,nu,name)
          return
       end if
 @#endif
@@ -924,6 +1039,7 @@ do pointer arithmetic).
       endif
 @#endif
 
+      assert(mem_realloc_check(name,u1,nu))
       if (u1 == nu) then
          np ASSIGN p
          return
@@ -945,17 +1061,22 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_c2(p,size,l1,u1,l2,u2,nu) result(np)
+      function mem_realloc_c2(p,size,l1,u1,l2,u2,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2,nu
       character(len=size), dimension(:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_c2(size,l1,u1,l2,u2) result(p)
+         function mem_alloc_c2(size,l1,u1,l2,u2,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2
          character(len=size), dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
@@ -963,7 +1084,7 @@ do pointer arithmetic).
       assert( l2 <= nu )
 @#if !CHARPOINTERBUG
       if (u2 == l2-1) then
-         np ASSIGN mem_alloc_c2(size,l1,u1,l2,nu)
+         np ASSIGN mem_alloc_c2(size,l1,u1,l2,nu,name)
          return
       end if
 @#endif
@@ -976,6 +1097,7 @@ do pointer arithmetic).
       endif
 @#endif
 
+      assert(mem_realloc_check(name,u2,nu))
       if (u2 == nu) then
          np ASSIGN p
          return
@@ -997,17 +1119,22 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_c3(p,size,l1,u1,l2,u2,l3,u3,nu) result(np)
+      function mem_realloc_c3(p,size,l1,u1,l2,u2,l3,u3,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,nu
       character(len=size), dimension(:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3) result(p)
+         function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
          character(len=size), dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
@@ -1015,7 +1142,7 @@ do pointer arithmetic).
       assert( l3 <= nu )
 @#if !CHARPOINTERBUG
       if (u3 == l3-1) then
-         np ASSIGN mem_alloc_c3(size,l1,u1,l2,u2,l3,nu)
+         np ASSIGN mem_alloc_c3(size,l1,u1,l2,u2,l3,nu,name)
          return
       end if
 @#endif
@@ -1029,6 +1156,7 @@ do pointer arithmetic).
       endif
 @#endif
 
+      assert(mem_realloc_check(name,u3,nu))
       if (u3 == nu) then
          np ASSIGN p
          return
@@ -1050,17 +1178,22 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+      function mem_realloc_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4,nu
       character(len=size), dimension(:,:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
          character(len=size), dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
@@ -1068,7 +1201,7 @@ do pointer arithmetic).
       assert( l4 <= nu )
 @#if !CHARPOINTERBUG
       if (u4 == l4-1) then
-         np ASSIGN mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,nu)
+         np ASSIGN mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,nu,name)
          return
       end if
 @#endif
@@ -1083,6 +1216,7 @@ do pointer arithmetic).
       endif
 @#endif
 
+      assert(mem_realloc_check(name,u4,nu))
       if (u4 == nu) then
          np ASSIGN p
          return
@@ -1104,28 +1238,34 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_i1(p,l1,u1,nu) result(np)
+      function mem_realloc_i1(p,l1,u1,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,nu
       integer, dimension(:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_i1(l1,u1) result(p)
+         function mem_alloc_i1(l1,u1,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1
          integer, dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l1 <= nu )
       if (u1 == l1-1) then
-         np ASSIGN mem_alloc_i1(l1,nu)
+         np ASSIGN mem_alloc_i1(l1,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
 
+      assert(mem_realloc_check(name,u1,nu))
       if (u1 == nu) then
          np ASSIGN p
          return
@@ -1141,30 +1281,36 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_i2(p,l1,u1,l2,u2,nu) result(np)
+      function mem_realloc_i2(p,l1,u1,l2,u2,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,nu
       integer, dimension(:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_i2(l1,u1,l2,u2) result(p)
+         function mem_alloc_i2(l1,u1,l2,u2,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2
          integer, dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l2 <= nu )
       if (u2 == l2-1) then
-         np ASSIGN mem_alloc_i2(l1,u1,l2,nu)
+         np ASSIGN mem_alloc_i2(l1,u1,l2,nu,name)
          return
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
 
+      assert(mem_realloc_check(name,u2,nu))
       if (u2 == nu) then
          np ASSIGN p
          return
@@ -1180,30 +1326,36 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_i3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+      function mem_realloc_i3(p,l1,u1,l2,u2,l3,u3,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
       integer, dimension(:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_i3(l1,u1,l2,u2,l3,u3) result(p)
+         function mem_alloc_i3(l1,u1,l2,u2,l3,u3,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3
          integer, dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l3 <= nu )
       if (u3 == l3-1) then
-         np ASSIGN mem_alloc_i3(l1,u1,l2,u2,l3,nu)
+         np ASSIGN mem_alloc_i3(l1,u1,l2,u2,l3,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
 
+      assert(mem_realloc_check(name,u3,nu))
       if (u3 == nu) then
          np ASSIGN p
          return
@@ -1219,24 +1371,29 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+      function mem_realloc_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
       integer, dimension(:,:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
          integer, dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l4 <= nu )
       if (u4 == l4-1) then
-         np ASSIGN mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,nu)
+         np ASSIGN mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
@@ -1244,6 +1401,7 @@ do pointer arithmetic).
      $     && lbound(p,3)==l3 && ubound(p,3)==u3
      $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
 
+      assert(mem_realloc_check(name,u4,nu))
       if (u4 == nu) then
          np ASSIGN p
          return
@@ -1259,24 +1417,29 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+      function mem_realloc_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
       integer, dimension(:,:,:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
          integer, dimension(:,:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l5 <= nu )
       if (u5 == l5-1) then
-         np ASSIGN mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,nu)
+         np ASSIGN mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
@@ -1285,6 +1448,7 @@ do pointer arithmetic).
      $     && lbound(p,4)==l4 && ubound(p,4)==u4
      $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
 
+      assert(mem_realloc_check(name,u5,nu))
       if (u5 == nu) then
          np ASSIGN p
          return
@@ -1300,28 +1464,34 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_r1(p,l1,u1,nu) result(np)
+      function mem_realloc_r1(p,l1,u1,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,nu
       real, dimension(:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_r1(l1,u1) result(p)
+         function mem_alloc_r1(l1,u1,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1
          real, dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l1 <= nu )
       if (u1 == l1-1) then
-         np ASSIGN mem_alloc_r1(l1,nu)
+         np ASSIGN mem_alloc_r1(l1,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
 
+      assert(mem_realloc_check(name,u1,nu))
       if (u1 == nu) then
          np ASSIGN p
          return
@@ -1337,29 +1507,35 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_r2(p,l1,u1,l2,u2,nu) result(np)
+      function mem_realloc_r2(p,l1,u1,l2,u2,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,nu
       real, dimension(:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_r2(l1,u1,l2,u2) result(p)
+         function mem_alloc_r2(l1,u1,l2,u2,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2
          real, dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l2 <= nu )
       if (u2 == l2-1) then
-         np ASSIGN mem_alloc_r2(l1,u1,l2,nu)
+         np ASSIGN mem_alloc_r2(l1,u1,l2,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
 
+      assert(mem_realloc_check(name,u2,nu))
       if (u2 == nu) then
          np ASSIGN p
          return
@@ -1375,30 +1551,36 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_r3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+      function mem_realloc_r3(p,l1,u1,l2,u2,l3,u3,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
       real, dimension(:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_r3(l1,u1,l2,u2,l3,u3) result(p)
+         function mem_alloc_r3(l1,u1,l2,u2,l3,u3,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3
          real, dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l3 <= nu )
       if (u3 == l3-1) then
-         np ASSIGN mem_alloc_r3(l1,u1,l2,u2,l3,nu)
+         np ASSIGN mem_alloc_r3(l1,u1,l2,u2,l3,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
 
+      assert(mem_realloc_check(name,u3,nu))
       if (u3 == nu) then
          np ASSIGN p
          return
@@ -1414,24 +1596,29 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+      function mem_realloc_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
       real, dimension(:,:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
          real, dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l4 <= nu )
       if (u4 == l4-1) then
-         np ASSIGN mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,nu)
+         np ASSIGN mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
@@ -1439,6 +1626,7 @@ do pointer arithmetic).
      $     && lbound(p,3)==l3 && ubound(p,3)==u3
      $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
 
+      assert(mem_realloc_check(name,u4,nu))
       if (u4 == nu) then
          np ASSIGN p
          return
@@ -1454,24 +1642,29 @@ do pointer arithmetic).
       return
       end function
 
-      function mem_realloc_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+      function mem_realloc_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu,name) result(np)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
       real, dimension(:,:,:,:,:), pointer :: p,np
+      character(len=*), intent(in) :: name
+      logical mem_realloc_check
+      external mem_realloc_check
+      mem_common
 
       interface
 
-         function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
          real, dimension(:,:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
       end interface
 
       assert( l5 <= nu )
       if (u5 == l5-1) then
-         np ASSIGN mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,nu)
+         np ASSIGN mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,nu,name)
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
@@ -1480,6 +1673,7 @@ do pointer arithmetic).
      $     && lbound(p,4)==l4 && ubound(p,4)==u4
      $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
 
+      assert(mem_realloc_check(name,u5,nu))
       if (u5 == nu) then
          np ASSIGN p
          return
@@ -1499,42 +1693,57 @@ do pointer arithmetic).
 
 @ Memory deallocation, Fortran 90 version
 
-
 @<Functions...@>=
 @#if FORTRAN90
-      subroutine mem_free_c1(p,size,l1,u1)
+      subroutine mem_free_c1(p,size,l1,u1,name)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1
       character(len=size), dimension(:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u1 == l1-1) then
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+      
+      assert(mem_free_check(name,u1))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_c2(p,size,l1,u1,l2,u2)
+
+      subroutine mem_free_c2(p,size,l1,u1,l2,u2,name)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2
       character(len=size), dimension(:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u2 == l2-1) then
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+      
+      assert(mem_free_check(name,u2))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_c3(p,size,l1,u1,l2,u2,l3,u3)
+
+      subroutine mem_free_c3(p,size,l1,u1,l2,u2,l3,u3,name)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
       character(len=size), dimension(:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u3 == l3-1) then
          return
@@ -1542,15 +1751,21 @@ do pointer arithmetic).
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+      
+      assert(mem_free_check(name,u3))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4)
+
+      subroutine mem_free_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,name)
       implicit_none_f90
       integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
       character(len=size), dimension(:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u4 == l4-1) then
          return
@@ -1559,45 +1774,62 @@ do pointer arithmetic).
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3
      $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+      
+      assert(mem_free_check(name,u4))
 
       deallocate(p)
       return
       end subroutine
-      
 
-      subroutine mem_free_i1(p,l1,u1)
+      subroutine mem_free_i1(p,l1,u1,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1
       integer, dimension(:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u1 == l1-1) then
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+      
+      assert(mem_free_check(name,u1))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_i2(p,l1,u1,l2,u2)
+
+      subroutine mem_free_i2(p,l1,u1,l2,u2,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2
       integer, dimension(:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u2 == l2-1) then
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+      
+      assert(mem_free_check(name,u2))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_i3(p,l1,u1,l2,u2,l3,u3)
+
+      subroutine mem_free_i3(p,l1,u1,l2,u2,l3,u3,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3
       integer, dimension(:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u3 == l3-1) then
          return
@@ -1605,15 +1837,21 @@ do pointer arithmetic).
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+      
+      assert(mem_free_check(name,u3))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_i4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+
+      subroutine mem_free_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
       integer, dimension(:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u4 == l4-1) then
          return
@@ -1622,15 +1860,21 @@ do pointer arithmetic).
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3
      $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+      
+      assert(mem_free_check(name,u4))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+
+      subroutine mem_free_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
       integer, dimension(:,:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u5 == l5-1) then
          return
@@ -1640,44 +1884,62 @@ do pointer arithmetic).
      $     && lbound(p,3)==l3 && ubound(p,3)==u3
      $     && lbound(p,4)==l4 && ubound(p,4)==u4
      $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
+      
+      assert(mem_free_check(name,u5))
 
       deallocate(p)
       return
       end subroutine
 
-      subroutine mem_free_r1(p,l1,u1)
+      subroutine mem_free_r1(p,l1,u1,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1
       real, dimension(:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u1 == l1-1) then
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+      
+      assert(mem_free_check(name,u1))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_r2(p,l1,u1,l2,u2)
+
+      subroutine mem_free_r2(p,l1,u1,l2,u2,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2
       real, dimension(:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u2 == l2-1) then
          return
       end if
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+      
+      assert(mem_free_check(name,u2))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_r3(p,l1,u1,l2,u2,l3,u3)
+
+      subroutine mem_free_r3(p,l1,u1,l2,u2,l3,u3,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3
       real, dimension(:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u3 == l3-1) then
          return
@@ -1685,15 +1947,21 @@ do pointer arithmetic).
       assert( lbound(p,1)==l1 && ubound(p,1)==u1
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+      
+      assert(mem_free_check(name,u3))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_r4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+
+      subroutine mem_free_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
       real, dimension(:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u4 == l4-1) then
          return
@@ -1702,15 +1970,21 @@ do pointer arithmetic).
      $     && lbound(p,2)==l2 && ubound(p,2)==u2
      $     && lbound(p,3)==l3 && ubound(p,3)==u3
      $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+      
+      assert(mem_free_check(name,u4))
 
       deallocate(p)
       return
       end subroutine
-      
-      subroutine mem_free_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+
+      subroutine mem_free_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name)
       implicit_none_f90
       integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
       real, dimension(:,:,:,:,:), pointer :: p
+      character(len=*), intent(in) :: name
+      logical mem_free_check
+      external mem_free_check
+      mem_common
 
       if (u5 == l5-1) then
          return
@@ -1720,11 +1994,139 @@ do pointer arithmetic).
      $     && lbound(p,3)==l3 && ubound(p,3)==u3
      $     && lbound(p,4)==l4 && ubound(p,4)==u4
      $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
+      
+      assert(mem_free_check(name,u5))
 
       deallocate(p)
       return
       end subroutine
 @#endif /* FORTRAN90 */
+
+@* Routines for registering memory allocation requests.  This is a
+pretty idiotic implementation, whose chief purpose is merely to catch
+memory leaks.
+
+@<Functions...@>=
+@#if FORTRAN90
+      function mem_alloc_check(name,bound)
+      implicit_none_f90
+      logical mem_alloc_check
+      integer, intent(in) :: bound
+      character(len=*), intent(in) :: name
+      character(len=mem_name_size) :: namex
+      mem_common
+      integer :: i,empty
+
+      namex=name
+      if (namex==' ') then
+         mem_alloc_check=.true.
+         return
+      end if
+
+      empty=0
+      mem_alloc_check=.false.
+
+      do i=1,array_num
+         if (mem_array_name[i]==' ') then
+            empty=i
+         else if (namex==mem_array_name[i]) then
+            return
+         end if
+      end do
+
+      if (empty==0) return
+
+      mem_array_name[empty]=namex
+      mem_array_bound[empty]=bound
+      mem_alloc_check=.true.
+
+      return
+      end
+
+      function mem_realloc_check(name,bound,nbound)
+      implicit_none_f90
+      logical mem_realloc_check
+      integer, intent(in) :: bound,nbound
+      character(len=*), intent(in) :: name
+      character(len=mem_name_size) :: namex
+      mem_common
+      integer :: i
+
+      namex=name
+      if (namex==' ') then
+         mem_realloc_check=.true.
+         return
+      end if
+
+      mem_realloc_check=.false.
+
+      do i=1,array_num
+         if (namex==mem_array_name[i]) then
+            if (bound==mem_array_bound[i]) then
+               mem_array_bound[i]=nbound
+               mem_realloc_check=.true.
+               return
+            end if
+            return
+         end if
+      end do
+
+      return
+      end
+
+      function mem_free_check(name,bound)
+      implicit_none_f90
+      logical mem_free_check
+      integer, intent(in) :: bound
+      character(len=*), intent(in) :: name
+      character(len=mem_name_size) :: namex
+      mem_common
+      integer :: i
+
+      namex=name
+      if (namex==' ') then
+         mem_free_check=.true.
+         return
+      end if
+
+      mem_free_check=.false.
+
+      do i=1,array_num
+         if (namex==mem_array_name[i]) then
+            if (bound==mem_array_bound[i]) then
+               mem_array_name[i]=' '
+               mem_free_check=.true.
+               return
+            end if
+            return
+         end if
+      end do
+
+      return
+      end
+
+      subroutine mem_check
+      implicit_none_f90
+      mem_common
+      integer :: i,count
+      
+      write(stdout,*) 'Arrays allocated:'
+      count=0
+      do i=1,array_num
+         if (mem_array_name[i]!=' ') then
+            write(stdout,*) mem_array_name[i],mem_array_bound[i]
+            count++
+         end if
+      end do
+      write(stdout,*) 'Total number: ',count
+      return
+      end
+@#else
+      subroutine mem_check
+      implicit_none_f77
+      return
+      end
+@#endif
 
 @* Error handling.
 

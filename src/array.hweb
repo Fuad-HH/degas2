@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.21  1997/08/21 19:46:50  karney
+% Use f90's portable method of specifying precision (via kind and
+% selected_real_kind).
+%
 % Revision 1.20  1997/08/19 14:36:27  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -406,7 +410,7 @@ and |on|	*/
       real_alloc(x,array_size(x)))
 @#else
 @m var_alloc(x)
-      x ASSIGN paste(mem_alloc_,var_typea(x))(array_arglist(x)) @;
+      x ASSIGN paste(mem_alloc_,var_typea(x))(array_arglist(x),#x) @;
 @#endif
 
 @#if FORTRAN77
@@ -416,7 +420,7 @@ and |on|	*/
       real_realloc(x,array_sizev(x,on),array_sizev(x,n)))
 @#else
 @m var_realloc(x,on,n)
-      x ASSIGN paste(mem_realloc_,var_typea(x))(x,array_arglistc(x,on),n) @;
+      x ASSIGN paste(mem_realloc_,var_typea(x))(x,array_arglistc(x,on),n,#x) @;
 @#endif
 
 @#if FORTRAN77
@@ -426,7 +430,7 @@ and |on|	*/
       real_free(x,array_size(x)))
 @#else
 @m var_free(x)
-      call paste(mem_free_,var_typea(x))(x,array_arglist(x)) @;
+      call paste(mem_free_,var_typea(x))(x,array_arglist(x),#x) @;
 @#endif
 
 @ Macros to accomodate growing arrays.  

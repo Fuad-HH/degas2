@@ -2,6 +2,11 @@
 \Title{sysdeptest}
 
 % $Log$
+% Revision 1.10  1997/08/19 14:37:08  karney
+% Changes to support compilation under f90.  This involved extensive changes
+% in array.hweb and sysdep.web.  Nearly all other files needed some
+% modifications.
+%
 % Revision 1.9  1996/03/01 20:22:48  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -119,6 +124,7 @@ c      real cpu_time
 
       n=10
       var_alloc(x)
+      call mem_check
       do i=1,n
          x(i)=i
       end do
@@ -137,6 +143,7 @@ c      real cpu_time
       do i=1,n
          assert(x(i)==i)
       end do
+      call mem_check
       var_free(x)
 
       n=10
@@ -182,7 +189,7 @@ c      real cpu_time
          assert(ch(i)==char(i+ichar('a')))
       end do
       var_free(ch)
-
+      call mem_check
       write(stdout,'(a,f10.6)') 'CPU: ',cpu_time()-t0
       write(stdout,'(a,i9)') 'Elasped: ',wall_time()-wall
       stop

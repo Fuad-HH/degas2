@@ -1,6 +1,10 @@
 @* Macros for machine dependencies.
 % $Id$
 % $Log$
+% Revision 1.8  1997/08/21 19:47:03  karney
+% Use f90's portable method of specifying precision (via kind and
+% selected_real_kind).
+%
 % Revision 1.7  1997/08/19 14:37:07  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -183,256 +187,298 @@
 @#else
       interface
 
-         function mem_alloc_c1(size,l1,u1) result(p)
+         function mem_alloc_c1(size,l1,u1,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1
          character(len=size), dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_c2(size,l1,u1,l2,u2) result(p)
+         function mem_alloc_c2(size,l1,u1,l2,u2,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2
          character(len=size), dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3) result(p)
+         function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
          character(len=size), dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
          character(len=size), dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_i1(l1,u1) result(p)
+         function mem_alloc_i1(l1,u1,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1
          integer, dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_i2(l1,u1,l2,u2) result(p)
+         function mem_alloc_i2(l1,u1,l2,u2,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2
          integer, dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_i3(l1,u1,l2,u2,l3,u3) result(p)
+         function mem_alloc_i3(l1,u1,l2,u2,l3,u3,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3
          integer, dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
          integer, dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
          integer, dimension(:,:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_r1(l1,u1) result(p)
+         function mem_alloc_r1(l1,u1,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1
          real, dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_r2(l1,u1,l2,u2) result(p)
+         function mem_alloc_r2(l1,u1,l2,u2,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2
          real, dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_r3(l1,u1,l2,u2,l3,u3) result(p)
+         function mem_alloc_r3(l1,u1,l2,u2,l3,u3,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3
          real, dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
          real, dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name) result(p)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
          real, dimension(:,:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_c1(p,size,l1,u1,nu) result(np)
+         function mem_realloc_c1(p,size,l1,u1,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,nu
          character(len=size), dimension(:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_c2(p,size,l1,u1,l2,u2,nu) result(np)
+         function mem_realloc_c2(p,size,l1,u1,l2,u2,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,nu
          character(len=size), dimension(:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_c3(p,size,l1,u1,l2,u2,l3,u3,nu) result(np)
+         function mem_realloc_c3(p,size,l1,u1,l2,u2,l3,u3,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,nu
          character(len=size), dimension(:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+         function mem_realloc_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4,nu
          character(len=size), dimension(:,:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_i1(p,l1,u1,nu) result(np)
+         function mem_realloc_i1(p,l1,u1,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,nu
          integer, dimension(:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_i2(p,l1,u1,l2,u2,nu) result(np)
+         function mem_realloc_i2(p,l1,u1,l2,u2,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,nu
          integer, dimension(:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_i3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+         function mem_realloc_i3(p,l1,u1,l2,u2,l3,u3,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
          integer, dimension(:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+         function mem_realloc_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
          integer, dimension(:,:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+         function mem_realloc_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
          integer, dimension(:,:,:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_r1(p,l1,u1,nu) result(np)
+         function mem_realloc_r1(p,l1,u1,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,nu
          real, dimension(:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_r2(p,l1,u1,l2,u2,nu) result(np)
+         function mem_realloc_r2(p,l1,u1,l2,u2,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,nu
          real, dimension(:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_r3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+         function mem_realloc_r3(p,l1,u1,l2,u2,l3,u3,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
          real, dimension(:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+         function mem_realloc_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
          real, dimension(:,:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         function mem_realloc_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+         function mem_realloc_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu,name) result(np)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
          real, dimension(:,:,:,:,:), pointer :: p,np
+         character(len=*), intent(in) :: name
          end function
 
-         subroutine mem_free_c1(p,size,l1,u1)
+         subroutine mem_free_c1(p,size,l1,u1,name)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1
          character(len=size), dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_c2(p,size,l1,u1,l2,u2)
+         subroutine mem_free_c2(p,size,l1,u1,l2,u2,name)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2
          character(len=size), dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_c3(p,size,l1,u1,l2,u2,l3,u3)
+         subroutine mem_free_c3(p,size,l1,u1,l2,u2,l3,u3,name)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
          character(len=size), dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4)
+         subroutine mem_free_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,name)
          implicit_none_f90
          integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
          character(len=size), dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_i1(p,l1,u1)
+         subroutine mem_free_i1(p,l1,u1,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1
          integer, dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_i2(p,l1,u1,l2,u2)
+         subroutine mem_free_i2(p,l1,u1,l2,u2,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2
          integer, dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_i3(p,l1,u1,l2,u2,l3,u3)
+         subroutine mem_free_i3(p,l1,u1,l2,u2,l3,u3,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3
          integer, dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_i4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+         subroutine mem_free_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
          integer, dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+         subroutine mem_free_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
          integer, dimension(:,:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_r1(p,l1,u1)
+         subroutine mem_free_r1(p,l1,u1,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1
          real, dimension(:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_r2(p,l1,u1,l2,u2)
+         subroutine mem_free_r2(p,l1,u1,l2,u2,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2
          real, dimension(:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_r3(p,l1,u1,l2,u2,l3,u3)
+         subroutine mem_free_r3(p,l1,u1,l2,u2,l3,u3,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3
          real, dimension(:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_r4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+         subroutine mem_free_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
          real, dimension(:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
-         subroutine mem_free_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+         subroutine mem_free_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,name)
          implicit_none_f90
          integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
          real, dimension(:,:,:,:,:), pointer :: p
+         character(len=*), intent(in) :: name
          end subroutine
 
       end interface
