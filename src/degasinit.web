@@ -2,6 +2,10 @@
 \Title{DEGAS Initialization Routine}
 
 % $Log$
+% Revision 1.6  2000/04/01 17:32:02  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.5.2.1  1999/12/16 18:29:25  dstotler
 % Moved extract_output_datum from score.web.
 %
@@ -98,7 +102,7 @@
       integer icomp,mom
       real scores[0:*][o_mean:o_var]  
       character*(*) name
-      integer tally_number,i                     // Local
+      integer tally_number,i,element             // Local
       integer ind_val[tl_rank_max]
 
       st_decls
@@ -117,7 +121,8 @@
          end if
       end do
 
-      extract_output_datum=scores[out_array_index(icomp,ind_val,tally_number)][mom]
+      element=out_array_index(icomp,ind_val,tally_number)
+      extract_output_datum=scores[element][mom]
 
       return
       end
