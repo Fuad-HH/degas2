@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1995/10/04 18:33:32  karney
+% (1) Fix comments to avoid bugs in ftangle.
+% (2) Implement transforms on surfaces.
+% (3) Update universal_cell to impose periodicity on y boundaries.
+%
 % Revision 1.6  1995/08/09 18:00:02  dstotler
 % Define a set of arrays analogous to the main "reaction_data" arrays
 % called reaction_misc which hold miscellaneous data.
@@ -28,26 +33,20 @@
 \ID{$Id$}
 
 Data for reactions is held in arrays in common blocks.
-|rd_datan(x,m,...)| accesses the data for the $m$th table as an $n$d array.
+|rd_data3(x,m,...)| accesses the data for the $m$th table as an array
+with up to 3 dimensions.
 Miscellaneous (i.e., not cross section or reaction rate) data is handled
 in the analogous |rd_misc_data3| array.
 
-@m rd_data1(x,m,i) reaction_data_table[reaction_data_base[x][m]+i]
-@m rd_data2(x,m,i,j) reaction_data_table[reaction_data_base[x][m]+i+reaction_data_tab_index[x][m][1]*j]
+@I xsection.hweb
+@I problem.hweb
+
 @m rd_data3(x,m,i,j,k) reaction_data_table[reaction_data_base[x][m]+i+reaction_data_tab_index[x][m][1]*(j+reaction_data_tab_index[x][m][2]*k)]
 
-@m rd_rate1(x,i) rd_data1(n,rd_rate,i)
-@m rd_rate2(x,i,j) rd_data2(n,rd_rate,i,j)
-@m rd_rate3(x,i,j,k) rd_data3(n,rd_rate,i,j,k)
-
-@m rd_xs1(x,i) rd_data1(n,rd_xs,i)
-@m rd_xs2(x,i,j) rd_data2(n,rd_xs,i,j)
-@m rd_xs3(x,i,j,k) rd_data3(n,rd_xs,i,j,k)
+@m rd_misc_data3(x,m,i,j,k) reaction_misc_table[reaction_misc_base[x][m]+i+reaction_misc_tab_index[x][m][1]*(j+reaction_misc_tab_index[x][m][2]*k)]
 
 @m rd_xs 1
 @m rd_rate 2
-
-@m rd_misc_data3(x,m,i,j,k) reaction_misc_table[reaction_misc_base[x][m]+i+reaction_misc_tab_index[x][m][1]*(j+reaction_misc_tab_index[x][m][2]*k)]
 
 @ Variable definitions.
 
@@ -91,39 +90,20 @@ in the analogous |rd_misc_data3| array.
       rd_common_a;
       integer inc;
 
-/*
-   |rd_set_inc| computes the number of elements in the J-dimensional
-   object labeled by the indices |m| and |n|, where J is the range of 
-   the first index of |y|. |y| is intended to be a |tab_index| array
-   of the sort defined above.
-*/
-@m rd_set_inc(y,m,n)
+/* The |ragged_alloc| macros are a subset of the ones described in 
+   |pmidata.hweb|. More detailed documentation is given there. */
+@m rd_set_baseinc(x,y,subs)
+      x##_base##subs##=x##_size;
       inc=1;
       $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
-        inc=inc*y[I,m,n];
+        inc=inc*y##subs##[I];
       }
 
-/*
-   |rd_ragged_alloc| and |rd_ragged_realloc| are designed to automatically
-   allocate memory for ragged arrays needed by this class. This simply 
-   involves calculating the size of each incremental ``chunk'' 
-   (corresponding to particular values of the subscripts |m| and |n|), 
-   using that to allocate space in the table |x_table|, setting the
-   base |x_base| which stores the address of the initial location of the
-   (m,n)th chunk, and totaling the size |x_size| of the array. The number
-   of elements in the (m,n)th chunk is contained in the |y| array; see
-   |set_inc| above. Since |x_table| has zero size at the beginning of the
-   code, no initial allocation is required. However, |x_size| must be
-   initialized and memory for |x_base| allocated. We do this in the
-   disguise of |rd_ragged_alloc| for consistency with other macros
-   which are expanded at the same time.
-*/
 @m rd_ragged_alloc(x) 
       x##_size=0;
       var_alloc(x##_base);
 
-@m rd_ragged_realloc(x,y,m,n)
-      rd_set_inc(y,m,n);
-      x##_base(m,n)=x##_size;
+@m rd_ragged_realloc(x,y,subs)
+      rd_set_baseinc(x,y,subs);
       var_realloc(x##_table,x##_size-1,x##_size-1+inc);
       x##_size=x##_size+inc @;
