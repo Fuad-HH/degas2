@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.8  1995/06/29 18:05:09  dstotler
+% Initial logic for handling of isotopes.
+%
 % Revision 1.7  1995/06/28 20:54:11  dstotler
 % Replace "target" with "background" everywhere.
 %
@@ -42,41 +45,49 @@ problem is identified by an integer indexing into these arrays.
 @f pr_test_decl integer
 @f pr_background_decl integer
 @f pr_reaction_decl integer
+@f pr_generic_decl integer
 
 @m pr_test_args(x) x
 @m pr_background_args(x) x
 @m pr_reaction_args(x) x
+@m pr_generic_args(x) x
 
 @m pr_test_dummy(x) x
 @m pr_background_dummy(x) x
 @m pr_reaction_dummy(x) x
+@m pr_generic_dummy(x) x
 
 @m pr_test_decl(x) integer x @;
 @m pr_background_decl(x) integer x @;
 @m pr_reaction_decl(x) integer x @;
+@m pr_generic_decl(x) integer x @;
 
 @m pr_test_copy(x,y) y=x @;
 @m pr_background_copy(x,y) y=x @;
 @m pr_reaction_copy(x,y) y=x @;
+@m pr_generic_copy(x,y) y=x @;
 
 @m pr_test_check(x) (x > 0 && x <= pr_test_num)
 @m pr_background_check(x) (x > 0 && x <= pr_background_num)
 @m pr_reaction_check(x) (x > 0 && x <= pr_reaction_num)
+@m pr_generic_check(x) (x > 0 && x <= pr_num_generics)
 
 @m pr_test(x) problem_test_sp[x]
 @m pr_background(x) problem_background_sp[x]
 @m pr_reaction(x) problem_rc[x]
 
-@m pr_ts_gen(x) problem_test_generics[x]
-@m pr_bk_gen(x) problem_background_generics[x]
-@m pr_num_eq_ts(x) problem_num_equiv_tests[x]
-@m pr_num_eq_bk(x) problem_num_equiv_bks[x]
-@m pr_eq_ts(x,i) problem_equiv_test[i,x]
-@m pr_eq_bk(x,i) problem_equiv_background[i,x]
+@m pr_gen(x) problem_generics[x]
+@m pr_num_eq(x) problem_num_equiv[x]
+@m pr_eq(x,i) problem_equiv[i,x]
 
 @m pr_rc_num(x) problem_reaction_num[x]
 @m pr_ts_rc(x,i) problem_test_reaction[i,x]
 @m pr_ts_bk(x,i) problem_test_background[i,x]
+
+@m pr_num_arrangements(i,j) problem_num_arrangements[j,i]
+@m pr_ts_prod(i,j,k,l) problem_test_products[l,k,j,i]
+@m pr_prod_mult(i,j,k) problem_prod_mult[k,j,i]
+
 @m pr_test_lookup(sp) int_lookup(sp,problem_test_sp,pr_test_num)
 @m pr_background_lookup(sp) int_lookup(sp,problem_background_sp,pr_background_num)
 @m pr_reaction_lookup(rc) int_lookup(rc,problem_rc,pr_reaction_num)
@@ -84,6 +95,7 @@ problem is identified by an integer indexing into these arrays.
 @ Length specifications.
 
 @m pr_reaction_max 5
+@m pr_arrangement_max 4
 
 @ Variable definitions.
 
@@ -92,32 +104,37 @@ problem is identified by an integer indexing into these arrays.
       define_var_pk(pr,pr_test_num,INT)
       define_var_pk(pr,pr_background_num,INT)
       define_var_pk(pr,pr_reaction_num,INT)
-      define_var_pk(pr,pr_num_test_generics,INT)
-      define_var_pk(pr,pr_num_background_generics,INT)
+      define_var_pk(pr,pr_num_generics,INT)
+      define_var_pk(pr,pr_max_equiv,INT)
       define_dummy_pk(pr,pr_ignore,INT)
+
       define_dimen_pk(pr,problem_test_ind,pr_test_num)
       define_dimen_pk(pr,problem_background_ind,pr_background_num)
       define_dimen_pk(pr,problem_reaction_ind,pr_reaction_num)
       define_dimen_pk(pr,problem_reaction_ind0,pr_reaction_max)
       define_dimen_pk(pr,problem_species_ind,sp_num)
-      define_dimen_pk(pr,problem_test_gen_ind,pr_num_test_generics)
-      define_dimen_pk(pr,problem_background_gen_ind,pr_num_background_generics)
+      define_dimen_pk(pr,problem_gen_ind,pr_num_generics)
+      define_dimen_pk(pr,problem_product_ind,rc_product_max)
+      define_dimen_pk(pr,problem_arr_ind,pr_arrangement_max)
+      define_dimen_pk(pr,problem_equiv_ind,pr_max_equiv)
+
       define_varp_pk(pr,problem_species_test,INT,problem_species_ind)
       define_varp_pk(pr,problem_species_background,INT,problem_species_ind)
       define_varp_pk(pr,problem_test_sp,INT,problem_test_ind)
       define_varp_pk(pr,problem_background_sp,INT,problem_background_ind)
 
-      define_varp_pk(pr,problem_test_generics,INT,problem_species_ind)
-      define_varp_pk(pr,problem_background_generics,INT,problem_species_ind)
-      define_varp_pk(pr,problem_num_equiv_tests,INT,problem_test_gen_ind)
-      define_varp_pk(pr,problem_num_equiv_bks,INT,problem_background_gen_ind)
-      define_varp_pk(pr,problem_equiv_test,INT,problem_test_ind,problem_test_gen_ind)
-      define_varp_pk(pr,problem_equiv_background,INT,problem_background_ind,problem_background_gen_ind)
+      define_varp_pk(pr,problem_generics,INT,problem_species_ind)
+      define_varp_pk(pr,problem_num_equiv,INT,problem_gen_ind)
+      define_varp_pk(pr,problem_equiv,INT,problem_equiv_ind,problem_gen_ind)
 
       define_varp_pk(pr,problem_rc,INT,problem_reaction_ind)
       define_varp_pk(pr,problem_reaction_num,INT,problem_test_ind)
       define_varp_pk(pr,problem_test_reaction,INT,problem_reaction_ind0,problem_test_ind)
       define_varp_pk(pr,problem_test_background,INT,problem_reaction_ind0,problem_test_ind)
+
+      define_varp_pk(pr,problem_num_arrangements,INT,problem_reaction_ind0,problem_test_ind)
+      define_varp_pk(pr,problem_test_products,INT,problem_product_ind,problem_arr_ind,problem_reaction_ind0,problem_test_ind)
+      define_varp_pk(pr,problem_prod_mult,FLOAT,problem_arr_ind,problem_reaction_ind0,problem_test_ind)
 
 @ Common blocks definitions.
 

@@ -2,6 +2,11 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.10  1995/07/14 13:20:30  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.9  1995/06/29 18:05:19  dstotler
 % Initial logic for handling of isotopes.
 %
@@ -58,7 +63,7 @@ Introduction\ldots
 
       @<Functions and Subroutines@>
 
-@ Read is data from \verb+problem.input+.
+@ Read in data from \verb+problem.input+.
 
 @<Functions...@>=
       subroutine read_problem
@@ -97,6 +102,9 @@ loop1: continue
       
 eof:  continue      
 
+/* Need to set |pr_max_equiv| before |check_problem|
+is called for arrays to work properly. */
+      pr_max_equiv=max(pr_test_num,pr_background_num)
       call check_problem
       
       return
@@ -107,7 +115,10 @@ eof:  continue
 @<Functions...@>=
       subroutine init_problem
       implicit_none
+      integer i                // Local
       pr_common
+      sp_common
+      sy_common
       
       call nc_read_elements
       call nc_read_species
@@ -115,8 +126,11 @@ eof:  continue
       pr_test_num=0
       pr_background_num=0
       pr_reaction_num=0
-      pr_num_test_generics=0
-      pr_num_background_generics=0
+      pr_num_generics=0
+      var_alloc(problem_generics)
+      do i=1,sp_num
+         pr_gen(i)=0
+      end do
       
       return
       end
@@ -134,12 +148,9 @@ eof:  continue
       sy_common
       st_common
 
-/* Eventually, |problem_species_test| can be removed */
       var_alloc(problem_species_test)
-      var_alloc(problem_test_generics)
       do i=1,sp_num
          problem_species_test[i]=0
-         pr_ts_gen(i)=0
       end do
 
 loop1: continue
@@ -158,13 +169,19 @@ loop2: continue
       assert(pr_test(pr_test_num) > 0)
       problem_species_test(pr_test(pr_test_num)) = pr_test_num
       
-      if (pr_ts_gen(sp_generic(pr_test(pr_test_num)))==0) then  
-/* New generic species: increment count of generic test species and make
-   corresponding entry in |pr_ts_gen| which provides a map from generic entries 
+      if (pr_gen(sp_generic(pr_test(pr_test_num)))==0) then  
+/* New generic species: increment count of generic species and make
+   corresponding entry in |pr_gen| which provides a map from entries 
    in the species list to this index of generic species represented in 
-   the test list */
-         pr_num_test_generics++                            
-         pr_ts_gen(sp_generic(pr_test(pr_test_num)))=pr_num_test_generics
+   the test and background lists. */
+         pr_num_generics++                            
+         pr_gen(sp_generic(pr_test(pr_test_num)))=pr_num_generics
+
+/* The following two assignments treat tests which are not generic. */
+         if (pr_test(pr_test_num) != sp_generic(pr_test(pr_test_num))) 
+     $        pr_gen(pr_test(pr_test_num))=pr_num_generics
+      else
+         pr_gen(pr_test(pr_test_num))=pr_gen(sp_generic(pr_test(pr_test_num)))
       end if
 
       goto loop2
@@ -185,12 +202,9 @@ eof:  return
       sy_common
       st_common
       
-/* Eventually, |problem_species_background| can be removed. */
       var_alloc(problem_species_background)
-      var_alloc(problem_background_generics)
       do i=1,sp_num
          problem_species_background[i]=0
-         pr_bk_gen(i)=0
       end do
 
 loop1: continue
@@ -210,13 +224,19 @@ loop2: continue
       assert(pr_background(pr_background_num) > 0)
       problem_species_background(pr_background(pr_background_num)) = pr_background_num
       
-      if (pr_bk_gen(sp_generic(pr_background(pr_background_num)))==0) then 
-/* New generic species: increment count of generic background species and make
-   corresponding entry in |pr_bk_gen| which provides a map from generic entries 
+      if (pr_gen(sp_generic(pr_background(pr_background_num)))==0) then 
+/* New generic species: increment count of generic species and make
+   corresponding entry in |pr_gen| which provides a map from generic entries 
    in the species list to this index of generic species represented in 
-   the background list */
-         pr_num_background_generics++
-         pr_bk_gen(sp_generic(pr_background(pr_background_num)))=pr_num_background_generics
+   the test and background lists */
+         pr_num_generics++
+         pr_gen(sp_generic(pr_background(pr_background_num)))=pr_num_generics
+
+/* The following two assignments treat backgrounds which are not generic */
+         if (pr_background(pr_background_num) != sp_generic(pr_background(pr_background_num))) 
+     $        pr_gen(pr_background(pr_background_num))=pr_num_generics
+      else
+         pr_gen(pr_background(pr_background_num))=pr_gen(sp_generic(pr_background(pr_background_num)))
       end if
 
       goto loop2
@@ -257,13 +277,22 @@ loop2: continue
 eof:  return
       end
 
-@ Check problem specification.
+@ Check problem specification. This routine sets up the arrays
+which will actually be used to implement reactions in the run.
 
 @<Functions...@>=
       subroutine check_problem
       implicit_none
-      integer i,j,k,l,test,background,generic_ts,generic_bk       // Local
-      integer temp_gen_ts[rc_reagent_max],temp_gen_bk[rc_reagent_max]
+      integer i,j,k,l,ts_reagent                     // Local
+
+      pr_test_decl(test)
+      pr_background_decl(background)
+      pr_generic_decl(generic)
+      pr_generic_decl(generic_ts)
+      pr_generic_decl(generic_bk)
+
+      sp_decl(reagents[rc_reagent_max])
+
       pr_common
       sp_common
       rc_common
@@ -285,43 +314,37 @@ eof:  return
       var_alloc(problem_reaction_num)
       var_alloc(problem_test_reaction)
       var_alloc(problem_test_background)
-      var_alloc(problem_num_equiv_tests)
-      var_alloc(problem_num_equiv_bks)
-      var_alloc(problem_equiv_test)
-      var_alloc(problem_equiv_background)
+      var_alloc(problem_num_equiv)
+      var_alloc(problem_equiv)
+      var_alloc(problem_num_arrangements)
+      var_alloc(problem_prod_mult)
+      var_alloc(problem_test_products)
 
-      do i=1,pr_num_test_generics
-         pr_num_eq_ts(i)=0
-         do j=1,pr_test_num
-            pr_eq_ts(i,j)=0
+      do i=1,pr_num_generics
+         pr_num_eq(i)=0
+         do j=1,pr_max_equiv
+            pr_eq(i,j)=0
          end do
       end do
 
 /* For each generic species, first obtain the index for the
-   list of generics |generic_ts|, then count the number 
+   list of generics |generic|, then count the number 
    of equivalent test species, and store the corresponding 
-   test index in |pr_eq_ts|. */
+   {\em species} index in |pr_eq|. */
       do i=1,pr_test_num
-         generic_ts=pr_ts_gen(sp_generic(pr_test(i)))
-         pr_num_eq_ts(generic_ts)++
-         pr_eq_ts(generic_ts,pr_num_eq_ts(generic_ts))=i
-      end do
-
-      do i=1,pr_num_background_generics
-         pr_num_eq_bk(i)=0
-         do j=1,pr_background_num
-            pr_eq_bk(i,j)=0
-         end do
+         generic=pr_gen(pr_test(i))
+         pr_num_eq(generic)++
+         pr_eq(generic,pr_num_eq(generic))=pr_test(i)
       end do
 
 /* Do same for generics of background species */
       do i=1,pr_background_num
-         generic_bk=pr_bk_gen(sp_generic(pr_background(i)))
-         pr_num_eq_bk(generic_bk)++
-         pr_eq_bk(generic_bk,pr_num_eq_bk(generic_bk))=i
+         generic=pr_gen(pr_background(i))
+         pr_num_eq(generic)++
+         pr_eq(generic,pr_num_eq(generic))=pr_background(i)
       end do
       
- /* We can only deal with binary collisions currently */
+/* We can only deal with binary collisions currently */
       do j=1,pr_reaction_num
          assert(rc_reagent_num(pr_reaction(j)) == 2)
       end do
@@ -335,53 +358,418 @@ eof:  return
 /* Allow for arbitrary ordering of |test| and |background| in reagent 
    specification. Despite a general appearance, this still assumes 
    binary collisions. */
+         generic=0
          generic_ts=0
          generic_bk=0
          do i=1,rc_reagent_num(pr_reaction(j))
-            temp_gen_ts[i]=pr_ts_gen(sp_generic(rc_reagent(pr_reaction(j),i)))
-            temp_gen_bk[i]=pr_bk_gen(sp_generic(rc_reagent(pr_reaction(j),i)))
-            if (temp_gen_ts[i] == 0) then              
+            generic=pr_gen(rc_reagent(pr_reaction(j),i))
+
+            if (problem_species_test(pr_eq(generic,1)) == 0) then              
 
 /* If not a test, then it must be a background */
-               assert(temp_gen_bk[i]!=0 && generic_bk==0)
-               generic_bk=temp_gen_bk[i]
+               assert(problem_species_background(pr_eq(generic,1))!=0 && generic_bk==0)
+               generic_bk=generic
 
-/* Check for the converse, as well */
-            else if (temp_gen_bk[i] == 0) then
-               assert(temp_gen_ts[i]!=0 && generic_ts==0)
-               generic_ts=temp_gen_ts[i]
+/* Check for the converse, as well. Use |ts_reagent| to record which
+is which for later use. */
+            else if (problem_species_background(pr_eq(generic,1)) == 0) then
+               assert(problem_species_test(pr_eq(generic,1))!=0 && generic_ts==0)
+               ts_reagent=i
+               generic_ts=generic
             end if
          end do
 
-/* If one of |generic_ts| or |generic_bkd| remains unset, it is because one generic
-   species is on both test and background lists. Loop through reagents again to find 
-   it and assignment to either |generic_ts| or |generic_bk|, whichever is unset. */
-         if (generic_ts==0 || generic_bk==0) then
-            do i=1,rc_reagent_num(pr_reaction(j))
-               if (temp_gen_ts[i]!=0 && temp_gen_bk[i]!=0) then
-                  if (generic_bk == 0) then
-                     generic_bk=temp_gen_bk[i]
-                  else if (generic_ts == 0) then
-                     generic_ts=temp_gen_ts[i]
-                  end if
-               end if
-            end do
-         end if
-
 /* Done setting |generic_ts| and |generic_bk|; use to assign remaining |pr| arrays */
-         do k=1,pr_num_eq_ts(generic_ts)
-            test=pr_eq_ts(generic_ts,k)
-            do l=1,pr_num_eq_bk(generic_bk)
-               background=pr_eq_bk(generic_bk,l)
+         do k=1,pr_num_eq(generic_ts)
+            test=problem_species_test(pr_eq(generic_ts,k))
+            do l=1,pr_num_eq(generic_bk)
+               background=problem_species_background(pr_eq(generic_bk,l))
                assert( pr_test_check(test) && pr_background_check(background) )
                pr_rc_num(test)=pr_rc_num(test)+1
                assert(pr_rc_num(test) <= pr_reaction_max)
                pr_ts_rc(test,pr_rc_num(test))=j
                pr_ts_bk(test,pr_rc_num(test))=background
+               if (ts_reagent==1) then
+                  reagents[1]=pr_test(test)
+                  reagents[2]=pr_background(background)
+               else if (ts_reagent==2) then
+                  reagents[1]=pr_background(background)
+                  reagents[2]=pr_test(test)
+               else
+                  assert('Illegal value of ts_reagent' == ' ')
+               end if
+               call set_products(pr_test_args(test),sp_args(reagents),rc_args(pr_reaction(j)))
             end do
          end do
       end do
 
+      return
+      end
+
+@ Set up isotopic variants of reaction products.
+
+@<Functions...@>=
+      subroutine set_products(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
+      implicit_none
+
+      pr_test_decl(ts)          // Input
+      rc_decl(r)
+      sp_decl(reagents[1])
+      
+      integer i                 // Local
+      real sum   
+
+      pr_common
+      rc_common
+
+      if (rc_reaction_type(r)=='ionize') then
+         call set_prod_ionize(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='chargex') then
+         call set_prod_chargex(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='dissoc') then
+         call set_prod_dissoc(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='dissoc_rec') then
+         call set_prod_dissoc_rec(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      end if
+
+/* Rescale multiplicity so that it becomes a probability */
+      sum=zero
+      do i=1,pr_num_arrangements(ts,pr_rc_num(ts))
+         sum=sum+pr_prod_mult(ts,pr_rc_num(ts),i)
+      end do
+      do i=1,pr_num_arrangements(ts,pr_rc_num(ts))
+         pr_prod_mult(ts,pr_rc_num(ts),i)=pr_prod_mult(ts,pr_rc_num(ts),i)/sum
+      end do
+
+      return
+      end
+
+@ Set up isotopic variants of ionizations. By convention, an ionization
+reaction specification takes the form:
+\begin{equation}
+{\rm A} + {\rm B} \rightarrow {\rm A} + {\rm B}^{+} + {\rm e};
+\end{equation}
+note that B could be charged to start with.
+
+@<Functions...@>=
+      subroutine set_prod_ionize(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
+      implicit_none
+
+      pr_test_decl(ts)
+      sp_decl(reagents[1])
+      rc_decl(r)
+
+      external species_add_check      // External
+      logical species_add_check
+
+      integer i                       // Local
+
+      sp_decl(product[2])
+
+      rc_common
+      pr_common
+      sp_common
+      st_common
+
+      assert(rc_product_num(r)==3)
+      pr_num_arrangements(ts,pr_rc_num(ts))=1
+      pr_prod_mult(ts,pr_rc_num(ts),1)=one
+
+/* First product corresponds to the reagent which does the ionizing:
+its species is unaltered. */
+      assert(sp_generic(rc_product(r,1))==sp_generic(reagents[1]))
+      pr_ts_prod(ts,pr_rc_num(ts),1,1)=reagents[1]
+
+/* By convention, the third (last) product is the electron knocked off
+during ionization. */
+      assert(rc_product(r,3)==sp_lookup('e'))
+      pr_ts_prod(ts,pr_rc_num(ts),1,3)=rc_product(r,3)
+
+/* The second product is the result of the ionization. It corresponds to
+the second reagent, minus an electron. By looping over the generic
+equivalents to the second |rc_product|, we ensure that any details
+(e.g., quantum state) not checked by |species_add_check| are 
+correctly carried through. */
+      product[2]=rc_product(r,3)
+      do i=1,pr_num_eq(pr_gen(rc_product(r,2)))
+         product[1]=pr_eq(pr_gen(rc_product(r,2)),i)
+         if (species_add_check(2,sp_args(product),1,sp_args(reagents[2]))) then
+            pr_ts_prod(ts,pr_rc_num(ts),1,2)=product[1]
+            return
+         end if
+      end do
+      assert('Unmatched ionization product' == ' ') 
+
+      return
+      end
+
+@ Set up isotopic variants of charge exchange. By convention, a charge 
+exchange reaction specification takes the form:
+\begin{equation}
+{\rm A}^{+} + {\rm B} \rightarrow {\rm A} + {\rm B}^{+}.
+\end{equation}
+the superscript ``+''s are used only to indicate a change in charge state;
+the actual charge states of A and B are intended to be arbitrary.
+
+@<Functions...@>=
+
+      subroutine set_prod_chargex(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
+      implicit_none
+
+      pr_test_decl(ts)
+      rc_decl(r)
+      sp_decl(reagents[1])
+
+      external species_add_check         // External
+      logical species_add_check
+
+      integer i                          // Local
+
+      sp_decl(product[2])
+
+      rc_common
+      pr_common
+      sp_common
+      st_common
+
+      assert(rc_product_num(r)==2)
+      pr_num_arrangements(ts,pr_rc_num(ts))=1
+      pr_prod_mult(ts,pr_rc_num(ts),1)=one
+
+/* The first product should match up with the first reagent plus an electron. */
+      product[1]=sp_lookup('e')
+      product[2]=reagents[1]
+      do i=1,pr_num_eq(pr_gen(rc_product(r,1)))
+         if (species_add_check(2,sp_args(product),1,sp_args(pr_eq(pr_gen(rc_product(r,1)),i)))) then
+            pr_ts_prod(ts,pr_rc_num(ts),1,1)=pr_eq(pr_gen(rc_product(r,1)),i)
+            goto loop1
+         end if
+      end do
+      assert('Unmatched first charge exchange product' == ' ')
+
+loop1: continue
+
+/* Likewise, the second reagent should match the second product plus an
+electron. */
+      do i=1,pr_num_eq(pr_gen(rc_product(r,2)))
+         product[2]=pr_eq(pr_gen(rc_product(r,2)),i)
+         if (species_add_check(2,sp_args(product),1,sp_args(reagents[2]))) then
+            pr_ts_prod(ts,pr_rc_num(ts),1,2)=product[2]
+            return
+         end if
+      end do
+      assert('Unmatched second charge exchange product' == ' ')
+
+      return
+      end
+
+@ Set up isotopic variants of dissociation. This reactions is assumed to
+have the form:
+\begin{equation}
+{\rm A} + {\rm B} \rightarrow {\rm A} + {\rm B}_{1} + {\rm B}_{2} + \ldots
+\end{equation}
+where the products B$_{j}$ are the result of the dissociation of B.
+
+@<Functions...@>=
+      subroutine set_prod_dissoc(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
+      implicit_none
+
+      pr_test_decl(ts)
+      rc_decl(r)
+      sp_decl(reagents[1])
+
+      integer i                // Local
+
+      rc_common
+      pr_common
+      sp_common
+
+      assert(sp_generic(rc_product(r,1))==sp_generic(reagents[1]))
+      
+      if (rc_product_num(r)==3) then
+         call product_perm_2(pr_test_args(ts),1,sp_args(reagents[2]),rc_args(r))
+      else if (rc_product_num(r)==4) then
+         call product_perm_3(pr_test_args(ts),1,sp_args(reagents[2]),rc_args(r))
+      else
+         assert('Illegal value of rc_product_num' == ' ')
+      end if
+
+      do i=1,pr_num_arrangements(ts,pr_rc_num(ts))
+         pr_ts_prod(ts,pr_rc_num(ts),i,1)=reagents[1]
+      end do
+
+      return
+      end 
+      
+@ Set up isotopic variants of dissociative recombination.  This reactions is assumed to
+have the form:
+\begin{equation}
+{\rm A} + {\rm B} \rightarrow {\rm C}_{1} + {\rm C}_{2} + \ldots
+\end{equation}
+where the products C$_{j}$ are the result of the dissociation of C which is formed
+by the recombination of A and B.
+
+@<Functions...@>=
+      subroutine set_prod_dissoc_rec(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
+      implicit_none
+
+      pr_test_decl(ts)
+      rc_decl(r)
+      sp_decl(reagents[1])
+
+
+      rc_common
+      pr_common
+      sp_common
+
+      if (rc_product_num(r)==2) then
+         call product_perm_2(pr_test_args(ts),2,sp_args(reagents),rc_args(r),1)
+      else if (rc_product_num(r)==3) then
+         call product_perm_3(pr_test_args(ts),2,sp_args(reagents),rc_args(r),1)
+      else
+         assert('Illegal value of rc_product_num' == ' ')
+      end if
+
+      return
+      end 
+      
+@ Assemble and check permutations of two products arising from the dissociation
+of |num_sp| species |sp| in reaction |r|. The test species |ts| is carried into the 
+routine since to be used as an array index. Note that for simplicity duplicates
+(i.e., permuted lists of equivalent species) are not eliminated. This makes for
+more arrangements than necessary, but the overall probability for a given unique
+arrangement is effected nonetheless. If desired, this duplication could be eliminated
+through additional logic.
+
+@<Functions...@>=
+      subroutine product_perm_2(pr_test_dummy(ts),num_sp,sp_dummy(sp),rc_dummy(r))
+      implicit_none
+
+      integer num_sp                    // Input
+      pr_test_decl(ts)                
+      sp_decl(sp[num_sp])
+      rc_decl(r)
+
+      external species_add_check        // External
+      logical species_add_check
+
+      integer i,j,first_product         // Local
+      sp_decl(product[2])
+      pr_generic_decl(generic_1)
+      pr_generic_decl(generic_2)
+
+      rc_common
+      sp_common
+      pr_common
+
+/* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
+the actual first product will be the dissociating agent; the
+first {\em dissociation} product is then the second product.
+On the other hand, |num_sp| = 2 suggests dissociative recombination
+where all products come from dissociation. */
+      if (num_sp == 1) then
+         first_product=2
+      else if (num_sp == 2) then
+         first_product=1
+      else
+         assert('Invalid num_sp' == ' ')
+      end if
+
+/* Obtain generic indices of the two products */
+      generic_1=pr_gen(rc_product(r,first_product))
+      generic_2=pr_gen(rc_product(r,first_product+1))
+
+/* Loop over the species equivalent to each generic and
+see which combinations are consistent with the given
+reagents. */
+      pr_num_arrangements(ts,pr_rc_num(ts))=0
+      do i=1,pr_num_eq(generic_1)
+         product[1]=pr_eq(generic_1,i)
+         do j=1,pr_num_eq(generic_2)
+            product[2]=pr_eq(generic_2,j)
+            if (species_add_check(2,sp_args(product),num_sp,sp_args(sp))) then
+               pr_num_arrangements(ts,pr_rc_num(ts))++      // Valid arrangement
+               assert(pr_num_arrangements(ts,pr_rc_num(ts))<=pr_arrangement_max)
+               pr_ts_prod(ts,pr_rc_num(ts),pr_num_arrangements(ts,pr_rc_num(ts)),first_product)=product[1]
+               pr_ts_prod(ts,pr_rc_num(ts),pr_num_arrangements(ts,pr_rc_num(ts)),first_product+1)=product[2]
+               pr_prod_mult(ts,pr_rc_num(ts),pr_num_arrangements(ts,pr_rc_num(ts)))=sp_multiplicity(product[1])*sp_multiplicity(product[2])
+            end if
+         end do
+      end do
+      assert(pr_num_arrangements(ts,pr_rc_num(ts)) > 0)
+      return
+      end
+
+@ Assemble and check permutations of three products arising from the 
+dissociation of species |sp| in reaction |r|. The test species |ts| is 
+carried into the routine since to be used as an array index.  Note that for simplicity duplicates
+(i.e., permuted lists of equivalent species) are not eliminated. This makes for
+more arrangements than necessary, but the overall probability for a given unique
+arrangement is effected nonetheless. If desired, this duplication could be eliminated
+through additional logic.
+
+@<Functions...@>=
+      subroutine product_perm_3(pr_test_dummy(ts),num_sp,sp_dummy(sp),rc_dummy(r))
+      implicit_none
+      
+      integer num_sp                    // Input
+      pr_test_decl(ts)                
+      sp_decl(sp[num_sp])
+      rc_decl(r)
+
+      external species_add_check        // External
+      logical species_add_check
+
+      integer i,j,k,first_product       // Local
+      sp_decl(product[3])
+      pr_generic_decl(generic_1)
+      pr_generic_decl(generic_2)
+      pr_generic_decl(generic_3)
+
+      rc_common
+      sp_common
+      pr_common
+
+/* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
+the actual first product will be the dissociating agent; the
+first {\em dissociation} product is then the second product.
+On the other hand, |num_sp| = 2 suggests dissociative recombination
+where all products come from dissociation. */
+      if (num_sp == 1) then
+         first_product=2
+      else if (num_sp == 2) then
+         first_product=1
+      else
+         assert('Invalid num_sp' == ' ')
+      end if
+
+/* Obtain generic indices for each product */
+      generic_1=pr_gen(rc_product(r,first_product))
+      generic_2=pr_gen(rc_product(r,first_product+1))
+      generic_3=pr_gen(rc_product(r,first_product+2))
+
+/* Loop over the species equivalent to each generic and
+see which combinations are consistent with the given
+reagents. */
+      pr_num_arrangements(ts,pr_rc_num(ts))=0
+      do i=1,pr_num_eq(generic_1)
+         product[1]=pr_eq(generic_1,i)
+         do j=1,pr_num_eq(generic_2)
+            product[2]=pr_eq(generic_2,j)
+            do k=1,pr_num_eq(generic_3)
+               product[3]=pr_eq(generic_3,k)
+               if (species_add_check(3,sp_args(product),num_sp,sp_args(sp))) then
+                  pr_num_arrangements(ts,pr_rc_num(ts))++       // Valid arrangement
+                  assert(pr_num_arrangements(ts,pr_rc_num(ts))<=pr_arrangement_max)
+                  pr_ts_prod(ts,pr_rc_num(ts),pr_num_arrangements(ts,pr_rc_num(ts)),first_product)=product[1]
+                  pr_ts_prod(ts,pr_rc_num(ts),pr_num_arrangements(ts,pr_rc_num(ts)),first_product+1)=product[2]
+                  pr_ts_prod(ts,pr_rc_num(ts),pr_num_arrangements(ts,pr_rc_num(ts)),first_product+2)=product[3]
+                  pr_prod_mult(ts,pr_rc_num(ts),pr_num_arrangements(ts,pr_rc_num(ts)))=sp_multiplicity(product[1])*sp_multiplicity(product[2])*sp_multiplicity(product[3])
+              end if
+            end do
+         end do
+      end do
+      assert(pr_num_arrangements(ts,pr_rc_num(ts)) > 0)
       return
       end
 
@@ -432,7 +820,98 @@ eof:  return
       return
       end
 
+@ Count the number of occurrences of a given element in a species. This
+short function loops through the components of the input species |sp|,
+identifies the one matching element |el| and returns the count of that
+element. If the element is not present, zero is returned.
+
+@<Functions...@>=
+      function species_el_count(sp_dummy(sp),el_dummy(el))
+      implicit_none
+      integer species_el_count            // Function
+      sp_decl(sp)                         // Input
+      el_decl(el)
+      integer i,j                         // Local
+
+      sp_common
+
+      j=0
+      do i=1,sp_ncomp(sp)
+         if (sp_el(sp,i)==el) then
+            j=i
+            go to break
+         end if
+      end do
+      species_el_count=0
+      return
+
+break: continue
+      species_el_count=sp_count(sp,j)
       
+      return
+      end
+
+@ Compare the sum of two species lists. The number of species in the lists
+|list1| and |list2| are |n1| and |n2|. One subtle reason
+for carrying out this task as a check against a specific list rather than 
+using the summed properties of |list1| to choose a resulting species
+from the full list of species is that such a choice may not be unique
+due to the presence of other properties not checked here (e.g., quantum
+states). 
+
+@<Functions...@>=
+      function species_add_check(n1,sp_dummy(list1),n2,sp_dummy(list2))
+      implicit_none
+      logical species_add_check           // Function
+      integer n1,n2                       // Input
+      sp_decl(list1[n1])
+      sp_decl(list2[n2])
+      integer z_sum1,z_sum2,i,ic,count_sum1,count_sum2  // Local
+      real m_sum1,m_sum2
+      external species_el_count           // External
+      integer species_el_count
+
+      sp_common
+      el_common
+
+      species_add_check=.false.
+/* First compare total charge and mass of the two lists */
+      z_sum1=0
+      m_sum1=zero
+      do i=1,n1
+         z_sum1=z_sum1+sp_z(list1[i])
+         m_sum1=m_sum1+sp_m(list1[i])
+      end do
+      z_sum2=0
+      m_sum2=zero
+      do i=1,n2
+         z_sum2=z_sum2+sp_z(list2[i])
+         m_sum2=m_sum2+sp_m(list2[i])
+      end do
+
+      if (z_sum1 != z_sum2) return
+      if (abs(m_sum1-m_sum2) > epsilon*max(m_sum1,m_sum2)) return
+
+/* Next, loop over the full list of elements, counting the total number 
+appearing in each list and comparing the two. */
+      do ic=1,el_num
+         count_sum1=0
+         count_sum2=0
+         do i=1,n1
+            count_sum1=count_sum1+species_el_count(list1[i],el_args(ic))
+         end do
+         do i=1,n2
+            count_sum2=count_sum2+species_el_count(list2[i],el_args(ic))
+         end do
+         if (count_sum1 != count_sum2) return
+      end do
+
+/* Passed all tests; call it a match. */
+      species_add_check=.true.
+
+      return
+      end
+
 @* References.
 
 \bibliographystyle{report}
