@@ -2,6 +2,10 @@
 \def\Wtitle{pmiwrite}
 
 % $Log$
+% Revision 1.1  1995/05/31 19:31:42  dstotler
+% Initial revision; reads particle and energy reflection coefficients
+% and factors in angular dependence.
+%
 %
 
 @n/
@@ -11,7 +15,22 @@
 \ID{$Id$}
 
 Reads in text files containing plasma-material interaction data used
-in the original DEGAS code and writes them out as NETCDF files.
+in the original DEGAS code and writes them out as NETCDF files. Of course,
+the data available here are limited to that in the original files. For
+the simpler data contained in the |refl.dat|, there are many combinations
+of projectile and material. The data in |marl.dat|, however, apply to only
+the three hydrogenic isotopes and helium incident on iron. The physical
+process considered in both files is reflection.
+
+Note that as written the file |refl.dat| does not include any angular
+dependence. Partly as a demonstration of the flexibility of the data
+format and partly as an effort to prevent the data from being too
+trivial, we have incorporated a simple angular dependence for the reflection
+coefficient as proposed by Ruzic:
+\begin{equation}
+R_{N}(E,\theta) = R_{N}(E,0) \left[ 1 + 0.5 \sin(\theta \pi / 180) \right],
+\end{equation}
+where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
 
 @m FILE 'pmiwrite.web'
 
@@ -25,20 +44,23 @@ in the original DEGAS code and writes them out as NETCDF files.
       program pmiwrite
       implicit_none
       character*LINELEN tag
-      tag='h -> c'
+      tag='t -> c'
       call pmi_write_degas_refl(tag)
+      tag='he -> fe'
+      call pmi_write_degas_marl(tag)
       stop
       end
       
       @<Functions and subroutines@>
       
-@ Set up array sizes to read in data for a particular reaction.
+@ Reads data from DEGAS refl.dat file for a particular projectile - surface
+combination. An angular dependence is added to the reflection coefficient.
 
 @<Functions...@>=
       subroutine pmi_write_degas_refl(tag)
       implicit_none
       character*LINELEN tag
-      integer i,j,fileid,b,e,p,bin,ein,bm,em    // Local
+      integer i,j,fileid,b,e,p,bin,ein,bm,em          // Local
       real delta,theta_in,delta2
       character*LINELEN full_tag,description
       character*FILELEN filein,fileout
@@ -177,7 +199,7 @@ in the original DEGAS code and writes them out as NETCDF files.
       do j=1,pf_tab_index[2,1]-1
          do i=0,pf_tab_index[1,1]-1
             theta_in=pf_min[2,1]+j*delta
-            pf_data_table(i,j,0,1)=rn_ruzic_fit(pf_data_table(i,0,0,1),theta_in)
+            pf_data_table(i,j,0,0,0,1)=rn_ruzic_fit(pf_data_table(i,0,0,0,0,1),theta_in)
          end do
       end do
 
@@ -236,9 +258,9 @@ in the original DEGAS code and writes them out as NETCDF files.
       implicit_none
       character*(*) filename,tag // Input
       integer dep_var
-      integer i,j,k             // Local
+      integer i,j,k,l,m          // Local
       character*LINELEN line
-      pf_common                 // Common
+      pf_common                  // Common
       
       open(unit=diskin,file=filename,status='old',form='formatted')
       if (tag != ' ')then
@@ -250,15 +272,265 @@ loop:    continue
 /*
    With ragged array for |pf_data_table|, this looks very natural
 */
-      read(diskin,*) SP ((( pf_data_table(i,j,k,dep_var),i=0,pf_tab_index[1,dep_var]-1), j=0,pf_tab_index[2,dep_var]-1), k=0,pf_tab_index[3,dep_var]-1)
+      read(diskin,*) SP ((((( pf_data_table(i,j,k,l,m,dep_var),i=0,pf_tab_index[1,dep_var]-1), j=0,pf_tab_index[2,dep_var]-1), k=0,pf_tab_index[3,dep_var]-1), l=0,pf_tab_index[4,dep_var]-1), m=0,pf_tab_index[5,dep_var]-1)
 
       close(unit=diskin)
       return
       end
 
+@ Read data from DEGAS file marl.dat. The only projectiles considered
+are the three isotopes of hydrogen and helium; the only surface is iron.
+
+@<Functions...@>=
+      subroutine pmi_write_degas_marl(tag)
+      implicit_none
+      character*LINELEN tag
+      integer i,j,fileid,b,e,p,bin,ein,bm,em,jspecies,k,l,m    // Local
+      character*LINELEN description,line
+      character*FILELEN filein,fileout
+      real delta
+      pf_common                                                // Common
+      nc_common
+      pf_ncdecl
+      sy_common
+      st_common 
+
+      description = 'Data for Plasma-Material Interactions in degas 2'
+      pf_version = 'degas: marl.dat'
+
+/* Parse tag into name */      
+      p=0
+      assert( next_token(tag,bin,ein,p) )
+      assert( next_token(tag,b,e,p) )
+      assert( tag(b:e) == '->' )
+      assert( next_token(tag,bm,em,p) )
+      assert( tag(bm:em) == 'fe' )                 // Only Fe data in file
+      pf_name=tag(bin:ein) \/ 'refl' \/ tag(bm:em)
+
+      if (tag(bin:ein) == 'h') then
+         jspecies=1
+      else if (tag(bin:ein) == 'd') then
+         jspecies=2
+      else if (tag(bin:ein) == 't') then
+         jspecies=3
+      else if (tag(bin:ein) == 'he') then
+         jspecies=4
+      else
+         assert('Unsupport projectile species' == ' ')
+      end if
+
+      pf_num_dep_var=4
+
+/*
+   First dependent variable: reflection coefficient(incident angle, energy)
+*/
+      pf_var[0,1]='reflection_coef'
+      pf_rank[1]=2
+      pf_units[0,1]=' '
+      pf_mult[0,1]=one
+
+/*
+   Second dependent variable: quantiles for outgoing energy
+*/
+      pf_var[0,2]='energy_out'
+      pf_rank[2]=3
+      pf_units[0,2]='eV'
+      pf_mult[0,2]=electron_charge
+
+/*
+   Third dependent variable: quantiles for cosine of outgoing polar angle
+*/
+      pf_var[0,3]='cos_polar_angle_out'
+      pf_rank[3]=4
+      pf_units[0,3]=' '
+      pf_mult[0,3]=one
+
+/*
+   Fourth dependent variable: quantiles for cosine of outgoing azimuthal angle
+*/
+      pf_var[0,4]='cos_azi_angle_out'
+      pf_rank[4]=5
+      pf_units[0,4]=' '
+      pf_mult[0,4]=one
+
+/*
+   All dependent variables are functions of the incident energy and polar
+   angle. However, these are sensibly the {\em last} of the indepent 
+   variables in the subscript list. Hence, the somewhat confused indexing
+   below. The ``random number'' independent variables (below) will come
+   first in the subscript list.
+*/
+      do j=1,pf_num_dep_var
+         pf_organization[j]='table'
+         pf_spacing[0,j]='linear'
+
+         pf_var[j,j]='polar_angle_in'
+         pf_tab_index[j,j]=5
+         pf_units[j,j]='degrees'
+         pf_mult[j,j]=PI/const(180.0)
+         pf_spacing[j,j]='linear'
+         pf_min[j,j]=zero
+         pf_max[j,j]=const(80.0)
+
+         pf_var[j+1,j]='energy_in'
+         pf_tab_index[j+1,j]=7
+         pf_units[j+1,j]='eV'
+         pf_mult[j+1,j]=electron_charge
+         pf_spacing[j+1,j]='nonuniform'
+         pf_min[j+1,j]=one
+         pf_max[j+1,j]=const(1.,3)
+      end do
+
+/*
+   The ``outgoing'' variables are chosen from quantiles formed from the
+   calculated distributions. Hence, the independent variable in this case
+   is a random number which will be used to interpolate a value from those
+   provided here.
+*/
+      do j=2,pf_num_dep_var
+         do i=1,pf_rank[j]-2
+            pf_var[i,j]='random_number'
+            pf_tab_index[i,j]=5
+            pf_units[i,j]=' '
+            pf_mult[i,j]=one
+            pf_spacing[i,j]='linear'
+            pf_min[i,j]=0.1
+            pf_max[i,j]=0.9
+         end do
+      end do
+
+      do j=1,pf_num_dep_var
+         if (pf_rank[j] < pf_table_rank_max) then
+            do i=pf_rank[j]+1,pf_table_rank_max
+               pf_tab_index[i,j]=1
+               pf_var[i,j]='unknown'
+               pf_spacing[i,j]='unknown'
+               pf_units[i,j]='unknown'
+               pf_mult[i,j]=zero
+               pf_min[i,j]=zero
+               pf_max[i,j]=zero
+            end do
+         end if
+      end do
+
+      do j=pf_num_dep_var+1,pf_dep_var_max
+         pf_rank[j]=1
+         pf_organization[j]='unknown'
+         pf_var[0,j]='unknown'
+         pf_spacing[0,j]='unknown'
+         pf_units[0,j]='unknown'
+         pf_mult[0,j]=zero
+         do i=1,pf_table_rank_max
+            pf_tab_index[i,j]=1
+            pf_var[i,j]='unknown'
+            pf_spacing[i,j]='unknown'
+            pf_units[i,j]='unknown'
+            pf_mult[i,j]=zero
+            pf_min[i,j]=zero
+            pf_max[i,j]=zero
+         end do
+      end do
+
+      do j=1,pf_dep_var_max
+         pf_eval_name[j]='unknown'
+      end do
+
+
+/*
+   Fill in independent variable tables; all are uniform except the incoming
+   energy.
+*/
+      pf_ragged_alloc(pf_indep_var,pf_tab_index)
+
+      delta=const(20.0)
+      do j=1,pf_num_dep_var
+         do i=0,pf_tab_index[j,j]-1
+            pf_indep_var_table(i,j,j)=pf_min[j,j]+i*delta
+         end do
+         pf_indep_var_table(0,j+1,j)=one
+         pf_indep_var_table(1,j+1,j)=const(25.)
+         pf_indep_var_table(2,j+1,j)=const(50.)
+         pf_indep_var_table(3,j+1,j)=const(100.)
+         pf_indep_var_table(4,j+1,j)=const(200.)
+         pf_indep_var_table(5,j+1,j)=const(500.)
+         pf_indep_var_table(6,j+1,j)=const(1.,3)
+      end do
+
+      delta=const(0.2)
+      do j=2,pf_num_dep_var
+         do i=1,pf_rank[j]-2
+            do k=0,pf_tab_index[i,j]-1
+               pf_indep_var_table(k,i,j)=pf_min[i,j]+k*delta
+            end do
+         end do
+      end do
+
+      pf_ragged_alloc(pf_data,pf_tab_index)
+
+      filein='../data/marl.dat'
+      open(unit=diskin,file=filein,status='old',form='formatted')
+
+/*
+   The file |marl.dat| unfortunately has no literal tags in it. The
+   only way to navigate about is by counting lines. This first loop
+   skips over the required number of lines to reach the desired projectile.
+*/
+      if (jspecies > 1) then
+         do j=1,1260*(jspecies-1)
+            read(diskin,'(a)') line
+         end do
+      end if
+
+/*
+   Read the data. The ordering of the data is nonstandard in that there is
+   an implied loop over dependent variables inside the two loops over incoming
+   energy and angle. Hence, we use here specialized read statements.
+*/
+      do j=0,pf_tab_index[2,1]-1
+         do i=0,pf_tab_index[1,1]-1
+            read(diskin,*) pf_data_table(i,j,0,0,0,1)
+            read(diskin,*) SP (pf_data_table(k,i,j,0,0,2),
+     &                     k=0,pf_tab_index[1,2]-1)
+            read(diskin,*) SP ((pf_data_table(k,l,i,j,0,3),
+     &                     k=0,pf_tab_index[1,3]-1),
+     &                     l=0,pf_tab_index[2,3]-1)
+            read(diskin,*) SP (((pf_data_table(k,l,m,i,j,4),
+     &                     k=0,pf_tab_index[1,4]-1),
+     &                     l=0,pf_tab_index[2,4]-1),
+     &                     m=0,pf_tab_index[3,4]-1)
+         end do
+      end do
+
+/*
+   Write netCDF file and close everything up
+*/
+      fileout='../data/'\/trim(pf_name)\/'.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(pf_version),
+     $     pf_version,nc_stat)
+      
+      pf_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      pf_ncwrite(fileid)
+
+      var_free(pf_data_tab)
+      var_free(pf_indep_var_tab)
+
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+      
 @ Ruzic's fit for the angular dependence of the reflection coefficient.
 The input |rn| is assumed to be for normal incidence, polar angle
-|theta| = 0. An overall upper limit of 0.9 is enforced.
+|theta| = 0; |theta| is assumed to be in degrees. 
+An overall upper limit of 0.9 is enforced.
 
 @<Functions...@>=
       function rn_ruzic_fit(rn,theta)
