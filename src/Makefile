@@ -50,7 +50,7 @@ ifeq ($(MACHINE),CRAY)
   %.f: $(SOURCEDIR)/%.f
 	cp $< $@
 else
-  SOURCEDIR=/u/karney/degas/degas2/nsrc
+  SOURCEDIR=/u/karney/degas/degas2/src
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
 endif
