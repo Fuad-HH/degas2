@@ -2,6 +2,11 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.36  1999/04/20 20:05:13  dstotler
+% Alter checks on sector_type_pointer to compare with int_undef &
+% int_unused instead of 0. Modify handling of score_diagnostics to get
+% it to run on both outgoing & incoming particles (use prod[i] array).
+%
 % Revision 1.35  1999/02/04 19:17:56  dstotler
 % Add an assert that absorption is nonzero if the ts_pmi = 0 result is
 % selected.
@@ -209,6 +214,16 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
       end do
 @#endif
 
+/*
+   This used to be taken care of in |stat_wt_balance|. Added the check
+   on weight to permit re-entry in the MPI case.
+*/
+      if (stat_comp_frag == FALSE && stat_wt_tot_frag == zero) then
+         do i=0,stat_wt_dim_frag-1
+            stat_wt_frag[i]=zero
+         end do
+      end if
+
       do j=nstart,nstart+nflights-1
          fl_label(x,j,isource)
 
@@ -244,9 +259,11 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
          call next_seed(1,seed)
       end do
 
-      if (stat_comp_flt == TRUE)
+@#if 0
+      if (stat_comp_flt == TRUE)  // Move to |Merge results|
      $    call stat_wt_balance(stat_wt_tot_frag,stat_size_frag,stat_dim_frag,
      $        stat_frag,stat_wt_dim_frag,stat_wt_frag)
+@#endif
       
       return
       end
