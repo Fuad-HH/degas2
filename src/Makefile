@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.17  1995/02/14 21:43:49  karney
+# Typos in Makefile.  Remove \loadfonts from geomsetup.web.
+#
 # Revision 1.16  1995/01/30 21:06:25  karney
 # Merge in my changes with Daren's
 #
@@ -317,7 +320,7 @@ etags: etags.c getopt.c getopt1.c getopt.h
 #	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
 
 TAGS:  etags
-	etags *.web *.hweb
+	./etags *.web *.hweb
 
 .PHONY: clean %.view %.print TAGS
 
