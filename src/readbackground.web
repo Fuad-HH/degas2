@@ -2,6 +2,9 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.18  1998/01/14 20:32:39  dstotler
+% Replace problem_species_background with pr_background_lookup.
+%
 % Revision 1.17  1997/08/19 14:37:00  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -100,6 +103,7 @@
       @<Functions and Subroutines@>
 
 @ The main program
+@m UEDGE_RECT_SLAB 0    // Set to 1 for Marv's single-null slab, else set to 0
 
 @<Functions...@>=
       program readbackground
@@ -180,6 +184,7 @@ of the file name (x.d is degas and x.u for uedge) */
       call set_background_sources
 
       call write_background
+      call write_geometry     // Updated plasma sector properties
 
       return
       end
@@ -211,6 +216,7 @@ of the file name (x.d is degas and x.u for uedge) */
       sp_decl(sp_hyd[3])
       sp_decl(degas_species[9])
       sc_decl(sector)
+      sc_plasma_decl(plasma_sc_ptr)
       vc_decl(x1)
       vc_decl(x2)
 
@@ -371,7 +377,14 @@ of the file name (x.d is degas and x.u for uedge) */
                      if (zn_type(sector_zone(sector)) == zn_vacuum) then
                         assert(so_type(so_grps) == so_puff)
                      else
-                        assert(zn_type(sector_zone(sector)) == zn_plasma)
+/*
+   Set incident ion description to be $3 T_{e}$ (sheath potential) plus
+   $1 \times E_{\rm ion}$ with $E_{\rm ion}$ sampled from a Maxwellian.
+*/
+                        plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+                        assert(sc_plasma_check(plasma_sc_ptr))
+                        plasma_e_ion_delta[plasma_sc_ptr]=const(3.)*bk_temp(1,sector_zone(sector))
+                        plasma_e_ion_mult[plasma_sc_ptr]=one
                      end if
                      source_segment_ptr[seg]=sector
                   else
@@ -411,14 +424,16 @@ of the file name (x.d is degas and x.u for uedge) */
       @<Memory allocation interface@>
       integer mx,my
       parameter (mx=120,my=100)
-      integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3,max_rc,test
+      integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3,max_rc,test,grp
       real rm[mx,my,0:4],zm[mx,my,0:4],ni[mx,my],vr[mx,my],vz[mx,my],
      $     vphi[mx,my],te[mx,my],ti[mx,my],
-     $     flux1[my],flux2[my],dummy
+     $     flux1[my],flux2[my],eion1[my],eion2[my]
+      real flux1_tot,flux2_tot,dummy
       character*FILELEN file
       vc_decl(x1)
       vc_decl(x2)
       sc_decl(sector)
+      sc_plasma_decl(plasma_sc_ptr)
       
       external lookup_sector
       integer lookup_sector
@@ -454,6 +469,10 @@ of the file name (x.d is degas and x.u for uedge) */
       read (nu,*,err= 6)SP ((te[j1,j2],j1=1,nx),j2=1,ny)
       read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
       read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
+@#if UEDGE_RECT_SLAB                              // Eventually make permanent
+      read (nu,*,err= 6)SP (eion1[j2],j2=1,ny)
+      read (nu,*,err= 6)SP (eion2[j2],j2=1,ny)
+@#endif
 
       i=0
       do j1=1,nx
@@ -471,9 +490,24 @@ of the file name (x.d is degas and x.u for uedge) */
       enddo
       assert(i==zone_type_num[zn_plasma])
       background_coords=plasma_coords_cylindrical
+
+      flux1_tot=zero
+      flux2_tot=zero
+      do j2=1,ny
+         flux1_tot+=flux1[j2]
+         flux2_tot+=flux2[j2]
+      end do
       
-      so_grps=2
-      so_seg_tot=2*ny
+      if (flux1_tot > zero && flux2_tot > zero) then
+         so_grps=2
+         so_seg_tot=2*ny
+      else if (flux1_tot > zero || flux2_tot > zero) then
+         so_grps=1
+         so_seg_tot=ny
+      else
+         assert('Zero fluxes in UEDGE background' == ' ')
+      end if
+
       var_alloc(source_base_ptr)
       var_alloc(source_num_segments)
       var_alloc(source_type)
@@ -521,50 +555,69 @@ of the file name (x.d is degas and x.u for uedge) */
          so_nflights(i)=100
       end do
 
-      so_base(1)=1
       i=0
-      j1=1
-      do j2=ny,1,-1
-         i++
-         source_current[i]=flux1[j2]
-         so_tot_curr(1)+=source_current[i]
-         source_segment_rel_wt[i]=one
-         vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
-         vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
-         sector=lookup_sector(x1,x2)
-         if (zn_type(sector_zone(sector)) == zn_solid) then
-            sector=lookup_sector(x2,x1)
-         end if
-         source_segment_ptr[i]=sector
-      end do
-      call set_prob_alias(so_nseg(1),
-     $     source_current[so_base(1)],
-     $     source_segment_rel_wt[so_base(1)],
-     $     source_segment_ptr[so_base(1)],
-     $     source_segment_prob_alias[so_base(1)],
-     $     source_segment_ptr_alias[so_base(1)],so_wt_norm(1))
+      grp=0
+      if (flux1_tot > zero) then
+         grp++
+         so_base(grp)=i+1
+         j1=1
+         do j2=ny,1,-1
+            i++
+            source_current[i]=flux1[j2]
+            so_tot_curr(grp)+=source_current[i]
+            source_segment_rel_wt[i]=one
+            vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
+            vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
+            sector=lookup_sector(x1,x2)
+            if (zn_type(sector_zone(sector)) == zn_solid) then
+               sector=lookup_sector(x2,x1)
+            end if
+@#if UEDGE_RECT_SLAB
+            plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+            assert(sc_plasma_check(plasma_sc_ptr))
+            plasma_e_ion_delta[plasma_sc_ptr]=eion1[j2]*electron_charge
+            plasma_e_ion_mult[plasma_sc_ptr]=zero
+@#endif
+            source_segment_ptr[i]=sector
+         end do
+         call set_prob_alias(so_nseg(grp),
+     $        source_current[so_base(grp)],
+     $        source_segment_rel_wt[so_base(grp)],
+     $        source_segment_ptr[so_base(grp)],
+     $        source_segment_prob_alias[so_base(grp)],
+     $        source_segment_ptr_alias[so_base(grp)],so_wt_norm(grp))
+      end if
 
-      so_base(2)=ny+1
-      j1=nx
-      do j2=1,ny
-         i++
-         source_current[i]=flux2[j2]
-         so_tot_curr(2)+=source_current[i]
-         source_segment_rel_wt[i]=one
-         vc_set(x1,rm[j1,j2,2],zero,zm[j1,j2,2])
-         vc_set(x2,rm[j1,j2,4],zero,zm[j1,j2,4])
-         sector=lookup_sector(x1,x2)
-         if (zn_type(sector_zone(sector)) == zn_solid) then
-            sector=lookup_sector(x2,x1)
-         end if
-         source_segment_ptr[i]=sector
-      end do
-      call set_prob_alias(so_nseg(2),
-     $     source_current[so_base(2)],
-     $     source_segment_rel_wt[so_base(2)],
-     $     source_segment_ptr[so_base(2)],
-     $     source_segment_prob_alias[so_base(2)],
-     $     source_segment_ptr_alias[so_base(2)],so_wt_norm(2))
+      if (flux2_tot > zero) then
+         grp++
+         so_base(grp)=i+1
+         j1=nx
+         do j2=1,ny
+            i++
+            source_current[i]=flux2[j2]
+            so_tot_curr(grp)+=source_current[i]
+            source_segment_rel_wt[i]=one
+            vc_set(x1,rm[j1,j2,2],zero,zm[j1,j2,2])
+            vc_set(x2,rm[j1,j2,4],zero,zm[j1,j2,4])
+            sector=lookup_sector(x1,x2)
+            if (zn_type(sector_zone(sector)) == zn_solid) then
+               sector=lookup_sector(x2,x1)
+            end if
+@#if UEDGE_RECT_SLAB
+            plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+            assert(sc_plasma_check(plasma_sc_ptr))
+            plasma_e_ion_delta[plasma_sc_ptr]=eion2[j2]*electron_charge
+            plasma_e_ion_mult[plasma_sc_ptr]=zero
+@#endif
+            source_segment_ptr[i]=sector
+         end do
+         call set_prob_alias(so_nseg(grp),
+     $        source_current[so_base(grp)],
+     $        source_segment_rel_wt[so_base(grp)],
+     $        source_segment_ptr[so_base(grp)],
+     $        source_segment_prob_alias[so_base(grp)],
+     $        source_segment_ptr_alias[so_base(grp)],so_wt_norm(grp))
+      end if
 
       return
  6    write (stderr,*) 'error occurred in reading uedge data file'
