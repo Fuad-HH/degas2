@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.32  1995/06/12 13:06:59  karney
+# Add in dummy elements into common blocks to avoid complaints from
+# Alpha.
+#
 # Revision 1.31  1995/06/07 15:55:49  karney
 # Add profiling; fix bug in composite.web
 #
@@ -159,6 +163,7 @@ PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
 %.p: %.web
 %.tex: %.web
 %.dvi: %.tex
+%: %.mod
 
 # Set up compilers etc.
 ifeq ($(PRINTER),)
@@ -174,7 +179,13 @@ ifeq ($(DEBUG),yes)
 else
   TANGLEFLAGS=-mINLINE -W[ -ytt4000000 -yn8000 -n/ -n')' -Tv
 endif
+<<<<<<< Makefile
+WEAVEFLAGS=-f -i -W[ -ykw600 -n/
+||||||| 1.26
+WEAVEFLAGS=-f -i -W[ -ykw600
+=======
 WEAVEFLAGS=-f -i -W[ -ykw600 -j -n/
+>>>>>>> 1.32
 
 ifeq ($(MACHINE),CRAY)
   FC=cft77
@@ -350,6 +361,10 @@ test: $(test)
 readgeometry = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry)
+
+readfilenames= readfilenames.$O sysdep.$O string.$O
+readfilename_libs =
+readfilenames: $(readfilenames)
 
 readbackground = readdegas.$O geometry.$O elementread.$O
 readbackground_libs = $(NETCDF)
