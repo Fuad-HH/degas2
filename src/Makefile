@@ -1,5 +1,12 @@
 # $Id$
 # $Log$
+# Revision 1.74  2001/07/16 20:34:54  dstotler
+# Add aux2dsetup to readbackground dependencies. Add writeback to
+# flighttest dependencies. Removed degas2.in as a dependency. Add
+# doflights to flighttest dependencies. Add aux2dsetup to readbackground
+# dependencies. Add score, collide, reaction, conversions to sourcetest
+# dependencies. Add ncsxback, plotflight as executables (MAY BE TEMPORARY).
+#
 # Revision 1.73  2000/04/01 17:37:51  dstotler
 # Merged with dps_2_6_changes. Increased fweave flag ykw from 600 to
 # 700.
@@ -306,6 +313,7 @@ WEAVEFLAGS=-f -i! -W[ -ykw700 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
 SYSDEPC=no
+COFLAGS=
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -472,6 +480,18 @@ else
   F90FLAGS=-mismatch_all -w
  endif
 endif
+ifeq ($(COMPILER),FUJITSU)
+  TANGLEFLAGS+=-mFUJITSU
+  FCF90=lf95
+#
+# The Lahey-Fujitsu compiler has a recommended lists of flags for
+# use in debugging. Since they are all for only the compile phase,
+# added the COFLAGS variable.  However, even in good code, use of these
+# flags generates alot of garbage, so they will be enabled only in
+# for testing of new code.
+#
+#  COFLAGS=--ap --chkglobal --f95 --lst --pca --sav --trace --info --xref
+endif
 
 FC=$(FCF77)
 
@@ -514,7 +534,7 @@ endif
 ifndef CROSSCOMPILE
   O=o
   %.o: %.f
-	$(FC) -c $(FFLAGS) $(COMPFLAGS) $(PROFILE) $<
+	$(FC) -c $(FFLAGS) $(COFLAGS) $(COMPFLAGS) $(PROFILE) $<
   %: %.o $(SYSDEPO) string.$O idtof 
 	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
 	$(FC) -c $(FFLAGS) $*.id.f
@@ -652,7 +672,7 @@ pvmslave = pvmslave.$O random.$O randother.$O stat.$O geometry.$O elementread.$O
 pvmslave_libs = $(NETCDF) $(PVM)
 pvmslave: $(pvmslave) $(foreach arg,$(subst .$O,_mods,$(pvmslave)),$($(arg)))
 
-flighttest = flighttest.$O doflights.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O interpolate.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O writeback.$O aux2dsetup.$O geomsetup.$O geomfaces.$O geomutils.$O allocate.$O
+flighttest = flighttest.$O doflights.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O interpolate.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O writeback.$O aux2dsetup.$O geomsetup.$O geomfaces.$O geomutils.$O allocate.$O composite.$O
 flighttest_libs = $(NETCDF) $(MPILIBSA)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
@@ -716,13 +736,13 @@ definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomu
 definegeometry2d_libs = $(NETCDF)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
+defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O
+defineback_libs = $(NETCDF)
+defineback: $(defineback) $(foreach arg,$(subst .$O,_mods,$(defineback)),$($(arg)))
+
 boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O interpolate.$O random.$O aux2dsetup.$O
 boxgen_libs = $(CRAMD) $(NETCDF)
 boxgen: $(boxgen) $(foreach arg,$(subst .$O,_mods,$(boxgen)),$($(arg)))
-
-ncsxback = ncsxback.$O readfilenames.$O allocate.$O interpolate.$O pmimatread.$O geomsetup.$O geomfaces.$O geometry.$O geomutils.$O writeback.$O aux2dsetup.$O elementread.$O reaction.$O random.$O
-ncsxback_libs = $(NETCDF)
-ncsxback: $(ncsxback) $(foreach arg,$(subst .$O,_mods,$(ncsxback)),$($(arg)))
 
 plotflight = plotflight.$O string.$O
 plotflight_libs =
@@ -773,7 +793,7 @@ dataexam = dataexam.$O readfilenames.o elementread.o
 dataexam_libs = $(NETCDF)
 dataexam: $(dataexam) $(foreach arg,$(subst .$O,_mods,$(dataexam)),$($(arg)))
 
-outputbrowser = outputbrowser.$O readfilenames.o degasinit.$O pmimatread.$O elementread.$O geometry.$O
+outputbrowser = outputbrowser.$O readfilenames.$O degasinit.$O pmimatread.$O elementread.$O geometry.$O
 outputbrowser_libs = $(NETCDF)
 outputbrowser: $(outputbrowser) $(foreach arg,$(subst .$O,_mods,$(outputbrowser)),$($(arg)))
 
