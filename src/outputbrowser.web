@@ -2,6 +2,9 @@
 \Title{outputbrowser}
 
 % $Log$
+% Revision 1.2  2000/04/01 17:38:57  dstotler
+% Added during merger with dps_2_6_changes.
+%
 % Revision 1.1.2.1  1999/12/16 19:20:21  dstotler
 % Added to repository.
 %
@@ -1068,6 +1071,8 @@ by higher ranks when they are included.
                psp_label=' '
             end if
             if (i <= so_type_num) then
+               type_string=so_name(i)
+@#if 0
                if (i == so_plate) then
                   type_string='plate'
                else if (i == so_puff) then
@@ -1077,6 +1082,7 @@ by higher ranks when they are included.
                else
                   assert(' Source type not known' == ' ')
                end if
+@#endif
                write(nunit,'(i4,4x,a,t17,i4,4x,a)') i,trim(psp_label),i,trim(type_string)
             else if (i <= so_type_num+pr_reaction_num) then
                write(nunit,'(i4,4x,a,t17,i4,4x,a)') i,trim(psp_label),i-so_type_num,
@@ -1091,11 +1097,21 @@ by higher ranks when they are included.
       else if (ivar == tl_index_reaction) then
          write(nunit,*) ' REACTIONS:'
          write(nunit,*)
-         write(nunit,'(a,2x,a,5x,a)') 'pr. reac.','reaction','name'
-         do i=imin,imax
-            write(nunit,'(1x,i4,7x,i4,4x,a)') i,pr_reaction(i),
-     $           trim(rc_name(pr_reaction(i)))
-         end do
+         if (imin <= pr_reaction_num) then
+            write(nunit,'(a,2x,a,5x,a)') 'pr. reac.','reaction','name'
+            do i=imin,min(imax,pr_reaction_num)
+               write(nunit,'(1x,i4,7x,i4,4x,a)') i,pr_reaction(i),
+     $              trim(rc_name(pr_reaction(i)))
+            end do
+            if (imax > pr_reaction_num) write (nunit,*) '--------------------------------------------------------'
+         end if
+         if (imax > pr_reaction_num) then
+            write(nunit,'(10x,a,6x,a)') 'so. type','name'
+            do i=max(imin-pr_reaction_num,1),imax-pr_reaction_num
+               write(nunit,'(1x,i4,7x,i4,4x,a)') i+pr_reaction_num,i,
+     $              so_name(i)
+            end do
+         end if
       else if (ivar == tl_index_pmi) then
          write(nunit,*) ' PMI:'
          write(nunit,*)
