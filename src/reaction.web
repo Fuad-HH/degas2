@@ -2,6 +2,9 @@
 \def\Wtitle{reaction}
 
 % $Log$
+% Revision 1.3  1994/02/14  22:24:32  karney
+% Introduce new scheme for storing cross-section data.
+%
 % Revision 1.2  1993/10/11  19:10:15  karney
 % Move zn_common declaration to make Cray happy.
 %
@@ -61,7 +64,7 @@ uses the old hardwired scheme.
          cross_section=c0+ftemp*(c1-c0)
 c         write(stdout,*) 'ionize',temp,den,cross_section
       else if (r == 2) then     // hchex
-         en=log10(half*sp_m(pt_sp(p))*atomic_mass_unit/electron_charge*vc_abs(pt_v(p)))
+         en=log10(half*sp_m(pt_sp(p))*atomic_mass_unit/electron_charge*vc_abs(pt_v(p))**2)
          temp=log10(bk_temp(b,lc_zone(pt_loc(p))))
          en=(en-rc_logenergy_min)/rc_logenergy_delta
          en=min(max(zero,en),areal(rc_energy_num))
@@ -111,7 +114,7 @@ c         write(stdout,*) 'cx',temp,en,cross_section
          if (reaction_xs_var[i,r] == xs_var_density) then
             fvar[i] = bk_n(b,lc_zone(pt_loc(p)))
          else if (reaction_xs_var[i,r] == xs_var_energy) then
-            fvar[i] = half*sp_m(pt_sp(p))*atomic_mass_unit*vc_abs(pt_v(p))
+            fvar[i] = half*sp_m(pt_sp(p))*atomic_mass_unit*vc_abs(pt_v(p))**2
          else if (reaction_xs_var[i,r] == xs_var_temperature) then
             fvar[i] = electron_charge*bk_temp(b,lc_zone(pt_loc(p)))
          else
