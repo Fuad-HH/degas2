@@ -3,6 +3,9 @@
 \def\Wtitle{geometry setup}
 
 % $Log$
+% Revision 1.2  1993/09/23  12:35:05  karney
+% Change netcdf file extension from .cdf to .nc
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -52,6 +55,9 @@ Geometry setup routines for degas.
       ptr_surfaces=0
       ptr_surface_coeffs=0
       zn_num=0
+      _DO(I,1,zn_type_max) {
+          zone_type_num[I]=0;
+      }
 
       return
       end
@@ -190,9 +196,11 @@ then search for duplicates and return the duplicate index if it exists.
       cells[c_surfaces,ncells]=0
 
       start_cell=ncells
-      zn_num=max(zn_num,zone)
       
-
+      var_reallocc(zone_type,zn_num,max(zn_num,zone))
+      var_reallocc(zone_index,zn_num,max(zn_num,zone))
+      var_reallocc(zone_pointer,zn_num,max(zn_num,zone))
+      zn_num=max(zn_num,zone)
 
       return
       end
@@ -372,14 +380,18 @@ break1:        continue
       subroutine write_geometry
       implicit_none
       gi_common
+      zn_common
       decl_netcdf
       netcdf_geometry_decls
+      netcdf_zone_decls
       integer fileid
       external nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
       integer nccreate,ncvardef,ncdimdef,ncopen,ncvarid,ncdimid
 
       fileid = nccreate('geometry.nc',NC_CLOBBER,nc_stat)
       netcdf_write_geometry(fileid)
+      call ncredef(fileid,nc_stat)
+      netcdf_write_zone(fileid)
       call ncclose(fileid,nc_stat)
 
       return
