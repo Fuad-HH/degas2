@@ -2,6 +2,9 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.20  1998/09/04 17:05:48  dstotler
+% Added i_elediss to save list in subr. dissoc.
+%
 % Revision 1.19  1998/05/08 13:47:49  dstotler
 % Replace usage of strings in filling scoring_data with locally
 % initialized integers. Defined v_test in track_dissoc_cramd.
@@ -230,6 +233,7 @@
       external eval_data                              // External
       real eval_data
       real tempmax
+
       save tempmax,init,i_sigv_max,i_cx
       data tempmax/zero/
       data init/.true./
@@ -296,10 +300,12 @@ loop: continue
 @#if 0
       assert(cx_v<=sgvmax)    // Can disable rejection with |sgvmax| = 0.
 @#endif
+
       if (cx_v > tempmax) then
          tempmax=cx_v
       end if
       rn_next(ran,x)
+
       if (cx_v < ran*sgvmax) goto loop
 
 /*
@@ -374,7 +380,6 @@ loop: continue
       real rate
       real independent_parameters[xs_max_indep_params]
 
-      integer nprod                                    // Output
       sp_decl(prod[rc_product_max])
       vc_decl(v_prod[rc_product_max])
       real w_prod[rc_product_max],scoring_data[scoring_data_max]
@@ -390,35 +395,39 @@ loop: continue
       vc_decl(vt_plasma_frame)
       vc_decl(vb_therm)
       vc_decl(vrel)
-      vc_decl(vcm)
-      vc_decl(vb_cm)
-      vc_decl(vt_cm)
 
-      integer rm_mu_prob
-      integer i,i_sigv_max,i_cx,i_csang,count,jdep_cx
+      integer i,nprod,rm_theta_prob,theta_count,coll_count 
+      integer i_sigv_max,i_cx,i_csang,jdep_cx
 
+      real angle,theta_min 
+      real ran
       real eval_data
-      real v_thermal,ran,sigvmax,tempmax,cxsec,cx_v,m_i
-      real mu_angle
-      real vcm_sq,vb_cmsq,vt_cmsq
-      real vcm_sqrt,vbcm_sqrt,vtcm_sqrt
-      real lab_energy,vb_lab,vt_lab
-      real lab_angle,vb_langle,vt_langle
+      real v_thermal,sigvmax,tempmax,cxsec,cx_v,m_i
+
       logical init
 
       save tempmax,init,i_sigv_max,i_cx,i_csang
 
       data sigvmax / zero /
       data tempmax / zero /
+
+/*    The following theta_min values are set according to data file used.
+      If collision is dd_00_elastic then comment all out.     */
+
+c      data theta_min / 0.0872664625997139 /    // theta_min = 5 degrees 
+c      data theta_min / 0.174532925199428 /     // theta_min = 10 degrees 
+c      data theta_min / 0.349065850398856 /     // theta_min = 20 degrees
+c      data theta_min / 0.523598775598283 /     // theta_min = 30 degrees 
+c      data theta_min / 0.785398163397425 /     // theta_min = 45 degrees
+
       data init/.true./
 
       external eval_data                               // External
-      external lab_angle,lab_energy
 
       if (init) then
          i_sigv_max=string_lookup('sigv_max',pr_var0_list,pr_var0_num)
          i_cx=string_lookup('cross_section',pr_var0_list,pr_var0_num)
-         i_csang=string_lookup('cos_scattering_angle',pr_var0_list,pr_var0_num)
+         i_csang=string_lookup('scattering_angle',pr_var0_list,pr_var0_num)
          assert(i_sigv_max > 0 && i_cx > 0 && i_csang > 0)
          init=.false.
       end if
@@ -426,23 +435,26 @@ loop: continue
       pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
       back=pr_ts_bk(test,ts_reac)
-      count=0
 
       sigvmax=zero
+
       do i=1,rd_dep_var_max
+
          if (reaction_handling_var0[pr_reac][i] == i_sigv_max) then
             sigvmax=eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
      $           independent_parameters,rn_args(x))
          else if (reaction_handling_var0[pr_reac][i] == i_cx) then
             jdep_cx=i
          else if  (reaction_handling_var0[pr_reac][i] == i_csang) then
-            rm_mu_prob=i
+            rm_theta_prob=i
          end if
+
       end do
 
 /*     
       Transform to frame moving with the local background flow velocity
 */
+
       do i=1,3
          v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
          vb_flow[i]=independent_parameters[xs_var_v_flow_1+i-1]
@@ -450,29 +462,20 @@ loop: continue
       vc_difference(v_test,vb_flow,vt_plasma_frame)
 
 loop: continue
-      count++
-/*    
-      Pick a background particle 
-*/
+
       v_thermal=sqrt(independent_parameters[xs_var_sp_temperature])
       do i=1,3
          rn_gauss_next(ran,x)
          vb_therm[i]=v_thermal*ran
       end do
 
-/*
-  Now evaluate velocity {\em relative} to this particular particle
-  (we need to transform to the frame moving at |vb_flow| ahead of
-  time since the average of |vb_therm| is 0.).
-*/
       vc_difference(vt_plasma_frame,vb_therm,vrel)
 
 /*
   And re-evaluate the |independent_parameters| associated with the
   relative test energy.
 */
-      independent_parameters[xs_var_energy]
-     $     =half*independent_parameters[xs_var_m_test]*vc_abs2(vrel)
+
       independent_parameters[xs_var_sp_energy]=half*vc_abs2(vrel)
 
       cxsec=eval_data(rd_data_args(reaction_handling,[pr_reac][jdep_cx]),
@@ -481,81 +484,66 @@ loop: continue
       cx_v=cxsec*vc_abs(vrel)
 
       assert(cx_v<=sigvmax)
-      if (cx_v > tempmax) then
-         tempmax=cx_v
-      end if
       rn_next(ran,x)
+
       if(cx_v < ran*sigvmax) goto loop
 
 /*
   Interpolate the scattering angle:
 */
-      mu_angle=eval_data(rd_data_args(reaction_handling,[pr_reac][rm_mu_prob]),
+      angle=eval_data(rd_data_args(reaction_handling,[pr_reac][rm_theta_prob]),
      $ independent_parameters,rn_args(x))
 
 /*
-   Do the scattering:
-*/
-      do i = 1 , 3
-         vcm(i) = (independent_parameters[xs_var_m_test]*vt_plasma_frame(i)+
-     $        independent_parameters[xs_var_m_back]*vb_therm(i))/
-     $        (independent_parameters[xs_var_m_test]+independent_parameters[xs_var_m_back])
-         vb_cm(i) = vb_therm(i) - vcm(i)
-	 vt_cm(i) = vt_plasma_frame(i) - vcm(i)
-      end do
+      Following calculation of scattering angle check that theta > theta_min.
+      This is necessary since for the interpolation region near theta=theta_min
+      it is possible that theta < theta_min.  Again, if dd_00_elastic used
+      then this line is not necessary.
 
-/*    
-      convert to laboratory frame from center-of-mass frame
 */
-      vcm_sq = vc_abs2(vcm)
-      vb_cmsq = vc_abs2(vb_cm)
-      vt_cmsq = vc_abs2(vt_cm)
-      vcm_sqrt = sqrt(vcm_sq)
-      vbcm_sqrt = sqrt(vb_cmsq)
-      vtcm_sqrt = sqrt(vt_cmsq)
 
-      vb_lab = sqrt(lab_energy(mu_angle,vcm_sq,vcm_sqrt,vb_cmsq,vbcm_sqrt))
-      vt_lab = sqrt(lab_energy(mu_angle,vcm_sq,vcm_sqrt,vt_cmsq,-vtcm_sqrt))
-      vb_langle=lab_angle(mu_angle,vcm_sqrt,vbcm_sqrt,vb_lab)
-      vt_langle=lab_angle(mu_angle,vcm_sqrt,-vtcm_sqrt,vt_lab)
+c      if ( angle .lt. theta_min ) angle = theta_min       
 
 /*
-   This assume a certain order for the products; see |set_prod_elastic|.
+      Do the scattering:
 */
-      call new_direct(vc_args(vcm),vb_lab,vb_langle,vc_args(v_prod[1]),
-     $                1,rn_args(x))
-      call new_direct(vc_args(vcm),vt_lab,vt_langle,
-     $                vc_args(v_prod[1]),2,rn_args(x))
+
+      call product_velocities(angle,independent_parameters,
+     &     vc_args(vt_plasma_frame),vc_args(vb_therm),vc_args(vrel),
+     &     vc_args(v_prod[1]),rn_args(x))
+
+/*
+   Collision scoring - only background sources expected here.
+*/
 
       assert(pr_num_arrangements(test,ts_reac) == 1) 
 
       do i=1,nprod
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
-@#if 0
-         if (sp_name(prod[i]) == 'molecular hydrogen') then   // ?????
-            w_prod[i]=one
-         else
-            w_prod[i]=zero
-         end if
-@#endif
          w_prod[i]=one
          vc_add(v_prod[i],vb_flow,v_prod[i])
       end do
       
       vc_add(vb_therm,vb_flow,v_back)
+
 /*
    Collision scoring - only background sources expected here.
 */
       scoring_data[pr_var_back_index(pr_var_back_mass,back)]+=
      $     -sp_m(pr_background(back))*rate
+
       scoring_data[pr_var_back_index(pr_var_back_momentum_vector,back)]+=
      $     -sp_m(pr_background(back))*v_back[1]*rate
+
       scoring_data[pr_var_back_index(pr_var_back_momentum_2,back)]+=
      $     -sp_m(pr_background(back))*v_back[2]*rate
+
       scoring_data[pr_var_back_index(pr_var_back_momentum_3,back)]+=
      $     -sp_m(pr_background(back))*v_back[3]*rate
+
       scoring_data[pr_var_back_index(pr_var_back_energy,back)]+=
      $     -half*sp_m(pr_background(back))*vc_abs2(v_back)*rate
+
       do i=1,nprod
          back_i=pr_background_lookup(prod[i])
          if (back_i != 0) then
@@ -1145,33 +1133,95 @@ of suppressed absorption.
       return
       end
 
-@ Subroutine to determine the laboratory scattering angle
+@ New Subroutine to determine scattering angles
 
 @<Functions...@>=
-      subroutine new_direct(vc_dummy(v_dummy),v_lab,cos_psi,vc_dummy(v_prod),
-     $                      i,rn_dummy(x))
+      subroutine product_velocities(angle,independent_parameters,
+     &           vc_dummy(v_test),vc_dummy(v_back),vc_dummy(vrel),
+     &           vc_dummy(v_prod),rn_dummy(x))
+
+      implicit_none_f77
+      implicit_none_f90
+
+      vc_decl(v_test)
+      vc_decl(v_back)
+      vc_decl(vrel)
+      vc_decl(v_prod[rc_product_max])
+
+      rn_decl(x)
+
+      real sin_eps,cos_eps,cos_chi2,sin_chi2
+      real m_tot,vrel_sq,vrel_diff,vrel_mag
+      real angle,apse,aps_perp
+      real independent_parameters[xs_max_indep_params]
+
+      integer i
+
+      external apse
+
+      call rand_angle(sin_eps,cos_eps,rn_args(x))
+      vrel_sq = vc_abs2(vrel)
+      vrel_mag = dsqrt(vrel_sq)
+      cos_chi2 = dcos(half*angle)
+      sin_chi2 = dsin(half*angle)
+      m_tot = one/(independent_parameters[xs_var_m_test]+
+     &        independent_parameters[xs_var_m_back])
+      vrel_diff = dsqrt(one-vrel(1)**2./vrel_sq)
+      if ( vrel_diff == 0. ) vrel_diff = 1.0d-15
+
+      do i = 1 , 3
+
+         aps_perp = apse(i,cos_chi2,vc_args(vrel),vrel_sq,vrel_mag,vrel_diff,
+     &              cos_eps,sin_eps)
+         v_prod(i,1) = v_back(i)+2.*independent_parameters[xs_var_m_test]*
+     &                 m_tot*sin_chi2*(vrel(i)*sin_chi2+vrel_mag*aps_perp)
+         v_prod(i,2) = v_test(i)-2.*independent_parameters[xs_var_m_back]*
+     &                 m_tot*sin_chi2*(vrel(i)*sin_chi2+vrel_mag*aps_perp)
+         
+      end do
+
+      return
+      end
+
+@ routine to determine apse vector
+
+@<Functions...@>=
+      function apse(i,cos_chi2,vc_dummy(vrel),vrel_sq,vrel_mag,vrel_diff,
+     &         cos_eps,sin_eps)
+      implicit_none_f77
+      implicit_none_f90
+
+      vc_decl(vrel)
+      real cos_eps,sin_eps,vrel_sq,vrel_mag,vrel_diff
+      real coef_a,coef_b,cos_chi2,apse
+      integer i
+
+      if ( i .eq. 1 ) then
+         apse = cos_chi2 * vrel_diff * cos_eps
+      elseif ( i .eq. 2 ) then
+         coef_a = vrel(2)*vrel(1)*cos_eps + vrel(3)*vrel_mag*sin_eps
+         coef_b = vrel_sq*vrel_diff
+         apse = -cos_chi2*coef_a/coef_b
+      else
+         coef_a = vrel(3)*vrel(1)*cos_eps - vrel(2)*vrel_mag*sin_eps
+         coef_b = vrel_sq*vrel_diff
+         apse = -cos_chi2*coef_a/coef_b
+      endif
+
+      return
+      end
+
+@ Function to determine random angle
+
+@<Functions...@>=
+      subroutine rand_angle(sin_eps,cos_eps,rn_dummy(x))
       implicit_none_f77
       implicit_none_f90
 
       rn_decl(x)
 
-      vc_decl(v_prod[rc_product_max])
-      vc_decl(v_dummy)
-      vc_decl(v_prime)
-      vc_decl(unit_v)
-      vc_decl(vector_temp)
-
-      integer i,itest
-
-      real sign,v_lab
-      real cos_psi,sin_psi
-      real cos_delta,sin_delta
-      real rho_bar
       real eps,eps_sq,eta,eta_sq,eps_eta
-
-      data itest / 0 /
-
-      if ( itest .eq. 0 ) then
+      real sign,sin_eps,cos_eps
 
 loop: continue
       rn_next(eps,x)
@@ -1181,73 +1231,10 @@ loop: continue
       eps_eta=eps_sq+eta_sq
       if ( eps_eta > one ) goto loop
 
-      cos_delta=(eps_sq-eta_sq)/eps_eta
-      sin_delta=2.*eps*eta/eps_eta
+      cos_eps=(eps_sq-eta_sq)/eps_eta
+      sin_eps=two*eps*eta/eps_eta
       rn_next(sign,x)
-      if ( sign < 0.5 ) sin_delta = -sin_delta
-
-      sin_psi=sqrt(1.-cos_psi*cos_psi)
-
-      itest = 1
-
-      elseif( itest == 1 ) then
-
-         sin_psi=-sqrt(1.-cos_psi*cos_psi)
-         itest = 0
-
-      end if
-
-      vc_unit(v_dummy,unit_v)
-
-      rho_bar=sqrt(1.-unit_v(3)*unit_v(3))
-
-      if (  unit_v(3) <= 0.95 ) then
-
-         v_prime(1)=(sin_psi*cos_delta*unit_v(3)*unit_v(1)-
-     $     sin_psi*sin_delta*unit_v(2))/rho_bar+cos_psi*unit_v(1)
-         v_prime(2)=(sin_psi*cos_delta*unit_v(3)*unit_v(2)+
-     $     sin_psi*sin_delta*unit_v(1))/rho_bar+cos_psi*unit_v(2)
-         v_prime(3)=-sin_psi*cos_delta*rho_bar+cos_psi*unit_v(3)
-
-      else
-
-         v_prime(1)=sin_psi*cos_delta
-         v_prime(2)=sin_psi*sin_delta
-         v_prime(3)=cos_psi*unit_v(3)
-
-      endif
-
-      vc_scale(v_lab,v_prime,v_prod[i])
-
-      return
-      end
-
-@ Calculation of Post Collision Laboratory velocity squared
-
-@<Functions...@>=
-      function lab_energy(mu_angle,vcm_sq,vcm_sqrt,vx_cmsq,vxcm_sqrt)
-      implicit_none_f77
-      implicit_none_f90
-
-      real vcm_sq,vcm_sqrt,vx_cmsq,vxcm_sqrt
-      real mu_angle,lab_energy
-      
-      lab_energy = vcm_sq+vx_cmsq+2.*vcm_sqrt*vxcm_sqrt*mu_angle
-
-      return
-      end
-
-@ Subroutine to determine the laboratory scattering angle
-
-@<Functions...@>=
-      function lab_angle(mu_angle,vcm_sqrt,vxcm_sqrt,vx_lab)
-      implicit_none_f77
-      implicit_none_f90
-
-      real vcm_sqrt,vxcm_sqrt,vx_lab
-      real mu_angle,lab_angle
-
-      lab_angle=(vcm_sqrt+vxcm_sqrt*mu_angle)/vx_lab
+      if ( sign < half ) sin_eps = -sin_eps
 
       return
       end
@@ -1431,24 +1418,28 @@ loop: continue
      $     scoring_data,rn_dummy(x))
 
       implicit_none_f77
+      implicit_none_f90
+
       rc_common                                         // Common
       rd_common
       pr_common
+      sp_common
 
-      implicit_none_f90
+      pr_test_decl(test)                               
+      pr_reaction_decl(ts_reac)
+      pr_reaction_decl(pr_reac)                         
+      pr_background_decl(back)
 
       rd_decls
+      rn_decl(x)                                       
+
       st_decls
-      pr_test_decl(test)                                // Input
-      pr_reaction_decl(ts_reac)
+
       real rate
       real independent_parameters[xs_max_indep_params]
+      real usq
+      real scoring_data[scoring_data_max]
 
-      real scoring_data[scoring_data_max]               // Output
-      rn_decl(x)                                        // Input/output
-
-      pr_reaction_decl(pr_reac)                         // Local  
-      pr_background_decl(back)
       integer i,i_l_0,i_l_1,i_l_2
       real ni_0,ni_1up,ni_2up2,up2,up,m_test,m_back,mom_src,uprime_abs
       vc_decl(u)
@@ -1457,6 +1448,7 @@ loop: continue
       logical init
 
       external eval_data                                // External
+
       real eval_data
       save init,i_l_0,i_l_1,i_l_2
       data init/.true./
@@ -1471,7 +1463,9 @@ loop: continue
 
       pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
       back=pr_ts_bk(test,ts_reac)
+
       do i=1,rd_dep_var_max
+
          if (reaction_handling_var0[pr_reac][i] == i_l_0) then
             ni_0=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
@@ -1494,6 +1488,7 @@ loop: continue
 
       up2=two*independent_parameters[xs_var_sp_temperature]
       up=sqrt(up2)
+      usq=vc_product(u,u)
       vc_difference(u,vb_flow,uprime)
       uprime_abs=vc_abs(uprime)
       m_test=independent_parameters[xs_var_m_test]
@@ -1510,9 +1505,10 @@ loop: continue
      $     mom_src*uprime[3]
       scoring_data[pr_var_back_index(pr_var_back_energy,back)]+=
      $     (two*m_test*m_back/(m_test+m_back)**2)
-     $     *(half*m_back*ni_2up2
+     $     *(-half*m_back*ni_2up2
      $     +half*(m_test+m_back)*vc_product(u,uprime)
      $     *(ni_1up/uprime_abs-half*up2*ni_0/uprime_abs**2))
+
       // No product terms!
 
       return
