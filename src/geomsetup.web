@@ -3,6 +3,9 @@
 \def\Wtitle{geometry setup}
 
 % $Log$
+% Revision 1.7  1994/05/19 16:52:15  karney
+% Change to the format for a write statement.
+%
 % Revision 1.6  1994/01/03  19:30:57  karney
 % Update to include ALPHA support
 %
@@ -34,8 +37,7 @@ Geometry setup routines for degas.
 
 @I macros.hweb
 
-@i geomint.hweb
-
+@I geomint.hweb
 @ The unnamed module.
 
 @a
@@ -64,6 +66,9 @@ Geometry setup routines for degas.
       nsurfaces=0
       ptr_surfaces=0
       ptr_surface_coeffs=0
+@#if DEBUG
+      ptr_surface_points=0
+@#endif
       zn_num=0
       _DO(I,1,zn_type_max) {
           zone_type_num[I]=0;
@@ -88,6 +93,9 @@ Geometry setup routines for degas.
       var_reallocb(cells)
       var_reallocb(surfaces)
       var_reallocb(surface_coeffs)
+@#if DEBUG
+      var_reallocb(surface_points)
+@#endif
 
       nboundaries=0
       do j=0,ncells
@@ -170,7 +178,9 @@ then search for duplicates and return the duplicate index if it exists.
       nsurfaces=nsurfaces+1
       var_realloca(surfaces)
       var_realloca(surface_coeffs)
-
+@#if DEBUG
+      var_realloca(surface_points)
+@#endif
       do i=1,NCOEFFS
          surface_coeffs[i,nsurfaces]=coeff[i]
       end do
@@ -313,7 +323,13 @@ the other side and some other cell must be on the same side */
 /* Either the surface is a cut surface with nothing on either side or else
 there is at least one cell on each side */
             if (surfaces[s_neg,s_count,k]==0) then
-               assert(surfaces[s_pos,s_count,k]==0)
+               if (surfaces[s_pos,s_count,k]!=0) then
+                  write(stderr,*) 'This surface isn''t an outer surface, but there''s something on one side and not on the other'
+                  write(stderr,*) k
+                  write(stderr,*) vc_expand(surface_points[0,k])
+                  write(stderr,*) vc_expand(surface_points[1,k])
+                  assert(.false.)
+               end if
                do j=0,ncells
                   do n=cells[c_faces,j]+1,cells[c_surfaces,j]
                      if (abs(boundaries[cells[c_start,j]-1+n])==k) goto break1
@@ -371,6 +387,9 @@ break1:        continue
       var_free(cells)
       var_free(surfaces)
       var_free(surface_coeffs)
+@#if DEBUG
+      var_free(surface_points)
+@#endif
       var_free(boundaries)
       var_free(neighbors)
       ncells=-1
@@ -392,12 +411,15 @@ break1:        continue
       nc_common
       gi_ncdecl
       zn_ncdecl
+      vc_ncdecl
       integer fileid
 
       fileid = nccreate('geometry.nc',NC_CLOBBER,nc_stat)
+      vc_ncdef(fileid)
       gi_ncdef(fileid)
       zn_ncdef(fileid)
       call ncendef(fileid,nc_stat);
+      vc_ncwrite(fileid)
       gi_ncwrite(fileid)
       zn_ncwrite(fileid)
       call ncclose(fileid,nc_stat)

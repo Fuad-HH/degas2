@@ -2,6 +2,9 @@
 \def\Wtitle{composite}
 
 % $Log$
+% Revision 1.3  1994/01/03 19:30:57  karney
+% Update to include ALPHA support
+%
 % Revision 1.2  1993/09/30  18:43:22  karney
 % Pre PET checkin
 %
@@ -98,7 +101,9 @@ coincide.
 
       do i=0,n-1
          do j=i+2,min(n-1,n+i-2)
-            if (segment_intersect(x[1,i],x[1,j])) return
+            if (segment_intersect(x[1,i],x[1,j])) then
+               return
+            end if
          end do
       end do
 
@@ -109,7 +114,8 @@ coincide.
       end
 
 @ Check convexity of polygon.  Polygon is tranversed in the clockwise
-direction in the $(x,z)$ plane.
+direction in the $(x,z)$ plane.  This doesn't even tolerate colinearity
+of the points.
 
 @<Functions...@>=
       function convex_polygon(n,x)
@@ -140,7 +146,7 @@ direction in the $(x,z)$ plane.
          else if (delta < -pi) then
             delta=delta+two*pi
          end if
-         if (delta >= zero) return
+         if (delta >= -epsilon_angle) return // This used to be |>= zero|.
          totang=totang+delta
          dir0=dir
       end do
@@ -190,8 +196,9 @@ direction in the $(x,z)$ plane.
       end do
       
       polygon_volume=PI*polygon_volume/const(3.0)
+@#if 0
       assert(polygon_volume > zero)
-      
+@#endif
       return
       end
 
@@ -241,7 +248,12 @@ loop: continue
          end if
       end do
 
-      assert(len('Couldn''t break up polygon') == 0)
+
+      write(stderr,*) 'Couldn''t break up the following polygon:'
+      do i=0,n
+         write(stderr,*) x[1,i],x[2,i]
+      end do
+      assert(.false.)
 
 break:continue                  // Now try extending the triangle backwards
 
@@ -348,6 +360,9 @@ break: continue
       ptr_decl(type)
       ptr_decl(z)
       sy_common
+@#if DEBUG
+      gi_common
+@#endif
       external define_surface,start_cell // External
       integer define_surface,start_cell
 
@@ -390,6 +405,12 @@ break: continue
          x2[3]=x[2,i+1]
          call conea(x1,x2,coeff,surf_type,apex)
          k[i]=define_surface(coeff,.true.)
+@#if DEBUG
+         if (k[i]>0) then
+            vc_copy(x1,surface_points[0,k[i]])
+            vc_copy(x2,surface_points[1,k[i]])
+         end if
+@#endif
          type[i]=surf_type
          z[i] = apex[3]
       end do

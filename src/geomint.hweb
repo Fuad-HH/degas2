@@ -2,6 +2,9 @@
 
 % $Id$
 % $Log$
+% Revision 1.4  1993/10/25 22:32:44  karney
+% Move some definitions to particle.hweb
+%
 % Revision 1.3  1993/09/30  18:43:22  karney
 % Pre PET checkin
 %
@@ -26,6 +29,9 @@
       define_dimen_pk(gi,neg_pos,s_neg,s_pos)
       define_dimen_pk(gi,surface_info_ind,s_start,s_count)
       define_dimen_pk(gi,coeff_ind,NCOEFFS)
+@#if 0
+      define_dimen_pk(gi,givc_ind,3)
+@#endif
       define_var_pk(gi,ncells,INT)
       define_var_pk(gi,nsurfaces,INT)
       define_var_pk(gi,nboundaries,INT)
@@ -36,12 +42,23 @@
       define_varp_pk(gi,boundaries,INT,boundary_ind)
       define_varp_pk(gi,neighbors,INT,neighbor_ind)
       define_varp_pk(gi,surface_coeffs,FLOAT,coeff_ind,surface_ind)
+@#if DEBUG
+      define_varp_pk(gi,surface_points,FLOAT,vc_ind,neg_pos,surface_ind)
+@#endif
 
 @ Geometry declaration for geometry routines.
 
 @f gi_common integer
 @m gi_common
       gi_common_a @;
+
+@ Declaration of the geometry routines.
+
+@f gi_ext integer
+@m gi_ext
+      external define_surface,start_cell,polygon_volume;
+      integer define_surface,start_cell;
+      real polygon_volume;
 
 @ Indices into the surface coefficient array.
 

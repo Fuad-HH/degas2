@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.13  1994/07/05 11:56:15  karney
+# Sync with repository
+#
 # Revision 1.12  1994/06/28 22:12:46  karney
 # Add reaction data, test out {element,species,reaction}setup.
 #
@@ -97,9 +100,9 @@ FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
 ifdef DEBUG
-  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt1000000
+  TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt1000000 -yn6000
 else
-  TANGLEFLAGS=-mINLINE -W[ -ytt1000000
+  TANGLEFLAGS=-mINLINE -W[ -ytt1000000 -yn6000
 endif
 WEAVEFLAGS=-f -i -W[ -ykw600
 
@@ -153,6 +156,10 @@ HEADERS=macros.hweb array.hweb sysdep.hweb classes.hweb location.hweb \
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
 	fixit $@
 	$(IDENTAPPEND)
+
+# include files
+# geomsetup.f: geomint.hweb
+# degasgeom.f: degas.hweb geomint.hweb
 
 ifeq ($(TARGET),IBM)
   sysdep.f sysdepc.c: sysdep.web macros.hweb
@@ -241,6 +248,10 @@ geomread = geomsetup.$O geomutils.$O geomfaces.$O sysdep.$O geometry.$O composit
 geomread_libs = $(NETCDF)
 geomread: $(geomread)
 
+degasgeom = geomsetup.$O geomutils.$O geomfaces.$O geometry.$O composite.$O random.$O
+degasgeom_libs = $(NETCDF)
+degasgeom: $(degasgeom)
+
 #elementread: sysdep.$O
 #test: sysdep.$O
 #sysdeptest: sysdep.$O string.$O
@@ -269,10 +280,10 @@ fixit: fixit.sh fixit.el
 	cp $< $@
 	chmod a+x $@
 	
-etags: etags.c
+etags: etags.c getopt.c getopt1.c getopt.h
 	gcc -o etags -g -DETAGS -Demacs etags.c getopt.c getopt1.c
 
-TAGS:
+TAGS:  etags
 	etags *.web *.hweb
 
 .PHONY: clean %.view %.print TAGS
