@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.22  1997/09/29 17:17:35  karney
+% Implement mem_check.
+%
 % Revision 1.21  1997/08/21 19:46:50  karney
 % Use f90's portable method of specifying precision (via kind and
 % selected_real_kind).
@@ -596,7 +599,8 @@ invoking a macro for entity.
       iterate_pk(pk,module,#.)
       end_##module(pk,#.)
 
-@m* iterate_pk(pk,module,...)
+// The ``*'' here is significant
+@m*  iterate_pk(pk,module,...)
       $INCR(TEMPCOUNT)
       $IF(TEMPCOUNT <= COUNT_##pk,
           do_##module(pk,paste(VAR_##pk##_,TEMPCOUNT),paste(CAT_##pk##_,TEMPCOUNT),#.)
