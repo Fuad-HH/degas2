@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.8  1995/03/07 18:46:05  karney
+% Use * as the upper limit of the last dimension (since Solaris doesn't
+% allow array referencess for array bounds.
+%
 % Revision 1.7  1994/11/21 15:49:31  dstotler
 % Interim update associated with ratecalc. ratecalc.hweb and
 % xsection.hweb have undergone substantial revision, but should be
@@ -77,6 +81,23 @@
       _IF(type_##x == CHAR,
           *range_max(ind_##x##_1)
           _IFCASE(rank_##x,,x,
+          x(range(ind_##x##_2)),
+          x(range(ind_##x##_2),range(ind_##x##_3)),
+          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
+          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5))),
+          _IFCASE(rank_##x,x,x(range(ind_##x##_1)),
+          x(range(ind_##x##_1),range(ind_##x##_2)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
+          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5)))) @;
+
+@f declare_varp integer
+@m declare_varp(x)
+      _IF(rank_##x > 1 || (type_##x != CHAR && rank_##x > 0),ptr_decl(x);,)
+      _IFCASE(type_##x, character, integer, real)
+      _IF(type_##x == CHAR,
+          *range_max(ind_##x##_1)
+          _IFCASE(rank_##x,,x,
           x(range_star(ind_##x##_2)),
           x(range(ind_##x##_2),range_star(ind_##x##_3)),
           x(range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
@@ -86,11 +107,6 @@
           x(range(ind_##x##_1),range(ind_##x##_2),range_star(ind_##x##_3)),
           x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
           x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5)))) @;
-
-@f declare_varp integer
-@m declare_varp(x)
-      _IF(rank_##x > 1 || (type_##x != CHAR && rank_##x > 0),ptr_decl(x);,)
-      declare_var(x) @;
 
 @m array_size(x)
       _IFCASE(rank_##x,1,(range_size(ind_##x##_1)),
