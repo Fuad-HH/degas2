@@ -2,6 +2,9 @@
 \def\Wtitle{pvmslave}
 
 % $Log$
+% Revision 1.2  1993/10/26  22:21:59  karney
+% A working version.
+%
 % Revision 1.1  1993/10/26  16:08:44  karney
 % Initial revision
 
@@ -50,7 +53,10 @@
       return
       end
       
-@ The master controller.
+@ The controller.  This reads requests for the calculation of flights
+from the master process, does the computation, and sends the results
+back to the master.  It terminates when getting a request for zero
+flights.
 
 @<Functions...@>=
       subroutine pvm_flights_slave
@@ -69,28 +75,30 @@
       real_alloc(stat1,2*zn_num)
       real_alloc(stat2,2*zn_num)
 
-      call pvmfmytid(mytid)
-      call pvmfparent(mastertid)
+      call pvmfmytid(mytid)     // Enroll with PVM
+      call pvmfparent(mastertid) // Who's the master?
 
 loop: continue
-      msgtype=1
-      call pvmfrecv(mastertid,msgtype,ret); assert(ret >= 0)
-      call pvmfunpack(pvm_int,nstart,1,1,ret); assert(ret >= 0)
-      call pvmfunpack(pvm_int,num,1,1,ret); assert(ret >= 0)
-      call pvmfunpack(pvm_int,seed,2,1,ret); assert(ret >= 0)
-      if (num <= 0) goto break
+      msgtype=1                 // Receive the request from the master
+      call pvmfrecv(mastertid,msgtype,ret)
+      call pvmfunpack(pvm_int,nstart,1,1,ret)
+      call pvmfunpack(pvm_int,num,1,1,ret)
+      call pvmfunpack(pvm_int,seed,2,1,ret)
+
+      if (num <= 0) goto break  // Quit if nothing to do
       
-      call do_flights(nstart,num,seed,stat1,weight1,stat2)
-      call pvmfinitsend(PVMDEFAULT,ret); assert(ret >= 0)
-      call pvmfpack(pvm_real,stat1,2*zn_num,1,ret); assert(ret >= 0)
-      call pvmfpack(pvm_real,weight1,1,1,ret); assert(ret >= 0)
+      call do_flights(nstart,num,seed,stat1,weight1,stat2) // Do the computation
+
+      call pvmfinitsend(PVMDEFAULT,ret) // Send the results back to the master
+      call pvmfpack(pvm_real,stat1,2*zn_num,1,ret)
+      call pvmfpack(pvm_real,weight1,1,1,ret)
       msgtype=2
-      call pvmfsend(mastertid, msgtype,ret); assert(ret >= 0)
+      call pvmfsend(mastertid, msgtype,ret)
       
       goto loop
       
 break: continue
-      call pvmfexit(ret); assert(ret >= 0)
+      call pvmfexit(ret)        // Let PVM know
 
       real_free(stat1,2*zn_num)
       real_free(stat2,2*zn_num)

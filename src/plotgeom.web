@@ -2,6 +2,9 @@
 \def\Wtitle{plot geometry}
 
 % $Log$
+% Revision 1.2  1993/09/30  18:43:22  karney
+% Pre PET checkin
+%
 % Revision 1.1  1993/09/23  12:17:11  karney
 % Checkin under RCS
 %
@@ -186,7 +189,7 @@ loop1:   continue
       return
       end
 
-@ The zone value.
+@ The electron density value.
 
 @<Functions...@>=
       function density_func(lc_dummy(x),min_char,max_char)
@@ -204,10 +207,64 @@ loop1:   continue
       else
          assert(zn_type(lc_zone(x)) == zn_plasma)
          density_func=min_char+
-     $        int((log( bk_n(1,lc_zone(x)) )-
-     $        log(const(3.0,16)))/
-     $        (log(const(5.0,20))-log(const(3.0,16)))*
+     $        int( (log( bk_n(1,lc_zone(x)) )-log(const(2.0,16)))/
+     $        (log(const(1.0,21))-log(const(2.0,16)))*
      $        (max_char-min_char))
+         density_func=min(max(density_func,min_char),max_char-1)
+      end if
+
+      return
+      end
+
+@ The election temperature value.
+
+@<Functions...@>=
+      function te_func(lc_dummy(x),min_char,max_char)
+      implicit_none
+      integer te_func         // Function
+      integer min_char,max_char // Input
+      lc_decl(x)
+      zn_common
+      bk_common
+      
+      if (zn_type(lc_zone(x)) == zn_vacuum) then
+         te_func=1
+      else if (zn_type(lc_zone(x)) == zn_solid) then
+         te_func=max_char
+      else
+         assert(zn_type(lc_zone(x)) == zn_plasma)
+         te_func=min_char+
+     $        int((log( bk_temp(1,lc_zone(x)) )-log(const(1.0)))/
+     $        (log(const(1000.0))-log(const(1.0)))*
+     $        (max_char-min_char))
+         te_func=min(max(te_func,min_char),max_char-1)
+      end if
+
+      return
+      end
+
+@ The ion temperature value.
+
+@<Functions...@>=
+      function ti_func(lc_dummy(x),min_char,max_char)
+      implicit_none
+      integer ti_func         // Function
+      integer min_char,max_char // Input
+      lc_decl(x)
+      zn_common
+      bk_common
+      
+      if (zn_type(lc_zone(x)) == zn_vacuum) then
+         ti_func=1
+      else if (zn_type(lc_zone(x)) == zn_solid) then
+         ti_func=max_char
+      else
+         assert(zn_type(lc_zone(x)) == zn_plasma)
+         ti_func=min_char+
+     $        int((log( bk_temp(2,lc_zone(x)) )-log(const(1.0)))/
+     $        (log(const(1000.0))-log(const(1.0)))*
+     $        (max_char-min_char))
+         ti_func=min(max(ti_func,min_char),max_char-1)
       end if
 
       return
@@ -241,6 +298,7 @@ loop1:   continue
      $           log(smin))/
      $           (log(smax)-log(smin))*
      $           (max_char-min_char))
+            stat_func=min(max(stat_func,min_char),max_char-1)
          end if
       end if
 

@@ -2,6 +2,9 @@
 \def\Wtitle{flighttest}
 
 % $Log$
+% Revision 1.5  1993/10/26  22:20:49  karney
+% Split do_flights up to make it easier to convert to PVM.
+%
 % Revision 1.4  1993/10/26  14:38:09  karney
 % Revert to correct test on hitting plasma.
 %
@@ -32,9 +35,23 @@
 @a
       program flight_test
       implicit_none
+      integer nflights,nfrag,i
+      character*80 arg
+      sy_common
+
+      nflights=100000
+      nfrag=-1
+      
+      do i=1,max(2,arg_count())
+         call command_arg(i,arg)
+         if (i == 1) read(arg,'(i)') nflights
+         if (i == 2) read(arg,'(i)') nfrag
+      end do
+      
+      if (nfrag <= 0) nfrag=nflights
 
       call degas_init
-      call do_flights_master(100000,1000)
+      call do_flights_master(nflights,nfrag)
 
       stop
       end
@@ -57,7 +74,9 @@
       return
       end
       
-@ The master controller.
+@ The master controller.  This breaks the calculation of |nflights|
+flights into chunks of size |nfrag|.  This is to make the conversion to
+PVM more straightforward.
 
 @<Functions...@>=
       subroutine do_flights_master(nflights,nfrag)
@@ -78,7 +97,7 @@
       real_alloc(stat1,2*zn_num)
       real_alloc(stat2,2*zn_num)
 
-      seed[0]=1
+      seed[0]=1                 // Initialize random number seed
       seed[1]=2
       
       weight=zero
@@ -89,18 +108,18 @@
       end do
 
       do j=0,nflights-1,nfrag
-         call do_flights(j,min(nfrag,nflights-j),seed,stat1,weight1,stat2)
-         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
-         call next_seed(nfrag,seed,seed)
+         call do_flights(j,min(nfrag,nflights-j),seed,stat1,weight1,stat2) // Calculate the flights
+         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat) // Accumulate the results
+         call next_seed(nfrag,seed,seed) // Advance the seed
       end do
-
-      real_free(stat,2*zn_num)
-      real_free(stat1,2*zn_num)
-      real_free(stat2,2*zn_num)
 
       open(unit=diskout,file='stat.dat')
       write(diskout,*) stat
       close(unit=diskout)
+
+      real_free(stat,2*zn_num)
+      real_free(stat1,2*zn_num)
+      real_free(stat2,2*zn_num)
 
       return
       end

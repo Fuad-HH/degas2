@@ -2,6 +2,9 @@
 \def\Wtitle{pvmmaster}
 
 % $Log$
+% Revision 1.2  1993/10/26  22:21:42  karney
+% A working version.
+%
 % Revision 1.1  1993/10/26  16:08:39  karney
 % Initial revision
 %
@@ -22,9 +25,24 @@
 @a
       program pvm_master
       implicit_none
+      integer nflights,nfrag,nslaves,i
+      character*80 arg
+      sy_common
+      
+      nflights=100000
+      nslaves=13
+      nfrag=500
+
+      do i=1,max(2,arg_count())
+         call command_arg(i,arg)
+         if (i == 1) read(arg,'(i)') nflights
+         if (i == 2) read(arg,'(i)') nfrag
+         if (i == 3) read(arg,'(i)') nslaves
+      end do
+
 
       call master_init
-      call pvm_flights_master(100000,500,13)
+      call pvm_flights_master(nflights,nfrag,nslaves)
 
       stop
       end
@@ -42,7 +60,10 @@
       return
       end
       
-@ The master controller.
+@ The master controller.  This farms out calculations to do to slave
+processes.  |nflights| is the total number of flights to compute;
+|nfrag| is the ``chunk'' size for the pieces of calculations to do;
+|nslaves| is the number of slave processes to start.
 
 @<Functions...@>=
       subroutine pvm_flights_master(nflights,nfrag,nslaves)
@@ -61,7 +82,7 @@
       real_alloc(stat,2*zn_num)
       real_alloc(stat1,2*zn_num)
 
-      seed[0]=1
+      seed[0]=1                 // Initialize random number seed
       seed[1]=2
       
       weight=zero
@@ -71,68 +92,75 @@
          end do
       end do
 
-      call pvmfmytid(mytid)
-      call pvmfspawn('pvmslave',PVMDEFAULT,'*',nslaves,tids,numt)
+      call pvmfmytid(mytid)     // Enroll in PVM
+      call pvmfspawn('pvmslave',PVMDEFAULT,'*',nslaves,tids,numt) // Start slaves
       assert(numt == nslaves)
 
-      nparcel=(nflights+nfrag-1)/nfrag
+      nparcel=(nflights+nfrag-1)/nfrag // The number of chunks
 
-      do j=0,min(nparcel,nslaves)-1
+      do j=0,min(nparcel,nslaves)-1 // Send out the initial requests
+
          num=min(nfrag,nflights-j*nfrag)
-         assert(num>0)
-         call pvmfinitsend(PVMDEFAULT,ret); assert(ret >= 0)
-         call pvmfpack(pvm_int,j*nfrag,1,1,ret); assert(ret >= 0)
-         call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
-         call pvmfpack(pvm_int,seed,2,1,ret); assert(ret >= 0)
+
+         call pvmfinitsend(PVMDEFAULT,ret) // Make the request
+         call pvmfpack(pvm_int,j*nfrag,1,1,ret)
+         call pvmfpack(pvm_int,num,1,1,ret)
+         call pvmfpack(pvm_int,seed,2,1,ret)
          msgtag=1
-         call pvmfsend(tids[j],msgtag,ret); assert(ret >= 0)
-         call next_seed(nfrag,seed,seed)
+         call pvmfsend(tids[j],msgtag,ret)
+
+         call next_seed(nfrag,seed,seed) // Advance random number seed
       end do
 
-      do j=min(nparcel,nslaves),nparcel-1
-         msgtag=2
-         call pvmfrecv(-1,msgtag,buf); assert(ret >= 0)
+      do j=min(nparcel,nslaves),nparcel-1 // Loop reading results and making additional requests
+
+         msgtag=2               // Read the results
+         call pvmfrecv(-1,msgtag,buf)
          call pvmfbufinfo(buf,bytes,msgtag,tid,ret)
-         call pvmfunpack(pvm_real,stat1,2*zn_num,1,ret); assert(ret >= 0)
-         call pvmfunpack(pvm_real,weight1,1,1,ret); assert(ret >= 0)
+         call pvmfunpack(pvm_real,stat1,2*zn_num,1,ret)
+         call pvmfunpack(pvm_real,weight1,1,1,ret)
+
          num=min(nfrag,nflights-j*nfrag)
-         assert(num>0)
-         call pvmfinitsend(PVMDEFAULT,ret); assert(ret >= 0)
-         call pvmfpack(pvm_int,j*nfrag,1,1,ret); assert(ret >= 0)
-         call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
-         call pvmfpack(pvm_int,seed,2,1,ret); assert(ret >= 0)
+
+         call pvmfinitsend(PVMDEFAULT,ret) // Make the next request
+         call pvmfpack(pvm_int,j*nfrag,1,1,ret)
+         call pvmfpack(pvm_int,num,1,1,ret)
+         call pvmfpack(pvm_int,seed,2,1,ret)
          msgtag=1
-         call pvmfsend(tid,msgtag,ret); assert(ret >= 0)
-         call next_seed(nfrag,seed,seed)
-         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
+         call pvmfsend(tid,msgtag,ret)
+
+         call next_seed(nfrag,seed,seed) // Advance the seed
+
+         call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat) // Accumulate the results
       end do
       
-      do j=0,min(nparcel,nslaves)-1
+      do j=0,min(nparcel,nslaves)-1 // Do the final reads
          msgtag=2
-         call pvmfrecv(-1,msgtag,buf); assert(ret >= 0)
+         call pvmfrecv(-1,msgtag,buf)
          call pvmfbufinfo(buf,bytes,msgtag,tid,ret)
-         call pvmfunpack(pvm_real,stat1,2*zn_num,1,ret); assert(ret >= 0)
-         call pvmfunpack(pvm_real,weight1,1,1,ret); assert(ret >= 0)
+         call pvmfunpack(pvm_real,stat1,2*zn_num,1,ret)
+         call pvmfunpack(pvm_real,weight1,1,1,ret)
+
          call stat_add(zn_num,weight1,stat1,weight,stat,weight,stat)
       end do
          
-      num=0
-      call pvmfinitsend(PVMDEFAULT,ret); assert(ret >= 0)
-      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
-      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
-      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
-      call pvmfpack(pvm_int,num,1,1,ret); assert(ret >= 0)
+      num=0                     // Terminate the slave processes
+      call pvmfinitsend(PVMDEFAULT,ret)
+      call pvmfpack(pvm_int,num,1,1,ret)
+      call pvmfpack(pvm_int,num,1,1,ret)
+      call pvmfpack(pvm_int,num,1,1,ret)
+      call pvmfpack(pvm_int,num,1,1,ret)
       msgtag=1
-      call pvmfmcast(nslaves,tids,msgtag,ret); assert(ret >= 0)
+      call pvmfmcast(nslaves,tids,msgtag,ret)
 
-      call pvmfexit(ret); assert(ret >= 0)
-
-      real_free(stat,2*zn_num)
-      real_free(stat1,2*zn_num)
+      call pvmfexit(ret)        // Let PVM know we're done
 
       open(unit=diskout,file='stat.dat')
       write(diskout,*) stat
       close(unit=diskout)
+
+      real_free(stat,2*zn_num)
+      real_free(stat1,2*zn_num)
 
       return
       end

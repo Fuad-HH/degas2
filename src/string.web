@@ -2,6 +2,9 @@
 \def\Wtitle{system dependent routines}
 
 % $Log$
+% Revision 1.3  1993/10/25  22:35:52  karney
+% Add int_lookup.
+%
 % Revision 1.2  1993/09/30  18:43:22  karney
 % Pre PET checkin
 %
@@ -162,7 +165,6 @@ value.
       integer parse_string      // Function
       character*(*) string
       integer l,i,k,p,offset  // Local
-      logical start
       
       l=len(string)
       p=1
@@ -174,7 +176,6 @@ loop: continue
          if (p <= l) goto loop
       end if
       offset=0
-      start=.true.
       do i=1,l
          if (string(i:i)==' ') then
             offset=offset+1     // Skip leading blanks
@@ -251,9 +252,9 @@ match, if found; else 0.
       function string_lookup(string,array,num)
       implicit_none
       integer string_lookup     // Function
-      character*(*) string,array[num] // Input
-      integer num
-      integer i
+      integer num               // Input
+      character*(*) string,array[num]
+      integer i                 // Local
 
       do i=1,num
          if (array[i] == string) then
@@ -274,9 +275,9 @@ match, if found; else 0.
       function int_lookup(n,array,num)
       implicit_none
       integer int_lookup     // Function
-      integer n,array[num] // Input
-      integer num
-      integer i
+      integer num               //Input
+      integer n,array[num] 
+      integer i                 // Local
 
       do i=1,num
          if (array[i] == n) then
