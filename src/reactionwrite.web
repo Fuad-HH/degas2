@@ -2,6 +2,11 @@
 \Title{reactionwrite}
 
 % $Log$
+% Revision 1.11  1996/10/30 18:22:54  dstotler
+% Heading towards archive-worthy data files, hack this once more to
+% extract all data from the ehr*.dat files. Remove the CX stuff since
+% that is now done by ratecalc.
+%
 % Revision 1.10  1996/03/01 20:22:10  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -67,10 +72,10 @@ format with a complete specification of the reaction.
 @a
       program reactionwrite
       implicit_none
-      call reaction_write('hionize','ehr1.dat',
-     &     'V. 2.0, e ionization of H, CR data from ehr1.dat')
-      call reaction_write('hrecombine','ehr1.dat',
-     &     'V. 2.0, e recombination of H+, CR data from ehr1.dat')
+      call reaction_write('hionize','ehr2.dat',
+     &     'V. 2.2, e ionization of H, CR data from ehr2.dat')
+      call reaction_write('hrecombine','ehr2.dat',
+     &     'V. 2.2, e recombination of H+, CR data from ehr2.dat')
       stop
       end
 
@@ -85,7 +90,7 @@ format with a complete specification of the reaction.
       character*(*) name,filein,version                 // Input
 
       integer i,j,fileid                                // Local
-      real delta
+      real delta,density,eionize,a32,e32
       character*FILELEN fileout
       character*LINELEN tag,description
 
@@ -97,10 +102,14 @@ format with a complete specification of the reaction.
       
       xs_name=name
       xsection_version=version
-      xs_num_dep_var=4
+      if (name == 'hionize') then
+         xs_num_dep_var=3
+      else if (name == 'hrecombine') then
+         xs_num_dep_var=4
+      end if
 
       do i=1,xs_num_dep_var
-         xs_organization[i]='table'
+         xs_eval_name[i]='table'
          xs_rank[i]=2 
          xs_spacing[0,i]='log' 
          xs_var[1,i]='temperature'
@@ -132,27 +141,73 @@ format with a complete specification of the reaction.
          end do
       end do
 
-      xs_var[0,1]='rate' 
-      xs_units[0,1]='cm^3 s^-1'  
-      xs_mult[0,1]=const(1.0,-6) 
+      xs_num_dep_var=0
+      xs_num_dep_var++
+      xs_var[0,xs_num_dep_var]='reaction_rate' 
+      xs_units[0,xs_num_dep_var]='cm^3/s'  
+      xs_mult[0,xs_num_dep_var]=const(1.0,-6) 
 
-      xs_var[0,2]='electron_excitation_losses'
-      xs_units[0,2]='ergs s^-1'
-      xs_mult[0,2]=const(1.0,-7)
+      xs_num_dep_var++
+      xs_var[0,xs_num_dep_var]='background_energy_loss_rate'
+      xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
+      xs_mult[0,xs_num_dep_var]=const(1.0,-13)
 
-      xs_var[0,3]='N(3)/N(1)'
-      xs_units[0,3]=' '
-      xs_mult[0,3]=one
+      if (name == 'hrecombine') then
+         xs_num_dep_var++
+         xs_var[0,xs_num_dep_var]='background_energy_source_rate'
+         xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
+         xs_mult[0,xs_num_dep_var]=const(1.0,-13)
+      end if
 
-      xs_var[0,4]='N(2)/N(1)'
-      xs_units[0,4]=' '
-      xs_mult[0,4]=one
+      xs_num_dep_var++
+      xs_var[0,xs_num_dep_var]='emission_rate'
+      xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
+      xs_mult[0,xs_num_dep_var]=const(1.0,-13)
 
+      do i=xs_num_dep_var+1,xs_num_dep_var+3
+         xs_units[0,i]='Angstroms'
+         xs_mult[0,i]=const(1.,-10)
+         xs_eval_name[i]='table'
+         xs_rank[i]=1
+         xs_spacing[0,i]='linear'
+         xs_var[1,i]='emitter_mass'
+         xs_spacing[1,i]='linear'
+         xs_units[1,i]='kilograms'
+         xs_mult[1,i]=one
+         xs_tab_index[1,i]=4
+         do j=xs_rank[i]+1,xs_table_rank_max
+            xs_tab_index[j,i]=1
+            xs_var[j,i]='unknown'
+            xs_spacing[j,i]='unknown'
+            xs_units[j,i]='unknown'
+            xs_mult[j,i]=zero
+            xs_min[j,i]=zero
+            xs_max[j,i]=zero
+         end do
+      end do
+
+/*
+   Just surround actual mass in a convenient way:
+*/
+      xs_num_dep_var++
+      xs_var[0,xs_num_dep_var]='wavelength_H_alpha'
+      xs_min[1,xs_num_dep_var]=const(1.5,-27)
+      xs_max[1,xs_num_dep_var]=const(1.8,-27)   // is 1.6735e-27
+
+      xs_num_dep_var++
+      xs_var[0,xs_num_dep_var]='wavelength_D_alpha'
+      xs_min[1,xs_num_dep_var]=const(3.2,-27)
+      xs_max[1,xs_num_dep_var]=const(3.5,-27)   // 3.3443e-27
+
+      xs_num_dep_var++
+      xs_var[0,xs_num_dep_var]='wavelength_T_alpha'
+      xs_min[1,xs_num_dep_var]=const(4.85,-27)
+      xs_max[1,xs_num_dep_var]=const(5.15,-27)  // 5.0083e-27
 
 /* nothing known about the other dependent variables */
       do i=xs_num_dep_var+1,xs_dep_var_max
          xs_rank[i]=1
-         xs_organization[i]='unknown'
+         xs_eval_name[i]='unknown'
          xs_var[0,i]='unknown'
          xs_spacing[0,i]='unknown'
          xs_units[0,i]='unknown'
@@ -168,24 +223,88 @@ format with a complete specification of the reaction.
          end do
       end do
 
-      do j=1,xs_dep_var_max
-         xs_eval_name[j]='unknown'
-      end do
-      
       xs_ragged_alloc(xs_data,xs_tab_index)
 
+      xs_num_dep_var=0
+      xs_num_dep_var++
       if (name == 'hionize') then
-         call file_read(filein,1,' Ionization Rate')
+         call file_read(filein,xs_num_dep_var,' Ionization Rate')
          tag=' Neutral'
       else if (name == 'hrecombine') then
-         call file_read(filein,1,' Recombination Rate')
+         call file_read(filein,xs_num_dep_var,' Recombination Rate')
          tag=' Continuum'
       end if
 
-      call file_read(filein,2,trim(tag)\/' Electron Losses')
-      call file_read(filein,3,trim(tag)\/' n=3 / n=1')
-      call file_read(filein,4,trim(tag)\/' n=2 / n=1')
-      
+      xs_num_dep_var++
+      call file_read(filein,xs_num_dep_var,trim(tag)\/' Electron Losses')
+      delta=const(10.0)**const(0.5)
+      do j=0,xs_tab_index[2,xs_num_dep_var]-1
+         density=xs_min[2,xs_num_dep_var]*delta**j
+         assert(density > zero)
+         do i=0,xs_tab_index[1,xs_num_dep_var]-1
+            xs_data_table(i,j,0,xs_num_dep_var)/=density
+         end do
+      end do
+
+/*
+   Ionization energy as in original DEGAS
+*/
+      eionize=const(1.3595,1)*electron_charge*const(1.,7)
+      if (name == 'hionize') then
+         do j=0,xs_tab_index[2,xs_num_dep_var]-1
+            do i=0,xs_tab_index[1,xs_num_dep_var]-1
+/* 
+   ADD ionization losses to excitation losses.
+*/
+               xs_data_table(i,j,0,xs_num_dep_var)+=eionize*xs_data_table(i,j,0,1)
+            end do
+         end do
+      else if (name == 'hrecombine') then
+         xs_num_dep_var++
+         do j=0,xs_tab_index[2,xs_num_dep_var]-1
+            do i=0,xs_tab_index[1,xs_num_dep_var]-1
+/* 
+   Separate dep. var. for positive contribution to electron energy
+*/
+               xs_data_table(i,j,0,xs_num_dep_var)=eionize*xs_data_table(i,j,0,1)
+            end do
+         end do
+      end if         
+
+      xs_num_dep_var++
+/*
+   |e32| = transition energy from $n = 3$ to $n = 2$ (H$_{\alpha}$),
+   |a32| = radiative decay rate for this process (``Einstein coefficient'')
+*/
+      e32=eionize*(one/two**2 - one/(const(3.)**2))
+      a32=const(4.41,7)
+      call file_read(filein,xs_num_dep_var,trim(tag)\/' n=3 / n=1')
+      do j=0,xs_tab_index[2,xs_num_dep_var]-1
+         density=xs_min[2,xs_num_dep_var]*delta**j
+         assert(density > zero)
+         do i=0,xs_tab_index[1,xs_num_dep_var]-1
+            xs_data_table(i,j,0,xs_num_dep_var)*=e32*a32/density
+         end do
+      end do
+
+      xs_num_dep_var++
+      xs_data_table(0,0,0,xs_num_dep_var)=zero
+      xs_data_table(1,0,0,xs_num_dep_var)=const(6.56280,3)
+      xs_data_table(2,0,0,xs_num_dep_var)=const(6.56280,3)
+      xs_data_table(3,0,0,xs_num_dep_var)=zero
+
+      xs_num_dep_var++
+      xs_data_table(0,0,0,xs_num_dep_var)=zero
+      xs_data_table(1,0,0,xs_num_dep_var)=const(6.56104,3)
+      xs_data_table(2,0,0,xs_num_dep_var)=const(6.56104,3)
+      xs_data_table(3,0,0,xs_num_dep_var)=zero
+
+      xs_num_dep_var++
+      xs_data_table(0,0,0,xs_num_dep_var)=zero
+      xs_data_table(1,0,0,xs_num_dep_var)=const(6.56045,3)
+      xs_data_table(2,0,0,xs_num_dep_var)=const(6.56045,3)
+      xs_data_table(3,0,0,xs_num_dep_var)=zero
+
       fileout=trim(name)\/'.nc'
       fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
 
