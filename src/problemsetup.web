@@ -2,6 +2,10 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.33  2000/04/01 17:33:25  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.32  2000/03/27 21:15:14  dstotler
 % A little clean up following merger with Randy's branch.
 %
@@ -641,6 +645,7 @@ background species). The reaction-specific entries will be set in
       pr_var0_list[pr_var_emitter_vf_Maxwell_2]='emitter_vf_Maxwell_2'
       pr_var0_list[pr_var_emitter_vf_Maxwell_3]='emitter_vf_Maxwell_3'
       pr_var0_list[pr_var_emitter_vth_Maxwell]='emitter_vth_Maxwell'
+      pr_var0_list[pr_var_xz_stress]='xz_stress'    // For Couette example
 
       pr_var0_list[pr_var_mass_change]='mass_change'     // Generic entries
       pr_var0_list[pr_var_momentum_change_vector]='momentum_change_vector'
@@ -771,6 +776,7 @@ wavelength-dependent data.
       @<Memory allocation interface@>
 
       num_lines=0
+      old_num=pr_var0_num
       do i=1,pr_var0_num
          if (pr_var0_list[i]SP(1:10) == 'wavelength') then
             line=pr_var0_list[i]SP(11:)
@@ -778,18 +784,21 @@ wavelength-dependent data.
      $           pr_var0_list,pr_var0_num)
             if (i_e_rate == 0) then        // Add to list if not there already
                num_lines++
+               pr_var0_num++
+               var_realloca(pr_var0_list)
                lines[num_lines]=line
             end if
          end if
       end do
 
       if (num_lines > 0) then
-         old_num=pr_var0_num
 @#if 0
          var_realloc(pr_var0_list,pr_var0_num,pr_var0_num+num_lines)
 @#endif
+@#if 0
          pr_var0_num+=num_lines
          var_realloca(pr_var0_list)
+@#endif
          do i=1,num_lines
             pr_var0_list[old_num+i]='emission_rate'\/lines[i]
          end do
