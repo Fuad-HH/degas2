@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.7  1995/06/12 13:07:04  karney
+% Add in dummy elements into common blocks to avoid complaints from
+% Alpha.
+%
 % Revision 1.6  1995/02/16 18:37:20  dstotler
 % Cleanup some conflicts associated with recent merges.
 %
@@ -33,7 +37,7 @@
 
 \ID{$Id$}
 
-Information about elements is held in arrays in
+@ Information about elements is held in arrays in
 common blocks.  An element is identified by an integer indexing into
 these arrays.
 
@@ -67,19 +71,11 @@ these arrays.
       define_dimen_pk(el,element_symbol_string,el_sy_len)
       define_dimen_pk(el,element_name_string,el_name_len)
       define_var_pk(el,el_num,INT)
-      define_dummy_pk(el,el_ignore,INT)
       define_dimen_pk(el,element_ind,el_num)
       define_varp_pk(el,element_name,CHAR,element_name_string,element_ind)
       define_varp_pk(el,element_sy,CHAR,element_symbol_string,element_ind)
       define_varp_pk(el,element_z,INT,element_ind)
       define_varp_pk(el,element_m,FLOAT,element_ind)
-
-@ Common blocks definitions.
-
-@f el_common integer
-@m el_common
-      el_common_a;
-      character*LINELEN element_version;
-      common /com_element_c/ element_version;
-      save /com_element_c/ @;
+      define_varlocal_pk(el,element_version,CHAR,string)
+      package_end(el)
 

@@ -2,6 +2,9 @@
 \Title{pmimattread}
 
 % $Log$
+% Revision 1.3  1997/08/07 20:02:03  dstotler
+% Implement variable name changes from reactiondata.hweb. Add nc_read_tally.
+%
 % Revision 1.2  1996/10/30 18:04:59  dstotler
 % Continue adding routines which need to be callable by more than one
 % program.
@@ -32,6 +35,8 @@ Introduction\ldots
 @I string.hweb
 @I vector.hweb
 @I tally.hweb
+@I reaction.hweb
+@I pmiformat.hweb
 
 @ The unnamed module.
 
@@ -42,14 +47,15 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_read_materials
-      implicit_none
+      implicit_none_f77
+      ma_common
+      rf_common
+      implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
-      ma_common
       ma_ncdecl
-      nc_common
-      sy_common
-      rf_common
+      nc_decls
+      @<Memory allocation interface@>
 
       tempfile =  filenames_array[materialsfile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
@@ -67,14 +73,15 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_read_pmi
-      implicit_none
+      implicit_none_f77
+      pm_common
+      rf_common
+      implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
-      pm_common
       pm_ncdecl
-      nc_common
-      sy_common
-      rf_common
+      nc_decls
+      @<Memory allocation interface@>
 
       tempfile =  filenames_array[pmifile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
@@ -92,21 +99,23 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_read_problem
-      implicit_none
-      integer fileid
-      character *FILELEN tempfile  //local
+      implicit_none_f77
       pr_common
       rd_common
       pd_common
       ma_common
       pm_common
       sp_common
+      rf_common
+      implicit_none_f90
+      rd_decls
+      integer fileid
+      character *FILELEN tempfile  //local
       pr_ncdecl
       rd_ncdecl
       pd_ncdecl
-      nc_common
-      sy_common
-      rf_common
+      nc_decls
+      @<Memory allocation interface@>
 
       tempfile =  filenames_array[problemfile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
@@ -126,13 +135,15 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine nc_read_tally
-      implicit_none
-      tl_common                  // Common
-      nc_common
-      st_common
-      rf_common
+      implicit_none_f77
       pr_common
-      sy_common
+      tl_common                  // Common
+      rf_common
+      implicit_none_f90
+      nc_decls
+      st_decls
+      tl_decls
+      @<Memory allocation interface@>
       integer fileid             // Local
       tl_ncdecl
       character*FILELEN tempfile
@@ -153,15 +164,17 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine read_cramd_data
-      implicit_none
+      implicit_none_f77
+      pr_common
+      rd_common
+      rf_common
+      implicit_none_f90
 
+      rd_decls
       integer pr_reac
       logical have_cramd_data
       character*FILELEN tempfile
 
-      pr_common
-      rd_common
-      rf_common
 
       have_cramd_data=.false.
       do pr_reac=1,pr_reaction_num
@@ -182,20 +195,22 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_write_problem
-      implicit_none
+      implicit_none_f77
       pr_common                 // Common
       rd_common
       pd_common
       sp_common
       ma_common
       pm_common
-      nc_common                 // Local
+      rf_common
+      implicit_none_f90
+      rd_decls
+      nc_decls                 // Local
       integer fileid
       pr_ncdecl
       rd_ncdecl
       pd_ncdecl
-      st_common
-      rf_common
+      st_decls
       character*LINELEN description,program_version
       character*FILELEN tempfile     //local
 

@@ -2,6 +2,14 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1997/08/07 19:59:38  dstotler
+% Remove indep_var related variables, array definitions, and allocation
+% macros; no longer needed with elimination of nonuniform
+% spacing. Modified order of variables to keep Sun compiler from
+% complaining; added pf_ignore variable to help here too. Get rid the dep.
+% var. flags, as we've done in xsection.hweb. Altered order of variables
+% to avoid complaints from ALPHA.
+%
 % Revision 1.4  1996/05/24 18:51:11  dstotler
 % Redefine constants.
 %
@@ -19,9 +27,9 @@
 
 \ID{$Id$}
 
-Information about data used to define plasma-material interactions
-
 @I pmi.hweb
+
+@ Information about data used to define plasma-material interactions
 
 @ Constant definitions.
 
@@ -88,17 +96,15 @@ Information about data used to define plasma-material interactions
       define_var_pk(pf,pf_mult,FLOAT,pf_rank_ind0,pf_dep_var_ind)
 
       define_varp_pk(pf,pf_data_tab,FLOAT,pf_data_ind)
+      define_varlocal_pk(pf,pf_version,CHAR,string)
+      package_end(pf)
+
 
 @ Common blocks definitions.
 
-@f pf_common integer
-@m pf_common
-      pf_common_a;
-      pf_common_b;
-      integer old_size;
-      character*LINELEN pf_version;
-      common /com_pf_c/ pf_version;
-      save /com_pf_c/ @;
+@f pf_decls integer
+@m pf_decls
+      integer old_size @;
 
 @ Other macros
 

@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.14  1996/10/30 18:31:54  dstotler
+% Added zone_min and zone_max.
+%
 % Revision 1.13  1996/03/01 20:23:29  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -57,10 +60,8 @@
 
 \ID{$Id$}
 
-Information about zones is held in arrays in common blocks.  An zone is
+@ Information about zones is held in arrays in common blocks.  An zone is
 identified by an integer indexing into these arrays.
-
-@I vector.hweb
 
 @f zn_decl integer
 
@@ -95,7 +96,6 @@ identified by an integer indexing into these arrays.
 @a
       package_init(zn)
       define_var_pk(zn,zn_num,INT)
-      define_dummy_pk(zn,zn_ignore,INT)
       define_dimen_pk(zn,zone_type_ind,zn_type_max)
       define_dimen_pk(zn,zone_index_ind,zn_index_max)
       define_dimen_pk(zn,zone_ind,zn_num)
@@ -104,18 +104,11 @@ identified by an integer indexing into these arrays.
       define_varp_pk(zn,zone_index,INT,zone_index_ind,zone_ind)
       define_varp_pk(zn,zone_pointer,INT,zone_ind)
       define_varp_pk(zn,zone_volume,FLOAT,zone_ind)
-      define_varp_pk(zn,zone_center,FLOAT,vc_ind,zone_ind)
-      define_varp_pk(zn,zone_min,FLOAT,vc_ind,zone_ind)
-      define_varp_pk(zn,zone_max,FLOAT,vc_ind,zone_ind)
-
-@ Common blocks definitions.
-
-@f zn_common integer
-@m zn_common
-      zn_common_a;
-      character*LINELEN zone_version;
-      common /com_zone_c/ zone_version;
-      save /com_zone_c/ @;
+      define_varp_pk(zn,zone_center,FLOAT,vector,zone_ind)
+      define_varp_pk(zn,zone_min,FLOAT,vector,zone_ind)
+      define_varp_pk(zn,zone_max,FLOAT,vector,zone_ind)
+      define_varlocal_pk(zn,zone_version,CHAR,string)
+      package_end(zn)
 
 @ Setting up zone information.
 

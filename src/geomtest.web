@@ -2,6 +2,10 @@
 \Title{geomtest}
 
 % $Log$
+% Revision 1.11  1996/03/01 20:20:38  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.10  1996/01/25 15:14:01  dstotler
 % Changed end_geometry to boundaries_neighbors.
 %
@@ -61,7 +65,8 @@
 
 @a
       program geometry_test
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       call exercise_setup
       call read_geometry
@@ -76,12 +81,13 @@
 
 @<Functions...@>=
       subroutine exercise_setup
-      implicit_none
-      integer nx,nz
-      parameter (nx=2,nz=3)
+      implicit_none_f77
       zn_common
       bk_common
-      sy_common
+      implicit_none_f90
+      integer nx,nz
+      parameter (nx=2,nz=3)
+      @<Memory allocation interface@>
       real x1[3],x2[3],x[2,0:4],xa[2,0:nx+2],xx1[3],xx2[3],vol // Local
       integer n,zone,i,j,stratum,sector
       gi_ext
@@ -189,13 +195,14 @@
 
 @<Functions...@>=
       subroutine exercise_track
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       pt_decl(x)
       logical done
       real t
       integer i,j
-      lc_common
-      pt_common
+      lc_decls
+      pt_decls
 
       do j=0,2
          vc_set(lc_x(pt_loc(x)),half,zero,j+half)

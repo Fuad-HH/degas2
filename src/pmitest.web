@@ -2,6 +2,9 @@
 \Title{pmitest}
 
 % $Log$
+% Revision 1.3  1997/08/07 20:02:42  dstotler
+% Removed pmi_yield_var[0]. Add averages of exit variables to statistics.
+%
 % Revision 1.2  1996/10/30 18:12:40  dstotler
 % Trivial changes.
 %
@@ -22,12 +25,23 @@
 @I pmi.hweb
 @I pmidata.hweb
 @I materials.hweb
+@I reaction.hweb
+@I species.hweb
+@I pmiformat.hweb
 
 @ The main program.
 
 @a
       program pmitest
-      implicit_none
+      implicit_none_f77
+      sp_common
+      rc_common
+      pr_common
+      pm_common
+      ma_common
+      pd_common
+
+      implicit_none_f90
       character*LINELEN line                          // Local
       integer length,p,b,e
       integer seed[0:5]
@@ -54,14 +68,7 @@
       external pd_eval_data                          // External
       real pd_eval_data
 
-      st_common
-      sp_common
-      rc_common
-      pr_common
-      pm_common
-      ma_common
-      pd_common
-
+      st_decls
       call readfilenames
       call init_pmitest
 
@@ -229,7 +236,8 @@ eof:  continue
 
 @<Functions...@>=
       subroutine init_pmitest
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       call nc_read_elements
       call nc_read_species

@@ -3,6 +3,9 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.26  1997/08/07 19:47:16  dstotler
+% Eliminated sr_common, etc. from read_geometry.
+%
 % Revision 1.25  1996/10/30 17:59:26  dstotler
 % Restrict surface_intersection_direction to be between -1 and 1.
 %
@@ -264,7 +267,8 @@ universal cell.
 
 @<Functions...@>=
       function surface_eval(surface_args,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real surface_eval         // Function
       decl_surface_args         // Input
       real x[3] // Input
@@ -282,7 +286,8 @@ universal cell.
 
 @<Functions...@>=
       subroutine surface_gradient(surface_args,x,grad)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       decl_surface_args         // Input
       real x[3]
       real grad[3]              // Output
@@ -308,7 +313,8 @@ In order to avoid evaluating |f|  twice, |surface_val|  should be passed as
 |.true.| if |f| is known and |f| should be passed to this function.
 @<Functions...@>=
       function in_surface(surface_args,x,surface_val,f)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical in_surface        // Function
       decl_surface_args         // Input
       real x[3],f               // Input
@@ -336,7 +342,8 @@ Here, if |f| $\geq 0$ the point lies on the positive side of the surface. Else,
 if it lies on the negative side within |geom_epsion| it is accepted.
 @<Functions...@>=
       function inside_surface(surface_args,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical inside_surface        // Function
       decl_surface_args         // Input
       real x[3]               // Input
@@ -362,7 +369,8 @@ on the surface.
 
 @<Functions...@>=
       function inside_cell(cell_args,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical inside_cell       // Function
       decl_cell_args            // Input
       real x[3]
@@ -388,7 +396,8 @@ it is accepted. A strict check is done on the cut surfaces though.
 
 @<Functions...@>=
       function sloppy_inside(cell_args,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical sloppy_inside     // Function
       decl_cell_args            // Input
       real x[3]
@@ -422,7 +431,8 @@ it is accepted. A strict check is done on the cut surfaces though.
 
 @<Functions...@>=
       function face_in_cell(cell_args,face)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical face_in_cell      // Function
       decl_cell_args            // Input
       integer face
@@ -446,7 +456,8 @@ face is excluded from the check. A strict check for the condition
 $$ \sigma_k f_k(\vect x) \ge 0 $$ is done on all the other surfaces.
 @<Functions...@>=
       function inside_cell_a(cell_args,face,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical inside_cell_a     // Function
       decl_cell_args            // Input
       integer face
@@ -475,7 +486,8 @@ strictly (the point can lie within |geom_epsilon| of the surface). A strict
 check is done on the cut surfaces.
 @<Functions...@>=
       function sloppy_inside_a(cell_args,face,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical sloppy_inside_a   // Function
       decl_cell_args             // Input
       integer face
@@ -513,7 +525,8 @@ It has to lie within |geom_epsilon| of the face and also strictly inside
 the cell.
 @<Functions...@>=
       function on_face(cell_args,face,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical on_face           // Function
       decl_cell_args            // Input
       integer face
@@ -533,7 +546,8 @@ This is the same as |on_face| except that the point does'nt have to lie
 strictly inside the cell; ie., it may lie within |geom_epsilon| of the faces. 
 @<Functions...@>=
       function sloppy_on(cell_args,face,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical sloppy_on         // Function
       decl_cell_args            // Input
       integer face
@@ -552,7 +566,8 @@ strictly inside the cell; ie., it may lie within |geom_epsilon| of the faces.
 
 @<Functions...@>=
       function cell_compare(cell_args,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer cell_compare            // Function
       decl_cell_args            // Input
       real x[3]
@@ -613,7 +628,8 @@ solving this equation gives the value of $t$ (time) taken for the particle to
 intersect the first face in its direction. 
 @<Functions...@>=
       function surface_intersect(surface_args,x0,v)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real surface_intersect    // Function
       decl_surface_args         // Input
       real x0[3],v[3]
@@ -681,7 +697,8 @@ the cell.
 
 @<Functions...@>=
       function surface_intersection_direction(surface_args,x,v)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real surface_intersection_direction // Function
       decl_surface_args         // Input
       real x[3],v[3]
@@ -702,11 +719,12 @@ the cell.
 
 @<Functions...@>=
       function intersection_direction(face,x,v)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       real intersection_direction // Function
       integer face
       real x[3],v[3]            // Input
-      gi_common
       external surface_intersection_direction // External
       real surface_intersection_direction
 
@@ -722,13 +740,14 @@ face, otherwise $\vect {v1} = \vect v$.
 
 @<Functions...@>=
       subroutine surface_specular(face,x,v,v1)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       integer face              // Input
       real x[3],v[3]
-      gi_common
       real v1[3]                // Output
       real grad[3],vperp         // Local
-      vc_common
+      vc_decls
       external surface_gradient // External
 
       call surface_gradient(surface_info(face),x,grad)
@@ -748,14 +767,15 @@ $\vect e_2 = \vect e_3 \times \vect e_1$.
 
 @<Functions...@>=
       subroutine surface_reflect(face,x,v,w,v1)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       integer face              // Input
       real x[3],v[3],w[3]
-      gi_common
       real v1[3]                // Output
       real e[3,3],e1[3],e2[3],e3[3] // Local
       equivalence (e1,e[1,1]),(e2,e[1,2]),(e3,e[1,3])
-      vc_common
+      vc_decls
       integer i
       external surface_gradient // External
 
@@ -793,7 +813,8 @@ $< 0$, it is taken as 0.
 
 @<Functions...@>=
       function cell_intersect(cell_args,x0,v,exit_face)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real cell_intersect       // Function
       decl_cell_args            // Input
       real x0[3],v[3]
@@ -831,11 +852,12 @@ it does. Otherwise, a relaxed check is done for the same.
 
 @<Functions...@>=
       function new_cell(exit_face,x)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       integer new_cell          // Function
       integer exit_face         // Input
       real x[3]
-      gi_common
       integer n,s,i,j,face        // Local
       external inside_cell_a,sloppy_inside_a // External
       logical inside_cell_a,sloppy_inside_a
@@ -883,12 +905,13 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
 
 @<Functions...@>=
       function track(type,tmax,x0,v,cell,t,x,cell1,exit_face,cell2,sector1,sector2)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      sc_common
+      implicit_none_f90
       logical track             // Function
       real tmax,x0[3],v[3]      // Input
       integer type,cell
-      gi_common
-      sc_common
       real t,x[3]               // Output
       integer cell1,exit_face,cell2,sector1,sector2
       integer j,k,k1,tx,i,start,count // Local
@@ -1012,11 +1035,12 @@ $\vect v t$ and check if it lies inside |cell|. If it does, get the index of
 the surface and return as |enter_face|.
 @<Functions...@>=
       function cell_enter(cell,x0,v,enter_face)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       real cell_enter           // Function
       integer cell              // Input
       real x0[3],v[3]
-      gi_common
       integer enter_face        // Output
       real x[3],v1[3],t         // Local
       integer n,ns
@@ -1055,9 +1079,10 @@ number is returned as an argument.
 
 @<Functions...@>=
       function locate_point(x,zone)
-      implicit_none
-      integer locate_point      // Function
+      implicit_none_f77
       gi_common
+      implicit_none_f90
+      integer locate_point      // Function
       real x[3]                 // Input
       integer zone              // Output
 
@@ -1121,10 +1146,11 @@ cells, it checks that the cells are neighbors.
 
 @<Functions...@>=
       function check_point(x)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       logical check_point       // Function
       real x[3]                 // Input
-      gi_common
       integer j,l               // Local
       logical interior,onface
       external sloppy_inside,inside_cell,cell_compare // External
@@ -1163,10 +1189,11 @@ cells, it checks that the cells are neighbors.
 
 @<Functions...@>=
       function check_location(lc_dummy(x))
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       logical check_location    // Function
       lc_decl(x)                // Input
-      gi_common
       external sloppy_inside,face_in_cell,in_surface // External
       logical sloppy_inside,face_in_cell,in_surface
       
@@ -1195,25 +1222,26 @@ cells, it checks that the cells are neighbors.
 
 @<Functions...@>=
       subroutine read_geometry
-      implicit_none
+      implicit_none_f77
       gi_common             // Common
       zn_common
-      nc_common               // Local
-      gi_ncdecl
-      zn_ncdecl
-      vc_ncdecl
-      sy_common
       rf_common
       sc_common
-      sc_ncdecl
       de_common
+      implicit_none_f90
+      nc_decls               // Local
+      gi_ncdecl
+      zn_ncdecl
+      cm_ncdecl
+      @<Memory allocation interface@>
+      sc_ncdecl
       de_ncdecl
       integer fileid
       character*FILELEN tempfile    //local
 
       tempfile = filenames_array[geometryfile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
-      vc_ncread(fileid)
+      cm_ncread(fileid)
       gi_ncread(fileid)
       zn_ncread(fileid)
       sc_ncread(fileid)
@@ -1228,7 +1256,8 @@ $\vect y = \tens M \cdot \vect x$.  $\vect x$ and $\vect y$ can overlap.
 
 @<Functions...@>=
       subroutine transform(m,x,y)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real m[3,4],x[3]          // Input
       real y[3]                 // Output
       integer i                 // Local
@@ -1249,7 +1278,8 @@ x$ and $\vect y$ can overlap.
 
 @<Functions...@>=
       subroutine transform_velocity(m,v,w)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real m[3,4],v[3]          // Input
       real w[3]                 // Output
       integer i                 // Local

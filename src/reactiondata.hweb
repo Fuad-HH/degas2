@@ -3,6 +3,21 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  1997/08/07 20:12:48  dstotler
+% Updated ragged_alloc documentation. Switch reaction_data
+% to reaction_rate (and remove dep. var. index) and
+% reaction_misc to reaction_handling. Altered macro array
+% subscript ordering to match pmidata, etc. Used C-style
+% subscripts in array macro. Replace organization variables
+% with eval_name. Change handing_var_dep to handling_var0
+% and handling_var_indep to handling_var. Add "num_random"
+% variables for both rate and handling. Get rid of
+% reaction_rate_var[0]. Fix a problem with eval_data arguments -
+% they now differ from those of pd_eval_data. Altered order of
+% variables to avoid complaints from ALPHA. Use FWEB's $EVAL
+% macro function to form rd_dep_var_max; was clearly screwing up
+% memory allocations in cramdadd.
+%
 % Revision 1.9  1996/05/24 18:56:40  dstotler
 % Removed (already commented out) dummy variable.???
 %
@@ -38,15 +53,15 @@
 
 \ID{$Id$}
 
-Data for reactions is held in arrays in common blocks.
+@I xsection.hweb
+@I problem.hweb
+
+@ Data for reactions is held in arrays in common blocks.
 |rd_rate(i,j,k,r)| accesses the reaction rate for the $r$th reaction as an 
 array with up to 3 dimensions.
 ``Handling'' (i.e., not reaction rate) data is kept
 in the analogous |rd_handling(i,j,k,d,r)| array. The $d$ index denotes the $d$th
 dependent variable for the $r$th reaction.
-
-@I xsection.hweb
-@I problem.hweb
 
 @m rd_rate(i,j,k,r) reaction_rate_tab[reaction_rate_base[r]+i+reaction_rate_tab_index[r][1]*(j+reaction_rate_tab_index[r][2]*k)]
 
@@ -98,13 +113,13 @@ dependent variable for the $r$th reaction.
 
       define_varp_pk(rd,reaction_handling_base,INT,rd_dep_var_ind,problem_reaction_ind)
       define_varp_pk(rd,reaction_handling_tab,FLOAT,rd_handling_table_ind)
+      package_end(rd)
 
 @ Common blocks definitions.
 
-@f rd_common integer
-@m rd_common
-      rd_common_a;
-      integer inc;
+@f rd_decls integer
+@m rd_decls
+      integer inc @;
 
 /* The |ragged_alloc| macros are the same as those in 
    |pmidata.hweb|. More detailed documentation is given there. */

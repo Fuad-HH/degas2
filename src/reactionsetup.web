@@ -2,6 +2,9 @@
 \Title{reactionsetup}
 
 % $Log$
+% Revision 1.21  1997/08/07 20:13:28  dstotler
+% Add rc_emitter functionality.
+%
 % Revision 1.20  1996/03/01 20:21:55  dstotler
 % Switch from including all header files to explicit including only the
 % needed ones.
@@ -92,17 +95,18 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine read_reactions
-      implicit_none
+      implicit_none_f77
       rc_common                 // Common
       sp_common
+      rf_common
+      implicit_none_f90
       integer length,p,b,e/*,i,j*/      // Local
       character*LINELEN line
       character*FILELEN file
       character*FILELEN tempfile     //local
       character*rc_type_len type
-      sy_common
-      st_common
-      rf_common
+      @<Memory allocation interface@>
+      st_decls
       rc_num=0
 /*      rd_table_size=0 */
       reaction_version='unknown'
@@ -220,13 +224,14 @@ eof:  continue
       
 @<Functions...@>=
       subroutine nc_write_reaction
-      implicit_none
-      integer fileid
+      implicit_none_f77
       rc_common                   // Common
-      rc_ncdecl
-      nc_common
-      st_common
       rf_common
+      implicit_none_f90
+      integer fileid
+      rc_ncdecl
+      nc_decls
+      st_decls
       character*LINELEN description,program_version
       character*FILELEN tempfile      //local
 

@@ -1,6 +1,10 @@
 @* Macros for machine dependencies.
 % $Id$
 % $Log$
+% Revision 1.6  1995/07/19 20:12:14  dstotler
+% Raised value of epsilon to 1.e-15 since roundoff is a few times
+% 1.e-16.
+%
 % Revision 1.5  1995/07/14 13:46:16  karney
 % Minor mods to run on 64-bit SGI machine at NERSC.
 %
@@ -83,7 +87,8 @@
 @f single_precision real
 @f address integer
 
-@#if CRAY                       // Use single precision on the Cray
+                       // Use single precision on the Cray
+@#if CRAY
   @m real     REAL
   @m areal    REAL
   @m const(x,...) x@&$IFCASE(#0,e0,e###1)
@@ -99,13 +104,25 @@
   @m single   REAL              // Coerce to single precision
 @#endif
 
-@#if ALPHA                      // Pointers are 64-bits on Alphas
+                      // Pointers are 64-bits on Alphas
+@#if ALPHA
   @m address INTEGER*8
 @#elif SGI
   @m address INTEGER*8
 @#else
   @m address INTEGER
 @#endif 
+
+@ Fortran 77 vs. 90.
+
+@#if defined(FORTRAN90)
+    @m FORTRAN90 1
+    @m FORTRAN77 0
+    @m ASSIGN $UNQUOTE('=>')
+@#else
+    @m FORTRAN77 1
+    @m FORTRAN90 0
+@#endif
 
 @ The sizes of integers and characters in terms of reals.
 
@@ -121,16 +138,243 @@
 (Actually it accepts |implicit none| now.)
 
 @f pointer integer
-@f implicit_none implicit
-@m implicit_none implicit none @;
-
+@f implicit_none_f77 implicit
+@f implicit_none_f90 implicit
+@#if FORTRAN77
+@m implicit_none_f77 implicit none @;
+@m implicit_none_f90
+@#else
+@m implicit_none_f77
+@m implicit_none_f90 implicit none @;
+@#endif
 
 @ Declarations for system dependent routines.
 
-@f sy_common integer
-@m sy_common
-      external get_env,wall_time,cpu_time,get_pid,arg_count,mem_alloc,mem_realloc,set_cwd;
+@f sy_decls integer
+@m sy_decls
+      external get_env,wall_time,cpu_time,get_pid,arg_count,set_cwd;
       logical get_env,set_cwd;
       integer wall_time,get_pid,arg_count;
-      address mem_alloc,mem_realloc;
-      real cpu_time @;
+      real cpu_time;
+
+@ Interface for memory allocation.
+
+@<Memory allocation interface@>=
+@#if FORTRAN77
+      external mem_alloc, mem_realloc, mem_free;
+      address mem_alloc, mem_realloc @;
+@#else
+      interface
+
+         function mem_alloc_c1(size,l1,u1) result(p)
+         integer, intent(in) :: size,l1,u1
+         character(len=size), dimension(:), pointer :: p
+         end function
+
+         function mem_alloc_c2(size,l1,u1,l2,u2) result(p)
+         integer, intent(in) :: size,l1,u1,l2,u2
+         character(len=size), dimension(:,:), pointer :: p
+         end function
+
+         function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3) result(p)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
+         character(len=size), dimension(:,:,:), pointer :: p
+         end function
+
+         function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
+         character(len=size), dimension(:,:,:,:), pointer :: p
+         end function
+
+         function mem_alloc_i1(l1,u1) result(p)
+         integer, intent(in) :: l1,u1
+         integer, dimension(:), pointer :: p
+         end function
+
+         function mem_alloc_i2(l1,u1,l2,u2) result(p)
+         integer, intent(in) :: l1,u1,l2,u2
+         integer, dimension(:,:), pointer :: p
+         end function
+
+         function mem_alloc_i3(l1,u1,l2,u2,l3,u3) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3
+         integer, dimension(:,:,:), pointer :: p
+         end function
+
+         function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+         integer, dimension(:,:,:,:), pointer :: p
+         end function
+
+         function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+         integer, dimension(:,:,:,:,:), pointer :: p
+         end function
+
+         function mem_alloc_r1(l1,u1) result(p)
+         integer, intent(in) :: l1,u1
+         real, dimension(:), pointer :: p
+         end function
+
+         function mem_alloc_r2(l1,u1,l2,u2) result(p)
+         integer, intent(in) :: l1,u1,l2,u2
+         real, dimension(:,:), pointer :: p
+         end function
+
+         function mem_alloc_r3(l1,u1,l2,u2,l3,u3) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3
+         real, dimension(:,:,:), pointer :: p
+         end function
+
+         function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+         real, dimension(:,:,:,:,:), pointer :: p
+         end function
+
+         function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+         real, dimension(:,:,:,:,:), pointer :: p
+         end function
+
+         function mem_realloc_c1(p,size,l1,u1,nu) result(np)
+         integer, intent(in) :: size,l1,u1,nu
+         character(len=size), dimension(:), pointer :: p,np
+         end function
+
+         function mem_realloc_c2(p,size,l1,u1,l2,u2,nu) result(np)
+         integer, intent(in) :: size,l1,u1,l2,u2,nu
+         character(len=size), dimension(:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_c3(p,size,l1,u1,l2,u2,l3,u3,nu) result(np)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,nu
+         character(len=size), dimension(:,:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4,nu
+         character(len=size), dimension(:,:,:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_i1(p,l1,u1,nu) result(np)
+         integer, intent(in) :: l1,u1,nu
+         integer, dimension(:), pointer :: p,np
+         end function
+
+         function mem_realloc_i2(p,l1,u1,l2,u2,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,nu
+         integer, dimension(:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_i3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
+         integer, dimension(:,:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
+         integer, dimension(:,:,:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
+         integer, dimension(:,:,:,:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_r1(p,l1,u1,nu) result(np)
+         integer, intent(in) :: l1,u1,nu
+         real, dimension(:), pointer :: p,np
+         end function
+
+         function mem_realloc_r2(p,l1,u1,l2,u2,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,nu
+         real, dimension(:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_r3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
+         real, dimension(:,:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
+         real, dimension(:,:,:,:), pointer :: p,np
+         end function
+
+         function mem_realloc_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
+         real, dimension(:,:,:,:,:), pointer :: p,np
+         end function
+
+         subroutine mem_free_c1(p,size,l1,u1)
+         integer, intent(in) :: size,l1,u1
+         character(len=size), dimension(:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_c2(p,size,l1,u1,l2,u2)
+         integer, intent(in) :: size,l1,u1,l2,u2
+         character(len=size), dimension(:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_c3(p,size,l1,u1,l2,u2,l3,u3)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
+         character(len=size), dimension(:,:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
+         character(len=size), dimension(:,:,:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_i1(p,l1,u1)
+         integer, intent(in) :: l1,u1
+         integer, dimension(:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_i2(p,l1,u1,l2,u2)
+         integer, intent(in) :: l1,u1,l2,u2
+         integer, dimension(:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_i3(p,l1,u1,l2,u2,l3,u3)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3
+         integer, dimension(:,:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_i4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+         integer, dimension(:,:,:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+         integer, dimension(:,:,:,:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_r1(p,l1,u1)
+         integer, intent(in) :: l1,u1
+         real, dimension(:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_r2(p,l1,u1,l2,u2)
+         integer, intent(in) :: l1,u1,l2,u2
+         real, dimension(:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_r3(p,l1,u1,l2,u2,l3,u3)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3
+         real, dimension(:,:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_r4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+         real, dimension(:,:,:,:), pointer :: p
+         end subroutine
+
+         subroutine mem_free_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+         real, dimension(:,:,:,:,:), pointer :: p
+         end subroutine
+
+      end interface
+@#endif

@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.26  1997/08/07 19:49:38  dstotler
+% Absorb changes to sector.hweb & eliminatation of strata.hweb.
+%
 % Revision 1.25  1996/10/30 18:00:25  dstotler
 % Insert some sector initializations. Added lookup_sector routine.
 %
@@ -125,20 +128,21 @@ should.
 
 @m mem_delta 10
 @m mem_frag(x) ((((x)+mem_delta-1)/mem_delta)*mem_delta)
-@f setup_common integer
-@m setup_common save /geomsetup_common/;
+@f setup_localcommon integer
+@m setup_localcommon save /geomsetup_common/;
       address pointer_offset;
       common /geomsetup_common/ pointer_offset @;
 
 @<Functions...@>=
       subroutine init_geometry
-      implicit_none
+      implicit_none_f77
       gi_common                 // Output
       zn_common
       sc_common
       de_common
-      sy_common
-      setup_common
+      implicit_none_f90
+      @<Memory allocation interface@>
+      setup_localcommon
 
       ncells=0
       var_realloca(cells)
@@ -218,13 +222,14 @@ should.
 
 @<Functions...@>=
       subroutine universal_cell(symmetry,min_corner,max_corner,vol)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       integer symmetry          // Input
       real min_corner[3],max_corner[3]
       real vol                  // Output
       integer face,face1,face2,surf_type,i // Local
       real x[3,0:4],apex[3],a[3],x0[3],x1[3],x2[3],x3[3],coeff[NCOEFFS],tx[3,4]
-      gi_common
       gi_ext
       external vector_compare
       integer vector_compare
@@ -308,15 +313,16 @@ should.
 
 @<Functions...@>=
       subroutine boundaries_neighbors
-      implicit_none
+      implicit_none_f77
       gi_common                 // Input/Output
+      zn_common
+      implicit_none_f90
       integer j,k,i,base,sigma  // Local
       integer surf_list[*],cell_list[*]  // Pointee
       ptr_decl(surf_list)
       ptr_decl(cell_list)
-      sy_common
-      zn_common
-      setup_common
+      @<Memory allocation interface@>
+      setup_localcommon
 
       /* Pack |cells| and |surfaces| */
 
@@ -396,14 +402,15 @@ should.
 
 @<Functions...@>=
       subroutine end_sectors
-      implicit_none
+      implicit_none_f77
       gi_common                 // Input/Output
       sc_common
+      implicit_none_f90
       integer k,i,base,sigma    // Local
       integer sector_list[*]    // Pointee
       ptr_decl(sector_list)
-      sy_common
-      setup_common
+      @<Memory allocation interface@>
+      setup_localcommon
 
 /* 
    Pack |strata| and sector-related arrays. |surface_sectors| allocated 
@@ -466,13 +473,14 @@ then search for duplicates and return the duplicate index if it exists.
 
 @<Functions...@>=
       function define_surface(coeff,duplicate)
-      implicit_none
+      implicit_none_f77
+      gi_common                 // Input/Output
+      implicit_none_f90
       integer define_surface    // Function
       real coeff[NCOEFFS]       // Input
       logical duplicate
-      gi_common                 // Input/Output
       integer i,k,orientation   // Local
-      sy_common
+      @<Memory allocation interface@>
       external surface_normalize,surface_equal // External
       logical surface_equal
 
@@ -522,10 +530,11 @@ these values match.
 
 @<Functions...@>=
       function define_surface_a(coeff,x1,x2)
-      implicit_none
+      implicit_none_f77
+      gi_common                 // Input/Output
+      implicit_none_f90
       integer define_surface_a    // Function
       real coeff[NCOEFFS],x1[3],x2[3]       // Input
-      gi_common                 // Input/Output
       external define_surface,lookup_surface // External
       integer define_surface,lookup_surface
 
@@ -542,10 +551,11 @@ these values match.
 
 @<Functions...@>=
       function lookup_surface(x1,x2)
-      implicit_none
+      implicit_none_f77
+      gi_common                 // Input/Output
+      implicit_none_f90
       integer lookup_surface    // Function
       real x1[3],x2[3]          // Input
-      gi_common                 // Input/Output
       integer k                 // Local
 
       do k=1,nsurfaces
@@ -569,13 +579,14 @@ these values match.
 
 @<Functions...@>=
       function lookup_sector(x1,x2)
-      implicit_none
+      implicit_none_f77
+      gi_common                 // Input/Output
+      sc_common
+      implicit_none_f90
       integer lookup_sector    // Function
       real x1[3],x2[3]          // Input
-      gi_common                 // Input/Output
       integer k                 // Local
 
-      sc_common
 
       do k=1,nsectors
          if (vc_equal(x1,sector_points[0,k]) &&
@@ -594,12 +605,13 @@ these values match.
 
 @<Functions...@>=
       function start_cell(zone)
-      implicit_none
-      integer start_cell        // Function
-      integer zone            // Input
+      implicit_none_f77
       gi_common                 // Input/Output
       zn_common
-      sy_common
+      implicit_none_f90
+      integer start_cell        // Function
+      integer zone            // Input
+      @<Memory allocation interface@>
       
 
       ncells++
@@ -630,16 +642,17 @@ these values match.
 
 @<Functions...@>=
       subroutine add_surface(surface,cell,face)
-      implicit_none
+      implicit_none_f77
+      gi_common                 // Input/Output
+      implicit_none_f90
       integer surface,cell // Input
       logical face
-      gi_common                 // Input/Output
       integer i,surface_count,cell_count // Local
       integer surf_list[*],cell_list[*] // Pointee
       ptr_decl(surf_list)
       ptr_decl(cell_list)
-      sy_common
-      setup_common
+      @<Memory allocation interface@>
+      setup_localcommon
 
       ptr_surf_list=cells[c_start,cell]+pointer_offset
       surface_count=cells[c_surfaces,cell]
@@ -683,17 +696,18 @@ these values match.
 
 @<Functions...@>=
       function define_sector(stratum,seg,surface,zone)
-      implicit_none
+      implicit_none_f77
+      gi_common                                      // Input/Output
+      sc_common
+      zn_common
+      implicit_none_f90
       integer define_sector                          // Function
       integer stratum,seg,surface,zone               // Input
-      gi_common                                      // Input/Output
       integer i,sector_count,base                    // Local
       integer sector_list[*]                         // Pointee
       ptr_decl(sector_list)
-      sy_common
-      sc_common
-      zn_common
-      setup_common
+      @<Memory allocation interface@>
+      setup_localcommon
 
       assert(stratum > 0)
       assert(surface != 0)
@@ -754,16 +768,17 @@ break: continue
 
 @<Functions...@>=
       subroutine add_transform(surface,newsurface,tx)
-      implicit_none
+      implicit_none_f77
+      gi_common                 // Input/Output
+      implicit_none_f90
       integer surface,newsurface // Input
       real tx[3,4]
-      gi_common                 // Input/Output
       integer i                 // Local
 @#if 0
       real coeff[NCOEFFS]
 @#endif
-      sy_common
-      setup_common
+      @<Memory allocation interface@>
+      setup_localcommon
 
       ntransforms++
       var_realloca(surfaces_tx_mx)
@@ -788,9 +803,10 @@ break: continue
 
 @<Functions...@>=
       subroutine check_geometry
-      implicit_none
+      implicit_none_f77
       gi_common             // Input
-      sy_common
+      implicit_none_f90
+      @<Memory allocation interface@>
       integer n,j,k,sigma       // Local
       logical outer
       ptr_decl(outer_surfaces)
@@ -889,9 +905,10 @@ break1:        continue
 
 @<Functions...@>=
       subroutine print_geometry(unit)
-      implicit_none
-      integer unit              // Input
+      implicit_none_f77
       gi_common
+      implicit_none_f90
+      integer unit              // Input
       integer i,j,k             // Local
 
       write(unit,*) ncells
@@ -921,10 +938,11 @@ break1:        continue
 
 @<Functions...@>=
       subroutine erase_geometry
-      implicit_none
+      implicit_none_f77
       gi_common                 // Input/Output
       sc_common
       de_common
+      implicit_none_f90
 
       var_free(cells)
       var_free(surfaces)
@@ -985,30 +1003,31 @@ break1:        continue
 
 @<Functions...@>=
       subroutine write_geometry
-      implicit_none
+      implicit_none_f77
       gi_common
       zn_common
-      nc_common
-      gi_ncdecl
-      zn_ncdecl
-      vc_ncdecl
       rf_common
       sc_common
-      sc_ncdecl
       de_common
+      implicit_none_f90
+      nc_decls
+      gi_ncdecl
+      zn_ncdecl
+      cm_ncdecl
+      sc_ncdecl
       de_ncdecl
       integer fileid
       character*FILELEN tempfile
 
       tempfile = filenames_array[geometryfile]
       fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
-      vc_ncdef(fileid)
+      cm_ncdef(fileid)
       gi_ncdef(fileid)
       zn_ncdef(fileid)
       sc_ncdef(fileid)
       de_ncdef(fileid)
       call ncendef(fileid,nc_stat);
-      vc_ncwrite(fileid)
+      cm_ncwrite(fileid)
       gi_ncwrite(fileid)
       zn_ncwrite(fileid)
       sc_ncwrite(fileid)

@@ -3,6 +3,11 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1997/08/07 20:26:42  dstotler
+% Altered order of variables to avoid complaints from
+% ALPHA. Implemented: strata label & index, more complete subclasses.
+% In particular, now has sector diagnostics, analogous to detector.hweb.
+%
 % Revision 1.4  1996/10/31 09:06:59  karney
 % Define scoring arrays.
 %
@@ -18,10 +23,7 @@
 
 \ID{$Id$}
 
-A stratum
-is identified by a positive integer.
-
-@I vector.hweb
+@ A stratum is identified by a positive integer.
 
 @f sc_decl integer
 
@@ -91,7 +93,7 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_varp_pk(sc,sectors,INT,sector_ind)
       define_varp_pk(sc,sector_zone,INT,sector_ind)
       define_varp_pk(sc,sector_surface,INT,sector_ind)
-      define_varp_pk(sc,sector_points,FLOAT,vc_ind,sector_neg_pos_ind,sector_ind)
+      define_varp_pk(sc,sector_points,FLOAT,vector,sector_neg_pos_ind,sector_ind)
       define_varp_pk(sc,sector_type_pointer,INT,sector_type_ind,sector_ind)
 
 /* Subclasses; first |vacuum| */
@@ -148,15 +150,8 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_var_pk(sc,sc_diag_size,INT)                      
       define_dimen_pk(sc,sc_diag_ind,0,sc_diag_size-1)        
       define_varp_pk(sc,diagnostic_sector_tab,INT,sc_diag_ind)   
-                                               
 
-      
-@ Common blocks definitions.
-
-@f sc_common integer
-@m sc_common
-      sc_common_a;
-      sc_common_b;
+      package_end(sc)
 
 @ Indices
 
@@ -200,8 +195,3 @@ starting them at $0$, the dimensions have a length of at least $1$.
       exit_sector[sc_exit_num]=sc;
       sector_type_pointer[sc][sc_exit]=sc_exit_num;
       exit_albedo[sc_exit_num]=alb @;
-
-
-
-
-      

@@ -2,6 +2,11 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.2  1997/08/07 19:05:03  dstotler
+% Replaced amax1 with max, etc.; used const() in subr. lsode. Remove
+% sr_common. Add geometry-specific detector routine and related calls.
+% Call set_background_sources.
+%
 % Revision 1.1  1996/10/30 17:18:10  dstotler
 % This example compares DEGAS 2 with an analytic fluid neutral transport
 % model. Several non-DEGAS 2 routines used to compute the analytic
@@ -39,7 +44,8 @@ extraneous material should be stripped out.
 
 @a
       program boxgen
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       call readfilenames
       call nc_read_species
@@ -86,15 +92,19 @@ is an exit.
 @m temp_max const(10.)
 @m den_min const(8.5,18)
 
-@f box_commmon integer
-@m box_common save /boxgen_common/;
+@f box_localcommon integer
+@m box_localcommon save /boxgen_common/;
       real x_grid[0:nxtot];
       real den_max;
       common /boxgen_common/ x_grid,den_max @;
 
 @<Functions...@>=
       subroutine setup_box_geometry
-      implicit_none
+      implicit_none_f77
+      zn_common
+      sc_common
+      ma_common
+      implicit_none_f90
 
       real z_min,z_max,border_frac,guard_frac,                // Local
      $     x_border,z_border,delta_guard,delta_x,delta_z,vol,albedo
@@ -106,12 +116,9 @@ is an exit.
 
       gi_ext                                                 // External
 
-      box_common                                             // Common
-      zn_common
-      sy_common
-      sc_common
-      ma_common
-      st_common
+      box_localcommon                                             // Common
+      @<Memory allocation interface@>
+      st_decls
 
       call init_geometry
 
@@ -330,11 +337,12 @@ allocation doesn't work properly.
 
 @<Functions...@>=
       subroutine init_background
-      implicit_none
-
+      implicit_none_f77
       zn_common
       bk_common
-      sy_common
+      implicit_none_f90
+
+      @<Memory allocation interface@>
 
       bk_num=2
       var_alloc(background_n)
@@ -355,7 +363,13 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
 
 @<Functions...@>=
       subroutine setup_box_background
-      implicit_none
+      implicit_none_f77
+      zn_common                       
+      bk_common
+      so_common
+      sc_common
+      sp_common
+      implicit_none_f90
 
       real density,temperature,den_norm_2,x_mid            // Local
       real den_soln1(0:nxtot-1),den_soln2(0:nxtot-1)
@@ -364,14 +378,9 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       external n_of_x,t_of_x                               // External
       real n_of_x,t_of_x
 
-      box_common                                           // Common
-      zn_common                       
-      bk_common
-      so_common
-      sc_common
-      sy_common
-      sp_common
-      st_common
+      box_localcommon                                           // Common
+      @<Memory allocation interface@>
+      st_decls
 
       den_max=temp_max * den_min / temp_min
 
@@ -467,13 +476,14 @@ This is all strictly 1-D.
 
 @<Functions...@>=
       function t_of_x(x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real t_of_x            // Function
       real x                 // Input
       real grad_t            // Local
 
-      box_common             // Common
+      box_localcommon             // Common
 
       grad_t = (temp_max - temp_min) / (x_max - x_min) 
       t_of_x = temp_min + (x-x_min) * grad_t
@@ -488,12 +498,13 @@ from the corresponding function. This is all strictly 1-D.
 
 @<Functions...@>=
       function n_of_x(x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real n_of_x          // Function
       real x               // Input
 
-      box_common
+      box_localcommon
       
       external t_of_x
       real t_of_x
@@ -510,15 +521,16 @@ geometry-specific!}
 @<Functions...@>=
       subroutine detector_setup
 
-      implicit_none
+      implicit_none_f77
+      de_common
+      zn_common
+      implicit_none_f90
 
       integer view,num,var,tab_index,spacing,i
       integer grp_views[total_views]
       real var_min,var_max,mult
 
-      de_common
-      sy_common
-      zn_common
+      @<Memory allocation interface@>
 
       detector_total_views=total_views
       var_alloc(de_view_points)
@@ -589,11 +601,12 @@ c**********************************************************************c
 c
       subroutine soln_1(den0norm)
 c
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 c
 c..Common block
 c
-      box_common
+      box_localcommon
 c
 c..Local variables
 c
@@ -648,7 +661,8 @@ c**********************************************************************c
 c
       real function soln1_int(x)
 c
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
 c
       real x, alpha_t, nu_cx_mul, t, n, t_of_x, n_of_x
 c
@@ -692,7 +706,8 @@ c
       subroutine trapezoid_integration(integrand,lower_bound,
      $   upper_bound,result,basic_integ)
 c
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
 c
       real lower_bound, upper_bound, integrand        
       real result                                     
@@ -748,7 +763,8 @@ c
       subroutine basic_trap_integration(integrand,lower_bound,
      $   upper_bound,result,n_stage)
 c
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
 c
       integer n_stage                        
       real lower_bound,upper_bound,integrand
@@ -799,11 +815,12 @@ c**********************************************************************c
 c
       subroutine soln_2(den0norm)
 c
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 c
 c..Common block
 c
-      box_common
+      box_localcommon
 c
 c..Argument
 c
@@ -903,7 +920,8 @@ c
 c**********************************************************************c
 c
       subroutine etaj(kn,px,peta,ppd)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       integer kn
       real px
@@ -921,11 +939,12 @@ c**********************************************************************c
 c
       subroutine detadx(kn,px,peta,pdetadx)
 c
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
 c
 c..Common block
 c
-      box_common
+      box_localcommon
 c
 c..Input arguments
 c

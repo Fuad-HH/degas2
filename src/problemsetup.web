@@ -2,6 +2,11 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.22  1997/08/07 20:06:29  dstotler
+% Removed reaction.hweb from list of included files. Add
+% ionize_suppress to list of reaction types for product setup (for
+% track-length estimator).
+%
 % Revision 1.21  1996/11/05 02:03:08  karney
 % Correct typ.
 %
@@ -102,7 +107,11 @@ collated accordingly and written to the single output netCDF file
 @I netcdf.hweb
 @I pmidata.hweb
 @I element.hweb
+@I pmiformat.hweb
+
 /* @I score.hweb */
+
+@ Turn off scoring?
 
 @m SCORING 0
 
@@ -132,8 +141,8 @@ the $j$th particle equivalent to generic species $i_{g}$, where $j = 1
 \end{description}
 */
 
-@f pr_common_l integer
-@m pr_common_l
+@f pr_localcommon integer
+@m pr_localcommon
       integer num_generics;
       ptr_decl(generics);
       integer generics[*];
@@ -147,7 +156,8 @@ the $j$th particle equivalent to generic species $i_{g}$, where $j = 1
 
 @a
       program problemsetup
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
 @#if SUN
       call float_abort
@@ -167,16 +177,17 @@ the $j$th particle equivalent to generic species $i_{g}$, where $j = 1
 
 @<Functions...@>=
       subroutine read_problem
-      implicit_none
+      implicit_none_f77
+      pr_common
+      rf_common
+      implicit_none_f90
 
       integer length               // Local
       character*LINELEN line
       character*FILELEN tempfile
 
-      sy_common                    // Common
-      st_common
-      pr_common
-      rf_common
+      @<Memory allocation interface@>                    // Common
+      st_decls
 
       problem_version='unknown'
       tempfile = filenames_array[problem_infile]
@@ -221,13 +232,14 @@ eof:  continue
 
 @<Functions...@>=
       subroutine init_problem
-      implicit_none
+      implicit_none_f77
+      pr_common                // Common
+      sp_common
+      implicit_none_f90
       integer i                // Local
 
-      pr_common                // Common
-      pr_common_l
-      sp_common
-      sy_common
+      pr_localcommon
+      @<Memory allocation interface@>
       
       call nc_read_elements
       call nc_read_species
@@ -258,16 +270,17 @@ arrays.
       
 @<Functions...@>=
       subroutine read_test(unit,line)
-      implicit_none
+      implicit_none_f77
+      pr_common                 // Common
+      sp_common
+      implicit_none_f90
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
 
-      pr_common                 // Common
-      pr_common_l
-      sp_common
-      sy_common
-      st_common
+      pr_localcommon
+      @<Memory allocation interface@>
+      st_decls
 
       var_alloc(problem_species_test)
       do i=1,sp_num
@@ -319,16 +332,17 @@ arrays.
       
 @<Functions...@>=
       subroutine read_background(unit,line)
-      implicit_none
+      implicit_none_f77
+      pr_common                 // Common
+      sp_common
+      implicit_none_f90
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
 
-      pr_common                 // Common
-      pr_common_l
-      sp_common
-      sy_common
-      st_common
+      pr_localcommon
+      @<Memory allocation interface@>
+      st_decls
       
       var_alloc(problem_species_background)
       do i=1,sp_num
@@ -371,15 +385,16 @@ eof:  return
       
 @<Functions...@>=
       subroutine read_reaction(unit,line)
-      implicit_none
+      implicit_none_f77
+      pr_common                 // Common
+      rc_common
+      implicit_none_f90
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e      // Local
 
-      pr_common                 // Common
-      rc_common
-      sy_common
-      st_common
+      @<Memory allocation interface@>
+      st_decls
       
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
@@ -405,15 +420,16 @@ eof:  return
       
 @<Functions...@>=
       subroutine read_materials(unit,line)
-      implicit_none
+      implicit_none_f77
+      pr_common                 // Common
+      ma_common
+      implicit_none_f90
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
 
-      pr_common                 // Common
-      ma_common
-      sy_common
-      st_common
+      @<Memory allocation interface@>
+      st_decls
       
       var_alloc(problem_materials_sub)
       do i=1,ma_num
@@ -446,15 +462,16 @@ eof:  return
       
 @<Functions...@>=
       subroutine read_pmi(unit,line)
-      implicit_none
+      implicit_none_f77
+      pr_common                 // Common
+      pm_common
+      implicit_none_f90
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
 
-      pr_common                 // Common
-      pm_common
-      sy_common
-      st_common
+      @<Memory allocation interface@>
+      st_decls
       
       var_alloc(problem_pmi_sub)
       do i=1,pm_num
@@ -490,7 +507,13 @@ also allowing for the isotopically equivalent combinations.
 
 @<Functions...@>=
       subroutine check_problem
-      implicit_none
+      implicit_none_f77
+      pr_common                                      // Common
+      sp_common
+      rc_common
+      ma_common
+      pm_common
+      implicit_none_f90
       integer i,j,k,l,m,ts_reagent                   // Local
 
       pr_test_decl(test)
@@ -501,14 +524,9 @@ also allowing for the isotopically equivalent combinations.
 
       sp_decl(reagents[rc_reagent_max])
 
-      pr_common                                      // Common
-      pr_common_l
-      sp_common
-      rc_common
-      ma_common
-      pm_common
-      sy_common
-      st_common
+      pr_localcommon
+      @<Memory allocation interface@>
+      st_decls
 
       var_reallocb(problem_test_sp)
       var_reallocb(problem_background_sp)
@@ -773,7 +791,10 @@ routine specific for each reaction.
 
 @<Functions...@>=
       subroutine set_products(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      pr_common
+      rc_common
+      implicit_none_f90
 
       pr_test_decl(ts)          // Input
       rc_decl(r)
@@ -782,8 +803,6 @@ routine specific for each reaction.
       integer i                 // Local
       real sum   
 
-      pr_common
-      rc_common
 
       if (rc_reaction_type(r)=='ionize') then
          call set_prod_ionize(pr_test_args(ts),sp_args(reagents),rc_args(r))
@@ -825,7 +844,11 @@ note that B could be charged to start with.
 
 @<Functions...@>=
       subroutine set_prod_ionize(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      pr_common
+      sp_common
+      implicit_none_f90
 
       pr_test_decl(ts)
       sp_decl(reagents[1])
@@ -838,11 +861,8 @@ note that B could be charged to start with.
 
       sp_decl(product[2])
 
-      rc_common
-      pr_common
-      pr_common_l
-      sp_common
-      st_common
+      pr_localcommon
+      st_decls
 
       assert(rc_product_num(r)==3)
       pr_num_arrangements(ts,pr_rc_num(ts))=1
@@ -886,7 +906,11 @@ the actual charge states of A and B are intended to be arbitrary.
 
 @<Functions...@>=
       subroutine set_prod_chargex(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      pr_common
+      sp_common
+      implicit_none_f90
 
       pr_test_decl(ts)
       rc_decl(r)
@@ -899,11 +923,8 @@ the actual charge states of A and B are intended to be arbitrary.
 
       sp_decl(product[2])
 
-      rc_common
-      pr_common
-      pr_common_l
-      sp_common
-      st_common
+      pr_localcommon
+      st_decls
 
       assert(rc_product_num(r)==2)
       pr_num_arrangements(ts,pr_rc_num(ts))=1
@@ -952,7 +973,11 @@ Currently the only reaction allowed is that given below.
 @<Functions...@>=
 
       subroutine set_prod_elastic(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      pr_common
+      sp_common
+      implicit_none_f90
 
       pr_test_decl(ts)
       rc_decl(r)
@@ -961,10 +986,7 @@ Currently the only reaction allowed is that given below.
       external species_add_check         // External
       logical species_add_check
 
-      rc_common
-      pr_common
-      sp_common
-      st_common
+      st_decls
 
       assert(rc_product_num(r)==2)
       pr_num_arrangements(ts,pr_rc_num(ts))=1
@@ -987,7 +1009,11 @@ where the products B$_{j}$ are the result of the dissociation of B.
 
 @<Functions...@>=
       subroutine set_prod_dissoc(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      pr_common
+      sp_common
+      implicit_none_f90
 
       pr_test_decl(ts)
       rc_decl(r)
@@ -995,9 +1021,6 @@ where the products B$_{j}$ are the result of the dissociation of B.
 
       integer i                // Local
 
-      rc_common
-      pr_common
-      sp_common
 
       assert(sp_generic(rc_product(r,1))==sp_generic(reagents[1]))
       
@@ -1026,16 +1049,17 @@ by the recombination of A and B.
 
 @<Functions...@>=
       subroutine set_prod_dissoc_rec(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      pr_common
+      sp_common
+      implicit_none_f90
 
       pr_test_decl(ts)
       rc_decl(r)
       sp_decl(reagents[1])
 
 
-      rc_common
-      pr_common
-      sp_common
 
       if (rc_product_num(r)==2) then
          call product_perm_2(pr_test_args(ts),2,sp_args(reagents),rc_args(r),1)
@@ -1054,13 +1078,14 @@ the only application for this is recombination.
 
 @<Functions...@>=
       subroutine set_bkrc_products(bkrc_ind,sp_dummy(reagents))
-      implicit_none
+      implicit_none_f77
+      pr_common
+      rc_common
+      implicit_none_f90
 
       integer bkrc_ind            // Input
       sp_decl(reagents[1])
       
-      pr_common
-      rc_common
 
       if (rc_reaction_type(pr_reaction(pr_bk_rc(bkrc_ind)))=='recombination') then
          call set_prod_recombine(bkrc_ind,sp_args(reagents))
@@ -1081,7 +1106,11 @@ note that B could be charged to start with.
 
 @<Functions...@>=
       subroutine set_prod_recombine(bkrc_ind,sp_dummy(reagents))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      pr_common
+      sp_common
+      implicit_none_f90
 
       integer bkrc_ind
       sp_decl(reagents[1])
@@ -1094,11 +1123,8 @@ note that B could be charged to start with.
 
       sp_decl(product[2])
 
-      rc_common
-      pr_common
-      pr_common_l
-      sp_common
-      st_common
+      pr_localcommon
+      st_decls
 
       r=pr_reaction(pr_bk_rc(bkrc_ind))
       assert(rc_product_num(r)==1)
@@ -1127,7 +1153,10 @@ specific for each PMI.
 
 @<Functions...@>=
       subroutine set_pmi_products(pr_test_dummy(ts),pm_dummy(p))
-      implicit none
+      implicit_none_f77
+      pr_common
+      pm_common
+      implicit_none_f90
 
       pr_test_decl(ts)          // Input
       pm_decl(p)
@@ -1135,8 +1164,6 @@ specific for each PMI.
       integer i                 // Local
       real sum
 
-      pr_common
-      pm_common
 
       if (pm_pmi_type(p)=='reflection') then
          call set_prod_reflection(pr_test_args(ts),pm_args(p))
@@ -1168,14 +1195,15 @@ comes in must go out.''
 
 @<Functions...@>=
       subroutine set_prod_reflection(pr_test_dummy(ts),pm_dummy(p))
-      implicit none
+      implicit_none_f77
+      pr_common                 // Common
+      pm_common
+      sp_common
+      implicit_none_f90
 
       pr_test_decl(ts)          // Input
       pm_decl(p)
       
-      pr_common                 // Common
-      pm_common
-      sp_common
 
       assert(pm_product_num(p)==1)
       pr_pm_num_arrange(ts,pr_pm_case_num(ts))=1
@@ -1193,13 +1221,14 @@ than this.
 
 @<Functions...@>=
       subroutine set_prod_adsorption(pr_test_dummy(ts),pm_dummy(p))
-      implicit none
+      implicit_none_f77
+      pr_common                 // Common
+      pm_common
+      implicit_none_f90
 
       pr_test_decl(ts)          // Input
       pm_decl(p)
 
-      pr_common                 // Common
-      pm_common
 
       assert(pm_product_num(p)==0)
       pr_pm_num_arrange(ts,pr_pm_case_num(ts))=1
@@ -1227,7 +1256,11 @@ various methane fragments.
 
 @<Functions...@>=
       subroutine set_prod_desorption(pr_test_dummy(ts),pm_dummy(p))
-      implicit none
+      implicit_none_f77
+      pr_common                             // Common
+      pm_common
+      el_common
+      implicit_none_f90
 
       pr_test_decl(ts)                      // Input
       pm_decl(p)
@@ -1239,10 +1272,7 @@ various methane fragments.
       logical match
       pr_generic_decl(generic_prod)
 
-      pr_common                             // Common
-      pr_common_l
-      pm_common
-      el_common
+      pr_localcommon
 
       pr_pm_num_arrange(ts,pr_pm_case_num(ts))=0
       do i=1,pm_product_num(p)
@@ -1278,7 +1308,11 @@ through additional logic.
 
 @<Functions...@>=
       subroutine product_perm_2(pr_test_dummy(ts),num_sp,sp_dummy(sp),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      sp_common
+      pr_common
+      implicit_none_f90
 
       integer num_sp                    // Input
       pr_test_decl(ts)                
@@ -1293,10 +1327,7 @@ through additional logic.
       pr_generic_decl(generic_1)
       pr_generic_decl(generic_2)
 
-      rc_common
-      sp_common
-      pr_common
-      pr_common_l
+      pr_localcommon
 
 /* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
 the actual first product will be the dissociating agent; the
@@ -1346,7 +1377,11 @@ through additional logic.
 
 @<Functions...@>=
       subroutine product_perm_3(pr_test_dummy(ts),num_sp,sp_dummy(sp),rc_dummy(r))
-      implicit_none
+      implicit_none_f77
+      rc_common
+      sp_common
+      pr_common
+      implicit_none_f90
       
       integer num_sp                    // Input
       pr_test_decl(ts)                
@@ -1362,10 +1397,7 @@ through additional logic.
       pr_generic_decl(generic_2)
       pr_generic_decl(generic_3)
 
-      rc_common
-      sp_common
-      pr_common
-      pr_common_l
+      pr_localcommon
 
 /* A |num_sp| of 1 indicates pure dissociation $\Rightarrow$
 the actual first product will be the dissociating agent; the
@@ -1414,17 +1446,21 @@ reagents. */
       
 @<Functions...@>=
       subroutine read_scores(unit,line)
-      implicit_none
+      implicit_none_f77
+      pr_common                 // Common
+@#if SCORING
+      tl_common
+@#endif
+      implicit_none_f90
+@#if SCORING
+      tl_decls
+@#endif
       integer unit              // Input
       character*(*) line        // Output
       integer length,p,b,e,i    // Local
 
-      pr_common                 // Common
-      sy_common
-      st_common
-@#if SCORING
-      tl_common
-@#endif
+      @<Memory allocation interface@>
+      st_decls
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'

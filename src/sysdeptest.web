@@ -2,6 +2,10 @@
 \Title{sysdeptest}
 
 % $Log$
+% Revision 1.9  1996/03/01 20:22:48  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.8  1995/07/14 13:20:58  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -54,19 +58,27 @@ Introduction\ldots
 @* Main program.
       
 @<Functions...@>=
+      define_dimen(str_dim,8)
+      define_dimen(test_dim,n)
+      define_varp(x,INT,test_dim)
+      define_varp(y,FLOAT,test_dim)
+      define_varp(ch,CHAR,str_dim,test_dim)
+
       program sysdep_test
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character ncwd*FILELEN,cwd*FILELEN,user*8,host*20,arg*LINELEN,pathval*LINELEN // Local
-      integer time[6],pid,i,x[1],wall
+      integer time[6],pid,i,wall,on,n
+      declare_varp(x)
       logical res
-      ptr_decl(x)
-      real y[1]
-      ptr_decl(y)
+      declare_varp(y)
+      declare_varp(ch)
       real t0
       integer itemp
       real rtemp
-      sy_common
-      st_common
+      @<Memory allocation interface@>
+      st_decls
+      sy_decls
 c      external date_time,get_cwd,get_pid,user_name,host_name // External
 c      external cpu_time,string_length,arg_count,command_arg
 c      external mem_alloc,mem_realloc,mem_free
@@ -103,39 +115,73 @@ c      real cpu_time
       write(stdout,*) '123',itemp
       rtemp=read_real('123.E0')
       write(stdout,*) '123.E0',rtemp
-      int_alloc(x,10)
-      do i=1,10
-         x(i)=i
-      end do
-      int_realloc(x,10,30)
-      do i=1,10
-         assert(x(i)==i)
-      end do
-      do i=11,30
-         x(i)=i
-      end do
-      int_realloc(x,30,20)
-      do i=1,20
-         assert(x(i)==i)
-      end do
-      int_free(x,20)
 
-      real_alloc(y,10)
-      do i=1,10
+
+      n=10
+      var_alloc(x)
+      do i=1,n
+         x(i)=i
+      end do
+      on=n
+      n=30
+      var_realloc(x,on,n)
+      do i=1,on
+         assert(x(i)==i)
+      end do
+      do i=on+1,n
+         x(i)=i
+      end do
+      on=n
+      n=20
+      var_realloc(x,on,n)
+      do i=1,n
+         assert(x(i)==i)
+      end do
+      var_free(x)
+
+      n=10
+      var_alloc(y)
+      do i=1,n
          y(i)=areal(i)
       end do
-      real_realloc(y,10,30)
-      do i=1,10
+      on=n
+      n=30
+      var_realloc(y,on,n)
+      do i=1,on
          assert(y(i)==areal(i))
       end do
-      do i=11,30
+      do i=on+1,n
          y(i)=areal(i)
       end do
-      real_realloc(y,30,20)
-      do i=1,20
+      on=n
+      n=20
+      var_realloc(y,on,n)
+      do i=1,n
          assert(y(i)==areal(i))
       end do
-      real_free(y,20)
+      var_free(y)
+
+      n=10
+      var_alloc(ch)
+      do i=1,n
+         ch(i)=char(i+ichar('a'))
+      end do
+      on=n
+      n=30
+      var_realloc(ch,on,n)
+      do i=1,on
+         assert(ch(i)==char(i+ichar('a')))
+      end do
+      do i=on+1,n
+         ch(i)=char(i+ichar('a'))
+      end do
+      on=n
+      n=20
+      var_realloc(ch,on,n)
+      do i=1,n
+         assert(ch(i)==char(i+ichar('a')))
+      end do
+      var_free(ch)
 
       write(stdout,'(a,f10.6)') 'CPU: ',cpu_time()-t0
       write(stdout,'(a,i9)') 'Elasped: ',wall_time()-wall

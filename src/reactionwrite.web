@@ -2,6 +2,10 @@
 \Title{reactionwrite}
 
 % $Log$
+% Revision 1.12  1997/08/07 20:18:12  dstotler
+% Put in revised variables for use in scoring H ionization and
+% recombination. Now taking data from ehr2.dat.
+%
 % Revision 1.11  1996/10/30 18:22:54  dstotler
 % Heading towards archive-worthy data files, hack this once more to
 % extract all data from the ehr*.dat files. Remove the CX stuff since
@@ -71,7 +75,8 @@ format with a complete specification of the reaction.
 
 @a
       program reactionwrite
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       call reaction_write('hionize','ehr2.dat',
      &     'V. 2.2, e ionization of H, CR data from ehr2.dat')
       call reaction_write('hrecombine','ehr2.dat',
@@ -85,7 +90,9 @@ format with a complete specification of the reaction.
 
 @<Functions...@>=
       subroutine reaction_write(name,filein,version)
-      implicit_none
+      implicit_none_f77
+      xs_common                                         // Common
+      implicit_none_f90
 
       character*(*) name,filein,version                 // Input
 
@@ -94,11 +101,11 @@ format with a complete specification of the reaction.
       character*FILELEN fileout
       character*LINELEN tag,description
 
-      xs_common                                         // Common
-      nc_common
+      nc_decls
       xs_ncdecl
-      sy_common
-      st_common 
+      xs_decls
+      st_decls 
+      @<Memory allocation interface@>
       
       xs_name=name
       xsection_version=version
@@ -332,15 +339,17 @@ format with a complete specification of the reaction.
 
 @<Functions...@>=
       subroutine file_read(filename,jdep,tag)
-      implicit_none
+      implicit_none_f77
+      xs_common                                 // Common
+      implicit_none_f90
       character*(*) filename,tag                // Input
       integer jdep
 
       integer i,j,k,length                      // Local
       character*80 line
 
-      xs_common                                 // Common
-      st_common
+      st_decls
+      xs_decls
       
       open(unit=diskin,file=filename,status='old',form='formatted')
 

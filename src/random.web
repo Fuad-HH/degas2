@@ -2,6 +2,9 @@
 \Title{random numbers}
 
 % $Log$
+% Revision 1.6  1995/08/01 17:56:30  karney
+% Various changes to make compilation clean on ALPHA.
+%
 % Revision 1.5  1995/07/18 15:02:53  karney
 % Add extern.web.  New seeding procedures for random numbers implemented.
 %
@@ -237,7 +240,8 @@ generator.  The header file packages these together into a single argument
 
 @<Functions...@>=
       function random(rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real random               // Function
       rn_decl(x)             // Input/output
       external random_batch     // External
@@ -257,7 +261,8 @@ generated, we require $n\le k$.
 
 @<Functions...@>=
       subroutine random_check(n,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer n                 // Input
       rn_decl(x)             // Input/output
       external random_batch     // External
@@ -274,7 +279,8 @@ routine to return the next $n$ random numbers.  Do loops calling
 
 @<Functions...@>=
       function fast_random(rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real fast_random          // Function
       rn_decl(x)             // Input/output
 
@@ -293,7 +299,8 @@ at any time by calling |random_check(n,rn_args(x))| for $n\le k$.
 
 @<Functions...@>=
       subroutine random_batch(rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real ran_epsilon
       parameter (ran_epsilon=const(0.5)^48)
       rn_decl(x)             // Input/output
@@ -356,7 +363,8 @@ $0 \le s_1 < 2^{23}$.  These seeds are used by combining them into a single
 
 @<Functions...@>=
       subroutine random_init(seed,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real ran_delta,ran_epsilon
       parameter (ran_delta=const(0.5)^47,ran_epsilon=const(0.5)^48)
       integer seed[0:1]         // Input
@@ -415,7 +423,8 @@ starting seeds.
 
 @<Functions...@>=
       subroutine random_seed(seed)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer seed[0:1]         // Output
       integer temp[7],i,s[0:1] // Local
       external date_time,get_pid // External
@@ -495,7 +504,8 @@ proportional to $\log n$.  Input and output can overlap.
 
 @<Functions...@>=
       subroutine next_seed(n,x,y)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer n,x[0:1]          // Input
       integer y[0:1]            // Output
       integer a[0:1],c[0:1],t[0:1],m   // Local
@@ -542,7 +552,8 @@ loop: continue
 
 @<Functions...@>=
       subroutine rand_add(x,y,z)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer x[0:1],y[0:1]     // Input
       integer z[0:1]            // Ouput
 
@@ -559,7 +570,8 @@ loop: continue
 
 @<Functions...@>=
       subroutine rand_mult(x,y,z)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer x[0:1],y[0:1]     // Input
       integer z[0:1]            // Ouput
       integer tx[0:3],ty[0:3],tz[0:3],i,j // Local
@@ -618,7 +630,8 @@ up by coimputing 10 batches of numbers.
 
 @<Functions...@>=
       subroutine random_init_1(seed,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer base
       real ran_delta,ran_epsilon
       parameter (ran_delta=const(0.5)^14,ran_epsilon=const(0.5)^48,base=2^14)
@@ -683,7 +696,8 @@ taking the low 56 bits of |decimal|.
 
 @<Functions...@>=
       subroutine decimal_to_seed(decimal,seed)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer pow,decbase
       parameter (pow=4,decbase=10^pow)
       character*(*) decimal
@@ -712,7 +726,8 @@ least 26 characters long; otherwise the high digits are lost.
 
 @<Functions...@>=
       subroutine seed_to_decimal(seed,decimal)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       integer pow,decbase,base
       parameter (pow=4,decbase=10^pow,base=2^14)
       character*(*) decimal
@@ -763,7 +778,8 @@ etc. and |pp| is the procoss id (mod 100).
 
 @<Functions...@>=
       subroutine random_seed_1(seed)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer seed[0:3]         // Output
       integer temp[7]           // Local
       character*16 c
@@ -790,7 +806,8 @@ proportional to $\log n$.  Input and output can overlap.
 
 @<Functions...@>=
       subroutine next_seed_1(n,x,y)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       integer n,x[0:3]          // Input
       integer y[0:3]            // Output
       integer af[0:3],cf[0:3],ab[0:3],cb[0:3],a[0:3],c[0:3],z[0:3],m,i
@@ -837,7 +854,8 @@ loop: continue
 
 @<Functions...@>=
       subroutine rand_axc(a,x,c)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       integer base
       parameter (base=2^14)
       integer a[0:3],c[0:3]     // Input

@@ -2,6 +2,10 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.1  1996/10/30 18:29:54  dstotler
+% Initial version. Note that this routine requires essentially all of
+% the same run information as flighttest in order to work.
+%
 
 @* Test source sampling routines.
 
@@ -23,12 +27,15 @@
 @I sector.hweb
 @I sources.hweb
 @I vector.hweb
+@I reaction.hweb
+@I materials.hweb
 
 @ The main program.
 
 @a
       program sourcetest
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       call readfilenames
       call degas_init
@@ -43,7 +50,16 @@
 
 @<Functions...@>=
       subroutine do_src_tests
-      implicit_none
+      define_varp(stat,FLOAT,zone_ind)
+      define_varp(zone_segment,INT,zone_ind)
+      define_varp(segment_zone,INT,source_seg_ind)
+
+      implicit_none_f77
+      zn_common
+      sp_common
+      sc_common
+      so_common
+      implicit_none_f90
       real rel_wt,weight_tot,energy,fr,vsrc_mag,vnorm_mag,cos_theta,
      $     deltax_mag,vpar1,vpar2,vplane2_mag
       integer seed[0:1],num,i,xseg,nsample,zone,nseg
@@ -63,28 +79,23 @@
       vc_decl(vnorm)
       vc_decl(vplane2)
 
-      sy_common
-      rn_common
-      zn_common
-      sp_common
-      st_common
-      pt_common
-      lc_common
-      vc_common
-      sc_common
-      so_common
+      @<Memory allocation interface@>
+      rn_decls
+      st_decls
+      pt_decls
+      lc_decls
+      vc_decls
 
-      ptr_decl(stat)
-      ptr_decl(zone_segment)
-      ptr_decl(segment_zone)
+      declare_varp(zone_segment)
+      declare_varp(stat)
+      declare_varp(segment_zone)
+c      real stat(zn_num)
+c      integer zone_segment(zn_num)
+c      integer segment_zone(so_seg_tot)
 
-      real stat(zn_num)
-      integer zone_segment(zn_num)
-      integer segment_zone(so_seg_tot)
-
-      int_alloc(zone_segment,zn_num)
-      real_alloc(stat,zn_num)
-      int_alloc(segment_zone,so_seg_tot)   // Upper bound on size
+      var_alloc(zone_segment)
+      var_alloc(stat)
+      var_alloc(segment_zone)   // Upper bound on size
 
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
 
@@ -151,9 +162,9 @@ loop1: continue
 
 break:  continue
 
-      real_free(stat,zn_num)
-      int_free(zone_segment,zn_num)
-      int_free(segment_zone,so_seg_tot)
+      var_free(stat)
+      var_free(zone_segment)
+      var_free(segment_zone)
 
 loop2: continue
 

@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.14  1997/08/07 20:07:58  dstotler
+% Add rc_emitter.
+%
 % Revision 1.13  1995/08/09 17:58:21  dstotler
 % Increase length of reaction names to 80 characters.
 %
@@ -53,7 +56,7 @@
 
 \ID{$Id$}
 
-Information about reactions is held in arrays in common blocks.  An
+@ Information about reactions is held in arrays in common blocks.  An
 reaction is identified by an integer indexing into these arrays.
 
 @f rc_decl integer
@@ -89,7 +92,6 @@ reaction is identified by an integer indexing into these arrays.
       define_dimen_pk(rc,reaction_name_string,rc_name_len)
       define_dimen_pk(rc,reaction_type_string,rc_type_len)
       define_var_pk(rc,rc_num,INT)
-      define_dummy_pk(rc,rc_ignore,INT)
       define_dimen_pk(rc,reaction_ind,rc_num)
       define_dimen_pk(rc,reaction_filename_string,FILELEN)
       define_dimen_pk(rc,reagent_ind,rc_reagent_max)
@@ -103,13 +105,6 @@ reaction is identified by an integer indexing into these arrays.
       define_varp_pk(rc,reaction_reagent,INT,reagent_ind,reaction_ind)
       define_varp_pk(rc,reaction_product,INT,product_ind,reaction_ind)
       define_varp_pk(rc,reaction_filename,CHAR,reaction_filename_string,reaction_ind)
-
-@ Common blocks definitions.
-
-@f rc_common integer
-@m rc_common
-      rc_common_a;
-      character*LINELEN reaction_version;
-      common /com_reaction_c/ reaction_version;
-      save /com_reaction_c/ @;
+      define_varlocal_pk(rc,reaction_version,CHAR,string)
+      package_end(rc)
 

@@ -48,6 +48,7 @@ of hardwired components:
 @I reaction.hweb
 @I string.hweb
 @I species.hweb
+@I materials.hweb
 
 @m tmp_rate(i,j,k,r) tmp_rr_tab[tmp_rr_base[r]+i+tmp_rr_tab_index[r][1]*(j+tmp_rr_tab_index[r][2]*k)]
 @m tmp_handling(i,j,k,d,r) tmp_rh_tab[tmp_rh_base[r][d]+i+tmp_rh_tab_index[r][d][1]*(j+tmp_rh_tab_index[r][d][2]*k)]
@@ -71,8 +72,25 @@ of hardwired components:
 
 @<Functions...@>=
       subroutine add_cramd_data
-      implicit_none
 
+      define_varp(tmp_rr_tab_index,INT,rd_rank_ind,problem_reaction_ind)
+      define_varp(tmp_rr_base,INT,problem_reaction_ind)
+      define_varp(tmp_rr_tab,FLOAT,rd_table_ind)
+      define_varp(tmp_rh_tab_index,INT,rd_rank_ind,rd_dep_var_ind,problem_reaction_ind)
+      define_varp(tmp_rh_base,INT,rd_dep_var_ind,problem_reaction_ind)
+      define_varp(tmp_rh_tab,FLOAT,rd_handling_table_ind)
+
+      implicit_none_f77
+      rd_common
+      zn_common
+      pr_common
+      bk_common
+      rc_common
+      sp_common
+      rf_common
+      implicit_none_f90
+
+      rd_decls
       integer pr_reac, jdep, jrank, i, j, k, i_elec, i_ion,
      $        pr_reac_eion, jd_eion_e_los, jd_eion_ha, pr_reac_iion, 
      $        jd_iion_e_los, pr_reac_rec, jd_rec_ha, jd_rec_e_los, 
@@ -84,35 +102,29 @@ of hardwired components:
       character*FILELEN tempfile
 
       integer tmp_rr_size
-      ptr_decl(tmp_rr_tab_index) 
-      ptr_decl(tmp_rr_base)
-      ptr_decl(tmp_rr_tab)
 
       integer tmp_rh_size
-      ptr_decl(tmp_rh_tab_index)
-      ptr_decl(tmp_rh_base)
-      ptr_decl(tmp_rh_tab)
 
       external cramd_ini
       integer cramd_ini
 
-      rd_common
-      zn_common
-      pr_common
-      integer tmp_rr_tab_index[pr_reaction_num][xs_table_rank_max]
-      integer tmp_rr_base[pr_reaction_num]
-      real tmp_rr_tab[0:reaction_rate_size-1]
+c      integer tmp_rr_tab_index[pr_reaction_num][xs_table_rank_max]
+c      integer tmp_rr_base[pr_reaction_num]
+c      real tmp_rr_tab[0:reaction_rate_size-1]
 
-      integer tmp_rh_tab_index[pr_reaction_num][rd_dep_var_max][xs_table_rank_max]
-      integer tmp_rh_base[pr_reaction_num][rd_dep_var_max]
-      real tmp_rh_tab[0:reaction_handling_size-1]
+c      integer tmp_rh_tab_index[pr_reaction_num][rd_dep_var_max][xs_table_rank_max]
+c      integer tmp_rh_base[pr_reaction_num][rd_dep_var_max]
+c      real tmp_rh_tab[0:reaction_handling_size-1]
 
-      bk_common
-      sy_common
-      rc_common
-      st_common
-      sp_common
-      rf_common
+      declare_varp(tmp_rr_tab_index)
+      declare_varp(tmp_rr_base)
+      declare_varp(tmp_rr_tab)
+      declare_varp(tmp_rh_tab_index)
+      declare_varp(tmp_rh_base)
+      declare_varp(tmp_rh_tab)
+
+      @<Memory allocation interface@>
+      st_decls
 
       do pr_reac=1,pr_reaction_num
          if (reaction_rate_eval_name[pr_reac] == 'cramd') 
@@ -128,13 +140,12 @@ break: continue    // Have CRAMD data
 // a different (and confusing) index for a given plasma zone to be used in
 // referencing a background array than with the geometry zone.
 
-      int_alloc(tmp_rr_tab_index,pr_reaction_num*xs_table_rank_max)
-      int_alloc(tmp_rr_base,pr_reaction_num)
-      real_alloc(tmp_rr_tab,reaction_rate_size)
-
-      int_alloc(tmp_rh_tab_index,pr_reaction_num*rd_dep_var_max*xs_table_rank_max)
-      int_alloc(tmp_rh_base,pr_reaction_num*rd_dep_var_max)
-      real_alloc(tmp_rh_tab,reaction_handling_size)
+      var_alloc(tmp_rr_tab_index)
+      var_alloc(tmp_rr_base)
+      var_alloc(tmp_rr_tab)
+      var_alloc(tmp_rh_tab_index)
+      var_alloc(tmp_rh_base)
+      var_alloc(tmp_rh_tab)
 
       tmp_rr_size=reaction_rate_size
       tmp_rh_size=reaction_handling_size
@@ -352,14 +363,12 @@ break: continue    // Have CRAMD data
          end do
       end do
                      
-      int_free(tmp_rr_tab_index,pr_reaction_num*xs_table_rank_max)
-      
-      int_free(tmp_rr_base,pr_reaction_num)
-      real_free(tmp_rr_tab,tmp_rr_size)
-
-      int_free(tmp_rh_tab_index,pr_reaction_num*rd_dep_var_max*xs_table_rank_max)
-      int_free(tmp_rh_base,pr_reaction_num*rd_dep_var_max)
-      real_free(tmp_rh_tab,tmp_rh_size)
+      var_free(tmp_rr_tab_index)
+      var_free(tmp_rr_base)
+      var_free(tmp_rr_tab)
+      var_free(tmp_rh_tab_index)
+      var_free(tmp_rh_base)
+      var_free(tmp_rh_tab)
 
       tempfile=filenames_array[problemfile]
       filenames_array[problemfile]=filenames_array[cramdproblemfile]
@@ -373,7 +382,8 @@ break: continue    // Have CRAMD data
 
 @<Functions...@>=
       subroutine cramd_do_fort(n_ion,t_ion,t_elec,output_data)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real n_ion,t_ion,t_elec                                 // Input
       real output_data[num_output_params,num_test_species]    // Output

@@ -2,6 +2,9 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.20  1996/10/30 17:28:01  dstotler
+% Add set_zn_min_max routine.
+%
 % Revision 1.19  1996/03/01 20:25:27  dstotler
 % Switch to explicit includes of header files.
 %
@@ -106,7 +109,8 @@ corresponds to the two end points.
 
 @<Functions...@>=
       function segment_intersect(x1,x2)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical segment_intersect // Function
       real x1[2,2],x2[2,2]      // Input
       real d,f11,f12,f21,f22    // Local
@@ -141,7 +145,8 @@ coincide.
 
 @<Functions...@>=      
       function self_intersect(n,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical self_intersect    // Function
       integer n                 // Input
       real x[2,0:n]
@@ -175,7 +180,8 @@ of the points.
 
 @<Functions...@>=
       function convex_polygon(n,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical convex_polygon    // Function
       integer n                 // Input
       real x[2,0:n]
@@ -217,7 +223,8 @@ of the points.
 
 @<Functions...@>=
       function inside_polygon(a,n,x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical inside_polygon    // Function
       integer n                 // Input
       real a[2],x[2,0:n]
@@ -239,12 +246,13 @@ of the points.
 
 @<Functions...@>=
       function polygon_volume(n,x)
-      implicit_none
+      implicit_none_f77
+      gi_common                 // Common
+      implicit_none_f90
       real polygon_volume       // Function
       integer n                 // Input
       real x[2,0:n]
       integer i                 // Local
-      gi_common                 // Common
 
       polygon_volume=zero
 
@@ -266,19 +274,33 @@ of the points.
       return
       end
 
+@ Temporary space for decompose_polygon.
+
+@a
+
 @ Decompose non-convex polygon.
 
 @<Functions...@>=
       subroutine decompose_polygon(n,x,zone)
-      implicit_none
+
+      define_dimen(segment,2)
+      define_dimen(vert,0,n)
+      define_dimen(vert1,0,n-1)
+      define_varp(a,FLOAT,segment,vert)
+      define_varp(b,FLOAT,segment,vert1)
+
+      implicit_none_f77
+      implicit_none_f90
       integer n,zone            // Input
       real x[2,0:n]
-      real a[2,0:n],b[2,0:n-1]  // Local
-      ptr_decl(a)
-      ptr_decl(b)
+      declare_varp(a)
+      declare_varp(b)
+c     real a[2,0:n],b[2,0:n-1]  // Local
+c     ptr_decl(a)
+c     ptr_decl(b)
       integer i,j,m,k,start,size
       logical intersect
-      sy_common
+      @<Memory allocation interface@>
       external self_intersect,check_split,convex_polygon   // External
       logical self_intersect,check_split,convex_polygon
 
@@ -291,8 +313,9 @@ of the points.
           write(stderr,*) x[1,i],x[2,i]
       end do
 */      
-      real_alloc(a,2*(n+1))
-      real_alloc(b,2*n)
+
+      var_alloc(a)
+      var_alloc(b)
 
       m=0
       a[1,m]=x[1,m]
@@ -325,8 +348,8 @@ loop: continue
 
       if (convex_polygon(m,a)) then
          call process_polygon(m,a,zone) 
-         real_free(a,2*(n+1))
-         real_free(b,2*n)
+         var_free(a)
+         var_free(b)
          return
       end if
 
@@ -409,7 +432,8 @@ break2:continue
 
 @<Functions...@>=
       function check_split(n,a,start,size,b)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical check_split       // Function
       integer n,start,size      // Input
       real a[2,0:n]
@@ -452,10 +476,11 @@ break: continue
 
 @<Functions...@>=
       subroutine process_polygon(n,x,zone)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       integer n,zone          // Input
       real x[2,0:n]
-      gi_common
       
       assert(geometry_symmetry==geometry_symmetry_plane || geometry_symmetry==geometry_symmetry_cylindrical)
       
@@ -472,12 +497,13 @@ break: continue
 
 @<Functions...@>=
       subroutine process_polygon_plane(n,x,zone)
-      implicit_none
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       integer n,zone          // Input
       real x[2,0:n]
       integer i,cell,face // Local
       real coeff[NCOEFFS],x1[3],x2[3],x3[3],a[3]
-      gi_common
       external define_surface,start_cell,vector_compare,define_surface_a // External
       integer define_surface,start_cell,vector_compare,define_surface_a
 
@@ -546,19 +572,23 @@ break: continue
 
 @<Functions...@>=
       subroutine process_polygon_cylindrical(n,x,zone)
-      implicit_none
+
+      define_var(k,INT,vert1)
+      define_var(type,INT,vert1)
+      define_var(z,FLOAT,vert1)
+
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
       integer n,zone          // Input
       real x[2,0:n]
       integer i,j,ia,ja,leftmin,leftmax,rightmin,rightmax,surf_type,cell,kdiv // Local
       real zmin,zmax,zmina,zmaxa,ztarget,guardmin,guardmax,cutmin,cutmax,
      $     coeff[NCOEFFS],x1[3],x2[3],apex[3],a[3],x0[3]
-      integer k[0:n-1],type[0:n-1]
-      real z[0:n-1]
-      ptr_decl(k)
-      ptr_decl(type)
-      ptr_decl(z)
-      sy_common
-      gi_common
+      declare_varp(k)
+      declare_varp(type)
+      declare_varp(z)
+      @<Memory allocation interface@>
       external define_surface,start_cell,define_surface_a // External
       integer define_surface,start_cell,define_surface_a
 
@@ -589,9 +619,9 @@ break: continue
          rightmin = leftmin+n     // |do i=rightmin,rightmax,-1| goes along right boundary
       end if
 
-      int_alloc(k,n)
-      int_alloc(type,n)
-      real_alloc(z,n)
+      var_alloc(k)
+      var_alloc(type)
+      var_alloc(z)
       x1[2]=zero
       x2[2]=zero
       do i=0,n-1
@@ -708,9 +738,9 @@ loop1:continue                  // Loop over left segments
 
 break:continue
 
-      int_free(k,n)
-      int_free(type,n)
-      real_free(z,n)
+      var_free(k)
+      var_free(type)
+      var_free(z)
 
       return
       end
@@ -719,14 +749,15 @@ break:continue
 
 @<Functions...@>=
       subroutine set_zn_min_max(n,x,zone,init)
-      implicit_none
+      implicit_none_f77
+      zn_common
+      implicit_none_f90
       integer n,zone       // Input
       real x[2,0:n]
       logical init
 
       integer i            // Local
 
-      zn_common
 
       if (init) then
          vc_set(zone_min[zone],x[1,0],zero,x[2,0])

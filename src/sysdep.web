@@ -2,6 +2,9 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.11  1995/11/03 15:06:53  karney
+% Clean up for release.
+%
 % Revision 1.10  1995/07/14 13:46:17  karney
 % Minor mods to run on 64-bit SGI machine at NERSC.
 %
@@ -90,7 +93,7 @@ This is from \verb&f77/f77_floatingpoint.h&.
 @m SIGFPE_ABORT    %val(2)      // abort on exception
 
 @<Functions...@>=
-@#if SUN
+@#if SUN && FORTRAN77
       subroutine float_abort
       integer ieeer             // Local
       integer ieee_handler     // External
@@ -164,7 +167,8 @@ day, hour, minute, second.
 
 @#if !IBM
       subroutine date_time(date_array)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer date_array[6]     // Output
 @#if CRAY || HP
       character*8 temp          // Local
@@ -257,7 +261,8 @@ overflow until 2068.
 
 @<Functions...@>=
       function wall_time()
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer wall_time         // Function
       integer time[6],y,m,d     // Local
 
@@ -274,7 +279,8 @@ overflow until 2068.
 
 @<Functions...@>=
       function cpu_time()
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real cpu_time             // Function
 @#if HP || IBM
       integer clock             // External
@@ -300,7 +306,8 @@ overflow until 2068.
 
 @<Functions...@>=
       function get_pid()
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer get_pid           // Function
       integer getpid           // External
 
@@ -313,7 +320,8 @@ overflow until 2068.
 
 @<Functions...@>=
       subroutine get_cwd(cwd)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*(*) cwd         // Output
       integer getcwd            // External
 
@@ -337,7 +345,8 @@ overflow until 2068.
 
 @<Functions...@>=
       function set_cwd(dir)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical set_cwd
       character*(*) dir         // Input
       integer chdir             // External
@@ -351,7 +360,8 @@ overflow until 2068.
 
 @<Functions...@>=
       subroutine user_name(user)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*(*) user       // Output
       logical get_env          // External
 
@@ -372,7 +382,8 @@ overflow until 2068.
 
 @<Functions...@>=
       subroutine host_name(host)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*20 host         // Local
 @#if CRAY
       character dummy[4]        // Local
@@ -400,7 +411,8 @@ overflow until 2068.
 
 @<Functions...@>=
       function arg_count()
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer arg_count         // Function
       integer iargc             // External
 
@@ -413,7 +425,8 @@ overflow until 2068.
 
 @<Functions...@>=
       subroutine command_arg(i,arg)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer i                 // Input
       character*(*) arg         // Output
       integer j            // Local
@@ -428,7 +441,7 @@ overflow until 2068.
       return
       end
 
-@* Memory allocation.  Allocate memory.
+@* Memory allocation.  Allocate memory (Fortran 77 versions).
 
 @m magic const(314159.265358979)
 @#if CRAY
@@ -438,6 +451,7 @@ overflow until 2068.
 @#endif
 
 @<Functions...@>=
+@#if FORTRAN77
       function mem_alloc(size)
       address mem_alloc         // Function
       integer size              // Input
@@ -490,10 +504,12 @@ overflow until 2068.
       
       return
       end
+@#endif /* FORTRAN77 */
 
 @ Reallocate memory.
 
 @<Functions...@>=
+@#if FORTRAN77
       function mem_realloc(oldptr,oldsize,newsize)
       address mem_realloc       // Function
       address oldptr            // Input
@@ -566,10 +582,12 @@ overflow until 2068.
 
       return
       end
+@#endif /* FORTRAN77 */
 
 @ Free memory
 
 @<Functions...@>=
+@#if FORTRAN77
       subroutine mem_free(oldptr,size)
       address oldptr       // Input
       integer size
@@ -601,12 +619,905 @@ overflow until 2068.
 
       return
       end
+@#endif /* FORTRAN77 */
+
+@* Fortran 90 memory allocation.  In Fortran 90 we need a separate call
+for each type and rank of data.  So the basic routines are named
+|mem_alloc|, |mem_realloc|, |mem_free|, with |_TYPE&RANK|, (e.g., |_r2|
+appended).  WE can'T conveniently IMPLEMENT guard cells (since we can't
+do pointer arithmetic).
+
+@m char_magic "314159.265358979"
+@m int_magic 314159
+@m real_magic const(314159.265358979)
+
+@<Functions...@>=
+@#if FORTRAN90
+      function mem_alloc_c1(size,l1,u1) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1
+      character(len=size), dimension(:), pointer :: p
+      assert(size > 0 && l1 <= u1)
+      allocate(p(l1:u1))
+      p=char_magic
+      return
+      end function
+
+      function mem_alloc_c2(size,l1,u1,l2,u2) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2
+      character(len=size), dimension(:,:), pointer :: p
+      assert(size > 0 && l1 <= u1 && l2 <= u2)
+      allocate(p(l1:u1,l2:u2))
+      p=char_magic
+      return
+      end function
+
+      function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
+      character(len=size), dimension(:,:,:), pointer :: p
+      assert(size > 0 && l1 <= u1 && l2 <= u2 && l3 <= u3)
+      allocate(p(l1:u1,l2:u2,l3:u3))
+      p=char_magic
+      return
+      end function
+
+      function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
+      character(len=size), dimension(:,:,:,:), pointer :: p
+      assert(size > 0 && l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4)
+      allocate(p(l1:u1,l2:u2,l3:u3,l4:u4))
+      p=char_magic
+      return
+      end function
+
+      function mem_alloc_i1(l1,u1) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1
+      integer, dimension(:), pointer :: p
+      assert(l1 <= u1)
+      allocate(p(l1:u1))
+      p=int_magic
+      return
+      end function
+
+      function mem_alloc_i2(l1,u1,l2,u2) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2
+      integer, dimension(:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2)
+      allocate(p(l1:u1,l2:u2))
+      p=int_magic
+      return
+      end function
+
+      function mem_alloc_i3(l1,u1,l2,u2,l3,u3) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3
+      integer, dimension(:,:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2 && l3 <= u3)
+      allocate(p(l1:u1,l2:u2,l3:u3))
+      p=int_magic
+      return
+      end function
+
+      function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+      integer, dimension(:,:,:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4)
+      allocate(p(l1:u1,l2:u2,l3:u3,l4:u4))
+      p=int_magic
+      return
+      end function
+
+      function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+      integer, dimension(:,:,:,:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4 && l5 <= u5)
+      allocate(p(l1:u1,l2:u2,l3:u3,l4:u4,l5:u5))
+      p=int_magic
+      return
+      end function
+
+      function mem_alloc_r1(l1,u1) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1
+      real, dimension(:), pointer :: p
+      assert(l1 <= u1)
+      allocate(p(l1:u1))
+      p=real_magic
+      return
+      end function
+
+      function mem_alloc_r2(l1,u1,l2,u2) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2
+      real, dimension(:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2)
+      allocate(p(l1:u1,l2:u2))
+      p=real_magic
+      return
+      end function
+
+      function mem_alloc_r3(l1,u1,l2,u2,l3,u3) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3
+      real, dimension(:,:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2 && l3 <= u3)
+      allocate(p(l1:u1,l2:u2,l3:u3))
+      p=real_magic
+      return
+      end function
+
+      function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+      real, dimension(:,:,:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4)
+      allocate(p(l1:u1,l2:u2,l3:u3,l4:u4))
+      p=real_magic
+      return
+      end function
+
+      function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+      real, dimension(:,:,:,:,:), pointer :: p
+      assert(l1 <= u1 && l2 <= u2 && l3 <= u3 && l4 <= u4 && l5 <= u5)
+      allocate(p(l1:u1,l2:u2,l3:u3,l4:u4,l5:u5))
+      p=real_magic
+      return
+      end function
+@#endif /* FORTRAN90 */
+
+@ Fortran 90 memory reallocation.
+
+@<Functions...@>=
+@#if FORTRAN90
+      function mem_realloc_c1(p,size,l1,u1,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,nu
+      character(len=size), dimension(:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_c1(size,l1,u1) result(p)
+         integer, intent(in) :: size,l1,u1
+         character(len=size), dimension(:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l1 <= nu )
+      if (u1 == l1-1) then
+         np ASSIGN mem_alloc_c1(size,l1,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+
+      if (u1 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:nu))
+      np = char_magic
+      np(:min(u1,nu)) = p(:min(u1,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_c2(p,size,l1,u1,l2,u2,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2,nu
+      character(len=size), dimension(:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_c2(size,l1,u1,l2,u2) result(p)
+         integer, intent(in) :: size,l1,u1,l2,u2
+         character(len=size), dimension(:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l2 <= nu )
+      if (u2 == l2-1) then
+         np ASSIGN mem_alloc_c2(size,l1,u1,l2,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+
+      if (u2 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:nu))
+      np = char_magic
+      np(:,:min(u2,nu)) = p(:,:min(u2,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_c3(p,size,l1,u1,l2,u2,l3,u3,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,nu
+      character(len=size), dimension(:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_c3(size,l1,u1,l2,u2,l3,u3) result(p)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
+         character(len=size), dimension(:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l3 <= nu )
+      if (u3 == l3-1) then
+         np ASSIGN mem_alloc_c3(size,l1,u1,l2,u2,l3,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+
+      if (u3 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:nu))
+      np = char_magic
+      np(:,:,:min(u3,nu)) = p(:,:,:min(u3,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4,nu
+      character(len=size), dimension(:,:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
+         character(len=size), dimension(:,:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l4 <= nu )
+      if (u4 == l4-1) then
+         np ASSIGN mem_alloc_c4(size,l1,u1,l2,u2,l3,u3,l4,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+
+      if (u4 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:u3,l4:nu))
+      np = char_magic
+      np(:,:,:,:min(u4,nu)) = p(:,:,:,:min(u4,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_i1(p,l1,u1,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,nu
+      integer, dimension(:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_i1(l1,u1) result(p)
+         integer, intent(in) :: l1,u1
+         integer, dimension(:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l1 <= nu )
+      if (u1 == l1-1) then
+         np ASSIGN mem_alloc_i1(l1,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+
+      if (u1 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:nu))
+      np = int_magic
+      np(:min(u1,nu)) = p(:min(u1,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_i2(p,l1,u1,l2,u2,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,nu
+      integer, dimension(:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_i2(l1,u1,l2,u2) result(p)
+         integer, intent(in) :: l1,u1,l2,u2
+         integer, dimension(:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l2 <= nu )
+      if (u2 == l2-1) then
+         np ASSIGN mem_alloc_i2(l1,u1,l2,nu)
+         return
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+
+      if (u2 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:nu))
+      np = int_magic
+      np(:,:min(u2,nu)) = p(:,:min(u2,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_i3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
+      integer, dimension(:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_i3(l1,u1,l2,u2,l3,u3) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3
+         integer, dimension(:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l3 <= nu )
+      if (u3 == l3-1) then
+         np ASSIGN mem_alloc_i3(l1,u1,l2,u2,l3,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+
+      if (u3 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:nu))
+      np = int_magic
+      np(:,:,:min(u3,nu)) = p(:,:,:min(u3,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_i4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
+      integer, dimension(:,:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+         integer, dimension(:,:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l4 <= nu )
+      if (u4 == l4-1) then
+         np ASSIGN mem_alloc_i4(l1,u1,l2,u2,l3,u3,l4,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+
+      if (u4 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:u3,l4:nu))
+      np = int_magic
+      np(:,:,:,:min(u4,nu)) = p(:,:,:,:min(u4,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
+      integer, dimension(:,:,:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+         integer, dimension(:,:,:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l5 <= nu )
+      if (u5 == l5-1) then
+         np ASSIGN mem_alloc_i5(l1,u1,l2,u2,l3,u3,l4,u4,l5,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4
+     $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
+
+      if (u5 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:u3,l4:u4,l5:nu))
+      np = int_magic
+      np(:,:,:,:,:min(u5,nu)) = p(:,:,:,:,:min(u5,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_r1(p,l1,u1,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,nu
+      real, dimension(:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_r1(l1,u1) result(p)
+         integer, intent(in) :: l1,u1
+         real, dimension(:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l1 <= nu )
+      if (u1 == l1-1) then
+         np ASSIGN mem_alloc_r1(l1,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+
+      if (u1 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:nu))
+      np = real_magic
+      np(:min(u1,nu)) = p(:min(u1,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_r2(p,l1,u1,l2,u2,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,nu
+      real, dimension(:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_r2(l1,u1,l2,u2) result(p)
+         integer, intent(in) :: l1,u1,l2,u2
+         real, dimension(:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l2 <= nu )
+      if (u2 == l2-1) then
+         np ASSIGN mem_alloc_r2(l1,u1,l2,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+
+      if (u2 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:nu))
+      np = real_magic
+      np(:,:min(u2,nu)) = p(:,:min(u2,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_r3(p,l1,u1,l2,u2,l3,u3,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,nu
+      real, dimension(:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_r3(l1,u1,l2,u2,l3,u3) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3
+         real, dimension(:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l3 <= nu )
+      if (u3 == l3-1) then
+         np ASSIGN mem_alloc_r3(l1,u1,l2,u2,l3,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+
+      if (u3 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:nu))
+      np = real_magic
+      np(:,:,:min(u3,nu)) = p(:,:,:min(u3,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_r4(p,l1,u1,l2,u2,l3,u3,l4,u4,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,nu
+      real, dimension(:,:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,u4) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+         real, dimension(:,:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l4 <= nu )
+      if (u4 == l4-1) then
+         np ASSIGN mem_alloc_r4(l1,u1,l2,u2,l3,u3,l4,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+
+      if (u4 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:u3,l4:nu))
+      np = real_magic
+      np(:,:,:,:min(u4,nu)) = p(:,:,:,:min(u4,nu))
+      deallocate(p)
+
+      return
+      end function
+
+      function mem_realloc_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu) result(np)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5,nu
+      real, dimension(:,:,:,:,:), pointer :: p,np
+
+      interface
+
+         function mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,u5) result(p)
+         integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+         real, dimension(:,:,:,:,:), pointer :: p
+         end function
+
+      end interface
+
+      assert( l5 <= nu )
+      if (u5 == l5-1) then
+         np ASSIGN mem_alloc_r5(l1,u1,l2,u2,l3,u3,l4,u4,l5,nu)
+         return
+      end if
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4
+     $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
+
+      if (u5 == nu) then
+         np ASSIGN p
+         return
+      end if
+
+      allocate(np(l1:u1,l2:u2,l3:u3,l4:u4,l5:nu))
+      np = real_magic
+      np(:,:,:,:,:min(u5,nu)) = p(:,:,:,:,:min(u5,nu))
+      deallocate(p)
+
+      return
+      end function
+
+@#endif /* FORTRAN90 */
+
+@ Memory deallocation, Fortran 90 version
+
+
+@<Functions...@>=
+@#if FORTRAN90
+      subroutine mem_free_c1(p,size,l1,u1)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1
+      character(len=size), dimension(:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_c2(p,size,l1,u1,l2,u2)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2
+      character(len=size), dimension(:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_c3(p,size,l1,u1,l2,u2,l3,u3)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2,l3,u3
+      character(len=size), dimension(:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_c4(p,size,l1,u1,l2,u2,l3,u3,l4,u4)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: size,l1,u1,l2,u2,l3,u3,l4,u4
+      character(len=size), dimension(:,:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+
+      subroutine mem_free_i1(p,l1,u1)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1
+      integer, dimension(:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_i2(p,l1,u1,l2,u2)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2
+      integer, dimension(:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_i3(p,l1,u1,l2,u2,l3,u3)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3
+      integer, dimension(:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_i4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+      integer, dimension(:,:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_i5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+      integer, dimension(:,:,:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4
+     $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
+
+      deallocate(p)
+      return
+      end subroutine
+
+      subroutine mem_free_r1(p,l1,u1)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1
+      real, dimension(:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_r2(p,l1,u1,l2,u2)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2
+      real, dimension(:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_r3(p,l1,u1,l2,u2,l3,u3)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3
+      real, dimension(:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_r4(p,l1,u1,l2,u2,l3,u3,l4,u4)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4
+      real, dimension(:,:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4 )
+
+      deallocate(p)
+      return
+      end subroutine
+      
+      subroutine mem_free_r5(p,l1,u1,l2,u2,l3,u3,l4,u4,l5,u5)
+      implicit_none_f77
+      implicit_none_f90
+      integer, intent(in) :: l1,u1,l2,u2,l3,u3,l4,u4,l5,u5
+      real, dimension(:,:,:,:,:), pointer :: p
+
+      assert( lbound(p,1)==l1 && ubound(p,1)==u1
+     $     && lbound(p,2)==l2 && ubound(p,2)==u2
+     $     && lbound(p,3)==l3 && ubound(p,3)==u3
+     $     && lbound(p,4)==l4 && ubound(p,4)==u4
+     $     && lbound(p,5)==l5 && ubound(p,5)==u5 )
+
+      deallocate(p)
+      return
+      end subroutine
+@#endif /* FORTRAN90 */
 
 @* Error handling.
 
 @<Functions...@>=
       subroutine error_exit(message)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*(*) message
 
       write(stderr,*) message

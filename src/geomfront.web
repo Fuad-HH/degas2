@@ -2,6 +2,10 @@
 \Title{geomfront numbers}
 
 % $Log$
+% Revision 1.6  1996/03/01 20:20:22  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.5  1995/10/12 21:42:41  karney
 % Finish the implementation of sectors.  Now track exits when encountering a
 % sector (on either side).  Sector and strata information is now part of the
@@ -44,14 +48,15 @@
 
 @<Functions...@>=
       function particle_track(tmax,t,pt_dummy(x))
-      implicit_none
+      implicit_none_f77
+      gi_common
+      sc_common
+      implicit_none_f90
       logical particle_track    // Function
       pt_decl(x)                // Input/output
       real tmax                 // Input
       real t                    // Output
       lc_decl(y)
-      gi_common
-      sc_common
       external track
       logical track
       

@@ -74,10 +74,12 @@
 \ID{$Id$}
 
 @m MAX_DIM 5
-@m MAX_VARS 9
 @m CHAR 0
 @m INT 1
 @m FLOAT 2
+@m COMMA ,
+@m paste(x,y) _paste(x,y)
+@m _paste(x,y) x##y
 
 @ Declaring dimensions and variables.
 Each vector that is declared has one or more dimensions which have
@@ -107,19 +109,16 @@ represented by the dots. */
 
 /* Once the variables |min_name| and |max_name| are defined for each
 dimension name, the macro |range(name)| defines the range of the name.
-|range_size(name)|  defines the size (upper limit - lower limit +1) and
-|var_type(name)| is defined as the type of variable with the dimension name
-|name|. */
+|range_size(name)|  defines the size (upper limit - lower limit +1). */
 
 @m range(name) range_min(name):range_max(name)
+@m rangea(name) range_min(name),range_max(name)
 @m range_star(name) range_min(name):*
 @m range_min1(name) min_##name
 @m range_min(name) (range_min1(name))
 @m range_max1(name) max_##name
 @m range_max(name) (range_max1(name))
 @m range_size(name) (range_max(name)-range_min(name)+1)
-@m var_type1(name) type_##x
-@m var_type(name) var_type1(name)
  
 @f define_var integer
 
@@ -145,6 +144,8 @@ is the no. of the  arg. represented by the dots.
 
 @m define_var(x,type,...) $ASSERT( #0 <= MAX_DIM && #0 >= 0)
       $ASSERT( type >= CHAR && type <= FLOAT )
+      $ASSERT( type != CHAR || #0 >= 1)
+      $IF( type == CHAR, $ASSERT(range_min(#1) == 1), )
       $DEFINE(type_##x type)
       $DEFINE(rank_##x #0)
       $IF(#0 >= 1, $DEFINE(ind_##x##_1 #1),)
@@ -153,6 +154,102 @@ is the no. of the  arg. represented by the dots.
       $IF(#0 >= 4, $DEFINE(ind_##x##_4 #4),)
       $IF(#0 >= 5, $DEFINE(ind_##x##_5 #5),)
       $DEFINE(ind_##x##_m $IFCASE(#0,0,#1,#2,#3,#4,#5))
+
+@m define_varp(x,type,...)
+      $ASSERT(( type == CHAR && #0 >= 2 ) || ( type != CHAR && #0 >= 1 ))
+      define_var(x,type,#.)
+
+/* Return type declaration (including character size) */
+@#if FORTRAN77
+@m char_spec(size)
+    *(size)
+@#else
+@m char_spec(size)
+    (len=size)
+@#endif
+
+@m var_type(x)
+      $IFCASE(type_##x, character, integer, real)
+      $IF(type_##x == CHAR, char_spec(range_max(ind_##x##_1)),)
+
+@m var_type_star(x)
+      $IFCASE(type_##x, character, integer, real)
+      $IF(type_##x == CHAR, char_spec(*),)
+
+/* The explicit array shape, e.g., |(0:1,3:10)| */
+@m array_shape(x)
+      $IF(type_##x == CHAR,
+          $IFCASE(rank_##x,,,
+          (range(ind_##x##_2)),
+          (range(ind_##x##_2),range(ind_##x##_3)),
+          (range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
+          (range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5))),
+          $IFCASE(rank_##x,,
+          (range(ind_##x##_1)),
+          (range(ind_##x##_1),range(ind_##x##_2)),
+          (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3)),
+          (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
+          (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5)))) @;
+
+/* The shape with the last bound unspecified, e.g., |(0:1,3:*)| */
+@#if FORTRAN77
+@m array_shape_star(x)
+      $IF(type_##x == CHAR,
+          $IFCASE(rank_##x,,,
+          (range_star(ind_##x##_2)),
+          (range(ind_##x##_2),range_star(ind_##x##_3)),
+          (range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
+          (range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5))),
+          $IFCASE(rank_##x,,
+          (range_star(ind_##x##_1)),
+          (range(ind_##x##_1),range_star(ind_##x##_2)),
+          (range(ind_##x##_1),range(ind_##x##_2),range_star(ind_##x##_3)),
+          (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
+          (range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5)))) @;
+@#endif
+
+/* A Fortran-90 style rank, e.g., |(:,:)| */
+@#if FORTRAN90
+@m array_rank(x)
+      $IF(type_##x == CHAR,
+          $IFCASE(rank_##x,,,
+          (:),
+          (:,:),
+          (:,:,:),
+          (:,:,:,:)),
+          $IFCASE(rank_##x,,
+          (:),
+          (:,:),
+          (:,:,:),
+          (:,:,:,:),
+          (:,:,:,:,:))) @;
+@#endif
+
+/* Comma separated shape, e.g., |0,1,3,y|.  Character length is the
+first argument */
+
+@#if FORTRAN90
+@m array_arglistc(x,y)
+      $IF(type_##x == CHAR,
+          $IFCASE(rank_##x,,
+          range_max(ind_##x##_1),
+          range_max(ind_##x##_1) COMMA range_min(ind_##x##_2) COMMA y,
+          range_max(ind_##x##_1) COMMA rangea(ind_##x##_2) COMMA range_min(ind_##x##_3) COMMA y,
+          range_max(ind_##x##_1) COMMA rangea(ind_##x##_2) COMMA rangea(ind_##x##_3) COMMA range_min(ind_##x##_4) COMMA y,
+          range_max(ind_##x##_1) COMMA rangea(ind_##x##_2) COMMA rangea(ind_##x##_3) COMMA rangea(ind_##x##_4) COMMA range_min(ind_##x##_5) COMMA y),
+          $IFCASE(rank_##x,,
+          range_min(ind_##x##_1) COMMA y,
+          rangea(ind_##x##_1) COMMA range_min(ind_##x##_2) COMMA y,
+          rangea(ind_##x##_1) COMMA rangea(ind_##x##_2) COMMA range_min(ind_##x##_3) COMMA y,
+          rangea(ind_##x##_1) COMMA rangea(ind_##x##_2) COMMA rangea(ind_##x##_3) COMMA range_min(ind_##x##_4) COMMA y,
+          rangea(ind_##x##_1) COMMA rangea(ind_##x##_2) COMMA rangea(ind_##x##_3) COMMA rangea(ind_##x##_4) COMMA range_min(ind_##x##_5) COMMA y)) @;
+
+@m array_arglist(x)
+      array_arglistc(x,range_max(ind_##x##_m))
+
+@m var_typea(x)
+      paste($IFCASE(type_##x,c,i,r),$IF(type_##x == CHAR,$EVAL(rank_##x-1),rank_##x))
+@#endif
 
 @f declare_var integer
 
@@ -179,19 +276,7 @@ values of |ind_x_n| and corresponding |range| must be known through the
 carefully. They seperate the true  and false parts. */
 
 @m declare_var(x)
-      $IFCASE(type_##x, character, integer, real)
-      $IF(type_##x == CHAR,
-          *range_max(ind_##x##_1)
-          $IFCASE(rank_##x,,x,
-          x(range(ind_##x##_2)),
-          x(range(ind_##x##_2),range(ind_##x##_3)),
-          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
-          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5))),
-          $IFCASE(rank_##x,x,x(range(ind_##x##_1)),
-          x(range(ind_##x##_1),range(ind_##x##_2)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range(ind_##x##_5)))) @;
+      var_type(x) x array_shape(x) @;
 
 @f declare_varp integer
 
@@ -211,21 +296,14 @@ suppose we have : */
 /* The last statement  comes from the macro |ptr_decl(x)| which is explained
 later. */
 
+@#if FORTRAN77
 @m declare_varp(x)
-      $IF(rank_##x > 1 || (type_##x != CHAR && rank_##x > 0),ptr_decl(x);,)
-      $IFCASE(type_##x, character, integer, real)
-      $IF(type_##x == CHAR,
-          *range_max(ind_##x##_1)
-          $IFCASE(rank_##x,,x,
-          x(range_star(ind_##x##_2)),
-          x(range(ind_##x##_2),range_star(ind_##x##_3)),
-          x(range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
-          x(range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5))),
-          $IFCASE(rank_##x,x,x(range_star(ind_##x##_1)),
-          x(range(ind_##x##_1),range_star(ind_##x##_2)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range_star(ind_##x##_3)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range_star(ind_##x##_4)),
-          x(range(ind_##x##_1),range(ind_##x##_2),range(ind_##x##_3),range(ind_##x##_4),range_star(ind_##x##_5)))) @;
+      ptr_decl(x);
+      var_type(x) x array_shape_star(x) @;
+@#else
+@m declare_varp(x)
+      var_type(x),dimension array_rank(x), pointer :: x @;
+@#endif
 
 /* |array_size(x)| is the total size of an array x. It is given as the product
 of the  ranges of the dimensions. The range is defined by a macro
@@ -241,12 +319,14 @@ of the  ranges of the dimensions. The range is defined by a macro
 /* |array_unit(x)| is the size calculated by leaving out the last dimension of
 the array x. */
 
+@#if FORTRAN77
 @m array_unit(x)
       $IFCASE(rank_##x,,1,
       (range_size(ind_##x##_1)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)))
+@#endif
 
 /* |array_sizev(x,y)| gives the size of an array x if its last
 dimension (upper limit) is y. This can be used to calculate the new size of
@@ -256,42 +336,55 @@ the new size of the last dimension which is just = (dimnU -dimnL +1) where
 dimnU is y and dimnL is known.( lower limit of last dimension given by
 |range_min(ind_x_m)| */
 
+@#if FORTRAN77
 @m array_sizev(x,y) array_unit(x)*((y)-range_min(ind_##x##_m)+1)
+@#endif
 
 @ Macros to simplify memory allocation
 
 /* |ptr_decl(x)| declares a pointer to an array x and calls it |ptr_x|
 where |x| is the name of the array. */
 
+@#if FORTRAN77
 @f ptr_decl integer
 @m ptr_decl(x) pointer (ptr_##x,x)
+@m mem_assign(x,p) ptr_#x=p
+@#else
+@m mem_assign(x,p) x ASSIGN p
+@#endif
 
 /* |real_alloc(x,n)| allocates memory for a real array x of size |n|
 .|real_realloc(x,on,n)| reallocates memory for an real array x which has a size
 |on| but needs a size |n|. Once the array has been used, it's memory
 can be freed using |real_free(x,n)| */
 
+@#if FORTRAN77
 @m real_alloc(x,n) ptr_##x=mem_alloc(n) @;
 @m real_realloc(x,on,n) ptr_##x=mem_realloc(ptr_##x,on,n) @;
 @m real_free(x,n) call mem_free(ptr_##x,n) @;
+@#endif
 
 /* similar macros for allocating, reallocating and freeing  memory for
 integers. they use the same function calls, only the size is different,
 this is handled by using |int_mem(n)| instead of just n	which does the
 right thing */
 
+@#if FORTRAN77
 @m int_alloc(x,n) real_alloc(x,int_mem(n)) @;
 @m int_realloc(x,on,n) real_realloc(x,int_mem(on),int_mem(n)) @;
 @m int_free(x,n) real_free(x,int_mem(n)) @;
+@#endif
 
 /* similar macros for allocating, reallocating and freeing  memory for
 characters. they use the same function calls, only the size is different,
 this is handled by using |char_mem(n)| instead of just n which does the
 right thing */
 
+@#if FORTRAN77
 @m char_alloc(x,n) real_alloc(x,char_mem(n)) @;
 @m char_realloc(x,on,n) real_realloc(x,char_mem(on),char_mem(n)) @:
 @m char_free(x,n) real_free(x,char_mem(n)) @;
+@#endif
 
 /* |var_alloc(x)|, |var_realloc(x,on,n)| and |var_free(x)| are generalisations
 of the above macros which were meant for a specific type. Here, the macro
@@ -301,20 +394,35 @@ size of the array too, using the macro |array_size(x)|. note the use of
 |array_sizev(x,y)| to get the size of x with the last dimension set to |n|
 and |on|	*/
 
+@#if FORTRAN77
 @m var_alloc(x) $IFCASE(type_##x,
       char_alloc(x,array_size(x)),
       int_alloc(x,array_size(x)),
       real_alloc(x,array_size(x)))
+@#else
+@m var_alloc(x)
+      x ASSIGN paste(mem_alloc_,var_typea(x))(array_arglist(x)) @;
+@#endif
 
+@#if FORTRAN77
 @m var_realloc(x,on,n) $IFCASE(type_##x,
       char_realloc(x,array_sizev(x,on),array_sizev(x,n)),
       int_realloc(x,array_sizev(x,on),array_sizev(x,n)),
       real_realloc(x,array_sizev(x,on),array_sizev(x,n)))
+@#else
+@m var_realloc(x,on,n)
+      x ASSIGN paste(mem_realloc_,var_typea(x))(x,array_arglistc(x,on),n) @;
+@#endif
 
+@#if FORTRAN77
 @m var_free(x) $IFCASE(type_##x,
       char_free(x,array_size(x)),
       int_free(x,array_size(x)),
       real_free(x,array_size(x)))
+@#else
+@m var_free(x)
+      call paste(mem_free_,var_typea(x))(x,array_arglist(x)) @;
+@#endif
 
 @ Macros to accomodate growing arrays.  
 
@@ -340,9 +448,22 @@ multiple of |mem_inc| as the last range (same as |array_sizea(x)| so
 far). It uses the upper limit y for the last index instead of the original
 value.	*/
 
-@m array_sizea(x) array_unit(x)*mem_size(range_size(ind_##x##_m))
-@m array_sizeb(x) array_unit(x)*(mem_size(range_size(ind_##x##_m))-mem_inc)
-@m array_sizec(x,y) array_unit(x)*mem_size((y)-range_min(ind_##x##_m)+1)
+@m last_sizea(x) mem_size(range_size(ind_##x##_m))
+@m last_sizeb(x) (mem_size(range_size(ind_##x##_m))-mem_inc)
+@m last_sizec(x,y) mem_size((y)-range_min(ind_##x##_m)+1)
+
+@#if FORTRAN90
+@m last_ubound(x) range_max(ind_##x##_m)
+@m last_ubounda(x) (last_sizea(x)+range_min(ind_##x##_m)-1)
+@m last_uboundb(x) (last_sizeb(x)+range_min(ind_##x##_m)-1)
+@m last_uboundc(x,y) (last_sizec(x,y)+range_min(ind_##x##_m)-1)
+@#endif
+
+@#if FORTRAN77
+@m array_sizea(x) array_unit(x)*last_sizea(x)
+@m array_sizeb(x) array_unit(x)*last_sizeb(x)
+@m array_sizec(x,y) array_unit(x)*last_sizec(x,y)
+@#endif
 
 /* |var_realloca(x)| reallocates the size of an array x if it's growing in
 increments of 1, but increments it in steps of |mem_inc| when it's size has
@@ -352,23 +473,35 @@ next higher multiple of its size. This is the new size. The old size is
 this value minus |mem_inc| which is what the macros |array_sizea(x)| and
 |array_sizeb(x)| return.*/
 
+@#if FORTRAN77
 @m var_realloca(x) if (mod(range_size(ind_##x##_m),mem_inc) == 1) then;
       $IFCASE(type_##x,
       char_realloc(x,array_sizeb(x),array_sizea(x)),
       int_realloc(x,array_sizeb(x),array_sizea(x)),
       real_realloc(x,array_sizeb(x),array_sizea(x)));
       end if @;
+@#else
+@m var_realloca(x) if (mod(range_size(ind_##x##_m),mem_inc) == 1) then;
+      var_realloc(x,last_uboundb(x),last_ubounda(x));
+      end if @;
+@#endif
 
 /* |var_reallocb(x)| sets the size of the array to the actual size at that
 time given by |array_size| , if the range size of the last index is not a
 multiple of |mem_inc| (which means the growth has saturated ) */
 
+@#if FORTRAN77
 @m var_reallocb(x) if (mod(range_size(ind_##x##_m),mem_inc) != 0) then;
       $IFCASE(type_##x,
       char_realloc(x,array_sizea(x),array_size(x)),
       int_realloc(x,array_sizea(x),array_size(x)),
       real_realloc(x,array_sizea(x),array_size(x)));
       end if @;
+@#else
+@m var_reallocb(x) if (mod(range_size(ind_##x##_m),mem_inc) != 0) then;
+      var_realloc(x,last_ubounda(x),last_ubound(x));
+      end if @;
+@#endif
 
 /* |var_reallocc(x,on,n)| reallocates the size of an array x if the sizes
 of x corresponding to the old value of upper limit of the last dim. (on)
@@ -377,6 +510,7 @@ of x corresponding to the new value of upper limit of the
 last dim. (n)  rounded off to the nearest multiple of |mem_inc| are not the
 same. */
 
+@#if FORTRAN77
 @m var_reallocc(x,on,n) if (mem_size((on)-range_min(ind_##x##_m)+1) !=
       mem_size((n)-range_min(ind_##x##_m)+1)) then;
       $IFCASE(type_##x,
@@ -384,101 +518,240 @@ same. */
       int_realloc(x,array_sizec(x,on),array_sizec(x,n)),
       real_realloc(x,array_sizec(x,on),array_sizec(x,n)));
       end if @;
+@#else
+@m var_reallocc(x,on,n) if (mem_size((on)-range_min(ind_##x##_m)+1) !=
+      mem_size((n)-range_min(ind_##x##_m)+1)) then;
+      var_realloc(x,last_uboundc(x,on),last_uboundc(x,n));
+      end if @;
+@#endif
 
 @ Define package functions.
 
-@m $$DEFINE(defn) $DEFINE(defn)
+/* Categories of package definition macros */
 
-@m package_init(pk) $DEFINE(pk##_common_a save /pk##_com_a/;)
-      $DEFINE(pk##_common_b save /pk##_com_b/;)
-      $DEFINE(pk##_ncdef(fileid))
-      $DEFINE(pk##_ncwrite(fileid))
-      $DEFINE(pk##_ncread(fileid))
-      $DEFINE(pk##_ncdecl)
-      $DEFINE(pk##_pvmput)
-      $DEFINE(pk##_pvmgeta)
-      $DEFINE(pk##_pvmgetb)
+@m PK_DUMMY 0
+@m PK_DIMEN 1
+@m PK_VAR 2
+@m PK_VARP 3
+@m PK_VARLOCAL 4
+@m PK_CAT_MIN PK_DUMMY
+@M PK_CAT_MAX PK_VARLOCAL
 
+@m register(pk,n,x,cat) _register(pk,n,x,cat)
+@m _register(pk,n,x,cat)
+     $DEFINE(VAR_##pk##_##n x)
+     $DEFINE(CAT_##pk##_##n cat)
 
-@m define_dimen_pk(pk,name,...) define_dimen(name,#.)
-      $$DEFINE(temp(fileid) pk##_ncdef(fileid))
-      $UNDEF(pk##_ncdef)
-      $$DEFINE(pk##_ncdef(fileid) temp(fileid); dimen_def(fileid,name);)
-      $UNDEF(temp)
-      $$DEFINE(temp pk##_ncdecl)
-      $UNDEF(pk##_ncdecl)
-      $$DEFINE(pk##_ncdecl temp; integer dimid(name);)
-      $UNDEF(temp)
-      $$DEFINE(temp(fileid) pk##_ncread(fileid))
-      $UNDEF(pk##_ncread)
-      $$DEFINE(pk##_ncread(fileid) temp(fileid); dimen_inq(fileid,name);)
-      $UNDEF(temp)
+@m package_init(pk) $DEFINE(COUNT_##pk 0)
+      $DEFINE(pk##_common process_pk(pk,common))
+      $DEFINE(pk##_module process_pk(pk,module))
+      $DEFINE(pk##_ncdef(fileid) process_pk(pk,ncdef,fileid))
+      $DEFINE(pk##_ncwrite(fileid) process_pk(pk,ncwrite,fileid))
+      $DEFINE(pk##_ncread(fileid) process_pk(pk,ncread,fileid))
+      $DEFINE(pk##_ncdecl process_pk(pk,ncdecl))
+      $DEFINE(pk##_pvmput process_pk(pk,pvmput))
+      $DEFINE(pk##_pvmget process_pk(pk,pvmget))
+
+@m package_end(pk)
+
+@m define_dimen_pk(pk,name,...)
+      define_dimen(name,#.)
+      $INCR(COUNT_##pk)
+      register(pk,COUNT_##pk,name,PK_DIMEN)
       
-@m define_dummy_pk(pk,name,type,...) define_var(name,type,#.)
-      $IF(type == CHAR,define_common(pk,name,b),define_common(pk,name,a))
+@m define_dummy_pk(pk,name,type,...)
+      define_var(name,type,#.)
+      $INCR(COUNT_##pk)
+      register(pk,COUNT_##pk,name,PK_DUMMY)
 
-@m define_var_pk(pk,name,type,...) define_var(name,type,#.)
-      $IF(type == CHAR,define_common(pk,name,b),define_common(pk,name,a))
-      $$DEFINE(temp(fileid) pk##_ncdef(fileid))
-      $UNDEF(pk##_ncdef)
-      $$DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
-      $UNDEF(temp)
-      $$DEFINE(temp pk##_ncdecl)
-      $UNDEF(pk##_ncdecl)
-      $$DEFINE(pk##_ncdecl temp; integer dimid(name);)
-      $UNDEF(temp)
-      $$DEFINE(temp(fileid) pk##_ncwrite(fileid))
-      $UNDEF(pk##_ncwrite)
-      $$DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
-      $UNDEF(temp)
-      $$DEFINE(temp(fileid) pk##_ncread(fileid))
-      $UNDEF(pk##_ncread)
-      $$DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_read(fileid,name);)
-      $UNDEF(temp)
-      $$DEFINE(temp pk##_pvmput)
-      $UNDEF(pk##_pvmput)
-      $$DEFINE(pk##_pvmput temp; pvm_put(name))
-      $UNDEF(temp)
-      $$DEFINE(temp pk##_pvmgeta)
-      $UNDEF(pk##_pvmgeta)
-      $$DEFINE(pk##_pvmgeta temp; pvm_get(name))
-      $UNDEF(temp)
+@m define_var_pk(pk,name,type,...)
+      define_var(name,type,#.)
+      $INCR(COUNT_##pk)
+      register(pk,COUNT_##pk,name,PK_VAR)
 
-@m define_common(pk,name,SUF)@/
-      $$DEFINE(temp pk##_common_##SUF)@/
-      $UNDEF(pk##_common_##SUF)@/
-      $$DEFINE(pk##_common_##SUF@, temp@, declare_var(name); common /pk##_com_##SUF/ name;)@/
-      $UNDEF(temp)@;
+@m define_varp_pk(pk,name,...)
+      define_varp(name,#.)
+      $INCR(COUNT_##pk)
+      register(pk,COUNT_##pk,name,PK_VARP)
 
-@m define_varp_pk(pk,name,...) define_var(name,#.)
-      $$DEFINE(temp pk##_common_a)
-      $UNDEF(pk##_common_a)
-      $$DEFINE(pk##_common_a temp declare_varp(name); common /pk##_com_a/ ptr_##name;)
-      $UNDEF(temp)
-      $$DEFINE(temp(fileid) pk##_ncdef(fileid))
-      $UNDEF(pk##_ncdef)
-      $$DEFINE(pk##_ncdef(fileid) temp(fileid); var_def(fileid,name);)
-      $UNDEF(temp)
-      $$DEFINE(temp pk##_ncdecl)
-      $UNDEF(pk##_ncdecl)
-      $$DEFINE(pk##_ncdecl temp; integer dimid(name);)
-      $UNDEF(temp)
-      $$DEFINE(temp(fileid) pk##_ncwrite(fileid))
-      $UNDEF(pk##_ncwrite)
-      $$DEFINE(pk##_ncwrite(fileid) temp(fileid); var_write(fileid,name);)
-      $UNDEF(temp)
-      $$DEFINE(temp(fileid) pk##_ncread(fileid))
-      $UNDEF(pk##_ncread)
-      $$DEFINE(pk##_ncread(fileid) temp(fileid); var_inq(fileid,name); var_alloc(name); var_read(fileid,name);)
-      $UNDEF(temp)
-      $$DEFINE(temp pk##_pvmput)
-      $UNDEF(pk##_pvmput)
-      $$DEFINE(pk##_pvmput temp; pvm_put(name))
-      $UNDEF(temp)
-      $$DEFINE(temp pk##_pvmgeta)
-      $UNDEF(pk##_pvmgeta)
-      $$DEFINE(pk##_pvmgeta temp; var_alloc(name); pvm_get(name))
-      $UNDEF(temp)
+@m define_varlocal_pk(pk,name,type,...)
+      define_var(name,type,#.)
+      $INCR(COUNT_##pk)
+      register(pk,COUNT_##pk,name,PK_VARLOCAL)
+
+@ Iterating macros.  These iterate over all the entities in a package,
+invoking a macro for entity.
+
+@m process_pk(pk,module,...) $DEFINE(TEMPCOUNT 0)
+      start_##module(pk,#.)
+      iterate_pk(pk,module,#.)
+      end_##module(pk,#.)
+
+@m* iterate_pk(pk,module,...)
+      $INCR(TEMPCOUNT)
+      $IF(TEMPCOUNT <= COUNT_##pk,
+          do_##module(pk,paste(VAR_##pk##_,TEMPCOUNT),paste(CAT_##pk##_,TEMPCOUNT),#.)
+          iterate_pk(pk,module,#.)
+          ,)
+
+@#if FORTRAN77
+@m start_common(pk)
+     $DEFINE(COMMON_C 0) $DEFINE(COMMON_I 0) $DEFINE(COMMON_R 0) $DEFINE(COMMON_P 0)
+
+@m end_common(pk)
+      $IF(COMMON_C > 0, save /pk##_com_c/;,)
+      $IF(COMMON_I > 0, save /pk##_com_i/;,)
+      $IF(COMMON_R > 0, save /pk##_com_r/;,)
+      $IF(COMMON_P > 0, save /pk##_com_p/;,)
+
+@m do_common(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        declare_var(var);
+          $IFCASE(paste(type_,var),
+            common /pk##_com_c/ var; $INCR(COMMON_C),
+            common /pk##_com_i/ var; $INCR(COMMON_I),
+            common /pk##_com_r/ var; $INCR(COMMON_R)),
+        declare_varp(var); common /pk##_com_p/ paste(ptr_,var); $INCR(COMMON_P),
+        declare_var(var);
+          $IFCASE(paste(type_,var),
+            common /pk##_com_c/ var; $INCR(COMMON_C),
+            common /pk##_com_i/ var; $INCR(COMMON_I),
+            common /pk##_com_r/ var; $INCR(COMMON_R)),
+        )
+
+@#else
+
+@m start_common(pk)
+@m end_common(pk)
+      use pk##_mod;
+@m do_common(pk,var,cat)
+
+@#endif
+
+@#if FORTRAN90
+
+@m start_module(pk)
+      $DEFINE(MODULE_SIZE 0)
+
+@m end_module(pk)
+      $IF(MODULE_SIZE > 0, end module pk##_mod;,)
+
+
+@m do_module(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        $IF(MODULE_SIZE == 0, module pk##_mod; implicit none; save;,)
+          declare_var(var);
+          $INCR(MODULE_SIZE),
+        $IF(MODULE_SIZE == 0, module pk##_mod; implicit none; save;,)
+          declare_varp(var);
+          $INCR(MODULE_SIZE),
+        $IF(MODULE_SIZE == 0, module pk; implicit none; save;,)
+          declare_var(var);
+          $INCR(MODULE_SIZE),
+        )
+
+@#else
+
+@m start_module(pk)
+@m end_module(pk)
+@m do_module(pk,var,cat)
+
+@#endif
+
+@m start_ncdef(pk,fileid)
+
+@m do_ncdef(pk,var,cat,fileid)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        dimen_def(fileid,var);,
+        var_def(fileid,var);,
+        var_def(fileid,var);,
+        )
+
+@m end_ncdef(pk,fileid)
+
+@m start_ncdecl(pk)
+
+@m do_ncdecl(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        integer dimid(var);,
+        integer dimid(var);,
+        integer dimid(var);,
+        )
+
+@m end_ncdecl(pk)
+
+
+@m start_ncwrite(pk,fileid)
+
+@m do_ncwrite(pk,var,cat,fileid)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        var_write(fileid,var);,
+        var_write(fileid,var);,
+        )
+
+@m end_ncwrite(pk,fileid)
+
+@m start_ncread(pk,fileid)
+
+@m do_ncread(pk,var,cat,fileid)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        dimen_inq(fileid,var);,
+        var_inq(fileid,var); var_read(fileid,var);,
+        var_inq(fileid,var); var_alloc(var); var_read(fileid,var);,
+        )
+
+@m end_ncread(pk,fileid)
+
+@m start_pvmput(pk)
+
+@m do_pvmput(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        pvm_put(var);,
+        pvm_put(var);,
+        )
+
+@m end_pvmput(pk)
+
+@m start_pvmget(pk)
+
+@m do_pvmget(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        pvm_get(var);,
+        var_alloc(var); pvm_get(var);,
+        )
+
+@m end_pvmget(pk)
+
+@m do_netcdfa(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        netcdf0(var);,
+        netcdf1(var);,
+        netcdf2(var);,
+        netcdf3(var);,
+        )
+
 
 @* External Interface to Arrays.  
 

@@ -3,6 +3,13 @@
 % $Id$
 
 % $Log$
+% Revision 1.13  1997/08/07 20:35:22  dstotler
+% Raise tag_string_length to 40 to accomodate fully descriptive
+% variable names. Switched to reduced ragged_alloc macros newly
+% adopted for pmiformat.hweb. Remove organization variable in
+% lieu of eval_name. Used C-style subscripts in array macro.
+% Add random number to list of indep. vars.
+%
 % Revision 1.12  1996/10/30 18:19:28  dstotler
 % Modify to use single 1-D data table in lieu of the previous 5 3-D
 % tables. Set max_num_dep_var to 20. Add macro parameters for
@@ -134,17 +141,17 @@ Information about crosssections.
       define_var_pk(xs,xs_mult,FLOAT,rank_ind0,dep_var_ind)
 
       define_varp_pk(xs,xs_data_tab,FLOAT,xs_data_ind)     
+      
+      define_varlocal_pk(xs,xsection_version,CHAR,string)
+
+      package_end(xs)
 
 @ Common blocks definitions.
 
-@f xs_common integer
-@m xs_common
-      xs_common_a;
-      xs_common_b;
-      integer old_size;
-      character*LINELEN xsection_version;
-      common /com_xs_c/ xsection_version;
-      save /com_xs_c/ @;
+
+@f xs_decls integer
+@m xs_decls
+      integer old_size @;
 
 @ Other macros
 
@@ -161,14 +168,23 @@ Information about crosssections.
       }
       x##_size=x##_base[range_max(ind_##x##_base_1)]+inc[range_max(ind_##inc##_1)] @;
 
+@#if 1
 @m set_inc(x,y)
-/*  \begin{verbatim}     $ASSERT( rank##y == 2) \end{verbatim}  */
       $DO(J,range_min(ind_##y##_2),range_max(ind_##y##_2)) {
          x##_inc[J]=1;
          $DO(I,range_min(ind_##y##_1),range_max(ind_##y##_1)) {
             x##_inc[J]=x##_inc[J]*y[I,J]; 
          }
       }
+@#else
+@m set_inc(x,y)
+      do j=range_min(ind_##y##_2),range_max(ind_##y##_2);
+         x##_inc[j]=1;
+         do i=range_min(ind_##y##_1),range_max(ind_##y##_1);
+            x##_inc[j]=x##_inc[j]*y[i,j]; 
+         end do;
+       end do @;
+@#endif
 
 @m xs_ragged_alloc(x,y)
       set_inc(x,y);

@@ -2,6 +2,9 @@
 
 % $Id$
 % $Log$
+% Revision 1.15  1997/08/07 19:47:53  dstotler
+% Altered order of variables to avoid complaints from ALPHA.
+%
 % Revision 1.14  1996/03/01 20:28:38  dstotler
 % Move sector variables to sector.hweb.
 %
@@ -67,7 +70,6 @@ However the 0 index isn't really used.  They are defined this way to
 accomodate netcdf's wish to say that a zero length dimension is
 unlimited.
 
-@I vector.hweb
 
 @a
       package_init(gi)
@@ -77,9 +79,6 @@ unlimited.
       define_var_pk(gi,nneighbors,INT)
       define_var_pk(gi,ntransforms,INT)
       define_var_pk(gi,geometry_symmetry,INT)
-@#if 0
-      define_dummy_pk(gi,gi_ignore,INT)
-@#endif
       define_dimen_pk(gi,cell_info_ind,c_start,c_zone)
       define_dimen_pk(gi,cell_ind,0,ncells)
       define_dimen_pk(gi,surface_ind,nsurfaces)
@@ -93,10 +92,10 @@ unlimited.
       define_dimen_pk(gi,transform_ind,0,ntransforms)
       define_dimen_pk(gi,coeff_ind,NCOEFFS)
 @#if 0
-      define_dimen_pk(gi,givc_ind,3)
+      define_dimen_pk(gi,givector,3)
 @#endif
-      define_var_pk(gi,universal_cell_min,FLOAT,vc_ind)
-      define_var_pk(gi,universal_cell_max,FLOAT,vc_ind)
+      define_var_pk(gi,universal_cell_min,FLOAT,vector)
+      define_var_pk(gi,universal_cell_max,FLOAT,vector)
       define_var_pk(gi,universal_cell_vol,FLOAT)        // Here
 
       define_varp_pk(gi,cells,INT,cell_info_ind,cell_ind)   // From here to...
@@ -107,13 +106,8 @@ unlimited.
       define_varp_pk(gi,boundaries,INT,boundary_ind)
       define_varp_pk(gi,neighbors,INT,neighbor_ind)
       define_varp_pk(gi,surface_coeffs,FLOAT,coeff_ind,surface_ind)
-      define_varp_pk(gi,surface_points,FLOAT,vc_ind,neg_pos,surface_ind)
-
-@ Geometry declaration for geometry routines.
-
-@f gi_common integer
-@m gi_common
-      gi_common_a @;
+      define_varp_pk(gi,surface_points,FLOAT,vector,neg_pos,surface_ind)
+      package_end(gi)
 
 @ Declaration of the geometry routines.
 

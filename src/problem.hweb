@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.19  1997/08/07 20:05:31  dstotler
+% Change a comment to make fweave happy.
+%
 % Revision 1.18  1996/11/04 20:38:35  karney
 % Remove dummy array from problem.hweb.  Remove some checks from nc_var_inq.
 %
@@ -74,12 +77,12 @@
 
 \ID{$Id$}
 
-Information about problem particles is held in arrays in common blocks.  An
-problem is identified by an integer indexing into these arrays.
-
 @I reaction.hweb
 @I species.hweb
 @I materials.hweb
+
+@ Information about problem particles is held in arrays in common blocks.  An
+problem is identified by an integer indexing into these arrays.
 
 @f pr_test_decl integer
 @f pr_background_decl integer
@@ -183,8 +186,6 @@ problem is identified by an integer indexing into these arrays.
       define_var_pk(pr,pr_pmi_num,INT)
 @#if SCORING
       define_var_pk(pr,pr_score_num,INT)
-@#else
-      define_dummy_pk(pr,pr_ignore,INT) 
 @#endif
 
       define_dimen_pk(pr,problem_test_ind,pr_test_num)
@@ -238,13 +239,5 @@ problem is identified by an integer indexing into these arrays.
       define_varp_pk(pr,problem_score,INT,problem_scores)
       define_varp_pk(pr,problem_score_indep_vars,INT,problem_score_rank_ind,problem_scores)
 @#endif
-
-@ Common blocks definitions.
-
-@f pr_common integer
-@m pr_common
-      pr_common_a @;
-      character*LINELEN problem_version;
-      common /com_problem_c/ problem_version;
-      save /com_problem_c/ @;
-
+      define_varlocal_pk(pr,problem_version,CHAR,string)
+      package_end(pr)

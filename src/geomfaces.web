@@ -2,6 +2,9 @@
 \Title{geometry faces}
 
 % $Log$
+% Revision 1.6  1996/03/01 20:28:16  dstotler
+% Switch to explicit includes of header files.
+%
 % Revision 1.5  1995/10/04 18:33:21  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -48,7 +51,8 @@ Firstly the $x,y$ plane.  Beneath the plane is negative.
 
 @<Functions...@>=
       subroutine unit_plane(coeff)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real coeff[NCOEFFS]   // Output
       integer i                 // Local
 
@@ -65,7 +69,8 @@ Firstly the $x,y$ plane.  Beneath the plane is negative.
 
 @<Functions...@>=
       subroutine unit_sphere(coeff)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real coeff[NCOEFFS]   // Output
       integer i                 // Local
 
@@ -85,7 +90,8 @@ with unit radius.
 
 @<Functions...@>=
       subroutine unit_cylinder(coeff)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       real coeff[NCOEFFS]   // Output
       integer i                 // Local
 
@@ -105,7 +111,8 @@ with angle $45^\circ$.  Inside of cone is negative.
 
 @<Functions...@>=
       subroutine unit_cone(coeff)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       real coeff[NCOEFFS]   // Output
       integer i                 // Local
 
@@ -127,7 +134,8 @@ A plane through $\vect x_0$ normal to $\vect a$.
 
 @<Functions...@>=
       subroutine plane(x0,a,coeff)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real x0[3],a[3]           // Input
       real coeff[NCOEFFS]       // Ouput
       real m[3,4]               // Local
@@ -158,7 +166,8 @@ A plane through $\vect x_0$ normal to $\vect a$.
 
 @<Functions...@>=
       subroutine sphere(x0,r,coeff)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real x0[3],r              // Input
       real coeff[NCOEFFS]   // Output
       real m[3,4] // Local
@@ -201,11 +210,12 @@ done by sorting the points.
 
 @<Functions...@>=
       subroutine planea(x1,x2,x3,coeff)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real x1[3],x2[3],x3[3]    // Input
       real coeff[NCOEFFS]       // Output
       real t[3,3]               // Local
-      vc_common
+      vc_decls
       integer i,k,l,comp,orientation
       external vector_compare // External
       integer vector_compare
@@ -272,11 +282,12 @@ the radius of the cylinder equal to $r$.
 
 @<Functions...@>=
       subroutine cylinder(x0,a,r,coeff)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real x0[3],a[3],r         // Input
       real coeff[NCOEFFS]       // Output
       real m[3,4]               // Local
-      vc_common
+      vc_decls
       external unit_cylinder,init_identity,geom_translate,geom_rotatea // External
 @#if DEBUG
       real x[3],b[3],c[3],temp  // Local
@@ -333,7 +344,7 @@ infinity (for a cone).
       integer surf_type
       real x0[3],a[3],m[3,4],xa1[3],xa2[3],c[3],slope // Local
       integer orientation,i
-      vc_common
+      vc_decls
       external unit_cone,init_identity,geom_translate,
      $     geom_scalea,transform,transform_face,vector_compare // External
       integer vector_compare
@@ -482,7 +493,7 @@ the points $\vect x_1$ and $\vect x_2$.
       real coeff[NCOEFFS]       // Output
       real m[3,4],xa1[3],xa2[3],xm[3],c[3],z1,slope // Local
       integer orientation,i
-      vc_common
+      vc_decls
       external unit_cone,init_identity,geom_translate,geom_rotatea,
      $     geom_scalea,transform,transform_face,vector_compare // External
       integer vector_compare

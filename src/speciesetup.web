@@ -2,6 +2,10 @@
 \Title{speciesetup}
 
 % $Log$
+% Revision 1.18  1996/03/01 20:22:41  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.17  1995/10/04 18:33:37  karney
 % (1) Fix comments to avoid bugs in ftangle.
 % (2) Implement transforms on surfaces.
@@ -86,19 +90,21 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine read_species
-      implicit_none
+      implicit_none_f77
+      sp_common                 // Common
+      el_common
+      rf_common
+      implicit_none_f90
+      st_decls
+      @<Memory allocation interface@>
 
       external get_multiplicity // External
       integer get_multiplicity
 
-      sp_common                 // Common
-      el_common
       integer length,p,b,e // Local
       character*LINELEN line
       character*FILELEN tempfile     //local
-      sy_common
-      st_common
-      rf_common
+
       sp_num=0
       species_version='unknown'
       tempfile = filenames_array[species_infile]
@@ -202,13 +208,14 @@ eof:  continue
       
 @<Functions...@>=
       subroutine nc_write_species
-      implicit_none
+      implicit_none_f77
       sp_common                 // Common
-      nc_common                 // Local
+      rf_common
+      implicit_none_f90
+      nc_decls                 // Local
       integer fileid
       sp_ncdecl
-      st_common
-      rf_common
+      st_decls
       character*LINELEN description,program_version
       character* FILELEN tempfile    //local
 
@@ -246,7 +253,10 @@ to the present ``generic_species'' is introduced.
 
 @<Functions...@>=
       function get_multiplicity(sp_dummy(species))
-      implicit_none
+      implicit_none_f77
+      sp_common
+      el_common
+      implicit_none_f90
       
       integer get_multiplicity                // Function
 
@@ -255,9 +265,6 @@ to the present ``generic_species'' is introduced.
       integer i,num_h,num_d,num_t,num_tot     // Local
       integer fact[0:6]
       data fact/1,1,2,6,24,120,720/
-
-      sp_common
-      el_common
 
       num_h=0
       num_d=0

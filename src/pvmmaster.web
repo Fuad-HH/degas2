@@ -2,6 +2,10 @@
 \Title{pvmmaster}
 
 % $Log$
+% Revision 1.8  1996/03/01 20:21:23  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.7  1995/07/14 13:20:31  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -43,11 +47,12 @@
 
 @a
       program pvm_master
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer nflights,nfrag,nslaves,i
       character*LINELEN arg
-      sy_common
-      st_common
+      sy_decls
+      st_decls
       
       nflights=100000
       nslaves=13
@@ -74,7 +79,8 @@
 
 @<Functions...@>=
       subroutine master_init
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       call read_geometry
       
@@ -88,20 +94,26 @@ processes.  |nflights| is the total number of flights to compute;
 
 @<Functions...@>=
       subroutine pvm_flights_master(nflights,nfrag,nslaves)
-      implicit_none
+
+      define_dimen(temp_ind,2)
+      define_varp(stat,FLOAT,temp_ind,zone_ind)
+      define_varp(stat1,FLOAT,temp_ind,zone_ind)
+
+      implicit_none_f77
+      zn_common
+      implicit_none_f90
       integer nflights,nfrag,nslaves     // Input
       integer seed[0:1],i,j,num,nparcel // Local
       integer mytid,tids[0:99],numt,ret,msgtag,tid,buf,bytes
-      zn_common
-      sy_common
+      @<Memory allocation interface@>
       real weight,weight1
-      ptr_decl(stat)
-      ptr_decl(stat1)
-      real stat(2,zn_num)
-      real stat1(2,zn_num)
+c      real stat(2,zn_num)
+c      real stat1(2,zn_num)
+      declare_varp(stat)
+      declare_varp(stat1)
       
-      real_alloc(stat,2*zn_num)
-      real_alloc(stat1,2*zn_num)
+      var_alloc(stat)
+      var_alloc(stat1)
 
       seed[0]=1                 // Initialize random number seed
       seed[1]=2
@@ -177,11 +189,11 @@ processes.  |nflights| is the total number of flights to compute;
       call pvmfexit(ret)        // Let PVM know we're done
 
       open(unit=diskout,file='stat.dat')
-      write(diskout,*) stat
+      write(diskout,*) SP ((stat(i,j),i=1,2),j=1,zn_num)
       close(unit=diskout)
 
-      real_free(stat,2*zn_num)
-      real_free(stat1,2*zn_num)
+      var_free(stat)
+      var_free(stat1)
 
       return
       end

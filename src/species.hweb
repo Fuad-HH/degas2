@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.9  1995/07/19 20:14:39  dstotler
+% Further changes for handling isotopes; define species multiplicity for
+% molecules containing more than one isotope.
+%
 % Revision 1.8  1995/06/28 20:55:55  dstotler
 % Implement concept of a "generic" species in preparation for dealing
 % with isotopes.
@@ -38,7 +42,7 @@
 
 \ID{$Id$}
 
-Information about species is held in arrays in common blocks.  An
+@ Information about species is held in arrays in common blocks.  An
 species is identified by an integer indexing into these arrays.
 
 @f sp_decl integer
@@ -77,7 +81,6 @@ species is identified by an integer indexing into these arrays.
       define_dimen_pk(sp,species_symbol_string,sp_sy_len)
       define_dimen_pk(sp,species_name_string,sp_name_len)
       define_var_pk(sp,sp_num,INT)
-      define_dummy_pk(sp,sp_ignore,INT)
       define_dimen_pk(sp,species_ind,sp_num)
       define_dimen_pk(sp,species_comp_ind,sp_ncomp_max)
       define_varp_pk(sp,species_name,CHAR,species_name_string,species_ind)
@@ -89,13 +92,5 @@ species is identified by an integer indexing into these arrays.
       define_varp_pk(sp,species_multiplicity,INT,species_ind)
       define_varp_pk(sp,species_el,INT,species_comp_ind,species_ind)
       define_varp_pk(sp,species_count,INT,species_comp_ind,species_ind)
-
-@ Common blocks definitions.
-
-@f sp_common integer
-@m sp_common
-      sp_common_a;
-      character*LINELEN species_version;
-      common /com_species_c/ species_version;
-      save /com_species_c/ @;
-
+      define_varlocal_pk(sp,species_version,CHAR,string)
+      package_end(sp)

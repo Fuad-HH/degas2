@@ -2,6 +2,19 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.27  1997/08/07 20:22:39  dstotler
+% Apparently have fixed a bug in the default sectors and strata
+% section. Did this by first setting face1 more definitely in
+% find_poly_zone; then needed a sign change in the calls to
+% define_sector. NOTE: bug fix NOT applied to .uerect version. Added
+% diagnostic message for -'ve volume zones under 'grid' section.
+% Propose asserting (face != 0) in find_poly_zone - check for need.
+% Divided up main subroutine into a few FWEB modules so FWEAVE could
+% get through the whole thing. Extend to treat vacuum-DN case. Part of this
+% requires making bottom wall solid polygons part of of a new zone
+% (previously all solid polygons in SN were in a single zone); this
+% is just done for convenience in setting up the mirror section.
+%
 % Revision 1.26  1996/10/30 18:26:12  dstotler
 % Under "grid" keyword, test for & skip 0 volume plasma zones. Use
 % |polygon_x| in setting |zone_center|. Set zone_min and zone_max.
@@ -260,8 +273,9 @@ end
 @I materials.hweb
 @I detector.hweb
 
-@f namelist integer
 @ The unnamed module.
+
+@f namelist integer
 
 @a
       @<Functions and Subroutines@>
@@ -289,7 +303,8 @@ end
 
 @<Functions...@>=
       program readgeometry
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*FILELEN filename
       
       call readfilenames
@@ -305,7 +320,8 @@ end
 
 @<Functions...@>=
       subroutine readgeomfile(filename)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer mx,my
       parameter (mx=120,my=100)
       character*FILELEN filename,datafilename,wallfilename
@@ -341,8 +357,8 @@ end
       integer xcorner1,xcorner2,xcorner3,xcorner4, zcorner1,zcorner2
      $     ,zcorner3,zcorner4
       character*100 plot
-      sy_common
-      st_common
+      @<Memory allocation interface@>
+      st_decls
       gi_common
       gi_ext
       sc_common
@@ -1662,14 +1678,15 @@ geometry-specific!}
 @<Functions...@>=
       subroutine rg_detector_setup
 
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       integer view,num,var,tab_index,spacing,i
       integer grp_views[total_views]
       real var_min,var_max,mult
 
       de_common
-      sy_common
+      @<Memory allocation interface@>
       zn_common
 
       detector_total_views=0       // test
@@ -1728,7 +1745,8 @@ geometry-specific!}
 @ Determine adjoining zones and faces from two polygon points.
 @<Functions...@>=
       subroutine find_poly_zone(xa,xb,type,zone1,face1,zone2)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real xa[xz_index],xb[xz_index]                         // Input
       integer type
       integer zone1,zone2,face1                              // Output
@@ -1805,7 +1823,8 @@ geometry-specific!}
       subroutine inpt_sonnet(nu,xmin,xmax,
      $zmin,zmax,crx,cry,nx,ny,mx,my,ixcut1,ixcut2,iycut,null_type,
      $ix_mirror)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       integer ix, iy, ixh, iyh,nxd,nyd,i,ixcut1,ixcut2,iycut,nu,mx,my
      $     ,nx,ny,j, corner_no[4],null_type,ix_mirror
 
@@ -1977,7 +1996,8 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
 
       subroutine replace_corners(ix,iy,corneri,xcorner_new,
      $ycorner_new,corner_no,x,y,nx,ny,mx,my)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       integer *4  ix,iy,corneri,corner_no[4],nx,ny,mx,my
       real xcorner_new,ycorner_new,x(mx,my,0:4), y(mx,my,0:4)
       if (corneri == 1 ) then
@@ -2036,7 +2056,8 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
 @<Functions ...@>=
       subroutine inpt_uedge(nu,nx,ny,ixpt1,ixpt2,iysptrx,
      $     rmu,zmu,m1x,m1y,null_type,ix_mirror)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer m1x,m1y
 c      parameter (mx=120,my=50)
       real rmu[m1x,m1y,0:4],zmu[m1x,m1y,0:4]
@@ -2065,7 +2086,8 @@ c      parameter (mx=120,my=50)
       subroutine check_data(x,y,ixcut1,ixcut2,iycut,nx,ny,xcorner1,
      $xcorner2,xcorner3,xcorner4,ycorner1,ycorner2,ycorner3,ycorner4,
      $m2x,m2y,null_type,ix_mirror)
-      implicit_none 
+      implicit_none_f77
+      implicit_none_f90 
       integer m2x,m2y
       real x[m2x,m2y,0:4],y[m2x,m2y,0:4]  //input
       integer ix,iy,nx,ny,ixcut1,ixcut2,iycut,ix_mirror,null_type

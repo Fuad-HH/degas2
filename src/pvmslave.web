@@ -2,6 +2,10 @@
 \Title{pvmslave}
 
 % $Log$
+% Revision 1.7  1996/03/01 20:21:30  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.6  1995/07/14 13:20:32  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -39,7 +43,8 @@
 
 @a
       program pvm_slave
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       call readfilenames
       call slave_init
@@ -54,8 +59,9 @@
 
 @<Functions...@>=
       subroutine slave_init
-      implicit_none
-      sy_common
+      implicit_none_f77
+      implicit_none_f90
+      sy_decls
       logical res
       
       res=set_cwd('degas/degas2/SUN')
@@ -77,20 +83,24 @@ flights.
 
 @<Functions...@>=
       subroutine pvm_flights_slave
-      implicit_none
+
+      define_dimen(temp_ind,2)
+      define_varp(stat1,FLOAT,temp_ind,zone_ind)
+      define_varp(stat2,FLOAT,temp_ind,zone_ind)
+
+      implicit_none_f77
+      zn_common
+      implicit_none_f90
       integer nstart,num,seed[0:1]     // Local
       integer mytid,mastertid,ret,msgtype
-      zn_common
-      sy_common
-      st_common
+      @<Memory allocation interface@>
+      st_decls
       real weight1
-      ptr_decl(stat1)
-      ptr_decl(stat2)
-      real stat1(2,zn_num)
-      real stat2(2,zn_num)
+      declare_varp(stat1)
+      declare_varp(stat2)
       
-      real_alloc(stat1,2*zn_num)
-      real_alloc(stat2,2*zn_num)
+      var_alloc(stat1)
+      var_alloc(stat2)
 
       call pvmfmytid(mytid)     // Enroll with PVM
       call pvmfparent(mastertid) // Who's the master?
@@ -117,8 +127,8 @@ loop: continue
 break: continue
       call pvmfexit(ret)        // Let PVM know
 
-      real_free(stat1,2*zn_num)
-      real_free(stat2,2*zn_num)
+      var_free(stat1)
+      var_free(stat2)
 
       return
       end

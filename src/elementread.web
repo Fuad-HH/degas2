@@ -2,6 +2,9 @@
 \Title{elementread}
 
 % $Log$
+% Revision 1.17  1997/08/07 19:41:22  dstotler
+% Remove strata.hweb.
+%
 % Revision 1.16  1996/10/30 17:52:42  dstotler
 % Add utility routines species_add_check and el_count formerly in
 % problemsetup.web.
@@ -75,6 +78,7 @@ Introduction\ldots
 @I zone.hweb
 @I background.hweb
 @I sources.hweb
+@I vector.hweb
 
 @ The unnamed module.
 
@@ -85,14 +89,15 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_read_elements
-      implicit_none
+      implicit_none_f77
+      el_common
+      rf_common
+      implicit_none_f90
+      nc_decls
+      el_ncdecl
       integer fileid
       character *FILELEN tempfile  //local
-      el_common
-      el_ncdecl
-      nc_common
-      sy_common
-      rf_common
+      @<Memory allocation interface@>
 
       tempfile = filenames_array[elementsfile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
@@ -110,14 +115,15 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_read_species
-      implicit_none
+      implicit_none_f77
+      sp_common
+      rf_common
+      implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
-      sp_common
       sp_ncdecl
-      nc_common
-      sy_common
-      rf_common
+      nc_decls
+      @<Memory allocation interface@>
 
       tempfile =  filenames_array[speciesfile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
@@ -135,14 +141,15 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_read_reactions
-      implicit_none
+      implicit_none_f77
+      rc_common
+      rf_common
+      implicit_none_f90
       integer fileid
       character *FILELEN tempfile  //local
-      rc_common
       rc_ncdecl
-      nc_common
-      sy_common
-      rf_common
+      nc_decls
+      @<Memory allocation interface@>
 
       tempfile =  filenames_array[reactionfile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
@@ -160,24 +167,25 @@ Introduction\ldots
       
 @<Functions...@>=
       subroutine nc_read_background
-      implicit_none
-      integer fileid
-      character *FILELEN tempfile  //local
+      implicit_none_f77
       zn_common
       bk_common
-      bk_ncdecl
-      nc_common
-      vc_common
-      vc_ncdecl
-      sy_common
       so_common
-      so_ncdecl
       rf_common
+      implicit_none_f90
+      integer fileid
+      character *FILELEN tempfile  //local
+      bk_ncdecl
+      nc_decls
+      cm_ncdecl
+      @<Memory allocation interface@>
+      so_ncdecl
+      vc_decls
 
       tempfile =  filenames_array[backgroundfile]
       fileid = ncopen(tempfile,NC_NOWRITE,nc_stat)
 
-      vc_ncread(fileid)
+      cm_ncread(fileid)
       bk_ncread(fileid)
       so_ncread(fileid)
 
@@ -192,18 +200,19 @@ identifies the one matching element |el| and returns the count of that
 element. If the element is not present, zero is returned.
 
 @<Functions...@>=
-      function species_el_count(sp_dummy(sp),el_dummy(el))
-      implicit_none
+      function species_el_count(sp_dummy(s),el_dummy(el))
+      implicit_none_f77
+      sp_common
+      implicit_none_f90
       integer species_el_count            // Function
-      sp_decl(sp)                         // Input
+      sp_decl(s)                         // Input
       el_decl(el)
       integer i,j                         // Local
 
-      sp_common
 
       j=0
-      do i=1,sp_ncomp(sp)
-         if (sp_el(sp,i)==el) then
+      do i=1,sp_ncomp(s)
+         if (sp_el(s,i)==el) then
             j=i
             go to break
          end if
@@ -212,7 +221,7 @@ element. If the element is not present, zero is returned.
       return
 
 break: continue
-      species_el_count=sp_count(sp,j)
+      species_el_count=sp_count(s,j)
       
       return
       end
@@ -227,7 +236,10 @@ states).
 
 @<Functions...@>=
       function species_add_check(n1,sp_dummy(list1),n2,sp_dummy(list2))
-      implicit_none
+      implicit_none_f77
+      sp_common
+      el_common
+      implicit_none_f90
       logical species_add_check           // Function
       integer n1,n2                       // Input
       sp_decl(list1[n1])
@@ -237,8 +249,6 @@ states).
       external species_el_count           // External
       integer species_el_count
 
-      sp_common
-      el_common
 
       species_add_check=.false.
 /* First compare total charge and mass of the two lists */

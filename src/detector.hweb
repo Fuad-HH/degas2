@@ -3,16 +3,21 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  1997/08/07 19:41:01  dstotler
+% Set this class up based on present descriptions of H_alpha diagnostics
+% on TFTR and Alcator C-Mod. Also intended to closely match
+% sector-diagnostics class.
+%
 
 \ID{$Id$}
 
-Parameters and characteristics of detectors. Some of these arrays represent
+@I vector.hweb
+@I zone.hweb
+
+@ Parameters and characteristics of detectors. Some of these arrays represent
 input data, some are derived. These detectors are specifically ``viewing''
 detectors for which a line-of-sight (or ``view'') is required. Surface detectors are
 intended to be represented by the diagnostic sub-class of sectors.
-
-@I vector.hweb
-@I zone.hweb
 
 @f de_decl integer
 
@@ -73,7 +78,7 @@ intended to be represented by the diagnostic sub-class of sectors.
       define_dimen_pk(de,de_tot_view_ind,0,detector_total_views)
       
       define_dimen_pk(de,de_start_end_ind,de_view_start,de_view_end)
-      define_varp_pk(de,de_view_points,FLOAT,vc_ind,de_start_end_ind,de_tot_view_ind)
+      define_varp_pk(de,de_view_points,FLOAT,vector,de_start_end_ind,de_tot_view_ind)
       define_varp_pk(de,de_view_algorithm,INT,de_tot_view_ind)                       
       define_varp_pk(de,de_view_halfwidth,FLOAT,de_tot_view_ind)                     
       define_varp_pk(de,de_zone_frags,FLOAT,de_tot_view_ind,de_zone_ind)
@@ -81,12 +86,5 @@ intended to be represented by the diagnostic sub-class of sectors.
       define_varp_pk(de,de_view_base,INT,de_grp_ind)         
       define_var_pk(de,de_view_size,INT)                     
       define_dimen_pk(de,de_view_ind,0,de_view_size)       
-      define_varp_pk(de,de_view_tab,INT,de_view_ind)         
-
-@ Common block definitions.
-
-@f de_common integer
-@m de_common
-      de_common_a;
-      de_common_b;
-
+      define_varp_pk(de,de_view_tab,INT,de_view_ind)
+      package_end(de)

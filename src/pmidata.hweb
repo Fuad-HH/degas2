@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  1997/08/07 19:57:59  dstotler
+% Altered order of variables to avoid complaints from ALPHA.
+%
 % Revision 1.3  1996/10/30 18:04:16  dstotler
 % Replace temporary variable inc with pd_inc.
 %
@@ -13,17 +16,17 @@
 % Add to repository.
 %
 
+
 \ID{$Id$}
 
 @I pmiformat.hweb
 @I problem.hweb
 
-Data for Plasma Material Interactions is held in arrays in common blocks.
-|pd_yield(i,j,k,l,m,p)| accesses the data for the $p$th PMI as an array
-with up to 5 dimensions.
-Data used in handling the PMI are stored 
-in the  |pd_handling(i,j,k,l,m,d,p)| array with the $d$ subscript denoting the
-$d$th dependent variable associated with the $p$th PMI.
+@ Data for Plasma Material Interactions is held in arrays in common
+blocks.  |pd_yield(i,j,k,l,m,p)| accesses the data for the $p$th PMI as
+an array with up to 5 dimensions.  Data used in handling the PMI are
+stored in the |pd_handling(i,j,k,l,m,d,p)| array with the $d$ subscript
+denoting the $d$th dependent variable associated with the $p$th PMI.
 
 @m pd_yield(i,j,k,l,m,p) pmi_yield_tab[i+pmi_yield_tab_index[p][1]*(j+pmi_yield_tab_index[p][2]*(k+pmi_yield_tab_index[p][3]*(l+pmi_yield_tab_index[p][4]*m)))+pmi_yield_base[p]]
 
@@ -74,13 +77,10 @@ $d$th dependent variable associated with the $p$th PMI.
 
       define_varp_pk(pd,pmi_handling_base,INT,pd_dep_var_ind,problem_pmi_sub_ind)
       define_varp_pk(pd,pmi_handling_tab,FLOAT,pd_handling_ind)
+      define_varlocal_pk(pd,pd_inc,INT)
+      package_end(pd)
 
 @ Common blocks definitions.
-
-@f pd_common integer
-@m pd_common
-      pd_common_a;
-      integer pd_inc;
 
 /*
    |pd_ragged_alloc| and |pd_ragged_realloc| are designed to automatically

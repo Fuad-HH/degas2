@@ -2,6 +2,18 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.27  1997/08/07 20:09:41  dstotler
+% Implement variable name changes corresponding to alterations
+% to xsection.hweb and reactiondata.hweb. Add a semi-general
+% eval_data routine and modify reaction_rate -> find_rate to
+% use it. Remove reaction_rate_a and cross_section_a routines.
+% Expand if-then-else used to transfer xs_var (CHAR) to rd_var
+% (INT), include setting of num_random variables. Set random
+% number(s) in independent_parameters. Fix a problem with
+% eval_data arguments - they now differ from those of
+% pd_eval_data. Further modified find_rate to allow a sensible call
+% to compute background reaction rates.
+%
 % Revision 1.26  1996/10/30 18:21:07  dstotler
 % Modify argument list for reaction_rate_a to contain only "reference
 % arguments". This allows it to be used for computing the recombination
@@ -112,6 +124,7 @@
 @I particle.hweb
 @I string.hweb
 @I random.hweb
+@I materials.hweb
 
 @ The main program.
 
@@ -128,7 +141,11 @@ the more specific information required by the lower level routine.
 @<Functions...@>=
       function find_rate(pt_dummy(p),pr_background_dummy(back),
      $   pr_reaction_dummy(pr_reac),rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      pr_common                        // Common
+      rd_common
+      implicit_none_f90
+      rd_decls
       real find_rate                   // Function
       pt_decl(p)                       // Input
       pr_background_decl(back)
@@ -137,8 +154,6 @@ the more specific information required by the lower level routine.
 
       real independent_parameters[xs_max_indep_params]       // Local
 
-      pr_common                        // Common
-      rd_common
 
       external eval_data               // External
       real eval_data
@@ -166,21 +181,21 @@ are passed back in the |independent_parameters| array.
 @<Functions...@>=
       subroutine set_indep_params(pt_dummy(p),pr_background_dummy(back),
      $   num_random,rn_dummy(x),independent_parameters)
-      implicit_none
+      implicit_none_f77
+      zn_common
+      bk_common
+      sp_common
+      pr_common
+      implicit_none_f90
       pt_decl(p)                       // Input
       pr_background_decl(back)
       integer num_random
       rn_decl(x)                       // Input / Output
-      bk_decl(back)                    // Local
       vc_decl(vb_flow)
       vc_decl(vrel)
       integer i
       real independent_parameters[xs_max_indep_params]
       real rr
-      zn_common
-      bk_common
-      sp_common
-      pr_common
 
       call transform_v(pr_background_args(back),lc_args(pt_loc(p)),
      $     vc_args(vb_flow))
@@ -219,16 +234,17 @@ are passed back in the |independent_parameters| array.
 @<Functions...@>=
       subroutine transform_v(pr_background_dummy(back),lc_dummy(loc),
      $    vc_dummy(vb_flow))
-      implicit_none
+      implicit_none_f77
+      bk_common
+      zn_common
+      
+      implicit_none_f90
 
       pr_background_decl(back)                       // Input
       lc_decl(loc)
       vc_decl(vb_flow)                               // Output
       real rr                                        // Local
 
-      bk_common
-      zn_common
-      
       if (background_coords == plasma_coords_cartesian) then
          vc_copy(bk_v(back,lc_zone(loc)),vb_flow)
       else if (background_coords == plasma_coords_cylindrical) then
@@ -252,7 +268,8 @@ Note that the {\em calling} argument list is defined via a macro.
       function eval_data(eval_name,rank,ind_params_label,tab_index,spacing,
      $                   min,delta,data_table,
      $                   independent_parameters,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real eval_data                                    // Function
 
@@ -333,7 +350,8 @@ constant.
       
 @<Functions...@>=
       function interpolate1(f,array,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real interpolate1         // Function
       integer n                 // Input
       real f,array[0:*]
@@ -357,7 +375,8 @@ constant.
 
 @<Functions...@>=
       function interpolate2(f,array,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real interpolate2         // Function
       integer n[2]              // Input
       real f[2],array[0:*]
@@ -387,7 +406,8 @@ constant.
 
 @<Functions...@>=
       function interpolate3(f,array,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real interpolate3         // Function
       integer n[3]              // Input
       real f[3],array[0:*]
@@ -421,7 +441,8 @@ constant.
 
 @<Functions...@>=
       function interpolate4(f,array,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real interpolate4         // Function
       integer n[4]              // Input
       real f[4],array[0:*]
@@ -466,7 +487,8 @@ constant.
 
 @<Functions...@>=
       function interpolate5(f,array,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real interpolate5         // Function
       integer n[5]              // Input
       real f[5],array[0:*]
@@ -528,7 +550,8 @@ cases. This assumes that |array| increases monotonically. Taken from Numerical R
 
 @<Functions...@>=
       function find_index(x,array,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real find_index            // Function
       integer n                  // Input
       real x,array[0:*]
@@ -561,15 +584,17 @@ loop1: continue
 
 @<Functions...@>=
       subroutine reaction_read(num)
-      implicit none
-      integer num
-      integer fileid // Local
+      implicit_none_f77
       xs_common
-      xs_ncdecl
-      nc_common
-      sy_common
       rc_common
       pr_common
+      implicit_none_f90
+      integer num
+      integer fileid // Local
+      xs_ncdecl
+      nc_decls
+      xs_decls
+      @<Memory allocation interface@>
       
       fileid = ncopen(rc_filename(pr_reaction(num)),NC_NOWRITE,nc_stat)
       
@@ -589,17 +614,20 @@ information into reaction data and miscellaneous arrays.
 
 @<Functions...@>=
       subroutine xs_copy(num)
-      implicit_none
+      implicit_none_f77
+      xs_common
+      pr_common
+      rc_common
+      rd_common
+      implicit_none_f90
+      rd_decls
+      xs_decls
       integer num                                         // Input
       integer i,j,jdep,k,rh_ind,num_random                // Local
       integer spacing[0:xs_dep_var_max],var[xs_dep_var_max]
       real table_entry,min[xs_dep_var_max],delta[xs_dep_var_max]
       character*xs_eval_name_length eval_name
-      xs_common
-      pr_common
-      rc_common
-      rd_common
-      sy_common
+      @<Memory allocation interface@>
       
       assert(xs_name==rc_sy(pr_reaction(num)))
 
@@ -809,11 +837,13 @@ skip: continue
 
 @<Functions...@>=
       subroutine init_reaction
-      implicit_none
-      integer i                 // Local
+      implicit_none_f77
       pr_common
       rd_common
-      sy_common
+      implicit_none_f90
+      rd_decls
+      integer i                 // Local
+      @<Memory allocation interface@>
             
       var_alloc(reaction_rate_eval_name)
       var_alloc(reaction_rate_min)

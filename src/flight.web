@@ -2,6 +2,11 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.23  1997/08/07 19:43:10  dstotler
+% Rename reaction_rate to find_rate. Add random number thread to
+% argument list. Implement flight source and particle v-author labels.
+% Add calls to scoring routines.
+%
 % Revision 1.22  1996/10/30 17:55:05  dstotler
 % Added check on fl_pointer(x) <= 0 following process_reaction. Put test
 % index on stat array. Change scoring to use (1. - exp(-ionize_rate*t))
@@ -105,6 +110,7 @@
 @I sources.hweb
 @I tally.hweb
 @I output.hweb
+@I materials.hweb
 
 @ The main program.
 
@@ -115,13 +121,15 @@
 
 @<Functions...@>=
       subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scores1,estimator_factors)
-      implicit_none
-      integer nstart,nflights,seed0[0:1] // Input
-      so_decl(isource)
+      implicit_none_f77
       zn_common
-      sy_common
       pr_common
       tl_common
+      implicit_none_f90
+      tl_decls
+      integer nstart,nflights,seed0[0:1] // Input
+      so_decl(isource)
+      @<Memory allocation interface@>
       real scores[0:*][o_mean:o_var],weight // Output
       real scores1[0:*][o_mean:o_var],estimator_factors[0:*]       // Scratch
       integer seed[0:1],i,j     // Local 
@@ -151,10 +159,16 @@
 
 @<Functions...@>=
       subroutine follow(fl_dummy(x),scores,rel_wt,seed,estimator_factors)
-      implicit_none
+      implicit_none_f77
+      bk_common
+      sp_common
       zn_common
       pr_common
       so_common
+      rc_common
+      tl_common
+      implicit_none_f90
+      pt_decls
       fl_decl(x)
       real rel_wt
       integer seed[0:1],i,nprod
@@ -164,14 +178,10 @@
       logical done
 
       pt_decl(prod[0:rc_product_max])
-      rn_common
-      bk_common
-      sp_common
-      st_common
-      pt_common
-      lc_common
-      rc_common
-      tl_common
+      rn_decls
+      st_decls
+      lc_decls
+      tl_decls
       external find_rate
       real find_rate
       
@@ -314,7 +324,9 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
 @<Functions...@>=
       subroutine score_sector(fl_dummy(x),scores,estimator_factors)
 
-      implicit_none
+      implicit_none_f77
+      sc_common                                        // Common
+      implicit_none_f90
 
       fl_decl(x)                                       // Input / Output
       real scores[0:*][o_mean:o_var]
@@ -326,7 +338,6 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       sc_decl(sector2)
       ma_decl(mat_ref)
       
-      sc_common                                        // Common
 
       sector1=lc_sector(pt_loc(fl_current(x)))
       sector2=lc_sector_next(pt_loc(fl_current(x)))
@@ -369,7 +380,11 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
 @<Functions...@>=
       subroutine process_pmi(fl_dummy(x),mat_ref,mat_temp)
 
-      implicit_none
+      implicit_none_f77
+      pr_common
+      sp_common
+      pm_common
+      implicit_none_f90
 
       fl_decl(x)                         // Input
       ma_decl(mat_ref)
@@ -383,9 +398,6 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
       pr_pmi_decl(default_pmi)
       pt_decl(prod[pm_product_max])
       
-      pr_common
-      sp_common
-      pm_common
 
       external find_yield,intersection_direction
       real find_yield,intersection_direction

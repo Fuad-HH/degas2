@@ -2,6 +2,10 @@
 \Title{materialsetup}
 
 % $Log$
+% Revision 1.2  1996/03/01 20:20:53  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.1  1996/01/25 15:07:19  dstotler
 % Adding to repository.
 %
@@ -30,15 +34,16 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine read_materials
-      implicit_none
-
+      implicit_none_f77
       ma_common                       // Common
+      rf_common
+      implicit_none_f90
+
       integer length,p,b,e            // Local
       character*LINELEN line
       character*FILELEN tempfile  
-      sy_common
-      st_common
-      rf_common
+      @<Memory allocation interface@>
+      st_decls
       ma_num=0
       materials_version='unknown'
       tempfile = filenames_array[materials_infile]
@@ -88,13 +93,14 @@ eof:  continue
       
 @<Functions...@>=
       subroutine nc_write_materials
-      implicit_none
+      implicit_none_f77
       ma_common                 // Common
-      nc_common                 // Local
+      rf_common
+      implicit_none_f90
+      nc_decls                 // Local
       integer fileid
       ma_ncdecl
-      st_common
-      rf_common
+      st_decls
       character*LINELEN description,program_version
       character* FILELEN tempfile    //local
 

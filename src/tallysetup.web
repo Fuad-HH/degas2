@@ -2,6 +2,10 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.1  1997/08/07 20:33:41  dstotler
+% This initial set of tallies is a good start. It currently works with
+% both boxgen and readgeometry.
+%
 
 @* Introduction.
 
@@ -33,14 +37,14 @@ interface can be developed to replace this code.
 @I sector.hweb
 @I detector.hweb
 @I location.hweb
+@I pmiformat.hweb
 
-/* 
-   These tags will make it easier to pick the estimators for
+@   These tags will make it easier to pick the estimators for
    each reaction. Largely, these designations are the same as 
    |rc_reaction_type|, but are defined locally so that they can be
    arbitrarily assigned for greater flexibility. There's really
    nothing analogous needed for non-reaction tallies.
-*/
+
 @m pr_rc_unknown 1
 @m pr_rc_recombination 2
 @m pr_rc_ionize_suppress 3
@@ -53,7 +57,8 @@ interface can be developed to replace this code.
 @a 
       program tallysetup
 
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       call readfilenames
 
@@ -79,18 +84,9 @@ interface can be developed to replace this code.
 
 @<Functions...@>=
       subroutine init_tally
+      define_varp(pr_rc_type,INT,tally_reac_ind)
 
-      implicit_none
-
-      integer pointer,i,test,pr_reac
-      integer indep_var[tl_rank_max],tab_index[tl_rank_max],
-     $     estimator[pr_rc_max]
-      character*1 ind_sy[3]
-      data ind_sy /'1','2','3'/
-
-      ptr_decl(pr_rc_type)
-      integer pr_rc_type[pr_reaction_num]
-
+      implicit_none_f77
       tl_common
       de_common
       zn_common
@@ -98,14 +94,26 @@ interface can be developed to replace this code.
       pr_common
       sp_common
       sc_common
-      st_common
-      sy_common
       rf_common
       gi_common
+      implicit_none_f90
+
+      integer pointer,i,test,pr_reac
+      integer indep_var[tl_rank_max],tab_index[tl_rank_max],
+     $     estimator[pr_rc_max]
+      character*1 ind_sy[3]
+      data ind_sy /'1','2','3'/
+
+      declare_varp(pr_rc_type)
+c      integer pr_rc_type[pr_reaction_num]
+
+      st_decls
+      tl_decls
+      @<Memory allocation interface@>
 
       var_alloc(tally_type_num)
       var_alloc(tally_type_base)
-      int_alloc(pr_rc_type,pr_reaction_num)
+      var_alloc(pr_rc_type)
 
       do i=1,tl_type_max
          tally_type_num[i]=0
@@ -319,7 +327,7 @@ interface can be developed to replace this code.
          end if
       end do
 
-      int_free(pr_rc_type,pr_reaction_num)
+      var_free(pr_rc_type)
 
       return
       end
@@ -330,18 +338,20 @@ interface can be developed to replace this code.
       subroutine define_tally(name,type,geometry,pointer,dep_var,rank,
      $   indep_var,tab_index,estimator,arg_type)
 
-      implicit_none
+      implicit_none_f77
+      tl_common                                               // Common
+      pr_common
+      implicit_none_f90
 
-      integer type,geometry,pointer,rank,indep_var            // Input
+      integer type,geometry,pointer,rank            // Input
       integer indep_var[tl_rank_max],tab_index[tl_rank_max],
      $     estimator[pr_rc_max],arg_type[*]
       character*(*) name,dep_var
 
       integer i,est,pr_reac                                   // Local
+      tl_decls
 
-      tl_common                                               // Common
-      sy_common
-      pr_common
+      @<Memory allocation interface@>
 
       tl_num++
 
@@ -414,12 +424,14 @@ merge these data into the problemfile, written by |nc_write_problem|.
 
 @<Functions...@>=
       subroutine nc_write_tally
-      implicit_none
+      implicit_none_f77
       tl_common                  // Common
-      nc_common
-      st_common
       rf_common
       pr_common
+      implicit_none_f90
+      tl_decls
+      nc_decls
+      st_decls
       integer fileid             // Local
       tl_ncdecl
       character*LINELEN description,program_version
@@ -458,11 +470,14 @@ merge these data into the problemfile, written by |nc_write_problem|.
 
 @<Functions...@>=
       subroutine clear_tally
-      implicit_none
-
+      implicit_none_f77
       tl_common
-      sy_common
       pr_common
+      implicit_none_f90
+      
+      tl_decls
+
+      @<Memory allocation interface@>
 
       var_free(tally_type_num)
       var_free(tally_type_base)

@@ -2,6 +2,11 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.27  1997/08/07 20:07:34  dstotler
+% Just change names of higher moments: I_l_1*u to I_l_1*up to
+% avoid confusion between u (neutral) and up (plasma). Replace
+% xs_organization with xs_eval_name.
+%
 % Revision 1.26  1996/10/30 18:17:21  dstotler
 % Modify to use single 1-D data table in lieu of the previous 5 3-D
 % tables. Refine dependent variable options in light of experience with
@@ -292,11 +297,12 @@ the argument line and passes it along to the reading subroutine.
 
 @a
       program ratecalc
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*LINELEN arg
       character*FILELEN filename
 
-      sy_common
+      sy_decls
       
       assert(arg_count() == 1)
       call command_arg(1,arg)
@@ -330,16 +336,18 @@ coefficients since the user will not know this in general.
 
 @<Functions...@>=
       subroutine read_input(filename)
-      implicit_none
+      implicit_none_f77
+      ra_common
+      xs_common
+      implicit_none_f90
 
       character*FILELEN filename    // Input
 
       integer length                // Local
       character*LINELEN line
 
-      ra_common
-      xs_common
-      st_common
+      st_decls
+      xs_decls
 
       open(unit=diskin,file=filename,
      $     form='formatted',status='old')
@@ -371,13 +379,15 @@ eof: continue
 
 @<Functions...@>=
       subroutine read_dependent(unit,line)
-      implicit_none
+      implicit_none_f77
+      xs_common
+      implicit_none_f90
       integer unit                             // Input
       character*(*) line                       // Output
       integer length,p,b,e,i,j                 // Local
 
-      xs_common
-      st_common
+      st_decls
+      xs_decls
 
       xs_num_dep_var=0
 
@@ -467,15 +477,17 @@ end_dep_var: continue
 
 @<Functions...@>=
       subroutine read_indep(unit,line)
-      implicit_none
+      implicit_none_f77
+      xs_common
+      implicit_none_f90
       integer unit                               // Input
       character*(*) line                         // Output
       character*FILELEN tc                           // Test String
       integer length,p,b,e,i,idep,j              // Local
       integer dep_var[xs_dep_var_max]
 
-      xs_common
-      st_common
+      st_decls
+      xs_decls
 
       do i = 1 , xs_dep_var_max
          xs_rank[i]=0
@@ -615,16 +627,18 @@ netCDF files for each reaction.
 
 @<Functions...@>=
       subroutine read_reaction_list(unit,line)
-      implicit_none
+      implicit_none_f77
+      xs_common
+      ra_common
+      implicit_none_f90
       integer unit                                  // Input
       character*(*) line                            // Output
       integer length,p,b,e,i,idep                   // Local
       integer dep_var[xs_dep_var_max]
       logical and_section
 
-      xs_common
-      ra_common
-      st_common
+      st_decls
+      xs_decls
 
 /*
    The following declarations are required to write out reaction
@@ -632,7 +646,7 @@ netCDF files for each reaction.
 \begin{verbatim}
       integer fileid
       character*FILELEN fileout
-      nc_common
+      nc_decls
       ra_ncdecl
 \end{verbatim}
 */
@@ -765,7 +779,11 @@ fits) or via subroutine |table_value|.
 
 @<Functions...@>=
       subroutine fill_tables
-      implicit_none
+      implicit_none_f77
+      ra_common                                   // Commons and declarations
+      xs_common
+      rf_common
+      implicit_none_f90
       integer fileid,j,k,l,m,b,e,p  // Local
       real zsigma,table_value
       real ind_var_min[xs_table_rank_max],ind_var_delta[xs_table_rank_max],
@@ -773,14 +791,12 @@ fits) or via subroutine |table_value|.
       character*FILELEN fileout
       character*LINELEN description
 
-      ra_common                                   // Commons and declarations
-      xs_common
       xs_ncdecl
-      nc_common
-      st_common
-      sy_common
-      ra_common_l                                 // Local common
-      rf_common
+      nc_decls
+      st_decls
+      xs_decls
+      @<Memory allocation interface@>
+      ra_localcommon                                 // Local common
 
       xs_ragged_alloc(xs_data,xs_tab_index)
 
@@ -904,7 +920,10 @@ index into the |xs| class variables for this dependent variable and
 
 @<Functions...@>=
       function table_value(j,ind_var)
-      implicit_none
+      implicit_none_f77
+      xs_common
+      ra_common
+      implicit_none_f90
 
       real table_value                            // Function
       integer j                                   // Input
@@ -919,9 +938,8 @@ index into the |xs| class variables for this dependent variable and
       external electron_rate_integrand,           // External
      $   electron_norm_integrand,ion_rate_integrand
 
-      xs_common
-      ra_common
-      ra_common_l
+      ra_localcommon
+      xs_decls
 /*
    For cross sections, presumably will only be evaluating fits to fill
    the table. Hence, |moment_number| is not needed. But,
@@ -1034,7 +1052,8 @@ is used to effect a change in units. Hence, the output minimum
 @<Functions...@>=
       subroutine find_delta(spacing,min_value,multiplier,max_value,
      $   number_of_values,var_min,var_delta)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real min_value,multiplier,max_value      // Input
       integer number_of_values
       character*xs_tag_string_length spacing
@@ -1094,15 +1113,16 @@ through common blocks.
 
 @<Functions...@>=
       real function electron_rate_integrand(energy)
-      implicit_none
+      implicit_none_f77
+      ra_common                       // Common
+      implicit_none_f90
 
       real energy                     // Input
 
       real multiplier,ze_dist,exponent,zint,zsigma   // Local variables
       real e_distrib_fn,sigma                        // External functions
 
-      ra_common                       // Common
-      ra_common_l                     // Local common
+      ra_localcommon                     // Local common
 
       zsigma=sigma(energy)
       ze_dist=e_distrib_fn(energy)
@@ -1124,14 +1144,15 @@ functions. The argument |energy| is assumed to be in eV; the overall
 multiplier converts the resulting units to cgs. 
 @<Functions...@>=
       real function electron_norm_integrand(energy)
-      implicit_none
+      implicit_none_f77
+      ra_common                       // Common
+      implicit_none_f90
 
       real energy                     // Input
 
       real multiplier,ze_dist,zint    // Local variables
       real e_distrib_fn               // External functions
 
-      ra_common                       // Common
 
       ze_dist=e_distrib_fn(energy)
       multiplier=(const(4.0)*PI / ra_mass) * sqrt(two / ra_mass)
@@ -1189,7 +1210,9 @@ integral has cgs units.
 
 @<Functions...@>=
       real function ion_rate_integrand(rel_velocity)
-      implicit_none
+      implicit_none_f77
+      ra_common                    // Common
+      implicit_none_f90
 
       real rel_velocity             // Input
 
@@ -1197,8 +1220,7 @@ integral has cgs units.
      $   exponent_plus,zsigma
       real sigma                                      // External function
 
-      ra_common                    // Common
-      ra_common_l                  // Local common
+      ra_localcommon                  // Local common
 
       ze=half*(ra_mass/atomic_mass_unit_g)*rel_velocity^2 
       zsigma=sigma(ze)
@@ -1224,10 +1246,11 @@ to describe them.
 
 @<Functions...@>=
       real function e_distrib_fn(energy) 
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real energy            // Input
-      ra_common_l            // Local common
+      ra_localcommon            // Local common
 
       e_distrib_fn = exp(-energy/temperature)
 
@@ -1242,18 +1265,19 @@ calling routines.
 
 As presently used, this routine computes the cross section at the
 input energy |energy|. The other information required to communicate with
-ALADDIN is brought in by the common block |ra_common_l|.
+ALADDIN is brought in by the common block |ra_localcommon|.
 
 @<Functions...@>=
       real function sigma(energy)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real energy                    // Input
 
       double precision ze,zfit       // Local
       character*msg_length errmsg
 
-      ra_common_l                    // Local common
+      ra_localcommon                    // Local common
 
       ze=dble(energy)                // Explicitly transfer to double precision
       errmsg=' '
@@ -1294,7 +1318,8 @@ is returned in |leval|.
      $   bool_and_label,num_bool_and,bool_not_label,num_bool_not,
      $   fit_coef,num_fit_coef,leval)
 
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       character*ra_data_filename_length filename               // Input
       character*ra_search_label_length hier_label(ra_label_max),
@@ -1369,7 +1394,8 @@ passed in from the ALADDIN data files. The resulting value is returned as
 
 @<Functions...@>=
       subroutine aladdin_eval_fit(leval,pet,fit_coef,num_fit_coef,pfit,kermsg)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       character*xs_eval_name_length leval                  // Input
       integer num_fit_coef
@@ -1569,7 +1595,8 @@ to |dcadre| with the original ones).
 
 @<Functions...@>=
       real function infinite_integral(integrand)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer ier                                              // Local
       real dcadre,lower_result,upper_result,error,
      $   lower_bound_rev,upper_bound_rev
@@ -1646,7 +1673,8 @@ the ``latest revision'' date of January 27, 1977 is still applicable.
 
 @<Functions...@>=
       real function dcadre(f,lower_bound,upper_bound,aerr,rerr,error,ier)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real lower_bound,upper_bound,f,aerr,rerr        // Input
       integer ier                                     // Output
@@ -2081,7 +2109,8 @@ the input parameter |error|.
       subroutine find_threshold(lower_bound,upper_bound,f_of_x,error,
      $   lower_bound_rev,upper_bound_rev)
 
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real lower_bound,upper_bound,f_of_x,error      // Input
       real lower_bound_rev,upper_bound_rev           // Output
@@ -2165,7 +2194,8 @@ a large number.
       subroutine find_nonzero(lower_bound,upper_bound,
      $   lower_guess,guess,upper_guess,f_of_x)
 
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real lower_bound,upper_bound,f_of_x            // Input
       real lower_guess,guess,upper_guess             // Output
@@ -2234,7 +2264,8 @@ that interval at which $|f_of_x| \neq 0$.
  
 @<Functions...@>=
       real function bisect(zero_side,nonzero_side,error,f_of_x)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real zero_side,nonzero_side,error,f_of_x     // Input
       integer i,ibound                             // Local
       real rev_zero,rev_nonzero,guess

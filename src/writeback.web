@@ -2,6 +2,9 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.2  1997/08/07 20:34:18  dstotler
+% Inserted set_background_sources from readbackground.web.
+%
 % Revision 1.1  1996/10/30 18:31:33  dstotler
 % These routines were needed in more than one stand-alone program.
 %
@@ -28,6 +31,8 @@ Introduction\ldots
 @I random.hweb
 @I problem.hweb
 @I zone.hweb
+@I reaction.hweb
+@I materials.hweb
 
 @ The unnamed module.
 
@@ -39,25 +44,26 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine write_background
-      implicit_none
-      integer fileid
-      character *FILELEN tempfile
+      implicit_none_f77
       zn_common
       bk_common
-      bk_ncdecl
-      vc_ncdecl
-      nc_common
       so_common
-      so_ncdecl
       rf_common
+      implicit_none_f90
+      integer fileid
+      character *FILELEN tempfile
+      bk_ncdecl
+      cm_ncdecl
+      nc_decls
+      so_ncdecl
 
       tempfile = filenames_array[backgroundfile]
       fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
-      vc_ncdef(fileid)
+      cm_ncdef(fileid)
       bk_ncdef(fileid)
       so_ncdef(fileid)
       call ncendef(fileid,nc_stat);
-      vc_ncwrite(fileid)
+      cm_ncwrite(fileid)
       bk_ncwrite(fileid)
       so_ncwrite(fileid)
       call ncclose(fileid,nc_stat)
@@ -69,7 +75,13 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine set_background_sources
-      implicit_none
+      implicit_none_f77
+      pr_common
+      bk_common
+      so_common
+      zn_common
+      sp_common
+      implicit_none_f90
 
       integer jr,zone             // Local
       real rate
@@ -81,15 +93,10 @@ Introduction\ldots
       external find_rate
       real find_rate
 
-      pr_common
-      bk_common
-      so_common
-      zn_common
-      sy_common
-      sp_common
-      lc_common
-      rn_common
-      st_common
+      @<Memory allocation interface@>
+      lc_decls
+      rn_decls
+      st_decls
 
       if (pr_bkrc_num > 0) then
          var_realloc(source_base_ptr,so_grps,so_grps+pr_bkrc_num)
@@ -169,7 +176,12 @@ Math. Software} {\bf 3} (1976), 253-256].
 
 @<Functions...@>=
       subroutine set_prob_alias(n,so,wt,x_ptr,pa,ya,wtnorm)
-      implicit_none
+      define_dimen(temp_ind,n)
+      define_varp(prob,FLOAT,temp_ind)
+      define_varp(ia,INT,temp_ind)
+
+      implicit_none_f77
+      implicit_none_f90
 
       integer n                      // Input
       real so[n],wt[n]
@@ -182,15 +194,15 @@ Math. Software} {\bf 3} (1976), 253-256].
       integer i,j,inew               // Local
       real sum,sum1,probnew
 
-      sy_common       
+      @<Memory allocation interface@>       
 
-      ptr_decl(prob)
-      ptr_decl(ia)
-      real prob(n)
-      integer ia(n)
+c      real prob(n)
+c      integer ia(n)
+      declare_varp(prob)
+      declare_varp(ia)
       
-      real_alloc(prob,n)
-      int_alloc(ia,n)
+      var_alloc(prob)
+      var_alloc(ia)
 
       sum=zero
       sum1=zero
@@ -243,8 +255,8 @@ Math. Software} {\bf 3} (1976), 253-256].
          end if
       end do
 
-      real_free(prob,n)
-      int_free(ia,n)
+      var_free(prob)
+      var_free(ia)
 
       return
       end

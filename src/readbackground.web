@@ -2,6 +2,14 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.16  1997/08/07 20:19:40  dstotler
+% Replace reaction_rate_a with call to (revised) find_rate suitable
+% for use with bk_rc. Moved set_background_sources to writeback.web so
+% it can be called from boxgen. In read_degas_background, skip 0-length wall
+% segments when setting up surface sources (there are no
+% corresponding sectors due to a corresponding check in readgeometry).
+% Note: this change has not been carefully checked or even thought-out.
+%
 % Revision 1.15  1996/10/30 18:24:07  dstotler
 % Simplify by using zn_index and other geometry information. Automate
 % calculation of sources for DEGAS & UEDGE files. Add routines to set up
@@ -78,9 +86,10 @@
 @I string.hweb
 @I netcdf.hweb
 @I sector.hweb
+@I materials.hweb
 
-@f namelist integer
 @ The unnamed module.
+@f namelist integer
 
 @a
       @<Functions and Subroutines@>
@@ -89,7 +98,8 @@
 
 @<Functions...@>=
       program readbackground
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*FILELEN datafilename
 
       call command_arg(1,datafilename)
@@ -103,14 +113,16 @@
 
 @<Functions...@>=
       subroutine process_background(datafilename)
-      character*FILELEN datafilename,degasfilename,uedgefilename
-      logical uedge,degas
-      integer i,ii
-      sy_common
+      implicit_none_f77
       zn_common
       pr_common
       bk_common
       gi_common
+      implicit_none_f90
+      character*FILELEN datafilename,degasfilename,uedgefilename
+      logical uedge,degas
+      integer i,ii
+      @<Memory allocation interface@>
 
       call readfilenames
       
@@ -171,9 +183,23 @@ of the file name (x.d is degas and x.u for uedge) */
 
 @<Functions...@>=
       subroutine read_degas_background(file)
-      implicit_none
 
-      integer zone,jh,jv,js,jsp,jwall,jseg,nohyds,zone,seg // Local
+      implicit_none_f77
+      zn_common
+      pr_common
+      bk_common
+      sp_common
+      el_common
+      rc_common
+      so_common
+      gi_common
+      sc_common
+      implicit_none_f90
+
+      st_decls
+      @<Memory allocation interface@>
+
+      integer zone,jh,jv,js,jsp,jwall,jseg,seg // Local
       real xmin,xmax,zmin,zmax,curr_tot
       character*FILELEN file
       logical new_group
@@ -185,18 +211,6 @@ of the file name (x.d is degas and x.u for uedge) */
 
       external lookup_sector
       integer lookup_sector
-
-      zn_common
-      pr_common
-      bk_common
-      sp_common
-      el_common
-      rc_common
-      so_common
-      sy_common
-      gi_common
-      st_common
-      sc_common
 
       @<pardef.h@>
       @<combal.h@>
@@ -377,7 +391,19 @@ of the file name (x.d is degas and x.u for uedge) */
 @ read uedge background data 
 @<Functions...@>=
       subroutine read_uedge_background(file)
-      implicit_none
+
+      implicit_none_f77
+      zn_common
+      pr_common
+      bk_common
+      sp_common
+      el_common
+      rc_common
+      so_common
+      sc_common
+      implicit_none_f90
+      st_decls
+      @<Memory allocation interface@>
       integer mx,my
       parameter (mx=120,my=100)
       integer nu,nx,ny,ixpt1,ixpt2,iysptrx,i,j1,j2,j3,max_rc,test
@@ -392,16 +418,6 @@ of the file name (x.d is degas and x.u for uedge) */
       external lookup_sector
       integer lookup_sector
 
-      sy_common
-      zn_common
-      pr_common
-      bk_common
-      sp_common
-      el_common
-      rc_common
-      so_common
-      sc_common
-      st_common
       
       print *, 'in read_uedge'
 

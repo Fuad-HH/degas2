@@ -16,12 +16,18 @@
 @I reaction.hweb
 @I particle.hweb
 @I string.hweb
+@I materials.hweb
 
 @ The main program.
 
 @a
       program dataexam
-      implicit_none
+      implicit_none_f77
+      xs_common
+      rc_common
+      pr_common
+      implicit_none_f90
+      xs_decls
       character*LINELEN line    // Local
       character*FILELEN tempfile,reaction_file
       character*rc_sy_len symbol
@@ -32,7 +38,7 @@
 
       integer length,p,b,e
       integer i,j,k
-      integer fileid,reaction
+      integer fileid
       integer dep_choice
 
       rc_decl(reaction)
@@ -40,13 +46,10 @@
       integer min_slice(xs_table_rank_max,xs_dep_var_max)
       integer max_slice(xs_table_rank_max,xs_dep_var_max)
 
-      xs_common
       xs_ncdecl
-      nc_common
-      sy_common
-      rc_common
-      pr_common
-      st_common
+      nc_decls
+      @<Memory allocation interface@>
+      st_decls
 
       call readfilenames
       call nc_read_reactions

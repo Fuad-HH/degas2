@@ -2,6 +2,9 @@
 \Title{plot geometry}
 
 % $Log$
+% Revision 1.16  1997/08/07 19:57:11  dstotler
+% Remove "stat" functions, no longer needed by geomtesta.
+%
 % Revision 1.15  1996/10/30 18:03:30  dstotler
 % Add routine to write HDF data files. Handle new test species index in
 % stat array.
@@ -89,6 +92,9 @@ Introduction\ldots
 @I zone.hweb
 @I sysdep.hweb
 @I problem.hweb
+@I reaction.hweb
+@I species.hweb
+@I materials.hweb
 
 @ Long forms of the HDF names.
 
@@ -113,23 +119,24 @@ the problem space).
 
 @<Functions...@>=
       subroutine output_slice(hdffile,first,x0,a,b,alen,blen,func)
-      implicit_none
+      implicit_none_f77
+      gi_common            // Input
+      implicit_none_f90
       character*(*) hdffile     // File
       logical first             // Input
       real x0[3],a[3],b[3],alen,blen
-      gi_common            // Input
       integer min_char,max_char,pixsize // Parameters
       parameter (min_char=3,max_char=255,pixsize=6400000) // not pixsize: max. no. of pixels
       integer DFTAG_RLE,DFTAG_IMC
       parameter (DFTAG_RLE=11, DFTAG_IMC=12)
       integer na,nb,i,j,ind,direction,ret,istart,istop,val // Local
       lc_decl(xx)
-      lc_common
+      lc_decls
       real dx,v[3],vy[3],tmax,t,xpos
       logical done,ok
       character*1 ch[0:pixsize-1]
       character*1 palette[0:255][3]
-      vc_common
+      vc_decls
       external DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal // External
       integer DFR8putimage,DFR8addimage,DFR8setpalette,DFPgetpal
       external track,func
@@ -249,7 +256,8 @@ loop1:   continue
 
 @<Functions...@>=
       function zone_func(lc_dummy(x),min_char,max_char)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer zone_func         // Function
       integer min_char,max_char // Input
       lc_decl(x)
@@ -263,12 +271,13 @@ loop1:   continue
 
 @<Functions...@>=
       function density_func(lc_dummy(x),min_char,max_char)
-      implicit_none
+      implicit_none_f77
+      zn_common
+      bk_common
+      implicit_none_f90
       integer density_func         // Function
       integer min_char,max_char // Input
       lc_decl(x)
-      zn_common
-      bk_common
       
       if (zn_type(lc_zone(x)) == zn_vacuum) then
          density_func=1
@@ -292,12 +301,13 @@ loop1:   continue
 
 @<Functions...@>=
       function te_func(lc_dummy(x),min_char,max_char)
-      implicit_none
+      implicit_none_f77
+      zn_common
+      bk_common
+      implicit_none_f90
       integer te_func         // Function
       integer min_char,max_char // Input
       lc_decl(x)
-      zn_common
-      bk_common
       
       if (zn_type(lc_zone(x)) == zn_vacuum) then
          te_func=1
@@ -321,12 +331,13 @@ loop1:   continue
 
 @<Functions...@>=
       function ti_func(lc_dummy(x),min_char,max_char)
-      implicit_none
+      implicit_none_f77
+      zn_common
+      bk_common
+      implicit_none_f90
       integer ti_func         // Function
       integer min_char,max_char // Input
       lc_decl(x)
-      zn_common
-      bk_common
       
       if (zn_type(lc_zone(x)) == zn_vacuum) then
          ti_func=1
@@ -356,12 +367,13 @@ the problem space).
 
 @<Functions...@>=
       subroutine data_slice(hdffile,array,clabel,cunits,cformt,x0,a,b,alen,blen)
-      implicit_none
+      implicit_none_f77
+      zn_common
+      gi_common            // Input
+      implicit_none_f90
       character*(*) hdffile,clabel,cunits,cformt    // File
       real x0[3],a[3],b[3],alen,blen
-      zn_common
       real array[zn_num]                // Index should be zone number
-      gi_common            // Input
       integer pixsize // Parameters
       parameter (pixsize=40000) // not pixsize: max. no. of pixels
       integer DFACC_CREATE,DFNT_FLOAT64
@@ -369,15 +381,15 @@ the problem space).
       integer na,nb,i,j,ind,direction,ret,istart,istop,rank // Local
       integer*4 dims[2]
       lc_decl(xx)
-      lc_common
+      lc_decls
       real dx,v[3],vy[3],xx[3],tmax,t,xpos
       logical done
-      real*4 val
+      single_precision val
       single_precision data[0:pixsize-1]
       single_precision xa[0:pixsize-1]     // Limiting size
       single_precision xb[0:pixsize-1]
 
-      vc_common
+      vc_decls
       external dspdata,dssdast,dssdims,dssdisc
       integer dspdata,dssdast,dssdims,dssdisc
       external track

@@ -2,6 +2,11 @@
 \Title{geometry utilities}
 
 % $Log$
+% Revision 1.4  1995/10/12 21:42:48  karney
+% Finish the implementation of sectors.  Now track exits when encountering a
+% sector (on either side).  Sector and strata information is now part of the
+% location.
+%
 % Revision 1.3  1995/07/14 13:20:23  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -55,7 +60,8 @@ occupy the same memory as $\tens M$ or $\tens N$.
 
 @<Inline...@>=
       subroutine compose(m,n,t)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real m[3,4],n[3,4]        // Input
       real t[3,4]               // Output
       integer i,j               // Local
@@ -81,7 +87,8 @@ occupy the same memory as $\tens M$ or $\tens N$.
 
 @<Inline...@>=
       function determinant(m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real determinant          // Function
       real m[3,4]               // Input
 
@@ -97,7 +104,8 @@ share the same memory.
 
 @<Functions...@>=
       subroutine invert(m,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real m[3,4]               // Input
       real n[3,4]               // Output
       integer i,j               // Local
@@ -143,7 +151,8 @@ share the same memory.
 
 @<Functions...@>=
       subroutine transform_face(coeff,m,new_coeff)
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
       real coeff[NCOEFFS],m[3,4] // Input
       real new_coeff[NCOEFFS] // Output
       real temp[NCOEFFS]  // Local
@@ -217,7 +226,8 @@ share the same memory.
 
 @<Inline...@>=
       subroutine init_identity(m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real m[3,4]               // Output
       integer i,j               // Local
 
@@ -236,7 +246,8 @@ translation.  The origin of the new coordinate system is at $\vect x_0$.
 
 @<Inline...@>=
       subroutine geom_translate(x0,m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real x0[3]                // Input
       real m[3,4]               // Input/Output
       integer i,j               // Local
@@ -259,7 +270,8 @@ translation.  The origin of the new coordinate system is at $\vect x_0$.
 
 @<Inline...@>=
       subroutine geom_scale(a,m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real a                    // Input
       real m[3,4]               // Input/Output
       integer i,j               // Local
@@ -283,7 +295,8 @@ translation.  The origin of the new coordinate system is at $\vect x_0$.
 
 @<Inline...@>=
       subroutine geom_scalea(a,m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real a[3]                 // Input
       real m[3,4]               // Input/Output
       integer i,j               // Local
@@ -312,12 +325,13 @@ translation.  The origin of the new coordinate system is at $\vect x_0$.
 
 @<Functions...@>=
       subroutine geom_rotate(theta,v,m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real theta,v[3]           // Input
       real m[3,4]               // Input/Output
       integer i,j,k             // Local
       real vh[3],c,s,temp[3,4]
-      vc_common
+      vc_decls
 
       vc_unit(v,vh)
       c=cos(theta)
@@ -352,11 +366,12 @@ $M_{ik}=\epsilon_{ijk}v_j$. */
 
 @<Functions...@>=
       subroutine geom_rotatea(a,m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real a[3]                 // Input
       real m[3,4]               // Input/Output
       real theta,z[3],v[3]      // Local
-      vc_common
+      vc_decls
 
       assert( vc_abs(a) > zero )
       theta=atan2(sqrt(a[1]^2+a[2]^2),a[3]) // Angle to rotate by
@@ -377,7 +392,8 @@ $M_{ik}=\epsilon_{ijk}v_j$. */
       
 @<Functions...@>=
       subroutine reflect_plane(coeff,m)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real coeff[NCOEFFS]       // Input
       real m[3,4]               // Output
       integer i,j               // Local
@@ -420,7 +436,8 @@ have |vector_compare(a,b) = -vector_compare(b,a)|.
 
 @<Functions...@>=
       function vector_compare(a,b)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer vector_compare    // Function
       real a[3],b[3]            // Input
       integer i
@@ -445,7 +462,8 @@ element (in absolute value) is unity.
 
 @<Inline...@>=
       subroutine surface_normalize(coeff)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real coeff[NCOEFFS]   // Input/Output
       real temp                 // Local
       integer i
@@ -470,7 +488,8 @@ the orientation is the same and $-1$ otherwise.
 
 @<Functions...@>=
       function surface_equal(coeff1,coeff2,orientation)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       logical surface_equal     // Function
       real coeff1[NCOEFFS],coeff2[NCOEFFS] // Input
       integer orientation       // Output

@@ -2,6 +2,9 @@
 \Title{score}
 
 % $Log$
+% Revision 1.1  1997/08/07 20:25:01  dstotler
+% Initial version with near (hopefully) full functionality.
+%
 
 @* Routines to do scoring.
 
@@ -25,6 +28,8 @@
 @I string.hweb
 @I reactiondata.hweb
 @I flight.hweb
+@I reaction.hweb
+@I materials.hweb
 
 
 @m max_segments 10
@@ -39,8 +44,12 @@
 @<Functions...@>=
       subroutine score_test(est,est_fac,pt_dummy(p),scores,estimator_factors)
 
-      implicit_none
+      implicit_none_f77
+      tl_common                                        // Common
+      pr_common
+      implicit_none_f90
 
+      tl_decls
       integer est                                      // Input
       real est_fac
       pt_decl(p)
@@ -53,9 +62,7 @@
       character*tl_tag_length scoring_data_label[scoring_data_max]
       logical need_scores
 
-      tl_common                                        // Common
-      pr_common
-      sy_common
+      @<Memory allocation interface@>
 
       need_scores=.false.
       do i=1,tally_type_num[tl_type_test]
@@ -98,7 +105,9 @@
       subroutine test_scoring_data(pt_dummy(p),num_scoring_data,
      $     scoring_data,scoring_data_label,background_sources)
 
-      implicit_none
+      implicit_none_f77
+      sp_common                                     // Common
+      implicit_none_f90
 
       pt_decl(p)                                    // Input
       integer num_scoring_data                      // Output
@@ -106,7 +115,6 @@
       character*tl_tag_length scoring_data_label[scoring_data_max]
       real background_sources[*][ou_coupling_max]
 
-      sp_common                                     // Common
 
       num_scoring_data++
       scoring_data_label[num_scoring_data]='mass'
@@ -136,7 +144,13 @@
 @<Functions...@>=
       subroutine score_diagnostics(pt_dummy(p),scores,estimator_factors)
 
-      implicit_none
+      implicit_none_f77
+      tl_common                                        // Common
+      pr_common
+      sc_common
+      implicit_none_f90
+      
+      tl_decls
 
       pt_decl(p)                                       // Input
       real scores[0:*][o_mean:o_var]                   // Output
@@ -148,10 +162,7 @@
       character*tl_tag_length scoring_data_label[scoring_data_max]
       logical need_scores
 
-      tl_common                                        // Common
-      pr_common
-      sy_common
-      sc_common
+      @<Memory allocation interface@>
 
       need_scores=.false.
       do i=1,tally_type_num[tl_type_sector]
@@ -201,7 +212,9 @@
       subroutine sector_scoring_data(pt_dummy(p),num_scoring_data,
      $     scoring_data,scoring_data_label,background_sources)
 
-      implicit_none
+      implicit_none_f77
+      sp_common                                     // Common
+      implicit_none_f90
 
       pt_decl(p)                                    // Input
       integer num_scoring_data                      // Output
@@ -211,7 +224,6 @@
 
       real cos_angle                                // Local
 
-      sp_common                                     // Common
 
       external intersection_direction               // External
       real intersection_direction      
@@ -251,8 +263,15 @@ instances of the particle class.
      $   pr_reaction_dummy(ts_reac),rate,
      $   nprod,pt_dummy(prod),scores,estimator_factors,rn_dummy(x))
 
-      implicit_none
+      implicit_none_f77
+      sp_common                             // Common
+      pr_common
+      rc_common
+      rd_common
+      tl_common
+      implicit_none_f90
 
+      rd_decls
       integer est                          // Input
       real est_fac,rate
       pr_reaction_decl(ts_reac)
@@ -270,13 +289,8 @@ instances of the particle class.
      $     background_sources[ou_back_max][ou_coupling_max]
       character*tl_tag_length scoring_data_label[scoring_data_max]
 
-      sp_common                             // Common
-      pr_common
-      st_common
-      rc_common
-      rd_common
-      tl_common
-      sy_common
+      st_decls
+      @<Memory allocation interface@>
 
       pr_reac=pr_ts_rc(pt_test(prod[0]),ts_reac)
 
@@ -359,7 +373,10 @@ For now it only handles recombination.
 @<Functions...@>=
       subroutine score_sources(fl_dummy(x),scores,estimator_factors)
 
-      implicit_none
+      implicit_none_f77
+      so_common                                    // Common
+      pr_common
+      implicit_none_f90
 
       fl_decl(x)                                   // Input / Output
 
@@ -369,8 +386,6 @@ For now it only handles recombination.
       integer i,is,bk_rc_is                        // Local
       real rate
 
-      so_common                                    // Common
-      pr_common
 
       external find_rate                           // External
       real find_rate
@@ -404,7 +419,16 @@ For now it only handles recombination.
       subroutine score_recombination(est,est_fac,pr_reaction_dummy(bk_rc_is),
      $     rate,pt_dummy(p),scores,estimator_factors,rn_dummy(x))
 
-      implicit_none
+      implicit_none_f77
+      pr_common                                        // Common
+      rd_common
+      tl_common
+      so_common
+      ou_common
+      implicit_none_f90
+      
+      pt_decls
+      rd_decls
 
       integer est                                      // Input
       real est_fac,rate
@@ -423,14 +447,8 @@ For now it only handles recombination.
       pr_reaction_decl(pr_reac) 
       pr_background_decl(back_1)
 
-      pr_common                                        // Common
-      rd_common
-      tl_common
-      so_common
-      pt_common
-      ou_common
-      rn_common
-      sy_common
+      rn_decls
+      @<Memory allocation interface@>
 
       pr_reac=pr_bk_rc(bk_rc_is)
 
@@ -495,7 +513,13 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
      $   estimator_factors,
      $   scores)
 
-      implicit_none
+      implicit_none_f77
+      pr_common
+      tl_common
+      sc_common
+      implicit_none_f90
+      
+      tl_decls
 
       integer type,num_scoring_data              // Input
       pt_decl(p)
@@ -515,10 +539,7 @@ The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
       integer match_back_source                   // External
       external match_back_source
 
-      pr_common
-      tl_common
-      sy_common
-      sc_common
+      @<Memory allocation interface@>
 
       do i=1,tl_index_max
          index_parameters[i]=0
@@ -625,7 +646,12 @@ tracked by those elements.
      $     number_segments,segments,geom_seg_label,
      $     number_bins,bins,bin_label,geom_mult)
 
-      implicit_none
+      implicit_none_f77
+      tl_common
+      pr_common
+      implicit_none_f90
+      
+      tl_decls
 
       pt_decl(p)                                   // Input
       integer geometry,pointer,num_scoring_data
@@ -638,8 +664,6 @@ tracked by those elements.
       integer segments[max_segments],bins[max_bins]
       real geom_mult[max_segments][max_bins]
 
-      tl_common
-      pr_common
 
       number_segments=0
       segments[1]=0
@@ -680,7 +704,14 @@ wavelength of emissions.
      $   number_segments,segments,
      $   number_bins,bins,bin_label,geom_mult)
 
-      implicit_none
+      implicit_none_f77
+      de_common                                       // Common
+      tl_common
+      pr_common
+      implicit_none_f90
+      
+      pt_decls
+      tl_decls
 
       pt_decl(p)                                      // Input
       integer pointer,num_scoring_data
@@ -698,11 +729,7 @@ wavelength of emissions.
       logical v1_set,v2_set,v3_set,vf1_set,vf2_set,vf3_set,vth_set
       vc_decl(v)
       
-      de_common                                       // Common
-      pt_common
-      lc_common
-      tl_common
-      pr_common
+      lc_decls
 
       external find_lambda                            // External
       real find_lambda
@@ -837,7 +864,9 @@ employed in the original DEGAS code.
       function find_lambda(vc_dummy(x),vc_dummy(v),
      $                 vc_dummy(x0_detector),lambda0)
 
-      implicit_none
+      implicit_none_f77
+      gi_common                               // Common
+      implicit_none_f90
 
       real find_lambda                        // Function
       vc_decl(x)                              // Input
@@ -850,8 +879,7 @@ employed in the original DEGAS code.
       vc_decl(xp)
       vc_decl(line_of_sight)
 
-      gi_common                               // Common
-      vc_common
+      vc_decls
 
       if (geometry_symmetry == geometry_symmetry_plane) then
          vc_set(xp,x[1],zero,x[3])
@@ -885,7 +913,8 @@ employed in the original DEGAS code.
 
 @<Functions...@>=
       function match_back_source(dep_var)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       integer match_back_source            // Function
       character*tl_tag_length dep_var      // Input
@@ -920,8 +949,15 @@ bins. The treated variables thus far are energy and angle of incicidence.
      $  number_segments,segments,
      $  number_bins,bins,bin_label,geom_mult)
 
-      implicit_none
-
+      implicit_none_f77
+      sc_common                                       // Common
+      tl_common
+      pr_common
+      implicit_none_f90
+      
+      pt_decls
+      tl_decls
+      
       pt_decl(p)                                      // Input
       integer pointer,num_scoring_data
       real scoring_data[scoring_data_max]
@@ -937,11 +973,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
       sc_decl(sector1)
       sc_decl(sector2)
 
-      sc_common                                       // Common
-      pt_common
-      lc_common
-      tl_common
-      pr_common
+      lc_decls
 
       diag_grp=pointer
       number_segments=0
@@ -1020,7 +1052,12 @@ break: continue
 @<Functions...@>=
       function extract_output_datum(index_parameters,scores,name)
 
-      implicit_none
+      implicit_none_f77
+      tl_common                                  // Common
+      pr_common
+      implicit_none_f90
+      
+      tl_decls
 
       real extract_output_datum                  // Function
       integer index_parameters[tl_index_max]     // Input
@@ -1029,9 +1066,7 @@ break: continue
       integer tally_number,i                     // Local
       integer ind_val[tl_rank_max]
 
-      tl_common                                  // Common
-      st_common
-      pr_common
+      st_decls
 
       tally_number=string_lookup(name,tally_name,tl_num)
       assert(tally_number > 0)

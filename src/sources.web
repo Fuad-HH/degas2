@@ -2,6 +2,12 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.8  1997/08/07 20:28:33  dstotler
+% Implement flight source and particle v-author labels. Replace
+% sector-solid references with revised wall & target sector type variables.
+% Call separate routine to transform vb_flow to cartesian coords.
+% Add call to scoring routine.
+%
 % Revision 1.7  1996/10/30 18:28:43  dstotler
 % Complete rewrite of sample_sources, etc. I.e., this is a legitimate
 % first version.
@@ -53,6 +59,8 @@
 @I string.hweb
 @I tally.hweb
 @I output.hweb
+@I reaction.hweb
+@I materials.hweb
 
 @ The main program.
 
@@ -67,7 +75,11 @@ species and ``relative weight''.
 
 @<Functions...@>=
       subroutine sample_sources(fl_dummy(x),rel_wt,scores,estimator_factors)
-      implicit_none
+      implicit_none_f77
+      so_common           // Common
+      sp_common
+      pr_common
+      implicit_none_f90
       
       fl_decl(x)          // Input and output
       real rel_wt         // Output
@@ -78,10 +90,7 @@ species and ``relative weight''.
       integer kseg,xseg
       sp_decl(spsrc)
 
-      so_common           // Common
-      sp_common
-      st_common
-      pr_common
+      st_decls
 
 /*
    Sample one segment from this source group. This implementation follows
@@ -121,15 +130,16 @@ using routines specific for the geometry of that source.
 
 @<Functions...@>=
       subroutine set_source_x(so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
-      implicit_none
+      implicit_none_f77
+      gi_common                  // Common
+      so_common
+      implicit_none_f90
 
       so_decl(isource)           // Input
       integer xseg
       rn_decl(r)                 // Input and output
       lc_decl(x)                 // Output
 
-      gi_common                  // Common
-      so_common
       
 /* Can only handle 2-D geometries here:
  */
@@ -151,7 +161,10 @@ routine really just samples on a line.
 
 @<Functions...@>=
       subroutine set_surface_source_x(so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
-      implicit_none
+      implicit_none_f77
+      gi_common
+      sc_common
+      implicit_none_f90
 
       so_decl(isource)           // Input
       integer xseg
@@ -165,9 +178,7 @@ routine really just samples on a line.
       vc_decl(vone)
       vc_decl(vnorm)
 
-      gi_common
-      sc_common
-      lc_common
+      lc_decls
 
       rn_next(urd,r)
 
@@ -209,7 +220,11 @@ the selection to being inside the given zone.
 
 @<Functions...@>=
       subroutine set_volume_source_x(so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
-      implicit_none
+      implicit_none_f77
+      gi_common
+      sc_common
+      zn_common
+      implicit_none_f90
 
       so_decl(isource)           // Input
       integer xseg
@@ -219,10 +234,8 @@ the selection to being inside the given zone.
       integer i                  // Local
       real urd_x,urd_z,r0,r1,x,y,z
 
-      gi_common
-      sc_common
-      zn_common
-      lc_common
+
+      lc_decls
 
       i=0
 loop: continue
@@ -260,7 +273,9 @@ using routines specific for the type of that source.
 @<Functions...@>=
       subroutine set_source_v(so_dummy(isource),xseg,lc_dummy(x),
      $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
-      implicit_none
+      implicit_none_f77
+      so_common                  // Common
+      implicit_none_f90
 
       so_decl(isource)           // Input
       integer xseg
@@ -269,7 +284,6 @@ using routines specific for the type of that source.
       vc_decl(vsrc)              // Output
       sp_decl(spsrc)
 
-      so_common                  // Common
 
       if (so_type(isource) == so_plate) then 
          call set_plate_source_v(so_args(isource),xseg,lc_args(x),
@@ -292,7 +306,14 @@ using routines specific for the type of that source.
 @<Functions...@>=
       subroutine set_plate_source_v(so_dummy(isource),xseg,lc_dummy(x),
      $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
-      implicit_none
+      implicit_none_f77
+      so_common                  // Common
+      pr_common
+      bk_common
+      sc_common
+      sp_common
+      zn_common
+      implicit_none_f90
 
       so_decl(isource)           // Input
       integer xseg
@@ -307,12 +328,6 @@ using routines specific for the type of that source.
       vc_decl(vzero)
       vc_decl(vone)
 
-      so_common                  // Common
-      pr_common
-      bk_common
-      sc_common
-      sp_common
-      zn_common
 
       external neutralize_species  // External
       integer neutralize_species
@@ -356,7 +371,11 @@ with an isotropic distribution; we would need another routine for that.
 @<Functions...@>=
       subroutine set_puff_source_v(so_dummy(isource),xseg,lc_dummy(x),
      $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
-      implicit_none
+      implicit_none_f77
+      so_common                  // Common
+      sc_common
+      sp_common
+      implicit_none_f90
 
       so_decl(isource)           // Input
       integer xseg
@@ -373,10 +392,7 @@ with an isotropic distribution; we would need another routine for that.
       vc_decl(vzero)
       vc_decl(vcos)
 
-      so_common                  // Common
-      sc_common
-      sp_common
-      st_common
+      st_decls
 
       assert(so_geom(isource) == so_surface)
       spsrc=so_species(isource)
@@ -429,7 +445,13 @@ with an isotropic distribution; we would need another routine for that.
 @<Functions...@>=
       subroutine set_recomb_source_v(so_dummy(isource),xseg,lc_dummy(x),
      $   rn_dummy(r),vc_dummy(vsrc),sp_dummy(spsrc))
-      implicit_none
+      implicit_none_f77
+      so_common                  // Common
+      pr_common
+      bk_common
+      sp_common
+      zn_common
+      implicit_none_f90
 
       so_decl(isource)           // Input
       integer xseg
@@ -443,11 +465,6 @@ with an isotropic distribution; we would need another routine for that.
       vc_decl(vb_flow)
       pr_background_decl(spback)
 
-      so_common                  // Common
-      pr_common
-      bk_common
-      sp_common
-      zn_common
 
       assert(so_geom(isource) == so_volume)
       spsrc=so_species(isource)
@@ -483,7 +500,12 @@ with no electrons in its elements list.
 
 @<Functions...@>=
       function neutralize_species(sp_dummy(s))
-      implicit_none
+      implicit_none_f77
+      el_common                          // Common
+      sp_common
+      pr_common
+      implicit_none_f90
+      st_decls
       integer neutralize_species         // Function
       sp_decl(s)                         // Input
 
@@ -493,10 +515,6 @@ with no electrons in its elements list.
       sp_decl(list1[sp_ncomp_max])
       sp_decl(list2[sp_ncomp_max])
 
-      el_common                          // Common
-      sp_common
-      st_common
-      pr_common
       
       external species_add_check         // External
       logical species_add_check

@@ -3,13 +3,16 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1996/05/24 18:48:35  dstotler
+% Comment change.
+%
 % Revision 1.1  1996/01/25 15:06:38  dstotler
 % Adding to repository.
 %
 
 \ID{$Id$}
 
-Information about materials is held in arrays in common blocks.  A
+@ Information about materials is held in arrays in common blocks.  A
 material is identified by an integer indexing into these arrays.
 
 @f ma_decl integer
@@ -40,18 +43,9 @@ material is identified by an integer indexing into these arrays.
       define_dimen_pk(ma,materials_symbol_string,ma_sy_len)
       define_dimen_pk(ma,materials_name_string,ma_name_len)
       define_var_pk(ma,ma_num,INT)
-      define_dummy_pk(ma,ma_ignore,INT)
       define_dimen_pk(ma,materials_ind,ma_num)
 
       define_varp_pk(ma,materials_name,CHAR,materials_name_string,materials_ind)
       define_varp_pk(ma,materials_sy,CHAR,materials_symbol_string,materials_ind)
-
-@ Common blocks definitions.
-
-@f ma_common integer
-@m ma_common
-      ma_common_a;
-      character*LINELEN materials_version;
-      common /com_materials_c/ materials_version;
-      save /com_materials_c/ @;
-
+      define_varlocal_pk(ma,materials_version,CHAR,string)
+      package_end(ma)

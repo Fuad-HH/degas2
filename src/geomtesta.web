@@ -2,6 +2,11 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.16  1997/08/07 19:50:45  dstotler
+% Adapt to read output.nc file and set up hdf data arrays using
+% extract_output_datum. Does ionization and H-alpha data files
+% automatically. Have C-Mod specific volume integrals commented out by default.
+%
 % Revision 1.15  1996/10/30 18:02:10  dstotler
 % Add capability to write HDF data files. Modify to handle test index in
 % stat arrays. Numerous data writes used for the 1996 IAEA paper are in
@@ -72,6 +77,8 @@
 @I netcdf.hweb
 @I sysdep.hweb
 @I readfilenames.hweb
+@I reaction.hweb
+@I materials.hweb
 
 @m CMOD 0    // Disable calls to |integral_region|, specific to C-Mod
 
@@ -79,7 +86,8 @@
 
 @a
       program geometry_test
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       call readfilenames
       call read_geometry
@@ -105,7 +113,17 @@
 
 @<Functions...@>=
       subroutine exercise
-      implicit_none
+
+      define_varp(hdf_data,FLOAT,zone_ind)
+
+      implicit_none_f77
+      sp_common
+      tl_common
+      ou_common
+      bk_common
+      zn_common
+      pr_common
+      implicit_none_f90
       real x[3],a[3],b[3],alen,blen,ha_rate,halpha_tot,  // Local
      $     ha_temp,density,pressure
       real integrals[4]
@@ -116,18 +134,12 @@
       external extract_output_datum,integral_region
       real extract_output_datum
       integer integral_region
-      zn_common
-      pr_common
 
-      ptr_decl(hdf_data)
-      real hdf_data(zn_num)
+      declare_varp(hdf_data)
       
-      bk_common
-      sy_common
-      st_common
-      sp_common
-      tl_common
-      ou_common
+      @<Memory allocation interface@>
+      st_decls
+      tl_decls
       
       open(unit=diskin,file='geometry.inp',status='old',form='formatted')
       read(diskin,*) SP (x[i],i=1,3),(a[i],i=1,3),(b[i],i=1,3),alen,blen
@@ -141,7 +153,7 @@
 //      call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,te_func)
 //      call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,ti_func)
 
-      real_alloc(hdf_data,zn_num)
+      var_alloc(hdf_data)
 
 @#if 1
       do i=1,zn_num
@@ -282,7 +294,7 @@
       end do
 
 @#endif
-      real_free(hdf_data,zn_num)
+      var_free(hdf_data)
 
       return
       end
@@ -292,7 +304,8 @@ set up for Alcator C-Mod single null runs.
 
 @<Functions...@>=
       function integral_region(j1,j2)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer integral_region
       integer j1,j2
       integer ixcut1,ixcut2,iycut,nx,ny
@@ -322,15 +335,17 @@ set up for Alcator C-Mod single null runs.
 
 @<Functions...@>=
       subroutine nc_read_output
-      implicit_none
+      implicit_none_f77
       tl_common                  // Common
       ou_common
-      nc_common
-      st_common
       rf_common
       so_common
       pr_common
-      sy_common
+      implicit_none_f90
+      nc_decls
+      st_decls
+      tl_decls
+      @<Memory allocation interface@>
       integer fileid             // Local
       ou_ncdecl
       character*FILELEN tempfile

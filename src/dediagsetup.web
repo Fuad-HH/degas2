@@ -2,6 +2,10 @@
 \Title{dediagsetup}
 
 % $Log$
+% Revision 1.1  1997/08/07 19:37:31  dstotler
+% These routines should be general applicable; currently called from
+% boxgen and readgeometry.
+%
 
 @* Introduction.
 
@@ -22,6 +26,10 @@ are somewhat more general.
 @I vector.hweb
 @I problem.hweb
 @I sector.hweb
+@I reaction.hweb
+@I species.hweb
+@I materials.hweb
+
 
 @ The main program.
 
@@ -37,7 +45,11 @@ it must be made large enough to encompass all relevant diagnostic points.
 @<Functions...@>=
       subroutine detector_view_setup
 
-      implicit_none
+      implicit_none_f77
+      de_common                           // Common
+      gi_common
+      zn_common
+      implicit_none_f90
 
       integer i,j,nang                    // Local
       real ang,dang,mult,tmax,t
@@ -54,12 +66,9 @@ it must be made large enough to encompass all relevant diagnostic points.
       external track                      // External
       logical track
 
-      de_common                           // Common
-      gi_common
-      lc_common
-      zn_common
-      sy_common
-      vc_common
+      lc_decls
+      @<Memory allocation interface@>
+      vc_decls
       
       do j=1,zn_num
          do i=1,detector_total_views
@@ -150,7 +159,11 @@ not-coincidental similarity to |diag_grp_init|.
 @<Functions...@>=
       subroutine de_grp_init(name,num,var,tab_index,var_min,var_max,mult,
      $   spacing,grp_views)
-      implicit_none
+      implicit_none_f77
+      de_common                                    // Common
+      pr_common
+      zn_common
+      implicit_none_f90
 
       integer num,var,tab_index,spacing            // Input
       integer grp_views[*]
@@ -158,10 +171,7 @@ not-coincidental similarity to |diag_grp_init|.
       character*(*) name
       integer i                                    // Local
 
-      de_common                                    // Common
-      sy_common
-      pr_common
-      zn_common
+      @<Memory allocation interface@>
 
       de_grps++
       var_realloca(detector_name)
@@ -220,17 +230,22 @@ not-coincidental similarity to |diag_grp_init|.
 
 @<Functions...@>=
       subroutine diag_sector_setup
-      implicit_none
+      
+      define_dimen(sector_ind1,nsectors)
+      define_varp(grp_sectors,INT,sector_ind1)
+
+      implicit_none_f77
+      sc_common                                       // Common
+      implicit_none_f90
       
       integer num,var,tab_index,spacing,i,i_tot       // Local
       real var_min,var_max,mult
 
-      sc_common                                       // Common
-      sy_common
+      @<Memory allocation interface@>
 
-      ptr_decl(grp_sectors)
-      integer grp_sectors[nsectors]
-      int_alloc(grp_sectors,nsectors)
+      declare_varp(grp_sectors)
+
+      var_alloc(grp_sectors)
 
       sc_diagnostic_grps=0
       sc_diag_size=0
@@ -300,7 +315,7 @@ not-coincidental similarity to |diag_grp_init|.
       call diag_grp_init('Wall and Target Angle Spectrum',num,var,tab_index,
      $     var_min,var_max,mult,spacing,grp_sectors)
 
-      int_free(grp_sectors,nsectors)
+      var_free(grp_sectors)
 
       return
       end
@@ -310,7 +325,10 @@ not-coincidental similarity to |diag_grp_init|.
 @<Functions...@>=
       subroutine diag_grp_init(name,num,var,tab_index,var_min,var_max,mult,
      $   spacing,grp_sectors)
-      implicit_none
+      implicit_none_f77
+      sc_common                                    // Common
+      pr_common
+      implicit_none_f90
 
       integer num,var,tab_index,spacing            // Input
       integer grp_sectors[*]
@@ -318,9 +336,7 @@ not-coincidental similarity to |diag_grp_init|.
       character*(*) name
       integer i                                    // Local
 
-      sc_common                                    // Common
-      sy_common
-      pr_common
+      @<Memory allocation interface@>
 
       sc_diagnostic_grps++
       assert(sc_diagnostic(sc_diagnostic_grps) <= sc_type_max)
@@ -383,10 +399,11 @@ not-coincidental similarity to |diag_grp_init|.
 
 @<Functions...@>=
       subroutine end_detectors
-      implicit_none
-
+      implicit_none_f77
       de_common
-      sy_common
+      implicit_none_f90
+
+      @<Memory allocation interface@>
 
       var_reallocb(detector_name)
       var_reallocb(detector_num_views)

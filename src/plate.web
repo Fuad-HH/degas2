@@ -2,6 +2,12 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.3  1997/08/07 19:56:23  dstotler
+% Eliminate indep_var array usage and nonuniform spacing code. Move
+% setting of random numbers for independent_parameters from reflection
+% and absorption to process_pmi. Implement particle v-author label.
+% Change name of process_pmi to pick_pmi.
+%
 % Revision 1.2  1996/05/24 18:49:20  dstotler
 % Add all of the routines to handle PMI.
 %
@@ -26,6 +32,8 @@
 @I particle.hweb
 @I random.hweb
 @I species.hweb
+@I reaction.hweb
+@I materials.hweb
 
 @ The main program
 
@@ -43,7 +51,10 @@ included in case a distribution must be sampled.
 @<Functions...@>=
       function find_yield(pt_dummy(p),pr_pmi_dummy(ts_pmi),
      $   independent_parameters,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      pd_common                                       // Common
+      pr_common
+      implicit_none_f90
       real find_yield                                 // Function
       pt_decl(p)                                      // Input
       pr_pmi_decl(ts_pmi) 
@@ -53,8 +64,6 @@ included in case a distribution must be sampled.
       external intersection_direction,pd_eval_data    // External
       real intersection_direction,pd_eval_data
       
-      pd_common                                       // Common
-      pr_common
 
       integer i                                       // Local
       real ran
@@ -95,7 +104,13 @@ returned. The random number thread |x| is included in case it's needed.
 @<Functions...@>=
       subroutine pick_pmi(pt_dummy(p),pr_pmi_dummy(ts_pmi),
      $   independent_parameters,nprod,pt_dummy(prod),rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      pr_common                        // Common
+      pd_common
+      pm_common
+      sp_common
+
+      implicit_none_f90
 
       pt_decl(p)                       // Input
       pr_pmi_decl(ts_pmi)
@@ -111,11 +126,6 @@ returned. The random number thread |x| is included in case it's needed.
 
       external intersection_direction  // External
       real intersection_direction
-
-      pr_common                        // Common
-      pd_common
-      pm_common
-      sp_common
 
       pmi_sub=pr_pm_cases(pt_test(p),ts_pmi)
 
@@ -189,7 +199,11 @@ work is all done in |pd_eval_v_product|.
      $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $   rn_dummy(x))
 
-      implicit_none
+      implicit_none_f77
+      pd_common                               // Common
+      pm_common
+      pr_common
+      implicit_none_f90
 
       pr_test_decl(test)                      // Input
       pr_pmi_decl(ts_pmi)
@@ -205,9 +219,6 @@ work is all done in |pd_eval_v_product|.
       real ran                                // Local
       pr_pmi_decl(pmi_sub)
 
-      pd_common                               // Common
-      pm_common
-      pr_common
 
       pmi_sub=pr_pm_cases(test,ts_pmi)
 
@@ -240,7 +251,11 @@ for incident hydrogen atoms, either an atom or a molecule may be desorbed.
      $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $   rn_dummy(x))
 
-      implicit_none
+      implicit_none_f77
+      pd_common                               // Common
+      pr_common
+      sp_common
+      implicit_none_f90
 
       pr_test_decl(test)                      // Input
       pr_pmi_decl(ts_pmi)
@@ -257,9 +272,6 @@ for incident hydrogen atoms, either an atom or a molecule may be desorbed.
       real ran
       pr_pmi_decl(pmi_sub)
 
-      pd_common                               // Common
-      pr_common
-      sp_common
 
       pmi_sub=pr_pm_cases(test,ts_pmi)
 
@@ -308,7 +320,12 @@ probably be handled entirely at a higher level.
      $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
      $   rn_dummy(x))
 
-      implicit_none
+      implicit_none_f77
+      pd_common                               // Common
+      pm_common
+      sp_common
+      pr_common
+      implicit_none_f90
 
       pr_test_decl(test)                      // Input
       pr_pmi_decl(ts_pmi)
@@ -323,10 +340,6 @@ probably be handled entirely at a higher level.
 
       pr_pmi_decl(pmi_sub)                    // Local
 
-      pd_common                               // Common
-      pm_common
-      sp_common
-      pr_common
 
       pmi_sub=pr_pm_cases(test,ts_pmi)
 
@@ -346,7 +359,11 @@ probably be handled entirely at a higher level.
       subroutine pd_eval_v_product(pr_pmi_dummy(pmi_sub),independent_parameters,
      $   sp_dummy(product),vc_dummy(v_product),rn_dummy(x))
 
-      implicit_none
+      implicit_none_f77
+      pd_common                                         // Common
+      sp_common
+
+      implicit_none_f90
 
       pr_pmi_decl(pmi_sub)                              // Input
       real independent_parameters[pf_max_indep_params]
@@ -362,9 +379,6 @@ probably be handled entirely at a higher level.
       logical cos_phi_set, cos_theta_set, v_set, vhat_set, 
      $     v1_set, v2_set, v3_set
       vc_decl(vhat)
-
-      pd_common                                         // Common
-      sp_common
 
       external pd_eval_data                             // External
       real pd_eval_data
@@ -453,7 +467,8 @@ pmidata.hweb for simplicity.
       function pd_eval_data(eval_name,rank,ind_params_label,tab_index,spacing,
      $                   min,delta,data_table,tab_base,
      $                   independent_parameters,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
 
       real pd_eval_data                                 // Function
 
@@ -536,7 +551,8 @@ in this case where three numbers need to be returned rather than just one.
      $                   spacing,min,delta,data_table,
      $                   tab_base,
      $                   independent_parameters,rn_dummy(x),vc_dummy(vhat))
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
 
       character*pf_eval_string_length eval_name           // Input
       integer rank,ind_params_label[pf_table_rank_max],
@@ -576,7 +592,8 @@ setting the unit velocity vector of a particle leaving a surface.
       subroutine pd_eval_v_fit(eval_name,rank,ind_params_label,tab_index,
      $                   data_table,ind_params_value,rn_dummy(x),
      $                   vc_dummy(vhat))
-      implicit none
+      implicit_none_f77
+      implicit_none_f90
 
       character*pf_eval_string_length eval_name          // Input
       integer rank,ind_params_label[pf_table_rank_max],tab_index
@@ -627,7 +644,8 @@ stored along with the data file.
 @<Functions...@>=
       function pd_eval_fit(eval_name,rank,ind_params_label,tab_index,
      $                     data_table,ind_params_value,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       real pd_eval_fit                                 // Function
       character*pf_eval_string_length eval_name        // Input
@@ -673,7 +691,8 @@ be $\leq 0.9$.
 @<Functions...@>=
       function refl_ruzic(rank,ind_params_label,tab_index,data_table,
      $   ind_params_value,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       real refl_ruzic                                       // Function
       integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
@@ -725,7 +744,8 @@ original DEGAS.
 @<Functions...@>=
       function e_maxwell(rank,ind_params_label,tab_index,data_table,
      $   ind_params_value,rn_dummy(x))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       real e_maxwell                                        // Function
       integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
@@ -761,7 +781,8 @@ original DEGAS.
 @<Functions...@>=
       subroutine cosine(rank,ind_params_label,tab_index,data_table,
      $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
       real ind_params_value[pf_table_rank_max],data_table[0:*]
@@ -786,7 +807,8 @@ original DEGAS.
 @<Functions...@>=
       subroutine specular(rank,ind_params_label,tab_index,data_table,
      $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
       real ind_params_value[pf_table_rank_max],data_table[0:*]
@@ -819,7 +841,8 @@ to be varied.
 @<Functions...@>=
       subroutine cosspec(rank,ind_params_label,tab_index,data_table,
      $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
       real ind_params_value[pf_table_rank_max],data_table[0:*]
@@ -867,7 +890,8 @@ to be varied.
 @<Functions...@>=
       subroutine maxwell_flux(rank,ind_params_label,tab_index,data_table,
      $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       
       integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
       real ind_params_value[pf_table_rank_max],data_table[0:*]
@@ -896,15 +920,17 @@ to be varied.
 
 @<Functions...@>=
       subroutine pmi_read(num)
-      implicit none
-      integer num
-      integer fileid // Local
+      implicit_none_f77
       pf_common
-      pf_ncdecl
-      nc_common
-      sy_common
       pm_common
       pr_common
+      implicit_none_f90
+      integer num
+      integer fileid // Local
+      pf_decls
+      pf_ncdecl
+      nc_decls
+      @<Memory allocation interface@>
       
       fileid = ncopen(pm_filename(pr_pm_ref(num)),NC_NOWRITE,nc_stat)
       
@@ -924,18 +950,20 @@ information into PMI yield and handling arrays.
 
 @<Functions...@>=
       subroutine pf_copy(num)
-      implicit_none
+      implicit_none_f77
+      pf_common
+      pr_common
+      pm_common
+      pd_common
+      implicit_none_f90
+      pf_decls
       integer num                                         // Input
       integer i,j,jdep,k,l,m,ph_ind,num_random            // Local
       integer spacing[0:pf_table_rank_max],var[pf_table_rank_max]
       real table_entry,min[pf_table_rank_max],delta[pf_table_rank_max]
       character*pf_eval_string_length eval_name
 
-      pf_common
-      pr_common
-      pm_common
-      pd_common
-      sy_common
+      @<Memory allocation interface@>
       
       assert(pf_name==pm_sy(pr_pm_ref(num)))
 
@@ -1131,11 +1159,12 @@ skip: continue
 
 @<Functions...@>=
       subroutine init_pmi
-      implicit_none
-      integer i                 // Local
+      implicit_none_f77
       pr_common
       pd_common
-      sy_common
+      implicit_none_f90
+      integer i                 // Local
+      @<Memory allocation interface@>
             
       var_alloc(pmi_yield_min)
       var_alloc(pmi_yield_delta)

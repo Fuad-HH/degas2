@@ -2,6 +2,12 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.19  1997/08/07 19:46:20  dstotler
+% Add in normalization of group stats. Explicitly calculate and
+% normalize separate scores and variances for each source group. Switch from
+% "stat" arrays to those in output.hweb. Insert (temporarily?)
+% post-process scoring and other output.
+%
 % Revision 1.18  1996/10/30 17:56:58  dstotler
 % Adapt to handling multiple-source groups and other features associated
 % with full-fledged source class. Add index over test species,etc. to
@@ -89,11 +95,12 @@
 
 @a
       program flight_test
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       integer nflights,nfrag,i
       character*LINELEN arg
-      sy_common
-      st_common
+      sy_decls
+      st_decls
 
 /* NOTE: nflights now coming in through source class! */
 
@@ -124,7 +131,19 @@ PVM more straightforward.
 @<Functions...@>=
       subroutine do_flights_master(nflights,nfrag)
 
-      implicit_none
+      define_varp(output_frag,FLOAT,output_moments_ind,output_tab_ind)
+      define_varp(output_flt,FLOAT,output_moments_ind,output_tab_ind)
+      define_varp(estimator_factors,FLOAT,output_tab_ind)
+      define_varp(weight_grp,FLOAT,output_grps_ind)
+
+      implicit_none_f77
+      sp_common // Common
+      zn_common
+      pr_common
+      so_common
+      tl_common
+      ou_common
+      implicit_none_f90
 
       integer nflights,nfrag                                // Input
       integer i,j,is,zone,nprod,seg,seg_tot,test,bk_rc_is   // Local
@@ -137,33 +156,29 @@ PVM more straightforward.
       vc_decl(vel_test)
       rn_decl(fake_rn)
 
-      sy_common                                             // Common
-      sp_common
-      zn_common
-      pr_common
-      rn_common
-      so_common
-      tl_common
-      ou_common
-      lc_common
-      st_common
+      @<Memory allocation interface@>
+      rn_decls
+      lc_decls
+      st_decls
+      tl_decls
 
       real find_rate,extract_output_datum                    // External
       external find_rate,extract_output_datum
 
-      ptr_decl(output_frag)                                  // Pointees
-      ptr_decl(output_flt)
-      ptr_decl(estimator_factors)
-      ptr_decl(weight_grp)
-      real output_frag[0:tally_size-1][o_mean:o_var]
-      real output_flt[0:tally_size-1][o_mean:o_var]
-      real estimator_factors[0:tally_size-1]
-      real weight_grp[so_grps]
+      declare_varp(output_frag)
+      declare_varp(output_flt)
+      declare_varp(estimator_factors)
+      declare_varp(weight_grp)
+
+c      real output_frag[0:tally_size-1][o_mean:o_var]
+c      real output_flt[0:tally_size-1][o_mean:o_var]
+c      real estimator_factors[0:tally_size-1]
+c      real weight_grp[so_grps]
       
-      real_alloc(output_frag,(o_var-o_mean+1)*tally_size)
-      real_alloc(output_flt,(o_var-o_mean+1)*tally_size)
-      real_alloc(estimator_factors,tally_size)
-      real_alloc(weight_grp,so_grps)
+      var_alloc(output_frag)
+      var_alloc(output_flt)
+      var_alloc(estimator_factors)
+      var_alloc(weight_grp)
 
       seed[0]=1                 // Initialize random number seed
       seed[1]=2
@@ -380,10 +395,10 @@ PVM more straightforward.
       call nc_write_output
       call clear_output
 
-      real_free(output_frag,(o_var-o_mean+1)*tally_size)
-      real_free(output_flt,(o_var-o_mean+1)*tally_size)
-      real_free(estimator_factors,tally_size)
-      real_free(weight_grp,so_grps)
+      var_free(output_frag)
+      var_free(output_flt)
+      var_free(estimator_factors)
+      var_free(weight_grp)
 
       return
       end
@@ -393,14 +408,16 @@ PVM more straightforward.
 
 @<Functions...@>=
       subroutine nc_write_output
-      implicit_none
+      implicit_none_f77
       tl_common                  // Common
       ou_common
-      nc_common
-      st_common
       rf_common
       so_common
       pr_common
+      implicit_none_f90
+      nc_decls
+      st_decls
+      tl_decls
       integer fileid             // Local
       ou_ncdecl
       character*LINELEN description,program_version
@@ -435,13 +452,15 @@ PVM more straightforward.
 
 @<Functions...@>=
       subroutine clear_output
-      implicit_none
-
+      implicit_none_f77
       ou_common
       tl_common
-      sy_common
       so_common
       pr_common
+      implicit_none_f90
+      tl_decls
+
+      @<Memory allocation interface@>
 
       var_free(output_all)
       var_free(output_grp)

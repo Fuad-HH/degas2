@@ -2,6 +2,9 @@
 \Title{elementsetup}
 
 % $Log$
+% Revision 1.16  1996/03/01 20:26:41  dstotler
+% Switch to explicit includes.
+%
 % Revision 1.15  1995/08/21 13:54:29  jshankar
 % removed hardcoded filenames that were being used for input.
 %
@@ -76,14 +79,15 @@ Introduction\ldots
 
 @<Functions...@>=
       subroutine read_elements
-      implicit_none
+      implicit_none_f77
       el_common                 // Common
+      rf_common
+      implicit_none_f90
+      st_decls
       integer length,p,b,e // Local
       character*LINELEN line
       character* FILELEN tempfile    //local
-      sy_common
-      st_common
-      rf_common
+      @<Memory allocation interface@>
       
       el_num=0
       element_version='unknown'
@@ -124,14 +128,15 @@ eof:  continue
       
 @<Functions...@>=
       subroutine nc_write_elements
-      implicit_none
+      implicit_none_f77
       el_common                 // Common
-      nc_common                 // Local
+      rf_common
+      implicit_none_f90
+      nc_decls                 // Local
+      st_decls
       integer fileid
       character *FILELEN tempfile      //local
       el_ncdecl
-      st_common
-      rf_common
       character*LINELEN description,program_version
 
       program_version=

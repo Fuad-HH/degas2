@@ -2,6 +2,14 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.6  1997/08/07 20:04:42  dstotler
+% Move the Marlowe data from a nonuniform to uniform (log) energy grid.
+% Output files were hard-wired to be written into degas2/data;
+% change this to local directory. Change spacing of energy_out
+% in marlowe data to 'log'. Remove indep_var usage.
+% Switch cosspec -> cosine in refl.dat section to make the reflection
+% model analogous to the one in original DEGAS.
+%
 % Revision 1.5  1996/05/24 18:54:35  dstotler
 % Add routines to write simple, generic data files. Finalize and clean
 % up treatment of Bateman and refl-Ruzic data.
@@ -62,7 +70,8 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
 
 @a
       program pmiwrite
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       character*LINELEN tag,v_type,version
       tag='t -> c'
       version='V. 1.0, T reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
@@ -126,7 +135,9 @@ combination. An angular dependence is added to the reflection coefficient.
 
 @<Functions...@>=
       subroutine pmi_write_degas_refl(tag,version)
-      implicit_none
+      implicit_none_f77
+      pf_common                                      // Common
+      implicit_none_f90
       character*LINELEN tag,version
       integer i,j,fileid,b,e,p,bin,ein,bm,em          // Local
       real delta,theta_in,delta2
@@ -135,11 +146,11 @@ combination. An angular dependence is added to the reflection coefficient.
       logical fit,cosspec,cosine
       external rn_ruzic_fit                          // External
       real rn_ruzic_fit
-      pf_common                                      // Common
-      nc_common
+      nc_decls
+      pf_decls
       pf_ncdecl
-      sy_common
-      st_common 
+      @<Memory allocation interface@>
+      st_decls 
 
       fit=.true.
 /* The following two must be the opposite of each other! */
@@ -356,12 +367,14 @@ combination. An angular dependence is added to the reflection coefficient.
 
 @<Functions...@>=
       subroutine pf_file_read(filename,tag,dep_var)
-      implicit_none
+      implicit_none_f77
+      pf_common                  // Common
+      implicit_none_f90
       character*(*) filename,tag // Input
       integer dep_var
       integer i,j,k,l,m          // Local
       character*LINELEN line
-      pf_common                  // Common
+      pf_decls
       
       open(unit=diskin,file=filename,status='old',form='formatted')
       if (tag != ' ')then
@@ -386,7 +399,10 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
 
 @<Functions...@>=
       subroutine pmi_write_degas_marl(tag,version)
-      implicit_none
+      implicit_none_f77
+      pf_common                                                // Common
+      implicit_none_f90
+      pf_decls
       character*LINELEN tag,version
       integer i,j,fileid,b,e,p,bin,ein,bm,em,jspecies,k,l,m    // Local
       character*LINELEN description,line
@@ -397,11 +413,10 @@ are the three isotopes of hydrogen and helium; the only surface is iron.
       external find_index                                      // External
       real find_index            
 
-      pf_common                                                // Common
-      nc_common
+      nc_decls
       pf_ncdecl
-      sy_common
-      st_common 
+      @<Memory allocation interface@>
+      st_decls 
 
       description = 'Data for Plasma-Material Interactions in degas 2'
       pf_version = version
@@ -702,7 +717,8 @@ may be interpolated linearly or logarithmically. The grid indices
 @<Functions...@>=
       subroutine interpolate_grid(new_values,old_values,value_spacing,
      $     new_grid,n)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
                                                         
       real new_values[0:*],old_values[0:*],new_grid[0:*]  // Input
       character*(*) value_spacing
@@ -738,7 +754,8 @@ An overall upper limit of 0.9 is enforced.
 
 @<Functions...@>=
       function rn_ruzic_fit(rn,theta)
-      implicit_none
+      implicit_none_f77
+      implicit_none_f90
       real rn_ruzic_fit,rn,theta       // Input
       real rn_new                      // Local
 
@@ -754,17 +771,19 @@ the characteristics of which can be summarized in this short argument list.
 
 @<Functions...@>=
       subroutine pmi_write_misc(tag,yield,v_type,version)
-      implicit_none
+      implicit_none_f77
+      pf_common                                      // Common
+      implicit_none_f90
       character*LINELEN tag,v_type,version           // Input
       real yield
       integer i,j,fileid                             // Local
       character*LINELEN description
       character*FILELEN fileout
-      pf_common                                      // Common
-      nc_common
+      nc_decls
       pf_ncdecl
-      sy_common
-      st_common 
+      @<Memory allocation interface@>
+      st_decls 
+      pf_decls
 
       description = 'Data for Plasma-Material Interactions in degas 2'
       pf_version = version
@@ -863,16 +882,18 @@ the characteristics of which can be summarized in this short argument list.
 
 @<Functions...@>=
       subroutine pmi_write_mirror(tag,version)
-      implicit_none
+      implicit_none_f77
+      pf_common                                      // Common
+      implicit_none_f90
       character*LINELEN tag,version                  // Input
       integer i,j,fileid                             // Local
       character*LINELEN description
       character*FILELEN fileout
-      pf_common                                      // Common
-      nc_common
+      nc_decls
+      st_decls 
+      pf_decls
       pf_ncdecl
-      sy_common
-      st_common 
+      @<Memory allocation interface@>
 
       description = 'Data for Plasma-Material Interactions in degas 2'
       pf_version = version
