@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.5  1996/03/01 20:22:31  dstotler
+% Switch from including all header files to explicit including only the
+% needed ones.
+%
 % Revision 1.4  1995/11/03 15:06:50  karney
 % Clean up for release.
 %
@@ -25,7 +29,33 @@ sources are handled.
 
 @I vector.hweb
 
-@m so_point 0
+@f so_decl integer
+
+@m so_args(x) x
+
+@m so_dummy(x) x
+
+@m so_decl(x) integer x @;
+
+@m so_copy(x,y) y=x @;
+
+@m so_check(x) (x > 0 && x <= so_grps)
+
+@m so_base(i)     source_base_ptr[i]
+@m so_nseg(i)     source_num_segments[i]
+@m so_type(i)     source_type[i]
+@m so_geom(i)     source_geometry[i]
+@m so_nflights(i) source_num_flights[i]
+@m so_species(i)  source_species[i]
+@m so_tot_curr(i) source_total_current[i]
+@m so_wt_norm(i)  source_weight_norm[i]
+@m so_scale(i)    source_scale_factor[i]
+
+@m so_plate 1                // Source types
+@m so_puff 2
+@m so_recomb 3
+
+@m so_point 0                // Source geometries
 @m so_line 1
 @m so_surface 2
 @m so_volume 3
@@ -34,21 +64,36 @@ sources are handled.
 
 @a
       package_init(so)
-      define_var_pk(so,source_total,FLOAT)
-      define_var_pk(so,so_num,INT)
-      define_dummy_pk(so,so_ignore,INT)
-      define_dimen_pk(so,source_ind,so_num)
-      define_dimen_pk(so,source_ends,0,1)
-      define_varp_pk(so,source_type,INT,source_ind)
-      define_varp_pk(so,source_current,FLOAT,source_ind)
-      define_varp_pk(so,source_element,INT,source_ind)
-      define_varp_pk(so,source_pos,FLOAT,vc_ind,source_ends,source_ind)
+
+      define_var_pk(so,so_grps,INT)
+      define_var_pk(so,so_seg_tot,INT)
+      define_dimen_pk(so,source_grp_ind,so_grps)
+      define_dimen_pk(so,source_seg_ind,so_seg_tot)
       
+      define_varp_pk(so,source_base_ptr,INT,source_grp_ind)
+      define_varp_pk(so,source_num_segments,INT,source_grp_ind)
+      define_varp_pk(so,source_type,INT,source_grp_ind)
+      define_varp_pk(so,source_geometry,INT,source_grp_ind)
+      define_varp_pk(so,source_num_flights,INT,source_grp_ind)
+      define_varp_pk(so,source_species,INT,source_grp_ind)
+
+      define_varp_pk(so,source_total_current,FLOAT,source_grp_ind)
+      define_varp_pk(so,source_weight_norm,FLOAT,source_grp_ind)
+      define_varp_pk(so,source_scale_factor,FLOAT,source_grp_ind)
+
+      define_varp_pk(so,source_segment_ptr,INT,source_seg_ind)
+      define_varp_pk(so,source_current,FLOAT,source_seg_ind)
+      define_varp_pk(so,source_segment_rel_wt,FLOAT,source_seg_ind)
+      define_varp_pk(so,source_segment_prob_alias,FLOAT,source_seg_ind)
+      define_varp_pk(so,source_segment_ptr_alias,INT,source_seg_ind)
+
+      define_dummy_pk(so,so_ignore,INT)
       
 @ Common blocks definitions.
 
 @f so_common integer
 @m so_common
       so_common_a @;
+
 
 
