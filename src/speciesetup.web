@@ -2,6 +2,9 @@
 \def\Wtitle{speciesetup}
 
 % $Log$
+% Revision 1.2  1993/09/27  13:11:49  karney
+% First working version.
+%
 % Revision 1.1  1993/09/26  23:37:48  karney
 % Initial revision
 
@@ -16,8 +19,6 @@ Introduction\ldots
 @m FILE 'speciesetup.web'
 
 @I macros.hweb
-
-@i netcdf.hweb
 
 @ The unnamed module.
 
@@ -36,21 +37,16 @@ Introduction\ldots
 
 @ Read is data from \verb+species.input+.
 
-@m mem_inc 100
-@m mem_size(x) (((x)+mem_inc-1)/mem_inc)*mem_inc
-
 @<Functions...@>=
       subroutine read_species
       implicit_none
       sp_common                 // Common
       el_common
-      integer length,p,b,e,i // Local
+      integer length,p,b,e // Local
       character*80 line
       sy_common
       st_common
-      external element_lookup   // External
-      integer element_lookup
-      
+
       sp_num=0
       species_version='unknown'
       open(unit=diskin,file='../data/species.input',
@@ -77,23 +73,22 @@ loop1: continue
       p=0
       assert( next_token(line,b,e,p) )
       read(line(b:e),'(a)') sp_sy(sp_num)
-      assert( next_token(line,b,e,p) )
-      read(line(b:e),'(i)') sp_ncomp(sp_num)
-      assert(sp_ncomp(sp_num) > 0 && sp_ncomp(sp_num) <= sp_ncomp_max)
+      sp_ncomp(sp_num) = 0
       sp_z(sp_num)=0
       sp_m(sp_num)=zero
-      do i=1,sp_ncomp(sp_num)
-         assert( next_token(line,b,e,p) )
-         sp_el(sp_num,i) = element_lookup(line(b:e))
-         assert( sp_el(sp_num,i) > 0)
-         assert( next_token(line,b,e,p) )
-         read(line(b:e),'(i)') sp_count(sp_num,i)
-         if (el_z(sp_el(sp_num,i)) == -1) then // Only the electron is charged
-            sp_z(sp_num)=sp_z(sp_num)+sp_count(sp_num,i)*el_z(sp_el(sp_num,i))
-         end if
-         sp_m(sp_num)=sp_m(sp_num)+sp_count(sp_num,i)*el_m(sp_el(sp_num,i))
-      end do
-      goto loop1
+loop2: continue
+      if( !next_token(line,b,e,p) ) goto loop1
+      sp_ncomp(sp_num) = sp_ncomp(sp_num) + 1
+      assert(sp_ncomp(sp_num) > 0 && sp_ncomp(sp_num) <= sp_ncomp_max)
+      read(line(b:e),'(i)') sp_count(sp_num,sp_ncomp(sp_num))
+      assert( next_token(line,b,e,p) )
+      sp_el(sp_num,sp_ncomp(sp_num)) = el_lookup(line(b:e))
+      assert( sp_el(sp_num,sp_ncomp(sp_num)) > 0)
+      if (el_z(sp_el(sp_num,sp_ncomp(sp_num))) == -1) then // Only the electron is charged
+         sp_z(sp_num)=sp_z(sp_num)+sp_count(sp_num,sp_ncomp(sp_num))*el_z(sp_el(sp_num,sp_ncomp(sp_num)))
+      end if
+      sp_m(sp_num)=sp_m(sp_num)+sp_count(sp_num,sp_ncomp(sp_num))*el_m(sp_el(sp_num,sp_ncomp(sp_num)))
+      goto loop2
 eof:  continue
       close(unit=diskin)
       var_reallocb(species_name)
@@ -112,13 +107,12 @@ eof:  continue
 @<Functions...@>=
       subroutine nc_write_species
       implicit_none
-      sp_common                   // Common
-      decl_netcdf               // Local
+      sp_common                 // Common
+      nc_common                 // Local
       integer fileid
       sp_ncdecl
+      st_common
       character*80 description,program_version
-      external string_length,nccreate,ncvardef,ncdimdef // External
-      integer string_length,nccreate,ncvardef,ncdimdef
 
       program_version=
      $     '$Id$'
