@@ -2,6 +2,11 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.22  1998/12/22 16:44:54  dstotler
+% Upgrade EIRENE plot section to do dynamic allocation, primarily to
+% allow for > 1 stratum. Also, add write of momentum and energy source
+% r.s.d.'s.
+%
 % Revision 1.21  1998/09/04 17:14:38  dstotler
 % Moved pr_common before tl_common; inserted de_common. Added plots of
 % zone_frags, ion temperature, zone number.
@@ -274,7 +279,7 @@
             integrals[k]=zero
          end do
          do i=1,zn_num
-            if (zn_type(i) == zn_plasma) then
+            if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
                index_parameters[tl_index_zone]=i
                density=extract_output_datum(index_parameters,1,
      $              out_post_all,o_mean,'neutral density')
@@ -301,7 +306,7 @@
      $        x,a,b,alen,blen)
 
          do i=1,zn_num
-            if (zn_type(i) == zn_plasma) then
+            if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
                index_parameters[tl_index_zone]=i
                density=extract_output_datum(index_parameters,1,
      $              output_all,o_var,'neutral density')
@@ -317,7 +322,7 @@
 
          if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
             do i=1,zn_num
-               if (zn_type(i) == zn_plasma) then
+               if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
                   index_parameters[tl_index_zone]=i
                   pressure=extract_output_datum(index_parameters,1,
      $                 out_post_all,o_mean,'neutral pressure')
