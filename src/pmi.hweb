@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.2  1995/06/16 18:20:02  dstotler
+% Following the IAEA Aladdin rules, add "reagent" and "product" strings
+% for trapped and adsorbed species.
+%
 % Revision 1.1  1995/05/31 19:28:23  dstotler
 % Initial version; very similar to reaction.hweb at this stage.
 %
@@ -22,6 +26,8 @@ an integer indexing into these arrays.
 @m pm_check(x) assert(x > 0 && x <= pm_num) @;
 @m pm_name(x) pmi_name[x]
 @m pm_sy(x)   pmi_sy[x]
+@m pm_reagent(x) pmi_reagent[x]
+@m pm_material(x) pmi_material[x]
 @m pm_product_num(x) pmi_product_num[x]
 @m pm_product(x,i)   pmi_product[i,x]
 @m pm_filename(x)    pmi_filename[x]
@@ -31,9 +37,8 @@ an integer indexing into these arrays.
 @ Length specifications.
 
 @m pm_sy_len 24
-@m pm_name_len 32
+@m pm_name_len 80
 @m pm_type_len 32
-@m pm_material_len 32
 @m pm_product_max 4
 
 @ Variable definitions.
@@ -44,8 +49,8 @@ an integer indexing into these arrays.
       define_dimen_pk(pm,pmi_symbol_string,pm_sy_len)
       define_dimen_pk(pm,pmi_name_string,pm_name_len)
       define_dimen_pk(pm,pmi_type_string,pm_type_len)
-      define_dimen_pk(pm,pmi_material_string,pm_material_len)
       define_var_pk(pm,pm_num,INT)
+      define_var_pk(pm,pm_ignore,INT)
       define_dimen_pk(pm,pmi_ind,pm_num)
       define_dimen_pk(pm,pmi_filename_string,FILELEN)
       define_dimen_pk(pm,pmi_product_ind,pm_product_max)
@@ -54,9 +59,11 @@ an integer indexing into these arrays.
       define_varp_pk(pm,pmi_type,CHAR,pmi_type_string,pmi_ind)
       define_varp_pk(pm,pmi_sy,CHAR,pmi_symbol_string,pmi_ind)
       define_varp_pk(pm,pmi_reagent,INT,pmi_ind)
-      define_varp_pk(pm,pmi_material,CHAR,pmi_material_string,pmi_ind)
+      define_varp_pk(pm,pmi_material,INT,pmi_ind)
+@#if 0
       define_varp_pk(pm,pmi_bound_reagent,CHAR,pmi_material_string,pmi_ind)
       define_varp_pk(pm,pmi_bound_product,CHAR,pmi_material_string,pmi_ind)
+@#endif
       define_varp_pk(pm,pmi_product_num,INT,pmi_ind)
       define_varp_pk(pm,pmi_product,INT,pmi_product_ind,pmi_ind)
       define_varp_pk(pm,pmi_filename,CHAR,pmi_filename_string,pmi_ind)
