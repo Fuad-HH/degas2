@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.27  1998/09/04 17:03:31  dstotler
+% Minor changes to satisfy FWEAVE / TeX.
+%
 % Revision 1.26  1998/06/01 15:56:31  karney
 % MPI enabled version.
 %
@@ -712,6 +715,10 @@ invoking a macro for entity.
 
 @#if FORTRAN90
 
+@#if 0
+// This version only outputs |module|, and |end module| if there's a body.
+// This break things with MPI on non-MPI builds.
+// This follow version fixes this.
 @m start_module(pk)
       $DEFINE(MODULE_SIZE 0)
 
@@ -734,7 +741,24 @@ invoking a macro for entity.
           declare_var(var);
           $INCR(MODULE_SIZE),
         )
+@#else
+@m start_module(pk)
+      module pk##_mod; implicit_none_f90mod; save;
 
+@m end_module(pk)
+      end module pk##_mod;
+
+
+@m do_module(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+          declare_var(var);,
+          declare_varp(var);,
+          declare_var(var);,
+        )
+@#endif
 @#else
 
 @m start_module(pk)
