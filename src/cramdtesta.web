@@ -2,6 +2,9 @@
 \Title{Another Test for CRAMD}
 
 % $Log$
+% Revision 1.1  1996/10/30 17:31:50  dstotler
+% Initial version.
+%
 
 @* Interactive test for CRAMD. Uses simplest possible plasma to minimize
 required input.
@@ -40,7 +43,7 @@ required input.
 
 loop1: continue
 
-      write(stdout,*) 'Enter: ion density, ion & electron temperature'
+      write(stdout,*) 'Enter: ion density (m**-3), ion & electron temperature (eV)'
 
       if (! read_string(stdin,line,length)) goto eof
       assert(length<=len(line))
@@ -53,19 +56,30 @@ loop1: continue
       assert(next_token(line,b,e,p))
       t_elec=read_real(line(b:e))*electron_charge
 
-      write(stdout,*) 'Sie   Sip   Srec   Sdis   Wha   Whr   Whm',
-     $     '   Fh   Fh+   Smar'
+      write(stdout,*) 'Output units are cm^3/s for rates, eV cm^3/s for powers'
+      write(stdout,*) 'Srec  Wep   Wpp    Wrad   WlrR  Wkh   W3be',
+     $     '   IhSrec Whr'
+
+/*
+         write(stdout,*) 'Sie Sip Weh Wph Wlrw WHaw Sdis Fh Wem Wpm WHa_MAR MAR'
+         write(stdout,'(1p12e11.3)') output_data[1][1],
+     $        output_data[1][2],output_data[1][3],
+     $        output_data[1][4],output_data[1][5],
+     $        output_data[1][6],output_data[2][1],output_data[2][3],
+     $        output_data[2][5],output_data[2][6],output_data[2][8],
+     $        output_data[2][2]
+*/
 
 //      do i=1,60
 //         t_elec=const(1.,1)**( const(1.,-1)*(i-1) - const(1.2)) * electron_charge
 //         t_ion=t_elec
          call cramd_do_fort(n_ion,t_ion,t_elec,output_data)
 
-         write(stdout,'(1p10e11.3)') output_data[1][1],
-     $        output_data[1][2],output_data[1][7],
-     $        output_data[2][1],output_data[1][6],
-     $        output_data[1][15],output_data[2][8],output_data[2][3],
-     $        output_data[2][4],output_data[2][2]
+         write(stdout,'(1p9e11.3)') output_data[1][7],
+     $        output_data[1][8],output_data[1][9],
+     $        output_data[1][10],output_data[1][11],
+     $        output_data[1][12],output_data[1][13],output_data[1][14],
+     $        output_data[1][15]
 
 /* Check constraints */
       assert(abs(one-(output_data[2][3]+output_data[2][4])) < epsilon)
