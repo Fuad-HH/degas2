@@ -2,6 +2,9 @@
 \def\Wtitle{ratecalc}
 
 % $Log$
+% Revision 1.1  1994/06/13 19:18:28  dstotler
+% Initial revision
+%
 
 @n/
 
@@ -14,6 +17,10 @@ ability to access atomic physics cross sections from the ALADDIN
 database and compute reaction rates from them. At this stage, however,
 the only code present are the routines used to do the quadratures.
 
+@m FILE 'ratecalc.web'
+
+@I macros.hweb
+
 @ The unnamed module
 
 @a
@@ -24,8 +31,10 @@ the only code present are the routines used to do the quadratures.
 
       @<Functions and subroutines@>
 
-@ Routines required for quadratures; these should be rewritten with 
-implicit_none... |qromo| does Romberg integration on an open interval.
+@* Routines required for quadratures. These are taken from 
+{\em Numerical Recipes} by W. H. Press et al. (Cambridge Press,
+New York, 1986).
+|qromo| does Romberg integration on an open interval.
 Returns as |ss| the integral of the function |func| from |a| to |b|,
 using any specified integrating subroutine |choose| and Romberg's 
 method. Normally |choose| will be an open formula, not evaluating the
@@ -35,24 +44,163 @@ even powers of the number of steps.
 
 @<Functions...@>=
       subroutine qromo(func,a,b,ss,choose)
+      implicit_none
+      real a, b, func          // Input; |func| is function name
+      real ss                  // Output
 
-      parameter (eps=1.e-6)    // eps is the fractional accuracy desired
-      parameter (jmax=14, jmaxp=jmax+1) // limits the total number of steps
-      parameter (k=5, km=k-1) // |k| is the number of extrapolation points
-      dimension s(jmaxp), h(jmaxp)
+/* Parameters: |eps| is the fractional accuracy desired, |jmax| limits 
+the total number of steps, and |k| is the number of extrapolation points */
+      real eps               
+      integer jmax,jmaxp,k,km
+      parameter (eps=const(1.0,-6)) 
+      parameter (jmax=14, jmaxp=jmax+1)
+      parameter (k=5, km=k-1)
 
-      h(1)=1.
+      real s[jmaxp], h[jmaxp]
+
+      h[1]=one
       do j=1,jmax
          
-         call choose(func,a,b,s(j),j)
+         call choose(func,a,b,s[j],j)
          if (j >= k) then
-            call polint(h(j-km),s(j-km),k,0.,ss,dss)
+            call polint(h[j-km],s[j-km],k,zero,ss,dss)
             if (abs(dss) < eps*abs(ss)) return
          end if
-         s(j+1)=s(j)
-         h(j+1)=h(j)/9.  // Step tripling assumption
+         s[j+1]=s[j]
+         h[j+1]=h[j]/const(9.0) // Step tripling assumption used here
       end do
-// Indicate error if get here
+      assert(.false.)           // Indicate error if get here
       end
 
- 
+@ Polynomial interpolation routine. Given arrays |xa| and |ya|, each of
+length |n|, and given a value |x|, this routine returns a value |y|, and
+an error estimate |dy|. If $P(x)$ is the polynomial of degree |n - 1| such
+that $P( |xa[j]| ) = |ya[j]|$, $|j| = 1$, \ldots, |n|, then the returned
+value $|y| = P(|x|)$.
+
+@<Functions...@>=
+      subroutine polint(xa,ya,n,x,y,dy)
+      implicit_none
+
+      integer n                  // Input
+      real xa[n],ya[n]
+      real x
+      real dy,y                  // Output
+
+      integer nmax               // Parameter
+      parameter (nmax=10)
+
+      integer i,m,ns             // Local variables
+      real c[nmax],d[nmax]
+      real den,dif,dift,ho,hp,w
+
+      ns=1
+      dif=abs(x-xa[1])
+      do i=1,n                   // Here we find index ns of closest entry
+         dift=abs(x-xa[i])
+         if (dift < dif) then
+            ns=i
+            dif=dift
+         end if
+         c[i]=ya[i]             // and initialize the tableau of |c| and |d|
+         d[i]=ya[i]
+      end do
+    
+      y=ya[ns]                  // This is the initial approximation to |y|.
+      ns=ns-1
+/* For each column of the tableau, we loop over the current |c| and |d| and
+update them. */
+      do m=1,n-1  
+         do i=1,n-m
+            ho=xa[i]-x
+            hp=xa[i+m]-x
+            w=c[i+1]-d[i]
+            den=ho-hp
+
+/* This error can occur only if two input |xa|'s are identical. */
+            assert(den != zero) 
+
+            den=w/den
+            d[i]=hp*den          // Here the |c| and |d| are updated.
+            c[i]=ho*den
+         end do
+
+/* After each column in the tableau is completed, we decide which
+correction, |c| or |d|, we want to add to our accumulating value of |y|,
+i.e., which path to take through the tableau -- forking up or down. We
+do this in such a way as to take the most ``straight line'' route through
+the tableau to its apex, updating |ns| accordingly to keep track of
+where we are. This route keeps the partial approximations centered
+(insofar as possible) on the target |x|. The last |dy| added is thus the
+error indication. */ 
+
+         if (2*ns < n-m) then
+            dy=c[ns+1]
+         else
+            dy=d[ns]
+            ns=ns-1 
+         end if
+         y=y+dy
+      end do
+
+      return 
+      end
+     
+@ Basic integration routine. This routine computes the |n|th stage of
+refinement of an extended midpoint rule. When called with $|n| = 1$,
+the routine returns as |s| the crudest estimate of $\int_{|aa|}^{|bb|}
+f(x) dx$. Subsequent calls with |n| = 2, 3, \ldots (in that sequential
+order) will improve the accuracy of |s| by adding $(2/3) \times 3^{|n|-1}$
+additional interior points. |s| should not be modified between 
+sequential calls. For this specific routine, |bb| is assumed to be
+infinite (value passed not used). It is assumed that the function
+|funk| decreases exponentially at infinity.
+
+@<Functions...@>=
+      subroutine midexp(funk,aa,bb,s,n)
+      implicit_none
+
+      integer n               // Input
+      real aa,bb,funk
+      real s                  // Output
+
+      integer                 // Local variables
+      real a,b,ddel,del,func,sum,tnm,x
+
+/*  Performs substitution $x^{\prime} = e^{-x}$ */
+      func(x)=funk(-alog(x))/x 
+      b=exp(-aa)
+      assert(one/bb < epsilon)  // Verify that |bb| is large.
+      a=zero 
+
+      if (n = 1) then
+         s=(b-a)*func(half*(a+b))
+         it=1                  // 2$times$|it| points will be added next time
+      else
+         tnm=areal(it)
+         del=(b-a)/(const(3.0)*tnm)
+
+/*  The added points alternate in spacing between |del| and |ddel|. */
+         ddel=del+del        
+         x=a+half*del
+         sum=zero
+         do j=1,it
+            sum=sum+func(x)
+            x=x+ddel
+            sum=sum+func(x)
+            x=x+del
+         end do
+
+/* The new sum is combined with the old integral to give a refined integral. */
+         s=(s+(b-a)*sum/tnm)/const(3.0)
+      end if
+
+      return
+      end
+
+@* References.
+
+\bibliographystyle{report}
+\bibliography{../../degas}
+
+@* Index.
