@@ -2,6 +2,9 @@
 \Title{classes}
 
 % $Log$
+% Revision 1.17  1996/10/30 17:20:21  dstotler
+% Add documentation on sources.hweb variables.
+%
 % Revision 1.16  1996/05/24 18:43:42  dstotler
 % Documented common variables from reactiondata.hweb, pmidata.hweb,
 % strata.hweb, ...
@@ -296,7 +299,7 @@ of zones: plasma, solid, etc.
 |zn_volume(zone)| is the volume of the zone.
 
 @ Sector class. Prefix is |sc|.
-A stratum
+A sector
 is identified by a positive integer |sector|.  This
 gives information about the properties of the sector.  Each
 sector is defined by a zone and a (directed) surface number. The array
@@ -307,19 +310,47 @@ block.
 A set of sector subclasses are defined here as well for the purpose of
 providing clearly defined arrays for storing sector-related properties.
 With the exception of the ``diagnostic'' subclass, the subclass type
-is the same as the sector's zone type. However, during tracking the stratum
-type is used to infer the sector subclass since it is based on the zone 
-type and also indicates whether or not the sector is of ``diagnostic''
-type. The intention is that the number of these subclasses will change
+is the closely related to the sector's zone type.
+The intention is that the number of these subclasses will change
 infrequently; with new properties added occasionally. Hence, we have
 opted, for clarity, to make the subclass and property names explicit
 rather than store all of this information in some flexible array
 structure.
 
+The |strata| and |sector_strata_segment| arrays provide
+labels for coordinating input and output data with external codes. The
+intention is to use them in the same way as the |zone_index| for 
+individual zones. For historical reasons, a single stratum is used to
+for sectors on both sides of a boundary (e.g., plasma-surface interface).
+
+Note that separate |target| and |wall| subclasses are being maintained,
+although currently the distinction between them is largely artificial
+since they have the same properties. The anticipation is that at some
+point the distinction will prove useful in separating sectors experiencing
+(in most problems) both ion and neutral fluxes from those receiving just
+neutral fluxes.
+
+The diagnostic subclass (distinct from the separate, but also arbitrarily
+named, |detector| class) properties permit sectors to record information
+about sector-crossing flights. As presently envisioned and utilized, these
+sectors are also members of the |target| or |wall| subclasses.
+Related diagnostic sectors with identical properties may be collectively
+``grouped'' together. There may be several groups of diagnostics in
+a given problem: one to measure particle current to each sector,
+one to collect an energy spectrum of arriving particles, etc.
+Each sector (a given surface and zone) may belong to one of the 
+non-diagnostic subclasses (this is only a logical restriction and is
+unenforced), as well as to one or more diagnostic groups. Sectors
+may also be defined solely to serve as diagnostic surfaces.
+
 \begin{description}
   \item[|nsectors|] Total number of sectors in the problem.
-  \item[|strata[sector]|] Index of the stratum (class |sr|) to which |sector|
-belongs.
+  \item[|strata[sector]|] External (arbitrary) label for a group of sectors. 
+In the nomenclature of the original DEGAS, one stratum would correspond to
+a single wall.
+  \item[|sector_strata_segment[sector]|] Another external label intended
+to enumerate individual sectors in a stratum; the original DEGAS analog
+would be wall segments.
   \item[|sectors[pointer]|] Array pointed to by |surface_sectors| (see
 |geometry.web|) via the integer index |pointer|. The array |sectors| provides
 the sector(s) index |sector| associated with a given surface. Need to use a
@@ -335,48 +366,309 @@ associated with |sector|.
   \item[|sector_points|[sector][end][i]] Returns the
 |i|th component of the position
 vector at one |end| (i.e., |end| = 0 or 1) of |sector|.
-  \item[|sc_vacuum_num|] Number of sectors in the vacuum subclass.
-  \item[|sector_vacuum[sector]|] Returns the integer index into the |vacuum|
-property arrays for |sector|; returns 0 if |sector| is not of vacuum type.
-  \item[|sc_plasma_num|] Number of sectors in the plasma subclass.
-  \item[|sector_plasma[sector]|] Returns the integer index into the |plasma|
-property arrays for |sector|; returns 0 if |sector| is not of plasma type.
-  \item[|sc_solid_num|] Number of sectors in the solid subclass.
-  \item[|sector_solid[sector]|] Returns the integer index into the |solid|
-property arrays for |sector|; returns 0 if |sector| is not of solid type.
-  \item[|sc_solid_mat(solid)|] Material (class |ma|)
-of the |solid|th solid-sector.
-  \item[|sc_solid_temp(solid)|] Floating point temperature (in eV) of the 
-|solid|th solid-sector.
-  \item[|sc_exit_num|] Number of sectors in the exit (includes pump) subclass.
-  \item[|sector_exit[sector]|] Returns the integer index into the |exit|
-property arrays for |sector|; returns 0 if |sector| is not of exit type.
+  \item[|sector_type_pointer|[sector][type]] Integer index into the list
+of the |type| subclass corresponding to |sector| (each sector may belong
+to more than one subclass).
 \end{description}
 
-@ Strata class. Prefix is |sr|. A stratum
-is identified by a positive integer |strata|.  This
-gives information about the properties of the stratum.  Information
-about the location of the strata is held within the sector common
-block.  Each stratum is made up of the union of one or more sectors,
-with a sector defined by a zone and a surface number.  This defines
-a directed surface element; a stratum may include one or both directions.
-Each sector may belong only to one stratum.  (We may want to relax
-this restriction at some point.)
-A rudimentary procedure for automatically defining strata (and sectors) has
-been incorporated into |readgeometry.web|. As presently configured, the
-sectors on either side of a two-sided stratum must have identical
-end points. This is not a limitation on the main code, but just on the
-present user interface.
+\bf{vacuum subclass}
+\begin{description}
+  \item[|sc_vacuum_num|] Number of sectors in the vacuum subclass.
+  \item[|vacuum_sector[vacuum_ind]|] Returns the sector index corresponding
+to index |vacuum_ind| in the vacuum subclass list.
+\end{description}
 
-The initial need for strata (and sectors) is as a place to store information
-about materials; more generally they may be viewed as boundary conditions. 
-Another potential use is as a surface diagnostic.
+\bf{plasma subclass}
+\begin{description}
+  \item[|sc_plasma_num|] Number of sectors in the plasma subclass.
+  \item[|plasma_sector[plasma_ind]|] Returns the sector index corresponding
+to index |plasma_ind| in the plasma subclass list.
+\end{description}
+
+\bf{target subclass}
+\begin{description}
+  \item[|sc_target_num|] Number of sectors in the target subclass.
+  \item[|target_sector[target_ind]|] Returns the sector index corresponding
+to index |target_ind| in the target subclass list.
+  \item[|target_material|[target_ind]] Integer index into the materials
+class |ma| to be used to identify the plasma-material interactions for
+the target sector |target_ind|.
+  \item[|target_temperature|[target_ind]] Temperature, in joules, of the 
+target material comprising the target sector |target_ind|.
+\end{description}
+
+\bf{wall subclass}
+\begin{description}
+  \item[|sc_wall_num|] Number of sectors in the wall subclass.
+  \item[|wall_sector[wall_ind]|] Returns the sector index corresponding
+to index |wall_ind| in the wall subclass list.
+  \item[|wall_material|[wall_ind]] Integer index into the materials
+class |ma| to be used to identify the plasma-material interactions for
+the wall sector |wall_ind|.
+  \item[|wall_temperature|[wall_ind]] Temperature, in joules, of the 
+wall material comprising the wall sector |wall_ind|.
+\end{description}
+
+\bf{exit subclass}
+\begin{description}
+  \item[|sc_exit_num|] Number of sectors in the exit subclass.
+  \item[|exit_sector[exit_ind]|] Returns the sector index corresponding
+to index |exit_ind| in the exit subclass list.
+  \item[|exit_albedo|[exit_ind]] Floating value for the albedo of
+the exit sector |exit_ind|.
+\end{description}
+
+\bf{diagnostic subclass}
+\begin{description}
+  \item[|sc_diagnostic_grps|] Number of {\em groups} of diagnostics in this 
+subclass.
+  \item[|sc_diag_max_bins|] Used in conjunction with |de_max_bins| to check
+the dimension for the bins scoring array, |max_bins|.
+  \item[|diagnostic_grp_name[group_ind]|] Descriptive label for each 
+diagnostic group.
+  \item[|diagnostic_num_sectors[group_ind]|] Number of sectors comprising each
+diagnostic group.
+  \item[|diagnostic_var[group_ind]|] Independent variable for 
+spectrum-collecting (e.g., |sc_diag_energy| or incident angle, 
+|sc_diag_angle|) diagnostics.
+  \item[|diagnostic_tab_index[group_ind]|] Number of bins for 
+spectrum-collecting diagnostics. For simplicity, only rank 0 
+(designated by |diagnostic_tab_index| = 0) or 1 diagnostics are 
+permitted.
+  \item[|diagnostic_min[group_ind]|] Minimum value for the independent
+variable.
+  \item[|diagnostic_delta[group_ind]|] Increment between independent
+variable bins.
+  \item[|diagnostic_spacing[group_ind]|] Spacing method for independent
+variables. Presently only uniform-linear and uniform-log are 
+treated.
+  \item[|sc_diag_size|] Total number of diagnostic sectors.
+  \item[|diagnostic_grp_base[group_ind]|] Index into the list of all sectors
+for the first member of |groud_ind| (members of each group are required
+to be consecutive in this list). This array is used only to set up the
+|diagnostic_sector| macro (see below).
+  \item[|diagnostic_sector_tab[diagnostic_ind]|] Sector number corresponding
+to the diagnostic number |diagnostic_ind|. Again, this is used only to
+set up the |diagnostic_sector| macro.
+\end{description}
+
+\bf{macros}
+\begin{description}
+  \item[|sc_diagnostic(group)|] Provides an integral sector type (corresponding
+to |sc_wall|, e.g.) for |group|.
+  \item[|diagnostic_sector(i,group)|] Sector number corresponding to the
+|i|th member of |group|.
+  \item[|define_sector_vacuum(sector)|] Adds |sector| to the vacuum sector
+subclass.
+  \item[|define_sector_plasma(sector)|] Adds |sector| to the plasma sector
+subclass.
+  \item[|define_sector_target(sector,material,temp)|] Adds |sector| to the 
+target sector subclass. It is assumed to made of |material| (member of the
+material class |ma|) at temperature |temp|.
+  \item[|define_sector_wall(sector,material,temp)|] Adds |sector| to the 
+wall sector subclass. It is assumed to made of |material| (member of the
+material class |ma|) at temperature |temp|.
+\end{description}
+  
+@ Detector class. Prefix is |de|. This class is primarily intended to model
+light gathering diagnostics of various types, although other uses will 
+probably be found. An individual detector is basically represented by
+a viewing chord and an angular halfwidth. The signal collected by each
+detector may (or may not) be broken down into individual bins (e.g., of
+wavelength). 
+
+Each viewing chord, angular halfwidth, and averaging algorithm (i.e., some
+model for how the physical detector averages the signal over its spot
+size), together make for a single ``view''. One or more related views form
+a ``group''. Each view and group are represented by integers indexing into
+the arrays below. 
 
 \begin{description}
-  \item[|sr_num|] Total number of strata in the problem.
-  \item[|sr_type(strata)|] Returns an integer denoting the stratum type (e.g.,
-|sr_wall|, |sr_pump|, etc.).
-  \item[|strata_type_num[i]|] Number of strata with |sr_type| = |i|.
+  \item[|de_grps|] Number of groups which have been defined.
+  \item[|de_max_bins|] Used in conjunction with |sc_diag_max_bins| to check
+the dimension for the bins scoring array, |max_bins|.
+  \item[|detector_name[group_ind]| Descriptive name for each detector group.
+  \item[|detector_num_views[group_ind]|] Number of views comprising each
+detector group.
+  \item[|detector_var[group_ind]|] Independent variable for spectrum-collecting
+(e.g., |de_var_wavelength|) detector groups.
+  \item[|detector_tab_index[group_ind]|] Number of bins for 
+spectrum-collecting detectors. For simplicity, only rank 0 
+(designated by |detector_tab_index| = 0) or 1 detectors are 
+permitted.
+  \item[|detector_min[group_ind]|] Minimum value for the independent
+variable.
+  \item[|detector_delta[group_ind]|] Increment between independent
+variable bins.
+  \item[|detector_spacing[group_ind]|] Spacing method for independent
+variables. Presently only uniform-linear and uniform-log are 
+treated.
+  \item[|detector_total_views|] Total number of views which have been 
+defined.
+  \item[|de_view_points[i,se,view_ind]|] |i|th position coordinate
+of the start |se| = |de_view_start| or end |de_view_end| of viewing
+chord |view_ind|.
+  \item[|de_view_algorithm[view_ind]|] Algorithm (currently 
+|de_algorithm_uniform| or |de_uniform_circular|) for averaging over the
+detector viewing width. See subr. |detector_view_setup| for implementation
+details.
+  \item[|de_view_halfwidth[view_ind]|] Angular half-width (in radians) 
+associated with the viewing chord |view_ind|.
+  \item[|de_zone_frags[view_ind,zone]|] The path length of chord |view_ind|
+through |zone| divided by the zone volume times $4 \pi$; an additional
+factor accounts for the averaging over a finite halfwidth. This is
+defined before the run so the chord-integrated contributions can be
+made from volume scores (during or after the run).
+  \item[|detector_view_base[group_ind]|] Index into |de_view_tab| for the
+first viewing chord of |group_ind|.
+  \item[|de_view_size|] Length of |de_view_tab|.
+  \item[|de_view_tab[i]|] List coordinating the |de_grps| groups with
+their constituent 
+|detector_total_views| viewing chords. The |detector_num_views| chords
+for each group are added to this array when the group is defined with
+the first one appearing at |i| = |detector_view_base[group_ind]|.
+\end{description}
+
+\bf{macro}
+\begin{description}
+  \item[|de_view_pointer(i,group_ind)|] |i|th viewing chord
+(1 \$rightarrow$ |detector_num_views[group_ind]|) of group |group_ind|;
+i.e., this is the entry into the list of all |detector_total_views|
+viewing chords.
+\end{description}
+
+@ Tally class. Prefix is |tl|. This class provides the machinery for tabulating
+the Monte Carlo scores or tallies which form the basis of the DEGAS 2 output.
+The actual output is controlled within the ``output class'' (see below).
+
+There are a total of |tl_num| tallies, each representing an accounting of
+how a physical quantity, the ``dependent variable'', depends on a
+limited set of problem parameters, the ``independent variables''. The
+rank of each tally is in principle arbitrary. Sums over an individual
+index could either be carried out after the run, or specified as a
+separate tally (e.g., in order to obtain an explicit estimate of the
+relative standard deviation in the reduced tally).
+
+For each tally, an estimate of the mean and the relative standard
+deviation are provided. The latter is ill-defined for tallies with
+non-positive tally contributions.
+
+There are three types of tally:
+\begin{description}
+  \item[|tl_type_sector|] A simple event score carried out when a flight 
+crosses a sector. This can be either a material surface or a purely
+diagnostic sector (see the sector class above).
+  \item[|tl_type_test|] A tally based solely on the properties of the
+test flight itself. The most familiar example is the neutral density.
+  \item[|tl_type_reaction|] Tallies associated with reactions. The most
+important examples are the sources of background particles, momenta, and
+energy arising from each reaction in the problem.
+\end{description}
+
+In general, we envision each tally consisting of additive contributions
+from one or more estimators. At this time, there are only two 
+run time estimators, |tl_est_track| and |tl_est_collision|. The latter
+is really a catch-all category since it includes not only collision
+based scores of type |tl_type_test|, but also event-based scores
+such as those of type |tl_type_sector| and of |tl_type_reaction| which
+can only be carried out when the reaction actually occurs. The third
+type of estimator |tl_est_post_process| must be derived from existing
+tallies. This option is implemented presently at only a testing level
+and is available only for a couple of reactions and tallies.
+
+The relative contributions of each estimator to a tally are controlled
+by the arrays |tally_est_test| (for type |tl_type_est|) and
+|tally_est_reaction| (|tl_type_reaction|). Since there is only
+one sensible estimator for |tl_type_sector|, no analogous array
+is carried along for that type. These arrays contain the multiplicative
+factor associated with each estimator for that tally. |tally_est_reaction|
+has an additional index for reaction so that different estimator
+combinations may be specified for each reaction. {\bf Presently, this
+multiplicative factor is constrained to be either 0 or 1 with the
+sum over estimators equalling 1.} Once more detailed optimization is
+carried out, this constraint will be relaxed.
+
+\begin{description}
+  \item[|tl_num|] Total number of distinct tallies in the problem.
+  \item[|tally_size|] The total size of the array holding all of the
+tally data.
+  \item[|tally_type_num[type_ind]|] Number of tallies of type |type_ind|.
+  \item[|tally_type[tally_ind]|] Type of tally |tally_ind|.
+  \item[|tally_geometry[tally_ind]|] Geometry: 
+  \begin{enumerate}
+    \item |tl_geom_volume| tallies compiled as a function of zone,
+    \item |tl_geom_surface| |tl_type_sector| tallies,
+    \item |tl_geom_detector| tallies computed for a member of the
+detector class, 
+    \item |tl_geom_global| globally integrated tallies (not yet implemented).
+  \end{enumerate}
+  \item[|tally_geometry_ptr[tally_ind]|] Points to the geometric group of
+elements corresponding to tally |tally_ind|. This presently only makes
+sense for |tl_geom_surface| (points to a diagnostic group) and
+|tl_geom_detector| (points to a detector group).
+  \item[|tally_base[tally_ind]|] Pointer to the first datum for tally
+|tally_ind| in the array holding all of the tally data.
+  \item[|tally_type_base[type_ind]|] Pointer to the first datum of
+type |type_ind| in the array holding all of the tally data. Note that
+the tallies of each type are assumed to be consecutive in that array.
+  \item[|tally_rank[tally_ind]|] Number of indepenedent variables
+(dimensionality) of tally |tally_ind|.
+  \item[|tally_indep_var[rank_ind,tally_ind]|] Integer index corresponding
+to the |rank_ind|th independent variable for tally |tally_ind|. The list
+of possible values is lengthy and probably will be subject to considerable
+change, so refer to tally.hweb for the current list.
+  \item[|tally_tab_index[rank_ind,tally_ind]|] Number of values of the
+|rank_ind|th independent variable of tally |tally_ind|.
+  \item[|tally_name[tally_ind]|] Descriptive name for tally |tally_ind|.
+  \item[|tally_dep_var[tally_ind]|] String identifying the physical 
+quantity being accumulated for tally |tally_ind|. This must match either
+one of the standard dependent variables:
+  \begin{enumerate}
+    \item |back mass| source of mass for the background species due to
+the current test species,
+    \item |back i momentum| source of momentum component |i| = 1, 2, or 3
+for the background species due to the current test species,
+    \item [|back energy|] source of energy for the background species
+due to the current test species,
+    \item [|mass|] mass of test species,
+    \item [|momentum i|] momentum component |i| = 1, 2, or 3 of the
+test species,
+    \item [|energy|] energy of the test species.
+  \end{enumerate}
+Other quantities appearing as reaction handling variables (reactiondata
+class, |reaction_handling_var0|) may be specified as well. The most
+commonly used example are the H$_{\alpha}$ emission rates which
+are named |emission_rate_h_alpha| where |h| = H, D, or T according
+to the current test species.
+  \item[|tally_est_test[est_ind,tally_ind]|] Multiplier on estimator
+|est_ind| for tally |tally_ind|; makes sense only for tallies of 
+|tl_type_test|.
+  \item[|tally_est_reaction[pr_reac,est_ind,tally_ind]|] Multiplier on 
+estimator |est_ind| for tally |tally_ind| when scoring problem reaction 
+|pr_reac|; makes sense only for tallies of 
+|tl_type_reaction|.
+\end{description}
+
+@ Output class. Prefix is |ou|. This class contains various objects needed
+to record the results of the DEGAS 2 calculation. Presently, these 
+consist of several related large arrays representing components of the
+total scores. The existing arrays are explicitly of rank 2 or 3. The
+first of these, indicated by |mom_ind| below, is either |o_mean|,
+indicating the mean score, or |o_var|, denoting its variance. The
+|table_ind| is the compressed single dimension array containing the
+ragged, multidimensional scoring data. The |_grp| arrays have a third
+index |group_ind| for the source group. At present, no attempt is
+made to compute the variance of post-processed scores.
+
+\begin{description}
+  \item[|output_all[mom_ind,table_ind]|] Sum over all source groups of
+tallies computed during the DEGAS 2 run.
+  \item[|output_grp[mom_ind,table_ind,group_ind]|] Tallies computed during
+the DEGAS 2 run for source group |group_ind|.
+  \item[|out_post_all[mom_ind,table_ind]|] Sum over all source groups of
+all DEGAS 2 tallies, including post-processed contributions.
+  \item[|output_grp[mom_ind,table_ind,group_ind]|] All DEGAS 2 tallies
+for source group |group_ind|, including post-processed contributions.
 \end{description}
 
 @ Random class.  Prefix is |rn|.  The identifier |random| is a string.
@@ -414,15 +706,6 @@ Another potential use is as a surface diagnostic.
 |call random_seed(seed)| initialize seed from current time, etc.
 
 |cell next_seed(n,seed,newseed)| advance |seed| forward $n$ steps.
-
-@ Test particle class.  Prefix is |ts|.  Identifier |test| is an integer
-index.
-
-|ts_sp(test)| is the species of the test particle.
-|ts_rc_num(test)| is the number of reactions this particle has.
-|ts_rc(test,i)| is the number of the $i$th reaction.
-|ts_tg(test,i)| is the target number for the $i$th reaction.
-|ts_bk(test,i)| is the background number for the $i$th reaction.
 
 @ Cross section class. Prefix is |xs|.
 
