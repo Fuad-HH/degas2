@@ -2,6 +2,10 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.18  1995/08/23 14:46:07  dstotler
+% Modified argument lists in calls to reaction_rate and
+% process_reaction.
+%
 % Revision 1.17  1995/07/14 13:20:09  karney
 % Coding for strata added.
 % Switch \Wtitle to \Title.
@@ -183,7 +187,7 @@ loop: continue                  // Still in same zone
       if (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma) then
          do i=1,pr_rc_num(pt_test(fl_current(x)))
             rate[i]=reaction_rate(pt_args(fl_current(x)),pr_reaction_args(i))
-            if (rc_reaction_type(pr_ts_rc(pt_test(fl_current(x)),i))=='ionize') then
+            if (rc_reaction_type(pr_reaction(pr_ts_rc(pt_test(fl_current(x)),i)))=='ionize') then
                ionize_rate=ionize_rate+rate[i]
                rate[i]=zero
             else
@@ -238,10 +242,12 @@ loop: continue                  // Still in same zone
          assert(.false.)
 break1:  continue
          fl_pointer(x)--
+         j=0
          do i=1,nprod
             if (pt_test(prod[i]) > 0) then
+               j++
                fl_pointer(x)++
-               pt_copy(prod[i],fl_current(x))
+               pt_copy(prod[j],fl_current(x))
             end if
          end do
 @#else
