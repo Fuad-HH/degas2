@@ -2,6 +2,11 @@
 \Title{geomread}
 
 % $Log$
+% Revision 1.19  1995/07/14 13:20:17  karney
+% Coding for strata added.
+% Switch \Wtitle to \Title.
+% Update to use standard etags.
+%
 % Revision 1.18  1995/06/21 20:04:57  jshankar
 % updated to include readfilenames
 %
@@ -97,7 +102,7 @@ netcdf file.
       real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99] // Local
       integer face,surf_type,zone,n,i,j
       external init_geometry,start_cell,sphere,define_surface,
-     $     add_surface,plane,end_geometry,check_geometry,print_geometry,
+     $     add_surface,plane,boundaries_neighbors,check_geometry,print_geometry,
      $     erase_geometry       // External
       integer define_surface,start_cell
 
@@ -122,7 +127,7 @@ loop: continue
       call decompose_polygon(n,x,zone)
       goto loop
 break: continue
-      call end_geometry
+      call boundaries_neighbors
 @#if DEBUG
       call check_geometry
 @#endif
@@ -157,7 +162,7 @@ break: continue
      $     ne[nx,ny],te[nx,ny],ti[nx,ny],vi[3,nx,ny],dummyr,vol,vola
       character dummy
       external init_geometry,start_cell,sphere,define_surface,
-     $     add_surface,plane,end_geometry,check_geometry,print_geometry,
+     $     add_surface,plane,boundaries_neighbors,check_geometry,print_geometry,
      $     erase_geometry,polygon_volume // External
       integer define_surface,start_cell
       real polygon_volume
@@ -442,7 +447,7 @@ break: continue
       zn_type_set(zone,zn_vacuum)
       zn_volume(zone)=polygon_volume(i,x)
 
-      call end_geometry
+      call boundaries_neighbors
 @#if DEBUG
       call check_geometry
 @#endif
@@ -482,7 +487,7 @@ break: continue
       real coeff[NCOEFFS],x1[3],x2[3],apex[3],x[2,0:99],vol,vola
       real d1[2],d2[2]
       external init_geometry,start_cell,sphere,define_surface,
-     $     add_surface,plane,end_geometry,check_geometry,print_geometry,
+     $     add_surface,plane,boundaries_neighbors,check_geometry,print_geometry,
      $     erase_geometry,polygon_volume // External
       integer define_surface,start_cell
       real polygon_volume
@@ -658,7 +663,7 @@ break: continue
       zn_type_set(zone,zn_vacuum)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(i,x)
 
-      call end_geometry
+      call boundaries_neighbors
 @#if DEBUG
       call check_geometry
 @#endif
