@@ -2,6 +2,11 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.30  1999/02/02 15:00:18  dstotler
+% Modified setting of output_2D_coupling to add source group index and
+% to sum ion energy transfers over all ion species (i.e., non-electron
+% species). Changed format of sources.out and added testdata.out file.
+%
 % Revision 1.29  1998/09/29 13:13:10  dstotler
 % Add mpi_end (call to MPI_FINALIZE) for all MPI processes.
 %
@@ -354,7 +359,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
 */
       var_alloc(out_post_grp)
       var_alloc(out_post_all)
-      stat_comp_flt=FALSE.               // To get diagonal pointers
+      stat_comp_flt=FALSE               // To get diagonal pointers
       if (stat_dim_flt < tally_size) then
          var_realloc(stat_flt,stat_dim_flt-1,tally_size-1)
          stat_dim_flt=tally_size
@@ -982,13 +987,13 @@ we don't set the dimensions until just before the call.
 
       lim=((ix_n-ix_1+1)/5)*5-4
       do iy=iy_1,iy_n
-         do ix=ix_1,lim,5
+         do ix=1,lim,5
             write(unit_num,'(5(e16.8))') SP 
-     $           (multiplier*two_D_data[ix-ix_1+j,iy],j=1,5)
+     $           (multiplier*two_D_data[ix_1+ix-1+j,iy],j=0,4)
          end do
-         if (lim+4 != ix_n) then
+         if (ix_1+lim+3 != ix_n) then
             write(unit_num,'(5(e16.8))') SP 
-     $           (multiplier*two_D_data[ix,iy],ix=lim+5,ix_n)
+     $           (multiplier*two_D_data[ix,iy],ix=ix_1+lim+4,ix_n)
          end if
       end do
 
@@ -1018,6 +1023,7 @@ we don't set the dimensions until just before the call.
      $     '$Id$'
 
       tempfile=filenames_array[outputfile]
+      assert(tempfile != char_undef)
       fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
 
       description = 'Output from DEGAS 2'
