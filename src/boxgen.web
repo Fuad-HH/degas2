@@ -2,6 +2,15 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.16  2001/07/16 20:38:36  dstotler
+% Replaced background_n with bk_n, etc. Had removed set_prob_alias from
+% set_background_sources without making a corresponding change
+% here. Added source_root_species variable and associated setting. Move
+% a few things around to permit usage of BGK reactions. Fix roundoff
+% problem in facearray setup. Inserted macro definitions for 1-D C-Mod
+% case (BOXRUN = 40) and Couette flow (BOXRUN = 41). Also, add a macro
+% to skip calls to analytic solution routines (SOLN).
+%
 % Revision 1.15  2000/04/01 17:31:14  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -395,7 +404,11 @@ purposes of scoring.
       poly_points[1,n]=univ_max[1]; poly_points[2,n]=univ_max[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
       call decompose_polygon(n,poly_points,zone,1,0)
+@#if (BOXRUN == 40 || BOXRUN == 41)
+      zn_type_set(zone,zn_solid)
+@#else
       zn_type_set(zone,zn_exit)
+@#endif
       zn_volume(zone)=polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
 
