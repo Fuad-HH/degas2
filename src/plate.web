@@ -2,8 +2,11 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.1  1996/03/01 20:37:48  dstotler
+% Add to repository.
+%
 
-@* Subroutines used to deal with PMI and their data.
+@* PMI run-time subroutines.
 \ID{$Id$}
 
 @m FILE 'plate.web'
@@ -16,11 +19,886 @@
 @I problem.hweb
 @I pmidata.hweb
 @I string.hweb
+@I location.hweb
+@I particle.hweb
+@I random.hweb
+@I species.hweb
 
 @ The main program
 
 @a
       @<Functions and Subroutines@>
+
+@ Return the ``yield'' (more specifically, reflection coefficient, sputtering
+yield, or whatever term is appropriate for the process) for a particular
+test particle, particle index |p|, and the |ts_pmi|-th entry in the 
+list of PMI in which this test particle participates. 
+The |independent_parameters| array contains the values of all of the physical
+parameters required to evaluate the yield. The random number thread |x| is
+included in case a distribution must be sampled.
+
+@<Functions...@>=
+      function find_yield(pt_dummy(p),pr_pmi_dummy(ts_pmi),
+     $   independent_parameters,rn_dummy(x))
+      implicit_none
+      real find_yield                                 // Function
+      pt_decl(p)                                      // Input
+      pr_pmi_decl(ts_pmi) 
+      real independent_parameters[pf_max_indep_params]
+      rn_decl(x)
+
+      external intersection_direction,pd_eval_data    // External
+      real intersection_direction,pd_eval_data
+      
+      pd_common                                       // Common
+      pr_common
+
+      integer i                                       // Local
+      real ran
+      pr_pmi_decl(pmi_sub)
+
+      pmi_sub=pr_pm_cases(pt_test(p),ts_pmi)
+
+      assert(pmi_yield_var[pmi_sub][0] == pf_var_yield)
+/* This construct appears to be unnecessary given that the random number
+   thread is passed down to |pd_eval_data| anyway. It allows random
+   numbers to serve as independent variables for tables (e.g., cumulative
+   distributions) in a transparent manner.
+*/
+      if (pmi_yield_num_random[pmi_sub] > 0) then
+         assert(pmi_yield_num_random[pmi_sub] <= pf_max_random)
+         do i=1,pmi_yield_num_random[pmi_sub]
+            rn_next(ran,x)
+            independent_parameters[pf_var_1st_random_number+i-1]=ran
+         end do
+      end if
+/* The macro |pd_data_args| (defined in pmidata.hweb) extracts from the
+   pmidata arrays only those data required to evaluate the yield for
+   this |pmi_sub|. 
+*/
+      find_yield=pd_eval_data(pd_data_args(pmi_yield,[pmi_sub]),
+     $     independent_parameters,rn_args(x))
+             
+      return
+      end
+
+@ Subroutines to process PMI. The arguments here are |p|, the identifier for 
+the present particle, and |ts_pmi|, the index into the list of PMI in which
+this test particle participates. The array |independent_parameters| contains
+the values of the physical parameters which are needed to process these
+PMI. The number of products, |nprod| and their particle objects |prod| are
+returned. The random number thread |x| is included in case it's needed.
+
+@<Functions...@>=
+      subroutine process_pmi(pt_dummy(p),pr_pmi_dummy(ts_pmi),
+     $   independent_parameters,nprod,pt_dummy(prod),rn_dummy(x))
+      implicit_none
+
+      pt_decl(p)                       // Input
+      pr_pmi_decl(ts_pmi)
+      real independent_parameters[pf_max_indep_params]
+      integer nprod                    // Output
+      pt_decl(prod[pm_product_max])
+      rn_decl(x)                       // Input/output
+
+      integer i                        // Local
+      vc_decl(v_temp)
+      pr_pmi_decl(pmi_sub)
+
+      external intersection_direction  // External
+      real intersection_direction
+
+      pr_common                        // Common
+      pm_common
+      sp_common
+
+      pmi_sub=pr_pm_cases(pt_test(p),ts_pmi)
+
+/* Loop over various PMI types
+*/
+      if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'reflection') then
+         call reflection(pr_test_args(pt_test(p)),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $        pt_w(prod[1]),rn_args(x))
+
+      else if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'desorption') then
+         call desorption(pr_test_args(pt_test(p)),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $        pt_w(prod[1]),rn_args(x))
+
+      else if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'adsorption') then
+         call adsorption(pr_test_args(pt_test(p)),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $        pt_w(prod[1]),rn_args(x))
+      else
+         assert('Unsupported pmi type' == ' ')
+      end if
+/*
+   Create particle instances from products. The velocity returned from the
+   above routines is in coordinates relative to the surface and the incident
+   flight. The call to |surface_reflect| returns them to the global 
+   coordinate system (I hope).
+*/
+      do i=1,nprod
+         call surface_reflect(lc_face(pt_loc(p)),lc_x(pt_loc(p))[1],pt_v(p)[1],
+     $        pt_v(prod[i])[1],v_temp[1])
+         vc_copy(v_temp,pt_v(prod[i]))
+// Do pt_thru_face(prod[i]) here instead of in calling routine? !!!
+         pt_test(prod[i])=problem_species_test[pt_sp(prod[i])]
+         lc_copy(pt_loc(p),pt_loc(prod[i]))
+         pt_t(prod[i])=pt_t(p)
+ //        if (pt_test(prod[i]) > 0) then        DO THIS IN subr. follow
+            pt_w(prod[i])=pt_w(p)*pt_w(prod[i])
+            if (sp_z(pt_sp(prod[i])) == 0) then
+               pt_type(prod[i])=pt_neutral
+            else
+               pt_type(prod[i])=pt_ion
+            end if
+ //        end if
+      end do
+
+      return
+      end
+
+@ Process reflections. The product determination is trivial. The real
+work is all done in |pd_eval_v_product|.
+
+@<Functions...@>=
+      subroutine reflection(pr_test_dummy(test),pr_pmi_dummy(ts_pmi),
+     $   independent_parameters,
+     $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $   rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                      // Input
+      pr_pmi_decl(ts_pmi)
+      real independent_parameters[pf_max_indep_params]
+
+      integer nprod                           // Output
+      sp_decl(prod[pm_product_max])
+      vc_decl(v_prod[pm_product_max])
+      real w_prod[pm_product_max]
+
+      rn_decl(x)                              // Input/output
+
+      integer j                               // Local
+      real ran
+      pr_pmi_decl(pmi_sub)
+
+      pd_common                               // Common
+      pm_common
+      pr_common
+
+      pmi_sub=pr_pm_cases(test,ts_pmi)
+
+/* These are two characteristics of reflection: 1 product particle, same
+   index as the incoming particle. These should have been implemented
+   during |problemsetup| */
+      assert(pm_product_num(pr_pm_ref(pmi_sub)) == 1)
+      assert(pr_pm_num_arrange(test,ts_pmi) == 1)
+      assert(pr_pm_prod(test,ts_pmi,1,1) == pr_test(test))
+      nprod=1
+      prod[1]=pr_pm_prod(test,ts_pmi,1,1)
+
+/* This is where we really need to stow these random numbers ahead of
+   time. In particular, for the Bateman format the {\em same} random
+   numbers are needed to evaluate each of the three components of the
+   product velocity.
+*/
+      if (pmi_handling_num_random[pmi_sub] > 0) then
+         assert(pmi_handling_num_random[pmi_sub] <= pf_max_random)
+         do j=1,pmi_handling_num_random[pmi_sub]
+            rn_next(ran,x) 
+            independent_parameters[pf_var_1st_random_number+j-1]=ran
+         end do
+      end if
+
+      call pd_eval_v_product(pr_pmi_args(pmi_sub),independent_parameters,
+     $     sp_args(prod[1]),vc_args(v_prod[1]),rn_args(x))
+
+      w_prod[1]=one
+
+      return
+      end
+
+@ Process desorptions. This is probably the ugliest of the PMI processes.
+In particular the species of the desorbed species needs to be flexible
+since its distribution varies from one run to the next. Only one product
+is returned here, although the PMI may specify more than one. In particular,
+for incident hydrogen atoms, either an atom or a molecule may be desorbed.
+
+@<Functions...@>=
+      subroutine desorption(pr_test_dummy(test),pr_pmi_dummy(ts_pmi),
+     $   independent_parameters,
+     $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $   rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                      // Input
+      pr_pmi_decl(ts_pmi)
+      real independent_parameters[pf_max_indep_params]
+
+      integer nprod                           // Output
+      sp_decl(prod[pm_product_max])
+      vc_decl(v_prod[pm_product_max])
+      real w_prod[pm_product_max]
+
+      rn_decl(x)                              // Input/output
+
+      integer j,arr,wt_factor                 // Local
+      real ran
+      pr_pmi_decl(pmi_sub)
+
+      pd_common                               // Common
+      pr_common
+      sp_common
+
+      pmi_sub=pr_pm_cases(test,ts_pmi)
+
+      nprod=1
+
+/* As a placeholder, just randomly select from the possible
+   arrangements. Eventually, these probabilities should be
+   set with some kind of fit. */
+      assert(pr_pm_num_arrange(test,ts_pmi) >= 1)
+      rn_next(ran,x)
+      arr=ran*pr_pm_num_arrange(test,ts_pmi) + 1
+      arr=max(arr,1)
+      arr=min(arr,pr_pm_num_arrange(test,ts_pmi))
+      prod[1]=pr_pm_prod(test,ts_pmi,arr,1)
+
+      if (pmi_handling_num_random[pmi_sub] > 0) then
+         assert(pmi_handling_num_random[pmi_sub] <= pf_max_random)
+         do j=1,pmi_handling_num_random[pmi_sub]
+            rn_next(ran,x)
+            independent_parameters[pf_var_1st_random_number+j-1]=ran
+         end do
+      end if
+
+      call pd_eval_v_product(pr_pmi_args(pmi_sub),independent_parameters,
+     $     sp_args(prod[1]),vc_args(v_prod[1]),rn_args(x))
+
+/* This only works if the generic molecule is made up exclusively of the
+   generic test atom...But, then again, this isn't going to be all that
+   general anyway. */
+      if ((sp_ncomp(pr_test(test)) == 1) 
+     $  && (sp_count(sp_generic(pr_test(test)),1) == 1)) then
+         wt_factor=0
+         do j=1,sp_ncomp(sp_generic(prod[1]))
+            if (sp_el(sp_generic(pr_test(test)),1) == sp_el(sp_generic(prod[1]),j)) then
+               wt_factor += sp_count(sp_generic(prod[1]),j)
+            end if
+         end do
+      else
+         wt_factor=1
+      end if
+            
+      assert(wt_factor > 0)
+      w_prod[1]=one/wt_factor
+
+      return
+      end
+
+@ Process adsorptions. This might not ever get used since adsorptions will
+probably be handled entirely at a higher level.
+
+@<Functions...@>=
+      subroutine adsorption(pr_test_dummy(test),pr_pmi_dummy(ts_pmi),
+     $   independent_parameters,
+     $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $   rn_dummy(x))
+
+      implicit_none
+
+      pr_test_decl(test)                      // Input
+      pr_pmi_decl(ts_pmi)
+      real independent_parameters[pf_max_indep_params]
+
+      integer nprod                           // Output
+      sp_decl(prod[pm_product_max])
+      vc_decl(v_prod[pm_product_max])
+      real w_prod[pm_product_max]
+
+      rn_decl(x)                              // Input/output
+
+      pr_pmi_decl(pmi_sub)                    // Local
+
+      pd_common                               // Common
+      pm_common
+      sp_common
+      pr_common
+
+      pmi_sub=pr_pm_cases(test,ts_pmi)
+
+/* Essentially just need to set |nprod|=0; set the others just in case */
+      assert(pm_product_num(pr_pm_ref(pmi_sub)) == 0)
+      nprod=0
+      prod[1]=0
+      vc_set(v_prod[1],zero,zero,zero)
+      w_prod[1]=zero
+
+      return 
+      end
+
+@ Evaluate velocity direction and magnitude for a product species.
+
+@<Functions...@>=
+      subroutine pd_eval_v_product(pr_pmi_dummy(pmi_sub),independent_parameters,
+     $   sp_dummy(product),vc_dummy(v_product),rn_dummy(x))
+
+      implicit_none
+
+      pr_pmi_decl(pmi_sub)                              // Input
+      real independent_parameters[pf_max_indep_params]
+      sp_decl(product)
+
+      vc_decl(v_product)                                // Output
+
+      rn_decl(x)                                        // Input/output
+
+      integer j                                         // Local
+      real energy,sqrt_energy,velocity,cos_theta,
+     $     sin_theta,cos_phi,sin_phi,ran
+      logical cos_phi_set, cos_theta_set, v_set, vhat_set, 
+     $     v1_set, v2_set, v3_set
+      vc_decl(vhat)
+
+      pd_common                                         // Common
+      sp_common
+
+      external pd_eval_data                             // External
+      real pd_eval_data
+
+/* Set of flags to check completeness of spherical polar representation
+   (if needed). */
+      cos_phi_set=.false.
+      cos_theta_set=.false.
+      v_set=.false.
+      vhat_set=.false.
+
+/* Set of flags for cartesian representation (all cases). */
+      v1_set=.false.
+      v2_set=.false.
+      v3_set=.false.
+
+      do j=1,pd_dep_var_max
+         if (pmi_handling_var0[pmi_sub][j] == 'energy_out') then
+            energy=pd_eval_data(pd_data_args(pmi_handling,[pmi_sub][j]),
+     $           independent_parameters,rn_args(x))
+            velocity=sqrt(two*energy/sp_m(product))
+            v_set=.true.
+         else if (pmi_handling_var0[pmi_sub][j] == 'sqrt_energy_out') then
+            sqrt_energy=pd_eval_data(pd_data_args(pmi_handling,[pmi_sub][j]),
+     $           independent_parameters,rn_args(x))
+            velocity=sqrt_energy*sqrt(two/sp_m(product))
+            v_set=.true.
+         else if (pmi_handling_var0[pmi_sub][j]=='cos_polar_angle_out') then
+            cos_theta=pd_eval_data(pd_data_args(pmi_handling,[pmi_sub][j]),
+     $           independent_parameters,rn_args(x))
+            sin_theta=sqrt(one-cos_theta**2)
+            cos_theta_set=.true.
+         else if (pmi_handling_var0[pmi_sub][j] == 'cos_azi_angle_out') then
+            cos_phi=pd_eval_data(pd_data_args(pmi_handling,[pmi_sub][j]),
+     $           independent_parameters,rn_args(x))
+            sin_phi=sqrt(one-cos_phi**2)
+            rn_next(ran,x)
+            if (ran > 0.5) sin_phi=-sin_phi
+            cos_phi_set=.true.
+         else if (pmi_handling_var0[pmi_sub][j] == 'velocity_vector') then
+            call pd_eval_vhat(pd_data_args(pmi_handling,[pmi_sub][j]),
+     $           independent_parameters,rn_args(x),vc_args(vhat))
+            vhat_set=.true.
+         end if
+      end do
+
+      assert((v_set && cos_theta_set && cos_phi_set) 
+     $     || (v_set && vhat_set)
+     $     || (v1_set && v2_set && v3_set))
+      if (!vhat_set) then
+         vhat[1]=sin_theta*cos_phi
+         vhat[2]=sin_theta*sin_phi
+         vhat[3]=cos_theta
+         vhat_set=.true.
+      end if
+
+      assert((v_set && vhat_set)
+     $     || (v1_set && v2_set && v3_set))
+      if (!v1_set) then
+         v_product[1]=velocity*vhat[1]
+         v1_set=.true.
+      end if
+
+      if (!v2_set) then
+         v_product[2]=velocity*vhat[2]
+         v2_set=.true.
+      end if
+
+      if (!v3_set) then
+         v_product[3]=velocity*vhat[3]
+         v3_set=.true.
+      end if
+
+      assert(v1_set && v2_set && v3_set)
+
+      return
+      end
+
+@ General function to extract a particular datum from the input data tables.
+Note that the {\em calling} argument list is defined via a macro in 
+pmidata.hweb for simplicity.
+
+@m data_array(i,j,k,l,m) data_table[i+tab_index[1]*(j+tab_index[2]*(k+tab_index[3]*(l+tab_index[4]*m)))+tab_base]
+@m var_array(i,j) var_table[i+var_base[j]]
+
+@<Functions...@>=
+      function pd_eval_data(eval_name,rank,ind_params_label,tab_index,spacing,
+     $                   min,delta,var_table,var_base,data_table,tab_base,
+     $                   independent_parameters,rn_dummy(x))
+      implicit_none
+
+      real pd_eval_data                                 // Function
+
+      character*pf_eval_string_length eval_name         // Input
+      integer rank,ind_params_label[pf_table_rank_max],
+     $     spacing[0:pf_table_rank_max],tab_index[pf_table_rank_max],
+     $     var_base[*],tab_base
+      real ind_params_value[pf_table_rank_max],min[pf_table_rank_max],
+     $     delta[pf_table_rank_max],var_table[0:*],data_table[0:*],
+     $     independent_parameters[pf_max_indep_params]
+      
+      rn_decl(x)                                        // Input/output
+
+      integer i                                          // Local
+
+      external find_index,interpolate1,interpolate2,     // External
+     $         interpolate3,interpolate4,interpolate5,pd_eval_fit
+      real find_index,interpolate1,interpolate2,
+     $     interpolate3,interpolate4,interpolate5,pd_eval_fit
+
+      if (rank > 0) then
+         do i=1,rank
+            assert(ind_params_label[i] <= pf_max_indep_params)
+            ind_params_value[i]=independent_parameters[ind_params_label[i]]
+         end do
+      end if
+
+      if (eval_name == 'table') then
+         if (rank > 0) then
+            do i=1,rank
+               if (spacing[i] == pf_spacing_log) 
+     $              ind_params_value[i]=log(ind_params_value[i])
+               if (spacing[i] == pf_spacing_log 
+     $              || spacing[i] == pf_spacing_linear) then
+                  ind_params_value[i]=(ind_params_value[i]-min[i])/delta[i] 
+               else if (spacing[i] == pf_spacing_nonuniform) then
+                  ind_params_value[i]=find_index(ind_params_value[i],
+     $                 var_array(0,i),tab_index[i])
+               end if
+            end do
+         end if
+         
+         if (rank == 0) then                    // STICK ALL OF THIS ELSEWHERE
+            pd_eval_data=data_array(0,0,0,0,0)
+         else if (rank == 1) then
+            pd_eval_data=interpolate1(ind_params_value,data_array(0,0,0,0,0),
+     $           tab_index[1])
+         else if (rank == 2) then
+            pd_eval_data=interpolate2(ind_params_value,data_array(0,0,0,0,0),
+     $           tab_index[1])
+         else if (rank == 3) then
+            pd_eval_data=interpolate3(ind_params_value,data_array(0,0,0,0,0),
+     $           tab_index[1])
+         else if (rank == 4) then
+            pd_eval_data=interpolate4(ind_params_value,data_array(0,0,0,0,0),
+     $           tab_index[1])
+         else if (rank == 5) then
+            pd_eval_data=interpolate5(ind_params_value,data_array(0,0,0,0,0),
+     $           tab_index[1])
+         end if
+
+         if (spacing[0] == pf_spacing_log) 
+     $        pd_eval_data=exp(pd_eval_data)
+
+      else
+         pd_eval_data=pd_eval_fit(eval_name,rank,ind_params_label,tab_index[1],
+     $        data_array(0,0,0,0,0),ind_params_value,rn_args(x))
+      end if
+             
+      return
+      end
+
+@ Evaluate unit velocity vector. The routine is analogous to |pd_eval_data|. 
+This is less involved since tables make no sense
+in this case where three numbers need to be returned rather than just one.
+
+@m data_array(i,j,k,l,m) data_table[i+tab_index[1]*(j+tab_index[2]*(k+tab_index[3]*(l+tab_index[4]*m)))+tab_base]
+@m var_array(i,j) var_table[i+var_base[j]]
+
+@<Functions...@>=
+      subroutine pd_eval_vhat(eval_name,rank,ind_params_label,tab_index,
+     $                   spacing,min,delta,var_table,var_base,data_table,
+     $                   tab_base,
+     $                   independent_parameters,rn_dummy(x),vc_dummy(vhat))
+      implicit none
+
+      character*pf_eval_string_length eval_name           // Input
+      integer rank,ind_params_label[pf_table_rank_max],
+     $     spacing[0:pf_table_rank_max],tab_index[pf_table_rank_max],
+     $     var_base[*],tab_base
+      real ind_params_value[pf_table_rank_max],min[pf_table_rank_max],
+     $     delta[pf_table_rank_max],var_table[0:*],data_table[0:*],
+     $     independent_parameters[pf_max_indep_params]
+
+      vc_decl(vhat)                                     // Output
+
+      rn_decl(x)                                         // Input/output
+
+      integer i                                          // Local
+
+      if (rank > 0) then
+         do i=1,rank
+            assert(ind_params_label[i] <= pf_max_indep_params)
+            ind_params_value[i]=independent_parameters[ind_params_label[i]]
+         end do
+      end if
+
+      assert (eval_name != 'table')     // Non-sequiter
+      
+      call pd_eval_v_fit(eval_name,rank,ind_params_label,tab_index[1],
+     $     data_array(0,0,0,0,0),ind_params_value,rn_args(x),vc_args(vhat))
+
+      return
+      end
+
+@ Clearing-house routine used to select from one of the provided options for
+setting the unit velocity vector of a particle leaving a surface.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      subroutine pd_eval_v_fit(eval_name,rank,ind_params_label,tab_index,
+     $                   data_table,ind_params_value,rn_dummy(x),
+     $                   vc_dummy(vhat))
+      implicit none
+
+      character*pf_eval_string_length eval_name          // Input
+      integer rank,ind_params_label[pf_table_rank_max],tab_index
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      vc_decl(vhat)                                      // Output
+
+      rn_decl(x)                                         // Input/output
+
+      if (eval_name == 'cosine') then
+         call cosine(rank,ind_params_label,tab_index,fit_array(0),
+     $        ind_params_value,rn_args(x),vc_args(vhat))
+      else if (eval_name == 'specular') then
+         call specular(rank,ind_params_label,tab_index,fit_array(0),
+     $        ind_params_value,rn_args(x),vc_args(vhat))
+      else if (eval_name == 'cosspec') then
+         call cosspec(rank,ind_params_label,tab_index,fit_array(0),
+     $        ind_params_value,rn_args(x),vc_args(vhat))
+      else if (eval_name == 'maxwell_flux') then
+         call maxwell_flux(rank,ind_params_label,tab_index,fit_array(0),
+     $        ind_params_value,rn_args(x),vc_args(vhat))
+      else
+         assert('Unsupported velocity distribution' == ' ')
+      end if
+
+      return
+      end
+
+@ Clearing-house routine used to select from the provided fit options. Just
+to begin writing down the assumptions somewhere, the data are to be organized
+as follows: |rank| provides the number of independent variables required
+to evaluate the fit. These values of these variables are stored in the
+input array |ind_params_value|. The |data_table| is taken to be 1-D with |tab_index|
+elements. The actual data structures in a given case may well be of higher
+dimension, but we assume that at this level of specificity only the fit
+function needs to know (and it must know) exactly what's in the 
+|data_table|. Ditto for any arrays of independent variables or spacing
+information which may be required to evaluate tabular portions of the fit.
+These all must be coded up into the fit function. So, even if the data
+in the external file have a clear physical meaning (e.g., reflection 
+coefficients at normal incidence), we should direct the user to study
+those data not by themselves (as he would for tabular data), but only
+in conjunction with the coded fit function. Ideally, this code would be
+stored along with the data file.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      function pd_eval_fit(eval_name,rank,ind_params_label,tab_index,
+     $                     data_table,ind_params_value,rn_dummy(x))
+      implicit_none
+      
+      real pd_eval_fit                                 // Function
+      character*pf_eval_string_length eval_name        // Input
+      integer rank,ind_params_label[pf_table_rank_max],tab_index
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      rn_decl(x)                                       // Input/output
+
+      external refl_ruzic                              // External
+      real refl_ruzic
+      external e_maxwell
+      real e_maxwell
+      
+      if (eval_name == 'refl_ruzic') then 
+         pd_eval_fit=refl_ruzic(rank,ind_params_label,tab_index,fit_array(0),
+     $        ind_params_value,rn_args(x))
+      else if (eval_name == 'e_maxwell') then  
+         pd_eval_fit=e_maxwell(rank,ind_params_label,tab_index,fit_array(0),
+     $        ind_params_value,rn_args(x))
+
+      else
+         assert('Unsupported fit option' == ' ')
+      end if
+
+      return
+      end
+
+@ Fit function to mock up the angular dependence of DEGAS option |lrflct1| = 3.
+Namely, the reflection coefficient data for normal incidence are read in as
+a 1-D table, a function of the incident energy $E_{in}$
+(equally log-spaced with a
+step size of 0.1, starting at 1 eV). The dependence on the polar angle
+$\alpha$
+of incidence is factored in as 
+\[
+   R_{n}(E_{in},\alpha) = R_{n}(E_{in},0) (1 + 0.5 * \sin \alpha),
+\]
+where $\alpha$ is assumed to be in radians. The result is forced to
+be $\leq 0.9$.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      function refl_ruzic(rank,ind_params_label,tab_index,data_table,
+     $   ind_params_value,rn_dummy(x))
+      implicit_none
+      
+      real refl_ruzic                                       // Function
+      integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      rn_decl(x)                                            // Input/output
+
+      real energy_in,polar_angle,energy_min,energy_delta    // Local
+
+      external interpolate1                                 // External
+      real interpolate1
+
+/* Check inputs */
+
+      assert(rank == 2)
+      assert(tab_index == 48)
+      assert(ind_params_label[1] == pf_var_energy_in)
+      assert(ind_params_label[2] == pf_var_polar_angle_in)
+
+      energy_in=log(ind_params_value[1])
+      polar_angle=ind_params_value[2]
+
+/* Parameters describing independent variables for tabular data */
+
+      energy_min=log(electron_charge)
+      energy_delta=const(0.1)*log(const(10.0))
+
+/* Find index for interpolation */
+
+      energy_in=(energy_in-energy_min)/energy_delta
+
+/* Equivalent normal incidence coefficient */
+
+      refl_ruzic=interpolate1(energy_in,fit_array(0),tab_index)
+
+/* Add angular dependence */
+
+      refl_ruzic=refl_ruzic*(one+half*sin(polar_angle))
+      refl_ruzic=min(refl_ruzic,const(0.9))
+
+      return
+      end
+
+@ Energy sampled from Maxwellian at wall temperature. Procedure established in
+original DEGAS.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      function e_maxwell(rank,ind_params_label,tab_index,data_table,
+     $   ind_params_value,rn_dummy(x))
+      implicit_none
+      
+      real e_maxwell                                        // Function
+      integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      rn_decl(x)                                            // Input/output
+
+      real ewall,ran                                        // Local
+      integer i
+
+/* Check inputs */
+
+      assert(rank == 1)
+      assert(ind_params_label[1] == pf_var_t_wall)
+
+      ewall=const(1.5)*ind_params_value[1]
+
+      e_maxwell=zero
+      do i=1,3
+         rn_gauss_next(ran,x)
+         e_maxwell+=ran*ran
+      end do
+
+      e_maxwell*=ewall
+
+      return
+      end
+
+@ Cosine distribution. Routine provided essentially for uniformity.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      subroutine cosine(rank,ind_params_label,tab_index,data_table,
+     $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
+      implicit_none
+      
+      integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      rn_decl(x)                                               // Input/output
+
+      vc_decl(vhat)                                            // Output
+
+/* Check inputs */
+
+      assert(rank == 0)            
+
+      rn_cos_next(vhat,x)        // That's all folks...
+
+      return
+      end
+
+@ Specular distribution. Routine provided essentially for uniformity.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      subroutine specular(rank,ind_params_label,tab_index,data_table,
+     $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
+      implicit_none
+      
+      integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      rn_decl(x)                                               // Input/output
+
+      vc_decl(vhat)                                            // Output
+
+/* Check inputs */
+
+      assert(rank == 1)            // Should be only one independent variable
+      assert(ind_params_label[1] == pf_var_polar_angle_in)
+
+      vhat[1]=sin(ind_params_value[1])
+      vhat[2]=zero
+      vhat[3]=cos(ind_params_value[1])
+
+      return
+      end
+
+@ Generate combination cosine-specular velocity vector. This routine is 
+somewhat general in that the shape of the cosine distribution used is
+expressed as $\cos^{P} \theta$, where $P$ is a fit parameter. A more
+general routine can (and may) be written to allow a cutoff at a maximum
+polar angle and to allow the rate of transition between specular and cosine
+to be varied.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      subroutine cosspec(rank,ind_params_label,tab_index,data_table,
+     $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
+      implicit_none
+      
+      integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      rn_decl(x)                                               // Input/output
+
+      vc_decl(vhat)                                            // Output
+
+      real p,alpha,cos_alpha,sin_alpha,                        // Local
+     $     xi,sin_theta,sin_theta_hat,cos_theta_hat,phi,cos_phi,sin_phi
+
+/* Check inputs */
+
+      assert(rank == 1)            // Should be only one independent variable
+      assert(tab_index == 1)       // And one fit coefficient!
+      assert(ind_params_label[1] == pf_var_polar_angle_in)
+
+      p=fit_array(0)
+      alpha=ind_params_value[1]
+
+      cos_alpha=cos(alpha)
+      sin_alpha=sin(alpha)
+      rn_next(xi,x)
+      sin_theta=sqrt(one - xi**(two/(one+p)))
+      if (sin_theta < zero) sin_theta=zero
+      if (sin_theta > one) sin_theta=one
+      sin_theta_hat=cos_alpha*sin_theta
+      cos_theta_hat=sqrt(one - sin_theta_hat**2)
+      rn_next(phi,x)
+      phi=PI*(two*phi-one)
+      cos_phi=cos(phi)
+      sin_phi=sin(phi)
+
+      vhat[1]=sin_theta_hat*cos_phi*cos_alpha + cos_theta_hat*sin_alpha
+      vhat[2]=sin_theta_hat*sin_phi
+      vhat[3]=cos_theta_hat*cos_alpha - sin_theta_hat*cos_phi*sin_alpha
+
+      return
+      end
+
+@ Maxwell-flux velocity distribution as used in EIRENE.
+
+@m fit_array(i) data_table[i]
+
+@<Functions...@>=
+      subroutine maxwell_flux(rank,ind_params_label,tab_index,data_table,
+     $   ind_params_value,rn_dummy(x),vc_dummy(vhat))
+      implicit_none
+      
+      integer rank,ind_params_label[pf_table_rank_max],tab_index   // Input
+      real ind_params_value[pf_table_rank_max],data_table[0:*]
+
+      rn_decl(x)                                               // Input/output
+
+      vc_decl(vhat)                                            // Output
+
+      real ran,log_ran                                         // Local
+
+/* Check inputs */
+
+      assert(rank == 0)  
+
+      rn_gauss_next(vhat[1],x)
+      rn_gauss_next(vhat[2],x)
+
+      rn_next(ran,x)
+      log_ran=log(ran)
+      vhat[3]=sqrt(-(log_ran+log_ran))
+
+      return
+      end
 
 @ Read in the PMI data from a file.
 
@@ -57,9 +935,11 @@ information into PMI yield and handling arrays.
       subroutine pf_copy(num)
       implicit_none
       integer num                                         // Input
-      integer i,j,jdep,k,l,m,ph_ind,organization       // Local
-      integer spacing[0:pf_table_rank_max]
+      integer i,j,jdep,k,l,m,ph_ind,num_random            // Local
+      integer spacing[0:pf_table_rank_max],var[pf_table_rank_max]
       real table_entry,indep_var,min[pf_table_rank_max],delta[pf_table_rank_max]
+      character*pf_eval_string_length eval_name
+
       pf_common
       pr_common
       pm_common
@@ -70,9 +950,10 @@ information into PMI yield and handling arrays.
 
 /* Initialize */
       ph_ind=0
-      pmi_yield_organization[num]=pf_organization_unknown
       pmi_yield_rank[num]=0
+      pmi_yield_eval_name[num]='unknown'
       pmi_yield_var[num][0]=pf_var_unknown 
+      pmi_yield_num_random[num]=0
       pmi_yield_spacing[num][0]=pf_spacing_unknown
       do i=1,pf_table_rank_max
          pmi_yield_var[num][i]=pf_var_unknown 
@@ -82,13 +963,14 @@ information into PMI yield and handling arrays.
          pmi_yield_tab_index[num][i]=0
       end do
 
+      pmi_handling_num_random[num]=0
       do j=1,pd_dep_var_max
-         pmi_handling_organization[num][j]=pf_organization_unknown
          pmi_handling_rank[num][j]=0
-         pmi_handling_var[num][j][0]='unknown' 
+         pmi_handling_eval_name[num][j]='unknown'
+         pmi_handling_var0[num][j]='unknown' 
          pmi_handling_spacing[num][j][0]=pf_spacing_unknown
          do i=1,pf_table_rank_max
-            pmi_handling_var[num][j][i]='unknown'
+            pmi_handling_var[num][j][i]=pf_var_unknown
             pmi_handling_spacing[num][j][i]=pf_spacing_unknown
             pmi_handling_min[num][j][i]=zero
             pmi_handling_delta[num][j][i]=zero
@@ -100,13 +982,7 @@ information into PMI yield and handling arrays.
    variables to store internal representations of data. */
       do jdep=1,pf_num_dep_var
 
-         assert(pf_organization[jdep]SP(1:5)=='table' 
-     $        || pf_organization[jdep]=='fit')
-         if (pf_organization[jdep]SP(1:5)=='table') then
-            organization=pf_organization_table
-         else if (pf_organization[jdep]=='fit') then
-            organization=pf_organization_fit
-         end if
+         eval_name=pf_eval_name[jdep]
 
          i=0
          if (pf_spacing[i,jdep] == 'linear') then
@@ -118,6 +994,7 @@ information into PMI yield and handling arrays.
          else if (pf_spacing[i,jdep] == 'unknown') then
             spacing[i]=pf_spacing_unknown
          end if
+         num_random=0
          if (pf_rank[jdep] > 0) then
             do i=1,pf_rank[jdep]
             
@@ -131,6 +1008,33 @@ information into PMI yield and handling arrays.
                   spacing[i]=pf_spacing_unknown
                end if
         
+               if (pf_var[i,jdep] == 'energy_in') then
+                  var[i]=pf_var_energy_in
+               else if (pf_var[i,jdep] == 'vel_1_in') then
+                  var[i]=pf_var_vel_1_in
+               else if (pf_var[i,jdep] == 'vel_2_in') then
+                  var[i]=pf_var_vel_2_in
+               else if (pf_var[i,jdep] == 'vel_3_in') then
+                  var[i]=pf_var_vel_3_in
+               else if (pf_var[i,jdep] == 'polar_angle_in') then
+                  var[i]=pf_var_polar_angle_in
+               else if (pf_var[i,jdep] == 't_wall') then
+                  var[i]=pf_var_t_wall
+               else if (pf_var[i,jdep] == '1st_random_number') then
+                  var[i]=pf_var_1st_random_number
+                  num_random=max(1,num_random)
+               else if (pf_var[i,jdep] == '2nd_random_number') then
+                  var[i]=pf_var_2nd_random_number
+                  num_random=max(2,num_random)
+               else if (pf_var[i,jdep] == '3rd_random_number') then
+                  var[i]=pf_var_3rd_random_number
+                  num_random=max(3,num_random)
+               else if (pf_var[i,jdep] == 'fit_coef') then
+                  var[i]=pf_var_fit_coef
+               else 
+                  assert('Unknown independent variable' == ' ')
+               end if
+
                if (spacing[i] == pf_spacing_linear) then
                   min[i]=pf_min[i,jdep]*pf_mult[i,jdep]
                   delta[i]=
@@ -156,18 +1060,15 @@ information into PMI yield and handling arrays.
          if (pf_var[0,jdep] == 'reflection_coef' 
      $  || pf_var[0,jdep] == 'yield') then
             pmi_yield_var[num][0]=pf_var_yield    // For consistency
-            pmi_yield_organization[num]=organization
+            pmi_yield_eval_name[num]=eval_name
             pmi_yield_rank[num]=pf_rank[jdep]
             assert(pf_rank[jdep] > 0 || pf_rank[jdep] <= pf_table_rank_max)
             pmi_yield_spacing[num][0]=spacing[0]
+            pmi_yield_num_random[num]=max(num_random,pmi_yield_num_random[num])
             do i=1,pf_rank[jdep]
                pmi_yield_tab_index[num][i]=pf_tab_index[jdep][i]
                pmi_yield_spacing[num][i]=spacing[i]
-               if (pf_var[i,jdep] == 'energy_in') then
-                  pmi_yield_var[num][i]=pf_var_energy_in
-               else if (pf_var[i,jdep] == 'polar_angle_in') then
-                  pmi_yield_var[num][i]=pf_var_polar_angle_in
-               end if
+               pmi_yield_var[num][i]=var[i]
                pmi_yield_min[num][i]=min[i]
                pmi_yield_delta[num][i]=delta[i]
             end do
@@ -183,15 +1084,16 @@ information into PMI yield and handling arrays.
             goto skip
          else
             ph_ind++                                          // Handling
-            pmi_handling_var[num][ph_ind][0]=pf_var[0,jdep]
-            pmi_handling_organization[num][ph_ind]=organization
+            pmi_handling_var0[num][ph_ind]=pf_var[0,jdep]
+            pmi_handling_eval_name[num][ph_ind]=eval_name
             pmi_handling_rank[num][ph_ind]=pf_rank[jdep]
             pmi_handling_spacing[num][ph_ind][0]=spacing[0]
+            pmi_handling_num_random[num]=max(num_random,pmi_handling_num_random[num])
             if (pf_rank[jdep] > 0) then
                do i=1,pf_rank[jdep]
                   pmi_handling_tab_index[num][ph_ind][i]=pf_tab_index[jdep][i]
                   pmi_handling_spacing[num][ph_ind][i]=spacing[i]
-                  pmi_handling_var[num][ph_ind][i]=pf_var[i,jdep]
+                  pmi_handling_var[num][ph_ind][i]=var[i]
                   pmi_handling_min[num][ph_ind][i]=min[i]
                   pmi_handling_delta[num][ph_ind][i]=delta[i]
                end do
@@ -207,21 +1109,23 @@ information into PMI yield and handling arrays.
 
 /* Copy over independent variable arrays. Apply multiplier and log function
    as needed; transfer to appropriate table. */
-         do j=1,pf_rank[jdep]
-            do i=0,pf_tab_index[j,jdep]-1
-               if (spacing[j] == pf_spacing_log) then
-                  indep_var=log(pf_indep_var_table(i,j,jdep)*pf_mult[j,jdep])
-               else
-                  indep_var=pf_indep_var_table(i,j,jdep)*pf_mult[j,jdep]
-               end if
+         if (pf_rank[jdep] > 0) then
+            do j=1,pf_rank[jdep]
+               do i=0,pf_tab_index[j,jdep]-1
+                  if (spacing[j] == pf_spacing_log) then
+                     indep_var=log(pf_indep_var_table(i,j,jdep)*pf_mult[j,jdep])
+                  else
+                     indep_var=pf_indep_var_table(i,j,jdep)*pf_mult[j,jdep]
+                  end if
                
-               if (pf_var[0,jdep] == 'reflection_coef' || pf_var[0,jdep] == 'yield') then
-                  pd_yield_indep_var(i,j,num)=indep_var
-               else
-                  pd_handling_indep_var(i,j,ph_ind,num)=indep_var
-               end if
+                  if (pf_var[0,jdep] == 'reflection_coef' || pf_var[0,jdep] == 'yield') then
+                     pd_yield_indep_var(i,j,num)=indep_var
+                  else
+                     pd_handling_indep_var(i,j,ph_ind,num)=indep_var
+                  end if
+               end do
             end do
-         end do
+         end if
 /*
    Now retrieve the tabular data for this dependent variable...
 */
@@ -261,45 +1165,6 @@ skip: continue
       return
       end
 
-@#if 0
-/* Sketchy code showing how to do interpolations for nonuniform
-   independent variables. See |reaction_rate| in reaction.web. */
-      if (data_spacing[...] == ps_var_sp_nonuniform) 
-     $  fvar[i]=find_index(fvar[i],indep_var_table(0,irank,jdep),
-     $  tab_index[irank,jdep])
-....
-/*   This assumes that |array| increases monotonically. Taken
-     from Numerical Recipes. */
-      function find_index(x,array,n)
-      implicit_none
-      real find_index
-      integer n
-      real x,array[0:*]
-      integer ia, jl, jm, ju
-
-      jl=-1
-      ju=n
-loop1: continue
-      if (ju-jl > 1) then
-         jm=(ju+jl)/2
-         if (x > array[jm]) then
-            jl=jm
-         else
-            ju=jm
-         end if
-         goto loop1
-      end if
-      jl=min(max(0,jl),n-2)
-
-/* Arranged so that if $|x| < |array[0]|, |find_index| < 0$ and if 
-   $|x| > |array[n-1]|$,
-   $|find_index| > |n| - 1$. In either case, the interpolation routines will
-   yield the limiting values. */
-      find_index=(x - array[jl]) / (array[jl+1] - array[jl]) + jl
-
-      return
-      end
-@#endif
 @ Allocate arrays for PMI data, loop over problem PMI and read data for each.
 
 @<Functions...@>=
@@ -310,30 +1175,32 @@ loop1: continue
       pd_common
       sy_common
             
-      var_alloc(pmi_yield_organization)
       var_alloc(pmi_yield_min)
       var_alloc(pmi_yield_delta)
       var_alloc(pmi_yield_rank)
       var_alloc(pmi_yield_spacing)
+      var_alloc(pmi_yield_eval_name)
       var_alloc(pmi_yield_tab_index)
       var_alloc(pmi_yield_var)
+      var_alloc(pmi_yield_num_random)
 
       pd_ragged_alloc(pmi_yield)
       pd_ragged_alloc(pmi_yield_indep_var)
 
-      var_alloc(pmi_handling_organization)
       var_alloc(pmi_handling_min)
       var_alloc(pmi_handling_delta)
       var_alloc(pmi_handling_rank)
       var_alloc(pmi_handling_spacing)
+      var_alloc(pmi_handling_eval_name)
       var_alloc(pmi_handling_tab_index)
+      var_alloc(pmi_handling_var0)
       var_alloc(pmi_handling_var)
+      var_alloc(pmi_handling_num_random)
 
       pd_ragged_alloc(pmi_handling)
       pd_ragged_alloc(pmi_handling_indep_var)
 
       do i=1,pr_pmi_num
-         write(stdout,*) pr_pm_ref(i)
          call pmi_read(i)
       end do
       return
