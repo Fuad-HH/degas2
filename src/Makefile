@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.30  1995/06/06 13:37:40  csk
+# Permit printing at Garching.
+#
 # Revision 1.29  1995/06/02 14:34:08  csk
 # Remove fixit from Makefile.  (Not needed any more.)
 #
@@ -157,7 +160,7 @@ endif
 FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
-ifdef DEBUG
+ifeq ($(DEBUG),yes)
   TANGLEFLAGS=-mDEBUG -mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv -j
 else
   TANGLEFLAGS=-mINLINE -W[ -ytt2000000 -yn8000 -n/ -n')' -Tv
@@ -166,7 +169,7 @@ WEAVEFLAGS=-f -i -W[ -ykw600 -j -n/
 
 ifeq ($(MACHINE),CRAY)
   FC=cft77
-  ifdef DEBUG
+  ifeq ($(DEBUG),yes)
     FFLAGS=-e m -e z -a stack -o off
   else
     FFLAGS=-e m -e z -a stack
@@ -179,12 +182,13 @@ else  # !CRAY
     FC=xlf
   endif
   LD=$(FC)
-  ifdef DEBUG
+  ifeq ($(DEBUG),yes)
     FFLAGS=-c -g -u
     LDFLAGS=
     CFLAGS=-g
   else
-    FFLAGS=-c -O
+    FFLAGS=-c -O -pg
+    LDFLAGS=-pg
     CFLAGS=-O
   endif
 endif
