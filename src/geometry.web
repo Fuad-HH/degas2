@@ -3,6 +3,10 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.33  2000/04/01 17:32:21  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.32.2.1  1999/12/16 18:54:49  dstotler
 % Add factor of sqrt(3) to epsilon test in surface_reflect. Later raised
 % to 2*epsilon and then 3. Suspect this may be correlated with incident
@@ -861,7 +865,16 @@ $\vect e_2 = \vect e_3 \times \vect e_1$.
 @#endif
          vc_set(e2,one,zero,zero)
          vc_cross(e3,e2,e1)
+@#if 0
          if (vc_abs(e1) == zero) then
+@#else
+/*
+   Found a case (box geometry with plate source) that slipped through 
+   this with $\vec{e2}$ and $\vec{e3}$ differing only by roundoff
+   error. This result argued for loosening this test as well.
+*/
+         if (vc_abs(e1) <= vc_abs(v)*const(3.)*epsilon) then
+@#endif
             e[2,2]=one
             vc_cross(e3,e2,e1)
          end if
