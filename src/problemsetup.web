@@ -2,6 +2,10 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.34  2001/07/16 21:00:49  dstotler
+% Changes to fix bug in allocation of pr_var0_list. Added
+% pr_var_xz_stress for Couette flow example.
+%
 % Revision 1.33  2000/04/01 17:33:25  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -155,7 +159,7 @@ practice, the sum total of the data available to the code (although
 in principle it could be smaller). The second level is the problem level
 of data. This prescribes the species, reactions, materials, and
 PMI which will serve as the physical
-model to be used in carrying the simulation at hand. In some
+model to be used in carrying out the simulation at hand. In some
 parts of the (internal) code, these are also referred to as the
 subset data since they represent a subset of the reference data.
 
@@ -205,7 +209,6 @@ MATERIALS
 
 mo
 mirror
-Ex
 
 PMI
 
@@ -214,8 +217,6 @@ hdesorbmo
 h2desorbmo
 hmirror
 h2mirror
-hadsorbex
-h2adsorbex
 \end{verbatim}
 
 This file is read by |problemsetup|. The reference lists are
@@ -747,7 +748,7 @@ of greatest interest, this would entail carrying around 3 sets of
 the problem is that we're saying ``all of the atomic physics for the hydrogen
 isotopes is the same except the wavelength''; the fact that there is an
 exception strictly speaking invalidates the notion of generic species.
-However, the other payoffs of generic species heavily outweigh this o
+However, the other payoffs of generic species heavily outweigh this one
 exception. Here, the data files carry a generic name and multiple wavelengths.
 Each of these should now be in the |pr_var0_list|. 
 However, the scoring dependent variables will refer to emission rates
@@ -1186,6 +1187,10 @@ routine specific for each reaction.
          call set_prod_elastic(pr_test_args(ts),sp_args(reagents),rc_args(r))
       else if (rc_reaction_type(r)=='bgk_elastic') then
          call set_prod_elastic(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='excitation') then
+         call set_prod_excite(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='deexcitation') then
+         call set_prod_excite(pr_test_args(ts),sp_args(reagents),rc_args(r))
       else
          pr_num_arrangements(ts,pr_rc_num(ts))=0
          return
@@ -1450,6 +1455,66 @@ by the recombination of A and B.
       return
       end 
       
+@ Set up isotopic variants of excitation. This routine is also suitable
+for deexcitation. The general form of these reactions is:
+\begin{equation}
+{\rm A} + {\rm B} \rightarrow {\rm A} + {\rm B}^{\ast},
+\end{equation}
+where A is the background species and B is the test species. The
+$\ast$ indicates a change in the electron configuration of the species.
+In terms of DEGAS 2's species characteristics, this is just a change
+in the species label; the elements comprising the reagent and
+product test species must be the same.
+
+@<Functions...@>=
+      subroutine set_prod_excite(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
+      implicit_none_f77
+      ps_common
+      rc_common
+      pr_common
+      sp_common
+      implicit_none_f90
+
+      pr_test_decl(ts)
+      sp_decl(reagents[*])
+      rc_decl(r)
+
+      external species_add_check      // External
+      logical species_add_check
+
+      integer i                       // Local
+
+      sp_decl(product)
+
+      st_decls
+
+      assert(rc_product_num(r)==2)
+      pr_num_arrangements(ts,pr_rc_num(ts))=1
+      pr_prod_mult(ts,pr_rc_num(ts),1)=one
+/* 
+   First product corresponds to the reagent which does the exciting:
+   its species is unaltered. 
+*/
+      assert(sp_generic(rc_product(r,1))==sp_generic(reagents[1]))
+      pr_ts_prod(ts,pr_rc_num(ts),1,1)=reagents[1]
+/* 
+   The second product is the result of the excitation or deexcitation.
+   It corresponds only to a different electron configuration from the
+   reagent. So, |species_add_check| will suffice for picking out the
+   appropriate product.
+*/
+      do i=1,num_equiv[generics[rc_product(r,2)]]
+         product=equivalents[i,generics[rc_product(r,2)]]
+         if (species_add_check(1,sp_args(product),1,sp_args(reagents[2]))) then
+            pr_ts_prod(ts,pr_rc_num(ts),1,2)=product
+            return
+         end if
+      end do
+      assert('Unmatched excitation product' == ' ') 
+
+      return
+      end
+
 @ This is a clearing-house routine used to select the product-setting
 routine specific for each reaction among background species. Presently,
 the only application for this is recombination.
@@ -1548,8 +1613,6 @@ specific for each PMI.
 
       if (pm_pmi_type(p)=='reflection') then
          call set_prod_reflection(pr_test_args(ts),pm_args(p))
-      else if (pm_pmi_type(p)=='adsorption') then
-         call set_prod_adsorption(pr_test_args(ts),pm_args(p))
       else if (pm_pmi_type(p)=='desorption') then
          call set_prod_desorption(pr_test_args(ts),pm_args(p))
       else if (pm_pmi_type(p)=='sputter') then
@@ -1593,29 +1656,6 @@ comes in must go out.''
 /* The only product had better be the same as the incoming test particle */
       assert(sp_generic(pm_product(p,1))==sp_generic(pr_test(ts)))
       pr_pm_prod(ts,pr_pm_case_num(ts),1,1)=pr_test(ts)
-
-      return
-      end
-
-@ Set up isotopic variations for adsorptions. It doesn't get any easier
-than this.
-
-@<Functions...@>=
-      subroutine set_prod_adsorption(pr_test_dummy(ts),pm_dummy(p))
-      implicit_none_f77
-      pr_common                 // Common
-      pm_common
-      implicit_none_f90
-
-      pr_test_decl(ts)          // Input
-      pm_decl(p)
-
-
-      assert(pm_product_num(p)==0)
-      pr_pm_num_arrange(ts,pr_pm_case_num(ts))=1
-      pr_pm_prod_mult(ts,pr_pm_case_num(ts),1)=one
-
-      pr_pm_prod(ts,pr_pm_case_num(ts),1,1)=0
 
       return
       end
