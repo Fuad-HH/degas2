@@ -2,6 +2,10 @@
 \Title{score}
 
 % $Log$
+% Revision 1.17  2002/01/28 16:58:02  dstotler
+% Allow for multiple sectors per surface in score_diagnostics and
+% handle_diagnostics.
+%
 % Revision 1.16  2001/11/16 15:56:57  dstotler
 % Pass stat_flt to post_process_test_scores by common rather than
 % argument list.
@@ -110,7 +114,7 @@
 
 @m STARK 0
 
-@m max_segments 40
+@m max_segments 3000
 
 @I macros.hweb
 @I sysdep.hweb
@@ -230,7 +234,7 @@
       real estimator_factors[*]                        // Scratch
 
       integer i,j,jscore,pr_reac,idiag,i_side,sector,  // Local
-     $        surface,count,i_sect,subsector         
+     $        surface,count,i_sect,subsector,zone         
       real scoring_data[scoring_data_max]
       logical need_scores
 
@@ -248,8 +252,10 @@
             do i_side=1,2
                if (i_side == 1) then
                   sector=lc_sector(pt_loc(prod[j]))
+                  zone=lc_zone(pt_loc(prod[j]))
                else if (i_side == 2) then
                   sector=lc_sector_next(pt_loc(prod[j]))
+                  zone=lc_zone_next(pt_loc(prod[j]))
                else
                   assert(' You are seriously lost!' == ' ')
                end if
@@ -265,7 +271,7 @@
    going the wrong way for the current pair of sectors (flight is going
    out of |sector| and coming into |sector_next|).
 */
-                     if ((sc_diag_check(idiag,tally_geometry_ptr[jscore])) 
+                     if ((sc_diag_check(idiag,tally_geometry_ptr[jscore]) && (sector_zone[subsector] == zone)) 
      $                    && (((i_side == 1) && !((tally_dep_var[jscore] >= pr_var_mass_in) 
      $                                            && (tally_dep_var[jscore] <= pr_var_mass_in+pr_num_diag_vars-1))) 
      $                        || ((i_side == 2) && !((tally_dep_var[jscore] >= pr_var_mass_out) 
@@ -292,8 +298,14 @@
             call sector_scoring_data(pt_args(prod[j]),scoring_data)
 
             pr_reac=0
+@#if 0
+// This is wrong, but doesn't appear to affect anything interesting.
             call add_scores(tl_type_sector,pt_args(prod[0]),pr_reaction_args(pr_reac),
      $           scoring_data,estimator_factors)
+@#else
+            call add_scores(tl_type_sector,pt_args(prod[j]),pr_reaction_args(pr_reac),
+     $           scoring_data,estimator_factors)
+@#endif
          end if
       end do  // Over |j|
 
@@ -314,19 +326,45 @@
       pt_decl(p)                                    // Input
       real scoring_data[scoring_data_max]           // Output
 
-      real cos_angle                                // Local
+      real cos_angle,cos_angle_next                 // Local
       integer psp
 
       external intersection_direction               // External
       real intersection_direction      
 
 /* 
-   The original set (angle and energy will still be used for distributions.
+   The original set (angle and energy) will still be used for distributions.
 */
       scoring_data[pr_var_mass]=sp_m(pt_sp(p))
 
+@#if 0
       cos_angle=intersection_direction(lc_face(pt_loc(p)),lc_x(pt_loc(p))[1],
      $     pt_v(p)[1])
+@#else
+      if ((sc_check(lc_sector(pt_loc(p)))) && sc_check(lc_sector_next(pt_loc(p)))) then
+         cos_angle=intersection_direction(sector_surface[lc_sector(pt_loc(p))],lc_x(pt_loc(p))[1],
+     $     pt_v(p)[1])
+         cos_angle_next=intersection_direction(sector_surface[lc_sector_next(pt_loc(p))],lc_x(pt_loc(p))[1],
+     $     pt_v(p)[1])
+/*
+   Since these should be two sides of the same surface, the results of 
+   |intersection_direction| should have opposite sign.  Since the
+   orientation of the flight relative to the sector is handled via the
+   diagnostic's dependent variable, we can take the absolute value
+   (use this for the single sector cases also).
+*/
+         assert(cos_angle + cos_angle_next < geom_epsilon)
+         cos_angle=abs(cos_angle)
+      else if (sc_check(lc_sector(pt_loc(p)))) then
+         cos_angle=abs(intersection_direction(sector_surface[lc_sector(pt_loc(p))],lc_x(pt_loc(p))[1],
+     $     pt_v(p)[1]))
+      else if (sc_check(lc_sector_next(pt_loc(p)))) then
+         cos_angle=abs(intersection_direction(sector_surface[lc_sector_next(pt_loc(p))],lc_x(pt_loc(p))[1],
+     $     pt_v(p)[1]))
+      else
+         assert(' No valid sector in sector_scoring_data!' == ' ')
+      end if
+@#endif
       scoring_data[pr_var_angle]=acos(cos_angle)
 
       scoring_data[pr_var_energy]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
@@ -1086,7 +1124,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
       real geom_mult[max_segments][max_bins]
 
       integer diag_grp,idiag,i_side,sector,           // Local
-     $        i_sect,surface,count,subsector      
+     $        i_sect,surface,count,subsector,zone      
       real value
 
       lc_decls
@@ -1104,8 +1142,10 @@ bins. The treated variables thus far are energy and angle of incicidence.
       do i_side=1,2
          if (i_side == 1) then
             sector=lc_sector(pt_loc(p))
+            zone=lc_zone(pt_loc(p))
          else if (i_side == 2) then
             sector=lc_sector_next(pt_loc(p))
+            zone=lc_zone_next(pt_loc(p))
          else
             assert(' You are seriously lost!' == ' ')
          end if
@@ -1116,7 +1156,8 @@ bins. The treated variables thus far are energy and angle of incicidence.
             do i_sect=1,count
                subsector=sectors[surface_sectors[s_sign(surface),s_start,abs(surface)]+i_sect-1]
                idiag=sector_type_pointer[subsector][sc_diagnostic(diag_grp)]
-               if (sc_diag_check(idiag,diag_grp)) then
+               if (sc_diag_check(idiag,diag_grp) 
+     $              && (sector_zone[subsector] == zone)) then
                   number_segments++
                   assert(number_segments <= max_segments)
                   segments[number_segments]=idiag
