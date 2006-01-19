@@ -2,6 +2,10 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.12  2001/11/16 15:55:24  dstotler
+% Add D -> Fe from TRIM (needed for MRX). Move some declaration lines to
+% make NAG happy.
+%
 % Revision 1.11  2001/07/16 20:59:26  dstotler
 % Comment out most of the subroutine calls in the main program so that
 % it doesn't make such a mess of the directory when being run. Add calls
@@ -121,26 +125,17 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       version='V. 1.1, He reflection on Fe, marlowe data from marl.dat'
       call pmi_write_degas_marl(tag,version)
 @#if 0
+      tag='d -> fe'
+      version='V. 1.1, H reflection on Fe, marlowe data from marl.dat'
+      call pmi_write_degas_marl(tag,version)
+
       tag='h -> fe'
       version='V. 1.1, H reflection on Fe, marlowe data from marl.dat'
       call pmi_write_degas_marl(tag,version)
 @#endif
-      tag='hmirror'
-      version='V. 1.1, simple data for unit yield, specular reflection of H on a mirror'
+      tag='mirror'
+      version='V. 1.2, generic data for unit yield, specular reflection of any species on a mirror'
       call pmi_write_mirror(tag,version)
-@#if 0
-      tag='h2mirror'
-      version='V. 1.1, simple data for unit yield, specular reflection of H2 on a mirror'
-      call pmi_write_mirror(tag,version)
-      tag='hadsorbc'
-      v_type='none'
-      version='V. 1.1, simple data for adsorption of H on C'
-@#endif
-      call pmi_write_misc(tag,const(0.1),v_type,version)
-      tag='h2adsorbc'
-      v_type='none'
-      version='V. 1.1, simple data for adsorption of H on C'
-      call pmi_write_misc(tag,const(0.2),v_type,version)
 //      Try doing these manually... 
 @#if 0
       tag='hdesorbc'
@@ -149,16 +144,6 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       tag='h2desorbc'
       v_type='cosine'
       call pmi_write_misc(tag,const(-1.0),v_type)
-@#endif
-@#if 0
-      tag='hadsorbex'
-      v_type='none'
-      version='V. 1.1, simple data for adsorption of H at exit'
-      call pmi_write_misc(tag,one,v_type,version)
-      tag='h2adsorbex'
-      v_type='none'
-      version='V. 1.1, simple data for adsorption of H2 at exit'
-      call pmi_write_misc(tag,one,v_type,version)
 @#endif
       call readfilenames
       call nc_read_elements     // Needed to rescale TRIM data
@@ -171,7 +156,7 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       data_tag=tag
       version='V. 1.0. He reflection on C, trim data'
       call pmi_write_trim(tag,data_tag,version)
-
+@#if 0
       tag='He -> Fe'
       data_tag=tag
       version='V. 1.0. He reflection on Fe, trim data'
@@ -182,6 +167,11 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       version='V. 1.1. D reflection on Fe, trim data'
       call pmi_write_trim(tag,data_tag,version)
 
+      tag='H -> Fe'        
+      data_tag='H -> Fe'
+      version='V. 1.1. D reflection on Fe, trim data'
+      call pmi_write_trim(tag,data_tag,version)
+@#endif
       stop
       end
       
