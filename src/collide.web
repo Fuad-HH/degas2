@@ -2,6 +2,9 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.29  2002/01/28 16:49:30  dstotler
+% Add emission option to subr. dissoc and track_dissoc.
+%
 % Revision 1.28  2001/11/16 15:38:24  dstotler
 % Make argument to rn_gauss_next a 1 element array. Use Russian roulette
 % factors in dissociation product scoring. Russian roulette on
@@ -233,6 +236,16 @@
      $     scoring_data,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') then
          call ionize(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     scoring_data,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'excitation') then
+         call excite(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     scoring_data,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'deexcitation') then
+         call excite(pr_test_args(test),pr_reaction_args(ts_reac),
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     scoring_data,rn_args(x))
@@ -881,8 +894,11 @@ loop: continue
             end if
          end do
          if (num_lines > 0) then
+/* 
+   A non-zero |i_gen_rate| will indicate that the same rate is intended to
+   be used for all wavelengths present (see subroutine |ionize|).
+*/
             i_gen_rate=string_lookup('emission_rate',pr_var0_list,pr_var0_num)
-            assert(i_gen_rate > 0)
          end if
          init=.false.
       end if
@@ -958,15 +974,20 @@ break:continue
 /*
    Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
    specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
-   the density factor, as is done for the ionization rate above.
+   the density factor, as is done for the ionization rate above.  For
+   the explicitly labeled lines, just need to add density factor.
 */
       if (num_lines > 0) then
          do i=1,num_lines
-            if (scoring_data[lines[i]] > zero) then
-               assert(scoring_data[e_rates[i]] == zero)
-               assert(rc_emitter(reac) != 0)
-               scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
-     $              *independent_parameters[xs_var_density]
+            if (i_gen_rate > 0) then
+               if (scoring_data[lines[i]] > zero) then
+                  assert(scoring_data[e_rates[i]] == zero)
+                  assert(rc_emitter(reac) != 0)
+                  scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
+     $                 *independent_parameters[xs_var_density]
+               end if
+            else
+               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
             end if
          end do
       end if
@@ -1346,7 +1367,13 @@ of suppressed absorption.
          end do
          if (num_lines > 0) then
             i_gen_rate=string_lookup('emission_rate',pr_var0_list,pr_var0_num)
+/*
+   Take this out for now so we can handle multiple lines per reaction
+   (with properly labeled emission rates).
+*/
+@#if 0
             assert(i_gen_rate > 0)
+@#endif
          end if
          init=.false.
       end if
@@ -1406,16 +1433,6 @@ of suppressed absorption.
          scoring_data[pr_var_emitter_v_3]=v_emitter[3]
       end if
 
-/*
-   ``In general'' the emission rate and wavelength variables should both
-   have the name of the line appended to the variable names. For the case
-   of greatest interest, this would entail carrying around 3 sets of 
-   (usually) identical data - one for each hydrogen isotope. This
-   is a compromise : since we assume only one emitter, we can give it a
-   generic name without confusion. Below we look for the nonzero wavelength
-   and upon finding it reset the emission rate variable to have the 
-   corresponding line name.
-*/
       do i=1,rd_dep_var_max
          if (reaction_handling_var0[pr_reac][i] == i_eioniz) then
             eioniz=independent_parameters[xs_var_density]
@@ -1427,23 +1444,40 @@ of suppressed absorption.
      $           [pr_reac][i]),independent_parameters,rn_args(x))
          end if
       end do
-
 /*
+   ``In general'' the emission rate and wavelength variables should both
+   have the name of the line appended to the variable names. For the case
+   of greatest interest, this would entail carrying around 3 sets of 
+   (usually) identical data - one for each hydrogen isotope. This
+   is a compromise : since we assume only one emitter, we can give it a
+   generic name without confusion. Below we look for the nonzero wavelength
+   and upon finding it reset the emission rate variable to have the 
+   corresponding line name.  If we had multiple lines per emitter (e.g.,
+   we were scoring H$_{\alpha}$, H$_{\beta}$, etc.), we could 
+   conceivably have an array of ``generic'' rates and lines.  The 
+   practice thus far, however, is to compute most of these during 
+   post-processing.  Only more detailed scores, such as a spectrum,
+   need to be during during the main run.
+
    Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
    specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
-   the density factor, as is done for the ionization rate above.
+   the density factor, as is done for the ionization rate above.  For
+   the explicitly labeled lines, just need to add density factor.
 */
       if (num_lines > 0) then
          do i=1,num_lines
-            if (scoring_data[lines[i]] > zero) then
-               assert(scoring_data[e_rates[i]] == zero)
-               assert(rc_emitter(reac) != 0)
-               scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
-     $              *independent_parameters[xs_var_density]
+            if (i_gen_rate > 0) then
+               if (scoring_data[lines[i]] > zero) then
+                  assert(scoring_data[e_rates[i]] == zero)
+                  assert(rc_emitter(reac) != 0)
+                  scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
+     $                 *independent_parameters[xs_var_density]
+               end if
+            else
+               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
             end if
          end do
       end if
-
 /*
    Collision scoring of coupling scores
 */
@@ -1510,6 +1544,230 @@ of suppressed absorption.
 @#if 0
       assert(species_add_check(2,sp_args(prod[2]),1,sp_args(pr_test(test))))
 @#endif
+      return
+      end
+
+@ Process an excitation or deexcitation. Arguments are the same as 
+for |chargex|.
+
+@m max_lines 3
+
+@<Functions...@>=
+      subroutine excite(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $     scoring_data,rn_dummy(x))
+
+      implicit_none_f77
+      pr_common
+      rc_common
+      sp_common
+      rd_common
+
+      implicit_none_f90
+
+      rd_decls
+      st_decls
+      pr_test_decl(test)                               // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      integer nprod                                    // Output
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max],scoring_data[scoring_data_max]
+      rn_decl(x)                                       // Input/output
+
+      pr_reaction_decl(pr_reac)                        // Local
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      pr_test_decl(test_i)
+      rc_decl(reac)
+      integer i,i_eloss,i_esrc,num_lines,i_e_rate,i_gen_rate,psp_i
+      integer lines[max_lines],e_rates[max_lines]
+      real eloss,esrc,m_i
+      vc_decl(v_test)
+      vc_decl(v_emitter)
+      character*tl_tag_length line
+      logical init
+
+      external eval_data,species_add_check             // External
+      real eval_data
+      logical species_add_check
+      save init,i_eloss,i_esrc,num_lines,lines,e_rates,i_gen_rate
+      data init/.true./
+
+      if (init) then
+         i_eloss=string_lookup('background_energy_loss_rate',pr_var0_list,
+     $        pr_var0_num)
+         i_esrc=string_lookup('background_energy_source_rate',pr_var0_list,
+     $        pr_var0_num)
+         num_lines=0
+         do i=1,pr_var0_num
+            if (pr_var0_list[i]SP(1:10) == 'wavelength') then
+               num_lines++
+               lines[num_lines]=i
+               line=pr_var0_list[i]SP(11:)
+               i_e_rate=string_lookup('emission_rate'\/line,
+     $              pr_var0_list,pr_var0_num)
+               assert(i_e_rate > 0)
+               e_rates[num_lines]=i_e_rate
+            end if
+         end do
+         if (num_lines > 0) then
+/* 
+   A non-zero |i_gen_rate| will indicate that the same rate is intended to
+   be used for all wavelengths present (see subroutine |ionize|).
+*/
+            i_gen_rate=string_lookup('emission_rate',pr_var0_list,pr_var0_num)
+         end if
+         init=.false.
+      end if
+      
+      pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
+      assert(pr_num_arrangements(test,ts_reac) == 1)
+/*
+   Trying this approach here; may want to propagate into the other
+   scoring routines: loop through the ``handling'' dependent variables.
+   Grab everything which is explicitly needed for this routine to work.
+   Dump everything else into |scoring_data| along with its name. This
+   will allow: 
+   \begin{enumerate}
+     \item This code to not keep track of which emission lines (if
+           any at all) are present in the data.
+     \item Any data which are special to a particular reaction of this
+           type to be scored simply by setting |tally_dep_var| to the
+           same label. {\em This code would not require modification.}
+   \end{enumerate}
+*/
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+      end do
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,1,i)
+         if (sp_sy(prod[i]) != 'e') then
+            vc_copy(v_test,v_prod[i])
+            w_prod[i]=one
+         else
+            vc_set(v_prod[i],zero,zero,zero)
+            w_prod[i]=zero
+         end if
+      end do
+
+      reac=pr_reaction(pr_reac)
+      if (rc_emitter(reac) != 0) then
+         if (rc_emitter(reac) > 0) then
+            vc_copy(v_prod[rc_emitter(reac)],v_emitter)
+            independent_parameters[xs_var_m_emitter]=sp_m(prod[rc_emitter(reac)])
+/* 
+   Don't really recall which reagent is which. Should be able to tell
+   test from a back just with |sp_generic|.
+*/
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_test(test))) then
+            vc_copy(v_test,v_emitter)
+            independent_parameters[xs_var_m_emitter]=sp_m(pr_test(test))
+         else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
+     $           == sp_generic(pr_background(back))) then
+            assert('background velocity not set' == ' ')
+         end if
+         scoring_data[pr_var_emitter_v_vector]=v_emitter[1]
+         scoring_data[pr_var_emitter_v_2]=v_emitter[2]
+         scoring_data[pr_var_emitter_v_3]=v_emitter[3]
+      end if
+/*
+   ``In general'' the emission rate and wavelength variables should both
+   have the name of the line appended to the variable names. For the case
+   of greatest interest, this would entail carrying around 3 sets of 
+   (usually) identical data - one for each hydrogen isotope. This
+   is a compromise : since we assume only one emitter, we can give it a
+   generic name without confusion. Below we look for the nonzero wavelength
+   and upon finding it reset the emission rate variable to have the 
+   corresponding line name.
+*/
+      eloss=zero
+      esrc=zero
+      do i=1,rd_dep_var_max
+         if (reaction_handling_var0[pr_reac][i] == i_eloss) then
+            eloss=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] == i_esrc) then
+            esrc=independent_parameters[xs_var_density]
+     $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
+     $           independent_parameters,rn_args(x))
+         else if (reaction_handling_var0[pr_reac][i] != pr_var_unknown) then
+            scoring_data[reaction_handling_var0[pr_reac][i]]
+     $           =eval_data(rd_data_args(reaction_handling,
+     $           [pr_reac][i]),independent_parameters,rn_args(x))
+         end if
+      end do
+/*
+   Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
+   specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
+   the density factor, as is done for the ionization rate above. For
+   the explicitly labeled lines, just need to add density factor.
+*/
+      if (num_lines > 0) then
+         do i=1,num_lines
+            if (i_gen_rate > 0) then
+               if (scoring_data[lines[i]] > zero) then
+                  assert(scoring_data[e_rates[i]] == zero)
+                  assert(rc_emitter(reac) != 0)
+                  scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
+     $                 *independent_parameters[xs_var_density]
+               end if
+            else
+               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
+            end if
+         end do
+      end if
+/*
+   Collision scoring of coupling scores
+*/
+      psp_i=pr_problem_sp_back(back)
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
+     $  -sp_m(pr_background(back))*rate
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=(esrc-eloss)
+
+      psp_i=pr_problem_sp_test(test)
+      m_i=sp_m(pr_test(test))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
+     $        -m_i*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
+     $        -m_i*v_test[1]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
+     $        -m_i*v_test[2]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_i)]+=
+     $        -m_i*v_test[3]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
+     $        -half*m_i*vc_abs2(v_test)*rate
+
+      do i=1,nprod
+         prod[i]=pr_ts_prod(test,ts_reac,1,i)
+         test_i=pr_test_lookup(prod[i])
+         if (test_i != 0) then
+            psp_i=pr_problem_sp_test(test_i)
+         else
+            back_i=pr_background_lookup(prod[i])
+            assert(back_i != 0)
+            psp_i=pr_problem_sp_back(back_i)
+         end if
+         scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
+     $        sp_m(prod[i])*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
+     $        sp_m(prod[i])*v_prod[i][1]*rate 
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
+     $        sp_m(prod[i])*v_prod[i][2]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_i)]+=
+     $        sp_m(prod[i])*v_prod[i][3]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
+     $        half*sp_m(prod[i])*vc_abs2(v_prod[i])*rate
+      end do
+            
       return
       end
 
@@ -1685,6 +1943,14 @@ loop: continue
      $        scoring_data,rn_args(x))
       else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress') then
          call track_ionize(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        scoring_data,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'excitation') then
+         call track_excite(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        scoring_data,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'deexcitation') then
+         call track_excite(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        scoring_data,rn_args(x))
       else
@@ -2015,8 +2281,11 @@ loop: continue
             end if
          end do
          if (num_lines > 0) then
+/* 
+   A non-zero |i_gen_rate| will indicate that the same rate is intended to
+   be used for all wavelengths present (see subroutine |ionize|).
+*/
             i_gen_rate=string_lookup('emission_rate',pr_var0_list,pr_var0_num)
-            assert(i_gen_rate > 0)
          end if
          init=.false.
       end if
@@ -2144,7 +2413,7 @@ loop: continue
    the density factor, as is done for the ionization rate above. These lines
    differ from those in subroutine |dissoc| in that the line-specific elements
    of |scoring_data| are incremented rather than set since there may be multiple
-   contributions from the various arrangements.
+   contributions from the various arrangements. 
 */
          if (num_lines > 0) then
             do i_line=1,num_lines
@@ -2154,8 +2423,14 @@ loop: continue
      $                    [pr_reac][i]),independent_parameters,rn_args(x))
                      if (this_line > zero) then
                         assert(rc_emitter(reac) != 0)
-                        scoring_data[e_rates[i_line]]+=scoring_data[i_gen_rate]
-     $              *independent_parameters[xs_var_density]*pr_prod_mult(test,ts_reac,j_arr)
+                        if (i_gen_rate > 0) then
+                           scoring_data[e_rates[i_line]]+=scoring_data[i_gen_rate]
+     $                          *independent_parameters[xs_var_density]
+     $                          *pr_prod_mult(test,ts_reac,j_arr)
+                        else
+                           scoring_data[e_rates[i_line]]*=(independent_parameters[xs_var_density]
+     $                          *pr_prod_mult(test,ts_reac,j_arr))
+                        end if
                      end if
                   end if
                end do
@@ -2371,6 +2646,40 @@ loop: continue
       return
       end
 
+@ Compute scoring data for excitation and deexcitation track-length estimator.
+
+@<Functions...@>=
+      subroutine track_excite(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
+     $     scoring_data,rn_dummy(x))
+
+      implicit_none_f77
+      implicit_none_f90
+      pr_test_decl(test)                               // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      real scoring_data[scoring_data_max]              // Output
+      rn_decl(x)                                       // Input/output
+
+      integer nprod                                    // Local (dummies)
+      real w_prod[rc_product_max]
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+
+/*
+   The code we need here looks so much like the corresponding reaction
+   processing routine that we might as well just call it.
+*/
+      call excite(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     scoring_data,rn_args(x))
+
+      return
+      end
+
 @ Set scoring data for recombinations. Recombination scoring is
 actually done at the source point or as a post-processor.
 
@@ -2443,8 +2752,11 @@ actually done at the source point or as a post-processor.
             end if
          end do
          if (num_lines > 0) then
+/* 
+   A non-zero |i_gen_rate| will indicate that the same rate is intended to
+   be used for all wavelengths present (see subroutine |ionize|).
+*/
             i_gen_rate=string_lookup('emission_rate',pr_var0_list,pr_var0_num)
-            assert(i_gen_rate > 0)
          end if
          init=.false.
       end if
@@ -2545,20 +2857,19 @@ actually done at the source point or as a post-processor.
 */
       if (num_lines > 0) then
          do i=1,num_lines
-            if (scoring_data[lines[i]] > zero) then
-               assert(scoring_data[e_rates[i]] == zero)
-               assert(rc_emitter(reac) != 0)
-@#if 0
-               scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
-     $              *independent_parameters[xs_var_density]
-@#else
+            if (i_gen_rate > 0) then
+               if (scoring_data[lines[i]] > zero) then
+                  assert(scoring_data[e_rates[i]] == zero)
+                  assert(rc_emitter(reac) != 0)
 /*
    Remove rate factor here. Future data should do this directly in
    the data file.
 */
-               scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
-     $              *independent_parameters[xs_var_density]/rate
-@#endif
+                  scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
+     $                    *independent_parameters[xs_var_density]/rate
+               end if
+            else
+               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]/rate
             end if
          end do
       end if
