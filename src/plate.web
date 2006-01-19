@@ -2,6 +2,9 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.12  2001/11/16 15:51:38  dstotler
+% Make arguments to rn_gauss_next and interpolate1 1 element arrays.
+%
 % Revision 1.11  2001/07/16 20:58:20  dstotler
 % Incorporate changes needed for Couette flow example with a macro
 % parameter.
@@ -190,11 +193,6 @@ returned. The random number thread |x| is included in case it's needed.
      $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $        pt_w(prod[1]),rn_args(x))
 
-      else if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'adsorption') then
-         call adsorption(pr_test_args(pt_test(prod[0])),pr_pmi_args(ts_pmi),
-     $        independent_parameters,
-     $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
-     $        pt_w(prod[1]),rn_args(x))
       else
          assert('Unsupported pmi type' == ' ')
       end if
@@ -219,8 +217,20 @@ returned. The random number thread |x| is included in case it's needed.
             pt_test(prod[i])=pr_test_lookup(pt_sp(prod[i]))
             lc_copy(pt_loc(prod[0]),pt_loc(prod[i]))
 /*
-   Swap sectors to get incoming / outgoing directions right for products.
+   The scoring of the incoming and outgoing particles is done as if
+   the incoming particle were leaving the plasma zone and heading
+   into the solid zone.  The reverse is assumed for the outgoing
+   particle.  This is analogous to the use of |lc_thru_face| for 
+   crossing a zone boundary.  But, we do not want to attempt to
+   re-establish the location (e.g., by |particle_track|) from within
+   the solid zone.  Instead, we emulate its effect explicitly here.
+   Note that we do not modify |lc_face| (only |sector_surface| is used
+   in the scoring routines).  
 */
+            lc_cell(pt_loc(prod[i]))=lc_cell_next(pt_loc(prod[0]))
+            lc_cell_next(pt_loc(prod[i]))=lc_cell(pt_loc(prod[0]))
+            lc_zone(pt_loc(prod[i]))=lc_zone_next(pt_loc(prod[0]))
+            lc_zone_next(pt_loc(prod[i]))=lc_zone(pt_loc(prod[0]))
             lc_sector(pt_loc(prod[i]))=lc_sector_next(pt_loc(prod[0]))
             lc_sector_next(pt_loc(prod[i]))=lc_sector(pt_loc(prod[0]))
             pt_t(prod[i])=pt_t(prod[0])
@@ -267,13 +277,20 @@ work is all done in |pd_eval_v_product|.
 
 
       pmi_sub=pr_pm_cases(test,ts_pmi)
-
-/* These are two characteristics of reflection: 1 product particle, same
+/* 
+   These are two characteristics of reflection: 1 product particle, same
    index as the incoming particle. These should have been implemented
-   during |problemsetup| */
+   during |problemsetup|.  Have modified the assert requiring the product
+   to be the same as the incident test species since we now have PMI's
+   in which the electronic state of the two may differ.  Need this assertion
+   only to facilitate determination of the product in the generic species
+   case.
+*/
       assert(pm_product_num(pr_pm_ref(pmi_sub)) == 1)
       assert(pr_pm_num_arrange(test,ts_pmi) == 1)
-      assert(pr_pm_prod(test,ts_pmi,1,1) == pr_test(test))
+      if (pm_gen(pr_pm_ref(pmi_sub)) == pmi_generic_yes) then
+         assert(pr_pm_prod(test,ts_pmi,1,1) == pr_test(test))
+      end if
       nprod=1
       prod[1]=pr_pm_prod(test,ts_pmi,1,1)
 
@@ -356,48 +373,6 @@ for incident hydrogen atoms, either an atom or a molecule may be desorbed.
       w_prod[1]=one/wt_factor
 
       return
-      end
-
-@ Process adsorptions. This might not ever get used since adsorptions will
-probably be handled entirely at a higher level.
-
-@<Functions...@>=
-      subroutine adsorption(pr_test_dummy(test),pr_pmi_dummy(ts_pmi),
-     $   independent_parameters,
-     $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
-     $   rn_dummy(x))
-
-      implicit_none_f77
-      pd_common                               // Common
-      pm_common
-      sp_common
-      pr_common
-      implicit_none_f90
-
-      pr_test_decl(test)                      // Input
-      pr_pmi_decl(ts_pmi)
-      real independent_parameters[pf_max_indep_params]
-
-      integer nprod                           // Output
-      sp_decl(prod[pm_product_max])
-      vc_decl(v_prod[pm_product_max])
-      real w_prod[pm_product_max]
-
-      rn_decl(x)                              // Input/output
-
-      pr_pmi_decl(pmi_sub)                    // Local
-
-
-      pmi_sub=pr_pm_cases(test,ts_pmi)
-
-/* Essentially just need to set |nprod|=0; set the others just in case */
-      assert(pm_product_num(pr_pm_ref(pmi_sub)) == 0)
-      nprod=0
-      prod[1]=0
-      vc_set(v_prod[1],zero,zero,zero)
-      w_prod[1]=zero
-
-      return 
       end
 
 @ Evaluate velocity direction and magnitude for a product species.
@@ -1067,7 +1042,11 @@ information into PMI yield and handling arrays.
 
       @<Memory allocation interface@>
       
-      assert(pf_name==pm_sy(pr_pm_ref(num)))
+      if (pf_name != pm_sy(pr_pm_ref(num))) then
+         write(stdout,*) 'Warning: PMI ',pm_sy(pr_pm_ref(num)),
+     $        ' refers to a PMI data file containing a different name, ',
+     $        pf_name
+      end if
 
 /* Initialize */
       ph_ind=0
