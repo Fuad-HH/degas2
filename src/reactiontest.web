@@ -2,6 +2,9 @@
 \Title{reaction}
 
 % $Log$
+% Revision 1.23  2001/11/16 15:56:26  dstotler
+% Add more output of scoring_data, including pr_var0_list strings.
+%
 % Revision 1.22  2000/04/01 17:35:39  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved. Add rn_decls.
@@ -453,6 +456,16 @@ loop1: continue
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'ionize_suppress') then
          call ionize(pr_test_args(pr_test_lookup(test)),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $        scoring_data,rn_args(tag))
+      else if (rc_reaction_type(reaction) == 'excitation') then
+         call excite(pr_test_args(pr_test_lookup(test)),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $        scoring_data,rn_args(tag))
+      else if (rc_reaction_type(reaction) == 'deexcitation') then
+         call excite(pr_test_args(pr_test_lookup(test)),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
