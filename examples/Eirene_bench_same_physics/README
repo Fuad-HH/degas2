@@ -35,16 +35,15 @@ for convenience. If the data format (xsection.hweb) changes, these files
 should be regenerated. For now, though, the reactions.input file will look
 for them here and nothing more needs to be done.
 
-The version of EIRENE being compared with also used older charge exchange
-data with simple expressions for the momentum and energy transfers. 
-The ratecalc code can be run with the input file hchexold.input to
-generate the corresponding DEGAS 2 data. However, duplicating the
-simple EIRENE expressions for the momentum and energy transfer rates
-requires a hack either to ratecalc or to subroutine track_chargex in
-the collide.web file. The former is preferred. For simplicity, the
-hchex.nc file is included here and is pointed to by the reactions.input file.
-A section at the end of this file describes the steps required to
-regenerate it using ratecalc.
+The version of EIRENE being compared with also used older charge
+exchange data with simple expressions for the momentum and energy
+transfers.  The ratecalc code can be run with the input file
+hchexold.input to generate the corresponding DEGAS 2 data. However,
+duplicating the simple EIRENE expressions for the momentum and energy
+transfer rates requires a hack to ratecalc. For simplicity, the
+hchex.nc file is included here and is pointed to by the
+reactions.input file.  A section at the end of this file describes the
+steps required to regenerate it using ratecalc.  
 
 Both EIRENE and DEGAS 2 take their molecular reaction data from the 
 "Janev book". EIRENE primarily uses the fits given in that book. As
@@ -58,9 +57,7 @@ Janev data. The DEGAS data had corrected values for these two points (and
 others as well). To get a better comparison between EIRENE and DEGAS 2,
 the DEGAS 2 data for h2dis must be hacked to match the EIRENE data.
 Again for simplicity, we've included the h2dis.nc file here. Details on
-recreating it can be found at the end of this file. In hchex.nc, the
-value of sgvmax is left at its default value of 0.0 to effectively disable
-rejection, as is done in the EIRENE run. 
+recreating it can be found at the end of this file. 
 
 Because this geometry differs from the normal single-null configuration
 expected by readgeometry, specific internal changes are required to that
@@ -100,13 +97,16 @@ group) flights.
    source group (first value) and for recombination (second value). Change
    the numbers to the desired values, save the file and exit the editor.
 
-The results from a 1000 flight (for each source group) run are included here
-as well in degas2_2000_out.nc and density_2000.out. The run
-time on a Sun UltraSPARC 2 running SunOS 5.6 and V. 5.0 of f77 with
-"-fast" optimization is 165 seconds (via the shell command "time flighttest").
-The corresponding EIRENE run takes 134 seconds with standard deviations 
-computed and printed (EIRENE runs considerably faster if the statistics
-are not kept). The output here was run on a Sun with DEBUG=no.
+The results from a 1000 flight (for each source group) run are
+included here as well in degas2_2000_out.nc and density_2000.out.  The
+original performance comparison for that case gave a run time on a Sun
+UltraSPARC 2 running SunOS 5.6 and V. 5.0 of f77 with "-fast"
+optimization of 165 seconds (via the shell command "time flighttest").
+The corresponding EIRENE run takes 134 seconds with standard
+deviations computed and printed (EIRENE runs considerably faster if
+the statistics are not kept).  Note that the output files are now from
+a run on a Linux computer with the Portland Group Fortran compiler
+(with DEBUG=yes).
 
 In addition to the EIRENE output files in the adjoining "different physics"
 directory, we include here the terminal output from EIRENE for this
@@ -144,36 +144,55 @@ They appear in the "rank = 2" section of subroutine table_value.
 >      $              *(ind_var[2]+const(1.5)*ind_var[1])
 >             end if
 
+In the interest of clarity, this section of code is normally:
+
+            if (xs_var[2,j] == 'specific_temperature' 
+     $           || xs_var[2,j] == 'specific_energy') then
+               assert(ra_mass_units == 'g')
+               fit_coef[num_fit_coef_aladdin]=dble(ind_var[2]*ra_mass/atomic_mass_unit_g)
+            else
+               fit_coef[num_fit_coef_aladdin]=dble(ind_var[2])
+            end if
+            zdpsigma=zero
+            call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
+     $           num_fit_coef_aladdin,zdpsigma,error)
+            zsigma=areal(zdpsigma)
+
+After modification, it becomes:
+
+            if (xs_var[2,j] == 'specific_temperature' 
+     $           || xs_var[2,j] == 'specific_energy') then
+               assert(ra_mass_units == 'g')
+               if (ind_var[2]*ra_mass/atomic_mass_unit_g > const(1.,-1)) then
+                  fit_coef[num_fit_coef_aladdin]=dble(ind_var[2]*ra_mass/atomic_mass_unit_g)
+               else
+                  fit_coef[num_fit_coef_aladdin]=dble(const(1.,-1))
+               end if
+            else
+               fit_coef[num_fit_coef_aladdin]=dble(ind_var[2])
+            end if
+            zdpsigma=zero
+            call aladdin_eval_fit(leval,zte_aladdin,fit_coef,
+     $           num_fit_coef_aladdin,zdpsigma,error)
+            zsigma=areal(zdpsigma)
+            if (j == 3) then
+               zsigma*=sqrt(two*ind_var[2]*electron_charge/atomic_mass_unit)*const(1.,2)
+     $              *(one+half*ind_var[1]/ind_var[2])
+            else if (j == 4) then
+               zsigma*=two*const(1.,4)*electron_charge/atomic_mass_unit
+     $              *(ind_var[2]+const(1.5)*ind_var[1])
+            end if
+
 Once ratecalc has been recompiled, the code can be run with hchexold.input:
 
     ratecalc hchexold.input
 
-to regenerate hchex.nc.
-
-These changes create values of the "I" integrals in the data file which
-cause the usual momentum and energy transfer terms in subroutine 
-track_chargex to give the same values as the simple expressions in
-EIRENE. To see this, the following code can be hacked into track_chargex:
-
-1351a1352,1353
->       real sd_mom1,sd_mom2,sd_mom3,sd_energy
-> 
-1392a1395,1408
->       sd_mom1=
->      $      -sp_m(pr_background(back))*rate*vb_flow[1]
->       sd_mom2=
->      $      -sp_m(pr_background(back))*rate*vb_flow[2]
->       sd_mom3=
->      $      -sp_m(pr_background(back))*rate*vb_flow[3]
->       sd_energy=
->      $      -(const(1.5)*independent_parameters[xs_var_temperature]
->      $       +half*sp_m(pr_background(back))*vc_abs2(vb_flow))*rate
-
-For that matter, these expressions can be used to directly replace
-the right-hand sides of the scoring_data values (only for the "reagent" 
-section; the "product" section remains unchanged). Then, a simpler hchex.nc
-with just the cross section and reaction rate can be used; the above
-described hacks to ratecalc are not required.
+to regenerate hchex.nc. T hese changes create values of the "I"
+integrals in the data file which cause the usual momentum and energy
+transfer terms in subroutine track_chargex to give the same values as
+the simple expressions in EIRENE.  Note that the value of sgvmax in
+hchex.nc is left at its default value of 0.0 to effectively disable
+rejection, as is done in the EIRENE run.
 
 CREATING THE h2dis.nc FILE
 
