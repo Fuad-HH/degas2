@@ -2,6 +2,10 @@
 \Title{doflights}
 
 % $Log$
+% Revision 1.3  2002/01/28 16:54:50  dstotler
+% Skip setting of zone_map for zones with zone_index outside of computed
+% bounds (i.e., added plasma zones).
+%
 % Revision 1.2  2001/11/16 15:47:24  dstotler
 % Set lower bound for ix,iy to 1 in fill_coupling_arrays so as to
 % eliminate plasma zones added for BGK, etc. Pass stat_flt to
@@ -24,6 +28,7 @@
 @m FILE 'doflights.web'
 
 @m MPI_messages 0
+@m MPI_slave_messages 0
 
 @I macros.hweb
 @I sysdep.hweb
@@ -228,23 +233,24 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
                stat_wt_fin[i]=output_weight_grp[is]
             end do
          end if
-
-         nfrag=max(nflights/100,1)        // The size of each chunk
-
-         nparcel=(nflights+nfrag-1)/nfrag // The number of chunks
 @#if MPI
          nslaves=mpi_size-1
 @#else
          nslaves=0
 @#endif
+         nfrag=max(nflights/max(100,10*nslaves),1)  // The size of each chunk
 
+         nparcel=(nflights+nfrag-1)/nfrag // The number of chunks
 @#if MPI
+@#if MPI_messages
+         write(stderr,*) 'nflights = ',nflights
+@#endif
          do j=0,min(nparcel,nslaves)-1 // Send out the initial chunks
             nstart=j*nfrag
             num=min(nfrag,nflights-nstart)
             slave=j+1
 @#if MPI_messages
-            write(stderr,*) 'Send initial batch to slave ',slave
+            write(stderr,*) 'Send initial batch of ', num, ' to slave ',slave
 @#endif
             call slave_send_flights(slave,output_num_flights[is]+nstart,num,so_args(is),seed)
             call next_seed(num,seed) // Advance random number seed
@@ -261,7 +267,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
                call slave_receive_flag(slave)
 @#if MPI_messages
                write(stderr,*) 'Slave ',slave,' is done with a batch'
-               write(stderr,*) 'Sending ',nfrag,' more to slave ',slave
+               write(stderr,*) 'Sending ',num,' more to slave ',slave
 @#endif
                send_data=FALSE
                call slave_send_flag(slave,send_data)
@@ -292,6 +298,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             call slave_receive_flights(slave)
 @#if MPI_messages
             write(stderr,*) 'Received batch back from slave ',slave
+            call flush(stderr)
 @#endif
             @<Merge results@>
          end do
@@ -321,14 +328,41 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             end do
          end if
 
+@#if MPI_messages
+         write(stderr,*) ' Before allocation of post arrays'
+         write(stderr,*) ' post_arrays_allocd = ',post_arrays_allocd
+         write(stderr,*) ' icp = ',icp
+         write(stderr,*) ' chkpt_write[icp] = ',chkpt_write[icp]
+         call flush(stderr)
+@#endif
          if (post_arrays_allocd == FALSE 
      $        && (chkpt_write[icp] == TRUE || icp == num_chkpts)) then
             var_alloc(output_all)
+@#if MPI_messages
+         write(stderr,*) ' After allocation of output_all'
+         call flush(stderr)
+@#endif
             var_alloc(out_post_grp) 
+@#if MPI_messages
+         write(stderr,*) ' After allocation of out_post_grp'
+         call flush(stderr)
+@#endif
             var_alloc(out_post_all)
+@#if MPI_messages
+         write(stderr,*) ' After allocation of out_post_all'
+         call flush(stderr)
+@#endif
             var_alloc(output_2D_coupling)
+@#if MPI_messages
+         write(stderr,*) ' After allocation of output_2D_coupling'
+         call flush(stderr)
+@#endif
             post_arrays_allocd=TRUE
          end if
+@#if MPI_messages
+         write(stderr,*) ' After allocation of post arrays'
+         call flush(stderr)
+@#endif
 
          if (icp < num_chkpts && chkpt_write[icp] == TRUE) call nc_write_output
            
@@ -382,11 +416,19 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
 /*
    Post-process scores
 */
+@#if MPI_messages
+         write(stderr,*) ' Before post-processing of scores'
+         call flush(stderr)
+@#endif
       stat_comp_flt=FALSE               // To get diagonal pointers
       if (stat_dim_flt < tally_size) then
          var_realloc(stat_flt,stat_dim_flt-1,tally_size-1)
          stat_dim_flt=tally_size
       end if
+@#if MPI_messages
+         write(stderr,*) ' After allocation before post-processing of scores'
+         call flush(stderr)
+@#endif
       stat_size_flt=tally_size  // Had this above (wrongly so)
 
 /*
@@ -703,6 +745,9 @@ results back to the master.  It's only defined for MPI.
       implicit_none_f90
       mp_decls
       integer nstart,nflights,tag,done_flag,send_data
+@#if MPI_slave_messages
+      character*3 cslave
+@#endif
       so_decl(isource)
       rn_seed_decl(seed)
       @<Memory allocation interface@>
@@ -714,6 +759,12 @@ results back to the master.  It's only defined for MPI.
 
       mpi_broadcast(so_direct_delta)
 
+@#if MPI_slave_messages
+      assert((mpi_rank > 0) && (mpi_rank < 1000))
+      write(cslave,'(i3.3)') mpi_rank
+      open(unit=diskout+3,file='/local/dps_slave_' \/ cslave,status='unknown')
+@#endif
+
       stat_comp_flt=TRUE
       stat_comp_frag=TRUE // Set using |nfrag| and |nflights|?
       stat_comp_fin=FALSE  // Additional code changes required if set = TRUE
@@ -722,6 +773,9 @@ results back to the master.  It's only defined for MPI.
 
 loop: continue
       tag=100
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Beginning receive calls; tag = ',tag
+@#endif
       call MPI_recv(nflights,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       if (nflights == 0) goto break
       tag++
@@ -730,22 +784,46 @@ loop: continue
       call MPI_recv(isource,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       tag++
       call MPI_recv(seed,ran_s,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' End of receive calls; tag = ',tag
+      call flush(diskout+3)
+@#endif
 
       call do_flights(nstart,nflights,so_args(isource),seed,
      $     estimator_factors)
 
       done_flag=TRUE
       tag=200
+@#if MPI_slave_messages
+      write(diskout+3,*) ' End of receive calls; tag = ',tag
+      call flush(diskout+3)
+@#endif
       call MPI_send(done_flag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Sent done_flag; tag = ',tag
+      call flush(diskout+3)
+@#endif
 
       tag=300
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Before receipt of send_data; tag = ',tag
+      call flush(diskout+3)
+@#endif
       call MPI_recv(send_data,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' After receipt of send_data; tag = ',tag
+      call flush(diskout+3)
+@#endif
       if (send_data == FALSE) then
          goto loop
       else if (send_data == TRUE) then
 
          tag=400
 
+@#if MPI_slave_messages
+         write(diskout+3,*) ' Before final data send calls; tag = ',tag
+         call flush(diskout+3)
+@#endif
          call MPI_send(stat_comp_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
          call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
@@ -771,6 +849,10 @@ loop: continue
          call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
          call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+@#if MPI_slave_messages
+         write(diskout+3,*) ' After final data send calls; tag = ',tag
+         call flush(diskout+3)
+@#endif
 
 /*
    Reinitialize |stat_frag|. In |do_flights_master|, these would be done
@@ -798,6 +880,10 @@ loop: continue
 break:  continue
       call clear_stat
       var_free(estimator_factors)
+@#if MPI_slave_messages
+      close(diskout+3)
+@#endif
+
       return
       end
 @#else
@@ -855,11 +941,12 @@ we don't set the dimensions until just before the call.
 
       do zone=1,zn_num
          if ((zone_type[zone] == zn_plasma) 
-     $        && ((zone_index[zone][1] >= output_index_1_min)
-     $           && (zone_index[zone][1] <= output_index_1_max)
-     $           && (zone_index[zone][2] >= output_index_2_min)
-     $           && (zone_index[zone][2] <= output_index_2_max))) then
-            zone_map(zone_index[zone][1],zone_index[zone][2])=zone
+     $        && (zone_index[zone][zi_ptr] == zone)
+     $        && ((zone_index[zone][zi_ix] >= output_index_1_min)
+     $           && (zone_index[zone][zi_ix] <= output_index_1_max)
+     $           && (zone_index[zone][zi_iz] >= output_index_2_min)
+     $           && (zone_index[zone][zi_iz] <= output_index_2_max))) then
+            zone_map(zone_index[zone][zi_ix],zone_index[zone][zi_iz])=zone
          end if
       end do
 
