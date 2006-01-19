@@ -2,6 +2,11 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.11  2001/07/16 21:08:27  dstotler
+% Add setup_background_arrays, including relabeling of vacuum zones when
+% BGK reactions are present. Added source_root_species allocation and
+% setting. Moved neutralize_species from sources.web.
+%
 % Revision 1.10  2000/04/01 17:35:21  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -137,6 +142,7 @@ Introduction\ldots
       var_alloc(source_num_checkpoints)
       var_alloc(source_species)
       var_alloc(source_root_species)
+      var_alloc(source_parameters)
       var_alloc(source_total_current)
       var_alloc(source_weight_norm)
       var_alloc(source_scale_factor)
@@ -174,6 +180,7 @@ Introduction\ldots
          so_species(i)=pr_test(test)
 @#endif
          so_root_sp(i)=sp_lookup('D+')
+         so_params(i,so_param_puff_temp)=real_unused
          so_species(i)=neutralize_species(so_root_sp(i))
          so_nseg(i)=ny
          so_geom(i)=so_surface
@@ -384,6 +391,7 @@ Introduction\ldots
          var_realloc(source_num_checkpoints,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_species,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_root_species,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_parameters,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_total_current,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_weight_norm,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_scale_factor,so_grps,so_grps+pr_bkrc_num)
@@ -401,6 +409,7 @@ Introduction\ldots
  */
             so_species(so_grps)=pr_bkrc_prod(jr,1)
             so_root_sp(so_grps)=pr_background(pr_bkrc_rg(jr,2))
+            so_params(so_grps,so_param_puff_temp)=real_unused
             so_nseg(so_grps)=0
             so_geom(so_grps)=so_volume
             so_nflights(so_grps)=100
@@ -548,7 +557,7 @@ Introduction\ldots
       return
       end
 
-@ Set model parameters for the sheath at target sectors.
+@ Set model parameters for the sheath at plasma sectors.
 
 @<Functions...@>=
       subroutine set_uedge_sheath(grp,j1,ny_start,ny_stop,
@@ -564,7 +573,7 @@ Introduction\ldots
       real rmm[bk_mx,bk_my],rmp[bk_mx,bk_my],zmm[bk_mx,bk_my],zmp[bk_mx,bk_my],
      $     vr_b[bk_my],vz_b[bk_my],vphi_b[bk_my],te_b[bk_my],ti_b[bk_my]
 
-      integer dirn,j2,i_seg                             // Local
+      integer dirn,j2,i_seg,plasma_sc                   // Local
       vc_decl(x1)
       vc_decl(x2)
 @#if 0
@@ -572,7 +581,7 @@ Introduction\ldots
 @#endif
       vc_decl(v_bdy)
       sc_decl(sector)
-      sc_target_decl(target_sc_ptr)
+      sc_plasma_decl(plasma_sc_ptr)
 
       external lookup_sector,inc_ion_energy             // External
       integer lookup_sector
@@ -592,8 +601,22 @@ Introduction\ldots
             vc_set(x1,rmp[j1,j2],zero,zmp[j1,j2])
             vc_set(x2,rmm[j1,j2],zero,zmm[j1,j2])
             sector=lookup_sector(x1,x2)
-            if (!sc_check(sector)) then
+            if (sc_check(sector)) then
+               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+               if (sc_plasma_check(plasma_sc_ptr)) then
+                  plasma_sc=TRUE
+               else
+                  plasma_sc=FALSE
+               end if
+            else
+               plasma_sc=FALSE
+            end if
+            if (plasma_sc == FALSE) then
                sector=lookup_sector(x2,x1)
+               assert(sc_check(sector))
+               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+               assert(sc_plasma_check(plasma_sc_ptr))
+               plasma_sc=TRUE
             end if
             source_segment_ptr[i_seg]=sector
 /*
@@ -607,13 +630,11 @@ Introduction\ldots
 @#endif            
          end if
 @#if !OLD_UEDATA
-         target_sc_ptr=sector_type_pointer[sector][sc_target]
-         assert(sc_target_check(target_sc_ptr))
          vc_set(v_bdy,vr_b[j2],vphi_b[j2],vz_b[j2])
          if (vc_abs(v_bdy) > zero || te_b[j2] > zero) then
-            target_e_ion_delta[target_sc_ptr]
+            plasma_e_ion_delta[plasma_sc_ptr]
      $           =inc_ion_energy(vc_args(v_bdy),ti_b[j2],te_b[j2])
-            target_e_ion_mult[target_sc_ptr]=zero
+            plasma_e_ion_mult[plasma_sc_ptr]=zero
          end if                           // else: using default values
 @#endif
       end do
