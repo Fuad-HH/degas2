@@ -2,6 +2,10 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.13  2001/11/16 16:00:11  dstotler
+% Set var_num[tl_index_source_group] to int_unused since so_grps is not
+% available.
+%
 % Revision 1.12  2001/07/16 21:07:36  dstotler
 % Added source type to reaction list for tally_est_reaction. Original is
 % tallysetup.ref. NOTE: MAY WANT TO REPLACE pr_reaction_num+so_type,
@@ -210,7 +214,15 @@ groups are largely analogous, but less formal, than the reaction
 type specified by |rc_reaction_type|. The ordered list definining
 these groups is given by macros below (see |pr_rc_ionize| and
 subsequent lines. The association with |rc_reaction_type| is made
-within an if-then-else clause in subroutine |init_tally|. The list 
+within an if-then-else clause in subroutine |init_tally|
+(the section begins with the comment
+``Associate `reaction groups' with |rc_reaction_type| types.'').
+For example, electron impact
+excitations and de-excitations can be handled in the
+same way as electron impact ionizations since in both cases
+the particle's velocity vector is left unchanged by the
+collision processing subroutine.
+The list 
 and the associated code can be expanded as needed to accomodate new
 types or special cases. One of those special cases is 
 |pr_rc_test_ion|. This selects all reactions with a charged test
@@ -321,7 +333,7 @@ this ``equivalence'' is defined in the species input file.
    arbitrarily assigned for greater flexibility. There's really
    nothing analogous needed for non-reaction tallies.  
 
-@m pr_rc_ionize 1
+@m pr_rc_ionize 1            // Includes excitation, deexcitation
 @m pr_rc_ionize_suppress 2
 @m pr_rc_chargex 3
 @m pr_rc_elastic 4
@@ -479,7 +491,9 @@ this ``equivalence'' is defined in the species input file.
       do pr_reac=1,pr_reaction_num+so_type_num
          pr_rc_type[pr_reac]=pr_rc_unknown
       end do
-
+/*
+  Associate ``reaction groups'' with |rc_reaction_type| types.
+*/
       if (pr_reaction_num > 0) then
          do pr_reac=1,pr_reaction_num
             if (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') then
@@ -496,6 +510,12 @@ this ``equivalence'' is defined in the species input file.
             else if (rc_reaction_type(pr_reaction(pr_reac))SP(1:6) 
      $           == 'dissoc') then
                pr_rc_type[pr_reac]=pr_rc_dissociation
+            else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $              == 'excitation') then
+               pr_rc_type[pr_reac]=pr_rc_ionize
+            else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $              == 'deexcitation') then
+               pr_rc_type[pr_reac]=pr_rc_ionize
             else if (rc_reaction_type(pr_reaction(pr_reac)) 
      $              == 'recombination') then
                pr_rc_type[pr_reac]=pr_rc_recombination // is a duplicate
