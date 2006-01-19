@@ -1,0 +1,35 @@
+#! /usr/bin/ksh
+
+#  VERSION : 05.03.98 19:38
+#  Modified by D. P. Stotler for use with DEGAS 2, ca. 2006
+
+[ "$1" = '' ] && { \
+    echo "Usage: lns <Varid>"
+    echo "        This will link the files to the Carre directory:"
+    echo "                <Varid>.str --> dg.str"
+    echo "                <Varid>.trg --> dg.trg"
+    echo "                <Varid>.dgo --> dg.dgo"
+    echo "           equilibrium file --> dg.equ"
+    exit 4
+}
+c=`basename \`pwd\``
+[ "$c" = DG ] && { class=${DEVICE:-iter}; cd class/$class; } || class=$c
+
+ln -sf `pwd`/"$1".str ${DGCTOP}/Carre/dg.str
+ln -sf `pwd`/"$1".trg ${DGCTOP}/Carre/dg.trg
+ln -sf `pwd`/"$1".dgo ${DGCTOP}/Carre/dg.dgo
+
+e=`cat $1.trg | grep '# equil' | cut -f3 -d' '`
+case $e in
+  ( ''   ) echo "$1.trg is in old format - no information on the equilibrium there"
+           [ -r default.equ ] && { \
+               ln -sf `pwd`/default.equ ${DGCTOP}/Carre/dg.equ
+                    echo '-- the default equilibrium file is used';
+           } || echo '*** No default equilibrium file found (!!!)';;
+  ( /*   ) ln -sf $e ${DGCTOP}/Carre/dg.equ;;
+  ( ../* ) (d=`dirname $e`; f=`basename $e`; cd $d;
+           ln -sf `pwd`/$f ${DGCTOP}/Carre/dg.equ);;
+  ( ./*  ) (d=`dirname $e`; f=`basename $e`; cd $d;
+           ln -sf `pwd`/$f ${DGCTOP}/Carre/dg.equ);;
+  (   *  ) ln -sf `pwd`/$e ${DGCTOP}/Carre/dg.equ;;
+esac

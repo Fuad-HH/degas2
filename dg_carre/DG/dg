@@ -1,0 +1,32 @@
+#! /usr/bin/ksh
+#  VERSION : 03.02.99 21:02
+# Modified by D. P. Stotler for use with DEGAS 2, ca. 2006
+
+c=`basename \`pwd\``
+[ "$c" = DG ] && { class=${DEVICE:-iter}; cd class/$class; } || class=$c
+
+[ -d "${DGCTOP}/DG/topologies" ] && export DG_IMPORT_TOPOLOGY_MASK="${DGCTOP}/DG/topologies/*" 
+
+unset vers cfg
+[ -s ~/.dg_version ] && vers=`cat ~/.dg_version`
+[ -s "${DGCTOP}/.dg_version" ] && vers=`cat "${DGCTOP}/.dg_version"`
+[ -s ./.dg_version ] && vers=`cat ./.dg_version`
+while true; do {
+  { case $1 in
+    ( -- ) shift; break;;
+    ( -v ) vers="$2"; shift 2;;
+    (  * ) break;; 
+  esac; }
+}; done
+[ -n "$vers" ] && {
+  print -u2 "dg version: $vers"
+  vers=".$vers"
+  [ -s "${DGCTOP}/DG/dg.dgc${vers}" ] && {
+    cfg="-cfg ${DGCTOP}/DG/dg.dgc${vers}"
+  } || {
+    print -u2 "No configuration file available for this version"
+    cfg="-nocfg"
+  } 
+}
+
+${DGCTOP}/DG/$OBJECTCODE/dg${vers} $cfg $* &
