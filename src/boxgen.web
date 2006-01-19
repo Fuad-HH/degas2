@@ -2,6 +2,9 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.18  2002/01/28 16:48:16  dstotler
+% Renamed diag_sector_setup to default_diag_setup.
+%
 % Revision 1.17  2001/11/16 15:37:16  dstotler
 % For the Couette flow & C-Mod 1-D examples, make right side a solid
 % zone.
@@ -193,6 +196,8 @@ purposes of scoring.
 @m x_max one
 @m z_max one
 
+@m DIM 2
+
 @m BOXRUN 0
 @m SOLN 1
 
@@ -236,6 +241,14 @@ purposes of scoring.
 
 @m x_max const(1.,-1)
 
+@#elif (BOXRUN == 42)
+
+@m den_min const(9.2367,18)  
+@m temp_min const(31.6228)   
+@m temp_max const(31.6228)   
+@m nx 1
+@m puff_species 'He'       
+
 @#else                        // Debugging runs
 
 @m nx 5
@@ -245,12 +258,28 @@ purposes of scoring.
 
 @m nz 1
 @m nxtot nx+2
-@m nmax nxtot
+@m nmax 2*(nxtot+nz+2)
 @m x_min zero
 @m z_min zero
-@m ny 1
 @m y_min (-one)
 @m y_max one
+
+@#if (DIM == 1)
+
+@m nz 1
+@m ny 1
+
+@#elif (DIM == 2)
+
+@m nz 1
+@m ny 1
+
+@#elif (DIM == 3)
+
+@m nz 1
+@m ny 5
+
+@#endif
 
 @f box_localcommon integer
 @m box_localcommon save /boxgen_common/;
@@ -267,12 +296,13 @@ purposes of scoring.
       implicit_none_f90
 
       real border_frac,guard_frac,                                // Local
-     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,recyc_coef,y
-      real z_grid[0:nz],univ_min[3],univ_max[3],
+     $     x_border,z_border,delta_guard,delta_x,delta_z,vol,recyc_coef,
+     $     y,y_border,delta_y,tot_vol,vol_frac
+      real z_grid[0:nz],y_grid[0:ny],univ_min[3],univ_max[3],
      $     poly_corners[2,0:4],poly_points[2,0:nmax+3],point_1[3],point_2[3],
      $     coeff[NCOEFFS],a[3],b[3]
-      integer n,zone,i,j,k,stratum,sector1,sector2
-      integer plasma_zones[0:nxtot-1,0:nz-1],boundary_zones[4]
+      integer n,zone,i,j,k,stratum,sector1,sector2,front_face,back_face
+      integer plasma_zones[0:nxtot-1,0:ny-1,0:nz-1],boundary_zones[6]
       integer zonearray[0:ny-1],facearray[0:ny]
       ma_decl(material)
 
@@ -293,7 +323,12 @@ purposes of scoring.
 
 /* Absolute sizes of borders and guard cells */
       x_border=border_frac*(x_max - x_min)
+@#if (DIM > 1)
       z_border=border_frac*(z_max - z_min)
+      y_border=border_frac*(y_max - y_min)
+@#else
+      z_border=zero
+@#endif
       delta_guard=guard_frac*(x_max - x_min)
 
 /* Yes, it is really a ``box''; |x| and |z| grid arrays can be 
@@ -301,61 +336,72 @@ purposes of scoring.
  */
       delta_x=(x_max - x_min - two*delta_guard) / areal(nx)
       delta_z=(z_max - z_min) / areal(nz)
+      delta_y=(y_max - y_min) / areal(ny)
 
       x_grid[0]=x_min
       do i=1,nxtot-1
-         x_grid[i]=x_min + delta_guard + (i-1)*delta_x
+         x_grid[i]=x_min + delta_guard + areal(i-1)*delta_x
       end do
       x_grid[nxtot]=x_grid[nxtot-1] + delta_guard
 
       do j=0,nz
-         z_grid[j]=z_min + j*delta_z
+         z_grid[j]=z_min + areal(j)*delta_z
       end do
-/* Here's the only place the ``border'' variables are used. The
+
+      do k=0,ny
+         y_grid[k]=y_min + areal(k)*delta_y
+      end do
+
+@#if (DIM < 3)
+/* 
+   Here's the only place the ``border'' variables are used. The
    y-range of the universal cell is arbitrary with the planar symmetry.
- */
+*/
       vc_set(univ_min,x_min-x_border,y_min,z_min-z_border)
       vc_set(univ_max,x_max+x_border,y_max,z_max+z_border)
+@#else
+      vc_set(univ_min,x_min-x_border,y_min-y_border,z_min-z_border)
+      vc_set(univ_max,x_max+x_border,y_max+y_border,z_max+z_border)
+@#endif
+@#if (DIM == 1)
+      call universal_cell(geometry_symmetry_oned,univ_min,univ_max,vol)
+@#elif (DIM == 2) 
       call universal_cell(geometry_symmetry_plane,univ_min,univ_max,vol)
+@#elif (DIM == 3)
+      call universal_cell_3d(geometry_symmetry_plane_hw,univ_min,univ_max,vol)
+@#endif
       write(stdout,*) vol
 
 /* Define plasma zones */
       
+@#if (DIM == 3)
       vc_set(a,zero,one,zero)
-      vc_copy(univ_min,b)
       do k=0,ny
-@#if 0
-         if (k==0) then         // Avoid roundoff on end faces
-            y=y_min
-         else if (k==ny) then
-            y=y_max
-         else
-            y=y_min+areal(k)/areal(ny)*(y_max-y_min)
-         end if
-         b[2]=y
-@#else
 /*
    Rework this to match more exactly the process in |process_polygon_plane|.
    Ran into a problem with one of the end surfaces not matching the 
    corresponding universal cell surface as expected.
+
+   Charles' original attempt at the 3-D box had the plasma zones extending
+   the full length of the universal cell in |y|. Don't think this will be
+   of much practical use, so try setting up the geometry so that |y| can
+   be effectively equivalent to |z|. The contents of this loop can be
+   rewritten later.
 */
-         if (k==0) then         // Avoid roundoff on end faces
-            vc_copy(univ_min,b)
-         else if (k==ny) then
-            vc_copy(univ_max,b)
-         else
-            vc_copy(univ_min,b)
-            y=y_min+areal(k)/areal(ny)*(y_max-y_min)
-            b[2]=y
-         end if
-@#endif
+         vc_copy(univ_min,b)
+         y=y_grid[k]
+         b[2]=y
          call plane(b,a,coeff)
          facearray[k]=define_surface(coeff,.true.)
       end do
-
+@#else
+      facearray[0]=int_unused
+      facearray[1]=int_unused
+@#endif
       zone=0
       do j=0,nz-1
          do i=0,nxtot-1
+@#if 0
             zone++
 /* Really should have different zone numbers here */
             do k=0,ny-1
@@ -375,13 +421,69 @@ purposes of scoring.
             zn_index(zone,1)=i
             zn_index(zone,2)=j
             plasma_zones[i,j]=zone         // Used in defining sectors below
-
+@#endif
+            do k=0,ny-1
+/* 
+   Really should have different zone numbers here. Correspondingly,
+   need to divide up the polygon volume.
+*/
+               zone++
+               zonearray[k]=zone
+            end do
+            n=0
+            poly_corners[1,n]=x_grid[i];   poly_corners[2,n]=z_grid[j];   n++
+            poly_corners[1,n]=x_grid[i];   poly_corners[2,n]=z_grid[j+1]; n++
+            poly_corners[1,n]=x_grid[i+1]; poly_corners[2,n]=z_grid[j+1]; n++
+            poly_corners[1,n]=x_grid[i+1]; poly_corners[2,n]=z_grid[j];   n++
+            poly_corners[1,n]=x_grid[i];   poly_corners[2,n]=z_grid[j]
+            call decompose_polygon(n,poly_corners,zonearray,ny,facearray)
+            tot_vol=polygon_volume(n,poly_corners)
+            do k=0,ny-1
+               zn_type_set(zonearray[k],zn_plasma)
+               zn_volume(zonearray[k])=tot_vol
+     $              *(y_grid[k+1]-y_grid[k])/(univ_max[2]-univ_min[2])
+/*
+   Shouldn't this be enough as long as all three axes point in the
+   correct direction?
+*/
+               zone_min[zonearray[k]][1]=x_grid[i]
+               zone_min[zonearray[k]][3]=z_grid[j]
+               zone_max[zonearray[k]][1]=x_grid[i+1]
+               zone_max[zonearray[k]][3]=z_grid[j+1]
+@#if (DIM == 3)
+               zone_min[zonearray[k]][2]=y_grid[k]
+               zone_max[zonearray[k]][2]=y_grid[k+1]
+@#else
+               zone_min[zonearray[k]][2]=zero
+               zone_max[zonearray[k]][2]=zero
+@#endif
+               vc_set(zone_center[zonearray[k]],half*(poly_corners[1,0]+poly_corners[1,2]),half*(y_grid[k]+y_grid[k+1]),half*(poly_corners[2,0]+poly_corners[2,2]))
+/*
+    Can't generalize this without changing the common variable.
+*/
+               zn_index(zonearray[k],1)=i
+               zn_index(zonearray[k],2)=j
+               plasma_zones[i,k,j]=zonearray[k]  // Used in defining sectors below
+            end do
          end do
       end do
       
 /* Define non-plasma zones. |boundary_zones| is used in defining sectors
    below; the index corresponds to the stratum number. 
  */
+      vol_frac=(y_grid[ny]-y_grid[0])/(univ_max[2]-univ_min[2])
+@#if (DIM > 1)
+@#if (DIM == 3)
+/* 
+   Store the front and back faces of the plasma zones since we want 
+   |decompose_polygon| to bound these zones in |y| with the universal
+   cell.
+*/
+      front_face=facearray[0]
+      back_face=facearray[ny]
+      facearray[0]=front_face
+      facearray[1]=back_face
+@#endif
       zone++                                            // Bottom
       boundary_zones[1]=zone
       n=0
@@ -392,10 +494,12 @@ purposes of scoring.
       end do
       poly_points[1,n]=univ_max[1]; poly_points[2,n]=univ_min[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,poly_points,zonearray,1,facearray)
       zn_type_set(zone,zn_solid)
-      zn_volume(zone)=polygon_volume(n,poly_points)
+      zn_volume(zone)=vol_frac*polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
+@#endif
 
       zone++                                              // Right
       boundary_zones[2]=zone
@@ -407,15 +511,16 @@ purposes of scoring.
       end do
       poly_points[1,n]=univ_max[1]; poly_points[2,n]=univ_max[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,poly_points,zonearray,1,facearray)
 @#if (BOXRUN == 40 || BOXRUN == 41)
       zn_type_set(zone,zn_solid)
 @#else
       zn_type_set(zone,zn_exit)
 @#endif
-      zn_volume(zone)=polygon_volume(n,poly_points)
+      zn_volume(zone)=vol_frac*polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
-
+@#if (DIM > 1)
       zone++                                             // Top
       boundary_zones[3]=zone
       n=0
@@ -426,11 +531,12 @@ purposes of scoring.
       end do
       poly_points[1,n]=univ_min[1]; poly_points[2,n]=univ_max[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,poly_points,zonearray,1,facearray)
       zn_type_set(zone,zn_solid)
-      zn_volume(zone)=polygon_volume(n,poly_points)
+      zn_volume(zone)=vol_frac*polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
-
+@#endif
       zone++                                                 // Left
       boundary_zones[4]=zone
       n=0
@@ -441,11 +547,52 @@ purposes of scoring.
       end do
       poly_points[1,n]=univ_min[1]; poly_points[2,n]=univ_min[3]; n++
       poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
-      call decompose_polygon(n,poly_points,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,poly_points,zonearray,1,facearray)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=vol_frac*polygon_volume(n,poly_points)
+      call set_zn_min_max(n,poly_points,zone,.true.)
+
+@#if (DIM == 3)
+/*
+   These are the universal cell boundaries in |y|.
+*/
+      vc_set(a,zero,one,zero)
+      call plane(univ_min,a,coeff)
+      facearray[0]=define_surface(coeff,.true.)
+      facearray[1]=front_face
+      zone++                               // Front
+      boundary_zones[5]=zone
+      n=0
+      poly_points[1,n]=univ_min[1]; poly_points[2,n]=univ_min[3]
+      n++
+      poly_points[1,n]=univ_min[1]; poly_points[2,n]=univ_max[3]
+      n++
+      poly_points[1,n]=univ_max[1]; poly_points[2,n]=univ_max[3]
+      n++
+      poly_points[1,n]=univ_max[1]; poly_points[2,n]=univ_min[3]
+      n++
+      poly_points[1,n]=poly_points[1,0]; poly_points[2,n]=poly_points[2,0]
+      zonearray[0]=zone
+      call decompose_polygon(n,poly_points,zonearray,1,facearray)
       zn_type_set(zone,zn_solid)
       zn_volume(zone)=polygon_volume(n,poly_points)
       call set_zn_min_max(n,poly_points,zone,.true.)
 
+      facearray[0]=back_face
+      call plane(univ_max,a,coeff)
+      facearray[1]=define_surface(coeff,.true.)
+      zone++                                    // Back
+      boundary_zones[6]=zone
+/*
+   Use same set of |poly_points|!
+*/
+      zonearray[0]=zone
+      call decompose_polygon(n,poly_points,zonearray,1,facearray)
+      zn_type_set(zone,zn_solid)
+      zn_volume(zone)=polygon_volume(n,poly_points)
+      call set_zn_min_max(n,poly_points,zone,.true.)
+@#endif
       call boundaries_neighbors
 
 /* Define the interface between plasma and non-plasma zones. This is done
@@ -468,32 +615,41 @@ purposes of scoring.
    interface. The plasma zone and its bounding surface are used for
    this purpose. The zone number for the adjoining solid zone is passed
    to |define_sector| as a check.
+   NOTE:
+   For the 3-D case, we've swapped the sectors used for the target.
+   => needs to be reconciled with the 2-D convention. 
  */
 
       material=ma_lookup('mirror')
       recyc_coef=one               // It's a mirror!!
+@#if (DIM > 1)
 
       stratum=1                                           // Bottom
       do i=0,nxtot-1
          vc_set(point_1,x_grid[i],zero,z_grid[0])
          vc_set(point_2,x_grid[i+1],zero,z_grid[0])
+@#if 0
          sector1=define_sector(stratum,i,lookup_surface(point_2,point_1),
-     $                         plasma_zones[i,0],boundary_zones[stratum])
+     $                         plasma_zones[i,0,0],boundary_zones[stratum])
+@#else
+         sector1=define_sector(stratum,i,-lookup_surface(point_2,point_1),
+     $                         boundary_zones[stratum],plasma_zones[i,0,0])
+@#endif
          define_sector_target(sector1,material,temp_min*electron_charge,
      $        recyc_coef)
-@#if 0
-         sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
-     $                         plasma_zones[i,0])
-         define_sector_plasma(sector2)
-@#endif
       end do
-
+@#endif
       stratum=2
       do j=0,nz-1                                          // Right
          vc_set(point_1,x_grid[nxtot],zero,z_grid[j])
          vc_set(point_2,x_grid[nxtot],zero,z_grid[j+1])
+@#if 0
          sector1=define_sector(stratum,j,lookup_surface(point_2,point_1),
-     $                         plasma_zones[nxtot-1,j],boundary_zones[stratum])
+     $                         plasma_zones[nxtot-1,0,j],boundary_zones[stratum])
+@#else
+         sector1=define_sector(stratum,j,-lookup_surface(point_2,point_1),
+     $                         boundary_zones[stratum],plasma_zones[nxtot-1,0,j])
+@#endif
 @#if (BOXRUN == 40)
          material=ma_lookup('mo')
          recyc_coef=const(8.5,-1)
@@ -503,35 +659,34 @@ purposes of scoring.
          material=ma_lookup('C')
          define_sector_target(sector1,material,
      $        temp_min*electron_charge,recyc_coef)
+@#elif (BOXRUN == 42)
+         define_sector_target(sector1,material,temp_min*electron_charge,
+     $        recyc_coef)
 @#else
          define_sector_exit(sector1)
 @#endif
-@#if 0
-         sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
-     $                         plasma_zones[nxtot-1,j])
-         define_sector_plasma(sector2)
-@#endif
       end do
 
-@#if (BOXRUN == 40 || BOXRUN == 41)
+@#if (BOXRUN == 40)
       material=ma_lookup('mirror')
       recyc_coef=one               // It's a mirror!!
 @#endif
+@#if (DIM > 1)
       stratum=3
       do i=nxtot,1,-1                                       // Top
          vc_set(point_1,x_grid[i],zero,z_grid[nz])
          vc_set(point_2,x_grid[i-1],zero,z_grid[nz])
+@#if 0
          sector1=define_sector(stratum,i,lookup_surface(point_2,point_1),
-     $                         plasma_zones[i-1,nz-1],boundary_zones[stratum])
+     $                         plasma_zones[i-1,0,nz-1],boundary_zones[stratum])
+@#else
+         sector1=define_sector(stratum,i,-lookup_surface(point_2,point_1),
+     $                         boundary_zones[stratum],plasma_zones[i-1,0,nz-1])
+@#endif
          define_sector_target(sector1,material,temp_min*electron_charge,
      $        recyc_coef)
-@#if 0
-         sector2=define_sector(stratum,i,lookup_surface(point_2,point_1),
-     $                         plasma_zones[i-1,nz-1]) 
-         define_sector_plasma(sector2)
-@#endif
       end do
-
+@#endif
 @#if (BOXRUN == 41)
       material=ma_lookup('C')
       recyc_coef=zero
@@ -540,16 +695,44 @@ purposes of scoring.
       do j=nz,1,-1                                           // Left
          vc_set(point_1,x_grid[0],zero,z_grid[j])
          vc_set(point_2,x_grid[0],zero,z_grid[j-1])
+@#if 0
          sector1=define_sector(stratum,j,lookup_surface(point_2,point_1),
-     $                         plasma_zones[0,j-1],boundary_zones[stratum])
+     $                         plasma_zones[0,0,j-1],boundary_zones[stratum])
+@#else
+         sector1=define_sector(stratum,j,-lookup_surface(point_2,point_1),
+     $                         boundary_zones[stratum],plasma_zones[0,0,j-1])
+@#endif
          define_sector_target(sector1,material,temp_min*electron_charge,
      $        recyc_coef)
-@#if 0
-         sector2=define_sector(stratum,j,lookup_surface(point_2,point_1),
-     $                         plasma_zones[0,j-1]) 
-         define_sector_plasma(sector2)
+@#if 1
+/*
+   Had this set with: (DIM == 3)
+   Try for the general case.
+*/
+         do k=1,ny
+            sector1=define_sector(stratum,nz+(j-1)*ny+k,
+     $           lookup_surface(point_2,point_1),
+     $           plasma_zones[0,k-1,j-1],boundary_zones[stratum])
+/*
+   Together with shifting the PMIs to the solid zone-sector, leaving the
+   source on the plasma zone-sector => have to add necessary parameters.
+   Explicit setting like this is a temporary hack until we reconcile everything.
+*/
+            define_sector_plasma(sector1,temp_min*electron_charge)
+         end do
 @#endif
       end do
+@#if (DIM == 3)                                             // Front
+      stratum=5              
+      sector1=define_sector(stratum,1,-front_face,boundary_zones[stratum],0)
+      define_sector_target(sector1,material,temp_min*electron_charge,
+     $     recyc_coef)
+                                                            // Back
+      stratum=6
+      sector1=define_sector(stratum,1,back_face,boundary_zones[stratum],0)
+      define_sector_target(sector1,material,temp_min*electron_charge,
+     $     recyc_coef)
+@#endif      
 
       call default_diag_setup
 
@@ -569,6 +752,78 @@ purposes of scoring.
       call print_geometry(stdout)
 @#endif
             
+      return
+      end
+
+@ Simplified universal cell for 3-D case. This applies only to the planar
+case, though.
+
+@<Functions...@>=
+      subroutine universal_cell_3d(symmetry,min_corner,max_corner,vol)
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
+      integer symmetry                    // Input
+      real min_corner[3],max_corner[3]
+      real vol                            // Output
+      integer face,face1,face2,i          // Local
+      real coeff[NCOEFFS]
+      vc_decl(a)
+      vc_decl(x[0:4])
+      vc_decl(x1)
+      vc_decl(x2)
+      vc_decl(x3)
+      gi_ext
+      external vector_compare             // External
+      integer vector_compare
+
+      geometry_symmetry=symmetry
+      
+      $DO(I,1,3) {
+         assert(min_corner[I] < max_corner[I]);
+      }
+      vc_copy(min_corner,universal_cell_min)
+      vc_copy(max_corner,universal_cell_max)
+
+      i=0
+      x[1,i]=min_corner[1]; x[2,i]=zero; x[3,i]=min_corner[3]; i++
+      x[1,i]=min_corner[1]; x[2,i]=zero; x[3,i]=max_corner[3]; i++
+      x[1,i]=max_corner[1]; x[2,i]=zero; x[3,i]=max_corner[3]; i++
+      x[1,i]=max_corner[1]; x[2,i]=zero; x[3,i]=min_corner[3]; i++
+      vc_copy(x[0],x[i])
+
+      vc_set(a,zero,one,zero)
+      call plane(min_corner,a,coeff)
+      face1=define_surface(coeff,.true.)
+      call add_surface(face1,0,.true.)
+      call plane(max_corner,a,coeff)
+      face2=define_surface(coeff,.true.)
+      call add_surface(-face2,0,.true.)
+
+      do i=0,3
+         vc_copy(x[i],x1)
+         vc_copy(x[i+1],x2)
+         if (vector_compare(x1,x2)>0) then
+            vc_set(x3,x1[1],one,x1[3])
+         else
+            vc_set(x3,x2[1],one,x2[3])
+         end if
+         call planea(x1,x3,x2,coeff)
+         face=define_surface_a(coeff,x1,x2)
+         if (i==3) face1=face
+         if (i==1) face2=-face
+         if (face>0) then
+            vc_copy(x1,surface_points[0,face])
+            vc_copy(x2,surface_points[1,face])
+         end if
+         call add_surface(face,0,.true.)
+      end do
+
+      vol=(max_corner[1]-min_corner[1])*(max_corner[2]-min_corner[2])*
+     $     (max_corner[3]-min_corner[3])
+
+      universal_cell_vol=vol
+
       return
       end
 
@@ -654,6 +909,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_realloca(source_num_checkpoints)
       var_realloca(source_species)
       var_realloca(source_root_species)
+      var_realloca(source_parameters)
       var_realloca(source_total_current)
       var_realloca(source_weight_norm)
       var_realloca(source_scale_factor)
@@ -664,14 +920,21 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_chkpt(so_grps)=0
       so_species(so_grps)=sp_lookup(puff_species)
       so_root_sp(so_grps)=so_species(so_grps)     // Same for now
+      so_params(so_grps,so_param_puff_temp)=temp_min*electron_charge
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
       do sector=1,nsectors
 @#if 0
          if (strata[sector]==4 && plasma_lookup(sector)!=0) then
 @#endif
+@#if 0      
+ Had this before... (DIM < 3)
          if (strata[sector]==4 
      $     && sc_target_check(int_lookup(sector,target_sector[1],sc_target_num))) then
+@#else
+         if (strata[sector]==4 
+     $     && sc_plasma_check(int_lookup(sector,plasma_sector[1],sc_plasma_num))) then
+@#endif
             so_seg_tot++
             var_realloca(source_current)
             var_realloca(source_segment_ptr)
@@ -681,7 +944,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
 @#if (BOXRUN == 40)
             source_current[so_seg_tot]=const(4.,21)/areal(nz)
 @#else
-            source_current[so_seg_tot]=const(1.,19)/areal(nz)
+            source_current[so_seg_tot]=const(1.,19)/areal(nz*ny)
 @#endif
             so_tot_curr(so_grps)+=source_current[so_seg_tot]
             source_segment_ptr[so_seg_tot]=sector
@@ -698,6 +961,7 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_reallocb(source_num_checkpoints)
       var_reallocb(source_species)
       var_reallocb(source_root_species)
+      var_reallocb(source_parameters)
       var_reallocb(source_total_current)
       var_reallocb(source_weight_norm)
       var_reallocb(source_scale_factor)
@@ -737,9 +1001,9 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       end do
       write (diskin,*) ' den_norm_2 = ',den_norm_2
 
-  925 format(2x,'x',9x,'N1(x)/N(0)',4x,'N2(x)/N(0)',7x,
+  925 format(2x,'x',10x,'N1(x)/N(0)',4x,'N2(x)/N(0)',7x,
      *       'Ti(x)',7x,'Ni(x)')
-  926 format(1x,f7.4,2x,1pe12.4,3(2x,e12.4))
+  926 format(1x,f8.5,2x,1pe12.4,3(2x,e12.5))
 @#endif
 
       return
@@ -817,10 +1081,6 @@ geometry-specific!}
       zn_common
       implicit_none_f90
 
-      integer view,num,var,tab_index,spacing,i
-      integer grp_views[total_views]
-      real var_min,var_max,mult
-
       @<Memory allocation interface@>
 
       detector_total_views=total_views
@@ -829,6 +1089,40 @@ geometry-specific!}
       var_alloc(de_view_halfwidth)
       var_alloc(de_zone_frags)
       
+      de_grps=0
+      de_view_size=0
+      var_alloc(de_view_tab)
+
+      call detector_setup_a
+
+      return
+      end
+
+@ Extension of the above subroutine.  Statements actually making
+assignments to the detector pointer arrays (|de_zone_frags|
+specfically) need to be separated from their allocation above
+so that their array indexing gets handled correctly.
+
+@<Functions...@>=
+      subroutine detector_setup_a
+
+      define_varp(zone_frags,FLOAT,de_zone_ind)
+
+      implicit_none_f77
+      de_common
+      zn_common
+      implicit_none_f90
+
+      integer view,num,var,tab_index,spacing,i,zone
+      integer grp_views[total_views]
+      real var_min,var_max,mult
+
+      declare_varp(zone_frags)
+
+      @<Memory allocation interface@>
+
+      var_alloc(zone_frags)
+
       do view=1,detector_total_views
          de_view_algorithm[view]=de_algorithm_uniform
          de_view_halfwidth[view]=const(3.)*PI/const(1.8,2)  // arbitary
@@ -841,11 +1135,14 @@ geometry-specific!}
       vc_set(de_view_points[4][de_view_end],x_min-geom_epsilon,zero,const(0.75)*(z_max-z_min)+z_min)
       vc_set(de_view_points[5][de_view_end],half*(x_max-x_min)+x_min,zero,z_max+geom_epsilon)
 
-      call detector_view_setup
-
-      de_grps=0
-      de_view_size=0
-      var_alloc(de_view_tab)
+      do view=1,detector_total_views
+         call detector_view_setup(vc_args(de_view_points[view][de_view_start]),de_view_halfwidth[view],de_view_algorithm[view],zone_frags)
+         do zone=1,zn_num
+            de_zone_frags[zone][view]=zone_frags[zone]
+         end do
+      end do
+      
+      var_free(zone_frags)
 
       num=detector_total_views
       var=de_var_unknown
@@ -863,21 +1160,39 @@ geometry-specific!}
       num=1
       var=de_var_wavelength
       tab_index=200
-      var_min=const(6558.)
-      var_max=const(6564.)
       mult=const(1.,-10)
       spacing=de_spacing_linear
       grp_views[1]=3
+@#if (BOXRUN != 42)
+      var_min=const(6558.)
+      var_max=const(6564.)
       call de_grp_init('Halpha spectrum',num,var,tab_index,var_min,var_max,
      $     mult,spacing,grp_views)
-      
+@#else
+      var_min=const(5867.)
+      var_max=const(5887.)
+      call de_grp_init('He 5877 spectrum',num,var,tab_index,var_min,var_max,
+     $     mult,spacing,grp_views)
+      num=1
+      var=de_var_wavelength
+      tab_index=200
+      var_min=const(6670.)
+      var_max=const(6690.)
+      mult=const(1.,-10)
+      spacing=de_spacing_linear
+      grp_views[1]=3
+      call de_grp_init('He 6680 spectrum',num,var,tab_index,var_min,var_max,
+     $     mult,spacing,grp_views)
+@#endif
       return
       end
 
-/*
-   THE REST OF THIS FILE DEALS WITH THE COMPUTATION OF THE ANALYTIC
-   SOLUTIONS. THIS CODE HAS NOT BEEN CONVERTED TO FWEB!
-*/
+@ Analytic solutions.  Note: this code has not been converted to FWEB.
+
+@m h_mass const(1.6726,-27)
+@m nu_cx_mul  (const(2.93)*const(4.,-19)/sqrt(h_mass))  // CX frequency; Janev-Smith value.
+
+@<Functions...@>=
 c
 c  Compute the neutral density predicted by a fluid neutral model
 c  [P. Helander, S. I. Krashenninikov, and P. J. Catto, Phys. Plasmas
@@ -903,23 +1218,25 @@ c..Local variables
 c
       integer ix
 c
-      real alpha_t, delta_int, x, x_prev, t_of_x, t_of_0
+      real alpha_t, delta_int, x, x_prev, t_of_x, t_of_0,
+     *     zxeps, zx, zt, zn, nu_cx, zdtdx, zv0, n_of_x
 c
-      real den0norm(0:nxtot-1), integ_x(0:nxtot-1)
+      real den0norm(0:nxtot-1), integ_x(0:nxtot-1),
+     *     f(0:nxtot-1), g(0:nxtot-1), res(0:nxtot-1), res_norm(0:nxtot-1)
 c
       real soln1_int
       external soln1_int, basic_trap_integration
 c
 c..Multiplier on thermal force
 c
-      alpha_t = 0.24
+      alpha_t = const(0.24)
 c
 c..Compute required integral from 0 (actually gridx(1,1) to avoid
 c     any dependence on amount of whitespace in grid) to each x, keep sum.
 c
       x_prev = x_grid[0]
       do ix=0,nxtot-1
-        x = 0.5 * (x_grid[ix] + x_grid[ix+1])
+        x = half * (x_grid[ix] + x_grid[ix+1])
         call trapezoid_integration(soln1_int,x_prev,x,delta_int,
      *                             basic_trap_integration)        
         if (ix.eq.0) then
@@ -932,11 +1249,40 @@ c
 c
       t_of_0 = t_of_x(x_grid[0])
       do ix=0,nxtot-1
-        x = 0.5 * (x_grid[ix] + x_grid[ix+1])
-        den0norm(ix) = (t_of_x(x)/t_of_0)**(alpha_t-1.)
-     *                 * (1. - integ_x(ix) / integ_x(nxtot-1))
+        x = half * (x_grid[ix] + x_grid[ix+1])
+        den0norm(ix) = (t_of_x(x)/t_of_0)**(alpha_t-one)
+     *                 * (one - integ_x(ix) / integ_x(nxtot-1))
       end do
 c
+c
+c..Compute residual of original differential equation.  I.e., the solution
+c  computed here assumes a fluid boundary condition and, thus, is an
+c  approximation to the exact solution (with an exit boundary condition).
+c
+      zxeps = const(1.,-7)
+      zv0 = (t_of_0*const(1.6022,-19))**(one-alpha_t)
+     &     /(h_mass * integ_x(nxtot-1))
+      do ix=0,nxtot-1
+         zx = half*(x_grid[ix]+x_grid[ix+1])
+         zt = t_of_x(zx) * const(1.6022,-19)
+         zn = n_of_x(zx)
+         nu_cx = nu_cx_mul * zn * sqrt(zt)
+         zdtdx = (t_of_x(zx+zxeps) - t_of_x(zx-zxeps)) * const(1.6022,-19) 
+     &        / (two*zxeps)
+
+         f[ix] = alpha_t*den0norm[ix]*zdtdx-h_mass*nu_cx*zv0
+         g[ix] = h_mass*zv0**2/den0norm[ix]+den0norm[ix]*zt
+c         g[ix] = den0norm[ix]*zt
+         if (ix < nxtot-1) then
+            res[ix] = (h_mass*zv0**2/den0norm[ix])
+     &           * ((one-alpha_t)*zdtdx/zt 
+     &           + nu_cx*zt**(-alpha_t)/(integ_x(nxtot-1)-integ_x(ix)))
+            res_norm[ix] = abs(res[ix]/f[ix])
+         end if
+      end do
+      res[nxtot-1]=zero
+      res_norm[nxtot-1]=zero
+
       return
       end      
 c
@@ -957,19 +1303,17 @@ c
       implicit_none_f90
 c
       real soln1_int
-      real x, alpha_t, nu_cx_mul, t, n, t_of_x, n_of_x
+      real x, alpha_t, t, n, t_of_x, n_of_x
 c
 c..Multiplier on thermal force
 c
-      alpha_t = 0.24
+      alpha_t = const(0.24)
 c
 c..Constants in charge exchange frequency; assume species is H.
 c    Units: don't really matter here given the form of the solution.
 c           Just for grins, we've converted sigma-x and the mass to MKS.
 c
-      nu_cx_mul = 2.93 * 4.e-19 / sqrt(1.6726e-27)
-c
-      t = t_of_x(x)
+      t = t_of_x(x) * const(1.6022,-19)
       n = n_of_x(x)
       soln1_int = nu_cx_mul * n * sqrt(t) * t**(-alpha_t)
 c
@@ -1123,16 +1467,21 @@ c..Local variables
 c
       integer istate, itask, imf, itol, irw, iiw,  iopt, ix, j 
 c
-      real zeta, zrtol, zatol,  x_star, x_end 
+      real zeta, zrtol, zatol,  x_star, x_end, gamma_inv, alpha_t, ztl, 
+     &     zcl, nu_cx, zt, zn, zxeps, zdtdx, zeta, t_of_x, n_of_x, zxend,
+     &     zx
 c
-      real zrwork(79), iwork(23)
+      real zrwork(79), iwork(23), f(0:nxtot-1), g(0:nxtot-1), 
+     &     res(0:nxtot-1), res_norm(0:nxtot-1)
 c
       external detadx, etaj
 c
-c..Initial condition
+c..Initial condition is $1 / \gamma$, where the flow velocity out
+c  the exit is  $\gamma$ times the local sound speed.
 c
-      zeta = 1.01
-      den0norm(nxtot-1) = zeta
+      gamma_inv = const(1.01)
+      den0norm(nxtot-1) = gamma_inv
+      zeta = gamma_inv
 c
 c..Set to 1 for first call to LSODE
 c
@@ -1156,8 +1505,8 @@ c
 c
 c..Relative and absolute tolerances, respectively: 
 c                
-      zrtol = 1.e-5
-      zatol = 1.e-5
+      zrtol = const(1.,-5)
+      zatol = const(1.,-5)
 c
 c..Work array sizes good for the above imf choices and up to 3 equations
 c
@@ -1174,15 +1523,15 @@ c
 c
 c..So that we can set initial step size.
 c              ...Try starting without this
-c      zrwork(5) = 1.0e-6  
+c      zrwork(5) = const(1.,-6)
 c
 c..Loop over grid cell centers; start at RIGHT edge of grid (where we
 c     know boundary condition).
 c
-      x_star = 0.5 * (x_grid[nxtot-1] + x_grid[nxtot])
+      x_star = half * (x_grid[nxtot-1] + x_grid[nxtot])
       do 10 ix=nxtot-2,0,-1
 c
-        x_end = 0.5 * (x_grid[ix] + x_grid[ix+1])
+        x_end = half * (x_grid[ix] + x_grid[ix+1])
 c
 c..Integrate differential equation from |x_star| to |x_end|;
 c     note that on output |x_star| is set equal to |x_end|.
@@ -1204,6 +1553,33 @@ c
 c
    10 continue
 c
+      @<Solution 2 Details@>
+c
+c..Compute residual of original differential equation.  I.e., the solution
+c  computed here assumes a fluid boundary condition and, thus, is an
+c  approximation to the exact solution (with an exit boundary condition).
+c
+      do 20 ix=0,nxtot-1
+         zx = half*(x_grid[ix]+x_grid[ix+1])
+         zt = t_of_x(zx) * const(1.6022,-19)
+         zn = n_of_x(zx)
+         nu_cx = nu_cx_mul * zn * sqrt(zt)
+         zdtdx = (t_of_x(zx+zxeps) - t_of_x(zx-zxeps)) * const(1.6022,-19) 
+     &        / (two*zxeps)
+
+         f[ix] = alpha_t*den0norm[ix]*zdtdx-h_mass*nu_cx*zcl
+         g[ix] = h_mass*zcl**2/den0norm[ix]+den0norm[ix]*zt
+   20 continue
+
+      do 30 ix=1,nxtot-2
+c
+c..Note that this residual is effectively evaluated at |x_grid[ix+1]|.
+c
+         res[ix] = (g[ix+1]-g[ix])/(x_grid[ix+1]-x_grid[ix])
+     &        - half*(f[ix]+f[ix+1])
+         res_norm[ix] = abs(res[ix]/f[ix])
+   30 continue
+
       return
       end
 c
@@ -1252,38 +1628,47 @@ c
       real alpha_t, ztl, zcl, nu_cx, zt, zn, zxeps, zdtdx, zeta,
      &     t_of_x, n_of_x, zxend
 c
-      zxeps = 1.e-7
-      alpha_t = 0.24
-      zxend = 0.5 * (x_grid[nxtot-1] + x_grid[nxtot])
-      ztl = t_of_x(zxend)
-      zeta = peta(1)
-c
-c..Sound speed at x = L; again, species is H and units are MKS. However,
-c     only the ratio to |nu_cx| is used $\Rightarrow$ both of these factors fall out.
-c
-      zcl = sqrt(ztl*1.6022e-19/1.6726e-27)
+      @<Solution 2 Details@>
 c
 c..Obtain local T and n
 c
       zt = t_of_x(px)
       zn = n_of_x(px)
 c
-c..CX frequency; Janev-Smith value.
+c..CX frequency
 c
-      nu_cx = 2.93 * 4.e-19 * zn * sqrt(zt*1.6022e-19/1.6726e-27)
+      nu_cx = nu_cx_mul * zn * sqrt(zt*const(1.6022,-19))
 c
 c..Local derivative of T w.r.t. x
 c
-      zdtdx = (t_of_x(px+zxeps) - t_of_x(px-zxeps)) / (2.*zxeps)
+      zdtdx = (t_of_x(px+zxeps) - t_of_x(px-zxeps)) / (two*zxeps)
 c
 c..Derivative of eta w.r.t. x
 c
-      pdetadx(1) = -((1.-alpha_t) * zdtdx * zeta /ztl
-     &               + nu_cx / zcl) / (zt/ztl - 1./zeta**2)
+      zeta = peta(1)
+      pdetadx(1) = -((one-alpha_t) * zdtdx * zeta /ztl
+     &               + nu_cx / zcl) / (zt/ztl - one/zeta**2)
 c
       return
       end
 c
+
+@* Constants and other parameters used in computing second analytic
+solution.  Rather than replace these parameters with global macro
+values, have opted to stick them in this code block which appears
+in both |soln_2| and |detadx|.
+
+@<Solution 2 Details@>=
+
+      zxeps = const(1.,-7)
+      alpha_t = const(0.24)
+      zxend = half * (x_grid[nxtot-1] + x_grid[nxtot])
+      ztl = t_of_x(zxend)
+c
+c..Sound speed at x = L; again, species is H and units are MKS. However,
+c     only the ratio to |nu_cx| is used $\Rightarrow$ both of these factors fall out.
+c
+      zcl = sqrt(ztl*const(1.6022,-19)/h_mass)
 
 @ Hindmarsh's LSODE.
 \begin{verbatim}
