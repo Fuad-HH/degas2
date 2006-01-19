@@ -2,6 +2,10 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.39  2001/11/16 15:48:23  dstotler
+% Add separate setting of BGK parameters for COUETTE example. Reduce
+% normal convergence criteria to 5.e-3.
+%
 % Revision 1.38  2001/07/16 20:53:27  dstotler
 % Now contains the "program" routine, BGK loop (including management of
 % seeds) and BGK test.  Add call to write_background for BGK. Set
@@ -202,6 +206,7 @@ its original purpose as a geometry test routine.
 
 @m FILE 'flighttest.web'
 
+@m SCALE_FLIGHTS 0
 @m COUETTE 0
 
 @#if (COUETTE == 1)
@@ -213,8 +218,8 @@ its original purpose as a geometry test routine.
 @#else
 
 @m bgk_max 5
-@m bgk_cvg_dens const(5.,-3)
-@m bgk_cvg_pres const(5.,-3)
+@m bgk_cvg_dens const(5.,-5)
+@m bgk_cvg_pres const(5.,-5)
 
 @#endif
 
@@ -261,6 +266,10 @@ its original purpose as a geometry test routine.
 @<Functions...@>=
       subroutine bgk_flighttest
 
+@#if (SCALE_FLIGHTS == 1)
+      define_varp(original_nflights,INT,source_grp_ind)
+@#endif
+
       implicit_none_f77
       zn_common
       rc_common
@@ -270,8 +279,15 @@ its original purpose as a geometry test routine.
       mp_common
       implicit_none_f90
 
-      integer i,bgk,iter_bgk,bgk_iteration
+      integer i,bgk,iter_bgk,bgk_iteration,is
+@#if (SCALE_FLIGHTS == 1)
+      integer iterations,sets,i_set,k,k_max      // flight scaling
+@#endif
       rn_seed_decl(io_seed)
+
+@#if (SCALE_FLIGHTS == 1)
+      declare_varp(original_nflights)
+@#endif
 
       @<Memory allocation interface@>
       mp_decls
@@ -294,6 +310,50 @@ its original purpose as a geometry test routine.
 bgk_loop: continue
 
       if (mpi_master) then
+@#if (SCALE_FLIGHTS == 1)
+/*
+   This is a 3rd generation attempt at scaling the number of flights
+   during the BGK iteration process. The basic idea is that the initial
+   iterations involve changes much larger than the statistical
+   variations needed in the end, so fewer flights are required
+   for them.  The progress towards convergence seen in this set
+   of runs suggests dividing the total number of iterations into
+   sets of 3, with each set having half of the flights of the
+   subsequent one, and with only the last run being done at full size.
+*/
+         if (bgk == TRUE) then
+            if (iter_bgk == 0) then
+               var_alloc(original_nflights)
+               iterations=bgk_max+1
+               if (iterations == 1) then
+                  sets=0
+                  k_max=1
+               else
+                  sets=((iterations-2)/3)+1
+                  k_max=(iterations-1)-3*(sets-1)
+               end if
+               i_set=sets
+               k=k_max
+            end if
+            do is=1,so_grps
+               if (iter_bgk == 0) then
+                  original_nflights[is]=so_nflights(is)
+               end if
+               assert(i_set >= 0)
+               so_nflights(is)=max(2,original_nflights[is]/2**i_set)
+            end do
+            k--
+            if (k == 0) then
+               i_set--
+               if (i_set == 0) then
+                  k_max=1
+               else
+                  k_max=3
+               end if
+               k=k_max
+            end if
+         end if
+@#endif
          call do_flights_master(io_seed)
 /*
    Need to manage seeds out here so that consecutive BGK iterations
@@ -308,6 +368,19 @@ bgk_loop: continue
          call bgk_test(bgk,iter_bgk,bgk_iteration)
          iter_bgk++
       end if
+/*
+   This call to |clear_output| was previously outside the 
+   BGK loop.  But, the output arrays are reallocated on
+   every iteration, so they need to be deallocated inside
+   the loop to make each iteration very much like a full run.
+   For this reason, we also reset the |so_restart| flag. If
+   we don't the output arrays won't be allocated in 
+   |do_flights_master|.
+*/
+      if (mpi_master) then
+         call clear_output
+         so_restart=FALSE
+      end if
 
 @#if MPI
       call MPI_bcast(bgk_iteration,1,mpi_int,mpi_root,MPI_COMM_WORLD,mpi_err)
@@ -320,7 +393,14 @@ bgk_loop: continue
       end if
 
       if (mpi_master) then
-         call clear_output
+@#if 0
+         call clear_output  // Moved inside BGK loop
+@#endif
+@#if (SCALE_FLIGHTS == 1)
+         if (bgk == TRUE) then
+            var_free(original_nflights)
+         end if
+@#endif
       end if
 
       return
@@ -367,8 +447,9 @@ out the file |density.out|.
       @<Memory allocation interface@>
       st_decls
 
+      bgk_iteration=FALSE
       if (bgk == TRUE && iter_bgk == 0) then
-         bgk_iteration=TRUE
+         if (bgk_max > 0) bgk_iteration=TRUE
          open(unit=diskout+2,file='cvg_global.txt',status='unknown') 
          var_alloc(back_pressure)
          do i=1,bk_num
@@ -376,8 +457,6 @@ out the file |density.out|.
                back_pres(i,j)=real_uninit
             end do
          end do
-      else
-         bgk_iteration=FALSE
       end if
 /* 
    Write |density.out| file
