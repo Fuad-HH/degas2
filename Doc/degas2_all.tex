@@ -1,5 +1,9 @@
 % $Id$
 % $Log$
+% Revision 1.2  2001/11/16 16:41:18  dstotler
+% Extensive revisions, particularly the inclusion of elastic scattering
+% background and examples.
+%
 % Revision 1.1  2001/07/16 20:30:17  dstotler
 % Adding documentation directory to CVS.
 %
@@ -10,15 +14,18 @@
 % elementsetup, speciesetup, reactionsetup, materialsetup, pmisetup,
 % problemsetup, outputbrowser, definegeometry2d, defineback:
 %   gmake codefile.tex
-%   pdflatex codefile.tex
+%   pdflatex codefile.tex (may need to be done twice)
 %   mv codefile.pdf ../Doc
-% update page numbers in href's to these files.
+% update page numbers in href's to these files.  Also, the DEGAS 2
+% web page now has links to pages in this manual; those also
+% need to be checked.
 % rm degas2_all.html
 % Remove old {theindex} from this file
 % tth -e0 -Ldegas2_all < degas2_all.tex > degas2_all.html
 % (this reads but does not update the degas2_all.aux file, so should
 %  have that synched with the .tex file before running tth)
 % In html file, replace ">Figure with .jpg">Figure
+% (also cleaned up title of html file)
 % pdflatex degas2_all.tex
 % makeindex degas2_all
 %
@@ -128,11 +135,49 @@ atomic physics and wall interactions. Because of the similarity in the
 problems, Monte Carlo neutral transport codes can build on the techniques
 developed for neutron transport in reactor design\cite{Span69}.
 
+\section{Historical Background}
+\index{DEGAS}
+
+The predecessor to DEGAS 2 was  DEGAS\cite{Heif82}. The origin of the
+``DEGAS'' name can best be explained by pointing out that the first
+Monte Carlo neutral transport code written by D.\ B.\ Heifetz was
+named SEURAT. Its name was a direct reference to the artist Georges
+Seurat. This appellation was inspired by the analogy between the
+artist's pointillist style and the nature of the Monte Carlo algorithm.
+Up close, one sees that Seurat's paintings consist of a huge number of very
+tiny dots of paint of a variety of colors.  Only when viewed from a distance
+is the image and its coloring clearly apparent. In much the same way,
+the track of an individual neutral flight in the Monte Carlo code
+gives relatively insight into the problem being studied. Yet, when the
+results of many flights are compiled together, an accurate solution can
+be obtained.
+
+Heifetz' fondness for Impressionist artists was also manifested
+in succeeding codes like MONET and DEGAS. The latter name was further
+motivated by two associated puns. One is that ``DEGAS'' is an
+abbreviation of ``DEuterium GAS''; DEGAS was written to satisfy a
+request for a code that could treat deuterium as well as hydrogen.
+The other is that ``DEGAS'' is just short for ``degassing''; another
+proposed application for the code was in assessing measurements of
+wall degassing in fusion devices. 
+
+For those who insist that a code's name must be an acronym, we will
+reply that ``DEGAS'' stands for Divertor and Edge Gas Analysis System.
+
+By the time the authors began contemplating the concepts that led
+to DEGAS 2, the original DEGAS code was in widespread use. It also
+enjoyed a very good reputation as being easy to use and well documented.
+For this reason, we were reluctant to abandon the DEGAS name, even
+though we knew we would be rewriting the code largely from scratch.
+Nonetheless, much of the atomic and surface physics from
+the original code has been carried over. Likewise, many of the
+numerical techniques of DEGAS served as inspiration for
+those in DEGAS 2.
+
 \section{Need for DEGAS 2}
 \index{DEGAS}
 
-The predecessor to DEGAS 2 was  DEGAS\cite{Heif82}, a widely used and well
-documented code. However, two events pointed out its limitations.
+Two events pointed out limitations in the original DEGAS code\cite{Heif82}.
 \begin{itemize}
 \item The combined DEGAS-B2 code was too slow 
 (about 100 Cray hours)\cite{Stot92}. 
@@ -386,7 +431,7 @@ From an analog point-of-view, we imagine a Monte Carlo particle simulation
 as consisting of four parts:
 \begin{enumerate}
 \item A way to sample an initial particle distribution,
-\item A way to treat particles from one point in space to another,
+\item A way to track particles from one point in space to another,
 \item Tools to treat ``interesting things'' that might happen along the way,
 \item Some useful quantities to compute and record at each stage of the 
 process.
@@ -504,7 +549,7 @@ T(\vec{r} - \vec{\Omega} R \rightarrow \vec{r}; \vec{v},i)
 \Sigma_{t}(\vec{r} - \vec{\Omega} R^{\prime},\vec{v},i) \right].
 \end{equation}
 The actual form of the collision kernel $C$ need not be written down
-here. Instead, in this document we'll only talk about it's implementation
+here. Instead, in this document we'll only talk about its implementation
 from an analog point of view. The only additional piece of information
 about it that we could add to the above equations is that $C$ consists
 of a sum over the relevant collision processes involving species $i^{\prime}$.
@@ -937,7 +982,7 @@ to pre-collision density $\psi$, Eq.~(\ref{post2pre}). The tracking
 algorithm stops when $t = t_{\rm max}$, the flight
 crosses a zone boundary (denoting a change in plasma parameters), or
 a ``sector'' (a material or diagnostic surface; these will be
-discussed later in this document) is reached. If a zone boundary
+discussed in Sec.~\ref{Geometry}) is reached. If a zone boundary
 is crossed, the flight continues as is, although the rates must
 be recomputed. Processing a sector may result in the continuation or the
 termination of the flight, depending on the type of sector. Again,
@@ -966,11 +1011,135 @@ provides a nice introduction.
 \section{Geometry}
 \label{Geometry}
 
-The introduction to {\tt geometry.web} provides a concise description
-of the fundamental elements of the DEGAS 2 geometry. Here's a 
-\href{geometry.pdf#page.1}{link} to the PDF version of this file.
-Note that most users will define geometries at a higher level,
-such as that provided by {\tt readgeometry} and {\tt boxgen}. 
+% Note: mostly copied this from the introduction to definegeometry2d.web;
+% that was derived from readgeometry.web.
+The hiearchy of geometry-related objects in
+DEGAS 2 is, from the lowest level to the highest level, is:
+\begin{enumerate}
+  \item surface,
+  \item cell,
+  \item polygon,
+  \item zone.
+\end{enumerate}
+Individual cells are composed of surfaces, as discussed in the documentation
+for the internal geometry (e.g., see |geometry.web|; follow
+this \href{geometry.pdf#page.1}{link} to the PDF version of this file). 
+The next level up
+in two (and three, to a limited extent) dimensions
+is a polygon. 
+Finally, a zone may consist of one or more polygons; properties
+are constant across a zone. For example, a single zone might be used to
+represent the vacuum region around the plasma which is comprised of several
+(possibly disconnected) polygons. Or, a plasma flux surface on which density
+and temperature are constant might be a single zone. 
+Note that polygons are used only for external interfaces to the
+geometry such as that provided by {\tt definegeometry2d} or
+{\tt readgeometry} and are not retained in the classes of the
+main code.  Cells and surfaces
+are essentially used only by the code itself; the user would have to deal
+with them only in debugging. Zones are used primarily for the
+specification of input and output data.  For more detailed
+background on the DEGAS 2 geometry and some guidance on how to
+set one up for your particular problem, see the introductions
+to the external geomtry interface codes {\tt definegeometry}
+(PDF file \href{definegeometry2d.pdf#page.1}{here}),
+{\tt readgeometry} 
+(PDF file \href{readgeometry.pdf#page.1}{here}), or
+{\tt boxgen} (less well documented).
+
+Another important component of the geometry are the ``sectors'';
+they are defined at interfaces between adjacent zones of
+different types to facilitate tracking or between zones of the same
+type for diagnostic purposes.
+Namely, flights are halted at sectors during tracking. If the next
+zone along the track represents, say, a solid material, the
+main code hands that flight off to the routines that
+effect the interaction of the current particle with that material. 
+While stopped at that sector,
+scores to corresponding ``diagnostics'' (groups of sectors)
+are also tabulated. The essential identifying information 
+of a sector are its surface and zone numbers.
+See the 
+\href{classes.pdf#page.34}{sector class} documentation for a more
+detailed description.  Default diagnostic sector groups defined
+by all DEGAS 2 geometry setup programs are discussed in 
+Sec.~\ref{Diagnostic}.
+
+\section{Symmetry and Coordinate Systems}
+\label{Symmetry}
+
+The coordinate system in the main DEGAS 2 code is purely 3-D
+Cartesian; that's essential to an efficient tracking algorithm.  There
+are, however, two coordinate system related concepts.
+
+\begin{enumerate}
+  \item The geometry's symmetry. In most problems, the user's objectives
+can be met with an approximate 2-D solution possessing an ignorable
+coordinate. The two situations considered in DEGAS 2 are invariance
+to translation along the $y$ axis (``plane'' symmetry) and
+invariance to rotation about the $z$ axis (``cylindrical'' symmetry).
+In both cases, the tracking is still done in 3-D, but the output
+results are averaged over the third dimension.  As will
+be discussed in more detail below, 1-D and 3-D ``symmetries''
+are also permitted. Most geometry related variables refer to 
+Cartesian coordinates.  However, in cylindrically symmetric or nearly symmetric
+(3-D) cases, some geometry related variables are in cylindrical
+coordinates.
+  \item Coordinate system of input and output velocity fields.
+The main need for this is in cylindrically symmetric or
+nearly symmetric
+problems, e.g., when DEGAS 2 is coupled to a 2-D
+plasma code like UEDGE.  In these cases, the plasma flow velocities
+are effectively specified at a toroidal angle $\phi = 0$, corresponding
+to $y = 0$.
+To use these velocities in a collision at some particular location
+for which $\phi \neq 0$ (equivalently, $y \neq 0$), 
+the velocities
+need to be rotated through that angle $\phi$.
+Likewise, a code like UEDGE expects to get from DEGAS 2 
+toroidally symmetric ion momentum
+sources specified at $\phi = 0$. So, the scores for those sources
+need to be rotated from the local toroidal angle $\phi \neq 0$ 
+to $\phi = 0$ as they are
+being compiled.  These two transformations are handled by macros
+in the \href{classes.pdf#page.23}{background class}.
+In problems with
+plane or no symmetry, these macros have no effect.
+\end{enumerate}
+
+The currently permissible symmetry types (see 
+also {\tt geometry.hweb})
+are:
+\begin{description}
+  \item[None] Currently indicates that the symmetry has not been defined,
+{\em not} that the geometry has no symmetry.
+  \item[Plane] A 2-D geometry in which the $y$ coordinate is ignored.
+  \item[Cylindrical] A 2-D geometry in which the toroidal angle 
+$\phi$ is ignored.
+  \item[1-D] A 1-D (plane) geometry in which the $y$ and $z$ 
+coordinates are ignored.
+  \item[3-D Plane] This geometry is close to be planar symmetric;
+all of the geometrical objects are defined using 2-D shapes
+defined in a single plane. The problem is bounded in the $y$
+direction, and the $y$ variation of the results can be 
+computed and output. The nature (solid vs. plasma or vacuum)
+of the objects can also vary in
+the $y$ direction.  The problem is divided in the $y$ direction
+by $y = $ constant surfaces.  This might be described as a
+``bread slice'' approach to a 3-D geometry.
+  \item[3-D Cylinder] This is the cylindrical equivalent of the
+3-D Plane symmetry. The full range of toroidal angles (360 degrees
+or $2 \pi$ radians) is included in this case. Obviously, the
+problem is divided in the $\phi$ direction by $\phi =$ constant
+surfaces. The analogous simplified characterization of this approach
+is the ``pie slice'' technique.
+  \item[3-D Cylindrical Section] This is also a cylindrical equivalent
+of the 3-D plane symmetry.  The difference is that in this case
+only a finite range of toroidal angles is considered.  The problem
+is bounded by $\phi = $ constant surfaces at the extrema of this
+range.  Extending the ``pie slice'' analogy, this case represents
+some number of slices, but less than the whole pie!
+\end{description}
 
 \section{Atomic Physics}
 \label{AtomicPhysics}
@@ -980,7 +1149,7 @@ such as that provided by {\tt readgeometry} and {\tt boxgen}.
 \index{recombination}
 \index{rates, atomic physics}
 
-The interaction of electrons with hydrogen atoms and ions in a divertor
+The interaction of electrons with atoms and ions in a divertor
 plasma is complicated by having comparable collision and radiative
 decay times. The techniques for treating such systems were first 
 described by Bates and McWhirter\cite{Bate61,McWh65}. The physical
@@ -991,7 +1160,9 @@ $K_{d,mn}$,
     \item Spontaneous radiative transitions $A_{mn}$,
     \item Electron collisional ionization $K_{i,mn}$,
     \item Three-body recombination $K_{r,mn}$,
-    \item Radiative recombination $\beta_{m}$,
+    \item Radiative recombination $\beta_{rad,m}$,
+    \item Dielectronic recombination (for multi-electron atoms) 
+$\beta_{dia,m}$,
 \end{enumerate}
 where $m$ and $n$ are principal quantum numbers. For the two state
 terms, the initial state is the {\em second} number; the final is the
@@ -999,15 +1170,16 @@ terms, the initial state is the {\em second} number; the final is the
 origin.
 
 A set of $m$ equations describes the balance between these processes that
-determines the density of the $m$ -th excited state of the atom,
+determines the density of the $m$-th excited state of the atom,
 $N_{m}$,
 \begin{eqnarray}
 \frac{d N_{m}}{d t} & = & - N_{m} \left[ n_{e} \left( K_{i,m} + \sum_{n > m}
 K_{e,nm} + \sum_{n < m} K_{d,nm} \right) \right. \nonumber \\
 & & \qquad \quad \left. + \sum_{n < m} A_{nm} \right] \rule[-1ex]{0ex}{4ex} \nonumber \\
 & & \quad + n_{e} \left( \sum_{n > m} N_{n} K_{d,mn} + \sum_{n < m} N_{n} K_{e,mn} 
-\right) \rule[-2ex]{0ex}{4ex} \nonumber \\ & & \quad + \sum_{n > m} N_{n} A_{mn} + n_{e} n_{i} ( \beta_{m} + n_{e}
+\right) \rule[-2ex]{0ex}{4ex} \nonumber \\ & & \quad + \sum_{n > m} N_{n} A_{mn} + n_{e} n_{i} ( \beta_{rad,m} + \beta_{dia,m} + n_{e}
 K_{r,m} ),
+\label{crmodel}
 \end{eqnarray}
 where $n_{e}$ is the electron density and $n_{i}$ is the density of ions
 corresponding to the atom under consideration ($m \rightarrow \infty$,
@@ -1032,7 +1204,7 @@ N_{m} = \left( \frac{N^{(i)}_{m}}{N_{1}}\right) N_{1} +
 In practice, the solution of these equations involves:
 \begin{enumerate}
   \item Obtaining the various reaction rates,  $K_{e,mn}$,
-$K_{d,mn}$, $A_{mn}$, $K_{i,mn}$, $K_{r,mn}$, $\beta_{m}$,
+$K_{d,mn}$, $A_{mn}$, $K_{i,mn}$, $K_{r,mn}$, $\beta_{rad,m}$, $\beta_{dia,m}$,
 as a function of $n_{e}$ and $T_{e}$,
   \item Solving the $m > 1$ equations for each $n_{e}$, $T_{e}$
 pair with $N_{1} = 1$ and
@@ -1040,7 +1212,7 @@ $n_{i} = 0$, providing the ``coupling to the ground state'',
   \item Solving the equations again with $N_{1} = 0$ and
 $n_{i} = 1$, yielding the ``coupling to the continuum''.
 \end{enumerate}
-Tables of $N^{(i)}_{m}/N_{1}$ and
+Tables of the population coefficients $N^{(i)}_{m}/N_{1}$ and
 $N^{(ii)}_{m}/n_{i}$ are thus obtained as a function of $n_{e}$ and
 $T_{e}$.
 
@@ -1056,74 +1228,115 @@ S_{eff} = \sum_{m \geq 1} \left( \frac{N^{(i)}_{m}}{N_{1}}\right) K_{i,m},
 and
 \begin{equation}
 R_{eff} = - \sum_{m \geq 2} \left( \frac{N^{(ii)}_{m}}{n_{i}}\right) K_{i,m}
-+ \sum_{m \geq 1} \left( \beta_{m} + n_{e} K_{r,m} \right).
++ \sum_{m \geq 1} \left( \beta_{rad,m} + \beta_{dia,m} + n_{e} K_{r,m} \right).
 \end{equation}
 $S_{eff}$ is thus the effective ionization rate of the ground state
 neutral, incorporating the multi-step processes associated with all
 of the excited states. Likewise, $R_{eff}$ is the effective recombination
-rate. Both are functions of $n_{e}$ and $T_{e}$ and are tabulated
-along with selected values of the $N^{(i)}_{m}/N_{1}$ and
-$N^{(ii)}_{m}/n_{i}$ for use in DEGAS 2.
+rate. Both are functions of $n_{e}$ and $T_{e}$. Selected
+values of
+the population coefficients  $N^{(i)}_{m}/N_{1}$ and
+$N^{(ii)}_{m}/n_{i}$ may also be tabulated or used to compute
+photon emission rates for specific transitions of interest
+(e.g., Balmer-$\alpha$).
 
-Excited state densities, e.g., for $n = 3$, are found with
-\begin{equation}
-N_{3} = \left( \frac{N^{(i)}_{3}}{N_{1}}\right) N_{1} + 
-\left( \frac{N^{(ii)}_{3}}{n_{i}}\right) n_{i}.
-\end{equation}
-Thus, 
-the H$_{\alpha}$ emission rate is given by 
-$N_{3} A_{23} = 4.41 \times
-10^{7} N_{3}$ cm$^{-3}$ s$^{-1}$.
+The above assumes that just the ground state evolves on the transport
+time scales relevant to DEGAS 2. If metastable excited states
+are present in the system (e.g., helium's $2^{1}S$ and $2^{3}S$
+states or hydrogen's $n = 2$ in an optically thick region),
+they may need to be treated on this same footing. The need
+for such a treatment and its formulation go beyond the
+scope of this presentation. See the discussion below on
+helium for some additional references.
 
-\subsection{Electron Energy Exchange Rate}
-
-The expression used in {\tt collrad} for the electron energy exchange
-is
+Computing the electron energy sources and sinks associated with 
+Eq.~(\ref{crmodel}) involves accounting for the energy exchanges
+in each of the processes appearing in Eq.~(\ref{crmodel}):
 \begin{eqnarray}
-\frac{d E_{e}}{d t} & = & {\rm Ry} \left( - N_{1} n_{e} S_{eff} + 
+\frac{d E_{e}}{d t} & = & E_{1} \left( - N_{1} n_{e} S_{eff} + 
 n_{e} n_{i} R_{eff}  \right) \nonumber \\
-& & \qquad - {\rm Ry} \sum_{\stackrel{m,n}{\scriptstyle n < m}} N_{m} A_{nm}
-\left( \frac{1}{n^{2}} - \frac{1}{m^{2}} \right) \nonumber \\
+& & \qquad - \sum_{\stackrel{m,n}{\scriptstyle n < m}} N_{m} A_{nm}
+\left( E_{n} - E_{m} \right) \nonumber \\
 & & \qquad - n_{e} n_{i} 
-\sum_{m \geq 1} \beta_{m} \left( \langle E_{rad,m} \rangle + \frac{\rm Ry}{m^{2}}
+\sum_{m \geq 1} \beta_{rad,m} \left( \langle E_{rad,m} \rangle + E_{m}
+\right) \nonumber \\
+& & \qquad - n_{e} n_{i} 
+\sum_{m \geq 1} \beta_{dia,m} \left( \langle E_{dia,m} \rangle + E_{m}
 \right),
+% Note that in Goto's notation, N_{m} = n_e R_0 n_i + n_e R_1 n_(1)
 \label{creloss}
 \end{eqnarray}
 where
 \begin{itemize}
-  \item Ry = 13.6 eV (one Rydberg),
+  \item $E_{1}$ is the ionization energy,
   \item the first term is the loss due to ionization,
   \item the second is the gain due to recombination. 
   \item The sums represent lost photons from radiative transitions and
-radiative recombination,
-  \item $\langle E_{rad,m} \rangle$ is the average energy of a recombining 
-electron.
+recombination,
+  \item $\langle E_{rad,m} \rangle$ and 
+$\langle E_{dia,m} \rangle$ are the average energies of electrons in
+radiative and dielectronic recombination, respectively.
 \end{itemize}
-For the last item, we use the expression given by Reiter\cite{Reit93},
+The two average energies are computed using 
+the expression given by Reiter\cite{Reit93},
 \begin{equation}
-\langle E_{rad,m} \rangle  =  T_{e} \left[ \frac{3}{2} 
-   + \frac{T_{e}}{\beta_{m}} \frac{ d \beta_{m}}{d T_{e}} \right].
+\langle E_{x,m} \rangle  =  T_{e} \left[ \frac{3}{2} 
+   + \frac{T_{e}}{\beta_{x,m}} \frac{ d \beta_{x,m}}{d T_{e}} \right],
 \end{equation}
+where $x$ denotes either $rad$ or $dia$.
 
 Using Eq.~(\ref{crnm}), Eq.~(\ref{creloss}) becomes
 \begin{equation}
-\frac{d E_{e}}{d t} = - {\rm Ry} \left( N_{1} n_{e} S_{eff} - 
-n_{e} n_{i} R_{eff}  \right) - N_{1} E_{loss}^{(i)} - n_{i} E_{loss}^{(ii)},
+\frac{d E_{e}}{d t} = - E_{1} \left( N_{1} n_{e} S_{eff} - 
+n_{e} n_{i} R_{eff}  \right) - N_{1} E_{\rm loss}^{(i)} 
+- n_{i} E_{\rm loss}^{(ii)},
+\label{eloss}
 \end{equation}
-where the terms $E_{loss}^{(i)}$, $E_{loss}^{(ii)}$ represent the loss
+where the terms $E_{\rm loss}^{(i)}$, $E_{\rm loss}^{(ii)}$ represent the loss
 rates due to coupling to the ground state and continuum, respectively.
-Both are provided as tables as functions of $n_{e}$ and $T_{e}$ for
+A different arrangement of these terms which can be
+generalized to the case involving multiple ``transported
+states'' has also been used:
+\begin{equation}
+\frac{d E_{e}}{d t} = - N_{1} n_{e} E_{\rm loss}^{(i)\prime} +
+n_{i} n_{e} E_{\rm source}^{(ii)\prime} - n_{i} n_{e} 
+E_{\rm loss}^{(ii)\prime}.
+\label{elossprime}
+\end{equation}
+The relationships between the terms are nearly obvious, but 
+potentially prone to confusion.  For clarity, they are:
+% In the interest of real clarity, the ``unprimed'' E_loss expressions
+% are the ones appearing in ehr2.dat.  These are converted into the
+% ``primed'' expressions by reactionwrite, via the
+% following equations.  The helium data files
+% start out with the ``primed'' expressions.  This should be
+% clarified in the specific discussion below.
+\begin{eqnarray}
+E_{\rm loss}^{(i)\prime} & = & E_{1} S_{eff} + E_{\rm loss}^{(i)}
+/ n_{e}, \\
+E_{\rm source}^{(ii)\prime} & = & E_{1} R_{eff}, \\
+E_{\rm loss}^{(ii)\prime} & = & E_{\rm loss}^{(ii)} / n_{e}.
+\end{eqnarray}
+Note that the ``unprimed'' energies have dimensions of
+power, and the ``primed'' versions have dimensions of
+power times volume.  All are stored in tabular form
+as functions of $n_{e}$ and $T_{e}$ for
 use in DEGAS 2.
 
-\subsection{Solutions Used with DEGAS 2}
+\subsection{Hydrogen Collisional Radiative Model}
 
-The code we use to solve these equations, {\tt collrad}, 
+The code we use to solve these equations for
+the hydrogen atom, {\tt collrad}, 
 is based on the one described
-by Weisheit\cite{Weis75}. Rather than using Eq.~(\ref{crnm}), the original
-code used the assumption that ionization and recombination were in balance 
-to determine the neutral density in terms of the ion density.  The other
-change made to Weisheit's version of the code is that the cross section
-data have been updated as prescribed in the Janev-Smith database\cite{Jane93}.
+by Weisheit\cite{Weis75}. The original
+code assumed that ionization and recombination were in balance 
+so that the neutral density could be expressed 
+in terms of the ion density.  While this might be valid in
+an astrophysical context, it is horribly wrong in fusion devices.
+The first major change to the code is to have
+it use Eq.~(\ref{crnm}) instead. The other
+change is to replace the cross sections
+with those provided in the Janev-Smith database\cite{Jane93}.
 The resulting collisional-radiative data are believed to be
 in good agreement with ADAS. Although the {\tt collrad} code is not
 itself distributed with DEGAS 2, it can be obtained from the DEGAS 2
@@ -1134,19 +1347,33 @@ Earlier versions of this same file, {\tt eh.dat}
 (as generated by Weisheit's original code) and {\tt ehr1.dat}
 [generated with Weisheit's code modified to use Eq.~(\ref{crnm})] are
 also included in the DEGAS 2 distribution since they were both used 
-extensively with the original DEGAS code.
+extensively with the original DEGAS code.  
 
 The {\tt ehr2.dat} file contains
 \begin{enumerate}
   \item Ionization rate $S_{eff}$ in cm$^{3}$ s$^{-1}$,
   \item Recombination rate $R_{eff}$ in cm$^{3}$ s$^{-1}$,
-  \item Neutral electron losses $E_{loss}^{(i)}$ in erg s$^{-1}$,
-  \item Continuum electron losses $E_{loss}^{(ii)}$ in erg s$^{-1}$,
+  \item Neutral electron losses $E_{\rm loss}^{(i)}$ in erg s$^{-1}$,
+  \item Continuum electron losses $E_{\rm loss}^{(ii)}$ in erg s$^{-1}$,
   \item Neutral ``n=3 / n=1'', $N_{3}^{(i)} / N_{1}$,
   \item Continuum ``n=3 / n=1'', $N_{3}^{(ii)} / n_{i}$,
   \item Neutral ``n=2 / n=1'', $N_{2}^{(i)} / N_{1}$,
   \item Continuum ``n=2 / n=1'', $N_{2}^{(ii)} / n_{i}$.
 \end{enumerate}
+Figure~\ref{ehr2} shows the
+variation of the effective ionization and recombination rates
+with electron density and temperature.
+
+\begin{figure}
+\begin{center}
+\leavevmode
+\includegraphics[width=5in]{Ionization_Recombination_Plot}
+\caption{Effective hydrogen ionization and recombination rates as a function
+of electron temperature for selected electron densities.}
+\label{ehr2}
+\end{center}
+\end{figure}
+
 The portion of the file for each quantity consists of 15 separate sections 
 (labeled by {\tt jn}), corresponding to the various electron density values,
 \begin{equation}
@@ -1158,6 +1385,145 @@ T_{e}({\tt jt}) =  10^{-1.2 + ({\tt jt} - 1)/10} \: {\rm eV}.
 \end{equation}
 The index {\tt jt} starts at 1 in the first column and row and proceeds 
 row-by-row. There are 10 rows of 6 entries each.
+
+The density of the $n = 3$ excited state can be found with
+\begin{equation}
+N_{3} = \left( \frac{N^{(i)}_{3}}{N_{1}}\right) N_{1} + 
+\left( \frac{N^{(ii)}_{3}}{n_{i}}\right) n_{i}.
+\end{equation}
+The corresponding emission rate for 
+the Balmer-$\alpha$ line (a.k.a. ``H$_{\alpha}$'', $n = 3 \rightarrow 2$)
+is given by 
+$N_{3} A_{23} = 4.41 \times
+10^{7} N_{3}$ cm$^{-3}$ s$^{-1}$.  
+Note that the energy of this transition is 
+$E_{23} = 13.595 (2^{-2} - 3^{-2})$ eV.
+Similar expressions give the
+$n=2$ density and the Lyman-$\alpha$ ($n = 2 \rightarrow 1$) emission
+rate. 
+
+The data in {\tt ehr2.dat} are transformed into netCDF files 
+containing the particular variables DEGAS 2 expects to find
+(see Sec.~\ref{addreactions}) by the {\tt reactionwrite}
+code.  Separate files for ionization and recombination
+are written.  In these files, $S_{eff}$ and $R_{eff}$ become
+the ``reaction rates''.  The ``emission rate'' variable 
+is obtained by rewriting the above expression
+for the Balmer-$\alpha$ emission rate as a power,
+per atom (for ionization) or ion (for 
+recombination) and per electron:
+\begin{eqnarray}
+P_{\alpha}^{(i)} & = & E_{23} A_{23} \left( \frac{N_{3}^{(i)}}{N_{1}} \right)
+/ n_{e}, \label{pemiti} \\
+P_{\alpha}^{(ii)} & = & E_{23} A_{23} \left( \frac{N_{3}^{(ii)}}{n_{i}} \right)
+/ n_{e}. \label{pemitii}
+\end{eqnarray}
+These quantities have dimensions of power times volume.
+The wavelengths of this transition for each of the
+hydrogen isotopes are also inserted into the
+file, $\lambda_{H_{\alpha}} = 6562.80 $ \AA, 
+$\lambda_{D_{\alpha}} = 6561.04 $ \AA, and $\lambda_{T_{\alpha}}
+= 6560.45 $ \AA.
+The electron energy exchange terms in {\tt ehr2.dat} correspond
+to those in Eq.~(\ref{eloss}); {\tt reactionwrite} transforms
+them into those of Eq.~(\ref{elossprime}).
+
+\subsection{Helium Collisional Radiative Model}
+
+The code used to solve the collisional radiative equations for
+the helium atom was developed by Goto\cite{Goto2003},
+based on Fujimoto's original\cite{Fuji79}.  This code actually
+generates data for two collisional radiative models.  In the 
+first, only the ground state ($1^{1}S$) atom is considered slowly
+varying (i.e., must be treated explicitly as a transported
+species in DEGAS 2); this model was designated as
+``formulation II'' by Fujimoto.  In the second, the metastable
+$2^{1}S$ and $2^{3}S$ states are also considered
+slowly varying; Fujimoto called this ``formulation I''. 
+The appropriate species, reactions, and
+data needed to do simulations based on this model have been
+incorporated into DEGAS 2.  However, investigations using it
+have not demonstrated that the added detail yields any significant
+differences in the final results.  Moreover, a separate analysis
+of the helium collisional radiative equations [Eq.~(\ref{crmodel})]
+suggests that this particular
+model may not even be valid for typical fusion edge conditions.
+For these reasons, we will not discuss this model any further and
+will focus only on the simpler ``one state'' model.
+
+The primary modification made to Goto's code in preparation
+for using its output with DEGAS 2 were to add the 
+computation of the electron energy exchange terms in
+Eq.~(\ref{elossprime}). 
+The resulting formulation II model and data are, not surprisingly, very
+similar in structure to those of the hydrogen collisional 
+radiative model.  
+The file \verb+he_crII_alad.dat+ (in directory \verb+Aladdin/data+) is
+an Aladdin formatted version of these data. These same data
+written in a format more like that of {\tt ehr2.dat} are
+contained in the file \verb+he_crII.txt+ 
+% put in href??
+that can be downloaded
+from the ``Data'' section of the DEGAS 2 web site.  This file has
+been provided as a convenience for those who would just like to
+use the data, but not download the entire DEGAS 2 code.
+
+The contents of this file are:
+\begin{enumerate}
+  \item Ionization rate $S_{eff}$ in cm$^{3}$ s$^{-1}$,
+  \item Neutral electron losses $E_{\rm loss}^{(i)\prime}$ 
+in eV cm$^{3}$ s$^{-1}$,
+  \item Neutral 5877 \AA\ ($3^{3}D \rightarrow 2^{3}P$) emission
+rate $P_{5877}^{(i)}$ in eV cm$^{3}$ s$^{-1}$,
+  \item Neutral 6680 \AA\ ($3^{1}D \rightarrow 2^{1}P$) emission
+rate $P_{6680}^{(i)}$ in eV cm$^{3}$ s$^{-1}$,
+  \item Recombination rate $R_{eff}$ in cm$^{3}$ s$^{-1}$,
+  \item Continuum electron losses $E_{\rm loss}^{(ii)\prime}$ 
+in eV cm$^{3}$ s$^{-1}$,
+  \item Continuum electron sources $E_{\rm source}^{(ii)\prime}$ 
+in eV cm$^{3}$ s$^{-1}$,
+  \item Continuum 5877 \AA\ ($3^{3}D \rightarrow 2^{3}P$) emission
+rate $P_{5877}^{(ii)}$ in eV cm$^{3}$ s$^{-1}$,
+  \item Continuum 6680 \AA\ ($3^{1}D \rightarrow 2^{1}P$) emission
+rate $P_{5877}^{(i)}$ in eV cm$^{3}$ s$^{-1}$,
+\end{enumerate}
+
+The portion of the file for each quantity consists of 30 separate sections 
+(labeled by {\tt jn}), corresponding to the various electron density values,
+\begin{equation}
+n_{e}({\tt jn}) =  10^{8 + 8*({\tt jn} - 1)/29} \: {\rm cm}^{-3}.
+\end{equation}
+Each section consists of 65 data values, one for each $T_{e} ({\tt jt})$,
+\begin{equation}
+T_{e}({\tt jt}) =  10^{({\tt jt} - 1)/16} \: {\rm eV}.
+\end{equation}
+The index {\tt jt} starts at 1 in the first column and row and proceeds 
+row-by-row. There are 10 rows of 6 entries each, followed by a single
+row of 5 entries.
+
+The ``emission rates'' here correspond to the power in those lines 
+and are analogous to Eqs.~(\ref{pemiti}) and (\ref{pemitii}) above.
+The total emitted power (per unit volume) is obtained at run
+time by combining them with the ground state and ion densities:
+\begin{equation}
+P_{5877} = P_{5877}^{(i)} N_{1^{1}S} + 
+P_{5877}^{(ii)} n_{i}.
+\end{equation}
+Note that $E_{3^{3}D \rightarrow 2^{3}P} = 2.10955$ eV,
+$A_{3^{3}D \rightarrow 2^{3}P} = 7.069 \times 10^{7}$ s$^{-1}$, and
+$E_{3^{1}D \rightarrow 2^{1}P} = 1.85606$ eV,
+$A_{3^{1}D \rightarrow 2^{1}P} = 6.369 \times 10^{7}$ s$^{-1}$.
+The more precise (vacuum) wavelengths for these transitions
+are 5877.1 \AA\ and 6679.7 \AA\ respectively. The first
+ionization energy for helium is $E_{1}= 24.587$ eV.
+
+The electron energy losses and sources can be used directly
+in Eq.~(\ref{elossprime}).
+
+The data in \verb+he_crII_alad.dat+ are transformed into netCDF files
+by the {\tt ratecalc} code using the input files
+\verb+heionII.input+ and \verb+herecII.input+ (in the {\tt data} directory).
+See the \verb+DATA_HISTORY+ file for additional details.
 
 \section{Elastic Scattering}
 \label{ElasticScattering}
@@ -1188,7 +1554,7 @@ approximately 2 eV for $D^{+} + D$ collisions, separate treatment of
 small-angle elastic scattering and resonant charge exchange becomes
 impossible due to quantum mechanical effects.  The need for a
 comprehensive treatment of ion-neutral elastic collisions at low
-energies motivated the \href{http://www-cfadc.phy.ornl.gov/}{Controlled Fusion Atomic Physics Data Center} at
+energies motivated the \href{http://www-cfadc.phy.ornl.gov/}{Controlled Fusion Atomic Data Center} at
 ORNL to produce a collection of total differential elastic scattering
 cross sections for 31 various isotopic combinations of hydrogen atoms
 and molecules\cite{Krst98}.
@@ -1548,7 +1914,8 @@ Accurately simulating neutral-neutral scattering requires greater care
 in setting up the geometry and deciding on the number of flights than
 is exercised in linear runs. First,
 the entire problem space must be divided up finely enough to resolve all
-anticipated spatial variations of the neutral density. In comparison, 
+anticipated spatial variations of the neutral density
+and the other fluid moments. In comparison, 
 without neutral-neutral
 scattering, the vacuum regions can be treated as large monolithic zones.
 The variation of the neutral parameters between iterations is asymptotically
@@ -1703,7 +2070,7 @@ The CFADC data exist only for the $D + D_{2}$ and $D + D$ systems
 the absence of molecule-molecule data). These are compared with the 
 May data in Fig.~\ref{scattering}. 
 
-One concern with May's treatment of the $D + D$ case is that the 
+One concern with May's treatment of the $D_{2} + D_{2}$ case is that the 
 empirical viscosity formula quoted in Ref.~\cite{Mayxx} does not
 appear in the literature, nor is its origin clearly stated. The best
 guess for its origin is that it was obtained by rescaling the 
@@ -1723,8 +2090,16 @@ May's expressions are also consistent with the CFADC data. However,
 in the 1 to 10 eV range, they are considerably larger than the
 CFADC values,
 suggesting that the values used in DEGAS 2 (and EIRENE) may be too
-large. We will demonstrate in Sec.~\ref{cmod1d} that the temperature dependence
+large. However, we will 
+demonstrate in Sec.~\ref{cmod1d} that the temperature dependence
 ascribed to these rates by May is inconsistent with Eq.~(\ref{sigvconstraint}).
+Consequently, DEGAS 2 now uses constant neutral-neutral reaction rates,
+i.e., independent of the ``background''
+temperature.  Since agreement of the May expressions with the CFADC
+and empirical viscosities is good at room temperature, 
+and since room temperatures are physically relevant (at least for
+desorbed D$_{2}$) we fix the reaction rates at its
+room temperature (300 K = 0.02585 eV) value according to May's formulas.
 
 \begin{figure}
 \begin{center}
@@ -2473,7 +2848,7 @@ For that reason, no additional documentation is provided at this point.
 The documentation on the input file for {\tt tallysetup} is maintained
 in the source code, {\tt tallysetup.web}. This 
 \href{tallysetup.pdf#page.1}{link} will take the reader to the corresponding
-PDF file. The \href{classes.pdf#page.51}{tally class} contains more 
+PDF file. The \href{classes.pdf#page.49}{tally class} contains more 
 extensive and detailed information.
 
 \subsection{outputbrowser Input}
@@ -2775,9 +3150,9 @@ Sec.~\ref{help}).
 This simple run demonstrates that DEGAS 2 matches the results of an analytic
 model in the fluid limit. More information on this comparison can be
 found in the IAEA proceedings\cite{Stot96} or on the Web as a 
-\href{http://www-local.pppl.gov/pppl/services/pub_report/1997/PPPL-3221.ps}{PostScript}
+\href{http://www.pppl.gov/pub_report/1997/PPPL-3221.ps}{PostScript}
 or 
-\href{http://www-local.pppl.gov/pppl/services/pub_report/1997/PPPL-3221.pdf}{PDF} file.
+\href{http://www.pppl.gov/pub_report/1997/PPPL-3221.pdf}{PDF} file.
 
 To run this example, follow these steps:
 \begin{enumerate}
@@ -2909,11 +3284,9 @@ along adjacent fluid elements, resulting in a velocity gradient
 between the boundary velocities represented by the two plates.
 
 In this example, two semi-infinite plates are a distance $d$ apart 
-in the $x$ direction. At present, the plates have a finite extent in the $z$ 
-direction with mirror boundary conditions at $z_{\rm min}$ and $z_{\rm max}$.
-Periodic boundary conditions are enforced in the $y$ direction so that
-the problem is effectively infinite in that direction. Eventually, the
-$z$ direction will also have periodic boundary conditions. Particles
+in the $x$ direction. 
+Periodic boundary conditions are enforced in the $y$ and $z$ directions so that
+the problem is effectively infinite in those directions.  Particles
 are initialized at the $x = 0$ plate with a thermally distributed
 velocity to which a constant velocity in the $y$ direction, 
 $v_{y0}$,
@@ -3058,15 +3431,27 @@ To run this example, follow these steps:
   \item {\bf Set source code switches.} The source code file {\tt boxgen.web}
 has within it a few different settings available which can be selected
 by changing the value of the flag \verb+BOXRUN+. With this file open in
-an editor, change the line
+an editor, change the lines
 \begin{verbatim}
+@m DIM 2
+
 @m BOXRUN 0
+@m SOLN 1
 \end{verbatim}
-so that it now reads
+so that they now read
 \begin{verbatim}
+@m DIM 1
+
 @m BOXRUN 41
+@m SOLN 0
 \end{verbatim}
-Save the file and exit the editor. 
+Save the file and exit the editor. The \verb+DIM+ flag controls the
+dimensionality of the geometry.  By setting it to 1, we get a purely
+one-dimensional geometry, with periodic boundary conditions in the $y$
+and $z$ directions.  The \verb+SOLN+ flag controls the analytic 
+solution used with the ``Analytic\_fluid\_bench'' example 
+(Sec.~\ref{analyticfluidbench}); since that's not needed here, we can
+turn it off.
 The files {\tt plate.web}, {\tt sources.web}, and {\tt flighttest.web} each
 have the line
 \begin{verbatim}
@@ -3122,7 +3507,8 @@ file in an editor (Emacs will be the most convenient) and find the line
 The results in this directory were obtained with 10 BGK iterations of
 4000000 flights each. Such a run could easily require
 more than a day if run on a single processor (this run was executed
-in about an hour using 14 400 MHz Pentium PCs). You can probably run a smaller
+in about an hour using 10 1.7 GHz AMD Athlon PCs). 
+You can probably run a smaller
 number of flights (say, 100000) and still get reasonable results.
 Save the file and exit the editor.
   \item {\bf Set up the tallies.} 
@@ -3214,16 +3600,16 @@ $\delta_{\rm wall} = 0.9894$.  Plugging this into Eq.~(\ref{cercig}),
 0.6047.
 \end{equation}
 The free-molecular stress, Eq.~(\ref{fmstress}), is 
-$\Pi_{xy}^{\rm fm}(T_{\rm wall}) = 0.20978$ Pa.
+$\Pi_{xy}^{\rm fm}(T_{\rm wall}) = 0.20977$ Pa.
 If we average the 10 values for $\Pi_{xy}$ in the {\tt density10.out} file, we
-get $\Pi_{xy, {\rm sim}} = 0.13051$ Pa and 
+get $\Pi_{xy, {\rm sim}} = 0.13045$ Pa and 
 \begin{equation}
-\left( \frac{\Pi_{xy}}{\Pi_{xy}^{\rm fm}} \right)_{\rm sim} = 0.6215.
+\left( \frac{\Pi_{xy}}{\Pi_{xy}^{\rm fm}} \right)_{\rm sim} = 0.6219.
 \end{equation}
 
 This would qualify as pretty good agreement. However, if we average the fluid 
 temperature values in the {\tt bk\_bgktest.nc} file, we get $T_{\rm sim} =
-4.5866 \times 10^{-21}$ J. Then, $\delta_{\sim} = 0.9393$, and
+4.5866 \times 10^{-21}$ J. Then, $\delta_{\rm sim} = 0.9394$, and
 \begin{equation}
 \left( \frac{\Pi_{xy}}{\Pi_{xy}^{\rm fm}} \right)_{\rm c}(\delta_{\rm sim}) = 
 0.6157,
@@ -3266,8 +3652,9 @@ than the wall temperature, $T_{\rm wall}$.}
 \label{cmod1d}
 
 This example demonstrates a run with complete hydrogen physics in a simple
-geometry. In particular, this run includes both neutral-ion and neutral-
-neutral elastic scattering processes. The complexity of the physics also
+geometry. In particular, this run includes both neutral-ion and 
+neutral-neutral 
+elastic scattering processes. The complexity of the physics also
 makes for a good demonstration of DEGAS 2's conservation checks.
 
 Experiments by Pitcher et al. \cite{Pitc00,Pitc01} on the Alcator C-Mod tokamak
@@ -3301,7 +3688,9 @@ so that they now read
 \end{verbatim}
 Save the file and exit the editor. The second parameter disables the
 analytic solutions that are used in the original boxgen
-example (Sec.~\ref{analyticfluidbench}).
+example (Sec.~\ref{analyticfluidbench}).  Note that the 
+\verb+DIM+ parameter should remain at its default value of
+2.
   \item {\bf Switch to the example directory.} If the main DEGAS 2 
 directory sits within your home directory:
 \begin{verbatim}
@@ -3468,13 +3857,17 @@ be performed:
   & & = 6. \times 10^{16} \\
 \end{eqnarray*}
 
-There should always be a small remainder in the energy and momentum balances; 
-its magnitude appears to roughly coincide with the accuracy provided by
+There will usually be a small remainder in these balances; 
+its magnitude in this case roughly coincides with the accuracy provided by
 {\tt outputbrowser}. This remainder results from the enforcement of a minimum
 weight via Russian roulette in subroutine {\tt follow}. By default, that 
-minimum weight is $10^{-3}$ of the initial weight. The Russian roulette 
-procedure is set up so as to not lose mass. However, it will conserve
-momentum and energy only on the average (i.e., after many flights).
+minimum weight is $10^{-3}$ of the initial weight. 
+% The Russian roulette 
+% procedure is set up so as to not lose mass. (This is also true in
+% general only on average
+Consequently, particles, 
+momentum, and energy are conserved 
+only on the average (i.e., after many flights).
 You can demonstrate this effect by reducing the minimum weight (\verb+WMIN+ in 
 {\tt flight.web}) to, say, $10^{-7}$. 
 Doing so will make the run substantially longer.
@@ -3522,10 +3915,13 @@ algorithm in EIRENE had the same temperature dependent expression for
 the two rates. However, because the temperatures of \verb+D2+ and 
 \verb+D+ species are different
 in general, the resulting rates had different numerical values. The
-initial implementation of the BGK algorithm in DEGAS 2 repeats this same mistake.
+initial implementation of the BGK algorithm in DEGAS 2 
+repeated this same mistake.
 
 To see the difference, you can modify the {\tt degas2.in} file to point to
-the {\tt reactions.input} and {\tt reactions.nc} files in the data directory.
+the {\tt reactions.input} and {\tt reactions.nc} files in this directory;
+these use the old versions of the neutral-neutral data files that are
+also in this directory.
 When you run the code again (you at least need to rerun {\tt problemsetup}
 first), you will find something like the results contained in 
 {\tt bgkbalances\_default.out}:
@@ -3538,12 +3934,10 @@ mom. 1 to \verb+D2+: \> $+7.04233 \times 10^{-3}$ \\
   energy to D2: \> $+3.36294 \times 10^{2}$ \\
 \end{tabbing}
 
-This error in the default rates will be corrected in a subsequent 
-version of the code.
-
   \item {\bf Other results.} For reference purposes, 
 this directory contains output files from a 
-single iteration (on a Sun with \verb+DEBUG=yes+) with 1000 flights. These
+single iteration (on a Linux machine running
+Portland Group Fortran with \verb+DEBUG=yes+) with 1000 flights. These
 output files contain the string \verb+1K+. 
 The primary purpose of these files
 is to serve as a known, reproducible point of contact for testing
@@ -3551,12 +3945,15 @@ subsequent code modifications. It also demonstrates that these
 conservation checks hold even if the code is run with relatively few
 flights. To duplicate these files, you will need to stop the BGK iteration
 process after the first (zeroth, actually) iteration. The easiest way
-to do this is to insert the line:
+to do this is to change the number of iterations, near the
+top of {\tt flighttest.web}, from:
 \begin{verbatim}
-      bgk_iteration=FALSE
+@m bgk_max 5
 \end{verbatim}
-as the last executable statement in subroutine {\tt bgk\_test} near the end
-of {\tt flighttest.web}.
+to
+\begin{verbatim}
+@m bgk_max 0
+\end{verbatim}
 
 You may notice that the tallies used for the conservation checks 
 predominantly utilize collision estimators while the standard (zone-resolved)
@@ -3577,7 +3974,7 @@ corresponding zone-resolved tallies.
 \section{Run Control Parameters}
 
 Several run control parameters are contained in the 
-\href{classes.pdf#page.29}{sources class}. Ideally, these would be
+\href{classes.pdf#page.26}{sources class}. Ideally, these would be
 set by the user in a dialog box just prior to the run. For now,
 they must be changed manually by editing the background netCDF file.
 The following subsections describe the features, roughly in order of usefulness
@@ -3747,7 +4144,7 @@ each independent variable.
 For more details, see the description of the 
 \href{classes.pdf#page.67}{cross section class}.  % Start of the description section
 The corresponding information for PMI is in the description of the
-\href{classes.pdf#page.72}{PMI format class}.
+\href{classes.pdf#page.75}{PMI format class}.
 
 The only general tool available for creating new data files is {\tt ratecalc}
 (see Sec.~\ref{othersetup} and \href{ratecalc.pdf#page.1}{the ratecalc
@@ -3917,7 +4314,7 @@ ion temperature, rather than generating the random numbers on the
 fly in the interpolation process. Hence, the appearance of 
 \verb+1st_random_number+, \verb+2nd_random_number+, and
 \verb+3rd_random_number+ in the independent variables list
-(see the \href{classes.pdf#page.72}{PMI format class}).
+(see the \href{classes.pdf#page.75}{PMI format class}).
 
 So, each file for such PMI contains
 \begin{enumerate}
@@ -3928,7 +4325,7 @@ So, each file for such PMI contains
 \end{enumerate}
 Again, all of the data values are stored in a single 1-D array
 with the array behavior specified by macros
-(see the \href{classes.pdf#page.72}{PMI format class}).
+(see the \href{classes.pdf#page.75}{PMI format class}).
 
 \subsection{Reaction Processing Routines}
 \label{reactionprocessing}
@@ -3949,10 +4346,11 @@ view is defined by:
   \end{itemize}
   \item Angular halfwidth (i.e., each view consists of a cone with apex at
 the starting point),
-  \item An averaging algorithm, used to simulate 3-D behavior with
-a cone defined in 2-D (see below). The two techniques available now are
+  \item An averaging algorithm, used to simulate the finite spatial
+resolution obtained with real detectors.  
+The two techniques available now are
   \begin{itemize}
-    \item Uniform weighting,
+    \item Uniform weighting (i.e., square),
     \item Circular weighting.
   \end{itemize}
   \item A binning variable,
@@ -3963,18 +4361,39 @@ minimum, maximum, and the number of wavelength bins.
   \end{itemize}
 \end{enumerate}
 The actual variables are defined and described in the
-\href{classes.pdf#page.42}{detector class}.
+\href{classes.pdf#page.46}{detector class}.
 
 Views are machine specific and not frequently changed. For these reasons,
 the user will need to specify them via specific lines of code in
-{\tt readgeometry} or {\tt boxgen} (both have working examples).
+{\tt readgeometry}, {\tt boxgen}, or {\tt btopdetector}.
 
 \subsection{Signal Computation}
 
-The contribution from each zone to a view is precomputed so that the
+The contribution from each zone to a view is usually precomputed so that the
 signal can be quickly determined
-during or after the run from volumetric emission. 
+during or after the run from volumetric emission. However, this can
+become impractical when a large number of chords ($ \gg 100$) are
+called for since the preprocessing yields an array of size
+(number of zones) $\times$ (number of chords).  In that case, the 
+user may want to use just a subset
+of chords during geometry setup and save processing the full array
+for postprocessing. The chord signals can be individually evaluated,
+in parallel if need be, in this case so that the aforementioned
+array is not required.
 
+There are two situations:
+\begin{enumerate}
+  \item Symmetric (2-D) geometry in which the detector chord
+is perpendicular to the ignorable coordinate.  E.g., the
+chord would be in the $x$ - $z$ (planar symmetry) or $R$ - $z$
+(cylindrical symmetry) plane.
+  \item Symmetric geometry in which the detector chord has a
+component along the ignorable component or a 3-D geometry.
+For simplicity, we will refer to this as the ``3-D'' situation.
+\end{enumerate}
+
+In the 2-D case, an effective average over a 3-D cone is computed
+by exploiting the assumed symmetry in the ignorable coordinate.
 The 2-D viewing cone is divided into 30 subchords / degree. The code
 expects, but does not insist (a warning will be printed), 
 that the apex of the cone does not
@@ -3987,6 +4406,7 @@ is for $i = 2N+1$
 uniformly weighted subchords
 \begin{equation}
 f(z_{j}) = \sum_{i=-N}^{N}  d_{i,j} w_{i} / V_{j},
+\label{zonefrag}
 \end{equation}
 where $d_{i,j} = $ is the distance along subchord $i$ through zone $j$, 
 and $V_{j}$ is the volume of zone $j$.  The relative weight of each
@@ -3999,6 +4419,66 @@ and
 w_{i}^{\rm circular} = \frac{1}{2 \pi^{2} N \sqrt{1 - (i/N)^2}}.
 \end{equation}
 The units of $f$ are ${\rm m}^{-2}/{\rm st}$.
+
+In the 3-D case, each chord is modeled as a pyramid (for uniform
+weighting) or cone (for circular weighting) subtending a solid
+angle on the order of $\delta^{2}$, where $\delta$ is the
+specified halfwidth expressed in radians. More precisely, the
+solid angles are
+\begin{equation}
+\Omega^{\rm uniform} = 4 \arctan \frac{\sin^{2} \delta}{\sqrt{1
++ 2 \sin^{2} \delta}} \rightarrow 4 \delta^{2},
+\end{equation}
+and
+\begin{equation}
+\Omega^{\rm circular} = 2 \pi (1 - \cos \delta) \rightarrow \pi 
+\delta^{2},
+\end{equation}
+where the arrows indicate the value in the $\delta \ll 1$ limit.
+
+The subchords are used to perform a 2-D integration over this solid
+angle. The direction of each subchord is defined relative to that
+of the detector chord; call the corresponding unit vector
+$\hat{\delta}_{\parallel}$. Two vectors perpendicular to this
+$\hat{\delta}_{\perp,1}$, $\hat{\delta}_{\perp,2}$
+are determined in a somewhat arbitrary manner with
+$\hat{\delta}_{\perp,2} = \hat{\delta}_{\parallel} \times
+\hat{\delta}_{\perp,1}$.
+
+The velocity vector sent to the tracking algorithm in the uniform
+case is
+\begin{equation}
+\vec{v}_{j,k}^{\rm uniform} = \hat{\delta}_{\parallel}
++ \frac{(j - 1/2) - n}{n} \sin \delta \hat{\delta}_{\perp,1}
++ \frac{(k - 1/2) - n}{n} \sin \delta \hat{\delta}_{\perp,2},
+\end{equation}
+where the subchords are labeled by the indices $j$ and $k$,
+both ranging from 1 to $2n$; currently $n = 6$.
+The weighting for each subchord is
+\begin{equation}
+w_{j,k}^{\rm uniform} = \frac{\sin^{2} \delta}{4 \pi \Omega^{\rm uniform}
+n^{2}}\left| \vec{v}_{j,k}^{\rm uniform} \right|^{-3/2}.
+\end{equation}
+
+In the circular case, the azimuthal angle's $2 \pi$ radians are
+discretized into $\phi_{j} = (j - 1/2) \pi / n$, with 
+$j = 1 \rightarrow 2n$.  The polar angle is given by
+$\theta_{k} = (k - 1/2) \delta / n$, with $k = 1 \rightarrow n$.
+Currently, $n = 6$. In terms of these angles, the velocity vector
+sent to the tracking algorithm is
+\begin{equation}
+\vec{v}_{j,k}^{\rm circular} = \hat{\delta}_{\parallel}
++ \sin \theta_{k} ( \cos \phi_{j} \hat{\delta}_{\perp,1}
++ \sin \phi_{j} \hat{\delta}_{\perp,2}),
+\end{equation}
+and the weight for each subchord is
+\begin{equation}
+w_{j,k}^{\rm circular} = \frac{ \delta }{4 \Omega^{\rm circular} n^{2}}
+\sin \theta_{k}.
+\end{equation}
+
+The resulting contribution to the chord by each zone
+is again given by Eq.~(\ref{zonefrag}) in both cases.
 
 These zone contributions can then be used during execution of the main
 code or during post-processing to compute, say, the 
@@ -4018,80 +4498,22 @@ an analogous if the appropriate data are present in the input data
 files. Again note that the views cannot be toroidally directed. If
 needed, this option could be incorporated with relative ease.
 
-\section{Sectors and Diagnostic Surfaces}
+\section{Diagnostic Sectors}
+\label{Diagnostic}
 
-The default behavior for a surface in DEGAS 2's tracking algorithm is
-to stop the flight momentarily (to check for a zone boundary) and then
-to continue. In some instances, these surfaces need to do more, e.g.,
-\begin{enumerate}
-  \item If that surface represents the interface between a plasma or
-vacuum zone and a material (solid) or exit zone, the quantities describing
-the flight must be altered to represent the effect of that next zone,
-  \item If the user wishes to monitor the passing of a flight through a
-particular surface, the flight's parameters must be noted and used to
-update the appropriate tallies.
-\end{enumerate}
-
-To address these needs, DEGAS 2 utilizes the {\em sector} concept.
-The most general description of a sector is a coupled surface and 
-a zone. More specifically, the surface should be a bounding surface
-of a cell comprising the zone (the orientation is important; see below).
-The function used to define sectors takes as an optional argument a
-second zone. If provided, the function will verify that the input surface
-is indeed an interface between the two zones. The programmer should use
-this option whenever possible as a consistency check. 
-
-Solid zones in DEGAS 2 are typically physically larger entities than
-plasma zones. E.g., many plasma zones may be in contact with the same
-solid zone. Although this approach simplifies specification of the
-geometry, it prevents local variations in the properties of the solid
-zone, such as material temperature or recycling coefficient. Instead,
-we will use the sectors to store data such as these. In contrast,
-each plasma zone has associated with it local data, such as plasma 
-temperature and density. By including the plasma zone number in the
-sector definition, the sectors have access to the properties of both the
-material and plasma at the interface between the two. The particular
-properties required may vary with the model used process the flights
-as they strike the interface. The existing geometry setup routines
-({\tt definegeometry2d}, 
-{\tt readgeometry} and {\tt boxgen}) define take care of the definition of
-these sectors. In the first two cases, little or no input is
-required from the user. 
-
-Sectors can also be defined for purely diagnostic use. The zones adjacent
+As was noted in Sec.~\ref{Geometry},
+sectors can be defined for purely diagnostic use. The zones adjacent
 to the sector surface can be of any type. A given sector may be used to
 specify more than one diagnostic (e.g., one may track particle current,
 another might tally particle energy).
 
-Because of the inherent differences between interfaces of different types,
-the sectors must be categorized into subclasses:
-\begin{description}
-  \item[target] The interface between a plasma zone and a solid zone,
-  \item[wall] The interface between a vacuum zone and a solid zone,
-  \item[exit] The interface between a vacuum or plasma zone and an
-exit zone,
-  \item[diagnostic] A diagnostic sector.
-  \item[plasma] A sector type used in an earlier version of the code,
-retained only for backward compatibility. 
-  \item[vacuum] A sector type used in an earlier version of the code,
-retained only for backward compatibility. 
-\end{description}
-
-To facilitate output organization, sectors have labels associated with them,
-{\tt strata} (for groups of sectors) and {\tt sector\_strata\_segment}
-(for an individual segment). The user can specify these in an arbitrary 
-manner. {\tt readgeometry} provides some keywords for this purpose.
-
-Additional details on the sector subclass properties can be found
-in the documentation on the \href{classes.pdf#page.34}{sector class}.
-
-\subsection{Diagnostic Sectors}
-
 Diagnostic sectors are defined in a manner closely paralleling that of 
 detectors. Diagnostic sector groups are used to identify sectors of
-similar functionality. Both {\tt readgeometry} and {\tt boxgen} define
-default diagnostic groups using the non-diagnostic sectors set up 
-by those routines:
+similar functionality. The default sectors defined by DEGAS 2's
+geometry setup codes (such as
+{\tt definegeometry2d}, {\tt readgeometry} and {\tt boxgen})
+are used to construct the following
+default diagnostic groups:
 \begin{description}
   \item[Wall and Target Counts] Includes all wall and target sectors. No
 independent variable is associated with this diagnostic group; it is only
@@ -4108,14 +4530,14 @@ group.
 group, but the independent variable is the angle of incidence of the particle.
 \end{description}
 
-In addition, the definition of dioagnostic only sectors and a corresponding
-group (``Throat sectors'') is illustrated in {\tt readgeometry.web}.
-
 The particle properties to be associated with these diagnostic
-groups for the purpose of defining tallies may be directionally
+groups for the purpose of defining tallies are directionally
 dependent. For instance, the particle current leaving and entering
 a zone may be specified separately. Details will be given in 
 Sec.~\ref{tallies}.
+
+Additional diagnostic groups can be defined as needed; this is 
+especially straightforward with {\tt definegeometry2d}. 
 
 \section{Output File}
 \label{outputformat}
@@ -4456,7 +4878,7 @@ difference is that the EIRENE code, AMJUEL,
 is based upon the Johnson-Hinnov ionization cross sections\cite{John73}.
 The data used in DEGAS 2 are described in Sec.~\ref{AtomicPhysics}.
 
-Figures~\ref{hionize} and \ref{eloss}
+Figures~\ref{hionize} and \ref{elossfig}
 compare the rate data. The AMJUEL ionization rates are noticeably lower
 for $T_{e} < 10$ eV. This is likely responsible for most of the
 differences between the densities in Figs.~\ref{eirDden} and 
@@ -4491,7 +4913,7 @@ publicly distributed file {\tt ehr2.dat}) at
 densities of $10^{18}$ m$^{-3}$ and $10^{20}$ m$^{-3}$. The upper figure
 shows the energy lost per ionization; the lower gives the power
 lost.}
-\label{eloss}
+\label{elossfig}
 \end{center}
 \end{figure}
 
@@ -5287,16 +5709,6 @@ readgeometry and sector scoring routines.
 \section{Help!}
 \label{help}
 
-If you're really in need of help, try contacting \\
-Charles Karney \\
-Princeton Plasma Physics Laboratory, MS 28 \\
-P. O. Box 451 \\
-Princeton NJ 08543-0451 \\ 
-(609) 243-2607 \\
-\href{mailto:karney@pppl.gov}{E-mail: karney@pppl.gov}
-
-or
-
 Daren Stotler \\
 Princeton Plasma Physics Laboratory, MS 27 \\
 P. O. Box 451 \\
@@ -5362,7 +5774,7 @@ S. I. Krasheninnikov, B. LaBombard, B. Lipschultz, G. M. McCracken,
 A. Niemczewski, J. A. Snipes, J. L. Terry, and R. A. Vesey, in {\em 
 Fusion Energy 1996} (Proc. 16th Int. Conf. Montreal, 1996), Vol. 2 
 (IAEA, Vienna, 1997) p. 633 (see also the corresponding
-\href{http://www-local.pppl.gov/pppl/services/pub_report/1997/PPPL-3221-abs.html}{PPPL Report}).
+\href{http://www.pppl.gov/pub_report/1997/PPPL-3221-abs.html}{PPPL Report}).
   \bibitem{Jane87} R. K. Janev, W. D. Langer, K. Evans, Jr., and D. E. Post, Jr., {\em Elementary
 Processes in Hydrogen-Helium Plasmas} (Springer-Verlag, Berlin, 1987)
 (see also the corresponding \href{http://www-cfadc.phy.ornl.gov/aladdin/aladdin_list.html}{Aladdin data file}).
@@ -5376,11 +5788,15 @@ Fusion) {\bf 4} (1993) (see also the corresponding \href{http://www-cfadc.phy.or
 Radiat. Transfer} {\bf 13}, 333 (1973).
 \bibitem{Weis75} J. C. Weisheit, {\em J. Phys. B: Atom. Molec. Phys.} {\bf 8},
 2556 (1975).
+\bibitem{Goto2003} M. Goto, {\em J. Quant. Spectrosc. Radiat.
+Transfer} {\bf 76}, 331 (2003).
+\bibitem{Fuji79} T. Fujimoto,  {\em J. Quant. Spectrosc. Radiat. 
+Transfer} {\bf 21}, 439 (1979).
 \bibitem{Kanz00} R. J. Kanzleiter, D. P. Stotler, C. F. F. Karney, and 
 D. Steiner {\em Phys. Plasmas} {\bf 7}, 5064 (2000).
 \bibitem{Krst98} P. S. Krstic and D. R. Schultz, {\em Atomic and 
 Plasma-Material Data for Fusion} {\bf 8}, 1 (1998).
-\bibitem{Bach95} P. Bachmann and d. Reiter, {\em Contrib. Plasma Phys.} 
+\bibitem{Bach95} P. Bachmann and D. Reiter, {\em Contrib. Plasma Phys.} 
 {\bf 35}, 45 (1995).
 \bibitem{Abou91} H. H. Abou-Gabal and G. A. Emmert, {\em Nucl. Fusion}
 {\bf 31}, 407 (1991).
@@ -5440,184 +5856,182 @@ et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
 
 \begin{theindex}
 
-  \item adsorption, \hyperpage{53}
-  \item Allocation, memory, \hyperpage{2}
-  \item Atomic physics, \hyperpage{21}
+  \item adsorption, \hyperpage{60}
+  \item Allocation, memory, \hyperpage{3}
+  \item Atomic physics, \hyperpage{23}
 
   \indexspace
 
-  \item background species, \hyperpage{53}
-  \item BGK, \hyperpage{35}
+  \item background species, \hyperpage{60}
+  \item BGK, \hyperpage{42}
   \item Boltzmann equation, \hyperpage{1}
-  \item boxgen, \hyperpage{48}
+  \item boxgen, \hyperpage{55}
 
   \indexspace
 
-  \item Charge exchange, \hyperpage{25}
-  \item chargex, \hyperpage{52}
-  \item collisional-radiative, \hyperpage{21}
-  \item CVS, \hyperpage{3}, \hyperpage{44}
+  \item Charge exchange, \hyperpage{32}
+  \item chargex, \hyperpage{59}
+  \item collisional-radiative, \hyperpage{23}
+  \item CVS, \hyperpage{4}, \hyperpage{51}
 
   \indexspace
 
-  \item dataexam, \hyperpage{49}
-  \item datamatch, \hyperpage{50}
-  \item datasetup, \hyperpage{48}
-  \item defineback, \hyperpage{46}
-  \item defineback input, \hyperpage{54}
-  \item definegeometry2d, \hyperpage{45, 46}
-  \item definegeometry2d input, \hyperpage{54}
+  \item dataexam, \hyperpage{56}
+  \item datamatch, \hyperpage{57}
+  \item datasetup, \hyperpage{55}
+  \item defineback, \hyperpage{53}
+  \item defineback input, \hyperpage{61}
+  \item definegeometry2d, \hyperpage{52, 53}
+  \item definegeometry2d input, \hyperpage{61}
   \item DEGAS, \hyperpage{2}
-  \item desorption, \hyperpage{53}
-  \item Differential cross section, \hyperpage{25}
-  \item Diffusion, \hyperpage{35}
-  \item Diffusion cross section, \hyperpage{25}
-  \item directories, \hyperpage{45}
-  \item dissoc, \hyperpage{52}
-  \item dissoc\_rec, \hyperpage{52}
+  \item desorption, \hyperpage{60}
+  \item Differential cross section, \hyperpage{32}
+  \item Diffusion, \hyperpage{42}
+  \item Diffusion cross section, \hyperpage{32}
+  \item directories, \hyperpage{52}
+  \item dissoc, \hyperpage{59}
+  \item dissoc\_rec, \hyperpage{59}
   \item Distribution, probability, \hyperpage{5}
 
   \indexspace
 
-  \item elastic, \hyperpage{52}
-  \item Elastic scattering, \hyperpage{25}
-  \item elements\_infile, \hyperpage{52}
-  \item elementsfile, \hyperpage{52}
-  \item Emacs, \hyperpage{43}
-  \item emacs, \hyperpage{42}
+  \item elastic, \hyperpage{59}
+  \item Elastic scattering, \hyperpage{32}
+  \item elements\_infile, \hyperpage{59}
+  \item elementsfile, \hyperpage{59}
+  \item Emacs, \hyperpage{50}
+  \item emacs, \hyperpage{49}
 
   \indexspace
 
-  \item flighttest, \hyperpage{46}
-  \item ftangle, \hyperpage{43}
-  \item fweave, \hyperpage{43}
-  \item FWEB, \hyperpage{2}, \hyperpage{43}
+  \item flighttest, \hyperpage{53}
+  \item ftangle, \hyperpage{50}
+  \item fweave, \hyperpage{50}
+  \item FWEB, \hyperpage{3}, \hyperpage{50}
 
   \indexspace
 
   \item Generators, random number, \hyperpage{5}
-  \item generic, \hyperpage{52}
-  \item generic PMI, \hyperpage{53}
-  \item generic reactions, \hyperpage{52}
-  \item geometry.inp, \hyperpage{55}
-  \item geomtesta, \hyperpage{46}
-  \item gmake, \hyperpage{42}
+  \item generic, \hyperpage{59}
+  \item generic PMI, \hyperpage{60}
+  \item generic reactions, \hyperpage{59}
+  \item geometry.inp, \hyperpage{62}
+  \item geomtesta, \hyperpage{53}
+  \item gmake, \hyperpage{49}
 
   \indexspace
 
-  \item HDF, \hyperpage{3}, \hyperpage{44}
-  \item HOME, \hyperpage{45}
+  \item HDF, \hyperpage{4}, \hyperpage{51}
+  \item HOME, \hyperpage{52}
 
   \indexspace
 
-  \item ionization, \hyperpage{21}
-  \item ionize, \hyperpage{52}
-  \item ionize\_suppress, \hyperpage{52}
+  \item ionization, \hyperpage{23}
+  \item ionize, \hyperpage{59}
+  \item ionize\_suppress, \hyperpage{59}
 
   \indexspace
 
-  \item LaTeX, \hyperpage{43}
+  \item LaTeX, \hyperpage{50}
 
   \indexspace
 
-  \item Macros, \hyperpage{2}
-  \item make, \hyperpage{42}
-  \item Makefile, \hyperpage{42}
-  \item Makefile.local, \hyperpage{45}
-  \item matcheir, \hyperpage{50}
-  \item matchout, \hyperpage{50}
-  \item materials\_infile, \hyperpage{53}
-  \item materialsfile, \hyperpage{53}
-  \item Maxwell molecules, \hyperpage{35}
+  \item Macros, \hyperpage{3}
+  \item make, \hyperpage{49}
+  \item Makefile, \hyperpage{49}
+  \item Makefile.local, \hyperpage{52}
+  \item matcheir, \hyperpage{57}
+  \item matchout, \hyperpage{57}
+  \item materials\_infile, \hyperpage{60}
+  \item materialsfile, \hyperpage{60}
+  \item Maxwell molecules, \hyperpage{42}
   \item Monte Carlo, \hyperpage{5}
 
   \indexspace
 
-  \item ncdum, \hyperpage{43}
-  \item ncdump-filter, \hyperpage{43}
-  \item ncgen, \hyperpage{43}
-  \item ncgen-filter, \hyperpage{43}
-  \item NetCDF, \hyperpage{3}
-  \item netCDF, \hyperpage{43}
+  \item ncdum, \hyperpage{50}
+  \item ncdump-filter, \hyperpage{50}
+  \item ncgen, \hyperpage{50}
+  \item ncgen-filter, \hyperpage{50}
+  \item NetCDF, \hyperpage{4}
+  \item netCDF, \hyperpage{50}
   \item Neutral Transport, \hyperpage{1}
-  \item Neutral-ion scattering, \hyperpage{25}
-  \item Neutral-neutral scattering, \hyperpage{35}
-  \item non-generic PMI, \hyperpage{53}
-  \item non-generic reactions, \hyperpage{52}
+  \item Neutral-ion scattering, \hyperpage{32}
+  \item Neutral-neutral scattering, \hyperpage{42}
+  \item non-generic PMI, \hyperpage{60}
+  \item non-generic reactions, \hyperpage{59}
 
   \indexspace
 
-  \item Object oriented programming, \hyperpage{2}
-  \item outputscript, \hyperpage{55}
+  \item Object oriented programming, \hyperpage{3}
+  \item outputscript, \hyperpage{62}
 
   \indexspace
 
-  \item Pcl-cvs, \hyperpage{44}
-  \item PMI, \hyperpage{53}
-  \item pmi\_infile, \hyperpage{53}
-  \item pmitest, \hyperpage{49}
-  \item pmiwrite, \hyperpage{48}
-  \item problem\_infile, \hyperpage{53}
-  \item problemfile, \hyperpage{53}
-  \item problemsetup, \hyperpage{46}
-  \item Processing, parallel, \hyperpage{3}
+  \item Pcl-cvs, \hyperpage{51}
+  \item PMI, \hyperpage{60}
+  \item pmi\_infile, \hyperpage{60}
+  \item pmitest, \hyperpage{56}
+  \item pmiwrite, \hyperpage{55}
+  \item problem\_infile, \hyperpage{60}
+  \item problemfile, \hyperpage{60}
+  \item problemsetup, \hyperpage{53}
+  \item Processing, parallel, \hyperpage{4}
 
   \indexspace
 
   \item Random, \hyperpage{5}
-  \item randomtest, \hyperpage{49}
-  \item ratecalc, \hyperpage{48}
-  \item rates, atomic physics, \hyperpage{21}
-  \item reaction type, \hyperpage{52}
-  \item reaction\_infile, \hyperpage{52}
-  \item reactionfile, \hyperpage{52}
-  \item reactiontest, \hyperpage{49}
-  \item reactionwrite, \hyperpage{48}
-  \item readbackground, \hyperpage{46}
-  \item readbackground input, \hyperpage{54}
-  \item readgeometry, \hyperpage{46}
-  \item readgeometry input, \hyperpage{54}
-  \item recombination, \hyperpage{21}, \hyperpage{52}
-  \item reference level, \hyperpage{53}
-  \item reflection, \hyperpage{53}
+  \item randomtest, \hyperpage{56}
+  \item ratecalc, \hyperpage{55}
+  \item rates, atomic physics, \hyperpage{23}
+  \item reaction type, \hyperpage{59}
+  \item reaction\_infile, \hyperpage{59}
+  \item reactionfile, \hyperpage{59}
+  \item reactiontest, \hyperpage{56}
+  \item reactionwrite, \hyperpage{55}
+  \item readbackground, \hyperpage{53}
+  \item readbackground input, \hyperpage{61}
+  \item readgeometry, \hyperpage{53}
+  \item readgeometry input, \hyperpage{61}
+  \item recombination, \hyperpage{23}, \hyperpage{59}
+  \item reference level, \hyperpage{60}
+  \item reflection, \hyperpage{60}
 
   \indexspace
 
-  \item Scattering angle, \hyperpage{25}
+  \item Scattering angle, \hyperpage{32}
   \item Scoring, \hyperpage{5}
-  \item sourcetest, \hyperpage{49}
-  \item species, \hyperpage{52}
-  \item species\_infile, \hyperpage{52}
-  \item speciesfile, \hyperpage{52}
-  \item Spin exchange, \hyperpage{25}
-  \item subset data, \hyperpage{53}
-  \item symbolic name, \hyperpage{51}
-  \item sysdeptest, \hyperpage{49}
+  \item sourcetest, \hyperpage{56}
+  \item species, \hyperpage{59}
+  \item species\_infile, \hyperpage{59}
+  \item speciesfile, \hyperpage{59}
+  \item Spin exchange, \hyperpage{32}
+  \item subset data, \hyperpage{60}
+  \item symbolic name, \hyperpage{58}
+  \item sysdeptest, \hyperpage{56}
 
   \indexspace
 
-  \item Tags, \hyperpage{42}
-  \item tally, \hyperpage{54}
-  \item tally\_infile, \hyperpage{54}
-  \item tallyfile, \hyperpage{54}
-  \item tallysetup, \hyperpage{46}, \hyperpage{54}
-  \item test species, \hyperpage{53}
-  \item TeX, \hyperpage{43}
+  \item Tags, \hyperpage{49}
+  \item tally, \hyperpage{61}
+  \item tally\_infile, \hyperpage{61}
+  \item tallyfile, \hyperpage{61}
+  \item tallysetup, \hyperpage{53}, \hyperpage{61}
+  \item test species, \hyperpage{60}
+  \item TeX, \hyperpage{50}
   \item Theory, transport, \hyperpage{1}
-  \item Total cross section, \hyperpage{25}
+  \item Total cross section, \hyperpage{32}
   \item Tracking, \hyperpage{5}
   \item Transport codes, \hyperpage{1}
-  \item Triangle, \hyperpage{45}
+  \item Triangle, \hyperpage{52}
 
   \indexspace
 
-  \item Viscosity, \hyperpage{35}
-  \item Viscosity cross section, \hyperpage{25}
+  \item Viscosity, \hyperpage{42}
+  \item Viscosity cross section, \hyperpage{32}
 
 \end{theindex}
  
-
-
 \tableofcontents
 
 \end{document}
