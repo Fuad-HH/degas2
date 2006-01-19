@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.17  2000/04/01 17:35:24  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.16.2.1  1999/12/16 18:49:57  dstotler
 % Added zone_index_min & max.
 %
@@ -94,7 +98,12 @@ identified by an integer indexing into these arrays.
 
 @ Length specifications.
 
-@m zn_index_max 2
+@m zn_index_max 4
+@m zi_ix 1         // Indices used with |zone_index|
+@m zi_iz 2
+@m zi_iy 3         // Much newer, hence, the odd ordering.
+@m zi_ptr 4
+
 @m zn_type_max 4
 @m zn_undefined 0
 @m zn_vacuum 1
@@ -140,7 +149,15 @@ The identifier |zone| is an integer variable.
 indicating the type of zone.
 
   \item[|zn_index(zone,l)|] For $l=1, \rightarrow$ |zn_index_max| 
-gives the fluid code indices of the zone.
+gives the fluid code indices of the zone. More specifically, $l=1$ and $2$
+are for the 2-D fluid codes. $l=3$ is an index for the third dimension
+in nearly symmetric 3-D cases. In these cases, the $l=1$ and $l=2$ values
+do not vary in the third dimension; this index allows them to be
+distinguished.  The $l=4$ index then serves as a pointer back to a
+reference zone, the one for which |zn_index(zone,zi_ptr)| = |zone|,
+for that set. This allows, say, 2-D information specified at a single
+value of the $l=3$ index to be mapped to the others along the
+third dimension.
 
   \item[|zn_pointer(zone)|] Is a pointer into arrays specific for different 
 types of zones: plasma, solid, etc.
@@ -154,15 +171,23 @@ types of zones: plasma, solid, etc.
   \item[|zn_num|] Number of zones in the problem.
 
   \item[|zone_center[zone]|] Is an approximate center for the zone; accuracy 
-depends on the geometry.
+depends on the geometry.  This is always a Cartesian coordinate. In
+2-D cases, the $y$ coordinate is usually fixed at 0; in some 2-D
+plane symmetric cases it may have a (constant) nonzero value.
 
   \item[|zone_min[zone]|] Minimum value of the coordinates of the corners of 
 the zone; the minimum is performed separately for each component so that this 
-point is not necessarily part of the zone.
+point is not necessarily part of the zone. In 1-D and 2-D cases, the
+$y$ coordinate is always $= 0$. In planar 3-D cases, it corresponds to
+the Cartesian $y$ value. In cylindrical 3-D cases, it contains an
+azimuthal angle in radians.
 
   \item[|zone_max[zone]|] Maximum value of the coordinates of the corners of 
 the zone; the maximum is performed separately for each component so that this 
-point is not necessarily part of the zone.
+point is not necessarily part of the zone. In 1-D and 2-D cases, the
+$y$ coordinate is always $= 0$. In planar 3-D cases, it corresponds to
+the Cartesian $y$ value. In cylindrical 3-D cases, it contains an
+azimuthal angle in radians.
 
   \item[|zone_index_min[l]|] Minimum value of |zn_index(zone,l)| for
 $l=1, \rightarrow$ |zn_index_max|.
