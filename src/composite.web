@@ -2,6 +2,10 @@
 \Title{composite}
 
 % $Log$
+% Revision 1.26  2000/04/01 17:31:31  dstotler
+% Merged with dps_2_6_changes branch; a few minor conflicts were
+% resolved.
+%
 % Revision 1.25  2000/01/27 18:34:46  karney
 % Portability fixes and minor updates to random.
 %
@@ -296,16 +300,24 @@ of the points.
       polygon_volume=zero
 
       if (geometry_symmetry==geometry_symmetry_plane ||
-     $     geometry_symmetry==geometry_symmetry_oned) then
+     $     geometry_symmetry==geometry_symmetry_oned ||
+     $     geometry_symmetry==geometry_symmetry_plane_hw) then
          do i=0,n-1
             polygon_volume=polygon_volume+(x[1,i]+x[1,i+1])*(x[2,i]-x[2,i+1])
          end do
          polygon_volume=(universal_cell_max[2]-universal_cell_min[2])*polygon_volume/const(2.0)
-      else if (geometry_symmetry==geometry_symmetry_cylindrical) then
+      else if (geometry_symmetry==geometry_symmetry_cylindrical ||
+     $        geometry_symmetry==geometry_symmetry_cyl_hw ||
+     $        geometry_symmetry==geometry_symmetry_cyl_section) then
          do i=0,n-1
             polygon_volume=polygon_volume+(x[1,i]^2+x[1,i]*x[1,i+1]+x[1,i+1]^2)*(x[2,i]-x[2,i+1])
          end do
+@#if 0
          polygon_volume=PI*polygon_volume/const(3.0)
+@#else
+         polygon_volume=half*(universal_cell_max[2]-universal_cell_min[2])     
+     $                 *polygon_volume/const(3.0)
+@#endif
       end if
       
 @#if 0
@@ -534,15 +546,88 @@ break: continue
       
       assert(geometry_symmetry==geometry_symmetry_plane ||
      $     geometry_symmetry==geometry_symmetry_oned ||
-     $     geometry_symmetry==geometry_symmetry_cylindrical)
+     $     geometry_symmetry==geometry_symmetry_cylindrical ||
+     $     geometry_symmetry==geometry_symmetry_plane_hw ||
+     $     geometry_symmetry==geometry_symmetry_cyl_hw ||
+     $     geometry_symmetry==geometry_symmetry_cyl_section)
       
-      if (geometry_symmetry==geometry_symmetry_plane ||
-     $     geometry_symmetry==geometry_symmetry_oned) then
+      if (geometry_symmetry==geometry_symmetry_oned) then
+         assert(mdiv == 1)
+         call process_polygon_oned(n,x,zonearray[0])
+      else if (geometry_symmetry==geometry_symmetry_plane
+     $        || geometry_symmetry==geometry_symmetry_plane_hw) then
          call process_polygon_plane(n,x,zonearray,mdiv,facearray)
-      else if (geometry_symmetry==geometry_symmetry_cylindrical) then
+      else if (geometry_symmetry==geometry_symmetry_cylindrical
+     $        || geometry_symmetry==geometry_symmetry_cyl_hw
+     $        || geometry_symmetry==geometry_symmetry_cyl_section) then
          call process_polygon_cylindrical(n,x,zonearray,mdiv,facearray)
       end if
       
+      return
+      end
+
+@ Process a convex polygon in one-dimensional geometry. This should permit
+multiple polygon segments in the second ignorable direction (i.e., $z$),
+even though there is no good reason for them to appear. This routine
+explicitly defines the cell boundaries where they meet the universal cell.
+Polygon segments at constant $z$ are assumed to be coincident with the
+universal cell boundaries in that direction.
+
+@<Functions...@>=
+      subroutine process_polygon_oned(n,x,zone)
+
+      implicit_none_f77
+      gi_common
+      implicit_none_f90
+      integer n,zone                                       // Input
+      real x[2,0:n]
+      integer i,cell,face // Local
+      real coeff[NCOEFFS],x1[3],x2[3],x3[3],a[3]
+      external define_surface,start_cell,                  // External
+     $     vector_compare,define_surface_a 
+      integer define_surface,start_cell,vector_compare,define_surface_a
+      
+      cell=start_cell(zone)
+
+      vc_set(a,zero,one,zero)
+      call plane(universal_cell_min,a,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(face,cell,.true.)
+      call plane(universal_cell_max,a,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,cell,.true.)
+
+      vc_set(a,zero,zero,one)
+      call plane(universal_cell_min,a,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(face,cell,.true.)
+      call plane(universal_cell_max,a,coeff)
+      face=define_surface(coeff,.true.)
+      call add_surface(-face,cell,.true.)
+
+      do i=0,n-1
+         vc_set(x1,x[1,i],zero,x[2,i])
+         vc_set(x2,x[1,i+1],zero,x[2,i+1])
+         if (vector_compare(x1,x2)>0) then
+            vc_set(x3,x1[1],one,x1[3])
+         else
+            vc_set(x3,x2[1],one,x2[3])
+         end if
+         if (x1[3] != x2[3]) then
+            call planea(x1,x3,x2,coeff)
+            face=define_surface_a(coeff,x1,x2)
+            call add_surface(face,cell,.true.)
+            if (face>0) then
+               vc_copy(x1,surface_points[0,face])
+               vc_copy(x2,surface_points[1,face])
+            end if
+         else
+            assert(x1[3] == x2[3])
+            assert((x1[3] == universal_cell_min[3])
+     $           || (x1[3] == universal_cell_max[3]))
+         end if
+      end do
+
       return
       end
 
@@ -574,7 +659,8 @@ break: continue
       do m=0,mdiv-1
          cella[m]=start_cell(zonearray[m])
       end do
-      if (mdiv==1) then
+      if (geometry_symmetry == geometry_symmetry_plane) then
+         assert((mdiv==1) && (facearray[0] == facearray[1])) 
          vc_set(a,zero,one,zero)
          call plane(universal_cell_min,a,coeff)
          face=define_surface(coeff,.true.)
@@ -592,7 +678,6 @@ break: continue
       do i=0,n-1
          vc_set(x1,x[1,i],zero,x[2,i])
          vc_set(x2,x[1,i+1],zero,x[2,i+1])
-@#if 1
          if (vector_compare(x1,x2)>0) then
             vc_set(x3,x1[1],one,x1[3])
          else
@@ -600,9 +685,6 @@ break: continue
          end if
          call planea(x1,x3,x2,coeff)
          face=define_surface_a(coeff,x1,x2)
-@#if 0
-         do m=1,mdiv-1
-@#endif
          do m=0,mdiv-1
             call add_surface(face,cella[m],.true.)
          end do
@@ -610,39 +692,6 @@ break: continue
             vc_copy(x1,surface_points[0,face])
             vc_copy(x2,surface_points[1,face])
          end if
-@#else
-         if (face>0) then
-            vc_copy(x1,surface_points[0,face])
-            vc_copy(x2,surface_points[1,face])
-         end if
-         if (x1[1] == x2[1]) then
-            if (x1[3] > x2[3]) then
-               x1[3] = one
-               x2[3] = zero
-            else
-               x2[3] = one
-               x1[3] = zero
-            end if
-         else if (x1[3] == x2[3]) then
-            if (x1[1] > x2[1]) then
-               x1[1] = one
-               x2[1] = zero
-            else
-               x2[1] = one
-               x1[1] = zero
-            end if
-         end if
-         if (vector_compare(x1,x2)>0) then
-            vc_set(x3,x1[1],one,x1[3])
-         else
-            vc_set(x3,x2[1],one,x2[3])
-         end if
-         call planea(x1,x3,x2,coeff)
-         face=define_surface(coeff,.true.)
-         do m=0,mdiv-1
-            call add_surface(face,cella[m],.true.)
-         end do
-@#endif
       end do
       
       var_free(cella)
@@ -736,8 +785,14 @@ loop: continue                  // Loop over cells
       do m=0,mdiv-1
          cella[m] = start_cell(zonearray[m]) // Start a new cell
       end do
-      if (m>1) then
+@#if 0
+      if (m>1) then       // A typo?
+@#else
+      if ((mdiv > 1) || ((mdiv == 1) 
+     $         && (geometry_symmetry == geometry_symmetry_cyl_section))) then
+@#endif
          do m=0,mdiv-1
+            assert(facearray[m] != facearray[m+1])
             call add_surface(facearray[m],cella[m],.true.)
             call add_surface(-facearray[m+1],cella[m],.true.)
          end do
