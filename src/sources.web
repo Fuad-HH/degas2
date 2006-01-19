@@ -2,6 +2,10 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.22  2001/11/16 15:57:38  dstotler
+% Change vgauss from scalar to 1 element array in 3 places. Add a
+% commented-out hack to make the puff a cosine to power distribution.
+%
 % Revision 1.21  2001/07/16 21:05:03  dstotler
 % Add explicit scoring of sources. Set up source routines so they can be
 % called during post-processing. Replace usage of neutralize_species
@@ -233,11 +237,14 @@ using routines specific for the geometry of that source.
       rn_decls
 
       
-/* Can only handle 2-D geometries here:
+/* Can only handle these geometries here:
  */
-      assert(geometry_symmetry == geometry_symmetry_plane ||
-     $     geometry_symmetry == geometry_symmetry_oned ||
-     $     geometry_symmetry == geometry_symmetry_cylindrical)
+      assert((geometry_symmetry == geometry_symmetry_plane) ||
+     $     (geometry_symmetry == geometry_symmetry_oned) ||
+     $     (geometry_symmetry == geometry_symmetry_cylindrical) ||
+     $     (geometry_symmetry == geometry_symmetry_plane_hw) ||
+     $     (geometry_symmetry == geometry_symmetry_cyl_hw) ||
+     $     (geometry_symmetry == geometry_symmetry_cyl_section))
       if (so_geom(isource) == so_surface) then
          call set_surface_source_x(est,so_args(isource),xseg,rn_args(r),lc_args(x))
       else if (so_geom(isource) == so_volume) then
@@ -249,14 +256,19 @@ using routines specific for the geometry of that source.
       return
       end
 
-@ Source position on a surface. This is a 2-D version only. Namely, this
-routine really just samples on a line.
+@ Source position on a surface. This version handles 2-D cases and 3-D
+cases in which the surface intersections with |y| = constant planes do
+not vary with |y| (i.e., |geometry_symmetry_plane_hw|, 
+|geometry_symmetry_cyl_hw|, and |geometry_symmetry_cyl_section|). 
+In these cases, this routine just needs to sample along on a line. 
+If present, the third dimension is sampled uniformly.
 
 @<Functions...@>=
       subroutine set_surface_source_x(est,so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
       implicit_none_f77
       gi_common
       sc_common
+      zn_common
       implicit_none_f90
 
       so_decl(isource)           // Input
@@ -264,7 +276,8 @@ routine really just samples on a line.
       rn_decl(r)                 // Input/output
       lc_decl(x)                 // Output
 
-      real urd,r0,r1,fr
+      integer zone               // Local
+      real urd,r0,r1,fr,urd_y,delta_y,y
       vc_decl(deltax)
       vc_decl(xsrc)
       vc_decl(vzero)
@@ -285,19 +298,52 @@ routine really just samples on a line.
 /* For cylindrical (toroidal) geometry, weight sampling along this
    surface by the major radius:
  */
-      if (geometry_symmetry == geometry_symmetry_cylindrical) then
-         r0=sqrt(sector_points[xseg][0][1]**2+sector_points[xseg][0][2]**2)
-         r1=sqrt(sector_points[xseg][1][1]**2+sector_points[xseg][1][2]**2)
+      if ((geometry_symmetry == geometry_symmetry_cylindrical) 
+     $      || (geometry_symmetry == geometry_symmetry_cyl_hw)
+     $      || (geometry_symmetry == geometry_symmetry_cyl_section)) then
+         r0=sector_points[xseg][0][1]
+         r1=sector_points[xseg][1][1]
+         assert(sector_points[xseg][0][2] == zero)
+         assert(sector_points[xseg][1][2] == zero)
          if (r1 != r0) urd=(sqrt(r0**2 + urd*(r1**2-r0**2)) - r0) / (r1 - r0)
       else
-         assert(geometry_symmetry == geometry_symmetry_plane ||
-     $        geometry_symmetry == geometry_symmetry_oned)
+         assert((geometry_symmetry == geometry_symmetry_plane)
+     $        || (geometry_symmetry == geometry_symmetry_plane_hw)
+     $        || (geometry_symmetry == geometry_symmetry_oned))
       end if
-
-/* Interpolate along the surface according to |urd|:
- */
+/* 
+   Interpolate along the surface according to |urd|:
+*/
       vc_difference(sector_points[xseg][1],sector_points[xseg][0],deltax)
       vc_xvt(sector_points[xseg][0],deltax,urd,xsrc)
+/*
+   For 3-D cases. This assumes shape in $x$ - $z$ plane is independent of
+   $y$ and that sectors are surfaces of constant $y$. This is the 
+   assumption behind these three symmetry types.
+*/
+      zone=sector_zone[xseg]
+      if ((geometry_symmetry == geometry_symmetry_plane_hw)
+     $     || (geometry_symmetry == geometry_symmetry_cyl_hw)
+     $     || (geometry_symmetry == geometry_symmetry_cyl_section)) then
+         assert(zone_min[zone][2] != zone_max[zone][2])
+         if (est == tl_est_post_process) then
+            urd_y=half
+         else
+            rn_next(urd_y,r)
+         end if
+         delta_y=zone_max[zone][2]-zone_min[zone][2]
+         y=zone_min[zone][2]+urd_y*delta_y
+         assert(xsrc[2] == zero)
+         if (geometry_symmetry == geometry_symmetry_plane_hw) then
+            vc_set(xsrc,xsrc[1],y,xsrc[3])
+         else
+/*
+   |vc_set| does not use a temporary variable, so have to define |r0|.
+*/
+            r0=xsrc[1]
+            vc_set(xsrc,r0*cos(y),r0*sin(y),xsrc[3])
+         end if
+      end if
 
 /* Use |surface_reflect| to get an inward-pointing normal to this surface
    (should point into a plasma or vacuum cell).
@@ -312,13 +358,37 @@ routine really just samples on a line.
       vc_xvt(xsrc,vnorm,fr,lc_x(x))
 
       lc_set(x)
-
+/* 
+   Add this to double-check 3-D cases.
+*/
+@#if 0
+      assert((lc_cell(x) > 0) && (lc_zone(x) == zone))
+@#else
+      if (!(lc_cell(x) > 0) && (lc_zone(x) == zone)) then
+         write(stderr,*) ' Inconsistent source zone in set_surface_source_x'
+         write(stderr,*) ' zone = ',zone
+         write(stderr,*) ' lc_zone(x) = ',lc_zone(x)
+         write(stderr,*) ' lc_cell(x) = ',lc_cell(x)
+         write(stderr,*) ' lc_x(x) = ',lc_x(x)
+         write(stderr,*) ' xsrc = ',xsrc
+         write(stderr,*) ' surface = ',sector_surface[xseg]
+         write(stderr,*) ' surface point 0 = ',
+     $        vc_expand(surface_points[0,sector_surface[xseg]])
+         write(stderr,*) ' surface point 1 = ',
+     $        vc_expand(surface_points[1,sector_surface[xseg]])
+         assert((lc_cell(x) > 0) && (lc_zone(x) == zone))
+      end if
+@#endif
       return
       end
 
-@ Source position in a volume. This is a 2-D version only. Namely, this
-routine really just samples out of a rectangle and uses rejection to narrow
-the selection to being inside the given zone.
+@ Source position in a volume. version handles 2-D cases and 3-D
+cases in which the surface intersections with |y| = constant planes do
+not vary with |y| (i.e., |geometry_symmetry_plane_hw|, 
+|geometry_symmetry_cyl_hw|, and |geometry_symmetry_cyl_section|). 
+In these cases, the routine samples out of a rectangle and uses rejection 
+to narrow the selection to being inside the given zone.  If present,
+the third dimension is sampled uniformly.
 
 @<Functions...@>=
       subroutine set_volume_source_x(est,so_dummy(isource),xseg,rn_dummy(r),lc_dummy(x))
@@ -334,7 +404,7 @@ the selection to being inside the given zone.
       lc_decl(x)                 // Output
 
       integer i                  // Local
-      real urd_x,urd_z,r0,r1,x,y,z
+      real urd_x,urd_y,urd_z,r0,r1,x0,y0,z0,delta_y
 
 
       lc_decls
@@ -348,26 +418,51 @@ the selection to being inside the given zone.
          i=0
 loop:    continue
          i++
-//       assert(i < 200)     // Catch bugs; temporary
+//         assert(i < 200)     // Catch bugs; temporary
          rn_next(urd_x,r)
          rn_next(urd_z,r)
 
 /* For cylindrical (toroidal) geometry, weight sampling along this
-   surface by the major radius:
+   surface by the major radius.  In these cases, the first component
+   of |zone_min| is the major radius; the second is the toroidal angle.
  */
-         if (geometry_symmetry == geometry_symmetry_cylindrical) then
-            r0=sqrt(zone_min[xseg][1]**2+zone_min[xseg][2]**2)
-            r1=sqrt(zone_max[xseg][1]**2+zone_max[xseg][2]**2)
+         if ((geometry_symmetry == geometry_symmetry_cylindrical) 
+     $        || (geometry_symmetry == geometry_symmetry_cyl_hw)
+     $        || (geometry_symmetry == geometry_symmetry_cyl_section)) then
+            r0=zone_min[xseg][1]
+            r1=zone_max[xseg][1]
             if (r1 != r0) urd_x=(sqrt(r0**2 + urd_x*(r1**2-r0**2)) - r0) / (r1 - r0)
          else
-            assert(geometry_symmetry == geometry_symmetry_plane ||
-     $           geometry_symmetry == geometry_symmetry_oned)
+            assert((geometry_symmetry == geometry_symmetry_plane)
+     $           || (geometry_symmetry == geometry_symmetry_plane_hw)
+     $           || (geometry_symmetry == geometry_symmetry_oned))
          end if
-         x=zone_min[xseg][1]+urd_x*(zone_max[xseg][1]-zone_min[xseg][1])
-         y=zone_min[xseg][2]+urd_x*(zone_max[xseg][2]-zone_min[xseg][2])
-         z=zone_min[xseg][3]+urd_z*(zone_max[xseg][3]-zone_min[xseg][3])
 
-         vc_set(lc_x(x),x,y,z)
+         x0=zone_min[xseg][1]+urd_x*(zone_max[xseg][1]-zone_min[xseg][1])
+         z0=zone_min[xseg][3]+urd_z*(zone_max[xseg][3]-zone_min[xseg][3]) 
+
+         if ((geometry_symmetry == geometry_symmetry_plane_hw)
+     $        || (geometry_symmetry == geometry_symmetry_cyl_hw)
+     $        || (geometry_symmetry == geometry_symmetry_cyl_section)) then
+            assert(zone_min[xseg][2] != zone_max[xseg][2])
+            if (est == tl_est_post_process) then
+               urd_y=half
+            else
+               rn_next(urd_y,r)
+            end if
+            delta_y=zone_max[xseg][2]-zone_min[xseg][2]
+            y0=zone_min[xseg][2]+urd_y*delta_y
+         else
+            assert(zone_min[xseg][2] == zone_max[xseg][2])
+            y0=zone_min[xseg][2]
+         end if
+         if ((geometry_symmetry == geometry_symmetry_plane) 
+     $        || (geometry_symmetry == geometry_symmetry_plane_hw)
+     $        || (geometry_symmetry == geometry_symmetry_oned)) then
+            vc_set(lc_x(x),x0,y0,z0)
+         else
+            vc_set(lc_x(x),x0*cos(y0),x0*sin(y0),z0)
+         end if
 
          lc_set(x)
 
@@ -428,19 +523,19 @@ using routines specific for the type of that source.
       integer j                  // Local
       real wa,ion_energy
       real vgauss[1]
-      sc_target_decl(target_sc_ptr)
+      sc_plasma_decl(plasma_sc_ptr)
 
-      target_sc_ptr=sector_type_pointer[xseg][sc_target]
-      assert(sc_target_check(target_sc_ptr))
+      plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
+      assert(sc_plasma_check(plasma_sc_ptr))
       wa=zero
-      if (target_e_ion_mult[target_sc_ptr] > zero) then
+      if (plasma_e_ion_mult[plasma_sc_ptr] > zero) then
 /* Sample a Gaussian energy at background temperature */
          do j=1,3
             rn_gauss_next(vgauss,r)
             wa+=vgauss[1]**2
          end do
       else
-         assert(target_e_ion_mult[target_sc_ptr] == zero)
+         assert(plasma_e_ion_mult[plasma_sc_ptr] == zero)
       end if
 
       call plate_v_details(so_args(isource),xseg,lc_args(x),wa,
@@ -480,14 +575,14 @@ the average value is used.
       sp_decl(spion)  
       vc_decl(vzero)
       vc_decl(vone)
-      sc_target_decl(target_sc_ptr)
+      sc_plasma_decl(plasma_sc_ptr)
 
       sources_localcommon
 
       assert(so_geom(isource) == so_surface)
       spion=so_root_sp(isource)
-      target_sc_ptr=sector_type_pointer[xseg][sc_target]
-      assert(sc_target_check(target_sc_ptr))
+      plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
+      assert(sc_plasma_check(plasma_sc_ptr))
 
       wa=half*wa*bk_temp(pr_background_lookup(spion),lc_zone(x))
 /*
@@ -495,9 +590,10 @@ the average value is used.
    are now set in |readbackground.web|.
 */
       assert(sp_z(spion) == 1) // If $> 1$, should have term $\propto Z$
-      ion_energy=target_e_ion_delta[target_sc_ptr]
-     $     + target_e_ion_mult[target_sc_ptr]*wa
+      ion_energy=plasma_e_ion_delta[plasma_sc_ptr]
+     $     + plasma_e_ion_mult[plasma_sc_ptr]*wa
       
+      assert(ion_energy >= zero)
       ion_velocity=sqrt(two*ion_energy/sp_m(spion))
 
 /* This should work if the analogous code for sampling surface x works 
@@ -625,14 +721,24 @@ with an isotropic distribution; we would need another routine for that.
 */
       call surface_reflect(sector_surface[xseg],vc_args(x_surface),
      $     vc_args(vzero),vc_args(vcos),vc_args(vsrc))
-
+@#if 0
       if (sc_wall_check(sector_type_pointer[xseg][sc_wall])) then
          temp=wall_temperature[sector_type_pointer[xseg][sc_wall]]
       else if (sc_target_check(sector_type_pointer[xseg][sc_target])) then
          temp=target_temperature[sector_type_pointer[xseg][sc_target]]
+/*
+   Just add this on for 3-D in the hope of facilitating backward
+   compatibility.
+*/
+      else if (sc_plasma_check(sector_type_pointer[xseg][sc_plasma])) then
+         temp=plasma_temperature[sector_type_pointer[xseg][sc_plasma]]
       else
          assert('Puffing surface not found' == ' ')
       end if
+@#else
+      temp=so_params(isource,so_param_puff_temp)
+      assert(temp > zero)
+@#endif
       energy=half*vpuff*temp
 @#if COUETTE
       vpuff=sqrt(temp/sp_m(spsrc)) // Maxwell flux for Couette flow
