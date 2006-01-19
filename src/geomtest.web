@@ -2,6 +2,24 @@
 \Title{geomtest}
 
 % $Log$
+% Revision 1.15  1999/07/19 19:29:00  karney
+% (1) Remove much dead code in random.web.
+%
+% (2) Add more timing tests in randomtest.web.
+%
+% (3) Implement |geometry_symmetry_oned| where $y$ and $z$ coordinates are
+% ignored.
+%
+% This is treated exactly like goemetry_symmetry_plane, except that there's a
+% additional transformation defined to carry a particle from zmin to zmax and
+% vice versa.
+%
+% (4) Implement partitioning of symmetry direction via additional
+% zonearray[0:ndiv-1], ndiv, and facearray[0:ndiv] arguments to
+% decompose_polygon.  zonearray[k] has additional faces facearray[k] and
+% -facearray[k-1] added.  (See boxgen.web for sample code, although the
+% zonearray feature is not properly exercised yet.)
+%
 % Revision 1.14  1998/01/14 20:40:21  dstotler
 % Remove references to lc_stratum, lc_stratum_next.
 %
@@ -101,6 +119,7 @@
       @<Memory allocation interface@>
       real x1[3],x2[3],x[2,0:4],xa[2,0:nx+2],xx1[3],xx2[3],vol // Local
       integer n,zone,i,j,stratum,sector,segment
+      integer zonearray[0:0],facearray[0:1]
       gi_ext
       external init_geometry,
      $     add_surface,plane,boundaries_neighbors,check_geometry,print_geometry,
@@ -112,6 +131,8 @@
       vc_set(x2,nx+one,one,nz+one)
       call universal_cell(geometry_symmetry_plane,x1,x2,vol)
       write(stdout,*) vol
+      facearray[0]=int_unused
+      facearray[1]=int_unused
       zone=0
       segment=0
       do i=0,nx-1
@@ -123,7 +144,8 @@
             x[1,n]=i+1; x[2,n]=j+1; n++
             x[1,n]=i+1; x[2,n]=j; n++
             x[1,n]=i;   x[2,n]=j
-            call decompose_polygon(n,x,zone,1,0)
+            zonearray[0]=zone
+            call decompose_polygon(n,x,zonearray,1,facearray)
             zn_type_set(zone,zn_plasma)
             zn_volume(zone)=polygon_volume(n,x)
          end do
@@ -141,7 +163,8 @@
       end do
       xa[1,n]=x2[1]; xa[2,n]=x1[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,xa,zonearray,1,facearray)
       zn_type_set(zone,zn_vacuum)
       zn_volume(zone)=polygon_volume(n,xa)
 
@@ -153,7 +176,8 @@
       end do
       xa[1,n]=x1[1]; xa[2,n]=x2[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,xa,zonearray,1,facearray)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
 
  /* Left */
@@ -164,7 +188,8 @@
       end do
       xa[1,n]=x1[1]; xa[2,n]=x1[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,xa,zonearray,1,facearray)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
       
  /* Right */
@@ -175,7 +200,8 @@
       end do
       xa[1,n]=x2[1]; xa[2,n]=x2[3]; n++
       xa[1,n]=xa[1,0]; xa[2,n]=xa[2,0]
-      call decompose_polygon(n,xa,zone,1,0)
+      zonearray[0]=zone
+      call decompose_polygon(n,xa,zonearray,1,facearray)
       zn_volume(zone)=zn_volume(zone)+polygon_volume(n,xa)
 
       call boundaries_neighbors
