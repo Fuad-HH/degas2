@@ -2,6 +2,10 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.36  2001/07/16 21:01:29  dstotler
+% Updated Aladdin subroutine list. Add I_2_4up^4, used for computing
+% viscosity from CFADC neutral-neutral cross sections.
+%
 % Revision 1.35  1999/04/20 20:12:31  dstotler
 % Replace "FALSE" with ".false.".
 %
@@ -144,26 +148,29 @@
 
 \ID{$Id$}
 
-In the
-computation of plasma source terms $S_{A_{p},k}$ 
+The plasma source terms $S_{A_{p},k}$ 
 due to interactions between neutral
-atoms and charged particles\cite{Reit93}, integrals
-like the following must be computed,
+atoms and charged particles\cite{Reit93}, can be written 
+in the form
 \begin{equation}
 \label{source1}
 S_{A_{p},k} = \Gamma \int d^{3}v \: f(\vec{v}) \langle \sigma_{k}(v_{rel})
-\Delta A_{p} \rangle_{p},
+v_{rel} \Delta A_{p} \rangle_{p},
 \end{equation}
 where $\Gamma$ is the flux of neutral particles, $f(\vec{v})$ is the neutral
 particle distribution function, $p$ is a plasma species index, $\sigma_{k}$ is 
 the cross section for the $k$th reaction between the neutral and species
 $p$, $v_{rel}$ is the relative velocity of the two particles, and 
 $\Delta A_{p}$ is the change in a plasma quantity (e.g., density, momentum,
-energy, etc.) in a single collision. 
+energy, etc.) in a single collision. The angle brackets denote an average
+over
+the plasma species' distribution function.
 
 By expressing $\Delta A_{p}$ as a power series in the relative velocity, the 
 $S_{A_{p},k}$ can be written as a linear sum of velocity moments of the
-distribution function weighted by $\sigma_{k}$. The primary 
+distribution function weighted by the quantity in angle brackets.
+The latter, in turn, is a (plasma species) velocity moment of the reaction rate
+associated with $\sigma_{k}$. The primary 
 purpose of this code is to compute these moments at user-specified 
 parameters using cross section data accessed from external files.
 
@@ -1878,7 +1885,7 @@ the ``latest revision'' date of January 27, 1977 is still applicable.
       if (aerr == zero && (rerr+hun) <= hun) go to 210
       errr = rerr
       erra = abs(aerr)
-      stepmn = (length/float(2^mxstge))
+      stepmn = (length/areal(2^mxstge))
       stepnm = max(length,abs(a),abs(b))*ten
       stage = half
       istage = 1
@@ -1928,7 +1935,7 @@ the ``latest revision'' date of January 27, 1977 is still applicable.
    equispaced points. Here, $|n2| = 2|n| = 2^{|l|-1}$.
 */
       n2 = n+n
-      fn = n2
+      fn = areal(n2)
       istep = (iend - ibeg)/n
       if (istep > 1) go to 25
       ii = iend
