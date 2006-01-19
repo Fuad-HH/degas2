@@ -2,6 +2,10 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.28  2001/07/16 21:02:44  dstotler
+% Add call to setup_background_arrays. Added source_root_species
+% allocation and setting.
+%
 % Revision 1.27  2000/04/01 17:34:14  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -273,7 +277,7 @@ of the file name (x.d is degas and x.u for uedge) */
       sp_decl(sp_hyd[3])
       sp_decl(degas_species[9])
       sc_decl(sector)
-      sc_target_decl(target_sc_ptr)
+      sc_plasma_decl(plasma_sc_ptr)
       vc_decl(x1)
       vc_decl(x2)
 
@@ -392,6 +396,7 @@ of the file name (x.d is degas and x.u for uedge) */
                      var_realloca(source_num_checkpoints)
                      var_realloca(source_species)
                      var_realloca(source_root_species)
+                     var_realloca(source_parameters)
                      var_realloca(source_total_current)
                      var_realloca(source_weight_norm)
                      var_realloca(source_scale_factor)
@@ -407,10 +412,12 @@ of the file name (x.d is degas and x.u for uedge) */
      $                       sp_lookup(trim(sp_sy(degas_species[js])) \/ '+')
                         so_species(so_grps)=
      $                       neutralize_species(so_root_sp(so_grps))
+                        so_params(so_grps,so_param_puff_temp)=real_unused
                      else                                    
                         so_type(so_grps)=so_puff 
                         so_species(so_grps)=degas_species[js]
                         so_root_sp(so_grps)=degas_species[js]
+                        so_params(so_grps,so_param_puff_temp)=t0puff[js]*electron_charge
                      end if
                      assert(so_species(so_grps) > 0)
                      so_geom(so_grps)=so_surface
@@ -425,48 +432,37 @@ of the file name (x.d is degas and x.u for uedge) */
                      var_reallocc(source_segment_ptr_alias,seg,so_seg_tot)
                      new_group=.false.
                   end if
-
-@#if 0
-/* Any reason not to exclude segments with zero current? */
-                  if (xwall(jseg,jwall) != xwall(jseg+1,jwall)
-     $                 || zwall(jseg,jwall) != zwall(jseg+1,jwall)) then
-@#else
+/*
+   Any reason not to exclude segments with zero current? 
+*/
                   if ((xwall(jseg,jwall) != xwall(jseg+1,jwall)
      $                 || zwall(jseg,jwall) != zwall(jseg+1,jwall))
      $                 && currxzt[jseg,1,jwall,js] != zero) then
-@#endif
                      seg++
                      source_current[seg]=abs(currxzt[jseg,1,jwall,js])
                      so_tot_curr(so_grps)+=source_current[seg]
-@#if 0
-                     source_segment_rel_wt[seg]=one     // Default
-@#endif
                      vc_set(x1,xwall(jseg,jwall),zero,zwall(jseg,jwall))
                      vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
                      sector=lookup_sector(x2,x1)
                      assert(sc_check(sector))
+@#if 0
                      if (sc_target_check(sector_type_pointer[sector][sc_target])) then
                         target_sc_ptr=sector_type_pointer[sector][sc_target]
                         target_e_ion_delta[target_sc_ptr]=const(3.)*bk_temp(1,sector_zone[sector])
                         target_e_ion_mult[target_sc_ptr]=one
                      else if (sc_wall_check(sector_type_pointer[sector][sc_target])) then
                         assert(so_type(so_grps) == so_puff)
-@#if 0
-                     if (zn_type(sector_zone(sector)) == zn_solid) then
-                        sector=lookup_sector(x2,x1)
-                        assert(sc_check(sector))
-                     end if
-                     if (zn_type(sector_zone(sector)) == zn_vacuum) then
-                        assert(so_type(so_grps) == so_puff)
-                     else
+@#else
+                     if (sc_plasma_check(sector_type_pointer[sector][sc_plasma])) then
+                        plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
 /*
    Set incident ion description to be $3 T_{e}$ (sheath potential) plus
    $1 \times E_{\rm ion}$ with $E_{\rm ion}$ sampled from a Maxwellian.
 */
-                        plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
-                        assert(sc_plasma_check(plasma_sc_ptr))
-                        plasma_e_ion_delta[plasma_sc_ptr]=const(3.)*bk_temp(1,sector_zone(sector))
+                        plasma_e_ion_delta[plasma_sc_ptr]=const(3.)*bk_temp(1,sector_zone[sector])
                         plasma_e_ion_mult[plasma_sc_ptr]=one
+                     else if (sc_vacuum_check(sector_type_pointer[sector][sc_vacuum])) then
+                        assert(so_type(so_grps) == so_puff)
 @#endif
                      end if
                      source_segment_ptr[seg]=sector
@@ -475,17 +471,6 @@ of the file name (x.d is degas and x.u for uedge) */
                      so_seg_tot--
                   end if
                end do
-@#if 0
-// Now in |init_wt_alias|
-               call set_prob_alias(so_nseg(so_grps),
-     $              source_current[so_base(so_grps)],
-     $              source_segment_rel_wt[so_base(so_grps)],
-     $              source_segment_ptr[so_base(so_grps)],
-     $              source_segment_prob_alias[so_base(so_grps)],
-     $              source_segment_ptr_alias[so_base(so_grps)],
-     $              so_wt_norm(so_grps))
-@#endif
-
             end if
          end do
       end do
