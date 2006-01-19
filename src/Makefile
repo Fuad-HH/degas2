@@ -1,5 +1,9 @@
 # $Id$
 # $Log$
+# Revision 1.76  2002/01/28 16:46:55  dstotler
+# Add DETECTORFILE variable to definegeometry2d and readgeometry.  Add
+# PLASMAFILE variable to defineback.
+#
 # Revision 1.75  2001/11/16 15:35:06  dstotler
 # Add defineback. Add variable settings for Fujitsu compiler, including
 # COFLAGS to contain flags for the compile-only stage. Add composite.o
@@ -302,9 +306,17 @@ OPTFLAGS=-O
 LIBROOT=/usr/local
 PROFILE=
 PROF_LD=
-NETCDF=-L$(LIBROOT)/lib -lnetcdf
+# Some systems using a "module" utility
+# will set shell variables for these.  In
+# turn, gmake will automatically define
+# these using those values.
+ifndef NETCDF
+  NETCDF=-L$(LIBROOT)/lib -lnetcdf
+endif
+ifndef HDF
+  HDF=-L$(LIBROOT)/lib -ldf -ljpeg -lz
+endif
 MPILIBS=
-HDF=-L$(LIBROOT)/lib -ldf -ljpeg -lz
 PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
 FTANGLE=ftangle
 FWEAVE=fweave
@@ -319,6 +331,16 @@ F90MODS=-I.
 F90FLAGS=
 SYSDEPC=no
 COFLAGS=
+# These variables facilitate cross compilation, i.e.,
+# where STANDALONE=no on a remote machine.  The 
+# "unknown"s below indicate that the user needs to
+# override these values in a Makefile.local file
+TRANSFER=scp
+SSHFLAGS=-q
+REMOTEMACH=unknown.host.gov
+REMOTEDIR=unknown/dir
+REMOTELOGIN=source .login
+REXEC=ssh
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -336,6 +358,10 @@ endif
 ifeq ($(SYSTEM),AIX)
   MACHINE=IBM
   FCF77=xlf
+  FCF90=xlf90
+# This removes the "_" from the end of the name
+  FFLAGS=-qextname=poly2triangles
+  F90FLAGS=-qfixed
   SYSDEPC=yes
 endif
 ifeq ($(SYSTEM),OSF1)
@@ -380,7 +406,8 @@ ifeq ($(TARGET),SGI)
 endif
 
 ifeq ($(TARGET),LINUX)
-  COMPILER=NAGWARE
+  COMPILER=PGROUP
+  FORTRAN90=no
 endif
 
 ifneq ($(TARGET),$(MACHINE))
@@ -414,12 +441,13 @@ ifndef SOURCEDIR
 endif
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
-else
-ifndef SOURCEDIR
-  SOURCEDIR=$(DEGASROOT)/degas2/$(MACHINE)
-endif
-  %.f: $(SOURCEDIR)/%.f
+  Makefile: $(SOURCEDIR)/Makefile
 	cp $< $@
+  Makefile.depends: $(SOURCEDIR)/Makefile.depends
+	cp $< $@
+  idtof: idtof.sh
+	cp $< $@
+	chmod a+x $@
 endif
 
 ALADIR=$(DEGASROOT)/degas2/Aladdin
@@ -430,24 +458,10 @@ DETECTORFILE=$(shell if ([ -s $(SOURCEDIR)/usr2ddetector.web ]) || ([ -s $(SOURC
 
 PLASMAFILE=$(shell if ([ -s $(SOURCEDIR)/usr2dplasma.web ]) || ([ -s $(SOURCEDIR)/usr2dplasma.f ]); then echo usr2dplasma; else echo def2dplasma; fi)
 
-Makefile: $(SOURCEDIR)/Makefile
-	cp $< $@
-Makefile.depends: $(SOURCEDIR)/Makefile.depends
-	cp $< $@
 %.sh: $(SOURCEDIR)/%.sh
-	cp $< $@
-%.el: $(SOURCEDIR)/%.el
 	cp $< $@
 %.sty: $(SOURCEDIR)/%.sty
 	cp $< $@
-# degas2.in: $(SOURCEDIR)/degas2.in
-#	cp $< $@
-
-# Comment out these lines as long as CRAMD is not part of the DEGAS 2
-# distribution.
-# ifeq ($(MACHINE),ALPHA)
-#  CRAMD=$(CRAMDIR)/LIB/CRAMDlib.a $(CRAMDIR)/LIB/cramd_lib.a $(CRAMDIR)/LIB/lc_sig.a $(CRAMDIR)/LIB/lc_std.a
-# endif
 
 # Cancel some built-in rules
 %: %.f
@@ -479,7 +493,14 @@ ifeq ($(COMPILER),PGROUP)
   FCF90=pgf90
   FCMPI77=mpif90
   FCMPI90=mpif90
-  F77FLAGS=-fast
+  ifeq ($(DEBUG),yes)
+#
+# These appear to give results very similar to Sun
+#
+    FFLAGS+=-Kieee -pc 64
+  else
+    FFLAGS+=-fast	
+  endif
 else
  ifeq ($(COMPILER),NAGWARE)
   TANGLEFLAGS+=-mNAGWARE
@@ -500,6 +521,10 @@ ifeq ($(COMPILER),FUJITSU)
 # for testing of new code.
 #
 #  COFLAGS=--ap --chkglobal --f95 --lst --pca --sav --trace --info --xref
+endif
+ifeq ($(COMPILER),PATHSCALE)
+  TANGLEFLAGS+=-mPATHSCALE
+  FCF90=pathf90
 endif
 
 FC=$(FCF77)
@@ -533,6 +558,14 @@ ifeq ($(FORTRAN90),yes)
 else
   COMPFLAGS+=$(F77FLAGS)
 endif
+# Have to repeat this here since we don't
+# know everything about remote machine yet.
+ifdef CROSSCOMPILE
+  REMOTESYS:=$(shell $(REXEC) $(SSHFLAGS) $(REMOTEMACH) uname)
+  ifeq ($(REMOTESYS),AIX)
+    SYSDEPC=yes
+  endif
+endif
 
 ifeq ($(SYSDEPC),yes)
   SYSDEPO=sysdep.$O sysdepc.$O
@@ -546,15 +579,40 @@ ifndef CROSSCOMPILE
 	$(FC) -c $(FFLAGS) $(COFLAGS) $(COMPFLAGS) $(PROFILE) $<
   %: %.o $(SYSDEPO) string.$O idtof 
 	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
-	$(FC) -c $(FFLAGS) $*.id.f
+	$(FC) -c $(FFLAGS) $(COMPFLAGS) $*.id.f
 	$(LD) $(FFLAGS) $(COMPFLAGS) $(PROFILE) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs) $(PROF_LD)
  DG2D=definegeometry2d.o definegeometry2dc.o triangle.o
 else # We're cross compiling
-  O=f
+# The approach here is to explicitly tranfer files to the
+# remote machine, but maintain locally a timestamp (.ts)
+# indicating the age of those files. Note: the order of these
+# rules may be important.
+  O=f.ts
+  define SENDFILES
+    $(TRANSFER) $(SSHFLAGS) $< $(REMOTEMACH):$(REMOTEDIR)
+    touch $@
+  endef
+  %.f.ts: %.f
+	$(SENDFILES)
+  %.f.ts: %.c
+	$(SENDFILES)
+  triangle.ts: triangle.c triangle.h
+	$(TRANSFER) $(SSHFLAGS) $^ $(REMOTEMACH):$(REMOTEDIR)
+	touch $@
+  Makefile.ts: Makefile
+	$(SENDFILES)
+  Makefile.depends.ts: Makefile.depends
+	$(SENDFILES)
+  idtof.ts: idtof
+	$(SENDFILES)
+  %.o: %.f
   %: %.o
-  %: %.$O sysdep.$O string.$O idtof 
-	@echo Made $^
-  DG2D=definegeometry2d.f definegeometry2dc.c triangle.c
+  %.ts: %.$O $(SYSDEPO) string.$O idtof.ts Makefile.ts Makefile.depends.ts
+	$(REXEC) $(SSHFLAGS) $(REMOTEMACH) "$(REMOTELOGIN) && cd $(REMOTEDIR) && make $*"
+	touch $@
+  %: %.ts
+	@echo Made $*
+  DG2D=definegeometry2d.f.ts definegeometry2dc.f.ts triangle.ts
 endif
 
 # This stuff grabs the CVS keyword information from the source files
@@ -564,7 +622,7 @@ endif
 
 IDENTAPPEND=cat $^ | ident -q | sort | uniq | sed 's/^/c/' >> $@
 
-.PRECIOUS: %.mweb %.tex %.dvi %.f %_mod.f %.cft %.o %.dum fweb.sty fweboptions.sty
+.PRECIOUS: %.mweb %.tex %.dvi %.f %_mod.f %.cft %.o %.dum fweb.sty fweboptions.sty %.ts
 
 %.f: %.web
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) $<
@@ -582,14 +640,9 @@ ifeq ($(STANDALONE),yes)
 definegeometry2d.f definegeometry2dc.c: definegeometry2d.web triangle.h
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
 	$(IDENTAPPEND)
-else 
-TRIDIR=$(SOURCEDIR)
-definegeometry2dc.c : $(SOURCEDIR)/definegeometry2dc.c triangle.h
-	cp $< $@
-endif
-
 triangle.%: $(TRIDIR)/triangle.%
 	cp $< $@
+endif
 
 triangle.o: triangle.c triangle.h
 	cc -DTRILIBRARY -O -c $<
@@ -605,9 +658,11 @@ endif
 	$(FTANGLE) -I$(SOURCEDIR) $(TANGLEFLAGS) -m$(TARGET) -=n=#_mod.f $<
 
 ifeq ($(SYSDEPC),yes)
-  sysdep.f sysdepc.c: sysdep.web macros.hweb
+  ifeq ($(STANDALONE),yes)
+    sysdep.f sysdepc.c: sysdep.web macros.hweb
 	$(FTANGLE) $(TANGLEFLAGS) -m$(TARGET) -=c=#c.c $<
 	$(IDENTAPPEND)
+  endif
 endif
 
 %.tex: %.web fweb.sty
@@ -651,19 +706,11 @@ documentation: random.dvi randomtest.dvi geometry.dvi geomsetup.dvi \
   geomtest.dvi sysdep.dvi vector.dvi
 
 foof:
-	echo $(MACHINE) $(TARGET) $(SOURCEDIR) $(STANDALONE) $(FC) $(FORTRAN90) $(CROSSCOMPILE) $(MPI) 
+	echo MACHINE=$(MACHINE) TARGET=$(TARGET) SOURCEDIR=$(SOURCEDIR) STANDALONE=$(STANDALONE) FC=$(FC) FORTRAN90=$(FORTRAN90) CROSSCOMPILE=$(CROSSCOMPILE) MPI=$(MPI) SYSDEPC=$(SYSDEPC)
 
 sysdeptest = sysdeptest.$O
 sysdeptest_libs = 
 sysdeptest: $(sysdeptest) $(foreach arg,$(subst .$O,_mods,$(sysdeptest)),$($(arg)))
-
-# elementsetup = 
-# elementsetup_libs = $(NETCDF)
-# elementsetup: $(elementsetup)
-
-# speciesetup = elementread.$O
-# speciesetup_libs = $(NETCDF)
-# speciesetup: $(speciesetup)
 
 randomtest = randomtest.$O random.$O
 randomtest_libs =
@@ -741,8 +788,8 @@ readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$
 readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
 
-definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O $(DETECTORFILE).$O
-definegeometry2d_libs = $(NETCDF)
+definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O plotgeom.$O $(DETECTORFILE).$O
+definegeometry2d_libs = $(NETCDF) $(HDF)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
 defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O $(PLASMAFILE).$O
@@ -798,13 +845,17 @@ ratecalc = ratecalc.$O aladdin_subr.o readfilenames.$O interpolate.$O
 ratecalc_libs = $(NETCDF)
 ratecalc: $(ratecalc) $(foreach arg,$(subst .$O,_mods,$(ratecalc)),$($(arg)))
 
-dataexam = dataexam.$O readfilenames.o elementread.o
+dataexam = dataexam.$O readfilenames.$O elementread.$O
 dataexam_libs = $(NETCDF)
 dataexam: $(dataexam) $(foreach arg,$(subst .$O,_mods,$(dataexam)),$($(arg)))
 
 outputbrowser = outputbrowser.$O readfilenames.$O degasinit.$O pmimatread.$O elementread.$O geometry.$O
 outputbrowser_libs = $(NETCDF)
 outputbrowser: $(outputbrowser) $(foreach arg,$(subst .$O,_mods,$(outputbrowser)),$($(arg)))
+
+postdetector = postdetector.$O readfilenames.$O degasinit.$O pmimatread.$O elementread.$O geometry.$O dediagsetup.$O $(DETECTORFILE).$O
+postdetector_libs = $(NETCDF) $(HDF)
+postdetector: $(postdetector) $(foreach arg,$(subst .$O,_mods,$(postdetector)),$($(arg)))
 
 datamatch = datamatch.$O 
 datamatch_libs = $(NETCDF)
@@ -818,25 +869,13 @@ allocate = allocate.$O
 allocate_libs =
 allocate: $(allocate) $(foreach arg,$(subst .$O,_mods,$(allocate)),$($(arg)))
 
-#elementread: $(SYSDEPO)
-#test: $(SYSDEPO)
-#sysdeptest: $(SYSDEPO) string.$O
 array: $(SYSDEPO)
 teststring: $(SYSDEPO) string.$O
-#geomtesta: geometry.$O $(SYSDEPO) string.$O plotgeom.$O elementread.$O
-#geomread: geomsetup.$O allocate.$O geomutils.$O geomfaces.$O $(SYSDEPO) geometry.$O composite.$O string.$O elementread.$O
-#pvmmaster: pvmmaster.$O $(SYSDEPO) random.$O stat.$O geometry.$O
-#pvmslave: pvmslave.$O $(SYSDEPO) random.$O randother.$O stat.$O geometry.$O elementread.$O flight.$O string.$O reaction.$O geomfront.$O
 elementlookup: $(SYSDEPO) string.$O
 speciesetup: elementread.$O $(SYSDEPO) string.$O
-#flighttest: $(SYSDEPO) string.$O elementread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O geomfront.$O flight.$O
 
 netcdf: netcdf.$O
 	$(FC) -o $@ $^ -lnetcdf
-
-idtof: idtof.sh
-	cp $< $@
-	chmod a+x $@
 
 makemodule: makemodule.sh
 	cp $< $@
@@ -848,9 +887,6 @@ makedepend: makedepend.sh
 
 depend: makedepend
 	./makedepend *.web *.hweb
-
-#aladdin_subr.o: $(ALADIR)/ALPCOM.FOR $(ALADIR)/ALCOM.FOR
-#	$(FC) -c -g  $(ALADIR)/aladdin_subr.F
 
 aladdin_subr.f: $(ALADIR)/aladdin_subr.f
 	cp $< $@
@@ -867,6 +903,6 @@ TAGS:
 .PHONY: clean %.view %.print TAGS depends
 
 clean:
-	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum *.M *.mweb *.T *.c *.h *.g90
+	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum *.M *.mweb *.T *.c *.h *.g90 *.ts
 
 
