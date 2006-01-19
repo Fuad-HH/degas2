@@ -2,6 +2,10 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.27  2001/11/16 15:50:38  dstotler
+% Add plot of He 5877 emission rate. Add plots of neutral density by
+% author.
+%
 % Revision 1.26  2001/07/16 20:56:23  dstotler
 % Generalize velocity plot to work with "flux" or "velocity" vector
 % tally. Divide ion source rate by volume, adding "V" to file name to
@@ -132,8 +136,6 @@
 @I reaction.hweb
 @I materials.hweb
 
-@m CMOD 0    // Enable calls to |integral_region|, specific to C-Mod
-
 @ The main program.
 
 @a
@@ -142,25 +144,10 @@
       implicit_none_f90
 
       call readfilenames
-@#if 0
-      call read_geometry
-      call nc_read_species
-      call nc_read_reactions
-      call nc_read_materials
-      call nc_read_pmi
-      call nc_read_problem
-      call nc_read_background
-      call read_cramd_data
-
-      call nc_read_tally
-      call nc_read_output
-@#endif
       call degas_init
       call nc_read_output
 
       call exercise
-
-      call plot_eirene_data   // Used for benchmark runs
 
       stop
       end
@@ -169,10 +156,33 @@
 
 @ Exercise the locate function
 
+/*
+   Remove characters causing file name problems
+*/
+@m name_clean(s,sp) sp=s;  
+      ind_tmp=index(sp,'(');
+      if (ind_tmp > 0) sp(ind_tmp:ind_tmp)='_';
+      ind_tmp=index(sp,')');
+      if (ind_tmp > 0) sp(ind_tmp:ind_tmp)='_';
+      ind_tmp=index(sp,'|');
+      if (ind_tmp > 0) sp(ind_tmp:ind_tmp)='_';
+      ind_tmp=index(sp,'+');
+      if (ind_tmp > 0) sp(ind_tmp:ind_tmp)='p' @;
+
 @<Functions...@>=
       subroutine exercise
 
-      define_varp(hdf_data,FLOAT,zone_ind)
+      define_dimen(a_ind,0,na-1)
+      define_dimen(b_ind,0,nb-1)
+      define_dimen(c_ind,0,nc-1)
+      define_dimen(pixel_ind,0,na*nb*nc-1)
+
+      define_varp(xa,FLOAT,a_ind)
+      define_varp(xb,FLOAT,b_ind)
+      define_varp(xc,FLOAT,c_ind)
+      define_varp(pixel_zones,INT,pixel_ind)
+      define_varp(pixel_data,FLOAT,pixel_ind)
+      define_varp(zone_data,FLOAT,zone_ind)
 
       implicit_none_f77
       sp_common
@@ -183,95 +193,249 @@
       zn_common
       de_common
       implicit_none_f90
-      real x[3],a[3],b[3],alen,blen,ha_rate,halpha_tot,  // Local
-     $     ha_temp,density,pressure,max_v
-      real integrals[4]
-      integer i,j,k,zone,test,back,iview
+      real x[3],a[3],b[3],c[3],xp[3],vz[3],               // Local
+     $     alen,blen,clen,ha_rate,halpha_tot,ha_temp,
+     $     density,pressure,max_v,clenp,dx,dz,z_scale,main_z_scale
+      integer i,j,k,zone,test,back,iview,length,p,beg,e,ind_tmp,
+     $        na,nb,nc,pixsize,main_pixsize
       integer index_parameters[tl_index_max]
-      external zone_func,density_func,te_func,ti_func
-      integer zone_func,density_func,te_func,ti_func
-      external extract_output_datum,integral_region
+      external extract_output_datum
       real extract_output_datum
-      integer integral_region
       character*4 ivlab
       character*1 ind_sy[3]
       character*3 vtag,auth
       character*tl_tag_length vname
+      character*sp_sy_len clean_sy
+      character*LINELEN line
       data ind_sy /'1','2','3'/
 
-      declare_varp(hdf_data)
+      declare_varp(xa)
+      declare_varp(xb)
+      declare_varp(xc)
+      declare_varp(pixel_zones)
+      declare_varp(pixel_data)
+      declare_varp(zone_data)
       
       @<Memory allocation interface@>
       st_decls
       tl_decls
+      vc_decls
       
       open(unit=diskin,file='geometry.inp',status='old',form='formatted')
-      read(diskin,*) SP (x[i],i=1,3),(a[i],i=1,3),(b[i],i=1,3),alen,blen
+/*
+   Switched these from free format reads to tokens.  To maintain backward
+   compatibility, have made the switch without adding keywords.  As a
+   consequence, the format becomes inflexible.  The expected contents of
+   the file are now:
+
+   First line contains $(x,y,z)$ coordinates of an origin.
+*/
+      assert(read_string(diskin,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,beg,e,p))
+      x[1]=read_real(line(beg:e))
+      assert(next_token(line,beg,e,p))
+      x[2]=read_real(line(beg:e))
+      assert(next_token(line,beg,e,p))
+      x[3]=read_real(line(beg:e))
+/*
+   Second line contains the $(x,y,z)$ unit vector for the first
+   axis of the basic 2-D slice.  If desired, the number of $x$-$y$
+   pixels can be specified after the $x$ unit vector.  If absent,
+   the default value of 40,000 is used.
+*/
+      assert(read_string(diskin,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,beg,e,p))
+      a[1]=read_real(line(beg:e))
+      assert(next_token(line,beg,e,p))
+      a[2]=read_real(line(beg:e))
+      assert(next_token(line,beg,e,p))
+      a[3]=read_real(line(beg:e))
+      if (next_token(line,beg,e,p)) then
+         main_pixsize=read_integer(line(beg:e))
+         assert(main_pixsize > 0)
+      else
+         main_pixsize=40000
+      end if
+/*
+   The third line has the $(x,y,z)$ unit vector for the second axis.
+*/
+      assert(read_string(diskin,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,beg,e,p))
+      b[1]=read_real(line(beg:e))
+      assert(next_token(line,beg,e,p))
+      b[2]=read_real(line(beg:e))
+      assert(next_token(line,beg,e,p))
+      b[3]=read_real(line(beg:e))
+/*
+   In the 2-D mode of operation, the fourth line contains just two
+   real numbers corresponding to lengths of the two vectors given
+   in the two previous lines.
+*/
+      assert(read_string(diskin,line,length))
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      p=0
+      assert(next_token(line,beg,e,p))
+      alen=read_real(line(beg:e))
+      assert(next_token(line,beg,e,p))
+      blen=read_real(line(beg:e))
+      clen=zero
+/*
+   If, however, the code finds three reals on this line, it will assume the
+   user wants a stack of 2-D slices in a 3-D file.  As above, the $z$ 
+   resolution can be controlled, if desired by the specification of a 
+   fourth real number on this line.  The mesh spacing in the $x$ and $y$
+   directions is equal; we multiply that by this |z_scale| factor to get
+   the spacing in the $z$ direction.  If absent, it defaults to 2.0.
+
+   Whether or not |z_scale| is present, the fourth line contains the 
+   unit vector for the third direction.  
+*/
+      if (next_token(line,beg,e,p)) then
+         c[1]=alen
+         c[2]=blen
+         c[3]=read_real(line(beg:e))
+         if (next_token(line,beg,e,p)) then
+            main_z_scale=read_real(line(beg:e))
+            assert(main_z_scale > zero)
+         else
+            main_z_scale=two
+         end if
+/*
+   The fifth line has the length of the three vectors in the 3-D case.
+*/
+         assert(read_string(diskin,line,length))
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,beg,e,p))
+         alen=read_real(line(beg:e))
+         assert(next_token(line,beg,e,p))
+         blen=read_real(line(beg:e))
+         assert(next_token(line,beg,e,p))
+         clen=read_real(line(beg:e))
+      end if
       close(unit=diskin)
 
-      open(unit=diskout,file='integrals.out',status='unknown')
+      var_alloc(zone_data)
+/*
+   High resolution 2-D plot(s)
+*/
+      pixsize=6400000
+      clenp=zero
+      z_scale=zero   // Not used
+      call get_pixel_mesh(alen,blen,clenp,pixsize,z_scale,
+     $     na,nb,nc,dx,dz)
       
-/* to plot just the geometry keep only this call to |output_slice| */
-      call output_slice('geomtesta.hdf',.true.,x,a,b,alen,blen,zone_func)
-@#if 0
-      call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,density_func)
-      call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,te_func)
-      call output_slice('geomtesta.hdf',.false.,x,a,b,alen,blen,ti_func)
-@#endif
+      var_alloc(xa)
+      var_alloc(xb)
+      var_alloc(xc)
+      var_alloc(pixel_zones)
+      var_alloc(pixel_data)
+/* 
+   Plot the slice midway along the third direction.
+*/
+      if (clen > zero) then
+         vc_unit(c,vz)
+         vc_xvt(x,vz,half*clen,xp)
+      else
+         vc_copy(x,xp)
+      end if
+      call set_pixel_zones(xp,a,b,c,na,nb,nc,dx,dz,xa,xb,xc,pixel_zones)
+/*
+   This is just Charles' original ``zone function''.  I believe the
+   purpose was to use (most of) an 8-bit palette to color the
+   zones with a minimum chance of color matching between adjacent
+   zones (i.e., suspect that $97 / 252$ is related to the golden
+   mean).
+*/
+      do i=1,zn_num
+         zone_data[i]=areal(3+mod(97*i,255-3))
+      end do
+      call write_hdf('geomtesta.hdf',zone_data,'zone function',' ','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
-      var_alloc(hdf_data)
+      var_free(xa)
+      var_free(xb)
+      var_free(xc)
+      var_free(pixel_zones)
+      var_free(pixel_data)
+/*
+   Low resolution, 2- or 3-D plots (as specified on input)
+*/
+      pixsize=main_pixsize
+      z_scale=main_z_scale
+      call get_pixel_mesh(alen,blen,clen,pixsize,z_scale,
+     $     na,nb,nc,dx,dz)
+
+      var_alloc(xa)
+      var_alloc(xb)
+      var_alloc(xc)
+      var_alloc(pixel_zones)
+      var_alloc(pixel_data)
+
+      call set_pixel_zones(x,a,b,c,na,nb,nc,dx,dz,xa,xb,xc,pixel_zones)
 
       do i=1,zn_num
-         hdf_data[i]=areal(i)
+         zone_data[i]=areal(i)
       end do
-      call data_slice('zones.hdf',hdf_data,'zone number',' ','E11.3',
-     $     x,a,b,alen,blen)
+      call write_hdf('zones.hdf',zone_data,'zone number',' ','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
 @#if 1
       do i=1,zn_num
          if (zn_type(i) == zn_plasma) then
-            hdf_data[i]=bk_n(1,i)                  // BACKGROUND DENSITY
+            zone_data[i]=bk_n(1,i)                  // BACKGROUND DENSITY
          else
-            hdf_data[i]=zero
+            zone_data[i]=zero
          end if
       end do
-      call data_slice('bk_n1.hdf',hdf_data,'electron density','m**-3','E11.3',
-     $     x,a,b,alen,blen)
+      call write_hdf('bk_n1.hdf',zone_data,'electron density','m**-3','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       do i=1,zn_num
          if (zn_type(i) == zn_plasma) then         // BACKGROUND TEMPERATURE
-            hdf_data[i]=bk_temp(1,i)/electron_charge
+            zone_data[i]=bk_temp(1,i)/electron_charge
          else
-            hdf_data[i]=zero
+            zone_data[i]=zero
          end if
       end do
-      call data_slice('bk_t1.hdf',hdf_data,'electron temperature','eV','E11.3',
-     $     x,a,b,alen,blen)
+      call write_hdf('bk_t1.hdf',zone_data,'electron temperature','eV','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       do i=1,zn_num
          if (zn_type(i) == zn_plasma) then         // BACKGROUND TEMPERATURE
-            hdf_data[i]=bk_temp(2,i)/electron_charge
+            zone_data[i]=bk_temp(2,i)/electron_charge
          else
-            hdf_data[i]=zero
+            zone_data[i]=zero
          end if
       end do
-      call data_slice('bk_t2.hdf',hdf_data,'ion temperature','eV','E11.3',
-     $     x,a,b,alen,blen)
+      call write_hdf('bk_t2.hdf',zone_data,'ion temperature','eV','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       do j=1,3
          max_v=zero
          do i=1,zn_num
             if (zn_type(i) == zn_plasma) then         // ION VELOCITY
-               hdf_data[i]=bk_v(2,i)[j]
-               max_v=max(max_v,abs(hdf_data[i]))
+               zone_data[i]=bk_v(2,i)[j]
+               max_v=max(max_v,abs(zone_data[i]))
             else
-               hdf_data[i]=zero
+               zone_data[i]=zero
             end if
          end do
          if (max_v > zero) then
-            call data_slice('bk_v'\/ind_sy[j]\/'.hdf',hdf_data,
+            call write_hdf('bk_v'\/ind_sy[j]\/'.hdf',zone_data,
      $           'ion velocity '\/ind_sy[j],'m/s','E11.3',
-     $           x,a,b,alen,blen)
+     $           na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
          end if
       end do
 @#endif
@@ -292,13 +456,13 @@
          end if
          do i=1,zn_num
             if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
-               hdf_data[i]=de_zone_frags[i][iview]
+               zone_data[i]=de_zone_frags[i][iview]
             else
-               hdf_data[i]=zero
+               zone_data[i]=zero
             end if
          end do
-         call data_slice('zn_frag_'\/trim(ivlab)\/'.hdf',hdf_data,
-     $        'zone frag view '\/trim(ivlab),' ','E11.3',x,a,b,alen,blen)
+         call write_hdf('zn_frag_'\/trim(ivlab)\/'.hdf',zone_data,
+     $        'zone frag view '\/trim(ivlab),' ','E11.3',na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
       end do
 @#endif
 @#if 1
@@ -306,50 +470,36 @@
       do j=2,pr_test_num
          index_parameters[tl_index_test]=j
          ha_temp=zero
-         do k=1,4
-            integrals[k]=zero
-         end do
          do i=1,zn_num
             if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
                index_parameters[tl_index_zone]=i
                density=extract_output_datum(index_parameters,1,
      $              out_post_all,o_mean,'neutral density')
-               hdf_data[i]=density           // NEUTRAL DENSITY
+               zone_data[i]=density           // NEUTRAL DENSITY
                ha_temp+=density*zn_volume(i)
-@#if CMOD
-               k=integral_region(zn_index(i,1),zn_index(i,2))
-               integrals[k]+=density*zn_volume(i)
-@#endif
             else
-               hdf_data[i]=zero
+               zone_data[i]=zero
             end if
          end do
-         write(diskout,*) 'test i = ',j,
-     $              ' total particles = ',ha_temp
-@#if CMOD
-         write(diskout,*) '   In core plasma:  ',integrals[1]
-         write(diskout,*) '   In PFR:          ',integrals[2]
-         write(diskout,*) '   Inner SOL:       ',integrals[3]
-         write(diskout,*) '   Outer SOL:       ',integrals[4]  
-@#endif
-         call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'den.hdf',hdf_data,
-     $        'sp'\/trim(sp_sy(pr_test(j)))\/' density','m**-3','E11.3',
-     $        x,a,b,alen,blen)
+         name_clean(sp_sy(pr_test(j)),clean_sy)
+         call write_hdf('sp'\/trim(clean_sy)\/'den.hdf',zone_data,
+     $        'sp'\/trim(clean_sy)\/' density','m**-3','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
          do i=1,zn_num
             if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
                index_parameters[tl_index_zone]=i
                density=extract_output_datum(index_parameters,1,
      $              output_all,o_var,'neutral density')
-               hdf_data[i]=density           // NEUTRAL DENSITY REL. STD. DEV.
+               zone_data[i]=density           // NEUTRAL DENSITY REL. STD. DEV.
             else
-               hdf_data[i]=zero
+               zone_data[i]=zero
             end if
          end do
 
-         call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'den_rsd.hdf',hdf_data,
-     $        'sp'\/trim(sp_sy(pr_test(j)))\/' density rsd',' ','E11.3',
-     $        x,a,b,alen,blen)
+         call write_hdf('sp'\/trim(clean_sy)\/'den_rsd.hdf',zone_data,
+     $        'sp'\/trim(clean_sy)\/' density rsd',' ','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
          if (tl_check(string_lookup('neutral velocity vector',tally_name,tl_num))) then
             vname='neutral velocity vector'
@@ -365,15 +515,15 @@
                   index_parameters[tl_index_zone]=zone
                   ha_rate=extract_output_datum(index_parameters,i,
      $                 out_post_all,o_mean,trim(vname))
-                  hdf_data[zone]=ha_rate
+                  zone_data[zone]=ha_rate
                else
-                  hdf_data[zone]=zero
+                  zone_data[zone]=zero
                end if
             end do
-            call data_slice(
-     $           'sp'\/trim(sp_sy(pr_test(j)))\/vtag\/ind_sy[i]\/'.hdf',
-     $           hdf_data,trim(sp_sy(pr_test(j)))\/vtag\/ind_sy[i],
-     $           'm/s','E11.3',x,a,b,alen,blen)
+            call write_hdf(
+     $           'sp'\/trim(clean_sy)\/vtag\/ind_sy[i]\/'.hdf',
+     $           zone_data,trim(clean_sy)\/vtag\/ind_sy[i],
+     $           'm/s','E11.3',na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
          end do
 
          if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
@@ -382,14 +532,14 @@
                   index_parameters[tl_index_zone]=i
                   pressure=extract_output_datum(index_parameters,1,
      $                 out_post_all,o_mean,'neutral pressure')
-                  hdf_data[i]=pressure/const(1.3332,-1)  // NEUTRAL PRESSURE
+                  zone_data[i]=pressure/const(1.3332,-1)  // NEUTRAL PRESSURE
                else
-                  hdf_data[i]=zero
+                  zone_data[i]=zero
                end if
             end do
-            call data_slice('sp'\/trim(sp_sy(pr_test(j)))\/'prs.hdf',hdf_data,
-     $           'sp'\/trim(sp_sy(pr_test(j)))\/' pressure','mTorr','E11.3',
-     $           x,a,b,alen,blen)
+            call write_hdf('sp'\/trim(clean_sy)\/'prs.hdf',zone_data,
+     $           'sp'\/trim(clean_sy)\/' pressure','mTorr','E11.3',
+     $           na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
          end if
 
       end do
@@ -409,27 +559,25 @@
                index_parameters[tl_index_zone]=i
                density=extract_output_datum(index_parameters,1,
      $              out_post_all,o_mean,'neutral density by author')
-               hdf_data[i]=density               // NEUTRAL DENSITY BY AUTHOR
+               zone_data[i]=density               // NEUTRAL DENSITY BY AUTHOR
                ha_temp+=density*zn_volume(i)
             else
-               hdf_data[i]=zero
+               zone_data[i]=zero
             end if
          end do
-         write(diskout,*) 'test i = ',j,' author = ',k,
-     $        ' total particles = ',ha_temp
          if (ha_temp > zero) then
             write(auth,'(a1,i2.2)') 'a',k
-            call data_slice(
-     $           'sp'\/trim(sp_sy(pr_test(j)))\/'den_'\/auth\/'.hdf',hdf_data,
+            call write_hdf(
+     $           'sp'\/trim(sp_sy(pr_test(j)))\/'den_'\/auth\/'.hdf',zone_data,
      $           'sp'\/trim(sp_sy(pr_test(j)))\/' density '\/auth,'m**-3',
-     $           'E11.3',x,a,b,alen,blen)
+     $           'E11.3',na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
          end if
       end do
 
 @#endif
 @#if 1
       do i=1,zn_num
-         hdf_data[i]=zero
+         zone_data[i]=zero
       end do
 
       do test=1,pr_test_num
@@ -445,35 +593,68 @@
      $                 out_post_all,o_mean,
      $                 trim(sp_sy(pr_test(test)))\/'alpha emission rate')
      $                 /(const(1.8881944)*electron_charge)
-                  hdf_data[zone]+=ha_rate
+                  zone_data[zone]+=ha_rate
                   ha_temp+=ha_rate*zn_volume(zone)
 @#if 0
                else if (zn_type(zone) == zn_solid) then  // Can plot solid
-                  hdf_data[zone]=-one                    // regions 
+                  zone_data[zone]=-one                    // regions 
 @#endif
                else
-                  hdf_data[zone]=zero
+                  zone_data[zone]=zero
                end if
             end do
-            write(diskout,*) 'test = ',test,', ha = ',ha_temp 
          end if
       end do
 
       halpha_tot=zero
       do zone=1,zn_num
-         halpha_tot+=hdf_data[zone]*zn_volume(zone)
+         halpha_tot+=zone_data[zone]*zn_volume(zone)
       end do
-      write(diskout,*) ' Halpha_tot = ',halpha_tot
 
       if (halpha_tot > zero) then
-         call data_slice('halpha.hdf',hdf_data,
-     $        'H_alpha_rate','photons / s','E11.3',
-     $        x,a,b,alen,blen)
+         call write_hdf('halpha.hdf',zone_data,
+     $        'H_alpha_rate','photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
       end if
+
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (string_lookup('Dalpha emission rate by species',tally_name,tl_num) > 0) then
+            ha_temp=zero
+            index_parameters[tl_index_test]=test
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'Dalpha emission rate by species')
+     $                 /(const(1.8881944)*electron_charge)
+                  zone_data[zone]=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+         halpha_tot=zero
+         do zone=1,zn_num
+            halpha_tot+=zone_data[zone]*zn_volume(zone)
+         end do
+
+         if (halpha_tot > zero) then
+            call write_hdf('halpha'\/trim(sp_sy(pr_test(test)))\/'.hdf',zone_data,
+     $        'H_alpha_rate_'\/trim(sp_sy(pr_test(test))),'photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         end if
+      end do
+
 @#endif
 @#if 1
       do i=1,zn_num
-         hdf_data[i]=zero
+         zone_data[i]=zero
       end do
 
       do test=1,pr_test_num
@@ -487,37 +668,37 @@
      $                 out_post_all,o_mean,
      $                 'He 5877 emission rate')
      $                 /(const(2.109566)*electron_charge)
-                  hdf_data[zone]+=ha_rate
+                  zone_data[zone]+=ha_rate
                   ha_temp+=ha_rate*zn_volume(zone)
 @#if 0
                else if (zn_type(zone) == zn_solid) then  // Can plot solid
-                  hdf_data[zone]=-one                    // regions 
+                  zone_data[zone]=-one                    // regions 
 @#endif
                else
-                  hdf_data[zone]=zero
+                  zone_data[zone]=zero
                end if
             end do
-            write(diskout,*) 'test = ',test,', ha = ',ha_temp 
          end if
       end do
 
       halpha_tot=zero
       do zone=1,zn_num
-         halpha_tot+=hdf_data[zone]*zn_volume(zone)
+         halpha_tot+=zone_data[zone]*zn_volume(zone)
       end do
-      write(diskout,*) ' Halpha_tot = ',halpha_tot
 
       if (halpha_tot > zero) then
-         call data_slice('he_5877.hdf',hdf_data,
-     $        'He_5877_rate','photons / s','E11.3',
-     $        x,a,b,alen,blen)
+         call write_hdf('he_5877.hdf',zone_data,
+     $        'He_5877_rate','photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
       end if
 @#endif
 @#if 1
 
-      if (pr_reaction_num > 0) then
+      if ((pr_reaction_num > 0) 
+     $     && (string_lookup('ion source rate',tally_name,tl_num) > 0)) then
          do back=1,pr_background_num
-            if (sp_sy(pr_background(back)) != 'e') then     // ION SOURCE RATE
+            name_clean(sp_sy(pr_background(back)),clean_sy)
+            if (trim(clean_sy) != 'e') then     // ION SOURCE RATE
                index_parameters[tl_index_problem_sp]=pr_problem_sp_back(back)
                ha_temp=zero
                do zone=1,zn_num
@@ -525,37 +706,37 @@
                      index_parameters[tl_index_zone]=zone
                      ha_rate=extract_output_datum(index_parameters,1,
      $                    out_post_all,o_mean,'ion source rate')
-                     hdf_data[zone]=ha_rate/zn_volume(zone)
+                     zone_data[zone]=ha_rate/zn_volume(zone)
                      ha_temp+=ha_rate
                   else
-                     hdf_data[zone]=zero
+                     zone_data[zone]=zero
                   end if
                end do
-               write(diskout,*) 'back = ',back,', source = ',ha_temp 
-               call data_slice(trim(sp_sy(pr_background(back)))\/'ionizeV.hdf',
-     $              hdf_data,trim(sp_sy(pr_background(back)))\/'_Ion_Source_rate',
+               call write_hdf(trim(clean_sy)\/'ionizeV.hdf',
+     $              zone_data,trim(clean_sy)\/'_Ion_Source_rate',
      $              'm**-3 s**-1','E11.3',
-     $              x,a,b,alen,blen)
+     $              na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
                do zone=1,zn_num
                   if (zn_type(zone) == zn_plasma) then
                      index_parameters[tl_index_zone]=zone
                      ha_rate=extract_output_datum(index_parameters,1,
      $                    output_all,o_var,'ion source rate')
-                     hdf_data[zone]=ha_rate
+                     zone_data[zone]=ha_rate
                   else
-                     hdf_data[zone]=zero
+                     zone_data[zone]=zero
                   end if
                end do
-               call data_slice(trim(sp_sy(pr_background(back)))\/'ionize_rsd.hdf',
-     $              hdf_data,trim(sp_sy(pr_background(back)))\/'_Ion Source rate rsd',
-     $              ' ','E11.3',x,a,b,alen,blen)
+               call write_hdf(trim(clean_sy)\/'ionize_rsd.hdf',
+     $              zone_data,trim(clean_sy)\/'_Ion Source rate rsd',
+     $              ' ','E11.3',na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
             end if
          end do
 
          do back=1,pr_background_num
-            if (sp_sy(pr_background(back)) != 'e') then     // MOM. SOURCE RATE
+            name_clean(sp_sy(pr_background(back)),clean_sy)
+            if (trim(clean_sy) != 'e') then     // MOM. SOURCE RATE
                index_parameters[tl_index_problem_sp]=pr_problem_sp_back(back)
                do i=1,3                                     // Component
                   ha_temp=zero
@@ -564,20 +745,18 @@
                         index_parameters[tl_index_zone]=zone
                         ha_rate=extract_output_datum(index_parameters,i,
      $                       out_post_all,o_mean,'ion momentum source vector')
-                        hdf_data[zone]=ha_rate
+                        zone_data[zone]=ha_rate
                         ha_temp+=ha_rate
                      else
-                        hdf_data[zone]=zero
+                        zone_data[zone]=zero
                      end if
                   end do
-                  write(diskout,*) 'back = ',back,
-     $                 ', mom. source ',i,' = ',ha_temp 
-                  call data_slice(
-     $                 trim(sp_sy(pr_background(back)))\/'mom'\/ind_sy[i]\/'.hdf',
-     $                 hdf_data,
-     $                 trim(sp_sy(pr_background(back)))\/'_Mom '\/ind_sy[i]\/'_Source_rate',
+                  call write_hdf(
+     $                 trim(clean_sy)\/'mom'\/ind_sy[i]\/'.hdf',
+     $                 zone_data,
+     $                 trim(clean_sy)\/'_Mom '\/ind_sy[i]\/'_Source_rate',
      $                 'N','E11.3',
-     $                 x,a,b,alen,blen)
+     $                 na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
                end do
 
                do i=1,3                                     // Component
@@ -586,22 +765,23 @@
                         index_parameters[tl_index_zone]=zone
                         ha_rate=extract_output_datum(index_parameters,i,
      $                       output_all,o_var,'ion momentum source vector')
-                        hdf_data[zone]=ha_rate
+                        zone_data[zone]=ha_rate
                      else
-                        hdf_data[zone]=zero
+                        zone_data[zone]=zero
                      end if
                   end do
-                  call data_slice(
-     $                 trim(sp_sy(pr_background(back)))\/'mom'\/ind_sy[i]\/'_rsd.hdf',
-     $                 hdf_data,
-     $                 trim(sp_sy(pr_background(back)))\/'_Mom '\/ind_sy[i]\/'_Source_rate_rsd',
+                  call write_hdf(
+     $                 trim(clean_sy)\/'mom'\/ind_sy[i]\/'_rsd.hdf',
+     $                 zone_data,
+     $                 trim(clean_sy)\/'_Mom '\/ind_sy[i]\/'_Source_rate_rsd',
      $                 'N','E11.3',
-     $                 x,a,b,alen,blen)
+     $                 na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
                end do
             end if
          end do
 
          do back=1,pr_background_num                  // ENERGY SOURCE RATE
+            name_clean(sp_sy(pr_background(back)),clean_sy)
             index_parameters[tl_index_problem_sp]=pr_problem_sp_back(back)
             ha_temp=zero
             do zone=1,zn_num
@@ -609,95 +789,78 @@
                   index_parameters[tl_index_zone]=zone
                   ha_rate=extract_output_datum(index_parameters,1,
      $                 out_post_all,o_mean,'ion energy source')
-                  hdf_data[zone]=ha_rate
+                  zone_data[zone]=ha_rate
                   ha_temp+=ha_rate
                else
-                  hdf_data[zone]=zero
+                  zone_data[zone]=zero
                end if
             end do
-            write(diskout,*) 'back = ',back,', energy source = ',ha_temp 
-            call data_slice(trim(sp_sy(pr_background(back)))\/'energy.hdf',
-     $           hdf_data,trim(sp_sy(pr_background(back)))\/'_Energy_Source_rate',
+            call write_hdf(trim(clean_sy)\/'energy.hdf',
+     $           zone_data,trim(clean_sy)\/'_Energy_Source_rate',
      $           'W','E11.3',
-     $           x,a,b,alen,blen)
+     $           na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
             do zone=1,zn_num
                if (zn_type(zone) == zn_plasma) then
                   index_parameters[tl_index_zone]=zone
                   ha_rate=extract_output_datum(index_parameters,1,
      $                 output_all,o_var,'ion energy source')
-                  hdf_data[zone]=ha_rate
+                  zone_data[zone]=ha_rate
                else
-                  hdf_data[zone]=zero
+                  zone_data[zone]=zero
                end if
             end do
-            call data_slice(trim(sp_sy(pr_background(back)))\/'energy_rsd.hdf',
-     $           hdf_data,trim(sp_sy(pr_background(back)))\/'_Energy_Source_rate_rsd',
+            call write_hdf(trim(clean_sy)\/'energy_rsd.hdf',
+     $           zone_data,trim(clean_sy)\/'_Energy_Source_rate_rsd',
      $           'W','E11.3',
-     $           x,a,b,alen,blen)
+     $           na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
          end do
 
       end if
+/*
+   Plot EIRENE data if the appropriate files are present.  Since we've
+   only worked with 2-D EIRENE files (in benchmark exercises), skip if 
+   the current pixel mesh is 3-D.
+*/
+      if (clen == zero) then
+         call plot_eirene_data(zone_data,na,nb,nc,xa,xb,xc,
+     $        pixel_zones,pixel_data)
+      end if
 
 @#endif
-      var_free(hdf_data)
+      var_free(xa)
+      var_free(xb)
+      var_free(xc)
+      var_free(pixel_zones)
+      var_free(pixel_data)
+      var_free(zone_data)
 
       return
       end
 
-@ Divide up problem space into 4 regions of integration. Specifically
-set up for Alcator C-Mod single null runs.
-
-@<Functions...@>=
-      function integral_region(j1,j2)
-      implicit_none_f77
-      implicit_none_f90
-      integer integral_region
-      integer j1,j2
-      integer ixcut1,ixcut2,iycut,nx,ny
-      data ixcut1,ixcut2,iycut,nx,ny/31,92,11,122,26/
-
-      assert(1 <= j1 && j1 <= nx)
-      assert(1 <= j2 && j2 <= ny)
-      assert(j1 != ixcut1 && j1 != ixcut2)
-      if (j2 <= iycut) then
-         if (j1 < ixcut1 || j1 > ixcut2) then 
-            integral_region=2
-         else
-            integral_region=1
-         end if
-      else
-         if (j1 <= nx/2) then
-            integral_region=3
-         else
-            integral_region=4
-         end if
-      end if
-
-      return
-      end     
-
 @ Read and plot EIRENE output files. To facilitate the benchmarking process,
 have set up this routine to read the |fort.32| and |fort.44| files output
 by EIRENE and then to put the data into the same HDF file format as
-used by the rest of |geomtesta|.
+used by the rest of |geomtesta|.  Have passed down the pixel mesh and
+storage arrays so their creation doesn't need to be repeated.
 
 @<Functions...@>=
 
-      subroutine plot_eirene_data
+      subroutine plot_eirene_data(zone_data,na,nb,nc,xa,xb,xc,
+     $                            pixel_zones,pixel_data)
 
       implicit_none_f77
+      zn_common
       implicit_none_f90
                                            
-      integer nx,ny,natmi,nmoli,nioni,nfl,i    // Local
-      real x0[3],a[3],b[3],alen,blen       
+      integer na,nb,nc                                  // Input
+      integer pixel_zones[0:na*nb*nc-1]
+      real zone_data[zn_num],xa[0:na-1],xb[0:nb-1],
+     $     xc[0:nc-1],pixel_data[0:na*nb*nc-1]
+      integer nx,ny,natmi,nmoli,nioni,nfl               // Local
 
       @<Memory allocation interface@>
       
-      open(unit=diskin,file='geometry.inp',status='old',form='formatted')
-      read(diskin,*) SP (x0[i],i=1,3),(a[i],i=1,3),(b[i],i=1,3),alen,blen
-      close(unit=diskin)
-
       open(unit=diskin,file='eirene44.out',status='old',form='formatted',err=eof)
       read(diskin,'(i4,2x,i4)') nx,ny
 
@@ -705,7 +868,7 @@ used by the rest of |geomtesta|.
       nfl=1    // No way to determine this from the files?
 
       call plot_eirene_continued(nx,ny,natmi,nmoli,nioni,nfl,
-     $     diskin,x0,a,b,alen,blen)
+     $     diskin,zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
 eof:  continue
 
@@ -719,7 +882,8 @@ properly dimensioned.
 @<Functions...@>=
 
       subroutine plot_eirene_continued(nx,ny,natmi,nmoli,nioni,nfl,
-     $                                 unit_num,x0,a,b,alen,blen)
+     $                                 unit_num,zone_data,na,nb,nc,
+     $                                 xa,xb,xc,pixel_zones,pixel_data)
 
       define_dimen(ix_ind,nx)
       define_dimen(iy_ind,ny)
@@ -728,7 +892,6 @@ properly dimensioned.
       define_dimen(ion_ind,nioni)
       define_dimen(fl_ind,nfl)
 
-      define_varp(hdf_data,FLOAT,zone_ind)
       define_varp(ix_iy_zone,INT,ix_ind,iy_ind)
       define_varp(atm_name,CHAR,species_symbol_string,atm_ind)
       define_varp(mol_name,CHAR,species_symbol_string,mol_ind)
@@ -736,19 +899,21 @@ properly dimensioned.
       define_varp(fl_name,CHAR,species_symbol_string,fl_ind)
 
       implicit_none_f77
-      zn_common                                       // Common
+      zn_common                                        // Common
       so_common
       implicit_none_f90
 
-      integer nx,ny,natmi,nmoli,nioni,nfl,unit_num    // Input
-      real x0[3],a[3],b[3],alen,blen       
+      integer nx,ny,natmi,nmoli,nioni,nfl,unit_num,    // Input
+     $        na,nb,nc
+      integer pixel_zones[0:na*nb*nc-1]
+      real zone_data[zn_num],xa[0:na-1],xb[0:nb-1],
+     $     xc[0:nc-1],pixel_data[0:na*nb*nc-1]
                                          
       integer i,length,zone,ix,iy,nstra               // Local
       real multiplier
       character*sp_sy_len stra_name          // Same length as other strings
       character*80 line
 
-      declare_varp(hdf_data)
       declare_varp(ix_iy_zone)
       declare_varp(atm_name)
       declare_varp(mol_name)
@@ -786,28 +951,27 @@ properly dimensioned.
          read(unit_num,*) ion_name[i]
       end do
 
-      var_alloc(hdf_data)
 /*
   This list should correspond with that in EIRENE's subroutine |wneutral|.
 */
-      call eirene_file_to_hdf(unit_num,nx,ny,natmi,hdf_data,ix_iy_zone,
+      call eirene_file_to_hdf(unit_num,nx,ny,natmi,ix_iy_zone,
      $   one,'eir_den_',atm_name,'density','m**-3','E11.3',
-     $   x0,a,b,alen,blen)
-      call eirene_file_to_hdf(unit_num,nx,ny,natmi,hdf_data,ix_iy_zone,
+     $   zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      call eirene_file_to_hdf(unit_num,nx,ny,natmi,ix_iy_zone,
      $   one/electron_charge,'eir_temp_',atm_name,'temperature','eV','E11.3',
-     $   x0,a,b,alen,blen)
-      call eirene_file_to_hdf(unit_num,nx,ny,nmoli,hdf_data,ix_iy_zone,
+     $   zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      call eirene_file_to_hdf(unit_num,nx,ny,nmoli,ix_iy_zone,
      $   one,'eir_den_',mol_name,'density','m**-3','E11.3',
-     $   x0,a,b,alen,blen)
-      call eirene_file_to_hdf(unit_num,nx,ny,nmoli,hdf_data,ix_iy_zone,
+     $   zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      call eirene_file_to_hdf(unit_num,nx,ny,nmoli,ix_iy_zone,
      $   one/electron_charge,'eir_temp_',mol_name,'temperature','eV','E11.3',
-     $   x0,a,b,alen,blen)
-      call eirene_file_to_hdf(unit_num,nx,ny,nioni,hdf_data,ix_iy_zone,
+     $   zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      call eirene_file_to_hdf(unit_num,nx,ny,nioni,ix_iy_zone,
      $   one,'eir_den_',ion_name,'density','m**-3','E11.3',
-     $   x0,a,b,alen,blen)
-      call eirene_file_to_hdf(unit_num,nx,ny,nioni,hdf_data,ix_iy_zone,
+     $   zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      call eirene_file_to_hdf(unit_num,nx,ny,nioni,ix_iy_zone,
      $   one/electron_charge,'eir_temp_',ion_name,'temperature','eV','E11.3',
-     $   x0,a,b,alen,blen)
+     $   zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       close(unit=unit_num)
 
@@ -835,28 +999,27 @@ loop: continue
 /*
   This list should correspond to the one in EIRENE's |infcop|.
 */
-         call eirene_file_to_hdf(unit_num,nx,ny,nfl,hdf_data,ix_iy_zone,
+         call eirene_file_to_hdf(unit_num,nx,ny,nfl,ix_iy_zone,
      $        multiplier,'eir_sni_'\/trim(stra_name),fl_name,
      $        'Ion source rate '\/trim(stra_name),'s**-1','E11.3',
-     $        x0,a,b,alen,blen)
-         call eirene_file_to_hdf(unit_num,nx,ny,nfl,hdf_data,ix_iy_zone,
+     $        zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         call eirene_file_to_hdf(unit_num,nx,ny,nfl,ix_iy_zone,
      $        multiplier,'eir_smo_'\/trim(stra_name),fl_name,
      $        'Momentum source rate '\/trim(stra_name),'N','E11.3',
-     $        x0,a,b,alen,blen)
-         call eirene_file_to_hdf(unit_num,nx,ny,1,hdf_data,ix_iy_zone,
+     $        zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         call eirene_file_to_hdf(unit_num,nx,ny,1,ix_iy_zone,
      $        multiplier,'eir_see_'\/trim(stra_name),'tot',
      $        'Electron energy source rate '\/trim(stra_name),'W','E11.3',
-     $        x0,a,b,alen,blen)
-         call eirene_file_to_hdf(unit_num,nx,ny,1,hdf_data,ix_iy_zone,
+     $        zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         call eirene_file_to_hdf(unit_num,nx,ny,1,ix_iy_zone,
      $        multiplier,'eir_sei_'\/trim(stra_name),'tot',
      $        'Ion energy source rate '\/trim(stra_name),'W','E11.3',
-     $        x0,a,b,alen,blen)
+     $        zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
          go to loop
       end if
 
       close(unit=unit_num)
 
-      var_free(hdf_data)
       var_free(ix_iy_zone)
       var_free(atm_name)
       var_free(mol_name)
@@ -873,27 +1036,28 @@ The ``read'' section should look a great deal like EIRENE's subroutine |neutr|.
 
 @<Functions...@>=
 
-      subroutine eirene_file_to_hdf(unit_num,nx,ny,nf,hdf_data,ix_iy_zone,
+      subroutine eirene_file_to_hdf(unit_num,nx,ny,nf,ix_iy_zone,
      $           multiplier,cfilrt,cfilext,clabel,cunits,cformt,
-     $           x0,a,b,alen,blen)
+     $           zone_data,na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       implicit_none_f77
-      zn_common                                    // Common
+      zn_common                                             // Common
       implicit_none_f90
 
-      integer unit_num,nx,ny,nf                    // Input
-      integer ix_iy_zone[nx,ny]
-      real multiplier,alen,blen
-      real hdf_data[zn_num],x0[3],a[3],b[3]
+      integer unit_num,nx,ny,nf,na,nb,nc                    // Input
+      integer ix_iy_zone[nx,ny],pixel_zones[0:na*nb*nc-1]
+      real multiplier
+      real zone_data[zn_num],xa[0:na-1],xb[0:nb-1],xc[0:nc-1],
+     $     pixel_data[0:na*nb*nc-1]
       character*(*) cfilrt,clabel,cunits,cformt
       character*(*) cfilext[nf]
-      integer lim,i,j,ix,iy,zone                     // Local
+      integer lim,i,j,ix,iy,zone                            // Local
 
       @<Memory allocation interface@>
       st_decls
       
       do zone=1,zn_num
-         hdf_data[zone]=zero
+         zone_data[zone]=zero
       end do
 
       lim=(nx/5)*5-4
@@ -901,22 +1065,23 @@ The ``read'' section should look a great deal like EIRENE's subroutine |neutr|.
          do iy=1,ny
             do ix=1,lim,5
                read(unit_num,'(5(e16.8))') SP 
-     $              (hdf_data[ix_iy_zone[ix-1+j,iy]],j=1,5)
+     $              (zone_data[ix_iy_zone[ix-1+j,iy]],j=1,5)
             end do
             if (lim+4 != nx) then
                read(unit_num,'(5(e16.8))') SP 
-     $              (hdf_data[ix_iy_zone[ix,iy]],ix=lim+5,nx)
+     $              (zone_data[ix_iy_zone[ix,iy]],ix=lim+5,nx)
             end if
          end do
 
          if (multiplier != one) then
             do zone=1,zn_num
-               hdf_data[zone]*=multiplier
+               zone_data[zone]*=multiplier
             end do
          end if
 
-         call data_slice(cfilrt\/trim(cfilext[i])\/'.hdf',hdf_data,
-     $        trim(cfilext[i])\/' '\/clabel,cunits,cformt,x0,a,b,alen,blen)
+         call write_hdf(cfilrt\/trim(cfilext[i])\/'.hdf',zone_data,
+     $        trim(cfilext[i])\/' '\/clabel,cunits,cformt,
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
       end do
 
       return
