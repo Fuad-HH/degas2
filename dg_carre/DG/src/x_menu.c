@@ -94,7 +94,7 @@ void CbFileOutput(Widget wg,XtPointer xtpw,XtPointer pcbs) {
 
 void CbEquil(Widget wg,View w,void* xtp) {
   Widget wDlg;
-  XmString xms;
+  XmString xms=NULL;
 
   SetActiveView(w);
   if (w->app==NULL) return;
@@ -105,11 +105,12 @@ void CbEquil(Widget wg,View w,void* xtp) {
   }
 
   OpenEquilDlg(w);
+  XmStringFree(xms);
 }
 
 void CbTemplate(Widget wg,View w,void* xtp) {
   Widget wDlg;
-  XmString xms;
+  XmString xms=NULL;
 
   SetActiveView(w);
   if (w->app==NULL) return;
@@ -120,11 +121,12 @@ void CbTemplate(Widget wg,View w,void* xtp) {
   }
 
   OpenTemplateDlg(w);
+  XmStringFree(xms);
 }
 
 void CbSonnet(Widget wg,View w,void* xtp) {
   Widget wDlg;
-  XmString xms;
+  XmString xms=NULL;
 
   SetActiveView(w);
   if (w->app==NULL) return;
@@ -135,6 +137,7 @@ void CbSonnet(Widget wg,View w,void* xtp) {
   }
 
   OpenSonnetDlg(w);
+  XmStringFree(xms);
 }
 
 void CbFilePrint(Widget wg,XtPointer xtpV,XtPointer pcbs) {
