@@ -216,7 +216,7 @@ static XPointTest HitXPointTest(App a,double x,double y,double* pDist) {
 Elem HitElem(App a,double x,double y,int* pos,double* pDist) {
   Elem e,eHit;
   double dist,distHit=0;
-  int posHit,p;
+  int posHit = 0,p;
   Index ix;
 
   for (eHit=NULL,e=AppElem1st(a,&ix);e!=NULL;e=Next(&ix)) {
@@ -255,7 +255,7 @@ Separator HitSeparator(App a,double x,double y,double* pDist) {
 Chord HitChord(App a,double x,double y,int* pos,double* pDist) {
   Chord ch,chHit;
   double dist,distHit=0;
-  int posHit,p;
+  int posHit = 0,p;
   Index ix;
 
   for (chHit=NULL,ch=AppChord1st(a,&ix);ch!=NULL;ch=Next(&ix)) {
@@ -340,7 +340,7 @@ int HitGridPointExPos(App a,double x,double y,int* pzone,double* pvalue) {
   XY xy,xy1;
   Index ix,ix_gps;
   int zHit=-1;
-  double s,d,v,dHit=0,vHit;
+  double s,d,v,dHit=0,vHit=0;
 
   for (gps=AppGridPointSeg1st(a,&ix_gps);gps!=NULL;gps=Next(&ix_gps)) {
     if (!(gps->flags & GPSF_USED)) continue;
@@ -393,7 +393,7 @@ static MeshElement HitMeshElement(App a,double x,double y,int* pos,
     double* pDist) {
   MeshElement me,meHit;
   double dist,distHit=0;
-  int posHit,p,i;
+  int posHit = 0,p,i;
   Index ix;
 
   if (a->mesh==NULL) return NULL;
@@ -1192,7 +1192,7 @@ void CutPolyLine(Group line,double pos,int bTail) {
 double ProjectPointToPolyLine(Group gxy,double x,double y) {
   XY xy,xy1;
   Index ix;
-  double s,d,v,dHit=0,vHit;
+  double s,d,v,dHit=0,vHit=0;
 
   if (GroupCount(gxy)<2) return 0;
 
@@ -1483,7 +1483,8 @@ char* ExpandFilename(char* name) {
   if (name[0]=='\\' || name[0]=='/') goto noExpand;
 
   *s=0;
-  if (getwd(s)==NULL) goto noExpand;
+  getcwd(s,DG_FNAME_LEN);
+  if (*s==0) goto noExpand;
   if (s[0]=='\\') goto noExpand;  /* Do not handle DOS names */
 
   if (strlen(name)+strlen(s)>sizeof(s)-1) goto noExpand;

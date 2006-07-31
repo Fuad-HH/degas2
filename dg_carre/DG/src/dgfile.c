@@ -79,13 +79,13 @@ static struct _NameRec meshSlidingModes[]={
 
 static struct _FlagsRec surfaceZoneFlags[]={
   {SZF_LIMITBYSURFACE,'i'},
-  {0,NULL}
+  {0,(int) NULL}
 };
 
 static struct _FlagsRec gridPointSegFlags[]={
   {GPSF_USED,'u'},
   {GPSF_TARGET_CW,'t'},
-  {0,NULL}
+  {0,(int) NULL}
 };
 
 App LoadNormalApp(XApp xap,char* fName,char** pMsg,int* err) {
@@ -242,7 +242,7 @@ static void WriteVar(App a,FILE* f,void* obj,VarDef vd,VarSet vs){
 }
 
 static void WriteVars(App a,FILE* f,void* p) {
-  VarSetDef vsd;
+  VarSetDef vsd = NULL;
   VarDef vd;
   Index ix,ixe;
   void* org;
@@ -280,7 +280,7 @@ static void WriteVars(App a,FILE* f,void* p) {
 
 static void WriteApp_File(App a,FILE* f) {
   int i,j,i1,i2,i3;
-  double f1,f2;
+  double f1,f2 = 0;
   Elem e;
   Node n;
   Separator sep;
@@ -290,7 +290,7 @@ static void WriteApp_File(App a,FILE* f) {
   VarDef vd;
   VarSet vs;
   MeshPoint mpt;
-  MeshCell mc;
+  MeshCell mc = NULL;
   MeshElement me;
   XPointTest xpt;
   GridPointSeg gps;
@@ -570,7 +570,7 @@ static int ReadVar(App a,FILE* f,void* obj,VarDef vd,VarSet vs){
 /* IMPORTANT: call AFTER a Vars <nn> { header
 */
 static int ReadVars(App a,FILE* f,void* p) {
-  VarSetDef vsd;
+  VarSetDef vsd = NULL;
   VarDef vd;
   Index ix,ixe;
   void* obj;
