@@ -218,7 +218,7 @@ static int NextGridPointSegNumber(App a);
 static int CheckXPointLevels(Equil eq,int cx1,int cy1,int cx2,int cy2,
     int x0,int y0,int bMinMax) {
 
-  int x,y,nx,ny,d,nd;
+  int x,y,nx=0,ny=0,d,nd;
 
   if ((x0==cx1 || x0==cx2) && (y0==cy1 || y0==cy2)) {
 /*    AddSource(a,eq->x[x0],eq->y[y0]); */
@@ -460,7 +460,7 @@ static int FindXPointCenter(Equil eq,XPointTest xpt) {
 
 static Group CalcSeparatrixLine(Equil eq,XPointTest xpt,Group xpg,int idx) {
   int i,n,x,y,ox,oy;
-  XPointTest xpi;
+  XPointTest xpi = NULL;
   struct _SurfCell sc;
   Group g,g_t;
   XY xy,xy1,xy0;
@@ -1090,7 +1090,7 @@ k++;
 
 static Group CalcGradientLine(Equil eq,int x0,int y0,int steps,int bMinMax) {
   Group g;
-  int x,y,ox,oy,nx,ny;
+  int x,y,ox,oy,nx=0,ny=0;
   int cx1,cy1,cx2,cy2,cx,cy,ocx,ocy,d;
   double fx,fy,xyLvl,lvl,angle,angleMax,dist;
 
