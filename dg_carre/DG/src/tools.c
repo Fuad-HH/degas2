@@ -61,7 +61,7 @@ void TlExamine(View w,int event,double x,double y) {
     Group g;
     void* obj;
   }* d;
-  void* p;
+  void* p = NULL;
   Group g;
   MeshPoint mpt;
   MeshCell mc;

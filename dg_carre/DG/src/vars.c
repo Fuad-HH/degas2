@@ -622,7 +622,7 @@ int SetVarEx(App a,void* object,VarDef vd,void* val) {
 Var GetVarPtrByType(App a,int type) {
   Index ix,ix1;
   VarDef vd,vdx;
-  VarSet vs,vsx;
+  VarSet vs,vsx = NULL;
 
 
   for (vdx=NULL,vs=AppVarSet1st(a,&ix);vs!=NULL;vs=Next(&ix))
