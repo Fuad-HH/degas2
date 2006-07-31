@@ -17,7 +17,7 @@
 static int LoadHelp(XApp xap,char* fileName);
 
 static String XAppResName(XApp xap,int id);
-static char* XmXAppGetStringProc(StringSource strS,int id);
+static char* XAppGetStringProc(StringSource strS,int id);
 
 static XtActionsRec xappAct[]={
   "UseTool",   XtActUseTool,
@@ -44,6 +44,7 @@ static XtResource xappExtRes[]={
 };
 
 XrmOptionDescRec commandLineOptions[]={
+  "--help","displayHelp",XrmoptionNoArg,"1",
   "-help","displayHelp",XrmoptionNoArg,"1",
   "/help","displayHelp",XrmoptionNoArg,"1",
   "-h","displayHelp",XrmoptionNoArg,"1",
@@ -65,13 +66,13 @@ void ConfigureXApp(XApp xap) {
   xap->x->xViewShellsCount=0;
   xap->x->bPrefsLocked=0;
 
-  xap->x->wShell=XtAppInitialize(&xap->x->appContext,"DivGeo",
+  xap->x->wShell=XtOpenApplication(&xap->x->appContext,"DivGeo",
     commandLineOptions,XtNumber(commandLineOptions),
-    xap->pargc,xap->argv,dgResources,NULL,0);
+    xap->pargc,xap->argv,dgResources,sessionShellWidgetClass,NULL,0);
 
   XtAddCallback(xap->x->wShell,XmNdestroyCallback,CbExitApp,(XtPointer)1);
 
-  XmRepTypeInstallTearOffModelConverter();
+  XmRepTypeInstallTearOffModelConverter(); /* allows tear-off menus */
 
   if (xap->x->wShell==NULL)
     FatalError("ConfigureXApp()-unable to open display: fatal error 1");
@@ -80,14 +81,15 @@ void ConfigureXApp(XApp xap) {
   XtGetApplicationResources(xap->x->wShell,xap->x,
     xappExtRes,XtNumber(xappExtRes),NULL,0);
 
-  xap->x->strs.type=T_STRINGSOURCE;
-  xap->x->strs.GetStringProc=XmXAppGetStringProc;
-  xap->x->strs.userData=xap;
-  xap->stringSource=&xap->x->strs;
+  xap->x->strs=Malloc(sizeof(*xap->x->strs));
+  xap->x->strs->type=T_STRINGSOURCE;
+  xap->x->strs->GetStringProc=XAppGetStringProc;
+  xap->x->strs->userData=xap;
+  xap->stringSource=xap->x->strs;
 
   xap->configFileName=GetResourceString(xap->x->wShell,"configFileName",
     NULL,"");
-  if (*xap->configFileName)
+  if (*xap->configFileName/*!=NULL*/)
     xap->configFileName=MallocString(xap->configFileName);
   else {
     xap->configFileName=Malloc(DG_FNAME_LEN);
@@ -142,13 +144,14 @@ void UnconfigureXApp(XApp xap) {
   /*XtDestroyApplicationContext(xap->x->appContext);*/
 
   if (xap->x->helpFile!=NULL) xap->x->helpFile=Free(xap->x->helpFile);
+  xap->x->strs=Free(xap->x->strs);
   xap->configFileName=Free(xap->configFileName);
 
   xap->stringSource=NULL;
   xap->x=Free(xap->x);
 }
 
-static char* XmXAppGetStringProc(StringSource strS,int id) {
+static char* XAppGetStringProc(StringSource strS,int id) {
   XApp xap=(XApp)strS->userData;
   XtResource xtr={
     NULL,"DivGeoMsg",XtRString,sizeof(String),0,
@@ -478,7 +481,7 @@ char* GetUserPrefsFileName(XApp xap) {
 
   strncpy(buf,s,sizeof(buf)-100);
   if (buf[strlen(buf)-1]!='/') strcat(buf,"/");
-  strcat(buf,DEFALUT_PREFS_FILE);
+  strcat(buf,DEFALUT_PREFS_FILE); 
 
   return buf;
 }
