@@ -377,7 +377,7 @@ static void DG_Init(DistrGraph dg,View w,Widget wDlg,
   dg->wLaw=wLaw;
   dg->wLawLabel=wLawLabel;
 
-  dg->toUpdate=NULL;
+  dg->toUpdate=(int) NULL;
   dg->bGraphDrawn=True;
 
   dg->bDragging=False;
@@ -465,7 +465,7 @@ static double DG_Law(DistrGraph dg,double x) {
 static void DG_DrawCurve(DistrGraph dg,int bDrawOrErase,double* pAlpha,
     double newAlpha) {
 
-  int i,x,y,ox,oy,oy1,gw,gh,xStep=1;
+  int i,x,y,ox,oy=0,oy1=0,gw,gh,xStep=1;
   double oldAlpha;
 
   xStep=GetResourceInt(dg->wDraw,"graphStep",NULL,1);
@@ -502,7 +502,7 @@ static void DG_DrawCurve(DistrGraph dg,int bDrawOrErase,double* pAlpha,
 }
 
 static void DG_DrawGraph(DistrGraph dg,int bDrawOrErase) {
-  int i,x,y,gw,gh;
+  int i,x,y=0,gw,gh;
   double t;
   Pixel fg;
 
@@ -593,7 +593,7 @@ static int DG_GetData(DistrGraph dg,int bShowErrors) {
 static void ToDG_UpdateGraph(XtPointer xtpG,XtIntervalId* timer) {
   DistrGraph dg=(DistrGraph)xtpG;
 
-  dg->toUpdate=NULL;
+  dg->toUpdate=(int) NULL;
   DG_DrawGraph(dg,True);
 }
 
@@ -626,9 +626,9 @@ static void CbDG_NumbersChanged(Widget wg,XtPointer xtpG,XtPointer pcbs) {
 
   /* Remove the update timeout, if any */
 
-  if (dg->toUpdate!=NULL) {
+  if (dg->toUpdate!=(int) NULL) {
     XtRemoveTimeOut(dg->toUpdate);
-    dg->toUpdate=NULL;
+    dg->toUpdate=(int) NULL;
   }
 
   /* Add a new update timeout */
