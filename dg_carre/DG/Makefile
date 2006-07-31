@@ -32,9 +32,9 @@ ifeq ($(SYSTEM),IRIX64)
 endif
 ifeq ($(SYSTEM),Linux)
   MACHINE=LINUX
- # LIBS=-L/usr/X11R6/lib -lXm -lXt -lX11 -lm
+  LIBS=-L/usr/X11R6/lib -lXm -lXt -lX11 -lm
   CFLAGS=-g
-  LIBS= -L$(LESSTIF) -lXm -L/usr/X11R6/lib -lXt -lX11 -lm
+#  LIBS= -L$(LESSTIF) -lXm -L/usr/X11R6/lib -lXt -lX11 -lm
    CC=gcc
   INCLUDES=-I/usr/local/include
 endif
