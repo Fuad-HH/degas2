@@ -346,7 +346,7 @@ int WriteOutputFile(App a,char* fName) {
 int WriteStructureFile(App a,char* fName) {
   FILE* f=NULL;
   int i,j,r=0,bBroken,bCheck;
-  Elem e,e0,e00,e1;
+  Elem e,e0,e00 = NULL,e1;
   Index ix,ix1;
   Var v;
   double xMin,yMin,xMax,yMax;
@@ -500,7 +500,7 @@ int WriteTargetsFile(App a,char* fName) {
 /*  GridPoint gp; */
   GridPointSeg gps;
   static char* fmt="  %e , %e\n";       /* relcheck_ignore_line */
-  char* cid;
+  char* cid = NULL;
   int area,law,carreFlag,count;
   double delta1,delta2,l1,l2,l,x,y;
   Group g1,g2,g3,gSZ=NULL,gGPS=NULL;

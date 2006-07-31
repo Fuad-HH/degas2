@@ -317,7 +317,7 @@ int IsEndNode(Node n,Group g) {
 */
 
 int IsIrregularNode(Node n,Group g) {
-  Elem e,e1;
+  Elem e,e1 = NULL;
   Separator sep;
   Index ix;
   int i,j;
@@ -447,7 +447,7 @@ int ElemsConnected(Elem e1,Elem e2) {
 Elem GetNextElem(Elem e,Group g,int node) {
   Index ix;
   int i;
-  Elem e1,e2;
+  Elem e1,e2 = NULL;
 
   if (node<1 || node>2)
     FatalError("GetNextElem()-node%d: fatal error 1",node);

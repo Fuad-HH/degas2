@@ -242,7 +242,7 @@ double EqCorrCell(Equil eq,int cx,int cy,double level) {
 }
 
 double EqCellEx(Equil eq,int cx,int cy,int sx,int sy) {
-  int i;
+  int i = 0;
   double x,y,l;
 
   /* return EqCell(eq,cx,cy); */
@@ -367,7 +367,7 @@ int DistributeSurfaces(App a,int area,int count,double a1,double a2,
 int RebuildCarreSurfaces(App a,int area) {
   SurfaceEx sx;
   SurfaceZone sz;
-  int count,law,carreMode,r,foo;
+  int count,law,carreMode,r = 0,foo;
   double a1,a2,l1,l2;
   Index ix;
   char* id;

@@ -260,7 +260,7 @@ static void HighlightDragMeshPoint_1(View w,MeshPoint mpt,int status) {
 
 static void MoveMeshPoint_2(MeshPoint mpt,double x,double y) {
   MeshPoint mpt1,mpt2;
-  double h,l;
+  double h = 0,l;
 
   mpt1=mpt2=NULL;
   if (mpt->mesh->app->bDoubleMeshBorder) {
@@ -288,7 +288,7 @@ static void MoveMeshPoint_2(MeshPoint mpt,double x,double y) {
 
 static void MoveMeshPoint_1(MeshPoint mpt,double x,double y) {
   MeshPoint mpt1,mpt2;
-  double h,l;
+  double h = 0,l;
 
   mpt1=mpt2=NULL;
   if (mpt->mesh->app->bDoubleMeshBorder) {
