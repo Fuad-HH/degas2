@@ -110,6 +110,8 @@ static ArgList MakeVaArgList(va_list* pvl,int* pN) {
   String p0;
   XtArgVal p1;
 
+  memset(&a, sizeof(a), 0);
+
 #ifdef DEBUG_SETVALUES
   puts("MakeVaArgList");                /* relcheck_ignore_line */
 #endif
@@ -127,6 +129,7 @@ static ArgList MakeVaArgList(va_list* pvl,int* pN) {
   return a;
 }
 
+/* Create Widget */
 Widget Cw(Widget (*CreateFn)(Widget,String,ArgList,Cardinal),Widget parent,
           void* name,...) {
   Widget wg;
@@ -143,6 +146,7 @@ Widget Cw(Widget (*CreateFn)(Widget,String,ArgList,Cardinal),Widget parent,
   return wg;
 }
 
+/* Create Managed Widget */
 Widget Cmw(Widget (*CreateFn)(Widget,String,ArgList,Cardinal),Widget parent,
           void* name,...) {
   Widget wg;
@@ -509,7 +513,7 @@ Widget CreateMessageDialog(Widget wParent,String name,...) {
 }
 
 Widget CreateDialogEx(Widget wParent,String name,va_list* pargs,int flags) {
-  Widget wDlg;
+  Widget wDlg = NULL;
   Atom wm_delete_window;
   ArgList args;
   int argn;
@@ -655,9 +659,9 @@ void CbFreeGC(Widget wg,XtPointer xtpGC,XtPointer pcbs) {
 void CbRemovePTimeOut(Widget wg,XtPointer xtppTO,XtPointer pcbs) {
   XtIntervalId* pxtiid=(XtIntervalId*)xtppTO;
 
-  if (*pxtiid!=NULL) {
+  if (*pxtiid!=(int) NULL) {
     XtRemoveTimeOut(*pxtiid);
-    *pxtiid=NULL;
+    *pxtiid=(int) NULL;
   }
 }
 
