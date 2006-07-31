@@ -297,7 +297,7 @@ View CreateXmView(XApp xap,App app) {
     w->xapp->x->wShell,NULL,0); */
 
   w->x->wShell=XtAppCreateShell("DivGeo","DivGeo",
-    applicationShellWidgetClass,XtDisplay(w->xapp->x->wShell),NULL,0);
+    sessionShellWidgetClass,XtDisplay(w->xapp->x->wShell),NULL,0);
 
   SetValues(w->x->wShell,XmNdeleteResponse,XmDO_NOTHING,
     NULL);
@@ -574,6 +574,7 @@ View CreateXmView(XApp xap,App app) {
       NULL);
   }
 
+
   /* Status bar */
 
   w1=Cmw(XmCreateForm,w->x->wMain,"msgForm",
@@ -587,18 +588,19 @@ View CreateXmView(XApp xap,App app) {
     XmNrightAttachment,XmATTACH_FORM,
     NULL);
 
+
+  /* DrawingArea */
+
+  w->x->wDraw=Cmw(XmCreateDrawingArea,w->x->wMain,"draw",NULL);
+  XtAddCallback(w->x->wDraw,XmNexposeCallback,(XtCallbackProc)CbExposeView,w);
+  XtAddCallback(w->x->wDraw,XmNresizeCallback,(XtCallbackProc)CbResizeView,w);
+
   SetValues(w->x->wMain,
     XmNmenuBar,w->x->wMenu,
     XmNcommandWindow,w->x->wCommand,
     XmNmessageWindow,w1,
+    XmNworkWindow,w->x->wDraw,
     NULL);
-
-  /* DrawingArea */
-
-  w->x->wDraw=Cmw(XmCreateDrawingArea,w->x->wMain,"draw",
-    NULL);
-  XtAddCallback(w->x->wDraw,XmNexposeCallback,(XtCallbackProc)CbExposeView,w);
-  XtAddCallback(w->x->wDraw,XmNresizeCallback,(XtCallbackProc)CbResizeView,w);
 
   /* Finish initialization/display the window *************************/
 
