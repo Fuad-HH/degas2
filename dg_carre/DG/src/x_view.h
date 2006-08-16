@@ -88,6 +88,8 @@ void CbDisplayHelpLine(Widget wg,XtPointer pWidget,XtPointer pcbs);
 void CbDisplayDataLine(Widget wg,XtPointer pWidget,XtPointer pcbs);
 void CbClearHelpLine(Widget wg,XtPointer pWidget,XtPointer pcbs);
 
+void CreateAutosaveInfo(View w);
+
 #define DISCARD_MESH    0x0001
 #define DISCARD_DOC     0x0002
 
