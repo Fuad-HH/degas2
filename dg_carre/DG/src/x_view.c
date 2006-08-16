@@ -14,6 +14,8 @@
 
 #define XTBGS XmToggleButtonGetState
 #define XTBSS XmToggleButtonSetState
+#define PSTR_AUTOSAVE_INTERVAL "DG.AutosaveInterval"
+#define DLG_SAVE_INTERVAL "dlgSaveInterval"
 
 XtResource viewExtRes[]={
   XmNtranslations,XmCTranslations,XmRTranslationTable,sizeof(XtTranslations),
@@ -194,6 +196,11 @@ static XtResource viewCfgRes[]={
     XtOffset(View,gridPointSegEndLength),XmRImmediate,(XtPointer)48,
 };
 
+typedef struct _SaveIntervalDlg {
+  View w;
+  Widget wInt,wDlg;
+}* SaveIntervalDlg;
+
 static void GetXViewSize(View w);
 static void ProcessXViewShowFlags(View w);
 static void UpdateXViewShowFlags(View w);
@@ -227,6 +234,9 @@ static void AddDw2NotExists(Widget wg,XtPointer w,XtPointer value);
 
 static void DwUpdateToolBar(Widget wg,View w,int evt,void*obj,void*udt);
 static void DwRebuildCarreInfo(Widget wg,View w,int evt,void*obj,void*udt);
+
+static void AutosaveProc(View w);
+static void CbSetSaveInterval(Widget wg,SaveIntervalDlg dlg,void* pcbs);
 
 /**********************************************************************\
 *                                                                      *
@@ -505,6 +515,8 @@ View CreateXmView(XApp xap,App app) {
     "t?=T:toolbar",&w->x->wSwToolBar,True,CbSwToolbar,w,
     "t?T=:manualRefresh",&w->x->wSwManualRefresh,CbSwManualRefresh,w,False,
     "s:separ",
+    "bA:saveInterval",CbSetAutosaveInterval,w,
+    "s:separ",
 /*    "bA:setup",CbProgramSetup,w,*/
     "c:setup",
     "+:setupMenu",
@@ -666,6 +678,10 @@ View CreateXmView(XApp xap,App app) {
       DwUpdateToolBar,NULL);
   AddDependentWidget(w,wMnRecent,N_NOW|N_RECENTFILES,NULL,
       DwNotifyRecentFiles,NULL);
+
+  /* Create autosave thread */
+
+  CreateAutosaveInfo(w);
 
   /* Display welcome message */
 
@@ -1717,6 +1733,109 @@ void XtActUseTool(Widget wg,XEvent* xev,String* args,Cardinal* argn) {
   if (tp==NULL) return;
 
   CallToolProc(w,tp,tl,xev->xbutton.x,xev->xbutton.y);
+}
+
+/* Autosave-related functions */
+
+void CreateAutosaveInfo(View w) {
+  if (!GetUserPrefsInt(w->xapp,PSTR_AUTOSAVE_INTERVAL)) {
+    LockUserPrefsFile(w->xapp);
+    SetUserPrefsInt(w->xapp,PSTR_AUTOSAVE_INTERVAL,5);
+    UnlockUserPrefsFile(w->xapp);
+  }
+
+  if (w->app->fName!=NULL) {
+    pthread_t saveThr;
+    pthread_create(&saveThr,NULL,(void*)AutosaveProc,w);
+  }
+}
+
+static void AutosaveProc(View w) {
+  String s;
+  int err;
+
+  while (True) {
+    sleep(60*GetUserPrefsInt(w->xapp,PSTR_AUTOSAVE_INTERVAL));
+
+    if (w==NULL) break;
+    if (w->app==NULL) break;
+
+    if (DetectFileType(w->app->fName)==FT_DG_CONFIG) {
+      SetViewMsg(w,GetStr(w,ERR_NOSAVECONFIG));
+      return;
+    }
+
+    /* does not lock variables while auto-saving */
+
+    s=strcat(w->app->fName,"~");
+
+    err=SaveApp(w->app,s,DGFM_APP);
+    if (err) {
+      SetViewMsg(w,GetStr(w,err));
+    } else {
+      SetViewMsg(w,GetStr(w,MSG_FILEAUTOSAVED));
+      w->app->alt=0;
+    }
+
+    *(w->app->fName+strlen(w->app->fName)-1)=0; /* avoid multiple tildes */
+  }
+  pthread_exit(NULL);
+}
+
+Widget OpenAutosaveDlg(View w) {
+  XtPointer xtp;
+  SaveIntervalDlg dlg;
+  Widget wDlg,wg;
+  char s[256];
+
+  wDlg=XtNameToWidget(w->x->wMain,"*"DLG_SAVE_INTERVAL);
+  if (wDlg==NULL) {
+    dlg=Malloc(sizeof(*dlg));
+    dlg->w=w;
+    dlg->wDlg=wDlg=CreateOkCancelDialog(w->x->wMain,DLG_SAVE_INTERVAL);
+    XtAddCallback(wDlg,XmNdestroyCallback,CbFree,(XtPointer)dlg);
+
+    XtAddCallback(wDlg,XmNokCallback,(XtCallbackProc)CbSetSaveInterval,dlg);
+    XtUnmanageChild(XtNameToWidget(wDlg,"Help"));
+
+    wg=Cmw(XmCreateForm,wDlg,"form",
+      NULL);
+    CreateMenuSystem(wg,
+      "l@:saveLabel",0x0101,
+      "x?@:interval",&dlg->wInt,0x0102,
+       NULL);
+    Form2Table(wg);
+    sprintf(s,"%d",GetUserPrefsInt(w->xapp,PSTR_AUTOSAVE_INTERVAL));
+    XmTextSetString(dlg->wInt,s);
+    XtManageChild(wDlg);
+  }
+  else XtPopup(XtParent(wDlg),XtGrabNone);
+
+  UndoMark(w->app);
+  return wDlg;
+}
+
+static void CbSetSaveInterval(Widget wg,SaveIntervalDlg dlg,void* pcbs) {
+  int minutes;
+  char* s;
+
+  SetActiveView(dlg->w);
+  if (dlg->w->app==NULL) return;
+
+  s=XmTextGetString(dlg->wInt);
+  if (sscanf(s,"%d",&minutes)!=1) {
+    XtFree(s);
+    ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_INVNUMBERS));
+    return;
+  }
+  XtFree(s);
+
+  LockUserPrefsFile(dlg->w->xapp);
+  SetUserPrefsInt(dlg->w->xapp,PSTR_AUTOSAVE_INTERVAL,minutes);
+  UnlockUserPrefsFile(dlg->w->xapp);
+
+  XtPopdown(XtParent(dlg->wDlg));
+  UndoMark(dlg->w->app);
 }
 
 /* Unused
