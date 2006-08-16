@@ -188,6 +188,7 @@ char* dgResources[]={
   "DivGeo.msgNewFile:                      New file ...\n",
   "DivGeo.msgFileOpened:                   Ok\n",
   "DivGeo.msgFileSaved:                    The file has been saved\n",
+  "DivGeo.msgFileAutoSaved:                Auto-saving... done\n",
   "DivGeo.msgSonnetLoaded:                 Mesh loaded\n",
   "DivGeo.msgSonnetRemoved:                Mesh removed\n",
   "DivGeo.msgTemplateAppended:             Template appended\n",
@@ -1090,6 +1091,9 @@ char* dgResources[]={
   "*optionsMenu*manualRefresh.helpLine:    Switch between automatic and "
   "manual refresh\n",
   "*optionsMenu*manualRefresh.helpTopic:   Options|Manual refresh toggle button\n",
+  "*optionsMenu*saveInterval.labelString:  Save interval...\n"
+  "*optionsMenu*saveInterval.mnemonic:     I\n",
+  "*optionsMenu*saveInterval.helpLine:     Set interval between auto-saves\n",
   "\n",
   "*optionsMenu*setup*labelString:         Setup\n",
   "*optionsMenu*setup*mnemonic:            S\n",
@@ -2133,6 +2137,12 @@ char* dgResources[]={
   "*dlgMeshOptions*errBadSlidingThreshold:"
   "'Margin' must be a positive real number\n",
   "\n",
+  "########################################################################\n",
+  "# DlgSaveInterval\n",
+  "########################################################################\n",
+  "\n",
+  "*dlgSaveInterval.dialogTitle:                   Set auto-save interval\n",
+  "*dlgSaveInterval*saveLabel.labelString:         Number of minutes between saves:\n",
   "########################################################################\n",
   "#  DlgEditMeshHeader\n",
   "########################################################################\n",
