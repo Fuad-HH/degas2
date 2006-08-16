@@ -6,7 +6,7 @@
 #define ENV_DG_PREFS "DG_PREFS_FILE"
 #define ENV_HOME "HOME"
 
-#define DEFALUT_PREFS_FILE ".dg-preferences"
+#define DEFAULT_PREFS_FILE ".dg-preferences"
 #define PREFS_FILE_LOCK_SUFFIX ".lock"
 /*#define PREFS_FILE_TEMP_SUFFIX ".temp"*/
 #define PREFS_FILE_OLD_SUFFIX ".old"
@@ -345,6 +345,7 @@ static struct _PtrTable viewMsgs[]={
   MSG_NEWFILE,"msgNewFile",
   MSG_FILEOPENED,"msgFileOpened",
   MSG_FILESAVED,"msgFileSaved",
+  MSG_FILEAUTOSAVED,"msgFileAutoSaved",
   MSG_SONNETLOADED,"msgSonnetLoaded",
   MSG_SONNETREMOVED,"msgSonnetRemoved",
   MSG_XPOINTREMOVED,"msgXPointRemoved",
@@ -481,7 +482,7 @@ char* GetUserPrefsFileName(XApp xap) {
 
   strncpy(buf,s,sizeof(buf)-100);
   if (buf[strlen(buf)-1]!='/') strcat(buf,"/");
-  strcat(buf,DEFALUT_PREFS_FILE); 
+  strcat(buf,DEFAULT_PREFS_FILE); 
 
   return buf;
 }
