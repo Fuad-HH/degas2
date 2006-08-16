@@ -1070,7 +1070,7 @@ static Widget OpenCreateSurfaceDlg(View w) {
     XtAddCallback(dlg->wMLevel2,XmNvalueChangedCallback,
         CbCSD_LevelChanged,(XtPointer)dlg);*/
 
-    wg=XmMessageBoxGetChild(wDlg,XmDIALOG_OK_BUTTON);
+    wg=XtNameToWidget(wDlg,"OK");
     AddDependentWidget(w,wg,N_NOW | N_NEWAPP | N_ALT,NULL,
       DwNotifyIfExists,(void*)T_EQUIL);
 
@@ -1570,7 +1570,7 @@ static Widget OpenCreateGridPointDlg(View w) {
     XtAddCallback(wSwMultiple,XmNvalueChangedCallback,
         CbToggleManaged,(XtPointer)wFrameMultiple);
 
-    wg=XmMessageBoxGetChild(wDlg,XmDIALOG_OK_BUTTON);
+    wg=XtNameToWidget(wDlg,"OK");
     XtManageChild(wDlg);
 
     DG_Init(&dlg->dg,w,dlg->wDlg,

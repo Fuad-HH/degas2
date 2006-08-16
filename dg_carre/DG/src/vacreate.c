@@ -499,9 +499,9 @@ Widget CreateMessageDialog(Widget wParent,String name,...) {
 */
     NULL);
   /*
-  XtUnmanageChild(XmMessageBoxGetChild(wBox,XmDIALOG_OK_BUTTON));
-  XtUnmanageChild(XmMessageBoxGetChild(wBox,XmDIALOG_CANCEL_BUTTON));
-  XtUnmanageChild(XmMessageBoxGetChild(wBox,XmDIALOG_HELP_BUTTON));
+  XtUnmanageChild(XtNameToWidget(wBox,"OK"));
+  XtUnmanageChild(XtNameToWidget(wBox,"Cancel"));
+  XtUnmanageChild(XtNameToWidget(wBox,"Help"));
   */
   SetValues(wBox,XmNautoUnmanage,False,NULL);
 
@@ -534,13 +534,14 @@ Widget CreateDialogEx(Widget wParent,String name,va_list* pargs,int flags) {
     CbUnmap,NULL);
 
   if (flags & CDLG_NOLABEL)
-    XtUnmanageChild(XmMessageBoxGetChild(wDlg,XmDIALOG_MESSAGE_LABEL));
+    XtUnmanageChild(XtNameToWidget(wDlg,"Message"));
   if (flags & CDLG_NOOK)
-    XtUnmanageChild(XmMessageBoxGetChild(wDlg,XmDIALOG_OK_BUTTON));
+    XtUnmanageChild(XtNameToWidget(wDlg,"OK"));
   if (flags & CDLG_NOCANCEL)
-    XtUnmanageChild(XmMessageBoxGetChild(wDlg,XmDIALOG_CANCEL_BUTTON));
+    XtUnmanageChild(XtNameToWidget(wDlg,"Cancel"));
   if (flags & CDLG_NOHELP)
-    XtUnmanageChild(XmMessageBoxGetChild(wDlg,XmDIALOG_HELP_BUTTON));
+    XtUnmanageChild(XtNameToWidget(wDlg,"Help"));
+
 
   if (pargs!=NULL) {
     args=MakeVaArgList(pargs,&argn);
@@ -742,8 +743,8 @@ void ErrorBox(Widget w,char* name) {
       XmNautoUnmanage,False,
       XmNdeleteResponse,XmDESTROY,
       NULL);
-    XtUnmanageChild(XmMessageBoxGetChild(wDlg,XmDIALOG_CANCEL_BUTTON));
-    XtUnmanageChild(XmMessageBoxGetChild(wDlg,XmDIALOG_HELP_BUTTON));
+    XtUnmanageChild(XtNameToWidget(wDlg,"Cancel"));
+    XtUnmanageChild(XtNameToWidget(wDlg,"Help"));
     XtAddCallback(wDlg,XmNokCallback,CbDestroy,NULL);
   } else {
     GetValues(wDlg,XmNmessageString,&xms,NULL);
