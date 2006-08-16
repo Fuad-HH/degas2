@@ -1000,7 +1000,7 @@ static void ResetInvalidVarsDlg(Widget wDlg) {
 
   XmListDeleteAllItems(dlg->wList);
 
-  XtSetSensitive(XmMessageBoxGetChild(dlg->wDlg,XmDIALOG_OK_BUTTON),
+  XtSetSensitive(XtNameToWidget(dlg->wDlg,"OK"),
     CheckAllVars(dlg->w->app,&g));
 
   for (i=0,vd=Group1st(g,&ix);vd!=NULL;i++,vd=Next(&ix)) {
