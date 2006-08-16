@@ -12,8 +12,6 @@ struct _Equil {
   double* x,*y,*val;
   double minVal,maxVal;
   SimpleSplineInfo* hSplines,* vSplines;
-  /* SimpleSplineInfo is already a pointer.
-   * very suspicious; possibly superfluous? */
   SurfaceSplineInfo sspline;
   int cacheSx,cacheSy;
   double* cache;
