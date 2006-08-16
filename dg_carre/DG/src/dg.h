@@ -14,6 +14,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <values.h>
+#include <pthread.h>
 
 #define DG_FNAME_LEN 256
 #define DG_VERSION 20000
