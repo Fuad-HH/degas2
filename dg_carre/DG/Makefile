@@ -7,14 +7,14 @@ MASTER=kk
 
 ifeq ($(SYSTEM),SunOS)
   MACHINE=SUN
-  LIBS=-L /usr/openwin/lib -lXm -lXt -lX11 -lm
+  LIBS=-L /usr/openwin/lib -lXm -lXt -lX11 -lm -lpthread
   CFLAGS=-g
   CC=cc
   INCLUDES=-I/opt/SUNWmotif/include
 endif
 ifeq ($(SYSTEM),AIX)
   MACHINE=IBM
-  LIBS=-lXm -lXt -lX11 -lm
+  LIBS=-lXm -lXt -lX11 -lm -lpthread
   CFLAGS=
   CC=cc
 endif
@@ -32,7 +32,7 @@ ifeq ($(SYSTEM),IRIX64)
 endif
 ifeq ($(SYSTEM),Linux)
   MACHINE=LINUX
-  LIBS=-L/usr/X11R6/lib -lXm -lXt -lX11 -lm
+  LIBS=-L/usr/X11R6/lib -lXm -lXt -lX11 -lm -lpthread
   CFLAGS=-g
 #  LIBS= -L$(LESSTIF) -lXm -L/usr/X11R6/lib -lXt -lX11 -lm
    CC=gcc
