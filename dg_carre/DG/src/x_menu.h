@@ -61,6 +61,7 @@ void CbOptionsMenuToggle(Widget wg,XtPointer xtpView,void* pcbs);
 void CbSwMenu(Widget wg,XtPointer xtpView,void* pcbs);
 void CbSwToolbar(Widget wg,XtPointer xtpView,void* pcbs);
 void CbSwManualRefresh(Widget wg,XtPointer xtpView,void* pcbs);
+void CbSetAutosaveInterval(Widget wg,View w,void* pcbs);
 
 void CbWindowToolBar(Widget wg,XtPointer arg,XtPointer pcbs);
 void CbWindowOpen(Widget wg,View w,void* xtp);

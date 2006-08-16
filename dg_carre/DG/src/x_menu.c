@@ -864,6 +864,13 @@ void CbSwManualRefresh(Widget wg,XtPointer xtpView,void* pcbs) {
   }
 }
 
+void CbSetAutosaveInterval(Widget wg,View w,void* pcbs) {
+  SetActiveView(w);
+  if (w->app==NULL) return;
+
+  OpenAutosaveDlg(w);
+}
+
 
 /* Window menu commands
 */
