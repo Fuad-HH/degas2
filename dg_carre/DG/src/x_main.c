@@ -48,7 +48,7 @@ main(int argc,char** argv) {
         exit(1);
       }
       if (s!=NULL) {
-        puts(s);                        /* relcheck_ignore_line*/
+        puts(s);                        /* relcheck_ignore_line */
         s=Free(s);
       }
       w=CreateXmView(xap,a);
