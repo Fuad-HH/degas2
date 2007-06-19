@@ -39,7 +39,7 @@ endif
 #
 # Not sure how useful this will be, but it's at least a placeholder
 #
-setenv LESSTIF `echo $LD_LIBRARY_PATH | sed -e 's/:/ /g' | awk '/lesstif/ { print $1}'`
+setenv LESSTIF `echo $LD_LIBRARY_PATH | sed -e 's/:/\n/g' | awk '/lesstif/ { print $1}'`
 
 alias cddg 'cd $DGCTOP/DG/class/$DEVICE'
 alias cdcarre 'cd $DGCTOP/Carre'
