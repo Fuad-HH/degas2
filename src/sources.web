@@ -2,6 +2,13 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.23  2006/01/19 20:03:38  dstotler
+% Add an assert on ion_energy in plate_v_details.  Extend to 3-D.
+% Changed usage of 2nd component of R-weighting of surface and volume
+% sources.  Replace sector-based puff temperature with so_params
+% value. Add some additional diagnostic output to the assertion in
+% set_surface_source_x.
+%
 % Revision 1.22  2001/11/16 15:57:38  dstotler
 % Change vgauss from scalar to 1 element array in 3 places. Add a
 % commented-out hack to make the puff a cosine to power distribution.
@@ -576,6 +583,7 @@ the average value is used.
       vc_decl(vzero)
       vc_decl(vone)
       sc_plasma_decl(plasma_sc_ptr)
+      pr_background_decl(back)
 
       sources_localcommon
 
@@ -583,15 +591,20 @@ the average value is used.
       spion=so_root_sp(isource)
       plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
       assert(sc_plasma_check(plasma_sc_ptr))
-
-      wa=half*wa*bk_temp(pr_background_lookup(spion),lc_zone(x))
+      back=pr_background_lookup(spion)
+      assert(pr_background_check(back))
+      wa=half*wa*bk_temp(back,lc_zone(x))
 /*
    First attempt at a flexible sheath physics model. These parameters
    are now set in |readbackground.web|.
 */
+@#if 0
+// This has now been relaxed
       assert(sp_z(spion) == 1) // If $> 1$, should have term $\propto Z$
+@#endif
       ion_energy=plasma_e_ion_delta[plasma_sc_ptr]
      $     + plasma_e_ion_mult[plasma_sc_ptr]*wa
+     $     + plasma_e_ion_sheath[plasma_sc_ptr]*sp_z(spion)
       
       assert(ion_energy >= zero)
       ion_velocity=sqrt(two*ion_energy/sp_m(spion))
