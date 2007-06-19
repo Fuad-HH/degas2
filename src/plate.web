@@ -2,6 +2,14 @@
 \Title{plate}
 
 % $Log$
+% Revision 1.13  2006/01/19 19:49:42  dstotler
+% Replace assert on pf_name in pf_copy with a warning printed to stdout.
+% Will allow reuse of trivial data files. Modified assert in
+% subr. reflection requiring reagent and product to be identical; needed
+% only for generic PMI.  In pick_pmi, swap lc_cell, lc_cell_next,
+% lc_zone and lc_zone_next as is done for lc_sector and
+% lc_sector_next. Remove adsorption process type.
+%
 % Revision 1.12  2001/11/16 15:51:38  dstotler
 % Make arguments to rn_gauss_next and interpolate1 1 element arrays.
 %
@@ -193,6 +201,11 @@ returned. The random number thread |x| is included in case it's needed.
      $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
      $        pt_w(prod[1]),rn_args(x))
 
+       else if (pm_pmi_type(problem_pmi_ref(pmi_sub)) == 'adsorption') then
+         call adsorption(pr_test_args(pt_test(prod[0])),pr_pmi_args(ts_pmi),
+     $        independent_parameters,
+     $        nprod,sp_args(pt_sp(prod[1])),vc_args(pt_v(prod[1])),
+     $        pt_w(prod[1]),rn_args(x))
       else
          assert('Unsupported pmi type' == ' ')
       end if
@@ -373,6 +386,48 @@ for incident hydrogen atoms, either an atom or a molecule may be desorbed.
       w_prod[1]=one/wt_factor
 
       return
+      end
+
+@ Process adsorptions. This might not ever get used since adsorptions will
+probably be handled entirely at a higher level.
+
+@<Functions...@>=
+      subroutine adsorption(pr_test_dummy(test),pr_pmi_dummy(ts_pmi),
+     $   independent_parameters,
+     $   nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $   rn_dummy(x))
+
+      implicit_none_f77
+      pd_common                               // Common
+      pm_common
+      sp_common
+      pr_common
+      implicit_none_f90
+
+      pr_test_decl(test)                      // Input
+      pr_pmi_decl(ts_pmi)
+      real independent_parameters[pf_max_indep_params]
+
+      integer nprod                           // Output
+      sp_decl(prod[pm_product_max])
+      vc_decl(v_prod[pm_product_max])
+      real w_prod[pm_product_max]
+
+      rn_decl(x)                              // Input/output
+
+      pr_pmi_decl(pmi_sub)                    // Local
+
+
+      pmi_sub=pr_pm_cases(test,ts_pmi)
+
+/* Essentially just need to set |nprod|=0; set the others just in case */
+      assert(pm_product_num(pr_pm_ref(pmi_sub)) == 0)
+      nprod=0
+      prod[1]=0
+      vc_set(v_prod[1],zero,zero,zero)
+      w_prod[1]=zero
+
+      return 
       end
 
 @ Evaluate velocity direction and magnitude for a product species.
