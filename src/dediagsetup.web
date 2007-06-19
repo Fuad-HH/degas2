@@ -2,6 +2,12 @@
 \Title{dediagsetup}
 
 % $Log$
+% Revision 1.10  2006/01/19 19:07:56  dstotler
+% Extend detector_view_setup to treat toroidally viewing chords or
+% equivalent.  Add new interface to detector_view_setup with explicit
+% arguments, allowing the routine to be independent of the detector
+% common blocks (for post-processing).
+%
 % Revision 1.9  2002/01/28 16:49:57  dstotler
 % Renamed diag_sector_setup to default_diag_setup.
 %
@@ -176,7 +182,7 @@ We will refer to both of these situations, for simplicity, as ``3-D''.
      $     && (vc_product(deltax,yhat) == zero)) then
          option=view_symmetric
          vc_cross(delta_par,yhat,delta_perp)
-         nang=nint(const(30.)*(dang*const(1.8,2)/PI)) // 30 virtual chords per degree
+         nang=max(1,nint(const(30.)*(dang*const(1.8,2)/PI))) // 30 virtual chords per degree
          jmin=-nang
          jmax=nang
          kmin=1
