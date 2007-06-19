@@ -2,6 +2,12 @@
 \Title{postdetector}
 
 % $Log$
+% Revision 1.1  2006/01/19 19:56:03  dstotler
+% Added to repository.  Designed to reuse subroutines written for
+% usr2ddetector.  Works with MPI.  Presently is specific for NSTX
+% GPI, including computation of specific quantities that may only
+% be of interest for those simulations.
+%
 
 @* Compute detector signals in a post-processing mode.  At present, this
 code is specifically used for emulating the NSTX (2004) GPI camera view
@@ -97,17 +103,20 @@ data, some specific to this application, are also computed.
       implicit_none_f90
 
       integer zone,test,ix,iy,inverted_iy,algorithm,nviews,nfrag,nparcel,
-     $        nslaves,j,nstart,num,slave,send_data,iview,close_zone
+     $        nslaves,j,nstart,num,slave,send_data,iview,close_zone,
+     $        nx_peak,iy_peak
       integer index_parameters[tl_index_max],target_map[nx][ny],
      $        target_map_slave[nx][ny]
       real ha_temp,ha_rate,halfwidth,signal,a0_p,a1_p,a2_p,dist,min_dist,
-     $     nhe_eff2_sum,opt,max_opt,ha_avg,nhe_avg
+     $     nhe_eff2_sum,opt,max_opt,ha_avg,nhe_avg,
+     $     peak,cy_l,cy_r
       real x_array[nx],y_array[ny],signal_array[nx][ny],
      $     signal_array_slave[nx][ny],
      $     target_r[nx][ny],target_z[nx][ny],target_nhe[nx][ny],
      $     w_per_atom[nx][ny],nhe_eff1[nx][ny],nhe_eff2[nx][ny],
      $     nhe_eff2_slave[nx][ny],fwpa_avg[nx][ny],fwpa_avg_slave[nx][ny],
-     $     nhe_eff3[nx][ny],target_te[nx][ny],target_ne[nx][ny]
+     $     nhe_eff3[nx][ny],target_te[nx][ny],target_ne[nx][ny],
+     $     profile[ny]
       vc_decl(points[de_view_start:de_view_end])
       external extract_output_datum,gpi_views
       real extract_output_datum
@@ -248,6 +257,43 @@ data, some specific to this application, are also computed.
 
          call wrdatap(signal_array,x_array,y_array,1,nx,1,ny,
      $        'he 5877 emission rate','ph/(s m^2 ster)','5877',1,1,'E11.3')
+
+         nx_peak=33   // I.e., at cx = 32
+         iy_peak=0
+         peak=zero
+         do iy=1,ny
+            profile[iy]=signal_array[nx_peak][iy]
+            if (profile[iy] > peak) then
+               peak=profile[iy]
+               iy_peak=iy
+            end if
+         end do
+         assert(peak > zero)
+         assert(iy_peak > 0)
+         
+         assert(half*peak > profile[1])
+         cy_l=zero
+         cy_r=zero
+         do iy=1,ny
+            if ((cy_l == zero) && (profile[iy] > half*peak)) then
+               cy_l=y_array[iy-1]-(half*peak-profile[iy-1])
+     $              /(profile[iy]-profile[iy-1])
+            end if
+            if ((cy_r == 0) && (cy_l > zero) && (profile[iy] < half*peak)) then
+               cy_r=y_array[iy-1]-(half*peak-profile[iy-1])
+     $              /(profile[iy]-profile[iy-1])
+            end if
+         end do
+         open(unit=diskout,file='detectorprofile.txt',status='unknown')
+         write(diskout,*) ' At cx = ',x_array[nx_peak],', peak = ',peak,
+     $        ', at cy = ',y_array[iy_peak]
+         write(diskout,*) ' Half peak at cy = ',cy_l,', and ',cy_r,
+     $        ', FWHM = ',cy_r-cy_l
+         write(diskout,*) 'iy   profile'
+         do iy=1,ny
+            write(diskout,*) y_array[iy],profile[iy]
+         end do
+         close(unit=diskout)
 
          do iy=1,ny
             do ix=1,nx
