@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.11  2006/01/19 20:02:14  dstotler
+% Extend to 3-D. Add sc_compare macro, sc_vacuum_check. Increase
+% sc_type_max for test case.
+%
 % Revision 1.10  1999/04/20 20:19:34  dstotler
 % Remove albedo option for exits (should be implemented via recyc_coef
 % instead. Replace plasma_e_ion_delta & mult with corresponding target
@@ -146,6 +150,7 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_varp_pk(sc,plasma_temperature,FLOAT,plasma_ind)
       define_varp_pk(sc,plasma_e_ion_delta,FLOAT,plasma_ind)
       define_varp_pk(sc,plasma_e_ion_mult,FLOAT,plasma_ind)
+      define_varp_pk(sc,plasma_e_ion_sheath,FLOAT,plasma_ind)
 
 /* |target| subclass */
       define_var_pk(sc,sc_target_num,INT)
@@ -217,11 +222,13 @@ starting them at $0$, the dimensions have a length of at least $1$.
       var_realloca(plasma_temperature);
       var_realloca(plasma_e_ion_delta);
       var_realloca(plasma_e_ion_mult);
+      var_realloca(plasma_e_ion_sheath);
       plasma_sector[sc_plasma_num]=sc;
       sector_type_pointer[sc][sc_plasma]=sc_plasma_num; 
       plasma_temperature[sc_plasma_num]=temp;
       plasma_e_ion_delta[sc_plasma_num]=zero;
-      plasma_e_ion_mult[sc_plasma_num]=one @; 
+      plasma_e_ion_mult[sc_plasma_num]=one; 
+      plasma_e_ion_sheath[sc_plasma_num]=zero @; 
 @m define_sector_target(sc,mat,temp,recyc)
       sc_target_num=sc_target_num+1;
       var_realloca(target_sector);
@@ -293,27 +300,27 @@ structure.
 
 The sector subclasses are:
 \begin{description}
-  \item[target] The interface between a plasma zone and a solid zone,
-  \item[wall] The interface between a vacuum zone and a solid zone,
+  \item[target] The interface between a plasma zone and a solid zone; the
+face used is a surface of the solid zone,
+  \item[wall] The interface between a vacuum zone and a solid zone; the
+face used is a surface of the solid zone,
   \item[exit] The interface between a vacuum or plasma zone and an
-exit zone,
+exit zone; the face used is a surface of the exit zone ,
   \item[diagnostic] A diagnostic sector.
-  \item[plasma] A sector type used in an earlier version of the code,
-retained only for backward compatibility. 
-  \item[vacuum] A sector type used in an earlier version of the code,
-retained only for backward compatibility. 
+  \item[plasma] The complementary interface to a target sector, i.e., using the
+surface of the plasma zone.
+  \item[vacuum] The complementary interface to a wall sector, i.e., using the
+surface of the vacuum zone.
 \end{description}
 
-At one point, the elimination of the |plasma| and
-|vacuum| types was considered; the desired objectives were, at that
-time, being met with just a single sector at each interface.
-However, initial
-work with nearly symmetric 3-D problems made clear the need for
-maintaining all four types. In these cases, the zone type can
-vary in the third dimension so that the nature of the 
-interface between adjacent zones can also vary. By having
-sectors defined on both sides, the interface can be completely
-characterized. 
+At one point, the elimination of the |plasma| and |vacuum| types was
+considered; the desired objectives were, at that time, being met with
+just a single sector at each interface.  However, initial work with
+nearly symmetric 3-D problems made clear the need for maintaining all
+four types. In these cases, the zone type can vary in the third
+dimension so that the nature of the interface between adjacent zones can
+also vary. By having sectors defined on both sides, the interface can be
+completely characterized.
 
 As an example, consider a vertical pipe inserted into the bottom
 of an otherwise toroidally symmetric solid annular plate.  Particles
@@ -349,23 +356,22 @@ are killed without undergoing any
 PMI processing. Another useful feature of |exit| sectors 
 is that a separate default diagnostic group is defined for them.
 
-A |target| sector is assumed to exist at the interface between 
-adjacent plasma and solid zones.  The properties |target_material|,
-|target_temperature|, and |target_recyc_coef| describe the
-solid. 
-The properties |plasma_e_ion_delta| and |plasma_e_ion_mult|
-are used to specify the sheath potential needed to establish a
-plate source at these sectors. Obviously, the |plasma| sector is defined
-using the plasma zone, and the |target| sector is defined using
-the target zone.  The sectors' surfaces are of opposite
-sign.  chosen so that a particle leaving the plasma zone goes
-``out'' (in the sense determined by the surface function's gradient)
-through the |plasma| sector's surface and goes ``into'' the
-|target| sector's surface.  (Although this also seems obvious,
-the previous implementation used the opposite convention.)
+A |target| sector is assumed to exist at the interface between adjacent
+plasma and solid zones.  The properties |target_material|,
+|target_temperature|, and |target_recyc_coef| describe the solid.  The
+properties |plasma_e_ion_delta|, |plasma_e_ion_mult|,
+|plasma_e_ion_sheath| are used to specify the sheath potential needed to
+establish a plate source at these sectors. Obviously, the |plasma|
+sector is defined using the plasma zone, and the |target| sector is
+defined using the target zone.  The sectors' surfaces are of opposite
+sign, chosen so that a particle leaving the plasma zone goes ``out'' (in
+the sense determined by the surface function's gradient) through the
+|plasma| sector's surface and goes ``into'' the |target| sector's
+surface.  (Although this also seems obvious, the previous implementation
+used the opposite convention.)
 
-The |wall| sectors exist at the interface between vacuum and solid
-zones. They currently differ from the |target| zones only by the
+The |wall| and |vacuum| sectors exist at the interface between vacuum and solid
+zones. They currently differ from the |target| and |plasma| zones only by the
 absence of the above-mentioned sheath related properties.
 
 The diagnostic subclass (distinct from the separate, but also arbitrarily
@@ -442,16 +448,20 @@ This was originally intended
 to provide a means for specifying gas puff temperatures.  That task
 is now handled by the |so_params| array in the source class.
 
-  \item[|plasma_e_ion_delta[plasma_ind]|] Returns the constant 
-contribution ($\delta$, in eV) in a two part expression for the incident
-ion energy following acceleratin through the sheath potential,
-$E_{\rm ion} = \delta + \alpha T_{e}$.
+  \item[|plasma_e_ion_delta[plasma_ind]|] Contains $\delta$ (eV), the constant
+(i.e., not a function of the incident ion parameters) contribution
+to the incident ion energy following acceleration through the sheath:
+$E_{\rm ion} = \delta + \alpha E_{\rm i,0} + \phi_{\rm s} Z_{i}$.
 
-  \item[|plasma_e_ion_mult[plasma_ind]|] Returns the multiplier,
-$\alpha$, 
-on the electron temperature in a two part expression for the incident
-ion energy following acceleratin through the sheath potential,
-$E_{\rm ion} = \delta + \alpha T_{e}$.
+  \item[|plasma_e_ion_mult[plasma_ind]|] Contains $\alpha$, 
+the multiplier on the sampled ion's energy, $E_{\rm i,0}$, in the
+expression for the incident ion energy following acceleration through 
+the sheath: $E_{\rm ion} = \delta + \alpha E_{\rm i,0} + \phi_{\rm s} Z_{i}$.
+
+  \item[|plasma_e_ion_sheath[plasma_ind]|] Contains $\phi_{\rm s}$ (eV),
+the sheath potential contribution to the incident ion energy; this
+gets multiplied by the sampled ions charge $Z_{i}$: 
+$E_{\rm ion} = \delta + \alpha E_{\rm i,0} + \phi_{\rm s} Z_{i}$.
 \end{description}
 
 {\bf target subclass}
@@ -566,6 +576,10 @@ this macro evaluates as ``true''.
 valid identifier for a member of the plasma subclass (i.e., |p_sector|
 is {\em not} a sector number).
 
+  \item[|sc_vacuum_check(v_sector)|] Verifies that |v_sector| is a
+valid identifier for a member of the vacuum subclass (i.e., |v_sector|
+is {\em not} a sector number).
+
   \item[|sc_target_check(t_sector)|] Verifies that |t_sector| is a
 valid identifier for a member of the target subclass (i.e., |t_sector|
 is {\em not} a sector number).
@@ -605,8 +619,8 @@ subclass.
 
   \item[|define_sector_plasma(sector,temp)|] Adds |sector| to the plasma sector
 subclass. The |temp| property is no longer used, but retained in the
-macro for compatibility. Default values |plasma_e_ion_delta| = 0 and 
-|plasma_e_ion_mult| = 1 are
+macro for compatibility. Default values |plasma_e_ion_delta| = 0, 
+|plasma_e_ion_mult| = 1, and |plasma_e_ion_sheath| = 0 are
 assigned at this point; they may be explicitly changed.
 
   \item[|define_sector_target(sector,material,temp,recyc)|] 
