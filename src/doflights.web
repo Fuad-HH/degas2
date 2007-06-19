@@ -2,6 +2,13 @@
 \Title{doflights}
 
 % $Log$
+% Revision 1.4  2006/01/19 19:18:52  dstotler
+% Allow for 3-D symmetry in fill_coupling_arrays by dumping out only
+% zones for which zone_index[zone][zi_ptr]=zone.  Add output from
+% do_flights_slave.  Incorporate nslaves into denominator of nfrag
+% evaluation to limit slave idle time in limit of large nslaves. Improve
+% master reports of number of flights sent.
+%
 % Revision 1.3  2002/01/28 16:54:50  dstotler
 % Skip setting of zone_map for zones with zone_index outside of computed
 % bounds (i.e., added plasma zones).
@@ -1002,15 +1009,21 @@ we don't set the dimensions until just before the call.
       end do
       multiplier=one
       do test=2,pr_test_num
-         call write_sources(test_data(ix_1,iy_1,test,i_dens),multiplier,
-     $        ix_1,ix_n,iy_1,iy_n,diskout)
-         call write_sources(test_data(ix_1,iy_1,test,i_temp),multiplier,
-     $        ix_1,ix_n,iy_1,iy_n,diskout)
+         call write_sources(test_data(output_index_1_min,output_index_2_min,
+     $        test,i_dens),multiplier,
+     $        ix_1,ix_n,iy_1,iy_n,output_index_1_min,output_index_1_max,
+     $        output_index_2_min,output_index_2_max,diskout)
+         call write_sources(test_data(output_index_1_min,output_index_2_min,
+     $        test,i_temp),multiplier,
+     $        ix_1,ix_n,iy_1,iy_n,output_index_1_min,output_index_1_max,
+     $        output_index_2_min,output_index_2_max,diskout)
       end do
       do test=2,pr_test_num
          do i_list=i_flux1,i_flux3
-            call write_sources(test_data(ix_1,iy_1,test,i_list),multiplier,
-     $           ix_1,ix_n,iy_1,iy_n,diskout)
+            call write_sources(test_data(output_index_1_min,output_index_2_min,
+     $           test,i_list),multiplier,
+     $           ix_1,ix_n,iy_1,iy_n,output_index_1_min,output_index_1_max,
+     $           output_index_2_min,output_index_2_max,diskout)
          end do
       end do
       close(unit=diskout)
@@ -1077,24 +1090,38 @@ we don't set the dimensions until just before the call.
             write(diskout,'(e12.6)') -so_scale(is)*so_tot_curr(is)
             do back=1,pr_background_num
                if (back != e_back) then
-                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+                  call write_sources(output_2D_coupling(output_index_1_min,
+     $                 output_index_2_min,back,
      $                 ou_coupling_mass,is),multiplier,ix_1,ix_n,
-     $                 iy_1,iy_n,diskout)
-                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+     $                 iy_1,iy_n,output_index_1_min,output_index_1_max,
+     $                 output_index_2_min,output_index_2_max,diskout)
+                  call write_sources(output_2D_coupling(output_index_1_min,
+     $                 output_index_2_min,back,
      $                 ou_coupling_momentum_1,is),multiplier,ix_1,ix_n,
-     $                 iy_1,iy_n,diskout)
-                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+     $                 iy_1,iy_n,output_index_1_min,output_index_1_max,
+     $                 output_index_2_min,output_index_2_max,diskout)
+                  call write_sources(output_2D_coupling(output_index_1_min,
+     $                 output_index_2_min,back,
      $                 ou_coupling_momentum_2,is),multiplier,ix_1,ix_n,
-     $                 iy_1,iy_n,diskout)
-                  call write_sources(output_2D_coupling(ix_1,iy_1,back,
+     $                 iy_1,iy_n,output_index_1_min,output_index_1_max,
+     $                 output_index_2_min,output_index_2_max,diskout)
+                  call write_sources(output_2D_coupling(output_index_1_min,
+     $                 output_index_2_min,back,
      $                 ou_coupling_momentum_3,is),multiplier,ix_1,ix_n,
-     $                 iy_1,iy_n,diskout)
+     $                 iy_1,iy_n,output_index_1_min,output_index_1_max,
+     $                 output_index_2_min,output_index_2_max,diskout)
                end if
             end do
-            call write_sources(output_2D_coupling(ix_1,iy_1,e_back,
-     $           ou_coupling_energy,is),multiplier,ix_1,ix_n,iy_1,iy_n,diskout)
-            call write_sources(output_2D_coupling(ix_1,iy_1,first_back,
-     $           ou_coupling_energy,is),multiplier,ix_1,ix_n,iy_1,iy_n,diskout)
+            call write_sources(output_2D_coupling(output_index_1_min,
+     $           output_index_2_min,e_back,
+     $           ou_coupling_energy,is),multiplier,ix_1,ix_n,iy_1,iy_n,
+     $           output_index_1_min,output_index_1_max,
+     $           output_index_2_min,output_index_2_max,diskout)
+            call write_sources(output_2D_coupling(output_index_1_min,
+     $           output_index_2_min,first_back,
+     $           ou_coupling_energy,is),multiplier,ix_1,ix_n,iy_1,iy_n,
+     $           output_index_1_min,output_index_1_max,
+     $           output_index_2_min,output_index_2_max,diskout)
          end do
          close(unit=diskout)
       end if
@@ -1109,13 +1136,14 @@ we don't set the dimensions until just before the call.
 
 @<Functions...@>=
       subroutine write_sources(two_D_data,multiplier,ix_1,ix_n,
-     $           iy_1,iy_n,unit_num)
+     $           iy_1,iy_n,dimx_1,dimx_n,dimy_1,dimy_n,unit_num)
 
       implicit_none_f77
       implicit_none_f90
 
-      integer ix_1,ix_n,iy_1,iy_n,unit_num          // Input
-      real two_D_data[ix_1:ix_n,iy_1:iy_n]
+      integer ix_1,ix_n,iy_1,iy_n,dimx_1,dimx_n,    // Input
+     $        dimy_1,dimy_n,unit_num
+      real two_D_data[dimx_1:dimx_n,dimy_1:dimy_n]
       real multiplier
 
       integer lim,iy,ix,j                           // Local
