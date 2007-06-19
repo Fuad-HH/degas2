@@ -2,6 +2,13 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.13  2006/01/19 19:53:28  dstotler
+% Remove writes of exit files; replace mirror-related files with generic
+% one. Add calls to subroutines to generate TRIM H -> Fe and Marlowe D
+% -> Fe data; subsequently commented these out along with some
+% others. Removed completely writes of hadsorbc and h2adsorbc since
+% we're deleting those.
+%
 % Revision 1.12  2001/11/16 15:55:24  dstotler
 % Add D -> Fe from TRIM (needed for MRX). Move some declaration lines to
 % make NAG happy.
@@ -103,6 +110,7 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       implicit_none_f77
       implicit_none_f90
       character*LINELEN tag,data_tag,v_type,version
+      character*FILELEN filein
       tag='t -> c'
       version='V. 1.1, T reflection on C data from refl.dat with Ruzic lrflct1=2 angle dep.'
       call pmi_write_degas_refl(tag,version)
@@ -172,6 +180,28 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       version='V. 1.1. D reflection on Fe, trim data'
       call pmi_write_trim(tag,data_tag,version)
 @#endif
+      tag='D -> Li'
+@#if 0
+/*
+    Started off with this approach, but decided that the scaling did not
+    work very well at all.  This file could still be used for D on Be.
+*/
+      data_tag='D -> Be'
+      version='V. 1.1. D reflection on Li, trim data scaled from D on Be'
+      filein='../data/D_on_Be.txt'
+      call pmi_write_trim2(tag,data_tag,version,filein)
+@#else
+/*
+   Instead use VFTRIM data from Ruzic.  This came from an Excel spreadsheet,
+   hence, the name of the routine.  The ``2'' refers to the fact that this
+   is the second of these files; asked to have the energy range extended
+   downward from 10 to 1 eV.
+*/
+      version='V. 1.1. D reflection on Li, VFTRIM data from Ruzic'
+      filein='../data/D_on_Li_Reflect2.txt'
+      call pmi_write_xls_vftrim(tag,version,filein)
+@#endif
+
       stop
       end
       
@@ -901,6 +931,177 @@ four of these.
          assert('Unsupport data species' == ' ')
       end if
 
+@<PMI Format Initializations@>
+
+      filein='../data/TRIM'
+      open(unit=diskin,file=filein,status='old',form='formatted')
+
+/*
+   The file |TRIM| unfortunately has no literal tags in it. The
+   only way to navigate about is by counting lines. This first loop
+   skips over the required number of lines to reach the desired projectile
+   target combination.
+*/
+      if (jpair > 1) then
+         do j=1,3276*(jpair-1)
+            read(diskin,'(a)') line
+         end do
+      end if
+
+/*
+   Read the data. The ordering of the data is nonstandard in that there is
+   an implied loop over dependent variables inside the two loops over incoming
+   energy and angle. Hence, we use here specialized read statements.
+*/
+      do j=0,num_energies-1
+         read(diskin,'(4e20.12)') SP (data_at_j(ipoint),ipoint=1,1092)
+         ipoint=0
+         do i=pf_tab_index[1,1]-1,0,-1
+            ipoint++
+            pf_data_table(i,j,0,0,0,1)=data_at_j(ipoint)
+         end do
+
+         do i=pf_tab_index[2,2]-1,0,-1
+            do k=1,pf_tab_index[1,2]-2,2
+               ipoint++
+               pf_data_table(k,i,j,0,0,2)=data_at_j(ipoint)
+            end do
+         end do
+
+         do i=pf_tab_index[3,3]-1,0,-1
+            do l=1,pf_tab_index[2,3]-2,2
+               do k=1,pf_tab_index[1,3]-2,2
+                  ipoint++
+                  pf_data_table(k,l,i,j,0,3)=data_at_j(ipoint)
+               end do
+            end do
+         end do
+
+         do i=pf_tab_index[4,4]-1,0,-1
+            do m=1,pf_tab_index[3,4]-2,2
+               do l=1,pf_tab_index[2,4]-2,2
+                  do k=1,pf_tab_index[1,4]-2,2
+                     ipoint++
+                     pf_data_table(k,l,m,i,j,4)=data_at_j(ipoint)
+                  end do
+               end do
+            end do
+         end do
+         assert(ipoint == 1092)
+      end do
+
+@<Process and Write PMI Format Data@>
+
+      return
+      end
+
+@ Read standalone TRIM data file.  These files have the same data
+as the EIRENE file called TRIM (see |pmi_write_trim|), but with
+one target-projectile combination per file and with the data
+in a human-readable format (like the MARLOWE data).
+
+@<Functions...@>=
+      subroutine pmi_write_trim2(tag,data_tag,version,filein)
+      implicit_none_f77
+      pf_common                                                // Common
+      implicit_none_f90
+      pf_decls
+      character*LINELEN tag,data_tag,version                   // Input
+      character*FILELEN filein
+      integer i,j,fileid,b,e,p,bin,ein,bm,em,k,l,m,            // Local
+     $        kold,lold,mold,n
+      character*LINELEN description,line
+      character*FILELEN fileout
+      character*el_sy_len proj,target,data_proj,data_target
+      real old_energies[0:num_energies-1],new_energies[0:num_energies-1],
+     $     old_angles[0:num_angles-1],new_angles[0:num_angles-1],
+     $     old_values[0:num_angles-1][0:num_energies-1],
+     $     new_values[0:num_angles-1][0:num_energies-1],
+     $     old_random[num_rn_old],new_random[num_rn_new],
+     $     new_dist_1d[num_rn_new],old_dist_1d[num_rn_old],
+     $     new_dist_2d[num_rn_new][num_rn_new],
+     $     old_dist_2d[num_rn_old][num_rn_old],
+     $     new_dist_3d[num_rn_new][num_rn_new][num_rn_new],
+     $     old_dist_3d[num_rn_old][num_rn_old][num_rn_old]
+      real delta,cos_phi,e_red_data,e_red_actual,e_out_min,dummy
+      external find_index,find_reduced_energy                  // External
+      real find_index,find_reduced_energy           
+
+      nc_decls
+      pf_ncdecl
+      @<Memory allocation interface@>
+      st_decls 
+
+      description = 'Data for Plasma-Material Interactions in degas 2'
+      pf_version = version
+
+/* Parse tag into name */      
+      p=0
+      assert( next_token(tag,bin,ein,p) )
+      assert( next_token(tag,b,e,p) )
+      assert( tag(b:e) == '->' )
+      assert( next_token(tag,bm,em,p) )
+      proj=tag(bin:ein)
+      target=tag(bm:em)
+
+/* Parse data tag to find place in file */
+      p=0
+      assert( next_token(data_tag,bin,ein,p) )
+      assert( next_token(data_tag,b,e,p) )
+      assert( data_tag(b:e) == '->' )
+      assert( next_token(data_tag,bm,em,p) )
+      data_proj=data_tag(bin:ein)
+      data_target=data_tag(bm:em)
+
+      if (proj == data_proj && target == data_target) then
+         pf_name=tag(bin:ein) \/ '_refl_trim2_' \/ tag(bm:em)
+      else
+         pf_name=tag(bin:ein) \/ '_refl_strim2_' \/ tag(bm:em)  // ``scaled TRIM''
+      end if
+
+@<PMI Format Initializations@>
+
+      open(unit=diskin,file=filein,status='old',form='formatted')
+/*
+   Read the data. The ordering of the data is nonstandard in that there is
+   an implied loop over dependent variables inside the two loops over incoming
+   energy and angle. Hence, we use here specialized read statements.
+*/
+      do j=1,6
+         read(diskin,*) line  // Blank lines
+      end do
+      do j=0,num_energies-1
+         do i=pf_tab_index[1,1]-1,0,-1
+            read(diskin,*) dummy,dummy,dummy,dummy,dummy,dummy,
+     &                     pf_data_table(i,j,0,0,0,1)
+            read(diskin,*) line
+            read(diskin,*) SP (pf_data_table(k,i,j,0,0,2),
+     &                     k=1,pf_tab_index[1,2]-1,2)
+            read(diskin,*) line
+            do l=1,pf_tab_index[1,3]-2,2
+               read(diskin,*) SP (pf_data_table(k,l,i,j,0,3),
+     &                     k=1,pf_tab_index[1,3]-2,2)
+            end do
+            read(diskin,*) line
+            do m=1,pf_tab_index[3,4]-2,2
+               do l=1,pf_tab_index[2,4]-2,2
+                  read(diskin,*) SP (pf_data_table(k,l,m,i,j,4),
+     &                               k=1,pf_tab_index[1,4]-2,2)
+               end do
+            end do
+            read(diskin,*) line
+            read(diskin,*) line
+         end do
+      end do
+
+@<Process and Write PMI Format Data@>
+
+      return
+      end
+
+@ Initialize PMI format arrays for use with TRIM data.
+
+@<PMI Format Initializations@>=
       pf_num_dep_var=4
 
 /*
@@ -1045,63 +1246,9 @@ four of these.
 
       pf_ragged_alloc(pf_data,pf_tab_index)
 
-      filein='../data/TRIM'
-      open(unit=diskin,file=filein,status='old',form='formatted')
+@ Process and write PMI format data from TRIM.
 
-/*
-   The file |TRIM| unfortunately has no literal tags in it. The
-   only way to navigate about is by counting lines. This first loop
-   skips over the required number of lines to reach the desired projectile
-   target combination.
-*/
-      if (jpair > 1) then
-         do j=1,3276*(jpair-1)
-            read(diskin,'(a)') line
-         end do
-      end if
-
-/*
-   Read the data. The ordering of the data is nonstandard in that there is
-   an implied loop over dependent variables inside the two loops over incoming
-   energy and angle. Hence, we use here specialized read statements.
-*/
-      do j=0,num_energies-1
-         read(diskin,'(4e20.12)') SP (data_at_j(ipoint),ipoint=1,1092)
-         ipoint=0
-         do i=pf_tab_index[1,1]-1,0,-1
-            ipoint++
-            pf_data_table(i,j,0,0,0,1)=data_at_j(ipoint)
-         end do
-
-         do i=pf_tab_index[2,2]-1,0,-1
-            do k=1,pf_tab_index[1,2]-2,2
-               ipoint++
-               pf_data_table(k,i,j,0,0,2)=data_at_j(ipoint)
-            end do
-         end do
-
-         do i=pf_tab_index[3,3]-1,0,-1
-            do l=1,pf_tab_index[2,3]-2,2
-               do k=1,pf_tab_index[1,3]-2,2
-                  ipoint++
-                  pf_data_table(k,l,i,j,0,3)=data_at_j(ipoint)
-               end do
-            end do
-         end do
-
-         do i=pf_tab_index[4,4]-1,0,-1
-            do m=1,pf_tab_index[3,4]-2,2
-               do l=1,pf_tab_index[2,4]-2,2
-                  do k=1,pf_tab_index[1,4]-2,2
-                     ipoint++
-                     pf_data_table(k,l,m,i,j,4)=data_at_j(ipoint)
-                  end do
-               end do
-            end do
-         end do
-         assert(ipoint == 1092)
-      end do
-
+@<Process and Write PMI Format Data@>=
 /*
   Interpolate energy index onto uniform (log spaced) grid.
 */
@@ -1396,9 +1543,279 @@ four of these.
       call ncclose(fileid,nc_stat)
       close(unit=diskin)
 
+@ Read data derived from an Excel spreadsheet.  These data were generated
+by VFTRIM and presumably manually entered into an Excel spreadsheet.  To
+avoid needless conversion of the data, have opted to read them directly
+from a tab-delimited text version of this file.
+
+@m num_old_energies 11
+@m num_new_energies 10
+@m num_old_angles 5
+@m num_new_angles 6
+
+@<Functions...@>=
+      subroutine pmi_write_xls_vftrim(tag,version,filein)
+      implicit_none_f77
+      pf_common                                                // Common
+      implicit_none_f90
+      pf_decls
+      character*LINELEN tag,version                            // Input
+      character*FILELEN filein
+
+      integer i,j,fileid,b,e,p,bin,ein,bm,em,k,l,m,n           // Local
+      character*LINELEN line,description
+      character*FILELEN fileout
+      character*el_sy_len proj,target
+      logical cosspec,cosine
+      real old_energies[0:num_old_energies-1],
+     $     new_energies[0:num_new_energies-1],
+     $     old_angles[0:num_old_angles-1],
+     $     new_angles[0:num_new_angles-1],
+     $     old_rn[0:num_old_angles-1][0:num_old_energies-1],
+     $     new_rn[0:num_new_angles-1][0:num_new_energies-1],
+     $     old_eout[0:num_old_angles-1][0:num_old_energies-1],
+     $     new_eout[0:num_new_angles-1][0:num_new_energies-1]
+      real angle,energy,dummy,delta_e,delta_a
+      external find_index                                       // External
+      real find_index
+
+      nc_decls
+      pf_ncdecl
+      @<Memory allocation interface@>
+      st_decls 
+
+/* The following two must be the opposite of each other! */
+      cosspec=.true.
+      cosine=.false.
+
+      description = 'Data for Plasma-Material Interactions in degas 2'
+      pf_version = version
+
+/* Parse tag into name */      
+      p=0
+      assert( next_token(tag,bin,ein,p) )
+      assert( next_token(tag,b,e,p) )
+      assert( tag(b:e) == '->' )
+      assert( next_token(tag,bm,em,p) )
+      proj=tag(bin:ein)
+      target=tag(bm:em)
+      pf_name=tag(bin:ein) \/ '_refl_vftrim_' \/ tag(bm:em)
+
+      open(unit=diskin,file=filein,status='old',form='formatted')
+/*
+  Interpolate energies and angles onto uniform grids.
+*/
+      old_energies[0]=one
+      old_energies[1]=two
+      old_energies[2]=const(5.)
+      old_energies[3]=const(10.)
+      old_energies[4]=const(20.)
+      old_energies[5]=const(50.)
+      old_energies[6]=const(1.,2)
+      old_energies[7]=const(2.,2)
+      old_energies[8]=const(3.,2)
+      old_energies[9]=const(5.,2)
+      old_energies[10]=const(1.,3)
+
+      old_angles[0]=zero
+      old_angles[1]=const(30.)
+      old_angles[2]=const(45.)
+      old_angles[3]=const(60.)
+      old_angles[4]=const(75.)
+/*
+  Read the data.
+*/
+      do i=1,4
+         read(diskin,*) line  // Input data for VFTRIM
+      end do
+
+      do j=0,num_old_angles-1
+         read(diskin,'(6x,f2.0)') angle
+         assert(old_angles[j] == angle)
+         read(diskin,*) line                 // Column labels
+         do i=0,num_old_energies-1
+            read(diskin,*) energy,old_rn[j][i],dummy,dummy,dummy,dummy,
+     $                     dummy,old_eout[j][i]
+            assert(old_energies[i] == energy)
+            
+         end do
+         read(diskin,*) line                // Blank line
+      end do
+
+      pf_num_dep_var=3
+ /* 
+   Set up everything for the two dependent variables read from file.
+*/
+      pf_var[0,1]='reflection_coef'
+      pf_spacing[0,1]='linear'
+      pf_units[0,1]=' '
+      pf_mult[0,1]=one
+
+      pf_var[0,2]='energy_out'
+      pf_spacing[0,2]='log'
+      pf_units[0,2]='eV'
+      pf_mult[0,2]=electron_charge
+      
+      do i=1,2
+         pf_eval_name[i]='table'
+         pf_rank[i]=2
+
+         pf_var[1,i]='energy_in'
+         pf_tab_index[1,i]=num_new_energies
+         pf_units[1,i]='eV'
+         pf_mult[1,i]=electron_charge
+         pf_spacing[1,i]='log'
+         pf_min[1,i]=one
+         delta_e=const(10.0)**(one/const(3.))
+         pf_max[1,i]=pf_min[1,i]*delta_e**(pf_tab_index[1,i]-1)
+
+         pf_var[2,i]='polar_angle_in'
+         pf_tab_index[2,i]=num_new_angles
+         pf_units[2,i]='degrees'
+         pf_mult[2,i]=PI/const(180.0)
+         pf_spacing[2,i]='linear'
+         pf_min[2,i]=zero
+         delta_a=const(15.)
+         pf_max[2,i]=const(75.)
+      end do
+/*
+   Third dependent variable (fit)
+*/
+      if (cosspec) then
+         pf_num_dep_var=3
+         pf_var[0,3]='velocity_vector'
+         pf_units[0,3]=' '
+         pf_rank[3]=1
+         pf_tab_index[1,3]=1
+         pf_eval_name[3]='cosspec'
+         pf_mult[0,3]=one
+         pf_var[1,3]='polar_angle_in'
+         pf_units[1,3]=' '
+      end if
+      if (cosine) then
+         pf_num_dep_var=3
+         pf_var[0,3]='velocity_vector'
+         pf_units[0,3]=' '
+         pf_rank[3]=0
+         pf_eval_name[3]='cosine'
+      end if
+ /*
+   Assign default values to everything else
+*/
+      do j=1,pf_num_dep_var
+         do i=pf_rank[j]+1,pf_table_rank_max
+            pf_tab_index[i,j]=1
+            pf_var[i,j]='unknown'
+            pf_spacing[i,j]='unknown'
+            pf_units[i,j]='unknown'
+            pf_mult[i,j]=zero
+            pf_min[i,j]=zero
+            pf_max[i,j]=zero
+         end do
+      end do
+
+      do j=pf_num_dep_var+1,pf_dep_var_max
+         pf_rank[j]=1
+         pf_eval_name[j]='unknown'
+         pf_var[0,j]='unknown'
+         pf_spacing[0,j]='unknown'
+         pf_units[0,j]='unknown'
+         pf_mult[0,j]=zero
+         do i=1,pf_table_rank_max
+            pf_tab_index[i,j]=1
+            pf_var[i,j]='unknown'
+            pf_spacing[i,j]='unknown'
+            pf_units[i,j]='unknown'
+            pf_mult[i,j]=zero
+            pf_min[i,j]=zero
+            pf_max[i,j]=zero
+         end do
+      end do
+
+      pf_ragged_alloc(pf_data,pf_tab_index)
+
+      assert(pf_tab_index[1,1] == num_new_energies) 
+      assert(pf_tab_index[2,1] == num_new_angles)
+
+      do j=0,num_old_energies-1
+         old_energies[j]=log(old_energies[j])
+      end do
+      do j=0,num_new_energies-1
+         new_energies[j]=log(pf_min[1,1])+j*log(delta_e)
+      end do
+
+      do j=0,num_new_energies-1
+         new_energies[j]=find_index(new_energies[j],old_energies,
+     $        num_old_energies)
+      end do
+
+      do i=0,num_new_angles-1
+         new_angles[i]=pf_min[2,1]+i*delta_a
+      end do
+
+      do i=0,num_new_angles-1
+         new_angles[i]=find_index(new_angles[i],old_angles,num_old_angles)
+      end do
+
+      call interpolate_grid2(new_rn,old_rn,pf_spacing[0,1],
+     $     new_angles,new_energies,num_new_angles,num_new_energies,
+     $     num_old_angles,num_old_energies)
+      call interpolate_grid2(new_eout,old_eout,pf_spacing[0,2],
+     $     new_angles,new_energies,num_new_angles,num_new_energies,
+     $     num_old_angles,num_old_energies)
+      do i=0,num_new_energies-1
+         do j=0,num_new_angles-1
+            pf_data_table(i,j,0,0,0,1)=new_rn[j][i]
+            pf_data_table(i,j,0,0,0,2)=new_eout[j][i]
+         end do
+      end do
+/*
+   Set fit coefficient for the third dependent variable
+*/
+      if (cosspec) then
+         pf_data_table(0,0,0,0,0,3)=one
+      else
+         pf_data_table(0,0,0,0,0,3)=real_undef
+      end if
+
+      do n=pf_num_dep_var+1,pf_dep_var_max
+         do m=0,pf_tab_index[5,n]-1
+            do l=0,pf_tab_index[4,n]-1
+               do k=0,pf_tab_index[3,n]-1
+                  do j=0,pf_tab_index[2,n]-1
+                     do i=0,pf_tab_index[1,n]-1
+                        pf_data_table(i,j,k,l,m,n)=real_unused
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
+/*
+   Write netCDF file and close everything up
+*/
+      fileout='./'\/trim(pf_name)\/'.nc'
+      fileid = nccreate(fileout,NC_CLOBBER,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'description',NC_CHAR,
+     $     string_length(description),
+     $     description,nc_stat)
+
+      call ncattputc(fileid,NC_GLOBAL,'data_version',NC_CHAR,
+     $     string_length(pf_version),
+     $     pf_version,nc_stat)
+      
+      pf_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      pf_ncwrite(fileid)
+
+      var_free(pf_data_tab)
+
+      call ncclose(fileid,nc_stat)
+
       return
       end
-
+     
 @ Computes reduced energy for reflection. The formulas used here come
 from W. Eckstein, {\em Computer Simulation of Ion-Solid Interactions}
 (Springer-Verlag, New York, 1991) (the corresponding equation numbers
