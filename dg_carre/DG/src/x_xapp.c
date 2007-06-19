@@ -345,7 +345,6 @@ static struct _PtrTable viewMsgs[]={
   MSG_NEWFILE,"msgNewFile",
   MSG_FILEOPENED,"msgFileOpened",
   MSG_FILESAVED,"msgFileSaved",
-  MSG_FILEAUTOSAVED,"msgFileAutoSaved",
   MSG_SONNETLOADED,"msgSonnetLoaded",
   MSG_SONNETREMOVED,"msgSonnetRemoved",
   MSG_XPOINTREMOVED,"msgXPointRemoved",
@@ -371,6 +370,7 @@ static struct _PtrTable viewMsgs[]={
   MSG_REPOS_HANDLE_2,"msgReposHandle2",
   MSG_MARKED_REMOVED,"msgMarkedObjectsRemoved",
   MSG_CALCULATING_SZ_BOUNDS,"msgCalculatingSurfaceZoneBounds",
+  MSG_FILEAUTOSAVED,"msgFileAutoSaved",
 
   STR_LOCKED,"strLocked",
   STR_UNLOCKED,"strUnlocked",
@@ -428,6 +428,7 @@ static struct _PtrTable viewMsgs[]={
   STR_MESH_CELL,"strMeshCell",
   STR_MESH_ELEMENT,"strMeshElement",
   STR_MESH_POINT,"strMeshPoint",
+  STR_MESH_CELL_CONCAVE,"strMeshCellConcave",
 
   FSTR_CFGEXT,"\r.dgc",
   FSTR_OUTPUTEXT,"\r.dgo",

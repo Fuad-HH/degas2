@@ -144,7 +144,6 @@
 #define MSG_NEWFILE          1008
 #define MSG_FILEOPENED       1009
 #define MSG_FILESAVED        1010
-#define MSG_FILEAUTOSAVED    1047
 #define MSG_SONNETLOADED     1011
 #define MSG_SONNETREMOVED    1012
 #define MSG_XPOINTREMOVED    1013
@@ -181,6 +180,7 @@
 #define MSG_EXAM_XPOINTSEG   1044
 #define MSG_EXAM_SURFACE_XY  1045
 #define MSG_CALCULATING_SZ_BOUNDS 1046 /* For use in Add/MoveSurface tool */
+#define MSG_FILEAUTOSAVED    1047
 
 #define STR_LOCKED           2000
 #define STR_UNLOCKED         2001
@@ -244,6 +244,7 @@
 #define STR_MESH_CELL        2053
 #define STR_MESH_ELEMENT     2054
 #define STR_MESH_POINT       2055
+#define STR_MESH_CELL_CONCAVE 2056
 
 #define FSTR_CFGEXT          3007
 #define FSTR_OUTPUTEXT       3008
