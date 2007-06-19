@@ -3,6 +3,14 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.42  2006/01/19 19:23:45  dstotler
+% Add an assert section in check_geometry to identify outer surfaces
+% that are not part of the universal cell boundary.  Extend this assert
+% to identify cut surfaces, too.  Extend to 3-D.  Add new plasma sector
+% arrays. Refined multiple sector test in check_geometry to proceed only
+% if the multiple sectors have the same zone. Add new indices for
+% zone_index.
+%
 % Revision 1.41  2002/01/28 16:56:21  dstotler
 % Verify in check_geometry that in cases of multiple sectors at a
 % surface, first one is of non-diagnostic type.
@@ -274,6 +282,8 @@ uninitialized; these are set in |boundaries_neighbors|.
       plasma_e_ion_delta[sc_plasma_num]=real_unused
       var_realloca(plasma_e_ion_mult)
       plasma_e_ion_mult[sc_plasma_num]=real_unused
+      var_realloca(plasma_e_ion_sheath)
+      plasma_e_ion_sheath[sc_plasma_num]=real_unused
 
       sc_target_num=0
       var_realloca(target_sector)
@@ -632,6 +642,7 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(plasma_temperature)
       var_reallocb(plasma_e_ion_delta)
       var_reallocb(plasma_e_ion_mult)
+      var_reallocb(plasma_e_ion_sheath)
 
       var_reallocb(target_sector)
       var_reallocb(target_material)
@@ -1336,6 +1347,7 @@ break1:        continue
       var_free(plasma_temperature)
       var_free(plasma_e_ion_delta)
       var_free(plasma_e_ion_mult)
+      var_free(plasma_e_ion_sheath)
       var_free(target_sector)
       var_free(target_material)
       var_free(target_temperature)
