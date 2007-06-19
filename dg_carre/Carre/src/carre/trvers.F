@@ -5,6 +5,8 @@
       IMPLICIT NONE
 
 *..  Cette fonction nous dit si le segment de 1 a 2 traverse la courbe v
+cdps
+c  Check to see if the segment from 1 to 2 crosses the curve v
 
 *  arguments
       INTEGER n

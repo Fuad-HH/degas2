@@ -9,6 +9,11 @@ c======================================================================
 *..  Cette sous-routine parametrise des lignes de niveau jusqu'a
 *  ce qu'on obtienne la derniere courbe de niveau qui va d'un deflectur
 *  a un autre sans rencontrer de structure.
+*
+cdps - Translation:
+* This subroutine parameterises the level lines until one obtains a
+* final level line which goes from one target to another without 
+* hitting a structure.
 c======================================================================
 
       IMPLICIT NONE
@@ -74,6 +79,42 @@ c          un echec ou non.
 c.. coin: logique, si on est a un point de structure ou non.
 c.. ouvert: logique=.t. si la structure sur laquelle on marche est
 c            ouverte.
+c
+cdps Translation:
+c.. plaque: index of the structure (plate) on which one goes.
+c.. fraplq: index of the structure (plate) that the level line must strike.
+c.. sens: direction of movement along the target - 1=the same as the
+c           target points, -1=opposite.
+c.. x0,y0: starting point.
+c.. nivox,nivoy: tables of the coordinates X and y of the points parameterising
+c                the final level line.
+c.. nvotot: number of points on this curve. 
+c.. knivtm: number of points on this curve. 
+c.. x2,y2: point on the structure or at the start of the new level line.
+c.. x1,y1: point from the preceding line.
+c.. psi1,ps2: value of the psi function at points 1 and 2.
+c.. ind1,ind2: indices of the segments at points 1 et 2.
+c.. ind3: index of a point on the structure, corner.
+c.. pas: value of the step we are going to.
+c.. pastmp: temporary value of the step.
+c.. ii,jj: cell index.
+c.. dir: direction of the search.
+c.. k  : index of the point parameterising each curve. 
+c.. indlim: index of the final structure hit other than the designated
+c           fraplq. 
+c.. indstr: index of the final structure hit.
+c.. repart: specifies whether "SAUTE" works with distance along the target
+c           (repart=1) or the new psi value (repart=2).
+c.. ecart1,ecart2: distance between a point and the boundary segment on 
+c                  which it is.
+c.. rien: logical variable indicating whether or not a structure other than
+c         fraplq has been hit.
+c.. echec: logical variable indicating whether or not a curve fails to
+c          start.
+c.. coin: logical variable indicating whether or not one has a point on 
+c          on a structure.
+c.. ouvert: logical variable is true if the structure being followed is
+c           open.
 c=========================
 
 *..Initialisation
@@ -95,6 +136,8 @@ c***
      .  .or. ystruc(1,plaque).ne.ystruc(npstru(plaque),plaque)
 
 *..Calcul de la valeur de la fonction au premier point.
+cdps
+c  Calculate psi value at first point.
 
       ii = ifind(x2,x,nx,1)
       jj = ifind(y2,y,ny,1)
@@ -147,6 +190,8 @@ c***
       coin = .FALSE.
 
 *..On recherche le prochain point.
+cdps
+c  Look for the next point.
 
       CALL SAUTE(xstruc(1,plaque),ystruc(1,plaque),npstru(plaque),
      .           x1,y1,psi1,x2,y2,pas,sens,repart,nx,ny,x,y,
@@ -160,6 +205,8 @@ c     pause
 c***
 
 *..On s'assure que l'on ne depasse pas la maille.
+cdps
+c  Make sure we did not go past the end of the mesh.
 
       IF ((x2 .LT. x(1)) .OR. (x2 .GT. x(nx)) .OR. (y2 .LT. y(1)) .OR.
      .      (y2 .GT. y(ny))) THEN
@@ -176,6 +223,8 @@ c***
       ENDIF
 
 *..Indice du segment de structure sur lequel se trouve x2,y2.
+cdps
+c  Index of the segment of the structure containing x2, y2.
 
       ind2 = indsgm(xstruc(1,plaque),ystruc(1,plaque),npstru(plaque),
      .              x2,y2)
@@ -203,6 +252,8 @@ c***
       ENDIF
 
 *..Calcul de la fonction pour le point 2.
+cdps
+c  Calculate the psi function at point 2.
 
       ii = ifind(x2,x,nx,1)
       jj = ifind(y2,y,ny,1)
@@ -214,11 +265,15 @@ c     print*,'psi2=',psi2
 c***
 
 *..Definition du premier point du vecteur de niveau.
+cdps
+c  Define the first point of the level vector.
 
       niv1x(1) = x2
       niv1y(1) = y2
 
 *..Recheche du deuxieme point sur le perimetre du carre ii,jj.
+cdps
+c  Search for the second point on the perimeter of cross section ii,jj.
 
       ecart1 = SQRT((x2-xstruc(ind2,plaque))**2 +
      .                       (y2-ystruc(ind2,plaque))**2)
@@ -246,6 +301,14 @@ c***
 *  le cas, on doit inverser les directions, revenir d'un carre et on
 *  oublie le point que l'on vient de prendre. Sinon, on continue en
 *  conservant le point obtenu, la direction et les coord. du carre.
+cdps
+c  If one has reached the end of the segment, check to see if the point is
+c  inside the structure or if the direction has changed.  If not the latter,
+c  verify that the point is in the interior or if there is a cross-piece
+c  on another segment of the structure.  If this is the case, the direction
+c  must be reversed, to return from a cross section and forget the point
+c  just taken.  If not, one continues, preserving the point just obtained,
+c  the direction, and the coordinate cross section.
 
       IF ((ABS(x2-x(nx)).LT.const1) .OR. (ABS(y2-y(ny)).LT.const1)
      .  .OR. (ABS(x2-x(1)).LT.const1) .OR. (ABS(y2-y(1)).LT.const1))
@@ -348,6 +411,8 @@ c***
 
 *..Pour les points successifs, on poursuit jusqu'a ce qu'on frappe une
 *  structure.
+cdps
+c  For subsequent points, continue until one strikes a structure.
 
       IF (.NOT.(echec)) THEN
 
@@ -366,6 +431,9 @@ c***
 
 *..Si on a frappe une plaque, on verifie si on est rendu a l'extremite
 *  de notre plaque de depart, sinon on avance d'un pas et on recommence.
+cdps
+c  If we do strike a plate, check to see if we have returned to the end of
+c  our starting plate.  If not, advance one step and start over.
 
 c***
 c     print*,'indstr, fraplq=',indstr,fraplq
