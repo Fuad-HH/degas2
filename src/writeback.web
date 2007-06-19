@@ -2,6 +2,11 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.12  2006/01/19 20:06:00  dstotler
+% Allocate and set source_parameters array in set_background_sources.
+% Do in read_uedge_background, too.  Replace target sector with plasma
+% in set_uedge_sheath.
+%
 % Revision 1.11  2001/07/16 21:08:27  dstotler
 % Add setup_background_arrays, including relabeling of vacuum zones when
 % BGK reactions are present. Added source_root_species allocation and
@@ -56,11 +61,13 @@
 % These routines were needed in more than one stand-alone program.
 %
 
-@* Introduction.
+@* Routines used by readbackground, etc. 
 
 \ID{$Id$}
 
-Introduction\ldots
+The principal routines in this file are those used to read and interpret
+{\tt UEDGE} data files.  Their functionality is documented in 
+|readbackground|.
 
 @m FILE 'writeback.web'
 
@@ -83,197 +90,611 @@ Introduction\ldots
 @I sector.hweb
 @I reaction.hweb
 @I materials.hweb
+@I geometry2d.hweb
 
-@m OLD_UEDATA 0
+@m OLD_UEDATA 0    //  Set to 1 if file does not contain ghost cell data
 
 @ The unnamed module.
 
 @a
       @<Functions and Subroutines@>
 
-@ read uedge background data 
+@ Read UEDGE background data.  This routine acts as a main routine,
+calling separate subroutines to read the UEDGE file and to do most
+of the source definition.
+
 @<Functions...@>=
-      subroutine read_uedge_background(file)
+      subroutine read_uedge_background(file,update)
 
       implicit_none_f77
       sp_common                                  // Common
       so_common
+      sc_common
+      pr_common
+      bk_common
       implicit_none_f90
-      character*FILELEN file                     // Input
+      integer update                             // Input
+      character*FILELEN file                 
                                                
-      integer nx,ny                              // Local; UEDGE file data:
+      integer nx,ny,ns                           // Local; UEDGE file data:
       real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
-     $     ni[bk_mx,bk_my],vr[bk_mx,bk_my],vz[bk_mx,bk_my],vphi[bk_mx,bk_my],
+     $     ni[bk_mx,bk_my,bk_ms],vr[bk_mx,bk_my,bk_ms],
+     $     vz[bk_mx,bk_my,bk_ms],vphi[bk_mx,bk_my,bk_ms],
      $     te[bk_mx,bk_my],ti[bk_mx,bk_my],
-     $     ni1[bk_my],vr1[bk_my],vz1[bk_my],vphi1[bk_my],
-     $     ti1[bk_my],te1[bk_my],flux1[bk_my],
-     $     ni2[bk_my],vr2[bk_my],vz2[bk_my],vphi2[bk_my],
-     $     ti2[bk_my],te2[bk_my],flux2[bk_my]
-      integer i,tot,update                        // Other local
-      real flux1_tot,flux2_tot
+     $     ni1[bk_my,bk_ms],vr1[bk_my,bk_ms],vz1[bk_my,bk_ms],
+     $     vphi1[bk_my,bk_ms],ti1[bk_my],te1[bk_my],flux1[bk_my,bk_ms],
+     $     ni2[bk_my,bk_ms],vr2[bk_my,bk_ms],vz2[bk_my,bk_ms],
+     $     vphi2[bk_my,bk_ms],ti2[bk_my],te2[bk_my],flux2[bk_my,bk_ms],
+     $     flux1_tot[bk_ms],flux2_tot[bk_ms]
+      character*sp_sy_len uedge_species[bk_ms]
+      integer tot,js,isp,sp_back,flux1_present,    // Other local
+     $        flux2_present,itarg,grp
+      integer group_map[2,bk_ms]
 
       st_decls
       @<Memory allocation interface@>
 
-      external lookup_sector,inc_ion_energy,neutralize_species      // External
-      integer lookup_sector,neutralize_species
-      real inc_ion_energy
+      external neutralize_species      // External
+      integer neutralize_species
       
       call init_uedge_background(file,nx,ny,rm,zm,ni,vr,vz,vphi,
      $     ti,te,ni1,vr1,vz1,vphi1,ti1,te1,flux1,ni2,vr2,vz2,vphi2,
-     $     ti2,te2,flux2,flux1_tot,flux2_tot)
-
-      if (flux1_tot > zero && flux2_tot > zero) then
-         so_grps=2
-         so_seg_tot=2*ny
-      else if (flux1_tot > zero || flux2_tot > zero) then
-         so_grps=1
-         so_seg_tot=ny
-      else
-         assert('Zero fluxes in UEDGE background' == ' ')
-      end if
-      so_set_run_flags
-
-      var_alloc(source_base_ptr)
-      var_alloc(source_num_segments)
-      var_alloc(source_type)
-      var_alloc(source_geometry)
-      var_alloc(source_num_flights)
-      var_alloc(source_num_checkpoints)
-      var_alloc(source_species)
-      var_alloc(source_root_species)
-      var_alloc(source_parameters)
-      var_alloc(source_total_current)
-      var_alloc(source_weight_norm)
-      var_alloc(source_scale_factor)
+     $     ti2,te2,flux2,flux1_tot,flux2_tot,ns,uedge_species)
 /*
-   Note: using |var_reallocc| here rather than |var_alloc| since
-   we use |var_realloca| in |set_background_sources|. This way we
-   are allocating memory in |mem_inc| chunks in every case. This
-   is the way it's done in |read_degas_background| as well.
+   Make an initial survey of the source groups needed, recording the
+   results in the |group_map| array.
 */
-      var_reallocc(source_segment_ptr,0,so_seg_tot)
-      var_reallocc(source_current,0,so_seg_tot)
-      var_reallocc(source_segment_rel_wt,0,so_seg_tot)
-      var_reallocc(source_segment_prob_alias,0,so_seg_tot)
-      var_reallocc(source_segment_ptr_alias,0,so_seg_tot)
-
-/* Figure what the test species by searching for the
-   one which participates in the most reactions. This
-   reasoning probably needs to be improved.
- */
-@#if 0
-      max_rc=0
-      test=0
-      do i=1,pr_test_num
-         if (pr_rc_num(i) > max_rc) then
-            test = i
-            max_rc = pr_rc_num(i)
+      so_grps=0
+      so_seg_tot=0
+      flux1_present=FALSE
+      flux2_present=FALSE
+      do js=1,ns
+         group_map[1,js]=int_undef
+         group_map[2,js]=int_undef
+         isp=sp_lookup(uedge_species[js])
+         if (sp_check(isp)) then
+            sp_back=pr_background_lookup(isp)
+            if (bk_check(sp_back)) then
+               if (flux1_tot[js] > zero) then
+                  so_grps++
+                  so_seg_tot+=ny
+                  group_map[1,js]=so_grps
+                  flux1_present=TRUE
+               end if
+               if (flux2_tot[js] > zero) then
+                  so_grps++
+                  so_seg_tot+=ny
+                  group_map[2,js]=so_grps
+                  flux2_present=TRUE
+               end if
+            end if
          end if
       end do
-      assert(test > 0)
-@#endif
-      tot=0
-      do i=1,so_grps
-         so_type(i)=so_plate
-@#if 0
-         so_species(i)=pr_test(test)
-@#endif
-         so_root_sp(i)=sp_lookup('D+')
-         so_params(i,so_param_puff_temp)=real_unused
-         so_species(i)=neutralize_species(so_root_sp(i))
-         so_nseg(i)=ny
-         so_geom(i)=so_surface
-         so_scale(i)=one
-         so_nflights(i)=100
-         so_chkpt(i)=0
-         so_base(i)=tot+1
-         tot+=ny
-      end do
+      if (so_grps == 0) then
+         assert('Zero fluxes in UEDGE background' == ' ')
+      end if
+      if (update == TRUE) then
+/*
+   Need to initialize these since |set_uedge_plate_sources| uses
+   the ``+='' operator.  All of the other variables set below
+   for the not-update case retain their values as read in from
+   the old sources file.
+*/
+         do grp=1,so_grps
+            so_tot_curr(grp)=zero
+         end do
+      else
+         so_set_run_flags
+/*
+   We are using |var_reallocc| here so that we are allocating
+   memory in |mem_inc| chunks in every case.  This is needed 
+   to permit this to work with |defineback| which will call
+   |var_reallocb| later on; it assumes this sort of initial
+   allocation.
+*/
+         var_reallocc(source_base_ptr,0,so_grps)
+         var_reallocc(source_num_segments,0,so_grps)
+         var_reallocc(source_type,0,so_grps)
+         var_reallocc(source_geometry,0,so_grps)
+         var_reallocc(source_num_flights,0,so_grps)
+         var_reallocc(source_num_checkpoints,0,so_grps)
+         var_reallocc(source_species,0,so_grps)
+         var_reallocc(source_root_species,0,so_grps)
+         var_reallocc(source_parameters,0,so_grps)
+         var_reallocc(source_total_current,0,so_grps)
+         var_reallocc(source_weight_norm,0,so_grps)
+         var_reallocc(source_scale_factor,0,so_grps)
 
-      update=FALSE
-      call set_uedge_plate_sources(nx,ny,rm,zm,
-     $     vr1,vz1,vphi1,te1,ti1,flux1,
-     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot,update)
+         var_reallocc(source_segment_ptr,0,so_seg_tot)
+         var_reallocc(source_current,0,so_seg_tot)
+         var_reallocc(source_segment_rel_wt,0,so_seg_tot)
+         var_reallocc(source_segment_prob_alias,0,so_seg_tot)
+         var_reallocc(source_segment_ptr_alias,0,so_seg_tot)
+/*
+   Can set all of the group-wide variables, except total current. 
+   Can initialize total current; note that in |update_uedge_background|,
+   this is done in section analogous to above (before allocations).
+*/
+         tot=0
+         do js=1,ns
+            do itarg=1,2
+               if (group_map[itarg,js] != int_undef) then
+                  grp=group_map[itarg,js]
+                  so_root_sp(grp)=sp_lookup(uedge_species[js])
+                  assert(sp_check(so_root_sp(grp)))
+                  so_params(grp,so_param_puff_temp)=real_unused
+                  so_species(grp)=neutralize_species(so_root_sp(grp))
+                  assert(sp_check(so_species(grp)))
+                  so_tot_curr(grp)=zero
+                  so_type(grp)=so_plate
+                  so_nseg(grp)=ny
+                  so_geom(grp)=so_surface
+                  so_scale(grp)=one
+                  so_nflights(grp)=100
+                  so_chkpt(grp)=0
+                  so_base(grp)=tot+1
+                  tot+=ny
+               end if
+            end do
+         end do
+      end if
+
+      call set_uedge_plate_sources(nx,ny,ns,uedge_species,rm,zm,
+     $     ni1,vr1,vz1,vphi1,te1,ti1,flux1,
+     $     ni2,vr2,vz2,vphi2,te2,ti2,flux2,
+     $     flux1_present,flux2_present,group_map,update)
 
       return
       end
 
-@ Read UEDGE input file and set corresponding background data.
+@ Read UEDGE input file and set up corresponding background data.
+
+@m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
+            if (open_stat != 0) then;
+         write (stderr,*) ' Cannot open file ',aname,', error number ',open_stat;
+         return;
+      end if @;
+
+@m species_loop #:0
 
 @<Functions...@>=
       subroutine init_uedge_background(file,nx,ny,rm,zm,ni,vr,vz,vphi,
      $     ti,te,ni1,vr1,vz1,vphi1,ti1,te1,flux1,ni2,vr2,vz2,vphi2,
-     $     ti2,te2,flux2,flux1_tot,flux2_tot)
+     $     ti2,te2,flux2,flux1_tot,flux2_tot,ns,uedge_species)
+
+      define_dimen(stratum_ind,dim_stratum)
+      define_dimen(species_ind,bk_ms)
+
+      define_varp(bdy_ni,FLOAT,species_ind,stratum_ind)
+      define_varp(bdy_vr,FLOAT,species_ind,stratum_ind)
+      define_varp(bdy_vz,FLOAT,species_ind,stratum_ind)
+      define_varp(bdy_vphi,FLOAT,species_ind,stratum_ind)
+      define_varp(bdy_ti,FLOAT,stratum_ind)
+      define_varp(bdy_te,FLOAT,stratum_ind)
+      define_varp(stratum_list,INT,stratum_ind)
+
+      define_varp(zone_stratum,INT,zone_ind)
 
       implicit_none_f77
       zn_common                                       // Common
       bk_common
       sp_common
       pr_common
+      g2_common
       implicit_none_f90
 
       character*FILELEN file                          // Input
 
-      integer nx,ny                                   // Output
+      integer nx,ny,ns                                // Output
       real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
-     $     ni[bk_mx,bk_my],vr[bk_mx,bk_my],vz[bk_mx,bk_my],vphi[bk_mx,bk_my],
+     $     ni[bk_mx,bk_my,bk_ms],vr[bk_mx,bk_my,bk_ms],
+     $     vz[bk_mx,bk_my,bk_ms],vphi[bk_mx,bk_my,bk_ms],
      $     te[bk_mx,bk_my],ti[bk_mx,bk_my],
-     $     ni1[bk_my],vr1[bk_my],vz1[bk_my],vphi1[bk_my],
-     $     ti1[bk_my],te1[bk_my],flux1[bk_my],
-     $     ni2[bk_my],vr2[bk_my],vz2[bk_my],vphi2[bk_my],
-     $     ti2[bk_my],te2[bk_my],flux2[bk_my]
-      real flux1_tot,flux2_tot
+     $     ni1[bk_my,bk_ms],vr1[bk_my,bk_ms],vz1[bk_my,bk_ms],
+     $     vphi1[bk_my,bk_ms],ti1[bk_my],te1[bk_my],flux1[bk_my,bk_ms],
+     $     ni2[bk_my,bk_ms],vr2[bk_my,bk_ms],vz2[bk_my,bk_ms],
+     $     vphi2[bk_my,bk_ms],ti2[bk_my],te2[bk_my],flux2[bk_my,bk_ms],
+     $     flux1_tot[bk_ms],flux2_tot[bk_ms]
+      character*sp_sy_len uedge_species[bk_ms]
 
-      integer nu,ixpt1,ixpt2,iysptrx,i,j1,j2,j3,      // Local
-     $        sp_back
-      real dummy
+      integer nu,nxpt,i,j1,j2,j3,js,                  // Local
+     $        sp_back,length,p,b,e,nstratum,is,open_stat,
+     $        fileid,ipoly,isp,dim_stratum,stratum,
+     $        species_index,stratum_index,zone,first_zone,
+     $        match,diskin2
+      real zone_ni[bk_ms],zone_vr[bk_ms],zone_vz[bk_ms],
+     $     zone_vphi[bk_ms]
+      real dummy,zone_ti,zone_te,zone_ne
+      character*LINELEN line,keyword
+      character*FILELEN uedge_file,polygon_file
 
-      open(unit=diskin,file=file,status='old',form='formatted')
-      nu=diskin
+      declare_varp(bdy_ni)
+      declare_varp(bdy_vr)
+      declare_varp(bdy_vz)
+      declare_varp(bdy_vphi)
+      declare_varp(bdy_ti)
+      declare_varp(bdy_te)
+      declare_varp(stratum_list)
+
+      declare_varp(zone_stratum)
+
+      @<Memory allocation interface@>
+      st_decls
+      g2_ncdecl
+      nc_decls
+      vc_decls
+/*
+   To permit these to be reallocated by any of the three possible macros,
+   helps to make the initial allocation of size |mem_inc|. 
+*/
+      dim_stratum=mem_inc
+
+      var_alloc(bdy_ni)
+      var_alloc(bdy_vr)
+      var_alloc(bdy_vz)
+      var_alloc(bdy_vphi)
+      var_alloc(bdy_ti)
+      var_alloc(bdy_te)
+      var_alloc(stratum_list)
+      
+      var_alloc(zone_stratum) 
+/*
+   Initializations / defauls
+*/
+      background_coords=plasma_coords_cylindrical
+      uedge_file=char_uninit
+      ns=0
+      polygon_file=char_uninit
+      nstratum=0
+      diskin2=diskin+2
+/*
+   Check to see whether the input file is a UEDGE data file or a text
+   file with keywords.
+*/
+      if (index(file,'.u') > 0) then
+/* 
+   If this is just a UEDGE data file, have to assume that only one
+   ion species is present since we cannot guarantee the correct order
+   without a specific list.  For consistency with older versions of
+   this code, the species is D$^{+}$.
+*/
+         uedge_file=file
+         ns=1
+         uedge_species[ns]='D+'
+      else
+/*
+   Otherwise, this is a keyword file.  The following is then the
+   loop over keywords.
+*/
+         open_file(diskin2,file)
+loop1: continue
+         if (read_string(diskin2,line,length)) then
+            assert(length<=len(line))
+            length=parse_string(line(:length))
+            p=0
+            assert(next_token(line,b,e,p))
+            keyword=line(b:e)
+
+            if (keyword == 'uedge_file') then
+               assert(next_token(line,b,e,p))
+               uedge_file=line(b:e)
+
+            else if (keyword == 'ion_species') then
+species_loop: continue
+               if (next_token(line,b,e,p)) then
+                  ns++
+/*
+   Check |ns| against dimension of |uedge_species|.
+*/
+                  assert(ns <= bk_ms)
+                  uedge_species[ns]=line(b:e)
+                  go to species_loop
+               end if
+
+            else if (keyword == 'polygon_file') then
+               assert(next_token(line,b,e,p))
+               polygon_file=line(b:e)
+
+            else if (keyword == 'bdy_ni') then
+               assert(next_token(line,b,e,p))
+               @<Get Species Index@>
+               assert(species_index > 0)
+               assert(next_token(line,b,e,p))
+               stratum=read_integer(line(b:e))
+               @<Get Stratum Index@>
+               assert((stratum_index > 0)  && (stratum_index <= nstratum))
+               assert(next_token(line,b,e,p))
+               bdy_ni[stratum_index][species_index]=read_real(line(b:e))
+               assert(bdy_ni[stratum_index][species_index] >= zero)
+
+            else if (keyword == 'bdy_vr') then
+               assert(next_token(line,b,e,p))
+               @<Get Species Index@>
+               assert(species_index > 0)
+               assert(next_token(line,b,e,p))
+               stratum=read_integer(line(b:e))
+               @<Get Stratum Index@>
+               assert((stratum_index > 0)  && (stratum_index <= nstratum))
+               assert(next_token(line,b,e,p))
+               bdy_vr[stratum_index][species_index]=read_real(line(b:e))
+               
+            else if (keyword == 'bdy_vz') then
+               assert(next_token(line,b,e,p))
+               @<Get Species Index@>
+               assert(species_index > 0)
+               assert(next_token(line,b,e,p))
+               stratum=read_integer(line(b:e))
+               @<Get Stratum Index@>
+               assert((stratum_index > 0)  && (stratum_index <= nstratum))
+               assert(next_token(line,b,e,p))
+               bdy_vz[stratum_index][species_index]=read_real(line(b:e))
+               
+            else if (keyword == 'bdy_vphi') then
+               assert(next_token(line,b,e,p))
+               @<Get Species Index@>
+               assert(species_index > 0)
+               assert(next_token(line,b,e,p))
+               stratum=read_integer(line(b:e))
+               @<Get Stratum Index@>
+               assert((stratum_index > 0)  && (stratum_index <= nstratum))
+               assert(next_token(line,b,e,p))
+               bdy_vphi[stratum_index][species_index]=read_real(line(b:e))
+
+            else if (keyword == 'bdy_ti') then
+               assert(next_token(line,b,e,p))
+               stratum=read_integer(line(b:e))
+               @<Get Stratum Index@>
+               assert((stratum_index > 0)  && (stratum_index <= nstratum))
+               assert(next_token(line,b,e,p))
+               bdy_ti[stratum_index]=read_real(line(b:e))*electron_charge
+               assert(bdy_ti[stratum_index] >= zero)
+
+            else if (keyword == 'bdy_te') then
+               assert(next_token(line,b,e,p))
+               stratum=read_integer(line(b:e))
+               @<Get Stratum Index@>
+               assert((stratum_index > 0)  && (stratum_index <= nstratum))
+               assert(next_token(line,b,e,p))
+               bdy_te[stratum_index]=read_real(line(b:e))*electron_charge
+               assert(bdy_te[stratum_index] >= zero)
+
+            else
+               assert('Unrecognized keyword' == ' ')
+            end if
+            go to loop1
+         end if
+         close(unit=diskin2)
+      end if
+/*
+   Read UEDGE data file.  The variable list and format now match
+   that in UEDGE subroutine |writemcnfile|.  Note that only |nx| and
+   |ny| are needed here, although |nxpt| is needed to loop over
+   X-point parameters.
+*/
+      open_file(diskin2,uedge_file)
+      nu=diskin2
 /* skip first comment line */
       read(nu,*)
-      read(nu,*) nx
-      read(nu,*) ny
+      read(nu,*) nx,ny,nxpt
+      assert(nxpt >= 1)
+      do i=1,nxpt
+         read(nu,*)         // |iysptrx1(i)|, |iysptrx2(i)|
+         read(nu,*)         // |ixlb|, |ixpt1|, |ixmdp|, |ixpt2|, all |(i)|
+      end do
       assert(nx <= bk_mx && ny <= bk_my)
-      read(nu,*) ixpt1
-      read(nu,*) ixpt2
-      read(nu,*) iysptrx
 
       read(nu,*) SP (((rm[j1,j2,j3],j1=1,nx),j2=1,ny),j3=0,4)
       read(nu,*) SP (((zm[j1,j2,j3],j1=1,nx),j2=1,ny),j3=0,4)
-
-         /* skip data for br,bz,bphi */
-
+/* 
+   Skip data for br,bz,bphi 
+*/
       do i=1,3
          read(nu,*) SP (((dummy,j1=1,nx),j2=1,ny),j3=0,4)
       enddo
-      read (nu,*,err= 6)SP ((ni[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((vr[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((vz[j1,j2],j1=1,nx),j2=1,ny)
-      read (nu,*,err= 6)SP ((vphi[j1,j2],j1=1,nx),j2=1,ny)
+      do js=1,ns
+         read (nu,*,err= 6)SP ((ni[j1,j2,js],j1=1,nx),j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP ((vr[j1,j2,js],j1=1,nx),j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP ((vz[j1,j2,js],j1=1,nx),j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP ((vphi[j1,j2,js],j1=1,nx),j2=1,ny)
+      end do
       read (nu,*,err= 6)SP ((ti[j1,j2],j1=1,nx),j2=1,ny)
       read (nu,*,err= 6)SP ((te[j1,j2],j1=1,nx),j2=1,ny)
 @#if !OLD_UEDATA
-      read (nu,*,err= 6)SP (ni1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vr1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vz1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vphi1[j2],j2=1,ny)
+      do js=1,ns
+         read (nu,*,err= 6)SP (ni1[j2,js],j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP (vr1[j2,js],j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP (vz1[j2,js],j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP (vphi1[j2,js],j2=1,ny)
+      end do
       read (nu,*,err= 6)SP (ti1[j2],j2=1,ny)
       read (nu,*,err= 6)SP (te1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (ni2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vr2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vz2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (vphi2[j2],j2=1,ny)
+      do js=1,ns
+         read (nu,*,err= 6)SP (flux1[j2,js],j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP (ni2[j2,js],j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP (vr2[j2,js],j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP (vz2[j2,js],j2=1,ny)
+      end do
+      do js=1,ns
+         read (nu,*,err= 6)SP (vphi2[j2,js],j2=1,ny)
+      end do
       read (nu,*,err= 6)SP (ti2[j2],j2=1,ny)
       read (nu,*,err= 6)SP (te2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
+      do js=1,ns
+         read (nu,*,err= 6)SP (flux2[j2,js],j2=1,ny)
+      end do
 @#else
-      read (nu,*,err= 6)SP (flux1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (flux2[j2],j2=1,ny)
+      read (nu,*,err= 6)SP ((flux1[j2,js],j2=1,ny),js=1,ns)
+      read (nu,*,err= 6)SP ((flux2[j2,js],j2=1,ny),js=1,ns)
 @#endif
-
+      close(unit=diskin2)
+/*
+   Get stratum numbers for each zone from polygon netCDF file 
+   (if specified).  This is needed to assign the boundary plasma values.
+*/
+      do zone=1,zn_num
+         zone_stratum[zone]=int_unused
+      end do
+      if (polygon_file != char_uninit) then
+         fileid=ncopen(polygon_file,NC_NOWRITE,nc_stat)
+         g2_ncread(fileid)
+         do ipoly=1,g2_num_polygons
+            zone=g2_polygon_zone[ipoly]
+            if (zone_stratum[zone] == int_unused) then
+               assert(g2_polygon_stratum[ipoly] >= 0)  // Do we need this?
+               zone_stratum[zone]=g2_polygon_stratum[ipoly]
+            else                                       // Or this?
+/*
+   Typically use a single zone for all solid polygons, even from different
+   strata.  This check for unique stratum numbers is really only needed
+   for plasma zones.
+*/
+               assert((zone_stratum[zone] == g2_polygon_stratum[ipoly])
+     $              || (zn_type(zone) != zn_plasma))
+            end if
+         end do
+      else
+         if (nstratum > 0) write(stderr,*) 'Need to specify polygon.nc file to set boundary parameters!'
+      end if
+      if (nstratum > 0) then
+         dim_stratum=nstratum
+         var_reallocb(bdy_ni)
+         var_reallocb(bdy_vr)
+         var_reallocb(bdy_vz)
+         var_reallocb(bdy_vphi)
+         var_reallocb(bdy_ti)
+         var_reallocb(bdy_te)
+         var_reallocb(stratum_list)
+      end if
+/*
+   Assign plasma parameters to each zone.  Species related warning messages
+   are printed only when the flag |first_zone| is |TRUE|.  The flag is
+   changed to |FALSE| once the first plasma zone has been processed, 
+   eliminating repetitive messages.
+*/
+      first_zone=TRUE
+      do zone=1,zn_num
+         assert(zn_check(zone))
+         if (zn_type(zone) == zn_plasma) then
+/*
+   Zone is in the UEDGE mesh
+*/
+            if ((zn_index(zone,1) > 0) && (zn_index(zone,2) > 0)) then
+               j1=zn_index(zone,1)
+               assert(j1 <= nx)
+               j2=zn_index(zone,2)
+               assert(j2 <= ny)
+               do js=1,ns
+                  zone_ni[js]=ni[j1,j2,js]
+                  zone_vr[js]=vr[j1,j2,js]
+                  zone_vz[js]=vz[j1,j2,js]
+                  zone_vphi[js]=vphi[j1,j2,js]
+               end do
+               zone_ti=ti[j1,j2]
+               zone_te=te[j1,j2]
+            else
+               if (nstratum > 0) then
+                  is=int_lookup(zone_stratum[zone],stratum_list,nstratum)
+               else
+                  is=0
+               end if
+/*
+   Else is included in the list of specified boundary parameters
+*/
+               if (is > 0) then
+                  assert(is <= nstratum)
+                  do js=1,ns
+                     zone_ni[js]=bdy_ni[is][js]
+                     zone_vr[js]=bdy_vr[is][js]
+                     zone_vz[js]=bdy_vz[is][js]
+                     zone_vphi[js]=bdy_vphi[is][js]
+                  end do
+                  zone_ti=bdy_ti[is]
+                  zone_te=bdy_te[is]
+               else
+/*
+   Not specified anywhere; set parameters to zero
+*/
+                  do js=1,ns
+                     zone_ni[js]=zero
+                     zone_vr[js]=zero
+                     zone_vz[js]=zero
+                     zone_vphi[js]=zero
+                  end do
+                  zone_ti=zero
+                  zone_te=zero
+               end if
+            end if
+/*
+   Compute electron density from quasineutrality using |uedge_species|
+   list.  These species must appear at least in the reference species list.
+*/
+            zone_ne=zero
+            do js=1,ns
+               isp=sp_lookup(uedge_species[js])
+               if (sp_check(isp)) then
+                  zone_ne+=zone_ni[js]*sp_z(isp)
+               else
+                  if (first_zone == TRUE) write(stderr,*) 'UEDGE species ',
+     $                 uedge_species[js],' not in reference species list'
+               end if
+/*
+   Assign ion background parameters for this zone for each species
+   that appears in the current problem background list.
+*/
+               sp_back=pr_background_lookup(isp)
+               if (bk_check(sp_back)) then
+                  bk_n(sp_back,zone)=zone_ni[js]
+                  vc_set(bk_v(sp_back,zone),zone_vr[js],zone_vphi[js],
+     $                 zone_vz[js])
+                  bk_temp(sp_back,zone)=zone_ti
+               else
+                  if (first_zone == TRUE) write(stderr,*) 'UEDGE species ',
+     $                 uedge_species[js],' not in problem species list'
+               end if
+            end do
+/*
+   Assign (background) electron density and temperature
+*/
+            isp=sp_lookup('e')
+            if (sp_check(isp)) then
+               sp_back=pr_background_lookup(isp)
+               if (bk_check(sp_back)) then
+                  bk_n(sp_back,zone)=zone_ne
+                  bk_temp(sp_back,zone)=zone_te
+               else
+                  if (first_zone == TRUE) write(stderr,*) 
+     $                 'e not listed as a background species!'
+               end if
+            else
+               if (first_zone == TRUE) write(stderr,*) 
+     $              'e not listed as a species!'
+            end if
+            first_zone=FALSE
+         end if    // Plasma zones
+      end do       // Zones
+@#if 0  
+/*
+   Original code corresponding to the above.  Note the assumed zone
+   numbering.
+*/    
       do sp_back=1,bk_num
          i=0
          do j1=1,nx
@@ -290,26 +711,84 @@ Introduction\ldots
             enddo
          enddo
       enddo
-@#if 0
-/*
-   This is no longer necessarily true when we relabel the vacuum zones.
-*/
-      assert(i==zone_type_num[zn_plasma])
 @#endif
-      background_coords=plasma_coords_cylindrical
-
-      flux1_tot=zero
-      flux2_tot=zero
-      do j2=1,ny
-         flux1_tot+=flux1[j2]
-         flux2_tot+=flux2[j2]
+/*
+   Calculate total currents for all species in |uedge_species|
+*/
+      do js=1,ns
+         flux1_tot[js]=zero
+         flux2_tot[js]=zero
+         do j2=1,ny
+            flux1_tot[js]+=flux1[j2,js]
+            flux2_tot[js]+=flux2[j2,js]
+         end do
       end do
-
-      return
+      go to eof
 
  6    assert('error occurred in reading uedge data file' == ' ')
+
+eof: continue
+
+      var_free(bdy_ni)
+      var_free(bdy_vr)
+      var_free(bdy_vz)
+      var_free(bdy_vphi)
+      var_free(bdy_ti)
+      var_free(bdy_te)
+      var_free(stratum_list)
+      var_free(zone_stratum) 
+
       return
       end
+
+@ Return index in |uedge_species| corresponding to this species.
+
+@<Get Species Index@>=
+               assert(ns > 0)
+               species_index=0
+               do is=1,ns
+                  if (uedge_species[is] == line(b:e)) then
+                     assert(species_index == 0)
+                     species_index=is
+                  end if
+               end do
+
+@ Return index in |stratum_list| corresponding to |stratum|, if present.
+If not, add to the list.
+
+@<Get Stratum Index@>=
+
+               match=FALSE
+               if (nstratum > 0) then
+                  do is=1,nstratum
+                     if (stratum_list[is] == stratum) then
+                        match=TRUE
+                        stratum_index=is
+                     end if
+                  end do
+               end if
+               if (match == FALSE) then
+                  nstratum++
+                  dim_stratum=max(dim_stratum,nstratum)
+                  var_realloca(bdy_ni)
+                  var_realloca(bdy_vr)
+                  var_realloca(bdy_vz)
+                  var_realloca(bdy_vphi)
+                  var_realloca(bdy_te)
+                  var_realloca(bdy_ti)
+                  var_realloca(stratum_list)
+                  assert(ns > 0)
+                  do is=1,ns
+                     bdy_ni[nstratum][is]=zero
+                     bdy_vr[nstratum][is]=zero
+                     bdy_vz[nstratum][is]=zero
+                     bdy_vphi[nstratum][is]=zero
+                  end do
+                  bdy_te[nstratum]=zero
+                  bdy_ti[nstratum]=zero
+                  stratum_index=nstratum
+                  stratum_list[stratum_index]=stratum
+               end if
 
 @ Write out background information.
 
@@ -343,7 +822,7 @@ Introduction\ldots
       return
       end
 
-@ Write out sources to be read in prior to later iterations.
+@ Write out sources to be read in prior to later DEGAS 2 - UEDGE iterations.
 
 @<Functions...@>=
       subroutine write_old_sources
@@ -355,6 +834,7 @@ Introduction\ldots
       character *FILELEN tempfile
       nc_decls
       so_ncdecl
+      st_decls
 
       tempfile=filenames_array[oldsourcefile]
       if (tempfile != char_undef) then
@@ -363,7 +843,44 @@ Introduction\ldots
          call ncendef(fileid,nc_stat);
          so_ncwrite(fileid)
          call ncclose(fileid,nc_stat)
+         write(stdout,*) 'Old source file ',trim(tempfile),' written'
       end if
+
+      return
+      end
+
+@ Read in old sources.
+
+@<Functions...@>=
+      subroutine nc_read_old_sources(old_source_file)
+      implicit_none_f77
+      so_common
+      rf_common
+      implicit_none_f90
+      integer old_source_file      // Output
+      integer fileid
+      character *FILELEN tempfile  // Local
+      nc_decls
+      @<Memory allocation interface@>
+      so_ncdecl
+
+      tempfile=filenames_array[oldsourcefile]
+      if (tempfile == char_undef) then
+         old_source_file=FALSE
+         return
+      end if
+      call ncpopt(0)
+      fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
+      if (nc_stat != 0) then
+         old_source_file=FALSE
+         return
+      else
+         old_source_file=TRUE
+      end if
+      call ncpopt(NC_VERBOSE+NC_FATAL)
+      
+      so_ncread(fileid)
+      call ncclose(fileid,nc_stat)
 
       return
       end
@@ -378,7 +895,7 @@ Introduction\ldots
       so_common
       implicit_none_f90
 
-      integer jr,i_seg,update               // Local
+      integer jr,update                    // Local
 
       @<Memory allocation interface@>
 
@@ -403,7 +920,8 @@ Introduction\ldots
             so_grps++
             so_base(so_grps)=so_seg_tot+1
             so_type(so_grps)=so_recomb
-/* In |set_prod_recomb|, assumed that these reactions had just one product:
+/* 
+   In |set_prod_recomb|, assumed that these reactions had just one product:
    the test species being sourced. The ``root'' ion was also assumed to be
    the second reagent.
  */
@@ -454,7 +972,6 @@ Introduction\ldots
       lc_decls
       rn_decls
       st_decls
-
 /*
    Note: have to pass in |so_seg_tot| so this routine can be called for
    subsequent iterations without overwriting the number of segments.
@@ -475,7 +992,6 @@ Introduction\ldots
             if (rate > zero) then
                so_seg_tot++
                if (update == TRUE) then
-                  
 /*
    Be sure we don't have a zone oscillating between zero and nonzero rates
    on iterations with the plasma code.
@@ -501,105 +1017,57 @@ Introduction\ldots
 @ Set plate sources for UEDGE case.
 
 @<Functions...@>=
-      subroutine set_uedge_plate_sources(nx,ny,rm,zm,
-     $     vr1,vz1,vphi1,te1,ti1,flux1,
-     $     vr2,vz2,vphi2,te2,ti2,flux2,flux1_tot,flux2_tot,update)
+      subroutine set_uedge_plate_sources(nx,ny,ns,uedge_species,rm,zm,
+     $     ni1,vr1,vz1,vphi1,te1,ti1,flux1,
+     $     ni2,vr2,vz2,vphi2,te2,ti2,flux2,
+     $     flux1_present,flux2_present,group_map,update)
 
       implicit_none_f77
       so_common                                  // Common
-      implicit_none_f90
-
-      integer nx,ny                              // Input; UEDGE file data:
-      real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
-     $     ni[bk_mx,bk_my],vr[bk_mx,bk_my],vz[bk_mx,bk_my],vphi[bk_mx,bk_my],
-     $     te[bk_mx,bk_my],ti[bk_mx,bk_my],
-     $     ni1[bk_my],vr1[bk_my],vz1[bk_my],vphi1[bk_my],
-     $     ti1[bk_my],te1[bk_my],flux1[bk_my],
-     $     ni2[bk_my],vr2[bk_my],vz2[bk_my],vphi2[bk_my],
-     $     ti2[bk_my],te2[bk_my],flux2[bk_my]
-      real flux1_tot,flux2_tot
-      integer update
-
-      integer i_seg,j1,j2                         // Local           
-      so_decl(grp)
-
-      i_seg=0
-      grp=0
-      if (flux1_tot > zero) then
-         grp++
-         j1=1
-         so_tot_curr(grp)=zero
-         do j2=ny,1,-1
-            i_seg++
-            source_current[i_seg]=flux1[j2]
-            so_tot_curr(grp)+=source_current[i_seg]
-         end do
-
-         call set_uedge_sheath(grp,j1,ny,1,rm[1,1,1],rm[1,1,3],zm[1,1,1],
-     $        zm[1,1,3],vr1,vz1,vphi1,te1,ti1,update)
-
-      end if
-
-      if (flux2_tot > zero) then
-         grp++
-         j1=nx
-         so_tot_curr(grp)=zero
-         do j2=1,ny
-            i_seg++
-            source_current[i_seg]=flux2[j2]
-            so_tot_curr(grp)+=source_current[i_seg]
-         end do
-
-         call set_uedge_sheath(grp,j1,1,ny,rm[1,1,2],rm[1,1,4],zm[1,1,2],
-     $        zm[1,1,4],vr2,vz2,vphi2,te2,ti2,update)
-      end if
-
-      return
-      end
-
-@ Set model parameters for the sheath at plasma sectors.
-
-@<Functions...@>=
-      subroutine set_uedge_sheath(grp,j1,ny_start,ny_stop,
-     $        rmm,rmp,zmm,zmp,vr_b,vz_b,vphi_b,te_b,ti_b,update)
-
-      implicit_none_f77
-      so_common                                         // Common
+      sp_common
       sc_common
       implicit_none_f90
 
-      integer j1,ny_start,ny_stop,update                // Input
-      so_decl(grp)
-      real rmm[bk_mx,bk_my],rmp[bk_mx,bk_my],zmm[bk_mx,bk_my],zmp[bk_mx,bk_my],
-     $     vr_b[bk_my],vz_b[bk_my],vphi_b[bk_my],te_b[bk_my],ti_b[bk_my]
+      integer nx,ny,ns,flux1_present,            // Input; UEDGE file data:
+     $        flux2_present,update
+      integer group_map[2,bk_ms]
+      real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
+     $     ni1[bk_my,bk_ms],vr1[bk_my,bk_ms],vz1[bk_my,bk_ms],
+     $     vphi1[bk_my,bk_ms],ti1[bk_my],te1[bk_my],flux1[bk_my,bk_ms],
+     $     ni2[bk_my,bk_ms],vr2[bk_my,bk_ms],vz2[bk_my,bk_ms],
+     $     vphi2[bk_my,bk_ms],ti2[bk_my],te2[bk_my],flux2[bk_my,bk_ms]
+      character*sp_sy_len uedge_species[bk_ms]
 
-      integer dirn,j2,i_seg,plasma_sc                   // Local
-      vc_decl(x1)
-      vc_decl(x2)
-@#if 0
-      vc_decl(xdiff)
-@#endif
-      vc_decl(v_bdy)
+      integer i_seg,j1,j2,js,is_seg,isp,plasma_sc    // Local   
+      real ne
+      so_decl(grp)
       sc_decl(sector)
       sc_plasma_decl(plasma_sc_ptr)
+      vc_decl(x1)
+      vc_decl(x2)
+      vc_decl(v_isp)
+      vc_decl(v_bdy)
 
-      external lookup_sector,inc_ion_energy             // External
+      external lookup_sector,phi_sheath             // External
       integer lookup_sector
-      real inc_ion_energy
+      real phi_sheath
 
-      if (ny_start <= ny_stop) then
-         dirn=+1
-      else
-         dirn=-1
-      end if
-      i_seg=so_base(grp)-1
-      do j2=ny_start,ny_stop,dirn
-         i_seg++
-         if (update == TRUE) then
-            sector=source_segment_ptr[i_seg]
-         else
-            vc_set(x1,rmp[j1,j2],zero,zmp[j1,j2])
-            vc_set(x2,rmm[j1,j2],zero,zmm[j1,j2])
+      st_decls
+/*
+   This stuff needs to be in a separate routine so it can be
+   called by |readbackground| and |updatebackground|.
+*/
+      i_seg=0
+      if (flux1_present == TRUE) then
+/*
+   Loop over segments along the outer target.  Use coordinates
+   of each segment to look up the corresponding geometry sector.
+*/
+         j1=1
+         do j2=ny,1,-1
+            i_seg++
+            vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
+            vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
             sector=lookup_sector(x1,x2)
             if (sc_check(sector)) then
                plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
@@ -618,49 +1086,147 @@ Introduction\ldots
                assert(sc_plasma_check(plasma_sc_ptr))
                plasma_sc=TRUE
             end if
-            source_segment_ptr[i_seg]=sector
-/*
-   Compute and print out area of each sector
+/* 
+   Now, for each segment, loop over species.  Set source current
+   for each species for which a source group is to be defined.
 */
-@#if 0
-            if (grp == 2) then
-               vc_difference(x1,x2,xdiff)
-               write(40,*) j2, PI*(x1[1]+x2[1])*vc_abs(xdiff)
-            end if
-@#endif            
-         end if
+            vc_set(v_bdy,zero,zero,zero)
+            ne=zero
+            do js=1,ns
+               if (group_map[1,js] != int_undef) then
+                  grp=group_map[1,js]
+                  is_seg=so_base(grp)+i_seg-1
+                  source_current[is_seg]=flux1[j2,js]
+                  so_tot_curr(grp)+=source_current[is_seg]
+/*
+   This is the only use of the |update| flag, ensuring a
+   one-to-one correspondence between the source segments in consecutive
+   runs.
+*/
+                  if (update == FALSE) then
+                     source_segment_ptr[is_seg]=sector
+                  else
+                     assert(source_segment_ptr[is_seg] == sector)
+                  end if
+               end if
+               isp=sp_lookup(uedge_species[js])
+               if (sp_check(isp)) then
+                  vc_set(v_isp,vr1[j2,js],vphi1[j2,js],vz1[j2,js])
+                  vc_xvt(v_bdy,v_isp,sp_z(isp)*ni1[j2,js],v_bdy)
+                  ne+=sp_z(isp)*ni1[j2,js]
+               end if
+            end do
 @#if !OLD_UEDATA
-         vc_set(v_bdy,vr_b[j2],vphi_b[j2],vz_b[j2])
-         if (vc_abs(v_bdy) > zero || te_b[j2] > zero) then
-            plasma_e_ion_delta[plasma_sc_ptr]
-     $           =inc_ion_energy(vc_args(v_bdy),ti_b[j2],te_b[j2])
-            plasma_e_ion_mult[plasma_sc_ptr]=zero
-         end if                           // else: using default values
+/*
+   Finally, use the ion and electron temperatures and total ion
+   velocity to compute the sheath related parameters.  These
+   data will be used in the main code to compute the incident
+   ion energy as $E_{in} = 3 T_{i} + (1/2 + \phi_{s})T_{e}$.
+   This expression was developed during the benchmark against
+   EIRENE.
+*/
+            if (ne > zero) then
+               vc_scale(one/ne,v_bdy,v_bdy)
+            end if
+            if (vc_abs(v_bdy) > zero || te1[j2] > zero) then
+               plasma_e_ion_delta[plasma_sc_ptr]
+     $              =const(3.0)*ti1[j2]+half*te1[j2]
+               plasma_e_ion_sheath[plasma_sc_ptr]
+     $              =te1[j2]*phi_sheath(vc_args(v_bdy),ti1[j2],te1[j2])
+               plasma_e_ion_mult[plasma_sc_ptr]=zero
+            end if                           // else: using default values
 @#endif
-      end do
+         end do
+      end if
+
+      i_seg=0
+      if (flux2_present == TRUE) then
+/* 
+   This is the corresponding section for the inner target.  Enough of the
+   variable names differ to make a separate section useful.
+*/
+         j1=nx
+         do j2=1,ny
+            i_seg++
+            vc_set(x1,rm[j1,j2,4],zero,zm[j1,j2,4])
+            vc_set(x2,rm[j1,j2,2],zero,zm[j1,j2,2])
+            sector=lookup_sector(x1,x2)
+            if (sc_check(sector)) then
+               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+               if (sc_plasma_check(plasma_sc_ptr)) then
+                  plasma_sc=TRUE
+               else
+                  plasma_sc=FALSE
+               end if
+            else
+               plasma_sc=FALSE
+            end if
+            if (plasma_sc == FALSE) then
+               sector=lookup_sector(x2,x1)
+               assert(sc_check(sector))
+               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+               assert(sc_plasma_check(plasma_sc_ptr))
+               plasma_sc=TRUE
+            end if
+            vc_set(v_bdy,zero,zero,zero)
+            ne=zero
+            do js=1,ns
+               if (group_map[2,js] != int_undef) then
+                  grp=group_map[2,js]
+                  is_seg=so_base(grp)+i_seg-1
+                  source_current[is_seg]=flux2[j2,js]
+                  so_tot_curr(grp)+=source_current[is_seg]
+                  if (update == FALSE) then
+                     source_segment_ptr[is_seg]=sector
+                  else
+                     assert(source_segment_ptr[is_seg] == sector)
+                  end if
+               end if
+               isp=sp_lookup(uedge_species[js])
+               if (sp_check(isp)) then
+                  vc_set(v_isp,vr2[j2,js],vphi2[j2,js],vz2[j2,js])
+                  vc_xvt(v_bdy,v_isp,sp_z(isp)*ni2[j2,js],v_bdy)
+                  ne+=sp_z(isp)*ni2[j2,js]
+               end if
+            end do
+@#if !OLD_UEDATA
+            if (ne > zero) then
+               vc_scale(one/ne,v_bdy,v_bdy)
+            end if
+            if (vc_abs(v_bdy) > zero || te2[j2] > zero) then
+               plasma_e_ion_delta[plasma_sc_ptr]
+     $              =const(3.0)*ti2[j2]+half*te2[j2]
+               plasma_e_ion_sheath[plasma_sc_ptr]
+     $              =te2[j2]*phi_sheath(vc_args(v_bdy),ti2[j2],te2[j2])
+               plasma_e_ion_mult[plasma_sc_ptr]=zero
+            end if                           // else: using default values
+@#endif
+         end do
+      end if
 
       return
       end
 
-@ Compute incident ion energy. Use a simple prescription based on the
+@ Compute sheath potential.  Use a simple prescription based on the
 one applied by EIRENE in the benchmark runs.
 
 @<Functions...@>=
-      function inc_ion_energy(vc_dummy(vi),ti,te)
+      function phi_sheath(vc_dummy(vi),ti,te)
 
       implicit_none_f77
       implicit_none_f90
       @<Memory allocation interface@>
-      real inc_ion_energy                // Function
+      real phi_sheath                    // Function
       vc_decl(vi)                        // Input
       real ti,te
 
-      real ce,phi_sheath                 // Local
+      real ce                            // Local
 
       ce=sqrt(te/electron_mass)
       phi_sheath=-log(sqrt(two*PI)*vc_abs(vi)/ce)
-
+@#if 0
       inc_ion_energy=const(3.0)*ti+(half+phi_sheath)*te
+@#endif
 
       return
       end
@@ -926,6 +1492,70 @@ c      integer ia(n)
 
       return
       end
+
+@ Compare latest source currents with those last used to compute the
+sampling arrays. If changes are not too large, account for them with a
+weight factor. Otherwise, recompute the sampling arrays.
+
+@<Functions...@>=
+      subroutine update_wt_alias(old_current,old_rel_wt,old_tot_curr)
+
+      implicit_none_f77
+      so_common                                          // Common
+      implicit_none_f90
+
+      real old_current[*],old_rel_wt[*],old_tot_curr[*]  // Input
+
+      integer i_seg,initialize,write_file                // Local
+      so_decl(grp)
+      
+      write_file=FALSE
+      do grp=1,so_grps
+
+         so_wt_norm(grp)=zero
+         initialize=FALSE
+         do i_seg=so_base(grp),so_base(grp)+so_nseg(grp)-1
+            if (old_current[i_seg] > zero) then
+               source_segment_rel_wt[i_seg]=old_rel_wt[i_seg] 
+     $              * source_current[i_seg]/ old_current[i_seg]
+            else
+               assert(source_current[i_seg] == zero)
+            end if
+
+            if (source_segment_rel_wt[i_seg] > so_rel_wt_max 
+     $           || source_segment_rel_wt[i_seg] < so_rel_wt_min) then
+               initialize=TRUE
+               go to break
+            end if
+            so_wt_norm(grp)+=source_current[i_seg]
+     $           / (so_tot_curr(grp)*source_segment_rel_wt[i_seg])
+         end do
+         if (so_wt_norm(grp) > so_wt_norm_max 
+     $        || so_wt_norm(grp) < so_wt_norm_min)
+     $        initialize=TRUE
+break: continue
+
+         if (initialize == TRUE) then
+            write(stdout,*) ' Initializing sampling arrays for group ',grp
+            write_file=TRUE
+            do i_seg=so_base(grp),so_base(grp)+so_nseg(grp)-1
+               source_segment_rel_wt[i_seg]=one
+            end do
+            call set_prob_alias(so_nseg(grp),
+     $           source_current[so_base(grp)],
+     $           source_segment_rel_wt[so_base(grp)],
+     $           source_segment_ptr[so_base(grp)],
+     $           source_segment_prob_alias[so_base(grp)],
+     $           source_segment_ptr_alias[so_base(grp)],so_wt_norm(grp))
+
+         end if
+      end do
+
+      if (write_file == TRUE) call write_old_sources
+
+      return
+      end
+
 @ Sorting Routine. Sorts an |array(1:n)| into ascending order using 
 Quicksort, while making the corresponding rearrangement of the array 
 |brr(1:n)|. This implementation is taken directly out of {\em Numerical
