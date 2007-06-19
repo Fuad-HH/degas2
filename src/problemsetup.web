@@ -2,6 +2,10 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.35  2006/01/19 19:57:07  dstotler
+% Add set_prod_excite to set up products for excitation and deexcitation
+% reactions. Remove references to adsorb PMIs in example and code.
+%
 % Revision 1.34  2001/07/16 21:00:49  dstotler
 % Changes to fix bug in allocation of pr_var0_list. Added
 % pr_var_xz_stress for Couette flow example.
@@ -1613,6 +1617,8 @@ specific for each PMI.
 
       if (pm_pmi_type(p)=='reflection') then
          call set_prod_reflection(pr_test_args(ts),pm_args(p))
+      else if (pm_pmi_type(p)=='adsorption') then
+         call set_prod_adsorption(pr_test_args(ts),pm_args(p))
       else if (pm_pmi_type(p)=='desorption') then
          call set_prod_desorption(pr_test_args(ts),pm_args(p))
       else if (pm_pmi_type(p)=='sputter') then
@@ -1656,6 +1662,29 @@ comes in must go out.''
 /* The only product had better be the same as the incoming test particle */
       assert(sp_generic(pm_product(p,1))==sp_generic(pr_test(ts)))
       pr_pm_prod(ts,pr_pm_case_num(ts),1,1)=pr_test(ts)
+
+      return
+      end
+
+@ Set up isotopic variations for adsorptions. It doesn't get any easier
+than this.
+
+@<Functions...@>=
+      subroutine set_prod_adsorption(pr_test_dummy(ts),pm_dummy(p))
+      implicit_none_f77
+      pr_common                 // Common
+      pm_common
+      implicit_none_f90
+
+      pr_test_decl(ts)          // Input
+      pm_decl(p)
+
+
+      assert(pm_product_num(p)==0)
+      pr_pm_num_arrange(ts,pr_pm_case_num(ts))=1
+      pr_pm_prod_mult(ts,pr_pm_case_num(ts),1)=one
+
+      pr_pm_prod(ts,pr_pm_case_num(ts),1,1)=0
 
       return
       end
