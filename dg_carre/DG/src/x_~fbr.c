@@ -286,6 +286,7 @@ char* dgResources[]={
   "DivGeo.strXPointSeg:                 zone of separatrix\n",
   "DivGeo.strMeshCellTwisted:           Twisted!\n",
   "DivGeo.strMeshCellCenterOutside:     The center is outside!\n",
+  "DivGeo.strMeshCellConcave:           Concave!\n",
   "DivGeo.strMeshElementCut:            (Cut)\n",
   "DivGeo.strMeshCell:                  mesh cell\n",
   "DivGeo.strMeshElement:               mesh element\n",
