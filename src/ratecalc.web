@@ -2,6 +2,10 @@
 \Title{ratecalc}
 
 % $Log$
+% Revision 1.37  2006/01/19 19:58:20  dstotler
+% Add areal conversions two places in dcadre. Revised some of the
+% introductory documentation.
+%
 % Revision 1.36  2001/07/16 21:01:29  dstotler
 % Updated Aladdin subroutine list. Add I_2_4up^4, used for computing
 % viscosity from CFADC neutral-neutral cross sections.
@@ -1667,13 +1671,17 @@ passed in from the ALADDIN data files. The resulting value is returned as
          call ELSPLINE(pet, fit_coef, num_fit_coef, pfit, kermsg)
       else if (leval == '#INTERP2D') then
 /*
-   |INTERP2D|, like other Aladdin routines explicitly uses double precision.
-   However, for convenience it makes use of the |find_delta| and 
-   |interpolate2| routines. This assert will alert the user to a precision
-   incompatibility with those routines. 
+   |INTERP2D| and |INTERP1D|, like other Aladdin routines explicitly use 
+   double precision.  However, for convenience they make use of the 
+   |find_delta| and interpolation routines in interpolate.web.
+   This assert will alert the user to a precision incompatibility with 
+   those routines. 
 */
          assert(index($STRING(real),'DOUBLE') > 0)
          call INTERP2D(pet, fit_coef, num_fit_coef, pfit, kermsg)
+      else if (leval == '#INTERP1D') then
+         assert(index($STRING(real),'DOUBLE') > 0)
+         call INTERP1D(pet, fit_coef, num_fit_coef, pfit, kermsg)
 
       end if
 
