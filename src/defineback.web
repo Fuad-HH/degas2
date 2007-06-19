@@ -2,6 +2,14 @@
 \Title{defineback}
 
 % $Log$
+% Revision 1.3  2006/01/19 19:09:35  dstotler
+% Extend to 3-D. Area computation for specify_flux option works for 3-D
+% symmetries.  Incorporate specification of puff temperature via
+% source_paramters array.  Added documentation on source segment
+% output. In the latter, replaced input parameters with corresponding
+% sector based data to avoid garbage segment numbers when the wildcard
+% option is used.
+%
 % Revision 1.2  2002/01/28 16:52:47  dstotler
 % Remove var_reallocb's of source_current, etc. so they mesh with the
 % realloc's in set_background_sources. Add a general row-oriented plasma
@@ -663,6 +671,81 @@ is not used (even in 3-D cases; the $i_{y}$ value effectively
 provides that information).
 \end{description}  
 
+\section{Iterative Problems}
+
+This code is now capable of being used in conjunction with the
+{\tt UEDGE} plasma code (via the version of subroutine |get_n_t|
+in the file {\tt uedgeback.web}).  Moreover, the ability
+to iterate between UEDGE and DEGAS 2, previously available
+only with {\tt readbackground} and {\tt updatebackground}
+has been incorporated. None of the code in {\tt defineback}
+is {\tt UEDGE}-specific, however.  Establishing an analogous
+iterative capability with another code would involve replacing
+just the |get_n_t| routine.
+
+Three different indicators inform {\tt defineback} that it is
+being used in this iterative fashion.
+\begin{enumerate}
+  \item The |iterative_solution| keyword appears at the
+beginning of the 
+{\tt defineback} input file.  This keyword needs no arguments;
+it confirms the user's intention to pursue an iterative solution.
+  \item An {\tt oldsourcefile} is present; the 
+actual filename is specified in the 
+{\tt degas2.in} file. This file contains the values of 
+the source ``class'' data (currents and weights) from the
+initial run of {\tt defineback} in an iterative run; i.e.,
+this file gets written out only if the 
+|iterative_solution| keyword has been invoked and if a 
+name has been specified for it.  Likewise, it is read in
+on a subsequent (``update'') run if the {\tt oldsourcefile}
+has a name and is present; otherwise, {\tt defineback} will
+{\em not} run in update mode.
+  \item The number of source groups |so_grps| is greater than zero
+when the |get_n_t| subroutine is called.  Directly informing
+the |get_n_t| subroutine that {\tt defineback} is running
+in ``update'' mode would require modifying its argument list.
+Instead, we use the value of |so_grps| as a proxy.  When the
+{\tt oldsourcefile} is read in, it sets |so_grps| to its
+value from the previous invocation of {\tt defineback}.
+This value reaches the |get_n_t| subroutine via the source
+``class'' data.
+\end{enumerate}
+The consistency of these three flags is checked. 
+The most detailed 
+checks are on the members of the source ``class'' that
+should remain the same from one iteration to the next.
+In particular,
+the current value of |so_grps| is required to be the same
+as that obtained
+from the |oldsourcefile|; the same is true 
+for the number of source segments and
+their locations within the geometry.
+
+By storing the initial source data in
+the {\tt oldsourcefile}, changes in the source current
+distribution on subsequent iterations
+can be accounted for by weighting factors (see:
+D. P. Stotler et al., {\em Contrib. Plasma Phys.} {\bf 40}
+(2000) 221).  This is a form of correlated sampling.
+After some number of iterations, the distribution 
+will have changed enough that this approach
+becomes ineffective.  The
+parameters used to control this decision
+are |so_rel_wt_min| and |so_rel_wt_max|.
+The sampling arrays are then recomputed
+and the {\tt oldsourcefile} over-written.  
+Note that if an {\tt oldsourcefile} filename is specified,
+{\tt defineback} will look for that file.  If it exists and
+can be read, {\tt defineback} will assume that it is being
+invoked to update the plasma and source data as was just
+described.  Hence, the user needs to delete an existing
+{\tt oldsourcefile} before the initial run of {\tt defineback}.
+On the other hand, if
+the {\tt oldsourcefile} filename in {\tt degas2.in} is not specified,
+the iterations will proceed, but without the benefits of this
+weight rescaling.
+
 \ID{$Id$}
 
 @m FILE 'defineback.web'
@@ -703,6 +786,7 @@ provides that information).
 
       call read_geometry
 
+      call nc_read_elements
       call nc_read_species
       call nc_read_reactions
       call nc_read_materials
@@ -752,7 +836,8 @@ provides that information).
 @m code_strength 20
 @m code_e_delta 21
 @m code_e_mult 22
-@m code_real_max 22
+@m code_e_sheath 23
+@m code_real_max 23
 
 @m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
          assert(open_stat == 0) @;
@@ -794,6 +879,10 @@ provides that information).
       define_varp(source_int_params,INT,int_params_ind,segment_ind)
       define_varp(source_real_params,FLOAT,real_params_ind,segment_ind)
 
+      define_varp(old_current,FLOAT,source_seg_ind)
+      define_varp(old_rel_wt,FLOAT,source_seg_ind)
+      define_varp(old_tot_curr,FLOAT,source_grp_ind)
+
       implicit_none_f77
       gi_common                                                // Common      
       zn_common
@@ -809,15 +898,16 @@ provides that information).
       real density,temperature,dummy,circum,area,               // Local
      $     rtest,real_mult,mult,puff_temp     
       integer type,geom,nflights,length,p,b,e,nunit_n,specify_flux,
-     $        nunit_t,num_segments,iseg,i,uedge,open_stat,targ,diskin2,
-     $        dim_segments,itest,data_type,data_code
+     $        nunit_t,num_segments,iseg,i,open_stat,targ,diskin2,
+     $        dim_segments,itest,data_type,data_code,update,old_grps,
+     $        old_seg_tot,grp,iterative,jr
 
       character*1 back_label
       character*LINELEN line,type_string,nt_string,file_format
       character*FILELEN source_file
 
-      external inc_ion_energy                                   // External
-      real inc_ion_energy
+      external phi_sheath                                       // External
+      real phi_sheath
 
       sp_decl(species)
       sp_decl(root_sp)
@@ -827,18 +917,46 @@ provides that information).
       vc_decl(xdiff)
       vc_decl(targ_v)
 
-
       declare_varp(source_int_params)
       declare_varp(source_real_params)
+
+      declare_varp(old_current)
+      declare_varp(old_rel_wt)
+      declare_varp(old_tot_curr)
 
       @<Memory allocation interface@>
       st_decls
 
       open_file(diskin,inputfile)
-      so_set_run_flags
-      so_grps=0
-      so_seg_tot=0
+/*
+   Try reading old sources file.  If present, assume that this run 
+   is an update $\Rightarrow$ |update| = |TRUE|.
+*/
+      call nc_read_old_sources(update)
+
+      if (update == FALSE) then
+         so_set_run_flags
+         so_grps=0
+         so_seg_tot=0
+      else
+         assert(so_grps > 0)
+         assert(so_seg_tot > 0)
+         var_alloc(old_current)
+         var_alloc(old_rel_wt)
+         var_alloc(old_tot_curr)
+         old_grps=so_grps
+         old_seg_tot=so_seg_tot
+         do grp=1,so_grps
+            old_tot_curr[grp]=so_tot_curr(grp)
+         end do
+         do iseg=1,so_seg_tot
+            old_current[iseg]=source_current[iseg]
+            old_rel_wt[iseg]=source_segment_rel_wt[iseg]
+         end do
+      end if
+
       dim_segments=0
+      iterative=FALSE
 /*
    Use this as a default since these problems are all likely to be 2-D so
    that the velocity transformations are governed by |geometry_symmetry|.
@@ -879,6 +997,14 @@ next_line: continue
             if (file_format == 'row') then
                call get_n_t_row(nt_string)
             else                          // Default; dedicated subroutine also
+               if (update == TRUE) then
+/* 
+   There are versions of the |get_n_t| routine that reset the
+   source arrays in this case.  This only makes sense when the
+   user wants an iterative solution.
+*/
+                  assert(iterative == TRUE)
+               end if
                call get_n_t(nt_string)
             end if
          else if (line(b:e) == 'plasma_coords') then
@@ -890,6 +1016,9 @@ next_line: continue
            else
               assert(' Illegal value of plasma_coords' == ' ')
            end if
+
+        else if (line(b:e) == 'iterative_run') then
+           iterative=TRUE
 
          else if (line(b:e) == 'new_source_group') then
             so_grps++
@@ -1133,19 +1262,26 @@ input_done: continue
          close(unit=nunit_t)
       end do
       close(unit=nunit_n)
-
-      var_reallocb(source_base_ptr)
-      var_reallocb(source_num_segments)
-      var_reallocb(source_type)
-      var_reallocb(source_geometry)
-      var_reallocb(source_num_flights)
-      var_reallocb(source_num_checkpoints)
-      var_reallocb(source_species)
-      var_reallocb(source_root_species)
-      var_reallocb(source_parameters)
-      var_reallocb(source_total_current)
-      var_reallocb(source_weight_norm)
-      var_reallocb(source_scale_factor)
+/*
+   Note that we do |var_reallocb| here so that |set_background_sources|
+   can do an explicit |var_realloc| once the final |so_grps| is
+   known.  The other (segment-based) arrays, however, will still
+   be growing one segment at a time.
+*/
+      if (update == FALSE) then
+         var_reallocb(source_base_ptr)
+         var_reallocb(source_num_segments)
+         var_reallocb(source_type)
+         var_reallocb(source_geometry)
+         var_reallocb(source_num_flights)
+         var_reallocb(source_num_checkpoints)
+         var_reallocb(source_species)
+         var_reallocb(source_root_species)
+         var_reallocb(source_parameters)
+         var_reallocb(source_total_current)
+         var_reallocb(source_weight_norm)
+         var_reallocb(source_scale_factor)
+      end if
 @#if 0
       var_reallocb(source_current)
       var_reallocb(source_segment_ptr)
@@ -1161,10 +1297,36 @@ input_done: continue
          assert('No sources were defined!' == ' ')
       end if
 
-      call set_background_sources
+      if (update == FALSE) then
+         call set_background_sources
+      else
+         assert(update == TRUE)
+         assert(iterative == TRUE)
+         if (pr_bkrc_num > 0) then
+            do jr=1,pr_bkrc_num
+               so_grps++
+               so_seg_tot=so_base(so_grps)-1
+               call set_background_rate(jr,so_grps,update)
+            end do
+         end if
+      end if
 
-      uedge=FALSE
-      call init_wt_alias(uedge)
+      if (update == FALSE) then
+/*
+   The |iterative| flag is essentially equivalent to the  
+   expected |uedge| argument.
+*/
+         call init_wt_alias(iterative)
+      else
+         assert(iterative == TRUE) 
+         assert(so_grps == old_grps)
+         assert(so_seg_tot == old_seg_tot)
+         call update_wt_alias(old_current,old_rel_wt,old_tot_curr)
+
+         var_free(old_current)
+         var_free(old_tot_curr)
+         var_free(old_rel_wt)
+      end if
 
       call write_background
 /*
@@ -1281,7 +1443,7 @@ next_datum: continue
       end if
 /*
    Compute more detailed sheath parameters if the appropriate data
-   are present. The current implementation of |inc_ion_energy| 
+   are present. The current implementation of |phi_sheath| 
    depends only on the magnitude of the velocity. However, a more
    detailed model is possible, hence, the use of the vector velocity
    as an argument. For now, assume that only the magnitude counts
@@ -1303,42 +1465,58 @@ next_datum: continue
      $               source_real_params[iseg][code_velocity_3])
             end if
             assert(vc_abs(targ_v) > zero)
-            source_real_params[iseg][code_e_delta]=inc_ion_energy(targ_v,
+            source_real_params[iseg][code_e_delta]
+     $           =const(3.0)*source_real_params[iseg][code_temperature_J]
+     $           +half*source_real_params[iseg][code_electron_temperature]
+            source_real_params[iseg][code_e_sheath]=phi_sheath(vc_args(targ_v),
      $           source_real_params[iseg][code_temperature_J],
      $           source_real_params[iseg][code_electron_temperature])
-            assert(source_real_params[iseg][code_e_delta] > zero)
+     $           *source_real_params[iseg][code_electron_temperature]
             source_real_params[iseg][code_e_mult]=zero
          end do
       end if
 /*
    Now pull it all together into the final description of the source.
 */
-      var_realloca(source_base_ptr)
-      var_realloca(source_num_segments)
-      var_realloca(source_type)
-      var_realloca(source_geometry)
-      var_realloca(source_num_flights)
-      var_realloca(source_num_checkpoints)
-      var_realloca(source_species)
-      var_realloca(source_root_species)
-      var_realloca(source_parameters)
-      var_realloca(source_total_current)
-      var_realloca(source_weight_norm)
-      var_realloca(source_scale_factor)
-      so_base(so_grps)=so_seg_tot+1
-      assert(type != int_undef)
-      so_type(so_grps)=type
-      assert(geom != int_undef)
-      so_geom(so_grps)=geom
-      so_nflights(so_grps)=nflights
-      so_chkpt(so_grps)=0
-      assert(sp_check(species))
-      so_species(so_grps)=species  // Use |neutralize_species|?
-      assert(sp_check(root_sp))
-      so_root_sp(so_grps)=root_sp
-      so_params(so_grps,so_param_puff_temp)=puff_temp
-      so_tot_curr(so_grps)=zero
-      so_scale(so_grps)=one
+      if (update == FALSE) then
+         var_realloca(source_base_ptr)
+         var_realloca(source_num_segments)
+         var_realloca(source_type)
+         var_realloca(source_geometry)
+         var_realloca(source_num_flights)
+         var_realloca(source_num_checkpoints)
+         var_realloca(source_species)
+         var_realloca(source_root_species)
+         var_realloca(source_parameters)
+         var_realloca(source_total_current)
+         var_realloca(source_weight_norm)
+         var_realloca(source_scale_factor)
+         so_base(so_grps)=so_seg_tot+1
+         assert(type != int_undef)
+         so_type(so_grps)=type
+         assert(geom != int_undef)
+         so_geom(so_grps)=geom
+         so_nflights(so_grps)=nflights
+         so_chkpt(so_grps)=0
+         assert(sp_check(species))
+         so_species(so_grps)=species  // Use |neutralize_species|?
+         assert(sp_check(root_sp))
+         so_root_sp(so_grps)=root_sp
+         so_params(so_grps,so_param_puff_temp)=puff_temp
+         so_tot_curr(so_grps)=zero
+         so_scale(so_grps)=one
+      else
+/*
+   |update| == |TRUE|.  The idea is to only reset |source_current|
+   and |so_tot_curr|.  Also allow |so_grps| and |so_seg_tot| to 
+   work as in the other case since they appear as array indices everywhere.
+*/
+         assert(iterative == TRUE)
+         assert(so_base(so_grps) == so_seg_tot+1)
+         assert(so_type(so_grps) == type)
+         assert(so_geom(so_grps) == geom)
+         so_tot_curr(so_grps)=zero
+      end if
       write(stdout,*)
       write(stdout,*) ' Processing source group ',so_grps
       write(stdout,*)
@@ -1410,11 +1588,13 @@ next_datum: continue
      $              sector_points[sector][sc_pos][1],
      $              sector_points[sector][sc_pos][3]
 @#endif
-               var_realloca(source_current)
-               var_realloca(source_segment_ptr)
-               var_realloca(source_segment_rel_wt)
-               var_realloca(source_segment_prob_alias)
-               var_realloca(source_segment_ptr_alias)
+               if (update == FALSE) then
+                  var_realloca(source_current)
+                  var_realloca(source_segment_ptr)
+                  var_realloca(source_segment_rel_wt)
+                  var_realloca(source_segment_prob_alias)
+                  var_realloca(source_segment_ptr_alias)
+               end if
                assert(source_real_params[iseg][code_strength] > zero 
      $              && source_real_params[iseg][code_strength] != real_uninit)
                assert(source_int_params[iseg][code_multiplicity] > 0)
@@ -1462,21 +1642,31 @@ next_datum: continue
      $                    =source_real_params[iseg][code_strength]*mult
                end if
                so_tot_curr(so_grps)+=source_current[so_seg_tot]
-               source_segment_ptr[so_seg_tot]=sector
-               source_segment_rel_wt[so_seg_tot]=one
+               if (update == FALSE) then
+                  source_segment_ptr[so_seg_tot]=sector
+                  source_segment_rel_wt[so_seg_tot]=one
+               else
+                  assert(source_segment_ptr[so_seg_tot] == sector)
+/*
+                  |source_segment_rel_wt| gets set in |update_wt_alias|.
+*/
+               end if
 /*
    Assign sheath properties using the old {\tt DEGAS} model since we lack
    specific boundary parameters (and fluid velocities). An alternative
-   (e.g., in the UEDGE case) would be to use the |inc_ion_energy|
+   (e.g., in the UEDGE case) would be to use the |phi_sheath|
    function. Assumes that the first background species is ``e''.
 */
                if (so_type(so_grps) == so_plate) then
                   if ((source_real_params[iseg][code_e_delta] != real_uninit)
+     $          && (source_real_params[iseg][code_e_sheath] != real_uninit)
      $          && (source_real_params[iseg][code_e_mult] != real_uninit)) then
                      assert(sc_plasma_check(sector_type_pointer[sector][sc_plasma]))
                      targ=sector_type_pointer[sector][sc_plasma]
                      plasma_e_ion_delta[targ]=
      $                    source_real_params[iseg][code_e_delta]
+                     plasma_e_ion_sheath[targ]=
+     $                    source_real_params[iseg][code_e_sheath]
                      plasma_e_ion_mult[targ]=
      $                    source_real_params[iseg][code_e_mult]
                   else
@@ -1484,12 +1674,17 @@ next_datum: continue
                      assert(bk_temp(1,zone) > zero)
                      plasma_e_ion_delta[targ]=const(3.)*bk_temp(1,zone)
                      plasma_e_ion_mult[targ]=one
+                     plasma_e_ion_sheath[targ]=zero
                   end if
                end if
             end if
          end do
       end do
-      so_nseg(so_grps)=so_seg_tot-so_base(so_grps)+1
+      if (update == FALSE) then
+         so_nseg(so_grps)=so_seg_tot-so_base(so_grps)+1
+      else
+         assert(so_nseg(so_grps) == so_seg_tot-so_base(so_grps)+1)
+      end if
 
 @* Parse tabular plasma data header. 
 This routine takes the text description of the
