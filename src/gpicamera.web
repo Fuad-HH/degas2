@@ -2,6 +2,9 @@
 \Title{gpicamera}
 
 % $Log$
+% Revision 1.1  2006/01/19 19:35:11  dstotler
+% Added to repository.  This version uses formulas and parameters for the 2004 run.
+%
 
 @* Routine to set up camera views for use with NSTX Gas Puff Imaging
 Experiment.  This version uses parameters appropriate for the 2004
@@ -166,11 +169,18 @@ detector class arrays.
       cx=cx_min+areal(ix-1)*delta_cx
       cy=cy_min+areal(iy-1)*delta_cy
 /*
-   This mapping was provided by Ricky Maqueda.
-*/
+   This was the original mapping provided by Ricky Maqueda.
+
       r_maj=const(1.,-3)*(-const(0.7555)*cx-const(3.5159)*(cy+const(2.67))
      $  +const(1.604,3))
       z=const(1.,-3)*(const(2.8476)*cx-const(0.5254)*(cy+const(2.67))
+     $     +const(1.31,2))
+
+   Subsequently concluded that a 6 pixel was appropriate for these shots:
+*/
+      r_maj=const(1.,-3)*(-const(0.7555)*cx-const(3.5159)*(cy+const(6.0))
+     $  +const(1.604,3))
+      z=const(1.,-3)*(const(2.8476)*cx-const(0.5254)*(cy+const(6.0))
      $     +const(1.31,2))
 /*
    Solve for corresponding Cartesian coordinates in my system using the rotated
