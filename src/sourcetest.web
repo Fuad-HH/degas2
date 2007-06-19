@@ -2,6 +2,13 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.11  2006/01/19 20:04:33  dstotler
+% Generalize segment test to work at arbitrary toroidal angle. Clarify
+% documentation on segment test.  Insert a space at beginning of output
+% lines for segment tests.  Disable repetition of segment test; don't
+% think we've ever used this. Updated documentation at top of file for
+% 3-D.  Give first line of output file a specific format.
+%
 % Revision 1.10  2001/07/16 21:06:02  dstotler
 % Modify argument list of sample_sources to match other changes. Added
 % random number inits etc. to get segment test to sync with flighttest
@@ -371,7 +378,7 @@ the variance).
      $     min_prob,max_prob,energy_avg,fr_avg,costh_avg,vpar1_avg,
      $     vpar2_avg,fr_y_avg,dummy
       real chi_sqd[max_num_chis],estimator_factors[1]
-      integer num,i,xseg,nsample,zone,nseg,j,num_chis
+      integer num,i,xseg,nsample,zone,nseg,j,num_chis,warning_given
       integer num_points[max_num_chis]
       integer length,p,b,e
       character*LINELEN line
@@ -454,6 +461,7 @@ loop1: continue
       do i=1,zn_num
          zone_segment[i]=0
       end do
+      warning_given=FALSE
 
       if (so_nseg(isource) > 1) then
          min_prob=one
@@ -466,7 +474,21 @@ loop1: continue
             else
                assert("Unsupported source geometry" == " ")
             end if
+/*
+   The need for this assertion is undocumented; it dates back to the original
+   version of the code.  Suspect that it's needed to make the mapping between
+   zone and segment one-to-one.  One might be able to relax this by setting
+   the "origin sector" value for the flight and then checking it here instead
+   of the zone value.  For now, just replace the assertion with a warning.
+*/
+@#if 0
             assert(zone_segment[zone] == 0)
+@#else
+            if ((zone_segment[zone] != 0) && (warning_given == FALSE)) then
+               write(stdout,*) ' Zone - segment mapping is not unique.  Segment sampling test may give spurious results.'
+               warning_given=TRUE
+            end if
+@#endif
             zone_segment[zone]=i
             segment_zone[i]=zone
             prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
