@@ -64,7 +64,7 @@ c.. psi0,psi2: psi values at the points 0 and 2.
 c.. ii,jj : cell index
 c.. fraplq: index of the target to be intersected by the curve (???)
 c.. fraplq: indice de la plaque de deflecteur qui doit etre frappee par
-c           la courbe.
+c           la courbe. 
 c.. sens  : direction of movement along the target - 1=the same as the
 c           target points, -1=opposite
 c.. ptxint,ptxext: in the case of a disconnected double null, indices
