@@ -2,6 +2,10 @@
 \Title{reactionwrite}
 
 % $Log$
+% Revision 1.15  1998/12/22 16:48:52  dstotler
+% Fill unused portion of main data table with real_unused. Incremented
+% version number.
+%
 % Revision 1.14  1997/09/02 21:14:41  karney
 % New initializer for random numbers.
 % Kludge to get around NERSC/Sun f90 bugs in sysdep.web (see CHARPOINTERBUG).
@@ -89,10 +93,10 @@ format with a complete specification of the reaction.
       program reactionwrite
       implicit_none_f77
       implicit_none_f90
-      call reaction_write('hionize','ehr2.dat',
-     &     'V. 2.4, e ionization of H, CR data from ehr2.dat')
-      call reaction_write('hrecombine','ehr2.dat',
-     &     'V. 2.4, e recombination of H+, CR data from ehr2.dat')
+      call reaction_write('hionize','ehr3.dat',
+     &     'V. 2.5, e ionization of H, CR data from ehr3.dat')
+      call reaction_write('hrecombine','ehr3.dat',
+     &     'V. 2.5, e recombination of H+, CR data from ehr3.dat')
       stop
       end
 
@@ -247,11 +251,11 @@ format with a complete specification of the reaction.
       xs_num_dep_var=0
       xs_num_dep_var++
       if (name == 'hionize') then
-         call file_read(filein,xs_num_dep_var,' Ionization Rate')
-         tag=' Neutral'
+         call file_read(filein,xs_num_dep_var,'Ionization Rate')
+         tag='Neutral'
       else if (name == 'hrecombine') then
-         call file_read(filein,xs_num_dep_var,' Recombination Rate')
-         tag=' Continuum'
+         call file_read(filein,xs_num_dep_var,'Recombination Rate')
+         tag='Continuum'
       end if
 
       xs_num_dep_var++
@@ -367,7 +371,7 @@ format with a complete specification of the reaction.
       character*(*) filename,tag                // Input
       integer jdep
 
-      integer i,j,k,length                      // Local
+      integer i,j,k,length,pl_length            // Local
       character*80 line
 
       st_decls
@@ -379,6 +383,7 @@ format with a complete specification of the reaction.
       k=0
 loop: continue
       read(diskin,'(a)',end=eof) line
+      pl_length=parse_string(line)
       if (line(:length) == tag) then
          read(diskin,'(a)') line
          do j=0,xs_tab_index[2,jdep]-1
