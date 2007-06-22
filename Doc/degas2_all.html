@@ -16,12 +16,12 @@
 
    
 <title> User's Guide for DEGAS 2 \
-CVS Revision: 1.2 
+CVS Revision: 1.4 
 </title>
  
 <h1 align="center"><a href="degas2d.jpg">Figure</a>
 User's Guide for DEGAS 2 <br />
-CVS Revision: 1.2 
+CVS Revision: 1.4 
 <a href="#tthFtNtAAB" name="tthFrefAAB"><sup>1</sup></a> </h1>
 
 <h3 align="center"> <br />Daren Stotler and Charles Karney <br /><em>Princeton Plasma Physics 
@@ -7323,7 +7323,7 @@ gmake&nbsp;boxgen
 <div class="p"><!----></div>
 </li>
 
-<li> <b>Set the number of flights.</b> The background file <tt>bk_boxgen.nc</tt>
+<li> <b>Set the number of flights.</b> The background file <tt>bk_oned.nc</tt>
 contains the specification of the number of flights to be run. Open this
 file in an editor (Emacs will be the most convenient) and find the line
 
@@ -7438,8 +7438,8 @@ species. Since <tt>D2+</tt> does not move, the checks on it are satisfied
 trivially and are not considered further.<a href="#tthFtNtAAC" name="tthFrefAAC"><sup>2</sup></a>
 For each quantity, the
 procedure consists of totaling the negative of the quantity lost to the
-walls (the "current out" tally), the quantity coming in from the
-walls (the "current in" tally), and the &#223;ource rate" tally.  The
+walls (the "current into wall" tally), the quantity coming in from the
+walls (the "current out of wall" tally), and the &#223;ource rate" tally.  The
 last item is further 
 broken down by reaction (or source) to provide an indication of the
 relative importance of each process.  For this example, we consider only
@@ -7455,29 +7455,25 @@ For this case, the following totals are obtained:
  <dt><b>particles</b></dt>
 	<dd> &nbsp;<br />
   
-       D<sub>2</sub> &#175; 3 &times;10<sup>15</sup> 
-       D &nbsp;5 &times;10<sup>16</sup>  <br />
-       D<sub>2</sub> &nbsp;3 &times;10<sup>15</sup> <br />
+       D &nbsp;<font face="symbol">-</font
+>2 &times;10<sup>16</sup>  <br />
+       D<sub>2</sub> &nbsp;8 &times;10<sup>15</sup> <br />
   </dd>
  <dt><b>momentum 1</b></dt>
 	<dd> &nbsp;<br />
   
-       D<sub>2</sub> &#175; 3 &times;10<sup>15</sup> 
-       D  &nbsp;<font face="symbol">-</font
->4 &times;10<sup><font face="symbol">-</font
->7</sup> <br />
-       D<sub>2</sub> &nbsp;<font face="symbol">-</font
->2 &times;10<sup><font face="symbol">-</font
+       D  &nbsp; &lt;  1 &times;10<sup><font face="symbol">-</font
+>6</sup> <br />
+       D<sub>2</sub> &nbsp;2 &times;10<sup><font face="symbol">-</font
 >8</sup> <br />
   </dd>
  <dt><b>energy</b></dt>
 	<dd> &nbsp;<br />
   
-       D<sub>2</sub> &#175; 3 &times;10<sup>15</sup> 
-       D &nbsp;4 &times;10<sup><font face="symbol">-</font
+       D &nbsp;<font face="symbol">-</font
+>5 &times;10<sup><font face="symbol">-</font
 >2</sup> <br />
-       D<sub>2</sub> &nbsp;<font face="symbol">-</font
->4 &times;10<sup><font face="symbol">-</font
+       D<sub>2</sub> &nbsp;7 &times;10<sup><font face="symbol">-</font
 >3</sup> <br />
   </dd>
 </dl>
@@ -7521,13 +7517,13 @@ be performed:
 </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 <font face="symbol">-</font
->(3.36841 &times;10<sup>22</sup> + 2. &times;3.95601 &times;10<sup>21</sup>) </td></tr></table></td><td width="50%"></td></tr>
+>(3.48326 &times;10<sup>22</sup> + 2. &times;4.11582 &times;10<sup>21</sup>) </td></tr></table></td><td width="50%"></td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
  </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
-+ (3.12591 &times;10<sup>22</sup> + 2. &times;4.58939 &times;10<sup>21</sup>) </td></tr></table></td><td width="50%"></td></tr>
++ (3.23371 &times;10<sup>22</sup> + 2. &times;4.76467 &times;10<sup>21</sup>) </td></tr></table></td><td width="50%"></td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
  </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
@@ -7547,7 +7543,7 @@ be performed:
 </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 <font face="symbol">-</font
-> 2.84170 &times;10<sup>21</sup> </td></tr></table></td><td width="50%"></td></tr>
+> 2.80221 &times;10<sup>21</sup> </td></tr></table></td><td width="50%"></td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
  </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
@@ -7559,7 +7555,8 @@ be performed:
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
- = 6. &times;10<sup>16</sup> </td></tr></table></td><td width="50%"></td></tr>
+ = <font face="symbol">-</font
+>1. &times;10<sup>16</sup> </td></tr></table></td><td width="50%"></td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table><tr><td nowrap="nowrap" align="right" colspan="1"></td></tr></table></td><td width="50%"></td></tr></table>
 </td></tr></table>
 
@@ -7615,13 +7612,13 @@ goes into the derivation of the algorithm). In this example, they are
 mom. 1 to <tt>D2</tt>: &#175; xx +9.19450 &times;10<sup><font face="symbol">-</font
 >3</sup> 
   mom. 1 to <tt>D</tt>: &nbsp;<font face="symbol">-</font
->9.39835 &times;10<sup><font face="symbol">-</font
+>9.88463 &times;10<sup><font face="symbol">-</font
 >3</sup> &nbsp;
-mom. 1 to <tt>D2</tt>: &nbsp;+9.19450 &times;10<sup><font face="symbol">-</font
+mom. 1 to <tt>D2</tt>: &nbsp;+9.59007 &times;10<sup><font face="symbol">-</font
 >3</sup> <br />
   energy to <tt>D</tt>: &nbsp;<font face="symbol">-</font
->4.21074 &times;10<sup>2</sup> &nbsp;
-   energy to <tt>D2</tt>: &nbsp;+4.13512 &times;10<sup>2</sup> <br />
+>4.46727 &times;10<sup>2</sup> &nbsp;
+   energy to <tt>D2</tt>: &nbsp;+4.35459 &times;10<sup>2</sup> <br />
 
 (The molecules come off the wall at low energy and are being heated by the
 warmer atoms that arise from elastic scattering with the plasma ions and
@@ -7652,13 +7649,13 @@ first), you will find something like the results contained in
 mom. 1 to <tt>D2</tt>: &#175; xx +9.19450 &times;10<sup><font face="symbol">-</font
 >3</sup> 
   mom. 1 to <tt>D</tt>: &nbsp;<font face="symbol">-</font
->4.71320 &times;10<sup><font face="symbol">-</font
+>5.06271 &times;10<sup><font face="symbol">-</font
 >3</sup> &nbsp;
-mom. 1 to <tt>D2</tt>: &nbsp;+7.04233 &times;10<sup><font face="symbol">-</font
+mom. 1 to <tt>D2</tt>: &nbsp;+7.51898 &times;10<sup><font face="symbol">-</font
 >3</sup> <br />
   energy to D: &nbsp;<font face="symbol">-</font
->2.04504 &times;10<sup>2</sup> &nbsp;
-  energy to D2: &nbsp;+3.36294 &times;10<sup>2</sup> <br />
+>2.16540 &times;10<sup>2</sup> &nbsp;
+  energy to D2: &nbsp;+3.55497 &times;10<sup>2</sup> <br />
 
 <div class="p"><!----></div>
 </li>
@@ -9592,7 +9589,7 @@ The "revised" curve demonstrates that our modifications to the DEGAS 2
 data successfully mimic the EIRENE extrapolation behavior.
 
 <div class="p"><!----></div>
-     <h3><a name="tth_sEc4.5.5">
+      <h3><a name="tth_sEc4.5.5">
 4.5.5</a>&nbsp;&nbsp;H<sub>2</sub> Dissociation Rate</h3>
 <a name="h2rate">
 </a>
@@ -11201,5 +11198,5 @@ D2+ totals will also stand out as apparently significant discrepancies.
 T<sub><font size="-1">E</font></sub>X
 by <a href="http://hutchinson.belmont.ma.us/tth/">
 T<sub><font size="-1">T</font></sub>H</a>,
-version 3.72.<br />On 16 Jan 2006, 17:09.</small>
+version 3.72.<br />On 22 Jun 2007, 12:08.</small>
 </html>
