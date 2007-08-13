@@ -371,6 +371,7 @@ static struct _PtrTable viewMsgs[]={
   MSG_MARKED_REMOVED,"msgMarkedObjectsRemoved",
   MSG_CALCULATING_SZ_BOUNDS,"msgCalculatingSurfaceZoneBounds",
   MSG_FILEAUTOSAVED,"msgFileAutoSaved",
+  MSG_NOBOUNDINGELEMS,"msgNoBoundingElems",
 
   STR_LOCKED,"strLocked",
   STR_UNLOCKED,"strUnlocked",
