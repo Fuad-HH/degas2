@@ -510,7 +510,7 @@ static void CbTopoSZSetBtn(Widget wg,XtPointer xtpD,XtPointer pcbs) {
 
   if (sz!=NULL) DelSurfaceZone(sz);
 
-  sz=AddSurfaceZone(dlg->w->app,zone,gps1,gps2,orient);
+  sz=AddSurfaceZone(dlg->w->app,zone,gps1,gps2,orient,-1);
   SetSurfaceZoneFlags(sz,flags);
 
   s=XmTextGetString(dlg->wSZname);
