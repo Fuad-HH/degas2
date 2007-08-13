@@ -1798,9 +1798,12 @@ static int ActDelSurfaceZone(App a,DelRec ar) {
   return 0;
 }
 
-SurfaceZone AddSurfaceZone(App a,int szNo,int gpsNo1,int gpsNo2,int orient) {
+SurfaceZone AddSurfaceZone(App a,int szNo,int gpsNo1,int gpsNo2,int orient,
+    int innerId) {
   SurfaceZone sz;
   struct _ActRec ar;
+  Elem e;
+  Index ix;
 
   assert(orient==1 || orient==-1);
 
@@ -1817,6 +1820,11 @@ SurfaceZone AddSurfaceZone(App a,int szNo,int gpsNo1,int gpsNo2,int orient) {
   sz->level1=sz->level2=0;
   sz->flags=0;
   sz->bounds=NULL;
+
+  if (innerId >= 0) {
+    for (e=AppElem1st(a,&ix);e!=NULL;e=Next(&ix))
+      if (e->id==innerId) sz->innermost=e;
+  } else sz->innermost=NULL;
 
   sz->shortName=NULL;
   sz->longName=NULL;
