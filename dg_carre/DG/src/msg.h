@@ -181,6 +181,7 @@
 #define MSG_EXAM_SURFACE_XY  1045
 #define MSG_CALCULATING_SZ_BOUNDS 1046 /* For use in Add/MoveSurface tool */
 #define MSG_FILEAUTOSAVED    1047
+#define MSG_NOBOUNDINGELEMS  1048
 
 #define STR_LOCKED           2000
 #define STR_UNLOCKED         2001
