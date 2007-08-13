@@ -394,7 +394,7 @@ static VarsEditDlg CreateVarsEditDlg(View w,void* obj) {
 
   return dlg;
 }
-#undef AddW
+#undef ADDW
 
 static void ActVarsDlgPopupMenu(Widget wg,XEvent* xev,String* args,
     Cardinal* pargn) {
