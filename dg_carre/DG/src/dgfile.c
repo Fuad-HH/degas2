@@ -385,9 +385,10 @@ static void WriteApp_File(App a,FILE* f) {
 
   fprintf(f,"SurfaceZones114 %d\n",(unsigned)GroupCount(a->surfaceZones));
   for (sz=AppSurfaceZone1st(a,&ix);sz!=NULL;sz=Next(&ix)) {
-    fprintf(f,"%d %d %d %d %s\n",
+    fprintf(f,"%d %d %d %d %s %d\n",
         sz->zone,sz->gpZone1,sz->gpZone2,sz->orient,
-        Flags2Str(sz->flags,surfaceZoneFlags));
+        Flags2Str(sz->flags,surfaceZoneFlags),
+        sz->innermost!=NULL ? sz->innermost->id : -1);
     fprintf(f,"%s\n",GetSurfaceZoneShortName(sz));
     fprintf(f,"%s\n",GetSurfaceZoneLongName(sz));
   }
@@ -795,12 +796,13 @@ static int ReadApp_File(App a,FILE* f,int* ef) {
 
     if (sscanf(s,"SurfaceZones114 %u",&n)==1) for (k=0;k<n;k++) {
        fgets(s,sizeof(s)-1,f); /* szNo2==-1 -> unlimited */
-       r=sscanf(s,"%d%d%d%d%s",&i1,&i2,&i3,&i4,s3);
-       if (r==4) {strcpy(s3,"");r=5;}
-       if (r==5) {
+       r=sscanf(s,"%d%d%d%d%s%d",&i1,&i2,&i3,&i4,s3,&i5);
+       if (r==4) {strcpy(s3,"");r++;}
+       if (r==5) {if (sscanf(s3,"%d",&i5)) strcpy(s3,"");r++;}
+       if (r==6) {
          fgets(s1,sizeof(s1)-1,f);RemoveLF(s1);
          fgets(s2,sizeof(s2)-1,f);RemoveLF(s2);
-         sz=AddSurfaceZone(a,i1,i2,i3,i4);
+         sz=AddSurfaceZone(a,i1,i2,i3,i4,i5);
          if (sz==NULL) {*ef|=DGFE_NEQUIL;goto badSZ;}
          SetSurfaceZoneShortName(sz,s1);
          SetSurfaceZoneLongName(sz,s2);
@@ -1325,7 +1327,7 @@ int LoadTopology(App a,char* fName,int bDetectXPoints) {
         if (r==5) {
           fgets(s1,sizeof(s1)-1,f);RemoveLF(s1);
           fgets(s2,sizeof(s2)-1,f);RemoveLF(s2);
-          sz=AddSurfaceZone(a,i1,i2,i3,i4);
+          sz=AddSurfaceZone(a,i1,i2,i3,i4,-1);
           if (sz==NULL) {*ef|=DGFE_NEQUIL;goto badSZ;}
           SetSurfaceZoneShortName(sz,s1);
           SetSurfaceZoneLongName(sz,s2);
