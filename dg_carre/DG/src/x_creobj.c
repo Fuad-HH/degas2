@@ -930,7 +930,7 @@ typedef struct _CreateSurfaceDlg {
 
   struct _DistrGraph dg;                       /* Multi-surface set */
   Widget wMArea,wMLevel1,wMLevel2,wMLevel1Label,wMLevel2Label,
-    wMLevel1Pick,wMLevel2Pick,
+    wMLevel1Pick,wMLevel2Pick,wMBoundingElem,
     wMCount,wMAlpha,wMAlpha2,wMDraw,wMLaw,wSwRemoveOld;
 }* CreateSurfaceDlg;
 
@@ -938,6 +938,7 @@ static void CbCreateSurfaceOk(Widget wg,XtPointer xtpD,XtPointer pcbs);
 static void CbCSD_CopyLevel(Widget wg,XtPointer xtpD,XtPointer pcbs);
 static void CbCSD_PickSettings(Widget wg,XtPointer xtpD,XtPointer pcbs);
 static void CbCSD_SelectArea(Widget wg,XtPointer xtpD,XtPointer pcbs);
+static void CbCSD_MarkBoundingElem(Widget wg,XtPointer xtpD,XtPointer pcbs);
 static void CbToggleManaged(Widget wg,XtPointer xtpWmanage,XtPointer pcbs);
 static void DwCSD(Widget wg,View w,int evt,void*obj,void*udt);
 
@@ -1037,8 +1038,9 @@ static Widget OpenCreateSurfaceDlg(View w) {
            "b@:lawD",(XtPointer)DGLAW_DELTA,
           "-:",
           "o#?:law",2,7,&dlg->wMLaw,
-          "b#A:reset",1,8,CbDG_Reset,(XtPointer)&dlg->dg,
-          "t#?:removeOld",2,8,&dlg->wSwRemoveOld,
+          "b#?:boundingElem",2,8,&dlg->wMBoundingElem,
+          "b#A:reset",1,9,CbDG_Reset,(XtPointer)&dlg->dg,
+          "t#?:removeOld",2,9,&dlg->wSwRemoveOld,
           "b#A:copy3",4,0,CbCSD_PickSettings,(XtPointer)dlg,
          "-#:",
          "f5:frame",
@@ -1064,6 +1066,9 @@ static Widget OpenCreateSurfaceDlg(View w) {
         CbToggleManaged,(XtPointer)wFrameLevel);
     XtAddCallback(dlg->wSwByPoint,XmNvalueChangedCallback,
         CbToggleManaged,(XtPointer)wFrameXY);
+
+    XtAddCallback(dlg->wMBoundingElem,XmNactivateCallback,
+	CbCSD_MarkBoundingElem,(XtPointer)dlg);
 
     /*XtAddCallback(dlg->wMLevel1,XmNvalueChangedCallback,
         CbCSD_LevelChanged,(XtPointer)dlg);
@@ -1393,6 +1398,21 @@ static void CbCSD_SelectArea(Widget wg,XtPointer xtpD,XtPointer pcbs) {
   }
 }
 
+static void CbCSD_MarkBoundingElem(Widget wg,XtPointer xtpD,XtPointer pcbs) {
+  CreateSurfaceDlg dlg=(CreateSurfaceDlg)xtpD;
+  int area=(int)GetOptionMenuValue(dlg->wMArea);
+  SurfaceZone sz;
+
+  if (dlg->w->app==NULL) return;
+  sz = FindSurfaceZone(dlg->w->app,area);
+
+  MarkGroup(dlg->w->app,dlg->w->app->mark,0);
+  if (sz->innermost!=NULL) MarkObject(dlg->w->app,sz->innermost,1);
+  else SetViewMsg(dlg->w,GetStr(dlg->w,MSG_NOBOUNDINGELEMS));
+  SetViewFlags(dlg->w,dlg->w->showFlags | SHW_ELEMS);
+  UndoMark(dlg->w->app);
+}
+
 static void DwCSD(Widget wg,View w,int evt,void*obj,void*udt) {
   CreateSurfaceDlg dlg=(CreateSurfaceDlg)udt;
   int b;
@@ -1439,6 +1459,7 @@ static void DwCSD(Widget wg,View w,int evt,void*obj,void*udt) {
     SetSensitiveEx(dlg->wMLevel2Label,!b);
     SetSensitiveEx(dlg->wMLevel2Pick,!b);
     SetSensitiveEx(dlg->wSwRemoveOld,!b);
+    SetSensitiveEx(dlg->wMBoundingElem,b);
     XmToggleButtonSetState(dlg->wSwRemoveOld,b,True);
 
     if (b) {
