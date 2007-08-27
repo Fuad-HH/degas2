@@ -79,6 +79,10 @@ static Widget CreateToolBarDlg(View w,Widget wParent) {
         CbToolBarDlgSetTool,w,
 /*     "b#!@A:setXpt",EhToolSelInput,TlSetXPoint,TlSetXPoint,
         CbToolBarDlgSetTool,w, */
+#ifdef CHORDEXT /* create extend chord button on toolbox */
+     "b#!@A:extChord",1,5,EhToolSelInput,TlExtChord,TlExtChord,
+        CbToolBarDlgSetTool,w,
+#endif
      "b#!@A:addSurf",2,5,EhToolSelInput,TlAddSurface,TlAddSurface,
         CbToolBarDlgSetTool,w,
      "b#!@A:addGP",3,5,EhToolSelInput,TlAddGridPoint,TlAddGridPoint,
@@ -95,6 +99,11 @@ static Widget CreateToolBarDlg(View w,Widget wParent) {
         CbToolBarDlgSetTool,w,
      "b#!@A:moveMeshPt",3,7,EhToolSelInput,TlMoveMeshPoint,TlMoveMeshPoint,
         CbToolBarDlgSetTool,w,
+     "b#!@A:rotate",1,8,EhToolSelInput,TlRotate,TlRotate,
+        CbToolBarDlgSetTool,w,
+     "b#!@A:stretch",2,8,EhToolSelInput,TlStretch,TlStretch,
+        CbToolBarDlgSetTool,w,
+
     "-#:",
 /*    "l:empty", */
     NULL);
