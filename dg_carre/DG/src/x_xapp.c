@@ -310,6 +310,9 @@ static struct _PtrTable viewMsgs[]={
   ERR_TARGET_CROSSED_2X,"errTargetCrossed2x",
   ERR_TARGET_NOT_CROSSED,"errTargetNotCrossed",
   ERR_SURFACE_XY,"errOutputSurfaceXY",
+#ifdef CHORDEXT /* translate the error code for x_~fbr */
+  ERR_NOELEMSINPATH,"errNoElementsInPath",
+#endif
 
   WRN_NOEQUIL,"wrnNoEquil",
   WRN_NOTEMPL,"wrnNoTemplate",
@@ -372,6 +375,7 @@ static struct _PtrTable viewMsgs[]={
   MSG_CALCULATING_SZ_BOUNDS,"msgCalculatingSurfaceZoneBounds",
   MSG_FILEAUTOSAVED,"msgFileAutoSaved",
   MSG_NOBOUNDINGELEMS,"msgNoBoundingElems",
+  MSG_NOMARKEDCHORDS,"msgNoMarkedChords",
 
   STR_LOCKED,"strLocked",
   STR_UNLOCKED,"strUnlocked",
@@ -449,6 +453,8 @@ static struct _PtrTable viewMsgs[]={
   ENV_TEMPLATEMASK2,"\rDG_TEMPLATE_MASK",
   ENV_SONNETMASK,"\rDGSONNETMASK",
   ENV_SONNETMASK2,"\rDG_MESH_MASK",
+
+  ENV_VARSFILESETMASK,"\rDG_VARS_FILE_SET_MASK",
 
   QUE_WITHGEOMETRY,"queWithGeometry",
   QUE_UPDATEAPPS,"queUpdateApps",
