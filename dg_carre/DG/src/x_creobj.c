@@ -230,6 +230,9 @@ static void CbCreateSource(Widget wg,CreateSourceDlg dlg,void* pcbs) {
 typedef struct _CreateChordDlg {
   View w;
   Widget wX1,wY1,wX2,wY2;
+#ifdef CHORDZ /* add z to Create Chord dialog 1 */
+  Widget wPhi1,wPhi2;
+#endif
 }* CreateChordDlg;
 
 static void CbCreateChord(Widget wg,CreateChordDlg dlg,void* pcbs);
@@ -255,10 +258,21 @@ static Widget OpenCreateChordDlg(View w) {
       "x?@:x1",&dlg->wX1,0x0201,
       "l@:y1Label",0x0102,
       "x?@:y1",&dlg->wY1,0x0202,
+#ifdef CHORDZ /* add z to Create Chord dialog 2 */
+      "l@:phi1Label",0x0103,
+      "x?@:phi1",&dlg->wPhi1,0x0203,
+      "l@:x2Label",0x0104,
+      "x?@:x2",&dlg->wX2,0x0204,
+      "l@:y2Label",0x0105,
+      "x?@:y2",&dlg->wY2,0x0205,
+      "l@:phi2Label",0x0106,
+      "x?@:phi2",&dlg->wPhi2,0x0206,
+#else
       "l@:x2Label",0x0103,
       "x?@:x2",&dlg->wX2,0x0203,
       "l@:y2Label",0x0104,
       "x?@:y2",&dlg->wY2,0x0204,
+#endif
       NULL);
     Form2Table(wg);
     XtManageChild(wDlg);
@@ -272,7 +286,11 @@ static Widget OpenCreateChordDlg(View w) {
 }
 
 static void CbCreateChord(Widget wg,CreateChordDlg dlg,void* pcbs) {
+#ifdef CHORDZ /* add z to Create Chord procedure 1 */
+  double x1,y1,x2,y2,z1,z2,phi1,phi2;
+#else
   double x1,y1,x2,y2;
+#endif
   char* s,* s1;
   Chord ch;
   Index ix;
@@ -302,15 +320,43 @@ static void CbCreateChord(Widget wg,CreateChordDlg dlg,void* pcbs) {
   XtFree(s);
   XtFree(s1);
 
+#ifdef CHORDZ /* add z to Create Chord procedure 2 */
+  s=XmTextGetString(dlg->wPhi1);
+  s1=XmTextGetString(dlg->wPhi2);
+  if (sscanf(s,SCANFLT,&phi1)!=1 || sscanf(s1,SCANFLT,&phi2)!=1) {
+    XtFree(s);
+    XtFree(s1);
+    ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_INVNUMBERS));
+    return;
+  }
+  XtFree(s);
+  XtFree(s1);
+
+  /* transform into cartesian */
+  /*printf("before: (%g,%g,%g) to (%g,%g,%g)\n",x1,y1,z2,x2,y2,z2);*/
+  z1=x1*sin(phi1);x1=x1*cos(phi1);
+  z2=x2*sin(phi2);x2=x2*cos(phi2);
+  /*printf("after: (%g,%g,%g) to (%g,%g,%g)\n",x1,y1,z2,x2,y2,z2);
+  printf("sin1=%g cos1=%g phi1=%g\n",sin(phi1),cos(phi1),phi1);
+  printf("sin2=%g cos2=%g phi2=%g\n",sin(phi2),cos(phi2),phi2);*/
+#endif
+
   for (ch=AppChord1st(dlg->w->app,&ix);ch!=NULL;ch=Next(&ix))
-      if (ch->x1==x1 && ch->y1==y1 && ch->x2==x2 && ch->y2==y2) {
+      if (ch->x1==x1 && ch->y1==y1 && ch->x2==x2 && ch->y2==y2
+#ifdef CHORDZ /* add z to Create Chord procedure 3 */
+	  && ch->z1==z1 && ch->z2 == z2
+#endif
+	  ) {
     LabelObject(dlg->w,ch,GetStr(dlg->w,STR_ERRLABEL),True);
     UndoMark(dlg->w->app);
     ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_ALREADYEXISTS));
     return;
   }
-
+#ifdef CHORDZ /* add z to Create Chord procedure 4 */
+  ch=AddChord3D(dlg->w->app,x1,y1,x2,y2,z1,z2);
+#else
   ch=AddChord(dlg->w->app,x1,y1,x2,y2);
+#endif
   if (ch==NULL) return;
   LabelObject(dlg->w,ch,GetStr(dlg->w,STR_NEWLABEL),True);
   SetViewFlags(dlg->w,dlg->w->showFlags | SHW_CHORDS);
