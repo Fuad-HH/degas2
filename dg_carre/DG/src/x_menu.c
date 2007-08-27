@@ -205,6 +205,17 @@ void CbMarkAll(Widget wg,View w,void* pcbs) {
   UndoMark(w->app);
 }
 
+#ifdef CHORDEXT /* define CbMarkAllChords */
+void CbMarkAllChords(Widget wg,View w,void* pcbs) {
+  if (w->app==NULL) return;
+  SetActiveView(w);
+
+  MarkGroup(w->app,w->app->chords,1);
+  SetViewFlags(w,w->showFlags | SHW_CHORDS);
+  UndoMark(w->app);
+}
+#endif
+
 void CbUnmarkAll(Widget wg,View w,void* pcbs) {
   if (w->app==NULL) return;
   SetActiveView(w);
@@ -453,20 +464,123 @@ void CbShowSelection(Widget wg,View w,void* xtp) {
   UndoMark(w->app);
 }
 
+void CbIncAngle(Widget wg,View w,void* pcbs) {
+  ValidatePtr(w,"CbIncAngle");
+  SetActiveView(w);
+
+  SetViewAngle(w,w->xyAngle+M_PI/180);
+  UndoMark(w->app);
+}
+
+void CbDecAngle(Widget wg,View w,void* pcbs) {
+  ValidatePtr(w,"CbDecAngle");
+  SetActiveView(w);
+
+  SetViewAngle(w,w->xyAngle-M_PI/180);
+  UndoMark(w->app);
+}
+
+void CbCmSetAngle(Widget wg,View w,void* pcbs) {
+  if (w->app==NULL) return;
+  SetActiveView(w);
+
+  OpenSetAngleDlg(w);
+  UndoMark(w->app);
+}
+
+void CbResetAngle(Widget wg,View w,void* pcbs) {
+  ValidatePtr(w,"CbDecAngle");
+  SetActiveView(w);
+
+  SetViewAngle(w,0);
+  UndoMark(w->app);
+}
+
+void CbStretchX(Widget wg,View w,void* pcbs) {
+  ValidatePtr(w,"CbStretchX");
+  SetActiveView(w);
+
+  SetViewRect(w,(w->minX+w->centerX)/2,w->minY,(w->maxX+w->centerX)/2,w->maxY);
+  UndoMark(w->app);
+}
+
+void CbStretchY(Widget wg,View w,void* pcbs) {
+  ValidatePtr(w,"CbStretchY");
+  SetActiveView(w);
+
+  SetViewRect(w,w->minX,(w->minY+w->centerY)/2,w->maxX,(w->maxY+w->centerY)/2);
+  UndoMark(w->app);
+}
+
+void CbShrinkX(Widget wg,View w,void* pcbs) {
+  ValidatePtr(w,"CbShrinkX");
+  SetActiveView(w);
+
+  SetViewRect(w,2*w->minX-w->centerX,w->minY,2*w->maxX-w->centerX,w->maxY);
+  UndoMark(w->app);
+}
+
+void CbShrinkY(Widget wg,View w,void* pcbs) {
+  ValidatePtr(w,"CbShrinkY");
+  SetActiveView(w);
+
+  SetViewRect(w,w->minX,2*w->minY-w->centerY,w->maxX,2*w->maxY-w->centerY);
+  UndoMark(w->app);
+}
+
+void CbCmStretch(Widget wg,View w,void* pcbs) {
+  if (w->app==NULL) return;
+  SetActiveView(w);
+
+  OpenStretchDlg(w);
+  UndoMark(w->app);
+}
+
+void CbResetAspectRatio(Widget wg,View w,void* pcbs) {
+  double zoom,x1,x2,y1,y2;
+
+  ValidatePtr(w,"CbResetAspectRatio");
+  SetActiveView(w);
+
+  zoom=min(w->zoomX,w->zoomY);
+  x1=w->centerX-w->width/zoom/2;
+  x2=w->centerX+w->width/zoom/2;
+  y1=w->centerY-w->height/zoom/2;
+  y2=w->centerY+w->height/zoom/2;
+
+  SetViewRect(w,x1,y1,x2,y2);
+  UndoMark(w->app);
+}
+
+#ifdef TOPVIEW /* define CbToggleTopView */
+void CbToggleTopView(Widget wg,View w,void* pcbs) {
+  if (w->app==NULL) return;
+  SetActiveView(w);
+
+  UndoMark(w->app);
+  /*
+  XmToggleButtonSetState(w->x->wSwTopView,
+    XmToggleButtonGetState(w->x->wSwTopView),True);
+  XtAddCallback(w->x->wBnShowMenu,XmNactivateCallback,
+    (XtCallbackProc)CbOptionsMenuToggle,w);
+  */
+}
+#endif
+
 void CmPrevZoom(Widget wg,XtPointer xtpV,XtPointer pcbs) {
   View w=(View)xtpV;
-  double minX,minY,maxX,maxY;
+  double minX,minY,maxX,maxY,xyAngle;
   int i;
 
   if (w->app==NULL) return;
   SetActiveView(w);
 
-  i=GetPrevViewInfo(w->app,&minX,&minY,&maxX,&maxY,False);
+  i=GetPrevViewInfo(w->app,&minX,&minY,&maxX,&maxY,&xyAngle,False);
   if (i) {
 /*    SetViewMsg(w,GetStr(w,i)); -- Does not work, because -1 is returned */
     Cancel(w->app);
   } else {
-    SetViewRect(w,minX,minY,maxX,maxY);
+    SetView(w,minX,minY,maxX,maxY,xyAngle);
     MarkPrevViewDone(w->app);
     UndoMark(w->app);
   }
@@ -517,6 +631,86 @@ void CbCmRotMove(Widget wg,View w,void* pcbs) {
 
   OpenRotMoveDlg(w);
 }
+
+#ifdef CHORDZ_TEMPDLG /* define CbCm OpenChordZDlg */
+
+#define DLG_CHORDZ "dlgChordZ"
+
+typedef struct _ChordZDlg {
+  View w;
+  Widget wDlg,wValue;
+  Chord ch;
+}* ChordZDlg;
+
+static void CbSetChordZ(Widget wg,ChordZDlg dlg,void* pcbs) {
+  double z;
+
+  ValidatePtr(dlg->w,"CbSetChordZ");
+  SetActiveView(dlg->w);
+
+  z=GetXmTextDouble(dlg->wValue);
+  if (z==MAXDOUBLE) {
+    ErrorBox(dlg->wDlg,GetStr(dlg->w,ERR_INVNUMBERS));
+    return;
+  }
+  ChangeChord3D(dlg->w->app,dlg->ch,dlg->ch->z1,z);
+
+  XtPopdown(XtParent(dlg->wDlg));
+  UndoMark(dlg->w->app);
+}
+
+static Widget OpenChordZDlg(View w) {
+  XtPointer xtp;
+  ChordZDlg dlg;
+  Widget wDlg,wg;
+  char s[256];
+  Index ix;
+
+  wDlg=XtNameToWidget(w->x->wMain,"*"DLG_CHORDZ);
+  if (wDlg==NULL) {
+    dlg=Malloc(sizeof(*dlg));
+    dlg->w=w;
+    dlg->wDlg=wDlg=CreateOkCancelDialog(w->x->wMain,DLG_CHORDZ);
+    XtAddCallback(wDlg,XmNdestroyCallback,CbFree,(XtPointer)dlg);
+    dlg->ch=AppMark1st(w->app,&ix);
+    if (dlg->ch==NULL) {
+      ErrorBox(dlg->wDlg,GetStr(dlg->w,MSG_NOMARKEDCHORDS));
+      Free(dlg);
+      wDlg=NULL;
+      return NULL;
+    }
+
+    XtAddCallback(wDlg,XmNokCallback,(XtCallbackProc)CbSetChordZ,dlg);
+    XtUnmanageChild(XtNameToWidget(wDlg,"Help"));
+
+    wg=Cmw(XmCreateForm,wDlg,"form",
+      NULL);
+    CreateMenuSystem(wg,
+      "l@:zLabel",0x0101,
+      "x?@:z",&dlg->wValue,0x0102,
+       NULL);
+    Form2Table(wg);
+    sprintf(s,"%g",dlg->ch->z2);
+    XmTextSetString(dlg->wValue,s);
+
+    XtManageChild(wDlg);
+  }
+  else XtPopup(XtParent(wDlg),XtGrabNone);
+
+  UndoMark(w->app);
+  return wDlg;
+}
+
+void CbCmSetChordZ(Widget wg,View w,void* pcbs) {
+  SetViewMsg(w,"This dialog is currently out of service.");
+  return;
+
+  SetActiveView(w);
+  if (w->app==NULL) return;
+
+  OpenChordZDlg(w);
+}
+#endif
 
 void CbCmAppendTemplate(Widget wg,View w,void* pcbs) {
   int i;
@@ -619,6 +813,23 @@ void CbCmRenumber(Widget wg,View w,void* pcbs) {
   LockAppUpdate(w->app,-1);
   UndoMark(w->app);
 }
+
+#ifdef CHORDEXT /* define CbCmExtChords */
+void CbCmExtChords(Widget wg,View w,void* pcbs) {
+  void* obj;
+  int nc=0;
+  Index ix;
+
+  if (w->app==NULL) return;
+  for (obj=Group1st(w->app->mark,&ix);obj!=NULL;obj=Next(&ix))
+    if (GetObjType(obj)==T_CHORD) {
+      nc++;
+      ExtendChord(w->app,(Chord)obj);
+    }
+  if (nc) UndoMark(w->app);
+  else SetViewMsg(w,GetStr(w,MSG_NOMARKEDCHORDS));
+}
+#endif
 
 void CbCmRemoveEmptyNodes(Widget wg,View w,void* pcbs) {
   Node n;
