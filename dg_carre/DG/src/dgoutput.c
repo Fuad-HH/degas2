@@ -107,6 +107,9 @@ static void OutputVar(App a,FILE* f,void* obj,VarDef vd,VarSet vs) {
     case VT_TEXT:
       zfprintf(f,"  dummy\n");
       break;
+    case VT_FILENAME:
+      zfprintf(f,"  dummy\n");
+      break;
     default:
       FatalError("OutputVar()-null/type%d: fatal error 1",vd->varType);
   } else
