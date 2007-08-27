@@ -231,6 +231,7 @@ static void CbDestroyViewShell(Widget wg,XtPointer xtpXapp,XtPointer pcbs);
 static void AddDw2UndoInfo(Widget wg,XtPointer w,XtPointer value);
 static void AddDw2Exists(Widget wg,XtPointer w,XtPointer value);
 static void AddDw2NotExists(Widget wg,XtPointer w,XtPointer value);
+static void AddDw2ShowFlags(Widget wg,XtPointer w,XtPointer value);
 
 static void DwUpdateToolBar(Widget wg,View w,int evt,void*obj,void*udt);
 static void DwRebuildCarreInfo(Widget wg,View w,int evt,void*obj,void*udt);
@@ -364,6 +365,9 @@ View CreateXmView(XApp xap,App app) {
     "bA>:redoAll",CbRedoAll,w,AddDw2UndoInfo,w,(XtPointer)1,
     "s:separ",
     "bA:selAll",CbMarkAll,w,
+#ifdef CHORDEXT /* create mark all chords button */
+    "bA:selAllCh",CbMarkAllChords,w,
+#endif
     "bA:unSelAll",CbUnmarkAll,w,
     "s:separ",
     "c:create",
@@ -411,6 +415,13 @@ View CreateXmView(XApp xap,App app) {
     "bA@>:sonnet",CbCmDelObjects,w,(XtPointer)T_MESH,
       AddDw2Exists,w,(XtPointer)T_MESH,
     "-:",
+#ifdef CHORDEXT /* create extend chords button */
+    "s:separ",
+    "bA:extChords",CbCmExtChords,w,
+#endif
+#ifdef CHORDZ_TEMPDLG
+    "bA:setChordZ",CbCmSetChordZ,w,
+#endif
     "s:separ",
     "bA:rotMove",CbCmRotMove,w,
     "-:",
@@ -423,10 +434,40 @@ View CreateXmView(XApp xap,App app) {
     "bA:showPicture",CbShowPicture,w,
     "bA:showSelection",CbShowSelection,w,
     "s:separ",
+    "c:rotate",
+    "+:rotateMenu",
+    "bA:incAngle",CbIncAngle,w,
+    "bA:decAngle",CbDecAngle,w,
+    "bA:setAngle",CbCmSetAngle,w,
+    "bA:rectify",CbResetAngle,w,
+    "-:",
+    "c>:stretch",AddDw2ShowFlags,w,(XtPointer)0,
+    "+:stretchMenu",
+    "bA>:stretchX",CbStretchX,w,AddDw2ShowFlags,w,(XtPointer)0,
+    "bA>:stretchY",CbStretchY,w,AddDw2ShowFlags,w,(XtPointer)0,
+    "bA>:shrinkX",CbShrinkX,w,AddDw2ShowFlags,w,(XtPointer)0,
+    "bA>:shrinkY",CbShrinkY,w,AddDw2ShowFlags,w,(XtPointer)0,
+    "bA>:stretch",CbCmStretch,w,AddDw2ShowFlags,w,(XtPointer)0,
+    "bA>:justify",CbResetAspectRatio,w,AddDw2ShowFlags,w,(XtPointer)0,
+    "-:",
+    "s:separ",
     "bA>:prevView",CmPrevZoom,(XtPointer)w,AddDw2UndoInfo,w,(XtPointer)2,
     "s:separ",
     "bA:removeLabels",CmRemoveLabels,(XtPointer)w,
     "s:separ",
+    "c:viewopt",
+    "+:viewoptMenu",
+#ifdef TOPVIEW /* create topview push button */
+    "bA:topview",CbToggleTopView,w,
+/*    "t?T=:topview",&w->x->wSwTopView,CbToggleTopView,w,False,*/
+#endif
+    "t?T:stretch",&w->x->wShStretch,      CbChangeFlags,w,
+#ifdef SHTOP /* define wShTopView toggle button */
+    "t?T:topview",&w->x->wShTopView,      CbChangeFlags,w,
+       AddDw2ShowFlags,w,(XtPointer)1,
+    "s:separator",
+#endif
+    "-:",
     "c:display",
     "+:displayMenu",
     "t?T:nodes",&w->x->wShNodes,          CbChangeFlags,w,
@@ -563,6 +604,9 @@ View CreateXmView(XApp xap,App app) {
       "bA@:mark",    CbChangeTool,w,TlMark,
       "bA@:examine", CbChangeTool,w,TlExamine,
       "s:separ",
+      "bA@:stretch",CbChangeTool,w,TlStretch,
+      "bA@:rotate",CbChangeTool,w,TlRotate,
+      "s:separ",
       "bA@:move",    CbChangeTool,w,TlMoveObject,
       "bA@:remove",  CbChangeTool,w,TlRemoveObject,
       "s:separ",
@@ -581,6 +625,10 @@ View CreateXmView(XApp xap,App app) {
       "bA@:ctPts",   CbChangeTool,w,TlConnectPoints,
       "bA@:chElem",  CbChangeTool,w,TlRepositionElem,
       "bA@:chNormals",CbChangeTool,w,TlMirrorNormals,
+#ifdef CHORDEXT /* create extend chord button on toolbar */
+      "s:separ",
+      "bA@:extChord",CbChangeTool,w,TlExtChord,
+#endif
       "-:",
       toolWidgetName,&w->x->wTools[i],
       NULL);
@@ -731,6 +779,9 @@ static void DrawXmViewLine(View w,double x1,double y1,double x2,double y2) {
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
 
+  RotateXY(w,1,&x1,&y1);
+  RotateXY(w,1,&x2,&y2);
+
   if (x1<w->minX && x2>w->minX)
     y1+=(y2-y1)*(w->minX-x1)/(x2-x1),x1=w->minX; else
   if (x2<w->minX && x1>w->minX)
@@ -760,9 +811,27 @@ static void DrawXmViewLine(View w,double x1,double y1,double x2,double y2) {
 
 static void DrawXmViewRect(View w,double x1,double y1,double x2,double y2) {
   int sx1,sy1,sx2,sy2;
+  double ox1,oy1,ox2,oy2,x3,y3,x4,y4;
 
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
+
+#ifdef RRECT2 /* rotate draw rectangle procedure into upright rectangles */
+  if (w->xyAngle!=0) RotateRect(w,1,&x1,&y1,&x2,&y2);
+#else
+  if (w->xyAngle!=0) {
+    ox1=x1;oy1=y1;ox2=x2;oy2=y2;
+    x1=ox1; y1=oy1;
+    x2=ox2; y2=oy1;
+    x3=ox2; y3=oy2;
+    x4=ox1; y4=oy2;
+
+    RotateXY(w,1,&x1,&y1);
+    RotateXY(w,1,&x2,&y2);
+    RotateXY(w,1,&x3,&y3);
+    RotateXY(w,1,&x4,&y4);
+  } else {
+#endif
 
   sx1=ScreenX(w,x1);
   sy1=ScreenY(w,y1);
@@ -772,12 +841,28 @@ static void DrawXmViewRect(View w,double x1,double y1,double x2,double y2) {
   if (sx1>sx2) swap(sx1,sx2);
   if (sy1>sy2) swap(sy1,sy2);
 
+#ifndef RRECT2 /* rotate draw rectangle procedure into rotated rectangles 2 */
+  }
+
+  if (w->xyAngle!=0) {
+    XDrawLine(XtDisplay(w->x->wDraw),XtWindow(w->x->wDraw),w->x->gc,
+      ScreenX(w,x1),ScreenY(w,y1),ScreenX(w,x2),ScreenY(w,y2));
+    XDrawLine(XtDisplay(w->x->wDraw),XtWindow(w->x->wDraw),w->x->gc,
+      ScreenX(w,x2),ScreenY(w,y2),ScreenX(w,x3),ScreenY(w,y3));
+    XDrawLine(XtDisplay(w->x->wDraw),XtWindow(w->x->wDraw),w->x->gc,
+      ScreenX(w,x3),ScreenY(w,y3),ScreenX(w,x4),ScreenY(w,y4));
+    XDrawLine(XtDisplay(w->x->wDraw),XtWindow(w->x->wDraw),w->x->gc,
+      ScreenX(w,x4),ScreenY(w,y4),ScreenX(w,x1),ScreenY(w,y1));
+  } else
+#endif
   XDrawRectangle(XtDisplay(w->x->wDraw),XtWindow(w->x->wDraw),w->x->gc,
     sx1,sy1,sx2-sx1,sy2-sy1);
 }
 
 static void DrawXmViewCircle(View w,double x,double y,double r) {
   int wh,h;
+
+  RotateXY(w,1,&x,&y);
 
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
@@ -786,7 +871,10 @@ static void DrawXmViewCircle(View w,double x,double y,double r) {
   if (y+r<w->minY) return;
   if (y-r>w->maxY) return;
 
-  if (w->x->bUseSquares) DrawXmViewRect(w,x-r,y-r,x+r,y+r);
+  if (w->x->bUseSquares) {
+    RotateXY(w,-1,&x,&y);
+    DrawXmViewRect(w,x-r,y-r,x+r,y+r);
+  }
   else {
     wh=r*w->zoomX;
     h=r*w->zoomY;
@@ -800,6 +888,8 @@ static void DrawXmViewCircle(View w,double x,double y,double r) {
 static void DrawXmViewText(View w,double x,double y,char* text) {
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
+
+  RotateXY(w,1,&x,&y);
 
   XDrawString(XtDisplay(w->x->wDraw),XtWindow(w->x->wDraw),w->x->gc,
     ScreenX(w,x),ScreenY(w,y),text,strlen(text));
@@ -1366,6 +1456,10 @@ static void UpdateXViewShowFlags(View w) {
   XTBSS(w->x->wShSources,    !!(w->showFlags & SHW_SOURCES),   False);
   XTBSS(w->x->wShChords,     !!(w->showFlags & SHW_CHORDS),    False);
   XTBSS(w->x->wShMeshDetails,!!(w->showFlags & SHW_MESHDETAILS),False);
+  XTBSS(w->x->wShStretch,    !!(w->showFlags & SHW_STRETCH),   False);
+#ifdef SHTOP
+  XTBSS(w->x->wShTopView,    !!(w->showFlags & SHW_TOPVIEW),   False);
+#endif
 }
 
 static void ProcessXViewShowFlags(View w) {
@@ -1390,6 +1484,10 @@ static void ProcessXViewShowFlags(View w) {
   XTBGS(w->x->wShSources)    ? (f |= SHW_SOURCES)    : (f &=~ SHW_SOURCES);
   XTBGS(w->x->wShChords)     ? (f |= SHW_CHORDS)     : (f &=~ SHW_CHORDS);
   XTBGS(w->x->wShMeshDetails)? (f |= SHW_MESHDETAILS): (f &=~ SHW_MESHDETAILS);
+  XTBGS(w->x->wShStretch)    ? (f |= SHW_STRETCH)    : (f &=~ SHW_STRETCH);
+#ifdef SHTOP
+  XTBGS(w->x->wShTopView)    ? (f |= SHW_TOPVIEW)    : (f &=~ SHW_TOPVIEW);
+#endif
 
   SetViewFlags(w,f);
 }
@@ -1626,6 +1724,11 @@ static void AddDw2Exists(Widget wg,XtPointer w,XtPointer value) {
 static void AddDw2NotExists(Widget wg,XtPointer w,XtPointer value) {
   AddDependentWidget((View)w,wg,N_NOW | N_ALT | N_NEWAPP,NULL,
     DwNotifyIfNotExists,value);
+}
+
+static void AddDw2ShowFlags(Widget wg,XtPointer w,XtPointer value) {
+  AddDependentWidget((View)w,wg,N_NOW | N_ALT | N_NEWAPP,NULL,
+    DwNotifyShowFlags,value);
 }
 
 static void CbExposeView(Widget wg,View w,void* pcbs) {
