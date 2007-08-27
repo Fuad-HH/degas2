@@ -1,6 +1,7 @@
 #include "dg.h"
 
 void DrawNode(View w,Node n,int mode) {
+
   if (!(w->showFlags&SHW_NODES ||
       (w->showFlags&SHW_IRRNODES && !IsRegularNode(n,NULL)))) return;
   switch(mode) {
