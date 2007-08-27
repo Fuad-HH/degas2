@@ -1,4 +1,4 @@
-/* View common & implementation-specific functions
+/* view common & implementation-specific functions
 */
 
 #ifndef _view_h
@@ -14,6 +14,7 @@ struct _View {
   App app;
   int width,height;
   double centerX,centerY,zoomX,zoomY,minX,minY,maxX,maxY;
+  double xyAngle;
   int xScaleSign,yScaleSign;
   unsigned long showFlags;
   void* toolData;
@@ -156,6 +157,10 @@ struct _StringSource {
 #define SHW_TOOLBAR     0x00020000L
 #define SHW_XPOINTTESTS 0x00040000L
 #define SHW_MESHDETAILS 0x00080000L
+#define SHW_STRETCH     0x00100000L
+#ifdef TOPVIEW
+#define SHW_TOPVIEW     0x00200000L
+#endif
 
 #define SHWX_MESHPOINTS   0x80000000L
 #define SHWX_MESHELEMENTS 0x40000000L
@@ -203,6 +208,10 @@ double RealY(View w,int y);
 void DrawObject(View w,void* obj,int mode);
 void SetViewFactor(View w,double cx,double cy,double zx,double zy);
 void SetViewRect(View w,double x1,double y1,double x2,double y2);
+void SetRotatedViewFactor(View w,double cx,double cy,double zx,double zy,
+    double th);
+void SetViewAngle(View w,double th);
+void SetView(View w,double x1,double y1,double x2,double y2,double th);
 void SetViewFlags(View w,unsigned long flags);
 void RepaintView(View w);
 void SetViewApp(View w,App a);

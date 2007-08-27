@@ -56,6 +56,7 @@ View CreateAbstractView() {
   w->centerX=w->centerY=0;
   w->zoomX=w->zoomY=1;
   w->showFlags=~0L;
+  w->xyAngle=0;
 
   w->xScaleSign=1;
   w->yScaleSign=1;
@@ -143,11 +144,12 @@ void SetViewRect(View w,double x1,double y1,double x2,double y2) {
     w->centerY=(y1+y2)/2;
     w->zoomX=w->width/(x2-x1);
     w->zoomY=w->height/(y2-y1);
-    AdjustViewAspectRatio(w);
+    if (!(w->showFlags & SHW_STRETCH)) AdjustViewAspectRatio(w);
     w->minX=w->centerX-w->width/w->zoomX/2.;
     w->minY=w->centerY-w->height/w->zoomY/2.;
     w->maxX=w->centerX+w->width/w->zoomX/2.;
     w->maxY=w->centerY+w->height/w->zoomY/2;
+    w->xyAngle=w->xyAngle;
     ClearView(w);
     if (w->app!=NULL) RepaintView(w);
   } else {
@@ -156,6 +158,7 @@ void SetViewRect(View w,double x1,double y1,double x2,double y2) {
     ar.minY=y1;
     ar.maxX=x2;
     ar.maxY=y2;
+    ar.xyAngle=w->xyAngle;
     ar.showFlags=w->showFlags;
 
     ActChangeAppView(w->app,&ar);
@@ -171,6 +174,89 @@ void SetViewRect(View w,double x1,double y1,double x2,double y2) {
 void SetViewFactor(View w,double cx,double cy,double zx,double zy) {
   SetViewRect(w,cx-w->width/2/zx,cy-w->height/2/zy,
     cx+w->width/2/zx,cy+w->height/2/zy);
+}
+
+void SetRotatedViewFactor(View w,double cx,double cy,double zx,double zy,
+    double th) {
+  SetView(w,cx-w->width/2/zx,cy-w->height/2/zy,
+    cx+w->width/2/zx,cy+w->height/2/zy,th);
+}
+
+/* Set angle at which the view is displayed
+*/
+void SetViewAngle(View w,double th) {
+  struct _ChangeAppViewRec ar;
+
+  ValidatePtr(w,"SetViewXYAngle");
+  th=fmod(th,2*M_PI);
+  if (th<0) th+=2*M_PI;
+
+  if (w->app==NULL || w->app->activeAppView!=w) {
+    w->xyAngle=th;
+    ClearView(w);
+    RepaintView(w);
+  } else {
+    ar.mode=CVM_ZOOM;
+    ar.minX=w->minX;
+    ar.minY=w->minY;
+    ar.maxX=w->maxX;
+    ar.maxY=w->maxY;
+    ar.xyAngle=th;
+    ar.showFlags=w->showFlags;
+    ActChangeAppView(w->app,&ar);
+  }
+}
+
+void SetView(View w,double x1,double y1,double x2,double y2,double th) {
+  struct _ChangeAppViewRec ar;
+
+  ValidatePtr(w,"SetView");
+
+  assert(w->width>0);
+  assert(w->height>0);
+
+  if (x2<x1) swap(x1,x2);
+  if (y2<y1) swap(y1,y2);
+
+  if (x2-x1<MIN_RECTW || y2-y1<MIN_RECTH) {
+    x1=(x1+x2)/2;
+    x2=x1+MIN_RECTW/2;
+    x1=2*x1-x2;
+    y1=(y1+y2)/2;
+    y2=y1+MIN_RECTH/2;
+    y1=2*y1-y2;
+  }
+
+  if (th!=0) th=fmod(th,2*M_PI);
+  if (th<0) th+=2*M_PI;
+
+  if (w->app==NULL || w->app->activeAppView!=w) {
+    w->centerX=(x1+x2)/2;
+    w->centerY=(y1+y2)/2;
+    w->zoomX=w->width/(x2-x1);
+    w->zoomY=w->height/(y2-y1);
+    if (!(w->showFlags & SHW_STRETCH)) AdjustViewAspectRatio(w);
+    w->minX=w->centerX-w->width/w->zoomX/2.;
+    w->minY=w->centerY-w->height/w->zoomY/2.;
+    w->maxX=w->centerX+w->width/w->zoomX/2.;
+    w->maxY=w->centerY+w->height/w->zoomY/2;
+    w->xyAngle=th;
+    ClearView(w);
+    if (w->app!=NULL) RepaintView(w);
+  } else {
+    ar.mode=CVM_ZOOM;
+    ar.minX=x1;
+    ar.minY=y1;
+    ar.maxX=x2;
+    ar.maxY=y2;
+    ar.xyAngle=th;
+    ar.showFlags=w->showFlags;
+
+    ActChangeAppView(w->app,&ar);
+  }
+
+  assert(w->minX<w->maxX);
+  assert(w->minY<w->maxY);
 }
 
 /* Set flags for displaying different kinds of objects
@@ -190,6 +276,7 @@ void SetViewFlags(View w,unsigned long flags) {
     ar.minY=w->minY;
     ar.maxX=w->maxX;
     ar.maxY=w->maxY;
+    ar.xyAngle=w->xyAngle;
     ar.showFlags=flags;
 
     ActChangeAppView(w->app,&ar);
@@ -212,6 +299,7 @@ static void ChangeActiveAppView(App a,View w) {
     ar.minY=w->minY;
     ar.maxX=w->maxX;
     ar.maxY=w->maxY;
+    ar.xyAngle=w->xyAngle;
     ar.showFlags=w->showFlags;
     ActChangeAppView(a,&ar);
     UndoMark(a);
@@ -243,8 +331,8 @@ void SetViewApp(View w,App a) {
 /*  NotifyNewApp(w); */
 
   if (a!=NULL) {
-    SetViewRect(w,a->minX,a->minY,a->maxX,a->maxY);
     SetViewFlags(w,a->showFlags);
+    SetView(w,a->minX,a->minY,a->maxX,a->maxY,a->xyAngle);
     w->app=a;
     NotifyView(w,N_ADD,a);
     GroupAdd(w->app->views,w);
@@ -285,6 +373,8 @@ void SetActiveTool(View w,ToolProc tool) {
 */
 
 void CallToolProc(View w,ToolProc tool,int event,int mouseX,int mouseY) {
+  double x,y;
+
   ValidatePtr(w,"CallToolProc");
   ValidatePtr((void*)tool,"CallToolProc_");
 
@@ -297,7 +387,10 @@ void CallToolProc(View w,ToolProc tool,int event,int mouseX,int mouseY) {
   w->app->cancelToolFlag++;
   if (event==TL_RELEASE || event==TL_CANCEL) SetActiveTool(w,NULL);
   DrawAppHighlight(w->app,DRAWHI_CNDOFF);
-  tool(w,event,RealX(w,mouseX),RealY(w,mouseY));
+  x=RealX(w,mouseX);
+  y=RealY(w,mouseY);
+  RotateXY(w,-1,&x,&y);
+  tool(w,event,x,y);
   DrawAppHighlight(w->app,DRAW_ON);
   SetActiveTool(w,w->toolData==NULL ? NULL : tool);
   w->app->cancelToolFlag--;
@@ -638,6 +731,13 @@ void SetExamineMsg(View w,void* obj) {
 /* Set View rectangle to include all shown objects
 */
 
+static void SetPictureViewRect(View w,double x1, double y1, double x2,
+    double y2) {
+  double zoom=min(w->width/(x2-x1),w->height/(y2-y1));
+
+  SetRotatedViewFactor(w,(x1+x2)/2,(y1+y2)/2,zoom,zoom,0);
+}
+
 void ShowPicture(View w) {
   double minX,minY,maxX,maxY;
 /*  Index ix;
@@ -675,11 +775,12 @@ void ShowPicture(View w) {
   if (ViewShowTopology(w))
     CalcGroupExtents(w->app->gridPointSegs,&minX,&minY,&maxX,&maxY);
 
+
   if (minX>maxX)
-    SetViewRect(w,-1,-1,1,1);
+    SetPictureViewRect(w,-1,-1,1,1);
   else if (minX==maxX || minY==maxY)
-    SetViewRect(w,minX-1,minY-1,minX+1,minX+1);
-  else SetViewRect(w,minX-(maxX-minX)*w->shpIncr/100,
+    SetPictureViewRect(w,minX-1,minY-1,minX+1,minY+1);
+  else SetPictureViewRect(w,minX-(maxX-minX)*w->shpIncr/100,
     minY-(maxY-minY)*w->shpIncr/100,
     maxX+(maxX-minX)*w->shpIncr/100,
     maxY+(maxY-minY)*w->shpIncr/100);
@@ -926,8 +1027,9 @@ void DrawHighlightRect(View w,int mode) {
     default: assert(0);
   }
 
-  if (w->hrMinX!=w->hrMaxX || w->hrMinY!=w->hrMaxY)
+  if (w->hrMinX!=w->hrMaxX || w->hrMinY!=w->hrMaxY) {
     DrawViewRect(w,w->hrMinX,w->hrMinY,w->hrMaxX,w->hrMaxY);
+  }
 }
 
 void SetHighlightRect(View w,double x1,double y1,double x2,double y2) {
