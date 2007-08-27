@@ -222,6 +222,162 @@ void TlExamine(View w,int event,double x,double y) {
   w->toolData=d;
 }
 
+void TlRotate(View w,int event,double x,double y) {
+  struct {
+    int bEnh;
+    double refAngle,t0,t1;
+  }* d;
+  void* p = NULL;
+
+  d=w->toolData;
+  switch(event) {
+    case TL_DISABLE:
+      if (d!=NULL) FatalError("Tool()-disable0: fatal error 2");
+    case TL_ENABLE:
+      break;
+    case TL_DBLCLK:
+      if (d!=NULL) break;
+      break;
+    case TL_PRESS:
+      if (d!=NULL) break;
+      d=Malloc(sizeof(*d));
+      d->bEnh=0;
+      d->refAngle=atan2(y-w->centerY,x-w->centerX);
+      d->t0=w->xyAngle;
+      break;
+    case TL_MOTION:
+      if (d==NULL) break;
+      w->xyAngle+=atan2(y-w->centerY,x-w->centerX)-d->refAngle;
+      ClearView(w);
+      RepaintView(w);
+      break;
+    case TL_RELEASE:
+      if (d==NULL) break;
+      d->t1=w->xyAngle;
+      w->xyAngle=d->t0;
+      SetViewAngle(w,d->t1);
+      UndoMark(w->app);
+      d=Free(d);
+      break;
+    case TL_ENTER:
+    case TL_LEAVE:
+      if (d==NULL) break;
+      break;
+    case TL_CANCEL:
+      if (d==NULL) break;
+      w->xyAngle=d->t0;
+      d=Free(d);
+      ViewMsgEx(w,MSG_CANCELED,NULL);
+      Cancel(w->app);
+      break;
+  }
+  FlushView(w);
+  w->toolData=d;
+}
+
+void TlStretch(View w,int event,double x,double y) {
+  struct {
+    int bEnh,bHoriz;
+    double dx0,dy0,minX0,minY0,maxX0,maxY0,zoomX0,zoomY0,sgnX0,sgnY0;
+    double dx,dy,sgnX,sgnY;
+  }* d;
+  void* p = NULL;
+  double fMinX,fMinY,fMaxX,fMaxY;
+
+  d=w->toolData;
+  RotateXY(w,1,&x,&y);
+  switch(event) {
+    case TL_DISABLE:
+      if (d!=NULL) FatalError("Tool()-disable0: fatal error 2");
+    case TL_ENABLE:
+      break;
+    case TL_DBLCLK:
+      if (d!=NULL) break;
+      break;
+    case TL_PRESS:
+      if (d!=NULL) break;
+      if (~w->showFlags & SHW_STRETCH) break;
+      d=Malloc(sizeof(*d));
+      d->bEnh=0;
+      d->dx0=d->dx=(x-w->centerX)*w->zoomX*w->xScaleSign;
+      d->dy0=d->dy=(y-w->centerY)*w->zoomY*w->yScaleSign;
+      d->sgnX0=d->dx0!=0 ? (d->dx0>0 ? 1 : -1) : 0;
+      d->sgnY0=d->dy0!=0 ? (d->dy0>0 ? 1 : -1) : 0;
+      if (!d->sgnX0 || !d->sgnY0 || fabs(d->dx)==fabs(d->dy)) {
+	d=Free(d);
+	break;
+      }
+      d->bHoriz=fabs(d->dx)>fabs(d->dy);
+      d->zoomX0=w->zoomX;
+      d->zoomY0=w->zoomY;
+      d->minX0=w->minX;
+      d->minY0=w->minY;
+      d->maxX0=w->maxX;
+      d->maxY0=w->maxY;
+      break;
+    case TL_MOTION:
+      if (d==NULL) break;
+      if (d->bHoriz) {
+	d->dx=(x-w->centerX)*w->zoomX*w->xScaleSign;
+      } else {
+	d->dy=(y-w->centerY)*w->zoomY*w->yScaleSign;
+      }
+      d->sgnX=d->dx!=0 ? (d->dx>0 ? 1 : -1) : 0;
+      d->sgnY=d->dy!=0 ? (d->dy>0 ? 1 : -1) : 0;
+      if (d->sgnX!=d->sgnX0 || d->sgnY!=d->sgnY0) {
+	break;
+      }
+      if (d->bHoriz) {
+	w->zoomX=d->zoomX0/d->dx0*d->dx;
+	w->minX=w->centerX-w->width/w->zoomX/2.;
+	w->maxX=w->centerX+w->width/w->zoomX/2.;
+      } else {
+	w->zoomY=d->zoomY0/d->dy0*d->dy;
+	w->minY=w->centerY-w->height/w->zoomY/2.;
+	w->maxY=w->centerY+w->height/w->zoomY/2.;
+      }
+      ClearView(w);
+      RepaintView(w);
+      break;
+    case TL_RELEASE:
+      if (d==NULL) break;
+      fMinX=w->minX;
+      fMinY=w->minY;
+      fMaxX=w->maxX;
+      fMaxY=w->maxY;
+      w->zoomX=d->zoomX0;
+      w->zoomY=d->zoomY0;
+      w->minX=d->minX0;
+      w->minY=d->minY0;
+      w->maxX=d->maxX0;
+      w->maxY=d->maxY0;
+      SetViewRect(w,fMinX,fMinY,fMaxX,fMaxY);
+      UndoMark(w->app);
+      d=Free(d);
+      break;
+    case TL_ENTER:
+    case TL_LEAVE:
+      if (d==NULL) break;
+      break;
+    case TL_CANCEL:
+      if (d==NULL) break;
+      w->zoomX=d->zoomX0;
+      w->zoomY=d->zoomY0;
+      w->minX=d->minX0;
+      w->minY=d->minY0;
+      w->maxX=d->maxX0;
+      w->maxY=d->maxY0;
+      d=Free(d);
+      ClearView(w);
+      RepaintView(w);
+      ViewMsgEx(w,MSG_CANCELED,NULL);
+      Cancel(w->app);
+      break;
+  }
+  FlushView(w);
+  w->toolData=d;
+}
+
 void TlMark(View w,int event,double x,double y) {
   struct {
     int bEnh,bMoved;
