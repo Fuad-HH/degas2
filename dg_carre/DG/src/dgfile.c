@@ -1,6 +1,6 @@
 #include "dg.h"
 
-#define FILE_VERSION 114
+#define FILE_VERSION 115
 #define DG_VERSION_NEEDED 15000
 
 static struct _FlagsRec showFlags[]={
@@ -23,6 +23,10 @@ static struct _FlagsRec showFlags[]={
   {SHW_TOOLBAR,'='},
   {SHW_XPOINTTESTS,'x'},
   {SHW_MESHDETAILS,'m'},
+  {SHW_STRETCH,'t'},
+#ifdef SHTOP
+  {SHW_TOPVIEW,'v'},
+#endif
   {0,0}
 };
 
@@ -40,6 +44,7 @@ static struct _NameRec varDefTypes[]={
   {VT_INT,"Int"},
   {VT_FLOAT,"Float"},
   {VT_TEXT,"Text"},
+  {VT_FILENAME,"Filename"},
   {VT_ELEM,"Elem"},
   {VT_ELEMS,"Elems"},
   {VT_STRUCTPART,"StructPart"},
@@ -506,8 +511,8 @@ static void WriteApp_File(App a,FILE* f) {
       Int2Name(a->meshSlidingMode,meshSlidingModes),
       a->meshSlidingThreshold,a->bDoubleMeshBorder);
 
-  fprintf(f,"ViewAttr105 %e %e %e %e %s\n",a->minX,a->minY,a->maxX,a->maxY,
-    Flags2Str(a->showFlags,showFlags));
+  fprintf(f,"ViewAttr115 %e %e %e %e %e %s\n",a->minX,a->minY,a->maxX,a->maxY,
+    a->xyAngle,Flags2Str(a->showFlags,showFlags));
 }
 
 static int ReadVar(App a,FILE* f,void* obj,VarDef vd,VarSet vs){
@@ -616,7 +621,7 @@ static int ReadApp_File(App a,FILE* f,int* ef) {
   long long1;
   char s[DG_FNAME_LEN*2],s1[DG_FNAME_LEN],s2[DG_FNAME_LEN],
     s3[DG_FNAME_LEN],s4[DG_FNAME_LEN],* ps;
-  double f1,f2,f3,f4;
+  double f1,f2,f3,f4,f5;
   VarSet vs;
   VarSetDef vsd;
   VarDef vd;
@@ -653,6 +658,7 @@ static int ReadApp_File(App a,FILE* f,int* ef) {
     case 112:
     case 113:
     case 114:
+    case 115:
       break;
     default:
       return ERR_BADFILEVERSION;
@@ -1024,6 +1030,16 @@ static int ReadApp_File(App a,FILE* f,int* ef) {
       a->minY=f2;
       a->maxX=f3;
       a->maxY=f4;
+    } else
+
+    if (sscanf(s,"ViewAttr115"SCANFLT""SCANFLT""SCANFLT""SCANFLT""SCANFLT"%s",
+        &f1,&f2,&f3,&f4,&f5,s1)==6) {
+      Str2Flags(s1,&a->showFlags,showFlags);
+      a->minX=f1;
+      a->minY=f2;
+      a->maxX=f3;
+      a->maxY=f4;
+      a->xyAngle=f5;
     } else
 
     if (sscanf(s,"OutputFlags111%s",s1)==1) {
