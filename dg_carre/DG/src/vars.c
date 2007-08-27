@@ -646,6 +646,7 @@ int CheckValue(App a,void* value,int varType,void** errObj) {
   MeshElement me;
   Group g1,g2,g3,g;
   Index ix1,ix2;
+  FILE* file;
 
   if (errObj!=NULL) *errObj=NULL;
 
@@ -679,6 +680,11 @@ int CheckValue(App a,void* value,int varType,void** errObj) {
       if (sscanf(value,SCANFLT,&f)!=1) return ERR_INVNUMBERS;
       if (sscanf(value,"%s%s",s1,s2)!=1) return ERR_INVNUMBERS;
       strcpy(value,s1);
+      return 0;
+    case VT_FILENAME:
+      file=fopen(value,"r");
+      if (file==NULL) return ERR_FILENOTFOUND;
+      fclose(file);
       return 0;
     case VT_ELEM:
       if (value==NULL || IsEmptyGroup(value)) return ERR_NOELEMS;
