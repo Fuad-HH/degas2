@@ -389,7 +389,7 @@ void CallToolProc(View w,ToolProc tool,int event,int mouseX,int mouseY) {
   DrawAppHighlight(w->app,DRAWHI_CNDOFF);
   x=RealX(w,mouseX);
   y=RealY(w,mouseY);
-  RotateXY(w,-1,&x,&y);
+  ScreenRotate(w,-1,&x,&y);
   tool(w,event,x,y);
   DrawAppHighlight(w->app,DRAW_ON);
   SetActiveTool(w,w->toolData==NULL ? NULL : tool);
@@ -512,40 +512,43 @@ void RepaintView(View w) {
   if (w->app->equil!=NULL) DrawObject(w,w->app->equil,DRAW_ON);
   DrawGrid(w);
   DrawAxes(w);
-  if (w->app->template!=NULL) DrawObject(w,w->app->template,DRAW_ON);
+  if (w->showFlags & SHW_TOPVIEW) Draw3DObjects(w);
+  else {
+    if (w->app->template!=NULL) DrawObject(w,w->app->template,DRAW_ON);
 
-  for (xpt=AppXPointTest1st(w->app,&ix);xpt!=NULL;xpt=Next(&ix))
-    DrawObject(w,xpt,DRAW_ON);
+    for (xpt=AppXPointTest1st(w->app,&ix);xpt!=NULL;xpt=Next(&ix))
+      DrawObject(w,xpt,DRAW_ON);
 
-  for (xps=AppXPointSeg1st(w->app,&ix);xps!=NULL;xps=Next(&ix))
-    DrawObject(w,xps,DRAW_ON);
+    for (xps=AppXPointSeg1st(w->app,&ix);xps!=NULL;xps=Next(&ix))
+      DrawObject(w,xps,DRAW_ON);
 
-  for (gps=AppGridPointSeg1st(w->app,&ix);gps!=NULL;gps=Next(&ix))
-    DrawObject(w,gps,DRAW_ON);
+    for (gps=AppGridPointSeg1st(w->app,&ix);gps!=NULL;gps=Next(&ix))
+      DrawObject(w,gps,DRAW_ON);
 
-  for (sz=AppSurfaceZone1st(w->app,&ix);sz!=NULL;sz=Next(&ix))
-    DrawObject(w,sz,DRAW_ON);
+    for (sz=AppSurfaceZone1st(w->app,&ix);sz!=NULL;sz=Next(&ix))
+      DrawObject(w,sz,DRAW_ON);
 
-  for (sx=AppSurfaceEx1st(w->app,&ix);sx!=NULL;sx=Next(&ix))
-    DrawObject(w,sx,DRAW_ON);
+    for (sx=AppSurfaceEx1st(w->app,&ix);sx!=NULL;sx=Next(&ix))
+      DrawObject(w,sx,DRAW_ON);
 
-  for (gpx=AppGridPointEx1st(w->app,&ix);gpx!=NULL;gpx=Next(&ix))
-    DrawObject(w,gpx,DRAW_ON);
+    for (gpx=AppGridPointEx1st(w->app,&ix);gpx!=NULL;gpx=Next(&ix))
+      DrawObject(w,gpx,DRAW_ON);
 
-  if (w->app->mesh!=NULL) DrawWholeMesh(w,w->app->mesh,DRAW_ON);
-  if (w->app->sonnetData!=NULL) DrawObject(w,w->app->sonnetData,DRAW_ON);
-  for (e=AppElem1st(w->app,&ix);e!=NULL;e=Next(&ix))
-    DrawObject(w,e,DRAW_ON);
-  for (sep=AppSeparator1st(w->app,&ix);sep!=NULL;sep=Next(&ix))
-    DrawObject(w,sep,DRAW_ON);
-  for (src=AppSource1st(w->app,&ix);src!=NULL;src=Next(&ix))
-    DrawObject(w,src,DRAW_ON);
+    if (w->app->mesh!=NULL) DrawWholeMesh(w,w->app->mesh,DRAW_ON);
+    if (w->app->sonnetData!=NULL) DrawObject(w,w->app->sonnetData,DRAW_ON);
+    for (e=AppElem1st(w->app,&ix);e!=NULL;e=Next(&ix))
+      DrawObject(w,e,DRAW_ON);
+    for (sep=AppSeparator1st(w->app,&ix);sep!=NULL;sep=Next(&ix))
+      DrawObject(w,sep,DRAW_ON);
+    for (src=AppSource1st(w->app,&ix);src!=NULL;src=Next(&ix))
+      DrawObject(w,src,DRAW_ON);
+    for (n=AppNode1st(w->app,&ix);n!=NULL;n=Next(&ix))
+      DrawObject(w,n,DRAW_ON);
+    for (vl=Group1st(w->labels,&ix);vl!=NULL;vl=Next(&ix))
+      DrawViewLabel(w,vl,DRAW_ON);
+  }
   for (ch=AppChord1st(w->app,&ix);ch!=NULL;ch=Next(&ix))
     DrawObject(w,ch,DRAW_ON);
-  for (n=AppNode1st(w->app,&ix);n!=NULL;n=Next(&ix))
-    DrawObject(w,n,DRAW_ON);
-  for (vl=Group1st(w->labels,&ix);vl!=NULL;vl=Next(&ix))
-    DrawViewLabel(w,vl,DRAW_ON);
 
 /* Unlock highlight drawing and repaint highlight
 */
@@ -670,9 +673,11 @@ void SetExamineMsg(View w,void* obj) {
       ch=obj;
       ViewMsgEx(w,MSG_EXAMCHORD,
         "$(X1)%g$(Y1)%g$(X2)%g$(Y2)%g$(LEN)%g"
+	"$(Z1)%g$(Z2)%g"
         "$(EX1)%e$(EY1)%e$(EX2)%e$(EY2)%e%(LEN)%e"
         "$(NUMBER)%d",
         ch->x1,ch->y1,ch->x2,ch->y2,hypot(ch->x2-ch->x1,ch->y2-ch->y1),
+        ch->z1,ch->z2,
         ch->x1,ch->y1,ch->x2,ch->y2,hypot(ch->x2-ch->x1,ch->y2-ch->y1),
         GroupIndex(w->app->chords,ch)+1
       );
@@ -740,6 +745,9 @@ static void SetPictureViewRect(View w,double x1, double y1, double x2,
 
 void ShowPicture(View w) {
   double minX,minY,maxX,maxY;
+  Var v;
+  Chord ch;
+  Index ix;
 /*  Index ix;
   Node n;
   Surface s;
@@ -751,29 +759,48 @@ void ShowPicture(View w) {
   maxX=maxY=-MAXDOUBLE;
 
   if (w->app==NULL) return;
-  if (w->showFlags & (SHW_NODES | SHW_IRRNODES | SHW_ELEMS | SHW_NORMALS
-      | SHW_NUMBERS))
-    CalcGroupExtents(w->app->nodes,&minX,&minY,&maxX,&maxY);
-  if (w->showFlags & SHW_SEPARATORS)
-    CalcGroupExtents(w->app->separators,&minX,&minY,&maxX,&maxY);
-  if (w->showFlags & SHW_SOURCES)
-    CalcGroupExtents(w->app->sources,&minX,&minY,&maxX,&maxY);
-  if (w->showFlags & SHW_CHORDS)
-    CalcGroupExtents(w->app->chords,&minX,&minY,&maxX,&maxY);
-  if (w->showFlags & SHW_SURFACES)
-    CalcGroupExtents(w->app->surfacesEx,&minX,&minY,&maxX,&maxY);
-  if (w->showFlags & SHW_GRIDPOINTS)
-    CalcGroupExtents(w->app->gridPointsEx,&minX,&minY,&maxX,&maxY);
-  if (w->app->template!=NULL && w->showFlags & SHW_TEMPLATE)
-    CalcObjExtents(w->app->template,&minX,&minY,&maxX,&maxY);
-  if (w->app->sonnetData!=NULL && w->showFlags & SHW_MESH)
-    CalcObjExtents(w->app->sonnetData,&minX,&minY,&maxX,&maxY);
-  if ((w->app->equil!=NULL && w->showFlags & SHW_EQUIL))
-    CalcObjExtents(w->app->equil,&minX,&minY,&maxX,&maxY);
-  if ((w->app->mesh!=NULL && w->showFlags & SHW_MESH))
-    CalcObjExtents(w->app->mesh,&minX,&minY,&maxX,&maxY);
-  if (ViewShowTopology(w))
-    CalcGroupExtents(w->app->gridPointSegs,&minX,&minY,&maxX,&maxY);
+  if (w->showFlags & SHW_TOPVIEW) {
+    if (w->showFlags & SHW_ELEMS) {
+      v=GetVarPtrByType(w->app,VT_TOPVIEW);
+      if (v!=NULL && v->val!=NULL && !IsEmptyGroup(v->val)) {
+	CalcGroupExtents(v->val,&minX,&minY,&maxX,&maxY);
+	minX=minY=-maxX;
+	maxY=maxX;
+      }
+    }
+    if (w->showFlags & SHW_CHORDS)
+      for (ch=AppChord1st(w->app,&ix);ch!=NULL;ch=Next(&ix)) {	
+	if (minX>maxX) {minX=maxX=ch->x1;minY=maxY=ch->y1;}
+	minX=min(minX,ch->x1);maxX=max(maxX,ch->x1);
+	minY=min(minY,ch->z1);maxY=max(maxY,ch->z1);
+	minX=min(minX,ch->x2);maxX=max(maxX,ch->x2);
+	minY=min(minY,ch->z2);maxY=max(maxY,ch->z2);
+      }
+  } else {
+    if (w->showFlags & (SHW_NODES | SHW_IRRNODES | SHW_ELEMS | SHW_NORMALS
+	| SHW_NUMBERS))
+      CalcGroupExtents(w->app->nodes,&minX,&minY,&maxX,&maxY);
+    if (w->showFlags & SHW_SEPARATORS)
+      CalcGroupExtents(w->app->separators,&minX,&minY,&maxX,&maxY);
+    if (w->showFlags & SHW_SOURCES)
+      CalcGroupExtents(w->app->sources,&minX,&minY,&maxX,&maxY);
+    if (w->showFlags & SHW_CHORDS)
+      CalcGroupExtents(w->app->chords,&minX,&minY,&maxX,&maxY);
+    if (w->showFlags & SHW_SURFACES)
+      CalcGroupExtents(w->app->surfacesEx,&minX,&minY,&maxX,&maxY);
+    if (w->showFlags & SHW_GRIDPOINTS)
+      CalcGroupExtents(w->app->gridPointsEx,&minX,&minY,&maxX,&maxY);
+    if (w->app->template!=NULL && w->showFlags & SHW_TEMPLATE)
+      CalcObjExtents(w->app->template,&minX,&minY,&maxX,&maxY);
+    if (w->app->sonnetData!=NULL && w->showFlags & SHW_MESH)
+      CalcObjExtents(w->app->sonnetData,&minX,&minY,&maxX,&maxY);
+    if ((w->app->equil!=NULL && w->showFlags & SHW_EQUIL))
+      CalcObjExtents(w->app->equil,&minX,&minY,&maxX,&maxY);
+    if ((w->app->mesh!=NULL && w->showFlags & SHW_MESH))
+      CalcObjExtents(w->app->mesh,&minX,&minY,&maxX,&maxY);
+    if (ViewShowTopology(w))
+      CalcGroupExtents(w->app->gridPointSegs,&minX,&minY,&maxX,&maxY);
+  }
 
 
   if (minX>maxX)
@@ -1182,3 +1209,10 @@ void DrawPolyLine(View w,Group g,double startPos,double endPos) {
     DrawViewLine(w,x1,y1,x2,y2);
   }
 }
+
+/* increment angle by sign*w->xyAngle about the center of the screen */
+void ScreenRotate(View w,int sign,double* px,double* py) {
+  if (w->xyAngle==0) return;
+  Rotate(sign*w->xyAngle,w->centerX,w->centerY,px,py);
+}
+
