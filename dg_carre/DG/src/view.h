@@ -158,9 +158,8 @@ struct _StringSource {
 #define SHW_XPOINTTESTS 0x00040000L
 #define SHW_MESHDETAILS 0x00080000L
 #define SHW_STRETCH     0x00100000L
-#ifdef TOPVIEW
 #define SHW_TOPVIEW     0x00200000L
-#endif
+#define SHW_3DCHORDS    0x00400000L
 
 #define SHWX_MESHPOINTS   0x80000000L
 #define SHWX_MESHELEMENTS 0x40000000L
@@ -204,6 +203,8 @@ double FScreenX(View w,double x);
 double FScreenY(View w,double y);
 double RealX(View w,int x);
 double RealY(View w,int y);
+
+void ScreenRotate(View w,int sign,double* px,double* py);
 
 void DrawObject(View w,void* obj,int mode);
 void SetViewFactor(View w,double cx,double cy,double zx,double zy);
