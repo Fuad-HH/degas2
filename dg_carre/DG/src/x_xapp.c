@@ -310,9 +310,7 @@ static struct _PtrTable viewMsgs[]={
   ERR_TARGET_CROSSED_2X,"errTargetCrossed2x",
   ERR_TARGET_NOT_CROSSED,"errTargetNotCrossed",
   ERR_SURFACE_XY,"errOutputSurfaceXY",
-#ifdef CHORDEXT /* translate the error code for x_~fbr */
   ERR_NOELEMSINPATH,"errNoElementsInPath",
-#endif
 
   WRN_NOEQUIL,"wrnNoEquil",
   WRN_NOTEMPL,"wrnNoTemplate",
