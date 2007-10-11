@@ -169,6 +169,9 @@ void DwNotifyShowFlags(Widget wg,View w,int evt,void* obj,void* d) {
     case 0:
       SetSensitiveEx(wg,!!(w->showFlags & SHW_STRETCH));
       break;
+    case 1:
+      SetSensitiveEx(wg,!(w->showFlags & SHW_TOPVIEW));
+      break;
     default:
       assert(0);
   }
