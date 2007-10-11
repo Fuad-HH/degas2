@@ -24,9 +24,8 @@ static struct _FlagsRec showFlags[]={
   {SHW_XPOINTTESTS,'x'},
   {SHW_MESHDETAILS,'m'},
   {SHW_STRETCH,'t'},
-#ifdef SHTOP
   {SHW_TOPVIEW,'v'},
-#endif
+  {SHW_3DCHORDS,'3'},
   {0,0}
 };
 
@@ -57,6 +56,7 @@ static struct _NameRec varDefTypes[]={
   {VT_MESH_ELEMENTS,"SetOfMeshElements"},
   {VT_MESH_H_ELEMENTS,"SetOfMeshElementsH"},
   {VT_MESH_V_ELEMENTS,"SetOfMeshElementsV"},
+  {VT_TOPVIEW,"TopViewObjects"},
   {0,NULL}
 };
 
@@ -420,9 +420,9 @@ static void WriteApp_File(App a,FILE* f) {
   for (src=AppSource1st(a,&ix);src!=NULL;src=Next(&ix))
     fprintf(f,"%e %e\n",src->x,src->y);
 
-  fprintf(f,"Chords106 %u\n",(unsigned)GroupCount(a->chords));
+  fprintf(f,"Chords115 %u\n",(unsigned)GroupCount(a->chords));
   for (ch=AppChord1st(a,&ix);ch!=NULL;ch=Next(&ix))
-    fprintf(f,"%e %e %e %e\n",ch->x1,ch->y1,ch->x2,ch->y2);
+    fprintf(f,"%e %e %e %e %e %e\n",ch->x1,ch->y1,ch->z1,ch->x2,ch->y2,ch->z2);
 
   for (i=0,p=AppMark1st(a,&ix);p!=NULL;p=Next(&ix))
     if (InGroup(a->elems,p)) i++;
@@ -621,7 +621,7 @@ static int ReadApp_File(App a,FILE* f,int* ef) {
   long long1;
   char s[DG_FNAME_LEN*2],s1[DG_FNAME_LEN],s2[DG_FNAME_LEN],
     s3[DG_FNAME_LEN],s4[DG_FNAME_LEN],* ps;
-  double f1,f2,f3,f4,f5;
+  double f1,f2,f3,f4,f5,f6;
   VarSet vs;
   VarSetDef vsd;
   VarDef vd;
@@ -856,6 +856,14 @@ static int ReadApp_File(App a,FILE* f,int* ef) {
        fgets(s,sizeof(s)-1,f);
        if (sscanf(s,SCANFLT""SCANFLT,&f1,&f2)==2)
          AddSource(a,f1,f2);
+       else *ef|=DGFE_SYNTAX;
+    } else
+
+    if (sscanf(s,"Chords115 %u",&n)==1) for (k=0;k<n;k++) {
+       fgets(s,sizeof(s)-1,f);
+       if (sscanf(s,SCANFLT""SCANFLT""SCANFLT""SCANFLT""SCANFLT""SCANFLT,
+           &f1,&f2,&f3,&f4,&f5,&f6)==6)
+         AddChord3D(a,f1,f2,f3,f4,f5,f6);
        else *ef|=DGFE_SYNTAX;
     } else
 
