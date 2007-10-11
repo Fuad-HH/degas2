@@ -16,17 +16,6 @@
 #include <values.h>
 #include <pthread.h>
 
-#define CHORDEXT /* changes relating to chord extension */
-
-/*#define RRECT2*/ /* for highlight box, eventually. draw upright rectangles */
-/*#define CHORDZ*/ /* changes relating to supporting chords in 3-D space */
-/*#define CHORDZ_TEMPDLG*/ /* temporary dialog to change ch->z2 */
-
-/*#define TOPVIEW*/ /* changes relating to topview */
-/*#define SHTOP*/ /* implements the SHW_TOPVIEW view flag */
-/*#define YZANGLE*/ /* implements top view as angular coordinate */
-
-
 #define DG_FNAME_LEN 256
 #define DG_VERSION 20000
 
