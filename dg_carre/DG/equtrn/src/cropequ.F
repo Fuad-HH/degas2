@@ -84,9 +84,9 @@ c======================================================================
       implicit none
       integer ir,ifail,nn,nz2,iz,nr2,nr,ngpz,ngpr,j,i,nz,nrn,nzn
       real*8 pfm(ngpr,ngpz),rgr(ngpr),zgr(ngpz),rmin,rmax,zmin,zmax,h,x
-      real   pfms(nr,nz),rgrs(ngpr),zgrs(ngpz)
-      real   pfmss(ngpr,ngpz),rgrss(ngpr),zgrss(ngpz)
-      real   cx(nr,3,nz),cy(nz,3,nr),cc(nz,3,nr,3),wrkz(nz),wrkr(nr,4)
+      real*8 pfms(nr,nz),rgrs(ngpr),zgrs(ngpz)
+      real*8 pfmss(ngpr,ngpz),rgrss(ngpr),zgrss(ngpz)
+      real*8 cx(nr,3,nz),cy(nz,3,nr),cc(nz,3,nr,3),wrkz(nz),wrkr(nr,4)
 
 c----------------------------------------------------------------------
 c      character tab
