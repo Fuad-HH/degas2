@@ -734,6 +734,7 @@ int CheckValue(App a,void* value,int varType,void** errObj) {
         }
       return 0;
     case VT_CHORDS:
+    case VT_TOPVIEW:
     case VT_MESH_CELLS:
     case VT_MESH_ELEMENTS:
       return 0;

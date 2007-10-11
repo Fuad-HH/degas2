@@ -47,6 +47,7 @@
 #define VT_MESH_ELEMENTS     (0x0C|VTF_HAS_MESH_OBJECTS)
 #define VT_MESH_H_ELEMENTS   (0x0D|VTF_HAS_MESH_OBJECTS)
 #define VT_MESH_V_ELEMENTS   (0x0E|VTF_HAS_MESH_OBJECTS)
+#define VT_TOPVIEW           (0x0F|VTF_HASELEMS)
 
 /* Variable values
 */
