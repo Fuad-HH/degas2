@@ -64,11 +64,9 @@ void RestrictGroupToType(Group grp,int type);
 int GetGroupType(Group g); /* Returns the type or T_MULTIPLE/T_NONE */
 
 void AddXY(Group g,double x,double y);
-void Rotate(View w,double t,double centerX,double centerY,double* px,
-    double* py);
-void RotateXY(View w,int sign,double* px,double* py);
-void RotateAboutPt(View w,int sign,double cx,double cy,double* px,double* py);
-void RotateRect(View w,int sign,double* x1,double* y1,double* x2,double* y2);
+
+/* rotate (*px, *py) t radians about (centerX, centerY) */
+void Rotate(double t,double centerX,double centerY,double* px,double* py);
 
 /* Maths //////////////////////////////////////////////////////////// */
 
@@ -80,12 +78,6 @@ double Point2VectorDist(double x1,double y1,double x2, double y2,
     double x,double y,int* posflag,double* pos);
 int VIntersect(double x1,double y1,double x2,double y2,
     double x3,double y3,double x4,double y4,double* ar,double* br);
-#ifdef CHORDEXT /* declare FindIntersection */
-double IntersectDist(double x1, double y1, double x2, double y2,
-    double x3,double y3,double x4,double y4);
-int FindIntersection(double x1,double y1,double x2,double y2,
-    double x3,double y3,double x4,double y4,double* px,double* py);
-#endif
 double CalcLineLength(Group g);
 double StretchValue(double val,double a,double b,double x0,double x,
     double pwr);

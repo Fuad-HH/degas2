@@ -17,37 +17,10 @@ void AddXY(Group g,double x,double y) {
   GroupAdd(g,xy);
 }
 
-/* most general rotate function - rotate (*px, *py) t radians about
-   (centerX, centerY) */
-void Rotate(View w,double t,double centerX,double centerY,double* px,
-    double* py) {
+void Rotate(double t,double centerX,double centerY,double* px,double* py) {
   double x=*px,y=*py,ct=cos(t),st=sin(t);
   *px = centerX + (ct*(x - centerX) - st*(y - centerY));
   *py = centerY + (st*(x - centerX) + ct*(y - centerY));
-}
-
-/* increment angle by sign*w->xyAngle about the center of the screen */
-void RotateXY(View w,int sign,double* px,double* py) {
-  if (w->xyAngle==0) return;
-  Rotate(w,sign*w->xyAngle,w->centerX,w->centerY,px,py);
-}
-
-/* increment angle by sign*w->xyAngle about (cy, cy) */
-void RotateAboutPt(View w,int sign,double cx,double cy,double* px,double* py) {
-  if (w->xyAngle==0) return;
-  Rotate(w,sign*w->xyAngle,cx,cy,px,py);
-}
-
-/* rotate a rectangle by sign*w->xyAngle about the center of the screen */
-void RotateRect(View w,int sign,double* px1,double* py1,double* px2,
-    double* py2) {
-  double centerX=(*px1+*px2)/2,centerY=(*py1+*py2)/2;
-
-  RotateXY(w,1,&centerX,&centerY);
-  RotateXY(w,1,px1,py1);
-  RotateXY(w,1,px2,py2);
-  RotateAboutPt(w,-1,centerX,centerY,px1,py1);
-  RotateAboutPt(w,-1,centerX,centerY,px2,py2);
 }
 
 double Point2PointDist(double x1,double y1,double x2,double y2) {
@@ -91,49 +64,6 @@ int VIntersect(double x1,double y1,double x2,double y2,
   if (a<0 || a>1 || b<0 || b>1) return -1;
   return 0;
 }
-
-#ifdef CHORDEXT /* define FindIntersection */
-double IntersectDist(double x1, double y1, double x2, double y2,
-    double x3,double y3,double x4,double y4) {
-  double x,y;
-  return FindIntersection(x1,y1,x2,y2,x3,y3,x4,y4,&x,&y) ?
-    Point2PointDist(x1,y1,x,y) : MAXDOUBLE;
-}
-
-/* returns 1 if intersection found, 0 otherwise */
-int FindIntersection(double x1,double y1,double x2,double y2,
-    double x3,double y3,double x4,double y4,double* px,double* py) {
-  double m1,m2,ra;
-
-#define THIS_IS_CONFUSING
-#ifdef THIS_IS_CONFUSING
-  /*
-  VIntersect(mc->points[0]->x,mc->points[0]->y,
-  mc->points[3]->x,mc->points[3]->y,mc->points[1]->x,mc->points[1]->y,
-  mc->points[2]->x,mc->points[2]->y,&ra,NULL);
-
-  x=mc->points[0]->x+(mc->points[3]->x-mc->points[0]->x)*ra;
-  y=mc->points[0]->y+(mc->points[3]->y-mc->points[0]->y)*ra;
-  */
-
-  if (VIntersect(x1,y1,x2,y2,x3,y3,x4,y4,&ra,NULL)) return 0;
-
-  *px=x1+(x2-x1)*ra;
-  *py=y1+(y2-y1)*ra;
-
-  return 1;
-#else
-  if (VIntersect(x1,y1,x2,y2,x3,y3,x4,y4,NULL,NULL)<0) return 0;
-
-  m1=(y2-y1)/(x2-x1);m2=(y4-y3)/(x4-x3);
-
-  if (px!=NULL) *px=(m1*x1-m2*x3-y1+y3)/(m2-m1);
-  if (py!=NULL) *py=(m1*m2*(x1-x3)-m2*y1+m1*y3)/(m2-m1);
-
-  return 1;
-#endif
-}
-#endif
 
 static int VectorInRectangle(double x1,double y1,double x2,double y2,
     double rx1,double ry1,double rx2,double ry2) {
@@ -330,54 +260,56 @@ Separator HitSeparator(App a,double x,double y,double* pDist) {
   return sepHit;
 }
 
-#ifdef CHORDZ /* define CHORD_RES for HitChord */
 #define CHORD_RES 20
-#endif
 
 Chord HitChord(App a,double x,double y,int* pos,double* pDist) {
   Chord ch,chHit;
   double dist,distHit=0;
   int posHit = 0,p;
-#ifdef CHORDZ /* adjust HitChord 1 */
   double i,x1,y1,x2,y2;
-#endif
   Index ix;
 
   for (chHit=NULL,ch=AppChord1st(a,&ix);ch!=NULL;ch=Next(&ix)) {
-#ifdef CHORDZ /* adjust HitChord 2 */
-    if (ch->z1!=0 || ch->z2!=0) {
-      x1=hypot(ch->x1,ch->z1);y1=ch->y1;
-      for (i=1./CHORD_RES;i<1;i+=1./CHORD_RES) {
-	x2=hypot(ch->x1+i*(ch->x2-ch->x1),ch->z1+i*(ch->z2-ch->z1));
-	y2=ch->y1+i*(ch->y2-ch->y1);
-	dist=Point2VectorDist(x1,y1,x2,y2,x,y,&p,NULL);
+    if (~a->showFlags & SHW_TOPVIEW) {
+      if (a->showFlags & SHW_CHORDS) {
+	dist=Point2VectorDist(ch->x1,ch->y1,ch->x2,ch->y2,
+            x,y,&p,NULL);
 	if (chHit==NULL || dist<distHit) {
 	  distHit=dist;
 	  chHit=ch;
 	  posHit=p;
 	}
-	x1=x2;y1=y2;
       }
-      dist=Point2VectorDist(x1,y1,hypot(ch->x2,ch->z2),ch->y2,x,y,&p,NULL);
+      if ((a->showFlags & SHW_3DCHORDS) && (ch->z1!=0 || ch->z2!=0)) {
+	x1=hypot(ch->x1,ch->z1);y1=ch->y1;
+	for (i=1./CHORD_RES;i<1;i+=1./CHORD_RES) {
+	  x2=hypot(ch->x1+i*(ch->x2-ch->x1),ch->z1+i*(ch->z2-ch->z1));
+	  y2=ch->y1+i*(ch->y2-ch->y1);
+	  dist=Point2VectorDist(x1,y1,x2,y2,x,y,&p,NULL);
+	  if (chHit==NULL || dist<distHit) {
+	    distHit=dist;
+	    chHit=ch;
+	    posHit=p;
+	  }
+	  x1=x2;y1=y2;
+	}
+	dist=Point2VectorDist(x1,y1,hypot(ch->x2,ch->z2),ch->y2,x,y,&p,NULL);
+	if (chHit==NULL || dist<distHit) {
+	  distHit=dist;
+	  chHit=ch;
+	  posHit=p;
+	}
+      }
+    } else if (a->showFlags & SHW_CHORDS) {
+      dist=Point2VectorDist(ch->x1,ch->z1,ch->x2,ch->z2,
+          x,y,&p,NULL);
       if (chHit==NULL || dist<distHit) {
 	distHit=dist;
 	chHit=ch;
 	posHit=p;
       }
     }
-    else {
-#endif
-    dist=Point2VectorDist(ch->x1,ch->y1,ch->x2,ch->y2,
-      x,y,&p,NULL);
-    if (chHit==NULL || dist<distHit) {
-      distHit=dist;
-      chHit=ch;
-      posHit=p;
-    }
   }
-#ifdef CHORDZ /* adjust HitChord 3 */
-  }
-#endif
 
   if (pos!=NULL) *pos=posHit;
   if (pDist!=NULL) *pDist=distHit;
@@ -547,6 +479,12 @@ static MeshCell HitMeshCell(App a,double x,double y,double* pDist) {
   return mcHit;
 }
 
+/* treats SHW_TOPVIEW as a special case.  to add more 3D objects,
+   handle them under the if clause.  to add functionality to handle
+   any object in topview, get rid of the conditional and handle
+   SHW_TOPVIEW in each function individually. (this is already done
+   for chords). basic behavior would be just to return when topview is
+   on, but more behavior could be added on if desired. */
 void* HitViewObject(View w,double x,double y,long flags) {
   void* p,*pHit;
   double d,dHit=0;
@@ -564,72 +502,80 @@ void* HitViewObject(View w,double x,double y,long flags) {
   flags &= mask;
   pHit=NULL;
 
-  if (flags & SHW_ELEMS) {
-    p=HitElem(w->app,x,y,NULL,&d);
-    if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
-  }
+  if (w->showFlags & SHW_TOPVIEW) {
+    if (flags & (SHW_CHORDS)) {
+      p=HitChord(w->app,x,y,NULL,&d);
+      if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
+    }
+  } else {
 
-  if (flags & SHW_SURFACES) {
-    p=HitSurfaceEx(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
-  }
+    if (flags & SHW_ELEMS) {
+      p=HitElem(w->app,x,y,NULL,&d);
+      if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
+    }
 
-  if (flags & SHW_SEPARATORS) {
-    p=HitSeparator(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
-  }
+    if (flags & SHW_SURFACES) {
+      p=HitSurfaceEx(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
+    }
 
-  if (flags & SHW_SOURCES) {
-    p=HitSource(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
-  }
+    if (flags & SHW_SEPARATORS) {
+      p=HitSeparator(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
+    }
 
-  if (flags & SHW_CHORDS) {
-    p=HitChord(w->app,x,y,NULL,&d);
-    if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
-  }
+    if (flags & SHW_SOURCES) {
+      p=HitSource(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
+    }
 
-  if (flags & SHW_XPOINTTESTS) {
-    p=HitXPointSeg(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<=dHit)) {pHit=p;dHit=d;}
-  }
+    if (flags & (SHW_CHORDS | SHW_3DCHORDS)) {
+      p=HitChord(w->app,x,y,NULL,&d);
+      if (p!=NULL && (pHit==NULL || d<dHit)) {pHit=p;dHit=d;}
+    }
 
-  if (flags & SHWX_MESHELEMENTS) {
-    p=HitMeshElement(w->app,x,y,NULL,&d);
-    if (p!=NULL && (pHit==NULL || d<=dHit))
-      {pHit=p;dHit=d;}
-  }
+    if (flags & SHW_XPOINTTESTS) {
+      p=HitXPointSeg(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<=dHit)) {pHit=p;dHit=d;}
+    }
 
-  if (flags & SHWX_MESHCELLS) {
-    p=HitMeshCell(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<=dHit))
-      {pHit=p;dHit=d;}
-  }
+    if (flags & SHWX_MESHELEMENTS) {
+      p=HitMeshElement(w->app,x,y,NULL,&d);
+      if (p!=NULL && (pHit==NULL || d<=dHit))
+	{pHit=p;dHit=d;}
+    }
 
-  if (flags & SHWX_MESHPOINTS) {
-    p=HitMeshPoint(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<=dHit || d<=w->meshPointRadius/w->zoomX))
-      {pHit=p;dHit=d;}
-  }
+    if (flags & SHWX_MESHCELLS) {
+      p=HitMeshCell(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<=dHit))
+	{pHit=p;dHit=d;}
+    }
 
-  if (flags & (SHW_IRRNODES | SHW_NODES)) {
-    p=HitNode(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<=dHit || d<w->nodeR/w->zoomX))
-      {pHit=p;dHit=d;}
-  }
+    if (flags & SHWX_MESHPOINTS) {
+      p=HitMeshPoint(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<=dHit || d<=w->meshPointRadius/w->zoomX))
+	{pHit=p;dHit=d;}
+    }
 
-  if (flags & SHW_XPOINTTESTS) {
-    p=HitXPointTest(w->app,x,y,&d);
-    xpt=p;
-    if (p!=NULL && (pHit==NULL || d<=dHit ||
-   d<=fabs(w->app->equil->x[xpt->cx2]-w->app->equil->x[xpt->cx1])))
-      {pHit=p;dHit=d;}
-  }
+    if (flags & (SHW_IRRNODES | SHW_NODES)) {
+      p=HitNode(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<=dHit || d<w->nodeR/w->zoomX))
+	{pHit=p;dHit=d;}
+    }
 
-  if (flags & SHW_GRIDPOINTS) {
-    p=HitGridPointEx(w->app,x,y,&d);
-    if (p!=NULL && (pHit==NULL || d<dHit || d<w->gridPointLen/2/w->zoomX)) {
-      pHit=p;dHit=d;}
+    if (flags & SHW_XPOINTTESTS) {
+      p=HitXPointTest(w->app,x,y,&d);
+      xpt=p;
+      if (p!=NULL && (pHit==NULL || d<=dHit ||
+	  d<=fabs(w->app->equil->x[xpt->cx2]-w->app->equil->x[xpt->cx1])))
+	{pHit=p;dHit=d;}
+    }
+
+    if (flags & SHW_GRIDPOINTS) {
+      p=HitGridPointEx(w->app,x,y,&d);
+      if (p!=NULL && (pHit==NULL || d<dHit || d<w->gridPointLen/2/w->zoomX)) {
+	pHit=p;dHit=d;}
+    }
   }
 
   return pHit;
