@@ -229,18 +229,18 @@ static void CbCreateSource(Widget wg,CreateSourceDlg dlg,void* pcbs) {
 
 typedef struct _CreateChordDlg {
   View w;
-  Widget wX1,wY1,wX2,wY2;
-#ifdef CHORDZ /* add z to Create Chord dialog 1 */
-  Widget wPhi1,wPhi2;
-#endif
+  Widget wX1,wYp1,wYt1,wX2,wYp2,wYt2,wR1,wR2,wZ1,wZ2,wPh1,wPh2;
+  Widget wSwCartes;
 }* CreateChordDlg;
 
 static void CbCreateChord(Widget wg,CreateChordDlg dlg,void* pcbs);
+static void CbCToggleManaged(Widget wg,XtPointer xtpWmanage,XtPointer pcbs);
 
 static Widget OpenCreateChordDlg(View w) {
   XtPointer xtp;
   CreateChordDlg dlg;
   Widget wDlg,wg;
+  Widget wSwCylind,wFrameCartes,wFrameCylind;
 
   wDlg=XtNameToWidget(w->x->wMain,"*"DLG_CREATE_CHORD);
   if (wDlg==NULL) {
@@ -254,30 +254,61 @@ static Widget OpenCreateChordDlg(View w) {
     wg=Cmw(XmCreateForm,wDlg,"form",
       NULL);
     CreateMenuSystem(wg,
-      "l@:x1Label",0x0101,
-      "x?@:x1",&dlg->wX1,0x0201,
-      "l@:y1Label",0x0102,
-      "x?@:y1",&dlg->wY1,0x0202,
-#ifdef CHORDZ /* add z to Create Chord dialog 2 */
-      "l@:phi1Label",0x0103,
-      "x?@:phi1",&dlg->wPhi1,0x0203,
-      "l@:x2Label",0x0104,
-      "x?@:x2",&dlg->wX2,0x0204,
-      "l@:y2Label",0x0105,
-      "x?@:y2",&dlg->wY2,0x0205,
-      "l@:phi2Label",0x0106,
-      "x?@:phi2",&dlg->wPhi2,0x0206,
-#else
-      "l@:x2Label",0x0103,
-      "x?@:x2",&dlg->wX2,0x0203,
-      "l@:y2Label",0x0104,
-      "x?@:y2",&dlg->wY2,0x0204,
-#endif
+      "#:mainForm",
+       "$+8:dialogKind",XmCreateRadioBox,XmNorientation,XmHORIZONTAL,NULL,
+        "t?:cartesian",&dlg->wSwCartes,
+        "t?:cylindrical",&wSwCylind,
+       "-:",
+
+       "f5?_:tabFrame",&wFrameCartes,
+        "#:distributeForm",
+         "#2:table",
+          "l#:x1Label",1,1,
+          "x#?:x1",2,1,&dlg->wX1,
+          "l#:yp1Label",1,2,
+          "x#?:yp1",2,2,&dlg->wYp1,
+          "l#:yt1Label",1,3,
+          "x#?:yt1",2,3,&dlg->wYt1,
+          "l#:x2Label",1,4,
+          "x#?:x2",2,4,&dlg->wX2,
+          "l#:yp2Label",1,5,
+          "x#?:yp2",2,5,&dlg->wYp2,
+          "l#:yt2Label",1,6,
+          "x#?:yt2",2,6,&dlg->wYt2,
+         "-#:",
+        "-:",
+       "-:",
+
+       "f5?_:tabFrame",&wFrameCylind,
+        "#:distributeForm",
+         "#2:table",
+          "l#:r1Label",1,1,
+          "x#?:r1",2,1,&dlg->wR1,
+          "l#:z1Label",1,2,
+          "x#?:z1",2,2,&dlg->wZ1,
+          "l#:ph1Label",1,3,
+          "x#?:ph1",2,3,&dlg->wPh1,
+          "l#:r2Label",1,4,
+          "x#?:r2",2,4,&dlg->wR2,
+          "l#:z2Label",1,5,
+          "x#?:z2",2,5,&dlg->wZ2,
+          "l#:ph2Label",1,6,
+          "x#?:ph2",2,6,&dlg->wPh2,
+         "-#:",
+        "-:",
+       "-:",
       NULL);
-    Form2Table(wg);
+
+    XtAddCallback(dlg->wSwCartes,XmNvalueChangedCallback,
+      CbCToggleManaged,(XtPointer)wFrameCartes);
+    XtAddCallback(wSwCylind,XmNvalueChangedCallback,
+      CbCToggleManaged,(XtPointer)wFrameCylind);
+
+    XmToggleButtonSetState(dlg->wSwCartes,True,True);
     XtManageChild(wDlg);
   }
   else XtPopup(XtParent(wDlg),XtGrabNone);
+
 
   SetViewFlags(w,w->showFlags | SHW_CHORDS);
   UndoMark(w->app);
@@ -286,11 +317,7 @@ static Widget OpenCreateChordDlg(View w) {
 }
 
 static void CbCreateChord(Widget wg,CreateChordDlg dlg,void* pcbs) {
-#ifdef CHORDZ /* add z to Create Chord procedure 1 */
-  double x1,y1,x2,y2,z1,z2,phi1,phi2;
-#else
-  double x1,y1,x2,y2;
-#endif
+  double x1,y1,x2,y2,z1,z2,ph1,ph2;
   char* s,* s1;
   Chord ch;
   Index ix;
@@ -298,69 +325,76 @@ static void CbCreateChord(Widget wg,CreateChordDlg dlg,void* pcbs) {
   SetActiveView(dlg->w);
   if (dlg->w->app==NULL) return;
 
-  s=XmTextGetString(dlg->wX1);
-  s1=XmTextGetString(dlg->wY1);
-  if (sscanf(s,SCANFLT,&x1)!=1 || sscanf(s1,SCANFLT,&y1)!=1) {
+  if (XmToggleButtonGetState(dlg->wSwCartes)) {
+    s=XmTextGetString(dlg->wX1);
+    s1=XmTextGetString(dlg->wYp1);
+    if (sscanf(s,SCANFLT,&x1)!=1 || sscanf(s1,SCANFLT,&y1)!=1) goto scan_err;
     XtFree(s);
     XtFree(s1);
-    ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_INVNUMBERS));
-    return;
-  }
-  XtFree(s);
-  XtFree(s1);
 
-  s=XmTextGetString(dlg->wX2);
-  s1=XmTextGetString(dlg->wY2);
-  if (sscanf(s,SCANFLT,&x2)!=1 || sscanf(s1,SCANFLT,&y2)!=1) {
+    s=XmTextGetString(dlg->wX2);
+    s1=XmTextGetString(dlg->wYp2);
+    if (sscanf(s,SCANFLT,&x2)!=1 || sscanf(s1,SCANFLT,&y2)!=1) goto scan_err;
     XtFree(s);
     XtFree(s1);
-    ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_INVNUMBERS));
-    return;
-  }
-  XtFree(s);
-  XtFree(s1);
 
-#ifdef CHORDZ /* add z to Create Chord procedure 2 */
-  s=XmTextGetString(dlg->wPhi1);
-  s1=XmTextGetString(dlg->wPhi2);
-  if (sscanf(s,SCANFLT,&phi1)!=1 || sscanf(s1,SCANFLT,&phi2)!=1) {
+    s=XmTextGetString(dlg->wYt1);
+    s1=XmTextGetString(dlg->wYt2);
+    if (sscanf(s,SCANFLT,&z1)!=1 || sscanf(s1,SCANFLT,&z2)!=1) goto scan_err;
     XtFree(s);
     XtFree(s1);
-    ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_INVNUMBERS));
-    return;
   }
-  XtFree(s);
-  XtFree(s1);
+  else {
+    s=XmTextGetString(dlg->wR1);
+    s1=XmTextGetString(dlg->wZ1);
+    if (sscanf(s,SCANFLT,&x1)!=1 || sscanf(s1,SCANFLT,&y1)!=1) goto scan_err;
+    XtFree(s);
+    XtFree(s1);
 
-  /* transform into cartesian */
-  /*printf("before: (%g,%g,%g) to (%g,%g,%g)\n",x1,y1,z2,x2,y2,z2);*/
-  z1=x1*sin(phi1);x1=x1*cos(phi1);
-  z2=x2*sin(phi2);x2=x2*cos(phi2);
-  /*printf("after: (%g,%g,%g) to (%g,%g,%g)\n",x1,y1,z2,x2,y2,z2);
-  printf("sin1=%g cos1=%g phi1=%g\n",sin(phi1),cos(phi1),phi1);
-  printf("sin2=%g cos2=%g phi2=%g\n",sin(phi2),cos(phi2),phi2);*/
-#endif
+    s=XmTextGetString(dlg->wR2);
+    s1=XmTextGetString(dlg->wZ2);
+    if (sscanf(s,SCANFLT,&x2)!=1 || sscanf(s1,SCANFLT,&y2)!=1) goto scan_err;
+    XtFree(s);
+    XtFree(s1);
+
+    s=XmTextGetString(dlg->wPh1);
+    s1=XmTextGetString(dlg->wPh2);
+    if (sscanf(s,SCANFLT,&ph1)!=1 || sscanf(s1,SCANFLT,&ph2)!=1) goto scan_err;
+    XtFree(s);
+    XtFree(s1);
+
+    z1=x1*sin(M_PI/180*ph1);x1=x1*cos(M_PI/180*ph1);
+    z2=x2*sin(M_PI/180*ph2);x2=x2*cos(M_PI/180*ph2);
+  }
 
   for (ch=AppChord1st(dlg->w->app,&ix);ch!=NULL;ch=Next(&ix))
       if (ch->x1==x1 && ch->y1==y1 && ch->x2==x2 && ch->y2==y2
-#ifdef CHORDZ /* add z to Create Chord procedure 3 */
-	  && ch->z1==z1 && ch->z2 == z2
-#endif
-	  ) {
+	  && ch->z1==z1 && ch->z2==z2) {
     LabelObject(dlg->w,ch,GetStr(dlg->w,STR_ERRLABEL),True);
     UndoMark(dlg->w->app);
     ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_ALREADYEXISTS));
     return;
   }
-#ifdef CHORDZ /* add z to Create Chord procedure 4 */
-  ch=AddChord3D(dlg->w->app,x1,y1,x2,y2,z1,z2);
-#else
-  ch=AddChord(dlg->w->app,x1,y1,x2,y2);
-#endif
+  ch=AddChord3D(dlg->w->app,x1,y1,z1,x2,y2,z2);
   if (ch==NULL) return;
   LabelObject(dlg->w,ch,GetStr(dlg->w,STR_NEWLABEL),True);
   SetViewFlags(dlg->w,dlg->w->showFlags | SHW_CHORDS);
   UndoMark(dlg->w->app);
+  return;
+
+ scan_err:
+  XtFree(s);
+  XtFree(s1);
+  ErrorBox(dlg->w->x->wMain,GetStr(dlg->w,ERR_INVNUMBERS));
+  return;
+}
+
+static void CbCToggleManaged(Widget wg,XtPointer xtpWmanage,XtPointer pcbs) {
+  Widget wManage=(Widget)xtpWmanage;
+
+  if (XmToggleButtonGetState(wg))
+    XtManageChild(wManage);
+  else XtUnmanageChild(wManage);
 }
 
 /* ////////////////////////////////////////////////////////////////// */
