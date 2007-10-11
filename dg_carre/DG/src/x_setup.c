@@ -606,6 +606,7 @@ static Widget OpenVarDefEditDlg(View w,VarDef vd) {
       "b@A:structure", (XtPointer)VT_STRUCTURE, CbVarDefEditSensitive,dlg,
       "b@A:structPart",(XtPointer)VT_STRUCTPART,CbVarDefEditSensitive,dlg,
       "b@A:chords",    (XtPointer)VT_CHORDS,CbVarDefEditSensitive,dlg,
+      "b@A:topView",   (XtPointer)VT_TOPVIEW,CbVarDefEditSensitive,dlg,
       "s:separator",
       "b@A:meshCells", (XtPointer)VT_MESH_CELLS,CbVarDefEditSensitive,dlg,
       "b@A:meshElems", (XtPointer)VT_MESH_ELEMENTS,CbVarDefEditSensitive,dlg,
