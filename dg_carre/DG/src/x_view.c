@@ -365,9 +365,7 @@ View CreateXmView(XApp xap,App app) {
     "bA>:redoAll",CbRedoAll,w,AddDw2UndoInfo,w,(XtPointer)1,
     "s:separ",
     "bA:selAll",CbMarkAll,w,
-#ifdef CHORDEXT /* create mark all chords button */
     "bA:selAllCh",CbMarkAllChords,w,
-#endif
     "bA:unSelAll",CbUnmarkAll,w,
     "s:separ",
     "c:create",
@@ -415,13 +413,8 @@ View CreateXmView(XApp xap,App app) {
     "bA@>:sonnet",CbCmDelObjects,w,(XtPointer)T_MESH,
       AddDw2Exists,w,(XtPointer)T_MESH,
     "-:",
-#ifdef CHORDEXT /* create extend chords button */
     "s:separ",
     "bA:extChords",CbCmExtChords,w,
-#endif
-#ifdef CHORDZ_TEMPDLG
-    "bA:setChordZ",CbCmSetChordZ,w,
-#endif
     "s:separ",
     "bA:rotMove",CbCmRotMove,w,
     "-:",
@@ -457,16 +450,8 @@ View CreateXmView(XApp xap,App app) {
     "s:separ",
     "c:viewopt",
     "+:viewoptMenu",
-#ifdef TOPVIEW /* create topview push button */
-    "bA:topview",CbToggleTopView,w,
-/*    "t?T=:topview",&w->x->wSwTopView,CbToggleTopView,w,False,*/
-#endif
     "t?T:stretch",&w->x->wShStretch,      CbChangeFlags,w,
-#ifdef SHTOP /* define wShTopView toggle button */
     "t?T:topview",&w->x->wShTopView,      CbChangeFlags,w,
-       AddDw2ShowFlags,w,(XtPointer)1,
-    "s:separator",
-#endif
     "-:",
     "c:display",
     "+:displayMenu",
@@ -475,6 +460,7 @@ View CreateXmView(XApp xap,App app) {
     "t?T:elements",&w->x->wShElems,       CbChangeFlags,w,
     "t?T:sources",&w->x->wShSources,      CbChangeFlags,w,
     "t?T:chords",&w->x->wShChords,        CbChangeFlags,w,
+    "t?T:3dchords",&w->x->wSh3DChords,    CbChangeFlags,w,
     "t?T:separators",&w->x->wShSeparators,CbChangeFlags,w,
     "s:separator",
     "t?T:normals",&w->x->wShNormals,      CbChangeFlags,w,
@@ -604,31 +590,38 @@ View CreateXmView(XApp xap,App app) {
       "bA@:mark",    CbChangeTool,w,TlMark,
       "bA@:examine", CbChangeTool,w,TlExamine,
       "s:separ",
-      "bA@:stretch",CbChangeTool,w,TlStretch,
-      "bA@:rotate",CbChangeTool,w,TlRotate,
+      "bA@:rotate",  CbChangeTool,w,TlRotate,
+      "bA@>:stretch",CbChangeTool,w,TlStretch,AddDw2ShowFlags,w,(XtPointer)0,
       "s:separ",
       "bA@:move",    CbChangeTool,w,TlMoveObject,
       "bA@:remove",  CbChangeTool,w,TlRemoveObject,
       "s:separ",
-      "bA@:addElem", CbChangeTool,w,TlAddElem,
-      "bA@:addSource",CbChangeTool,w,TlAddSource,
+      "bA@>:addElem",CbChangeTool,w,TlAddElem,AddDw2ShowFlags,w,(XtPointer)1,
+      "bA@>:addSource",CbChangeTool,w,TlAddSource,AddDw2ShowFlags,w,
+             (XtPointer)1,
       "bA@:addChord",CbChangeTool,w,TlAddChord,
-      "bA@:addSurf", CbChangeTool,w,TlAddSurface,
-      "bA@:addGP",   CbChangeTool,w,TlAddGridPoint,
+      "bA@>:addSurf",CbChangeTool,w,TlAddSurface,AddDw2ShowFlags,w,
+             (XtPointer)1,
+      "bA@>:addGP",  CbChangeTool,w,TlAddGridPoint,AddDw2ShowFlags,w,
+             (XtPointer)1,
       "s:separ",
 /*      "bA@:setXpt",  CbChangeTool,w,TlSetXPoint,
       "s:separ", */
-      "bA@:moveMeshPoint",CbChangeTool,w,TlMoveMeshPoint,
+      "bA@>:moveMeshPoint",CbChangeTool,w,TlMoveMeshPoint,AddDw2ShowFlags,w,
+             (XtPointer)1,
       "s:separ",
-      "bA@:splitElem",CbChangeTool,w,TlSplitElem,
-      "bA@:joinElem",CbChangeTool,w,TlJoinElems,
-      "bA@:ctPts",   CbChangeTool,w,TlConnectPoints,
-      "bA@:chElem",  CbChangeTool,w,TlRepositionElem,
+      "bA@>:splitElem",CbChangeTool,w,TlSplitElem,AddDw2ShowFlags,w,
+             (XtPointer)1,
+      "bA@>:joinElem",CbChangeTool,w,TlJoinElems,AddDw2ShowFlags,w,
+             (XtPointer)1,
+      "bA@>:ctPts",   CbChangeTool,w,TlConnectPoints,AddDw2ShowFlags,w,
+             (XtPointer)1,
+      "bA@>:chElem",  CbChangeTool,w,TlRepositionElem,AddDw2ShowFlags,w,
+             (XtPointer)1,
       "bA@:chNormals",CbChangeTool,w,TlMirrorNormals,
-#ifdef CHORDEXT /* create extend chord button on toolbar */
       "s:separ",
       "bA@:extChord",CbChangeTool,w,TlExtChord,
-#endif
+      "bA@:adjChord",CbChangeTool,w,TlAdjustChord,
       "-:",
       toolWidgetName,&w->x->wTools[i],
       NULL);
@@ -779,8 +772,8 @@ static void DrawXmViewLine(View w,double x1,double y1,double x2,double y2) {
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
 
-  RotateXY(w,1,&x1,&y1);
-  RotateXY(w,1,&x2,&y2);
+  ScreenRotate(w,1,&x1,&y1);
+  ScreenRotate(w,1,&x2,&y2);
 
   if (x1<w->minX && x2>w->minX)
     y1+=(y2-y1)*(w->minX-x1)/(x2-x1),x1=w->minX; else
@@ -809,6 +802,28 @@ static void DrawXmViewLine(View w,double x1,double y1,double x2,double y2) {
     ScreenX(w,x1),ScreenY(w,y1),ScreenX(w,x2),ScreenY(w,y2));
 }
 
+/* rotate a rectangle by sign*w->xyAngle about the center of the screen */
+static void RotateRect(View w,int sign,double* px1,double* py1,double* px2,
+    double* py2) {
+  double centerX=(*px1+*px2)/2,centerY=(*py1+*py2)/2;
+
+  ScreenRotate(w,1,&centerX,&centerY);
+  ScreenRotate(w,1,px1,py1);
+  ScreenRotate(w,1,px2,py2);
+  Rotate(-w->xyAngle,centerX,centerY,px1,py1);
+  Rotate(-w->xyAngle,centerX,centerY,px2,py2);
+}
+
+/*#define UPRIGHT_RECTS*/
+/* when UPRIGHT_RECTS is on, on-screen rectangles are drawn upright
+   regardless of rotation angle. as of 8/2007, UPRIGHT_RECTS is not
+   working properly in that the highlight rectangle is not
+   shown/updated correctly for small values of x2-x1. since having a
+   highlight rectangle that woud accurately preview the extent of the
+   screen after a zoom, UPRIGHT_RECTS was not used and instead left as
+   an optional starting point for a future implementation of this
+   feature. */
+
 static void DrawXmViewRect(View w,double x1,double y1,double x2,double y2) {
   int sx1,sy1,sx2,sy2;
   double ox1,oy1,ox2,oy2,x3,y3,x4,y4;
@@ -816,9 +831,7 @@ static void DrawXmViewRect(View w,double x1,double y1,double x2,double y2) {
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
 
-#ifdef RRECT2 /* rotate draw rectangle procedure into upright rectangles */
-  if (w->xyAngle!=0) RotateRect(w,1,&x1,&y1,&x2,&y2);
-#else
+#ifndef UPRIGHT_RECTS
   if (w->xyAngle!=0) {
     ox1=x1;oy1=y1;ox2=x2;oy2=y2;
     x1=ox1; y1=oy1;
@@ -826,11 +839,13 @@ static void DrawXmViewRect(View w,double x1,double y1,double x2,double y2) {
     x3=ox2; y3=oy2;
     x4=ox1; y4=oy2;
 
-    RotateXY(w,1,&x1,&y1);
-    RotateXY(w,1,&x2,&y2);
-    RotateXY(w,1,&x3,&y3);
-    RotateXY(w,1,&x4,&y4);
+    ScreenRotate(w,1,&x1,&y1);
+    ScreenRotate(w,1,&x2,&y2);
+    ScreenRotate(w,1,&x3,&y3);
+    ScreenRotate(w,1,&x4,&y4);
   } else {
+#else
+  if (w->xyAngle!=0) RotateRect(w,1,&x1,&y1,&x2,&y2);
 #endif
 
   sx1=ScreenX(w,x1);
@@ -841,7 +856,7 @@ static void DrawXmViewRect(View w,double x1,double y1,double x2,double y2) {
   if (sx1>sx2) swap(sx1,sx2);
   if (sy1>sy2) swap(sy1,sy2);
 
-#ifndef RRECT2 /* rotate draw rectangle procedure into rotated rectangles 2 */
+#ifndef UPRIGHT_RECTS
   }
 
   if (w->xyAngle!=0) {
@@ -862,7 +877,7 @@ static void DrawXmViewRect(View w,double x1,double y1,double x2,double y2) {
 static void DrawXmViewCircle(View w,double x,double y,double r) {
   int wh,h;
 
-  RotateXY(w,1,&x,&y);
+  ScreenRotate(w,1,&x,&y);
 
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
@@ -872,7 +887,7 @@ static void DrawXmViewCircle(View w,double x,double y,double r) {
   if (y-r>w->maxY) return;
 
   if (w->x->bUseSquares) {
-    RotateXY(w,-1,&x,&y);
+    ScreenRotate(w,-1,&x,&y);
     DrawXmViewRect(w,x-r,y-r,x+r,y+r);
   }
   else {
@@ -889,7 +904,7 @@ static void DrawXmViewText(View w,double x,double y,char* text) {
   if (w->app !=NULL && w->app->updateLocks) return;
   if (!XtIsRealized(w->x->wDraw)) return;
 
-  RotateXY(w,1,&x,&y);
+  ScreenRotate(w,1,&x,&y);
 
   XDrawString(XtDisplay(w->x->wDraw),XtWindow(w->x->wDraw),w->x->gc,
     ScreenX(w,x),ScreenY(w,y),text,strlen(text));
@@ -1457,9 +1472,8 @@ static void UpdateXViewShowFlags(View w) {
   XTBSS(w->x->wShChords,     !!(w->showFlags & SHW_CHORDS),    False);
   XTBSS(w->x->wShMeshDetails,!!(w->showFlags & SHW_MESHDETAILS),False);
   XTBSS(w->x->wShStretch,    !!(w->showFlags & SHW_STRETCH),   False);
-#ifdef SHTOP
   XTBSS(w->x->wShTopView,    !!(w->showFlags & SHW_TOPVIEW),   False);
-#endif
+  XTBSS(w->x->wSh3DChords,   !!(w->showFlags & SHW_3DCHORDS),  False);
 }
 
 static void ProcessXViewShowFlags(View w) {
@@ -1485,9 +1499,8 @@ static void ProcessXViewShowFlags(View w) {
   XTBGS(w->x->wShChords)     ? (f |= SHW_CHORDS)     : (f &=~ SHW_CHORDS);
   XTBGS(w->x->wShMeshDetails)? (f |= SHW_MESHDETAILS): (f &=~ SHW_MESHDETAILS);
   XTBGS(w->x->wShStretch)    ? (f |= SHW_STRETCH)    : (f &=~ SHW_STRETCH);
-#ifdef SHTOP
   XTBGS(w->x->wShTopView)    ? (f |= SHW_TOPVIEW)    : (f &=~ SHW_TOPVIEW);
-#endif
+  XTBGS(w->x->wSh3DChords)   ? (f |= SHW_3DCHORDS)   : (f &=~ SHW_3DCHORDS);
 
   SetViewFlags(w,f);
 }
