@@ -19,9 +19,7 @@ void CbUndo(Widget wg,View w,void* xtp);
 void CbRedo(Widget wg,View w,void* xtp);
 void CbRedoAll(Widget wg,View w,void* xtp);
 void CbMarkAll(Widget wg,View w,void* xtp);
-#ifdef CHORDEXT /* declare CbMarkAllChords */
 void CbMarkAllChords(Widget wg,View w,void* pcbs);
-#endif
 void CbUnmarkAll(Widget wg,View w,void* xtp);
 
 void CbViewRefresh(Widget wg,XtPointer xtpView,void* pcbs);
@@ -39,9 +37,6 @@ void CbShrinkX(Widget wg,View w,void* pcbs);
 void CbShrinkY(Widget wg,View w,void* pcbs);
 void CbCmStretch(Widget wg,View w,void* pcbs);
 void CbResetAspectRatio(Widget wg,View w,void* pcbs);
-#ifdef TOPVIEW /* declare CbToggleTopView */
-void CbToggleTopView(Widget wg,View w,void* pcbs);
-#endif
 void CmPrevZoom(Widget wg,XtPointer xtpV,XtPointer pcbs);
 void CmRemoveLabels(Widget wg,XtPointer xtpV,XtPointer pcbs);
 void CmViewMeshHeader(Widget wg,XtPointer xtpV,XtPointer pcbs);
@@ -55,10 +50,8 @@ void CbCmAt(Widget wg,View w,void* xtp);
 void CbCmRotMove(Widget wg,View w,void* xtp);
 void CbCmRemoveXPoint(Widget wg,View w,void* xtp);
 void CbCmRenumber(Widget wg,View w,void* xtp);
-#ifdef CHORDEXT /* declare CbCmExtChords */
 void CbCmExtChords(Widget wg,View w,void* pcbs);
 void CbCmSetChordZ(Widget wg,View w,void* pcbs);
-#endif
 void CbCmRemoveEmptyNodes(Widget wg,View w,void* xtp);
 void CbCmInstallSeparators(Widget wg,View w,void* xtp);
 void CbCmRemoveSeparators(Widget wg,View w,void* xtp);

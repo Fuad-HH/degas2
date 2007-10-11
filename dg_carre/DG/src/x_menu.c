@@ -205,7 +205,6 @@ void CbMarkAll(Widget wg,View w,void* pcbs) {
   UndoMark(w->app);
 }
 
-#ifdef CHORDEXT /* define CbMarkAllChords */
 void CbMarkAllChords(Widget wg,View w,void* pcbs) {
   if (w->app==NULL) return;
   SetActiveView(w);
@@ -214,7 +213,6 @@ void CbMarkAllChords(Widget wg,View w,void* pcbs) {
   SetViewFlags(w,w->showFlags | SHW_CHORDS);
   UndoMark(w->app);
 }
-#endif
 
 void CbUnmarkAll(Widget wg,View w,void* pcbs) {
   if (w->app==NULL) return;
@@ -552,21 +550,6 @@ void CbResetAspectRatio(Widget wg,View w,void* pcbs) {
   UndoMark(w->app);
 }
 
-#ifdef TOPVIEW /* define CbToggleTopView */
-void CbToggleTopView(Widget wg,View w,void* pcbs) {
-  if (w->app==NULL) return;
-  SetActiveView(w);
-
-  UndoMark(w->app);
-  /*
-  XmToggleButtonSetState(w->x->wSwTopView,
-    XmToggleButtonGetState(w->x->wSwTopView),True);
-  XtAddCallback(w->x->wBnShowMenu,XmNactivateCallback,
-    (XtCallbackProc)CbOptionsMenuToggle,w);
-  */
-}
-#endif
-
 void CmPrevZoom(Widget wg,XtPointer xtpV,XtPointer pcbs) {
   View w=(View)xtpV;
   double minX,minY,maxX,maxY,xyAngle;
@@ -631,86 +614,6 @@ void CbCmRotMove(Widget wg,View w,void* pcbs) {
 
   OpenRotMoveDlg(w);
 }
-
-#ifdef CHORDZ_TEMPDLG /* define CbCm OpenChordZDlg */
-
-#define DLG_CHORDZ "dlgChordZ"
-
-typedef struct _ChordZDlg {
-  View w;
-  Widget wDlg,wValue;
-  Chord ch;
-}* ChordZDlg;
-
-static void CbSetChordZ(Widget wg,ChordZDlg dlg,void* pcbs) {
-  double z;
-
-  ValidatePtr(dlg->w,"CbSetChordZ");
-  SetActiveView(dlg->w);
-
-  z=GetXmTextDouble(dlg->wValue);
-  if (z==MAXDOUBLE) {
-    ErrorBox(dlg->wDlg,GetStr(dlg->w,ERR_INVNUMBERS));
-    return;
-  }
-  ChangeChord3D(dlg->w->app,dlg->ch,dlg->ch->z1,z);
-
-  XtPopdown(XtParent(dlg->wDlg));
-  UndoMark(dlg->w->app);
-}
-
-static Widget OpenChordZDlg(View w) {
-  XtPointer xtp;
-  ChordZDlg dlg;
-  Widget wDlg,wg;
-  char s[256];
-  Index ix;
-
-  wDlg=XtNameToWidget(w->x->wMain,"*"DLG_CHORDZ);
-  if (wDlg==NULL) {
-    dlg=Malloc(sizeof(*dlg));
-    dlg->w=w;
-    dlg->wDlg=wDlg=CreateOkCancelDialog(w->x->wMain,DLG_CHORDZ);
-    XtAddCallback(wDlg,XmNdestroyCallback,CbFree,(XtPointer)dlg);
-    dlg->ch=AppMark1st(w->app,&ix);
-    if (dlg->ch==NULL) {
-      ErrorBox(dlg->wDlg,GetStr(dlg->w,MSG_NOMARKEDCHORDS));
-      Free(dlg);
-      wDlg=NULL;
-      return NULL;
-    }
-
-    XtAddCallback(wDlg,XmNokCallback,(XtCallbackProc)CbSetChordZ,dlg);
-    XtUnmanageChild(XtNameToWidget(wDlg,"Help"));
-
-    wg=Cmw(XmCreateForm,wDlg,"form",
-      NULL);
-    CreateMenuSystem(wg,
-      "l@:zLabel",0x0101,
-      "x?@:z",&dlg->wValue,0x0102,
-       NULL);
-    Form2Table(wg);
-    sprintf(s,"%g",dlg->ch->z2);
-    XmTextSetString(dlg->wValue,s);
-
-    XtManageChild(wDlg);
-  }
-  else XtPopup(XtParent(wDlg),XtGrabNone);
-
-  UndoMark(w->app);
-  return wDlg;
-}
-
-void CbCmSetChordZ(Widget wg,View w,void* pcbs) {
-  SetViewMsg(w,"This dialog is currently out of service.");
-  return;
-
-  SetActiveView(w);
-  if (w->app==NULL) return;
-
-  OpenChordZDlg(w);
-}
-#endif
 
 void CbCmAppendTemplate(Widget wg,View w,void* pcbs) {
   int i;
@@ -814,7 +717,6 @@ void CbCmRenumber(Widget wg,View w,void* pcbs) {
   UndoMark(w->app);
 }
 
-#ifdef CHORDEXT /* define CbCmExtChords */
 void CbCmExtChords(Widget wg,View w,void* pcbs) {
   void* obj;
   int nc=0;
@@ -829,7 +731,6 @@ void CbCmExtChords(Widget wg,View w,void* pcbs) {
   if (nc) UndoMark(w->app);
   else SetViewMsg(w,GetStr(w,MSG_NOMARKEDCHORDS));
 }
-#endif
 
 void CbCmRemoveEmptyNodes(Widget wg,View w,void* pcbs) {
   Node n;
