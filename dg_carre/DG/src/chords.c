@@ -257,16 +257,16 @@ Chord AddChord(App a,double x1,double y1,double x2,double y2) {
   ch->locks=0;
   ch->x1=x1;
   ch->x2=x2;
-  if (~a->activeAppView->showFlags & SHW_TOPVIEW) {
-    ch->y1=y1;
-    ch->y2=y2;
-    ch->z1=0;
-    ch->z2=0;
-  } else {
+  if (a->activeAppView && (a->activeAppView->showFlags & SHW_TOPVIEW)) {
     ch->y1=0;
     ch->y2=0;
     ch->z1=y1;
     ch->z2=y2;
+  } else {
+    ch->y1=y1;
+    ch->y2=y2;
+    ch->z1=0;
+    ch->z2=0;
   }
   ch->vars=ch->varsContaining=NULL;
 
@@ -387,7 +387,7 @@ static void DrawChord3D(View w,Chord ch) {
       x2=hypot(ch->x2,ch->z2);y2=ch->y2;
       DrawViewLine(w,x1,y1,x2,y2);
     }
-  } else if (w->showFlags & SHW_CHORDS)
+  } else if (w->showFlags & (SHW_CHORDS | SHW_3DCHORDS))
     DrawViewLine(w,ch->x1,ch->z1,ch->x2,ch->z2);
 }
 
