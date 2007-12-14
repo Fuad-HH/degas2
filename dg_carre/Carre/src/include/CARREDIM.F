@@ -3,7 +3,7 @@ c
       integer nxmax, nymax , npstmx, npnimx, npxmx , strumx, nivmx,
      .        nbdmx, gradmx, npmamx, nrmamx, nregmx, nxymax
       parameter (nxmax=1025,  nymax=1025, npstmx=120, npnimx=900,
-     .           npxmx=4   , strumx=60  ,  nivmx=8  , nbdmx=4  ,
+     .           npxmx=4   , strumx=60  ,  nivmx=8  , nbdmx=10  ,
      .          gradmx=50  , npmamx=500 , nrmamx=200, nregmx=6)
 c
 c*** nxymax=max(nxmax,nymax)
