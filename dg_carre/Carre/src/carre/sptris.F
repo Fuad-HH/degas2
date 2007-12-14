@@ -32,7 +32,7 @@ cank-970707: dimensions from the file
 
 *  variables locales
       integer ipx,ix,jx,isep,i1,i2,j1,j2,iref,jref,k,idir,dir,
-     .  indstr,plaque,nbdfav,nt(1),ixp_hlp(npxmx)
+     .  indstr,plaque,nbdfav,nt(1),ixp_hlp(nbdmx)
       real*8 xsttmp(8),ysttmp(8)
       integer i,j     !!!
       integer incri(4),incrj(4),incrir(4),incrjr(4),ii,ji,ic
