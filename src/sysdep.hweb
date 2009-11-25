@@ -1,6 +1,9 @@
 @* Macros for machine dependencies.
 % $Id$
 % $Log$
+% Revision 1.16  2006/01/19 20:04:59  dstotler
+% Add flag for PATHSCALE compiler.
+%
 % Revision 1.15  2001/11/16 15:58:04  dstotler
 % Add switches for Linux Fujitsu compiler.
 %
@@ -71,6 +74,7 @@
     @m SGI 0
     @m VAX 0
     @m LINUX 0
+    @m LINUX64 0
 @#elif defined(SUN)
     @m CRAY 0
     @m SUN 1
@@ -80,6 +84,7 @@
     @m SGI 0
     @m VAX 0
     @m LINUX 0
+    @m LINUX64 0
 @#elif defined(IBM)
     @m CRAY 0
     @m SUN 0
@@ -89,6 +94,7 @@
     @m SGI 0
     @m VAX 0
     @m LINUX 0
+    @m LINUX64 0
 @#elif defined(ALPHA)
     @m CRAY 0
     @m SUN 0
@@ -98,6 +104,7 @@
     @m SGI 0
     @m VAX 0
     @m LINUX 0
+    @m LINUX64 0
 @#elif defined(HP)
     @m CRAY 0
     @m SUN 0
@@ -107,6 +114,7 @@
     @m SGI 0
     @m VAX 0
     @m LINUX 0
+    @m LINUX64 0
 @#elif defined(SGI)
     @m CRAY 0
     @m SUN 0
@@ -116,6 +124,7 @@
     @m SGI 1
     @m VAX 0
     @m LINUX 0
+    @m LINUX64 0
 @#elif defined(VAX)
     @m CRAY 0
     @m SUN 0
@@ -125,6 +134,7 @@
     @m SGI 0
     @m VAX 1
     @m LINUX 0
+    @m LINUX64 0
 @#elif defined(LINUX)
     @m CRAY 0
     @m SUN 0
@@ -134,6 +144,17 @@
     @m SGI 0
     @m VAX 0
     @m LINUX 1
+    @m LINUX64 0
+@#elif defined(LINUX64)
+    @m CRAY 0
+    @m SUN 0
+    @m IBM 0
+    @m ALPHA 0
+    @m HP 0
+    @m SGI 0
+    @m VAX 0
+    @m LINUX 0
+    @m LINUX64 1
 @#endif
 
 @#if defined(NAGWARE)
@@ -161,6 +182,25 @@
     @m PGROUP 0
     @m FUJITSU 0
     @m PATHSCALE 0
+@#endif
+
+@#if defined(HDF4)
+    @m HDF4 1
+    @m SILO 0
+@#elif defined(SILO)
+    @m HDF4 0
+    @m SILO 1
+    @m silo_precision DB_DOUBLE
+    @m silo_format DB_PDB
+@#elif defined(SILO_HDF5)
+    @m HDF4 0
+    @m SILO 1
+    @m silo_precision DB_DOUBLE
+//    @m silo_format DB_PDB       // Is also available
+    @m silo_format DB_HDF5      // See Silo manual for other HDF5 options
+@#else
+    @m HDF4 0
+    @m SILO 0
 @#endif
 
 @ Fortran 77 vs. 90.
@@ -191,7 +231,10 @@
   @m f90_kinds SINGLE=kind(0.0),DOUBLE=selected_real_kind(12)
   @m real     REAL(kind=DOUBLE)
   @m areal(x) REAL(x,DOUBLE)
-  @m const(x,...) x@&$IFCASE(#0,,e###1)@&_DOUBLE
+                            // Need (...) here for negative values.
+  @m const(x,...) (x@&$IFCASE(#0,,e###1)@&_DOUBLE) 
+                           // Except in data statements; use this instead. 
+  @m dconst(x,...) x@&$IFCASE(#0,,e###1)@&_DOUBLE 
   @m epsilon  (5*EPSILON(const(0.0))) // 1.1e-15 on Sun/Alpha. 7.1e-14 on Cray.
   @m single_precision REAL(kind=SINGLE)
   @m single(x) REAL(x,SINGLE)
@@ -200,14 +243,16 @@
 @#if CRAY
   @m real     REAL
   @m areal    REAL
-  @m const(x,...) x@&$IFCASE(#0,e0,e###1)
+  @m const(x,...) (x@&$IFCASE(#0,e0,e###1))
+  @m dconst(x,...) x@&$IFCASE(#0,e0,e###1)
   @m epsilon  1.0e-15
   @m single_precision Real
   @m single   Real
 @#else
   @m real     DOUBLE PRECISION  // Default precision
   @m areal    DBLE              // Coerce to default precision
-  @m const(x,...) x@&$IFCASE(#0,d0,d###1) // Constant in default precision
+  @m const(x,...) (x@&$IFCASE(#0,d0,d###1)) // Constant in default precision
+  @m dconst(x,...) x@&$IFCASE(#0,d0,d###1)
   @m epsilon  1.0d-15           // Approximate round-off error
   @m single_precision Real      // Declare single precision
   @m single   Real              // Coerce to single precision
@@ -224,6 +269,8 @@
   @m address INTEGER*8
 @#elif SGI
   @m address INTEGER*8
+@#elif LINUX64
+  @m address INTEGER*8
 @#else
   @m address INTEGER
 @#endif 
@@ -231,7 +278,7 @@
 @#if defined(USEINT)
   @m USEINT 1
 @#else
-@#if SGI || CRAY || LINUX
+@#if SGI || CRAY || LINUX || LINUX64
   @m USEINT 0
 @#else
   @m USEINT 1
