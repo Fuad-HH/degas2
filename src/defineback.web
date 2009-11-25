@@ -2,6 +2,9 @@
 \Title{defineback}
 
 % $Log$
+% Revision 1.4  2007/06/19 17:33:43  dstotler
+% Replace inc_ion_energy calls with phi_sheath function; add associated plasma_e_ion_sheath variable.  Add call to nc_read_elements.  Modify to handle updates, as in updatebackground.
+%
 % Revision 1.3  2006/01/19 19:09:35  dstotler
 % Extend to 3-D. Area computation for specify_flux option works for 3-D
 % symmetries.  Incorporate specification of puff temperature via
@@ -535,7 +538,7 @@ local sheath potential or even the plasma flux.
 The basic default parameters for the sheath model used when simulating
 a plate source are set when the sectors
 associated with a source are defined, e.g., during |definegeometry2d|: 
-$|target_e_ion_delta| = 0$ and $|target_e_ion_mult| = 1$.
+$|plasma_e_ion_delta| = 0$ and $|plasma_e_ion_mult| = 1$.
 Since this step precedes the plasma specification, it necessarily is
 ignorant of the plasma parameters in the vicinity of that sector.
 
@@ -543,9 +546,9 @@ When |defineback| sets up the segments of a plate source it will attempt
 to rectify this situation. If specific plasma data for the sector
 are not specified (as described below), provided the electron
 temperature in the plasma zone adjacent to the source sector is 
-positive, it will set $|target_e_ion_delta| = 3 T_{e}$ (explicitly
+positive, it will set $|plasma_e_ion_delta| = 3 T_{e}$ (explicitly
 assuming that electrons are the first background species), leaving
-|target_e_ion_mult| set to 1. In this case, the $3 T_{e}$ represents
+|plasma_e_ion_mult| set to 1. In this case, the $3 T_{e}$ represents
 a simple value for the sheath potential.
 
 If specific plasma parameters are available for the source sector, such 
@@ -573,8 +576,8 @@ E_{i} & = & 3 T_{i} + \left ( \frac{1}{2} + \phi \right) T_{e},
 Since the model depends on only the magnitude of the flow velocity,
 |defineback| will also proceed to evaluate these expressions if just
 the parallel velocity (labeled by \verb+v_par+) is provided. The result
-is placed into the appropriate element of |target_e_ion_delta| and the
-corresponding entry in |target_e_ion_mult| is set to zero.
+is placed into the appropriate element of |plasma_e_ion_delta| and the
+corresponding entry in |plasma_e_ion_mult| is set to zero.
 
 \subsection{Plasma Flux Computation}
 
@@ -1658,11 +1661,11 @@ next_datum: continue
    function. Assumes that the first background species is ``e''.
 */
                if (so_type(so_grps) == so_plate) then
+                  assert(sc_plasma_check(sector_type_pointer[sector][sc_plasma]))
+                  targ=sector_type_pointer[sector][sc_plasma]
                   if ((source_real_params[iseg][code_e_delta] != real_uninit)
      $          && (source_real_params[iseg][code_e_sheath] != real_uninit)
      $          && (source_real_params[iseg][code_e_mult] != real_uninit)) then
-                     assert(sc_plasma_check(sector_type_pointer[sector][sc_plasma]))
-                     targ=sector_type_pointer[sector][sc_plasma]
                      plasma_e_ion_delta[targ]=
      $                    source_real_params[iseg][code_e_delta]
                      plasma_e_ion_sheath[targ]=
