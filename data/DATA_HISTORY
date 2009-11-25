@@ -80,6 +80,82 @@ DEBUG=no will give answers differing by about 1.e-6).
 Change moment names from I_l... to I_0... to be more specific. Same generation
 procedure as for V. 2.2; last used ratecalc revision 1.36.
 
+DEUTERIUM DEUTERIUM ELASTIC SCATTERING
+dd_neut.nc
+
+  --Version 3.0--
+These data are for use with the BGK method and have the T**0.25 scaling
+for the reaction rate originally proposed by May (see the Neutral-
+Neutral Elastic Scattering section of the User's Manual) and implemented
+in EIRENE.  The numerical value of the rate corresponds to
+5.4241e-10*T**0.25, where T is the deuterium temperature in eV.
+Note that the data in the files is for the specific energy; the 
+corresponding absolute temperature range is 1.e-3 to 100 eV.
+The origin of the files themselves is not documented.  However,
+an equivalent file can be easily constructed by hand since only
+two data values are needed to reproduce this scaling, given the
+use of log interpolation (and that the sigv_max is not needed for
+this reaction type).  Note also that these rates should be
+replaced by constant values.  In fact, the User's Manual has already
+been revised to reflect this change.
+
+MOLECULAR DEUTERIUM - MOLECULAR DEUTERIUM ELASTIC SCATTERING
+d2d2_neut.nc
+
+  --Version 3.0--
+These data are for use with the BGK method and have the T**0.25 scaling
+for the reaction rate originally proposed by May (see the Neutral-
+Neutral Elastic Scattering section of the User's Manual) and implemented
+in EIRENE.  The numerical value of the rate corresponds to
+7.9109e-10*T**0.25, where T is the deuterium temperature in eV.
+Note that the data in the files is for the specific energy; the 
+corresponding absolute temperature range is 1.e-3 to 100 eV.
+The origin of the files themselves is not documented.  However,
+an equivalent file can be easily constructed by hand since only
+two data values are needed to reproduce this scaling, given the
+use of log interpolation (and that the sigv_max is not needed for
+this reaction type).  Note also that these rates should be
+replaced by constant values.  In fact, the User's Manual has already
+been revised to reflect this change.
+
+DEUTERIUM - MOLECULAR DEUTERIUM ELASTIC SCATTERING
+dd2_neut.nc
+
+  --Version 3.0--
+These data are for use with the BGK method and have the T**0.25 scaling
+for the reaction rate originally proposed by May (see the Neutral-
+Neutral Elastic Scattering section of the User's Manual) and implemented
+in EIRENE.  The numerical value of the rate corresponds to
+1.05658e-9*T**0.25, where T is the deuterium temperature in eV.
+Note that the data in the files is for the specific energy; the 
+corresponding absolute temperature range is 1.e-3 to 100 eV.
+The origin of the files themselves is not documented.  However,
+an equivalent file can be easily constructed by hand since only
+two data values are needed to reproduce this scaling, given the
+use of log interpolation (and that the sigv_max is not needed for
+this reaction type).  Note also that these rates should be
+replaced by constant values.  In fact, the User's Manual has already
+been revised to reflect this change.
+
+MOLECULAR DEUTERIUM - DEUTERIUM ELASTIC SCATTERING
+d2d_neut.nc
+
+  --Version 3.0--
+These data are for use with the BGK method and have the T**0.25 scaling
+for the reaction rate originally proposed by May (see the Neutral-
+Neutral Elastic Scattering section of the User's Manual) and implemented
+in EIRENE.  The numerical value of the rate corresponds to
+1.05658e-9*T**0.25, where T is the deuterium temperature in eV.
+Note that the data in the files is for the specific energy; the 
+corresponding absolute temperature range is 1.e-3 to 100 eV.
+The origin of the files themselves is not documented.  However,
+an equivalent file can be easily constructed by hand since only
+two data values are needed to reproduce this scaling, given the
+use of log interpolation (and that the sigv_max is not needed for
+this reaction type).  Note also that these rates should be
+replaced by constant values.  In fact, the User's Manual has already
+been revised to reflect this change.
+
 MOLECULAR HYDROGEN DISSOCIATION
 h2dis.nc
 
@@ -410,6 +486,16 @@ automatically by the code.
 DEUTERIUM CHARGE EXCHANGE - KRSTIC DATA
 dd_chargex.nc
 
+    --Version 3.2--
+Extended the energy range covered by the cross section up to 1.e6 eV via two
+cubic splines and added a linear extrapolation beyond that.  The fits
+were derived from the Janev-Smith charge exchange fit rescaled to
+match the value of this cross section at 1.e2 eV.  The rates
+and other data in the netCDF file were computed by ratecalc,
+revision 1.38, using dd_chargex.input, revision 1.2, as the input
+file.  The only additional change is the manual insertion of the value
+of sigv_max, 1.15e-7, at the end of the file.
+
     --Version 3.1--
 These data were produced by ratecalc, revision 1.34, using dd_chargex.input,
 revision 1.1, as the input file.  The fit in dd_chargex.input was based
@@ -718,9 +804,47 @@ repeated with the corresponding "00" data and the results compared.
 Additional information on these data is contained in the
 dhe_elastic.input file.
 
+HELIUM DOUBLE CHARGE EXCHANGE
+he2chex.nc
+
+     --Version 1.0--
+The data file was generated by ratecalc, revision 1.38, using he2chex.input.
+Note that the upper bounds for the specific temperature and energy used in
+computing I_0,1 and I_0,2 moments were restricted to ensure that the resulting
+values were not affected by the limits on the energy argument to the cross
+section fit that appears in the integrand.  Because of these limitations,
+we used Janev's fit directly for the reaction rate rather than integrating
+the cross section.  The minimum temperature was left at 0.1 eV for the
+same reason.  However, we extend the minimum energy axis to much smaller
+values to ensure that I_0,1 has the proper variation with the neutral
+velocity (inversely proportional) over this range.  The value of sigv_max
+(2.e-8 cm^3/s) was manually inserted into the file after ratecalc was
+run.
+
+LITHIUM HELIUM ELASTIC SCATTERING CONSTANT CROSS SECTION
+lihe_00_elastic.nc
+
+     --Version 1.0--
+The data file was generated by ratecalc, revision using lihe_elastic.input.
+The corresponding Aladdin format data file, Aladdin/data/LiHe_elastic.dat
+was in turn generated via the same machinery used for the other 
+differential scattering data.  However, in this case the entire 
+process is based on a constant (independent of energy and angle)
+cross section.  Details on the construction of the data files
+used by the elastic code, sigma_p.f are provided in the README
+in the corresponding elastic/LiHe directory (not part of the
+DEGAS 2 distribution).
+ 
+
+
 ___________________________________________________________________________
 
    P L A S M A  -  M A T E R I A L  I N T E R A C T I O N S
+
+* NOTE: in most cases the symbol for the PMI (which appears in the
+input file to problemsetup) is just the root of the data filename.
+In those cases where the symbol is something else (e.g., due to a 
+generic data file), the symbol appears after the name of the PMI.
 
 DEUTERIUM REFLECTION (RUZIC) ON CARBON
 dreflc.nc
@@ -895,12 +1019,12 @@ pmiwrite (should be v. 1.6).
      --Version 1.1--
 Fill unused portion of main data table with real_unused (pmiwrite v. 1.10).
 
-HYDROGEN REFLECTION ON MIRROR
-HYDROGEN MOLECULE REFLECTION ON MIRROR
-ARGON REFLECTION ON MIRROR
-HELIUM REFLECTION ON MIRROR
-HELIUM (2|1S) REFLECTION ON MIRROR
-HELIUM (2|3S) REFLECTION ON MIRROR
+HYDROGEN REFLECTION ON MIRROR - hmirror
+HYDROGEN MOLECULE REFLECTION ON MIRROR - h2mirror
+ARGON REFLECTION ON MIRROR - armirror
+HELIUM REFLECTION ON MIRROR - hemirror
+HELIUM (2|1S) REFLECTION ON MIRROR - he2_1mirror
+HELIUM (2|3S) REFLECTION ON MIRROR - he2_3mirror
 mirror.nc
 
      --Version 1.0--
@@ -1076,9 +1200,9 @@ energy is 1.5 times wall temperature.
 HELIUM REFLECTION (TRIM) ON CARBON
 He_refl_trim_C.nc
 
-HELIUM (2|1S) REFLECTION (TRIM) ON CARBON
+HELIUM (2|1S) REFLECTION (TRIM) ON CARBON - He2_1_refl_trim_C
 
-HELIUM (2|3S) REFLECTION (TRIM) ON CARBON
+HELIUM (2|3S) REFLECTION (TRIM) ON CARBON - He2_3_refl_trim_C
 
      --Version 1.0--
 The routine and original TRIM data file used here were exactly as
@@ -1091,9 +1215,9 @@ metastable states.  Both are changed to ground state upon reflection.
 HELIUM REFLECTION (TRIM) ON IRON
 He_refl_trim_Fe.nc
 
-HELIUM (2|1S) REFLECTION (TRIM) ON IRON
+HELIUM (2|1S) REFLECTION (TRIM) ON IRON - He2_1_refl_trim_Fe
 
-HELIUM (2|3S) REFLECTION (TRIM) ON IRON
+HELIUM (2|3S) REFLECTION (TRIM) ON IRON - He2_3_refl_trim_Fe
 
      --Version 1.0--
 The routine and original TRIM data file used here were exactly as
@@ -1105,6 +1229,10 @@ metastable states.  Both are changed to ground state upon reflection.
 
 HELIUM DESORPTION FROM CARBON
 hedesorbc.nc
+
+HELIUM (2|1S) DESORPTION FROM CARBON - he2_1desrobc
+
+HELIUM (2|3S) DESORPTION FROM CARBON - he2_3desrobc
 
      --Version 1.0--
 Just copied the existing hdesorbmo.nc file. Velocity vector is cosine;
@@ -1129,7 +1257,8 @@ h_des_maxw_TiC.nc
 Copied directly from h_des_maxw_mo.nc, V. 1.1, and just changed pf_name
 and data_version strings.
 
-HYRDROGEN ADSORPTION ON LITHIUM
+HYRDROGEN ADSORPTION ON LITHIUM - h_adsorb_Li
+LITHIUM ADSORPTION ON CARBON - Li_adsorb_C
 adsorb_default.nc
 
      --Version 1.1--
@@ -1164,6 +1293,16 @@ Created from VFTRIM data for D -> TiC from Ruzic, D_on_TiC_Reflect.txt.
 The original file was an Excel spreadsheet, edited slightly and saved as 
 tab-delimited text for use here.  The netCDF file was generated by 
 pmiwrite v. 1.14, without modification.
+
+LITHIUM REFLECTION ON CARBON - Li_refl_C
+D_refl_vftrim_Li.nc
+
+The current assumption is that Li sticks to C perfectly so that the
+only PMI really needed is that for adsorption (Li_adsorb_C).  But,
+presently the code still requires a reflection process to work.  
+To that end, have added this process, but with an arbitrarily chosen
+data file (D_refl_vftrim_Li.nc).  When used, however, the recycling
+coefficient for the C material should be set to zero.
 
 
 
