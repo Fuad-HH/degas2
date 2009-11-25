@@ -2,6 +2,24 @@
 \Title{plot geometry}
 
 % $Log$
+% Revision 1.18  2006/01/19 19:51:16  dstotler
+% Extend to 3-D, generate a stack of 2-D slices. Subsequently modify
+% this to do dynamic allocation of the data array used in data_slice to
+% avoid running into memory limits.  Rewrite data_slice so that the
+% creation of the pixel to zone map is done only once; it gets broken up
+% into 3 pieces and renamed in the process.  Removed old, unused code,
+% including all of Charles' original plot functions.  Permit plotting
+% outside the universal cell.  For regions outside u.c., set plotted
+% data to 0.  Shifted axis labels in x and y by half*dx to match
+% tracking.  Allow the x-y resolution and z-scale to be specified in the
+% input file for the bulk of the plots (geomtesta.hdf still hardwired).
+% Refine this to be more discerning, to treat traversals of the
+% universal cell boundary with suspicion.  Add subroutine pixel_map_test
+% that uses the universal cell boundaries to set up a pixel mesh and
+% then calls set_pixel_zones.  This is mainly intended for initial
+% geometry testing since the resulting image is too coarse to be useful
+% for viewing.
+%
 % Revision 1.17  1997/08/19 14:36:47  karney
 % Changes to support compilation under f90.  This involved extensive changes
 % in array.hweb and sysdep.web.  Nearly all other files needed some
@@ -100,6 +118,7 @@ Introduction\ldots
 @I reaction.hweb
 @I species.hweb
 @I materials.hweb
+@I string.hweb
 
 @ The unnamed module.
 
@@ -203,7 +222,15 @@ location in the problem space is returned in |pixel_zones|.
       end do
 
       do j=0,nb-1
+@#if HDF4
+/*
+   This coordinate is traced in the opposite direction to facilitate display
+   in a PC based application.
+*/
          vc_xvt(x0,vy,dx*(nb-1-float(j)+half),x_tmp)    // See |ind| below
+@#else
+         vc_xvt(x0,vy,dx*(float(j)+half),x_tmp)    // See |ind| below
+@#endif
          xb[j]=vc_product(x_tmp,vy)
       end do
 
@@ -334,7 +361,11 @@ loop:       continue                       // Loop over |na| mesh points
 */
             if (direction*(istop-istart) >= 0) then
                do i=istart,istop,direction
+@#if HDF4
                   ind=(k*nb+(nb-1-j))*na+i
+@#else
+                  ind=(k*nb+j)*na+i
+@#endif
                   pixel_zones[ind]=zone
                end do
             end if
@@ -428,7 +459,6 @@ to hold the pixel-based version of the data, |pixel_data|.
 @<Functions...@>=
       subroutine write_hdf(hdffile,zone_data,clabel,cunits,cformt,
      $                     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
-
       implicit_none_f77
       zn_common
       implicit_none_f90
@@ -438,6 +468,8 @@ to hold the pixel-based version of the data, |pixel_data|.
       integer pixel_zones[0:na*nb*nc-1]
       real zone_data[zn_num],xa[0:na-1],xb[0:nb-1],xc[0:nc-1],
      $     pixel_data[0:na*nb*nc-1]
+
+@#if HDF4
       integer i,rank,ret                                // Local         
       integer*4 dims[3]                              
       external dspdata,dssdast,dssdims,dssdisc,dssnt    // External
@@ -476,6 +508,67 @@ to hold the pixel-based version of the data, |pixel_data|.
       end if
       ret=dssdast(clabel,cunits,cformt,'cartesian')
       ret=dspdata(hdffile,rank,dims,pixel_data[0])
+
+@#elif SILO
+      integer i,rank,ret,ret2,var_opts
+      integer dims[3]
+      st_decls
+      include 'silo.inc'
+/*
+   These are set in the calling program and passed via common
+   so we don't have to alter the interface of this routine.
+*/
+      integer dbfile
+      logical write_mesh
+      character*FILELEN mesh_name,var_name
+      common /silo_common/ dbfile,write_mesh,mesh_name
+
+      do i=0,na*nb*nc-1
+         if (pixel_zones[i] != zn_undefined) then
+            pixel_data[i]=zone_data[pixel_zones[i]]
+         else
+            pixel_data[i]=zero
+         end if
+      end do
+      dims[1]=na
+      dims[2]=nb
+      if (nc == 1) then
+         rank=2
+      else
+         assert(nc > 1) 
+         rank=3
+         dims[3]=nc
+      end if
+      if (write_mesh) then
+         if (nc == 1) then
+            ret=dbputqm(dbfile, trim(mesh_name),string_length(mesh_name),
+     $           'x',1,'y',1,'z',1,xa[0],xb[0],DB_F77NULL,dims,rank,
+     $           silo_precision,DB_COLLINEAR,DB_F77NULL,ret2)
+         else
+            ret=dbputqm(dbfile, trim(mesh_name),string_length(mesh_name),
+     $           'x',1,'y',1,'z',1,xa[0],xb[0],xc[0],dims,rank,silo_precision,
+     $           DB_COLLINEAR,DB_F77NULL,ret2)
+         end if
+         assert((ret != -1) && (ret2 != -1))
+         write_mesh=.false.
+      end if
+/*
+   Now output the data
+*/
+      ret=dbmkoptlist(1,var_opts)
+      assert(ret != -1)
+      if (len(cunits) > 0) then
+         ret=dbaddcopt(var_opts,DBOPT_UNITS,cunits,len(cunits))
+         assert(ret  != -1)
+      end if
+      i=index(hdffile,'.hdf')
+      var_name=hdffile(:i-1)
+      ret=dbputqv1(dbfile,trim(var_name),string_length(var_name),
+     $     trim(mesh_name),string_length(mesh_name),
+     $     pixel_data[0],dims,rank,DB_F77NULL,0,silo_precision,
+     $     DB_NODECENT,var_opts,ret2)
+      assert((ret != -1) && (ret2 != -1))
+@#endif
 
       return
       end
@@ -521,7 +614,18 @@ This should catch geometry errors that get by |check_geometry|.
       
       @<Memory allocation interface@>
       vc_decls
-
+      st_decls
+@#if SILO
+      include 'silo.inc'
+      integer dbfile,ret
+      logical write_mesh
+      character*FILELEN mesh_name,silo_file
+      common /silo_common/ dbfile,write_mesh,mesh_name
+      silo_file='geomtestc.silo'
+      ret=dbcreate(trim(silo_file),string_length(silo_file),
+     $     DB_CLOBBER,DB_LOCAL,DB_F77NULL,0,silo_format,dbfile)
+      assert((ret != -1) && (dbfile != -1))
+@#endif
       if (geometry_symmetry == geometry_symmetry_oned) then
          x[1]=universal_cell_min[1]
          x[2]=universal_cell_min[2]
@@ -660,6 +764,10 @@ This should catch geometry errors that get by |check_geometry|.
       var_alloc(zone_data)
 
       call set_pixel_zones(x,a,b,c,na,nb,nc,dx,dz,xa,xb,xc,pixel_zones)
+@#if SILO
+      write_mesh=.true.
+      mesh_name='geomtestc2d'
+@#endif
 /*
    This is just Charles' original ``zone function''.  I believe the
    purpose was to use (most of) an 8-bit palette to color the
@@ -679,6 +787,10 @@ This should catch geometry errors that get by |check_geometry|.
       var_free(pixel_zones)
       var_free(pixel_data)
       var_free(zone_data)
+@#if SILO
+      ret=dbclose(dbfile)
+      assert(ret != -1)
+@#endif
 
       return
       end
