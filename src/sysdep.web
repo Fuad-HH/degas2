@@ -2,6 +2,11 @@
 \Title{system dependent routines}
 
 % $Log$
+% Revision 1.24  2001/11/16 15:58:37  dstotler
+% Replaced usage of the pause command in error_exit with explicit,
+% implementation independent, code. Delete an duplicated return
+% statement in mem_realloc_i2.
+%
 % Revision 1.23  2000/04/01 17:35:00  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -156,7 +161,7 @@ System dependent routines for degas.
 
 @a
       @<Functions and Subroutines@>
-@#if IBM || LINUX
+@#if IBM || LINUX || LINUX64
 @c
 #include <stdio.h>
 #include <strings.h>
@@ -188,7 +193,7 @@ This is from \verb&f77/f77_floatingpoint.h&.
 @#if !IBM
       function get_env(var,val)
       implicit_none_f77
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
@@ -294,7 +299,7 @@ day, minutes east of Greenwich, hour, minute, second, milliseconds.
       call time(temp)
       read(temp,'(i2,1x,i2,1x,i2)')
      $     date_array[5],date_array[6],date_array[7]
-@#elif SGI || ( LINUX && PGROUP )
+@#elif SGI || ( (LINUX || LINUX64) && PGROUP )
       call idate(date_array[2],date_array[3],date_array[1])
       if (date_array[1]>90) then
          date_array[1]=date_array[1]+1900
@@ -405,9 +410,9 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
       call system_clock(count,rate)
       cpu_time=real(count)/real(max(1,rate))
 @#else
-@#if HP || IBM || ( LINUX && NAGWARE )
+@#if HP || IBM || ( (LINUX || LINUX64) && NAGWARE )
       integer clock             // External
-@#elif LINUX && PGROUP
+@#elif (LINUX || LINUX64) && PGROUP
       integer mclock            // External
 @#elif CRAY
       real second               // External
@@ -416,9 +421,9 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
       single_precision etime    // External
 @#endif
 
-@#if HP || IBM || ( LINUX && NAGWARE)
+@#if HP || IBM || ( (LINUX || LINUX64) && NAGWARE)
       cpu_time=const(1.0,-6)*areal(clock())
-@#elif LINUX && PGROUP
+@#elif (LINUX || LINUX64) && PGROUP
       cpu_time=const(1.0,-2)*areal(mclock())
 @#elif CRAY
       cpu_time=second()
@@ -432,7 +437,7 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
 @ Interface for |clock| for Linux.
 
 @<C Functions@>=
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
 int FORTRANNAME(clock)()
 {
       return clock();
@@ -444,12 +449,12 @@ int FORTRANNAME(clock)()
 @<Functions...@>=
       function get_pid()
       implicit_none_f77
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
       integer get_pid           // Function
-@#if !( LINUX && NAGWARE )
+@#if !( (LINUX || LINUX64) && NAGWARE )
       integer getpid           // External
 @#endif
 
@@ -485,7 +490,7 @@ int FORTRANNAME(clock)()
 
 @ Linux interface to getcwd
 @<C Functions@>=
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
 int FORTRANNAME(getcwd)(name,len)
 char * name;
 int len;
@@ -522,7 +527,7 @@ int len;
 
 @ Linux interface to chdir
 @<C Functions@>=
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
 int FORTRANNAME(chdir)(name,len)
 char *name;
 int len;
@@ -596,7 +601,7 @@ int len;
 
 @ Linux interface to gethostname.
 @<C Functions@>=
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
 int FORTRANNAME(hostnm)(name,len)
 char * name;
 int len;
@@ -611,7 +616,7 @@ int len;
 @<Functions...@>=
       function arg_count()
       implicit_none_f77
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
@@ -620,7 +625,7 @@ int len;
       external ipxfargc
       integer ipxfargc
 @#else
-@#if !( LINUX && NAGWARE )
+@#if !( (LINUX || LINUX64) && NAGWARE )
       integer iargc             // External
 @#endif
 @#endif
@@ -638,7 +643,7 @@ int len;
 @<Functions...@>=
       subroutine command_arg(i,arg)
       implicit_none_f77
-@#if LINUX && NAGWARE
+@#if (LINUX || LINUX64) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
