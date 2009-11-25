@@ -2,6 +2,12 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.13  2007/06/19 17:46:03  dstotler
+% Many improvements to UEDGE interface, including: documentation,
+% multiple ion species, updating capability, generalized sheath
+% model.  Also, moved in nc_read_old_sources and update_wt_alias
+% from updatebackground.web.
+%
 % Revision 1.12  2006/01/19 20:06:00  dstotler
 % Allocate and set source_parameters array in set_background_sources.
 % Do in read_uedge_background, too.  Replace target sector with plasma
@@ -116,20 +122,24 @@ of the source definition.
       integer update                             // Input
       character*FILELEN file                 
                                                
-      integer nx,ny,ns                           // Local; UEDGE file data:
+      integer nx,ny,nxpt,ns                      // Local; UEDGE file data:
+      integer ixlb[bk_xpt],ixrb[bk_xpt]
       real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
      $     ni[bk_mx,bk_my,bk_ms],vr[bk_mx,bk_my,bk_ms],
      $     vz[bk_mx,bk_my,bk_ms],vphi[bk_mx,bk_my,bk_ms],
      $     te[bk_mx,bk_my],ti[bk_mx,bk_my],
-     $     ni1[bk_my,bk_ms],vr1[bk_my,bk_ms],vz1[bk_my,bk_ms],
-     $     vphi1[bk_my,bk_ms],ti1[bk_my],te1[bk_my],flux1[bk_my,bk_ms],
-     $     ni2[bk_my,bk_ms],vr2[bk_my,bk_ms],vz2[bk_my,bk_ms],
-     $     vphi2[bk_my,bk_ms],ti2[bk_my],te2[bk_my],flux2[bk_my,bk_ms],
-     $     flux1_tot[bk_ms],flux2_tot[bk_ms]
+     $     ni1[bk_my,bk_ms,bk_xpt],vr1[bk_my,bk_ms,bk_xpt],
+     $     vz1[bk_my,bk_ms,bk_xpt],vphi1[bk_my,bk_ms,bk_xpt],
+     $     ti1[bk_my,bk_xpt],te1[bk_my,bk_xpt],flux1[bk_my,bk_ms,bk_xpt],
+     $     ni2[bk_my,bk_ms,bk_xpt],vr2[bk_my,bk_ms,bk_xpt],
+     $     vz2[bk_my,bk_ms,bk_xpt],vphi2[bk_my,bk_ms,bk_xpt],
+     $     ti2[bk_my,bk_xpt],te2[bk_my,bk_xpt],flux2[bk_my,bk_ms,bk_xpt],
+     $     flux1_tot[bk_ms,bk_xpt],flux2_tot[bk_ms,bk_xpt]
+
       character*sp_sy_len uedge_species[bk_ms]
-      integer tot,js,isp,sp_back,flux1_present,    // Other local
-     $        flux2_present,itarg,grp
-      integer group_map[2,bk_ms]
+      integer tot,js,isp,sp_back,itarg,grp,ixpt  // Other local
+      integer flux1_present[bk_xpt],flux2_present[bk_xpt],
+     $        group_map[2,bk_ms,bk_xpt]
 
       st_decls
       @<Memory allocation interface@>
@@ -137,38 +147,40 @@ of the source definition.
       external neutralize_species      // External
       integer neutralize_species
       
-      call init_uedge_background(file,nx,ny,rm,zm,ni,vr,vz,vphi,
-     $     ti,te,ni1,vr1,vz1,vphi1,ti1,te1,flux1,ni2,vr2,vz2,vphi2,
-     $     ti2,te2,flux2,flux1_tot,flux2_tot,ns,uedge_species)
+      call init_uedge_background(file,nx,ny,nxpt,ixlb,ixrb,rm,zm,ni,
+     $     vr,vz,vphi,ti,te,ni1,vr1,vz1,vphi1,ti1,te1,flux1,ni2,vr2,vz2,
+     $     vphi2,ti2,te2,flux2,flux1_tot,flux2_tot,ns,uedge_species)
 /*
    Make an initial survey of the source groups needed, recording the
    results in the |group_map| array.
 */
       so_grps=0
       so_seg_tot=0
-      flux1_present=FALSE
-      flux2_present=FALSE
-      do js=1,ns
-         group_map[1,js]=int_undef
-         group_map[2,js]=int_undef
-         isp=sp_lookup(uedge_species[js])
-         if (sp_check(isp)) then
-            sp_back=pr_background_lookup(isp)
-            if (bk_check(sp_back)) then
-               if (flux1_tot[js] > zero) then
-                  so_grps++
-                  so_seg_tot+=ny
-                  group_map[1,js]=so_grps
-                  flux1_present=TRUE
-               end if
-               if (flux2_tot[js] > zero) then
-                  so_grps++
-                  so_seg_tot+=ny
-                  group_map[2,js]=so_grps
-                  flux2_present=TRUE
+      do ixpt=1,nxpt
+         flux1_present[ixpt]=FALSE
+         flux2_present[ixpt]=FALSE
+         do js=1,ns
+            group_map[1,js,ixpt]=int_undef
+            group_map[2,js,ixpt]=int_undef
+            isp=sp_lookup(uedge_species[js])
+            if (sp_check(isp)) then
+               sp_back=pr_background_lookup(isp)
+               if (bk_check(sp_back)) then
+                  if (flux1_tot[js,ixpt] > zero) then
+                     so_grps++
+                     so_seg_tot+=ny
+                     group_map[1,js,ixpt]=so_grps
+                     flux1_present[ixpt]=TRUE
+                  end if
+                  if (flux2_tot[js,ixpt] > zero) then
+                     so_grps++
+                     so_seg_tot+=ny
+                     group_map[2,js,ixpt]=so_grps
+                     flux2_present[ixpt]=TRUE
+                  end if
                end if
             end if
-         end if
+         end do
       end do
       if (so_grps == 0) then
          assert('Zero fluxes in UEDGE background' == ' ')
@@ -216,30 +228,33 @@ of the source definition.
    this is done in section analogous to above (before allocations).
 */
          tot=0
-         do js=1,ns
-            do itarg=1,2
-               if (group_map[itarg,js] != int_undef) then
-                  grp=group_map[itarg,js]
-                  so_root_sp(grp)=sp_lookup(uedge_species[js])
-                  assert(sp_check(so_root_sp(grp)))
-                  so_params(grp,so_param_puff_temp)=real_unused
-                  so_species(grp)=neutralize_species(so_root_sp(grp))
-                  assert(sp_check(so_species(grp)))
-                  so_tot_curr(grp)=zero
-                  so_type(grp)=so_plate
-                  so_nseg(grp)=ny
-                  so_geom(grp)=so_surface
-                  so_scale(grp)=one
-                  so_nflights(grp)=100
-                  so_chkpt(grp)=0
-                  so_base(grp)=tot+1
-                  tot+=ny
-               end if
+         do ixpt=1,nxpt
+            do js=1,ns
+               do itarg=1,2
+                  if (group_map[itarg,js,ixpt] != int_undef) then
+                     grp=group_map[itarg,js,ixpt]
+                     so_root_sp(grp)=sp_lookup(uedge_species[js])
+                     assert(sp_check(so_root_sp(grp)))
+                     so_params(grp,so_param_puff_temp)=real_unused
+                     so_species(grp)=neutralize_species(so_root_sp(grp))
+                     assert(sp_check(so_species(grp)))
+                     so_tot_curr(grp)=zero
+                     so_type(grp)=so_plate
+                     so_nseg(grp)=ny
+                     so_geom(grp)=so_surface
+                     so_scale(grp)=one
+                     so_nflights(grp)=100
+                     so_chkpt(grp)=0
+                     so_base(grp)=tot+1
+                     tot+=ny
+                  end if
+               end do
             end do
          end do
       end if
 
-      call set_uedge_plate_sources(nx,ny,ns,uedge_species,rm,zm,
+      call set_uedge_plate_sources(nx,ny,nxpt,ixlb,ixrb,
+     $     ns,uedge_species,rm,zm,
      $     ni1,vr1,vz1,vphi1,te1,ti1,flux1,
      $     ni2,vr2,vz2,vphi2,te2,ti2,flux2,
      $     flux1_present,flux2_present,group_map,update)
@@ -258,9 +273,9 @@ of the source definition.
 @m species_loop #:0
 
 @<Functions...@>=
-      subroutine init_uedge_background(file,nx,ny,rm,zm,ni,vr,vz,vphi,
-     $     ti,te,ni1,vr1,vz1,vphi1,ti1,te1,flux1,ni2,vr2,vz2,vphi2,
-     $     ti2,te2,flux2,flux1_tot,flux2_tot,ns,uedge_species)
+      subroutine init_uedge_background(file,nx,ny,nxpt,ixlb,ixrb,rm,zm,ni,
+     $     vr,vz,vphi,ti,te,ni1,vr1,vz1,vphi1,ti1,te1,flux1,ni2,vr2,vz2,
+     $     vphi2,ti2,te2,flux2,flux1_tot,flux2_tot,ns,uedge_species)
 
       define_dimen(stratum_ind,dim_stratum)
       define_dimen(species_ind,bk_ms)
@@ -285,23 +300,28 @@ of the source definition.
 
       character*FILELEN file                          // Input
 
-      integer nx,ny,ns                                // Output
+      integer nx,ny,nxpt,ns                           // Output
+      integer ixlb[bk_xpt],ixrb[bk_xpt]
       real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
      $     ni[bk_mx,bk_my,bk_ms],vr[bk_mx,bk_my,bk_ms],
      $     vz[bk_mx,bk_my,bk_ms],vphi[bk_mx,bk_my,bk_ms],
      $     te[bk_mx,bk_my],ti[bk_mx,bk_my],
-     $     ni1[bk_my,bk_ms],vr1[bk_my,bk_ms],vz1[bk_my,bk_ms],
-     $     vphi1[bk_my,bk_ms],ti1[bk_my],te1[bk_my],flux1[bk_my,bk_ms],
-     $     ni2[bk_my,bk_ms],vr2[bk_my,bk_ms],vz2[bk_my,bk_ms],
-     $     vphi2[bk_my,bk_ms],ti2[bk_my],te2[bk_my],flux2[bk_my,bk_ms],
-     $     flux1_tot[bk_ms],flux2_tot[bk_ms]
+     $     ni1[bk_my,bk_ms,bk_xpt],vr1[bk_my,bk_ms,bk_xpt],
+     $     vz1[bk_my,bk_ms,bk_xpt],vphi1[bk_my,bk_ms,bk_xpt],
+     $     ti1[bk_my,bk_xpt],te1[bk_my,bk_xpt],flux1[bk_my,bk_ms,bk_xpt],
+     $     ni2[bk_my,bk_ms,bk_xpt],vr2[bk_my,bk_ms,bk_xpt],
+     $     vz2[bk_my,bk_ms,bk_xpt],vphi2[bk_my,bk_ms,bk_xpt],
+     $     ti2[bk_my,bk_xpt],te2[bk_my,bk_xpt],flux2[bk_my,bk_ms,bk_xpt],
+     $     flux1_tot[bk_ms,bk_xpt],flux2_tot[bk_ms,bk_xpt]
       character*sp_sy_len uedge_species[bk_ms]
 
-      integer nu,nxpt,i,j1,j2,j3,js,                  // Local
+      integer nu,i,j1,j2,j3,js,                       // Local
      $        sp_back,length,p,b,e,nstratum,is,open_stat,
      $        fileid,ipoly,isp,dim_stratum,stratum,
      $        species_index,stratum_index,zone,first_zone,
-     $        match,diskin2
+     $        match,diskin2,ixpt
+      integer iysptrx1[bk_xpt],iysptrx2[bk_xpt],ixpt1[bk_xpt],
+     $     ixmdp[bk_xpt],ixpt2[bk_xpt]
       real zone_ni[bk_ms],zone_vr[bk_ms],zone_vz[bk_ms],
      $     zone_vphi[bk_ms]
       real dummy,zone_ti,zone_te,zone_ne
@@ -476,10 +496,10 @@ species_loop: continue
 /* skip first comment line */
       read(nu,*)
       read(nu,*) nx,ny,nxpt
-      assert(nxpt >= 1)
+      assert((nxpt >= 1) && (nxpt <= bk_xpt))
       do i=1,nxpt
-         read(nu,*)         // |iysptrx1(i)|, |iysptrx2(i)|
-         read(nu,*)         // |ixlb|, |ixpt1|, |ixmdp|, |ixpt2|, all |(i)|
+         read(nu,*) iysptrx1[i], iysptrx2[i]
+         read(nu,*) ixlb[i], ixpt1[i], ixmdp[i], ixpt2[i], ixrb[i]
       end do
       assert(nx <= bk_mx && ny <= bk_my)
 
@@ -506,44 +526,46 @@ species_loop: continue
       read (nu,*,err= 6)SP ((ti[j1,j2],j1=1,nx),j2=1,ny)
       read (nu,*,err= 6)SP ((te[j1,j2],j1=1,nx),j2=1,ny)
 @#if !OLD_UEDATA
-      do js=1,ns
-         read (nu,*,err= 6)SP (ni1[j2,js],j2=1,ny)
-      end do
-      do js=1,ns
-         read (nu,*,err= 6)SP (vr1[j2,js],j2=1,ny)
-      end do
-      do js=1,ns
-         read (nu,*,err= 6)SP (vz1[j2,js],j2=1,ny)
-      end do
-      do js=1,ns
-         read (nu,*,err= 6)SP (vphi1[j2,js],j2=1,ny)
-      end do
-      read (nu,*,err= 6)SP (ti1[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (te1[j2],j2=1,ny)
-      do js=1,ns
-         read (nu,*,err= 6)SP (flux1[j2,js],j2=1,ny)
-      end do
-      do js=1,ns
-         read (nu,*,err= 6)SP (ni2[j2,js],j2=1,ny)
-      end do
-      do js=1,ns
-         read (nu,*,err= 6)SP (vr2[j2,js],j2=1,ny)
-      end do
-      do js=1,ns
-         read (nu,*,err= 6)SP (vz2[j2,js],j2=1,ny)
-      end do
-      do js=1,ns
-         read (nu,*,err= 6)SP (vphi2[j2,js],j2=1,ny)
-      end do
-      read (nu,*,err= 6)SP (ti2[j2],j2=1,ny)
-      read (nu,*,err= 6)SP (te2[j2],j2=1,ny)
-      do js=1,ns
-         read (nu,*,err= 6)SP (flux2[j2,js],j2=1,ny)
-      end do
+      do ixpt=1,nxpt
+         do js=1,ns
+            read (nu,*,err= 6)SP (ni1[j2,js,ixpt],j2=1,ny)
+         end do
+         do js=1,ns
+            read (nu,*,err= 6)SP (vr1[j2,js,ixpt],j2=1,ny)
+         end do
+         do js=1,ns
+            read (nu,*,err= 6)SP (vz1[j2,js,ixpt],j2=1,ny)
+         end do
+         do js=1,ns
+            read (nu,*,err= 6)SP (vphi1[j2,js,ixpt],j2=1,ny)
+         end do
+         read (nu,*,err= 6)SP (ti1[j2,ixpt],j2=1,ny)
+         read (nu,*,err= 6)SP (te1[j2,ixpt],j2=1,ny)
+         do js=1,ns
+            read (nu,*,err= 6)SP (flux1[j2,js,ixpt],j2=1,ny)
+         end do
+         do js=1,ns
+            read (nu,*,err= 6)SP (ni2[j2,js,ixpt],j2=1,ny)
+         end do
+         do js=1,ns
+            read (nu,*,err= 6)SP (vr2[j2,js,ixpt],j2=1,ny)
+         end do
+         do js=1,ns
+            read (nu,*,err= 6)SP (vz2[j2,js,ixpt],j2=1,ny)
+         end do
+         do js=1,ns
+            read (nu,*,err= 6)SP (vphi2[j2,js,ixpt],j2=1,ny)
+         end do
+         read (nu,*,err= 6)SP (ti2[j2,ixpt],j2=1,ny)
+         read (nu,*,err= 6)SP (te2[j2,ixpt],j2=1,ny)
+         do js=1,ns
+            read (nu,*,err= 6)SP (flux2[j2,js,ixpt],j2=1,ny)
+         end do
 @#else
-      read (nu,*,err= 6)SP ((flux1[j2,js],j2=1,ny),js=1,ns)
-      read (nu,*,err= 6)SP ((flux2[j2,js],j2=1,ny),js=1,ns)
+      read (nu,*,err= 6)SP ((flux1[j2,js,ixpt],j2=1,ny),js=1,ns)
+      read (nu,*,err= 6)SP ((flux2[j2,js,ixpt],j2=1,ny),js=1,ns)
 @#endif
+      end do                // Over |ixpt|
       close(unit=diskin2)
 /*
    Get stratum numbers for each zone from polygon netCDF file 
@@ -715,12 +737,14 @@ species_loop: continue
 /*
    Calculate total currents for all species in |uedge_species|
 */
-      do js=1,ns
-         flux1_tot[js]=zero
-         flux2_tot[js]=zero
-         do j2=1,ny
-            flux1_tot[js]+=flux1[j2,js]
-            flux2_tot[js]+=flux2[j2,js]
+      do ixpt=1,nxpt
+         do js=1,ns
+            flux1_tot[js,ixpt]=zero
+            flux2_tot[js,ixpt]=zero
+            do j2=1,ny
+               flux1_tot[js,ixpt]+=flux1[j2,js,ixpt]
+               flux2_tot[js,ixpt]+=flux2[j2,js,ixpt]
+            end do
          end do
       end do
       go to eof
@@ -1017,7 +1041,8 @@ If not, add to the list.
 @ Set plate sources for UEDGE case.
 
 @<Functions...@>=
-      subroutine set_uedge_plate_sources(nx,ny,ns,uedge_species,rm,zm,
+      subroutine set_uedge_plate_sources(nx,ny,nxpt,ixlb,ixrb,
+     $     ns,uedge_species,rm,zm,
      $     ni1,vr1,vz1,vphi1,te1,ti1,flux1,
      $     ni2,vr2,vz2,vphi2,te2,ti2,flux2,
      $     flux1_present,flux2_present,group_map,update)
@@ -1028,17 +1053,20 @@ If not, add to the list.
       sc_common
       implicit_none_f90
 
-      integer nx,ny,ns,flux1_present,            // Input; UEDGE file data:
-     $        flux2_present,update
-      integer group_map[2,bk_ms]
+      integer nx,ny,nxpt,ns,update               // Input; UEDGE file data:
+      integer ixlb[bk_xpt],ixrb[bk_xpt],
+     $        flux1_present[bk_xpt],flux2_present[bk_xpt],
+     $        group_map[2,bk_ms,bk_xpt]
       real rm[bk_mx,bk_my,0:4],zm[bk_mx,bk_my,0:4],
-     $     ni1[bk_my,bk_ms],vr1[bk_my,bk_ms],vz1[bk_my,bk_ms],
-     $     vphi1[bk_my,bk_ms],ti1[bk_my],te1[bk_my],flux1[bk_my,bk_ms],
-     $     ni2[bk_my,bk_ms],vr2[bk_my,bk_ms],vz2[bk_my,bk_ms],
-     $     vphi2[bk_my,bk_ms],ti2[bk_my],te2[bk_my],flux2[bk_my,bk_ms]
+     $     ni1[bk_my,bk_ms,bk_xpt],vr1[bk_my,bk_ms,bk_xpt],
+     $     vz1[bk_my,bk_ms,bk_xpt],vphi1[bk_my,bk_ms,bk_xpt],
+     $     ti1[bk_my,bk_xpt],te1[bk_my,bk_xpt],flux1[bk_my,bk_ms,bk_xpt],
+     $     ni2[bk_my,bk_ms,bk_xpt],vr2[bk_my,bk_ms,bk_xpt],
+     $     vz2[bk_my,bk_ms,bk_xpt],vphi2[bk_my,bk_ms,bk_xpt],
+     $     ti2[bk_my,bk_xpt],te2[bk_my,bk_xpt],flux2[bk_my,bk_ms,bk_xpt]
       character*sp_sy_len uedge_species[bk_ms]
 
-      integer i_seg,j1,j2,js,is_seg,isp,plasma_sc    // Local   
+      integer i_seg,j1,j2,js,is_seg,isp,plasma_sc,ixpt    // Local   
       real ne
       so_decl(grp)
       sc_decl(sector)
@@ -1057,65 +1085,76 @@ If not, add to the list.
    This stuff needs to be in a separate routine so it can be
    called by |readbackground| and |updatebackground|.
 */
-      i_seg=0
-      if (flux1_present == TRUE) then
+      do ixpt=1,nxpt
+         i_seg=0
+         if (flux1_present[ixpt] == TRUE) then
 /*
    Loop over segments along the outer target.  Use coordinates
    of each segment to look up the corresponding geometry sector.
+
+   Note that the |ixlb| and |ixrb| indices are set up to skip the
+   ghost zones in the middle of a double null geometry.  However,
+   these are, at present, included in the geometry.  The if-then's
+   here account for that.
 */
-         j1=1
-         do j2=ny,1,-1
-            i_seg++
-            vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
-            vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
-            sector=lookup_sector(x1,x2)
-            if (sc_check(sector)) then
-               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
-               if (sc_plasma_check(plasma_sc_ptr)) then
-                  plasma_sc=TRUE
+            if ((nxpt == 2) && (ixpt == 2)) then
+               j1=ixlb[ixpt]
+            else
+               j1=ixlb[ixpt]+1
+            end if
+            do j2=ny,1,-1
+               i_seg++
+               vc_set(x1,rm[j1,j2,3],zero,zm[j1,j2,3])
+               vc_set(x2,rm[j1,j2,1],zero,zm[j1,j2,1])
+               sector=lookup_sector(x1,x2)
+               if (sc_check(sector)) then
+                  plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+                  if (sc_plasma_check(plasma_sc_ptr)) then
+                     plasma_sc=TRUE
+                  else
+                     plasma_sc=FALSE
+                  end if
                else
                   plasma_sc=FALSE
                end if
-            else
-               plasma_sc=FALSE
-            end if
-            if (plasma_sc == FALSE) then
-               sector=lookup_sector(x2,x1)
-               assert(sc_check(sector))
-               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
-               assert(sc_plasma_check(plasma_sc_ptr))
-               plasma_sc=TRUE
-            end if
+               if (plasma_sc == FALSE) then
+                  sector=lookup_sector(x2,x1)
+                  assert(sc_check(sector))
+                  plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+                  assert(sc_plasma_check(plasma_sc_ptr))
+                  plasma_sc=TRUE
+               end if
 /* 
    Now, for each segment, loop over species.  Set source current
    for each species for which a source group is to be defined.
 */
-            vc_set(v_bdy,zero,zero,zero)
-            ne=zero
-            do js=1,ns
-               if (group_map[1,js] != int_undef) then
-                  grp=group_map[1,js]
-                  is_seg=so_base(grp)+i_seg-1
-                  source_current[is_seg]=flux1[j2,js]
-                  so_tot_curr(grp)+=source_current[is_seg]
+               vc_set(v_bdy,zero,zero,zero)
+               ne=zero
+               do js=1,ns
+                  if (group_map[1,js,ixpt] != int_undef) then
+                     grp=group_map[1,js,ixpt]
+                     is_seg=so_base(grp)+i_seg-1
+                     source_current[is_seg]=flux1[j2,js,ixpt]
+                     so_tot_curr(grp)+=source_current[is_seg]
 /*
    This is the only use of the |update| flag, ensuring a
    one-to-one correspondence between the source segments in consecutive
    runs.
 */
-                  if (update == FALSE) then
-                     source_segment_ptr[is_seg]=sector
-                  else
-                     assert(source_segment_ptr[is_seg] == sector)
+                     if (update == FALSE) then
+                        source_segment_ptr[is_seg]=sector
+                     else
+                        assert(source_segment_ptr[is_seg] == sector)
+                     end if
                   end if
-               end if
-               isp=sp_lookup(uedge_species[js])
-               if (sp_check(isp)) then
-                  vc_set(v_isp,vr1[j2,js],vphi1[j2,js],vz1[j2,js])
-                  vc_xvt(v_bdy,v_isp,sp_z(isp)*ni1[j2,js],v_bdy)
-                  ne+=sp_z(isp)*ni1[j2,js]
-               end if
-            end do
+                  isp=sp_lookup(uedge_species[js])
+                  if (sp_check(isp)) then
+                     vc_set(v_isp,vr1[j2,js,ixpt],vphi1[j2,js,ixpt],
+     $                      vz1[j2,js,ixpt])
+                     vc_xvt(v_bdy,v_isp,sp_z(isp)*ni1[j2,js,ixpt],v_bdy)
+                     ne+=sp_z(isp)*ni1[j2,js,ixpt]
+                  end if
+               end do
 @#if !OLD_UEDATA
 /*
    Finally, use the ion and electron temperatures and total ion
@@ -1125,84 +1164,92 @@ If not, add to the list.
    This expression was developed during the benchmark against
    EIRENE.
 */
-            if (ne > zero) then
-               vc_scale(one/ne,v_bdy,v_bdy)
-            end if
-            if (vc_abs(v_bdy) > zero || te1[j2] > zero) then
-               plasma_e_ion_delta[plasma_sc_ptr]
-     $              =const(3.0)*ti1[j2]+half*te1[j2]
-               plasma_e_ion_sheath[plasma_sc_ptr]
-     $              =te1[j2]*phi_sheath(vc_args(v_bdy),ti1[j2],te1[j2])
-               plasma_e_ion_mult[plasma_sc_ptr]=zero
-            end if                           // else: using default values
+               if (ne > zero) then
+                  vc_scale(one/ne,v_bdy,v_bdy)
+               end if
+               if (vc_abs(v_bdy) > zero || te1[j2,ixpt] > zero) then
+                  plasma_e_ion_delta[plasma_sc_ptr]
+     $                 =const(3.0)*ti1[j2,ixpt]+half*te1[j2,ixpt]
+                  plasma_e_ion_sheath[plasma_sc_ptr]
+     $                 =te1[j2,ixpt]*phi_sheath(vc_args(v_bdy),
+     $                  ti1[j2,ixpt],te1[j2,ixpt])
+                  plasma_e_ion_mult[plasma_sc_ptr]=zero
+               end if                           // else: using default values
 @#endif
-         end do
-      end if
+            end do
+         end if
 
-      i_seg=0
-      if (flux2_present == TRUE) then
+         i_seg=0
+         if (flux2_present[ixpt] == TRUE) then
 /* 
    This is the corresponding section for the inner target.  Enough of the
    variable names differ to make a separate section useful.
 */
-         j1=nx
-         do j2=1,ny
-            i_seg++
-            vc_set(x1,rm[j1,j2,4],zero,zm[j1,j2,4])
-            vc_set(x2,rm[j1,j2,2],zero,zm[j1,j2,2])
-            sector=lookup_sector(x1,x2)
-            if (sc_check(sector)) then
-               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
-               if (sc_plasma_check(plasma_sc_ptr)) then
-                  plasma_sc=TRUE
+            if ((nxpt == 2) && (ixpt == 1)) then
+               j1=ixrb[ixpt]+1
+            else
+               j1=ixrb[ixpt]
+            end if
+            do j2=1,ny
+               i_seg++
+               vc_set(x1,rm[j1,j2,4],zero,zm[j1,j2,4])
+               vc_set(x2,rm[j1,j2,2],zero,zm[j1,j2,2])
+               sector=lookup_sector(x1,x2)
+               if (sc_check(sector)) then
+                  plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+                  if (sc_plasma_check(plasma_sc_ptr)) then
+                     plasma_sc=TRUE
+                  else
+                     plasma_sc=FALSE
+                  end if
                else
                   plasma_sc=FALSE
                end if
-            else
-               plasma_sc=FALSE
-            end if
-            if (plasma_sc == FALSE) then
-               sector=lookup_sector(x2,x1)
-               assert(sc_check(sector))
-               plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
-               assert(sc_plasma_check(plasma_sc_ptr))
-               plasma_sc=TRUE
-            end if
-            vc_set(v_bdy,zero,zero,zero)
-            ne=zero
-            do js=1,ns
-               if (group_map[2,js] != int_undef) then
-                  grp=group_map[2,js]
-                  is_seg=so_base(grp)+i_seg-1
-                  source_current[is_seg]=flux2[j2,js]
-                  so_tot_curr(grp)+=source_current[is_seg]
-                  if (update == FALSE) then
-                     source_segment_ptr[is_seg]=sector
-                  else
-                     assert(source_segment_ptr[is_seg] == sector)
+               if (plasma_sc == FALSE) then
+                  sector=lookup_sector(x2,x1)
+                  assert(sc_check(sector))
+                  plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+                  assert(sc_plasma_check(plasma_sc_ptr))
+                  plasma_sc=TRUE
+               end if
+               vc_set(v_bdy,zero,zero,zero)
+               ne=zero
+               do js=1,ns
+                  if (group_map[2,js,ixpt] != int_undef) then
+                     grp=group_map[2,js,ixpt]
+                     is_seg=so_base(grp)+i_seg-1
+                     source_current[is_seg]=flux2[j2,js,ixpt]
+                     so_tot_curr(grp)+=source_current[is_seg]
+                     if (update == FALSE) then
+                        source_segment_ptr[is_seg]=sector
+                     else
+                        assert(source_segment_ptr[is_seg] == sector)
+                     end if
                   end if
-               end if
-               isp=sp_lookup(uedge_species[js])
-               if (sp_check(isp)) then
-                  vc_set(v_isp,vr2[j2,js],vphi2[j2,js],vz2[j2,js])
-                  vc_xvt(v_bdy,v_isp,sp_z(isp)*ni2[j2,js],v_bdy)
-                  ne+=sp_z(isp)*ni2[j2,js]
-               end if
-            end do
+                  isp=sp_lookup(uedge_species[js])
+                  if (sp_check(isp)) then
+                     vc_set(v_isp,vr2[j2,js,ixpt],vphi2[j2,js,ixpt],
+     $                      vz2[j2,js,ixpt])
+                     vc_xvt(v_bdy,v_isp,sp_z(isp)*ni2[j2,js,ixpt],v_bdy)
+                     ne+=sp_z(isp)*ni2[j2,js,ixpt]
+                  end if
+               end do
 @#if !OLD_UEDATA
-            if (ne > zero) then
-               vc_scale(one/ne,v_bdy,v_bdy)
-            end if
-            if (vc_abs(v_bdy) > zero || te2[j2] > zero) then
-               plasma_e_ion_delta[plasma_sc_ptr]
-     $              =const(3.0)*ti2[j2]+half*te2[j2]
-               plasma_e_ion_sheath[plasma_sc_ptr]
-     $              =te2[j2]*phi_sheath(vc_args(v_bdy),ti2[j2],te2[j2])
-               plasma_e_ion_mult[plasma_sc_ptr]=zero
-            end if                           // else: using default values
+               if (ne > zero) then
+                  vc_scale(one/ne,v_bdy,v_bdy)
+               end if
+               if (vc_abs(v_bdy) > zero || te2[j2,ixpt] > zero) then
+                  plasma_e_ion_delta[plasma_sc_ptr]
+     $                 =const(3.0)*ti2[j2,ixpt]+half*te2[j2,ixpt]
+                  plasma_e_ion_sheath[plasma_sc_ptr]
+     $                 =te2[j2,ixpt]*phi_sheath(vc_args(v_bdy),
+     $                  ti2[j2,ixpt],te2[j2,ixpt])
+                  plasma_e_ion_mult[plasma_sc_ptr]=zero
+               end if                           // else: using default values
 @#endif
-         end do
-      end if
+            end do
+         end if
+      end do    // Over |ixpt|
 
       return
       end
