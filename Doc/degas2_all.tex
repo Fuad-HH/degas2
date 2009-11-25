@@ -1,5 +1,9 @@
 % $Id$
 % $Log$
+% Revision 1.5  2007/06/22 16:32:02  dstotler
+% Update particle balance analysis for CMod_1D example for changes
+% associated with switch to ehr3.dat.
+%
 % Revision 1.4  2007/06/19 16:54:10  dstotler
 % Fixed small bug in CMod-1D example.
 %
@@ -19,10 +23,11 @@
 %
 % To process this file:
 % 
+% Check DEGAS 2 version tag below and update accordingly.
 % (in tex directory), do the following with 
 % codefile = ratecalc, readgeometry, random, classes, geometry, tallysetup,
 % elementsetup, speciesetup, reactionsetup, materialsetup, pmisetup,
-% problemsetup, outputbrowser, definegeometry2d, defineback:
+% problemsetup, outputbrowser, definegeometry2d, defineback, geomtesta:
 %   gmake codefile.tex
 %   pdflatex codefile.tex (may need to be done twice)
 %   mv codefile.pdf ../Doc
@@ -72,16 +77,18 @@
 % \usepackage{graphicx}
 \begin{document}
 % \input epsf
+% The version number WAS a cvs command, but decide to update manually.
+% If we're going to do that, might as well use the actual tag
+% for the code.
 \title{\includegraphics{degas2d}
 User's Guide for DEGAS 2 \\
-CVS $Revision$
-\thanks{This file is written in \TeX. 
+Release V.\ 4.3\thanks{This file is written in \TeX. 
 A hyper-linked PDF
-file is generated from that source using {\tt pdflatex}. The version number 
-here is the CVS version number for the User's Manual itself.  This document
-is now distributed as part of the DEGAS 2 code. The user can be best assured
-of concurrence between code and manual by referring to the version of the manual
-that came with the code. Copyright \copyright 2001 PPPL.
+file is generated from that source using {\tt pdflatex}. This document
+is distributed as part of the DEGAS 2 code. The user can be best assured
+of concurrence between code and manual by referring to the 
+version of the manual
+that came with the code. Copyright \copyright 2009 PPPL.
 Permission is granted to make and distribute verbatim copies of this manual
 provided the copyright and permission notice is preserved on all copies.
 Permission is granted to copy and distribute modified versions of this
@@ -158,7 +165,7 @@ Up close, one sees that Seurat's paintings consist of a huge number of very
 tiny dots of paint of a variety of colors.  Only when viewed from a distance
 is the image and its coloring clearly apparent. In much the same way,
 the track of an individual neutral flight in the Monte Carlo code
-gives relatively insight into the problem being studied. Yet, when the
+gives relatively little insight into the problem being studied. Yet, when the
 results of many flights are compiled together, an accurate solution can
 be obtained.
 
@@ -255,7 +262,7 @@ Presently, the main code uses exclusively
 netCDF\cite{nCDF} (Network Common Data
 Format) files for input and output. However, a simple post-processing
 utility is included which generates graphics and data in  
-HDF\cite{HDF} (Hierarchial Data Format) files. 
+HDF\cite{HDF} (Hierarchial Data Format) or Silo\cite{Silo} files. 
 Hopefully, a single format will be settled upon eventually.
 \item Parallel execution on distributed workstations and massively
 parallel computers. This is the most promising
@@ -2095,6 +2102,8 @@ the others and exceeds them by about a factor of 15 at 10 eV. The
 relevant temperature range for this process is expected to be between
 1 and 10 eV.
 
+% NOTE: have not yet made these changes to the code!
+
 Figure~\ref{scattering} shows that at least near room temperature,  
 May's expressions are also consistent with the CFADC data. However,
 in the 1 to 10 eV range, they are considerably larger than the
@@ -2250,10 +2259,9 @@ An additional note: if you use {\tt ncgen}, be sure to either specify
 the \verb+-b+ or \verb+-o netcdf_filename+ option to let the utility know
 that you want it to generate a netCDF file (see: {\tt man ncgen}).
 
-netCDF (see Sec.~\ref{netcdf}) can be obtained from  
-\href{ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z}{ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z}
-Other compression formats and files are also present in this same directory.
-See the link to ``FAQ'' for the answers to frequently asked questions.
+netCDF can be obtained from  
+\href{http://www.unidata.ucar.edu/software/netcdf/}{http://www.unidata.ucar.edu/software/netcdf/}.  The version presently being used for DEGAS 2 development
+is 3.6.3. 
 
 \subsection{FWEB}
 \label{fweb}
@@ -2277,7 +2285,7 @@ For examples of the overall structure of FWEB programs, see the *.web
 files; most of the macros are located in the header *.hweb files.
 FWEB is fully documented in the Info facility of Emacs. 
 
-FWEB (version 1.62) (see Sec.~\ref{fweb}) is available at
+FWEB (version 1.62) is available at  \\
 \href{ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz}{ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz}
 
 To typeset DEGAS 2 source code in ``human-readable'' formats such as DVI,
@@ -2285,10 +2293,59 @@ PostScript, or PDF, the user will need FWEB's {\tt fweave} utility and
 a version of \TeX\ or \LaTeX.
 
 \LaTeX\  is available in lots of places. To begin with, see the
+introductory material and pointers on the
 official CTAN \TeX\ network page at  
 \href{http://www.tex.ac.uk/ctan}{http://www.tex.ac.uk/ctan}. The 
-distribution in use at PPPL is called \verb+teTeX+,
-\href{ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources}{ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources}.
+recommended distribution for Unix (including Linux) systems
+is \TeX\ Live (\href{http://www.tug.org/texlive/}{http://www.tug.org/texlive/}.
+\TeX\ Live is also available for Windows.
+
+\subsection{Triangle}
+\label{triangle}
+\index{Triangle}
+\index{definegeometry2d}
+
+Jonathan Shewchuck's 
+{\tt Triangle} program is used by the {\tt definegeometry2d}
+code to break polygons up into triangles. The home for {\tt Triangle}
+is \\
+\href{http://www.cs.cmu.edu/~quake/triangle.html}{http://www.cs.cmu.edu/~quake/triangle.html} 
+The {\tt Triangle} V. 1.6 was used in the creation of
+the {\tt definegeometry2d} examples described in
+Sec.~\ref{defexamples}.
+Anyone downloading a more recent version should notify the {\tt DEGAS 2}
+authors. The {\tt DEGAS 2} {\tt Makefile} will expect to find
+the {\tt Triangle} files, \verb+triangle.c+, \verb+triangle.h+, etc., 
+in \verb+$HOME/Triangle+. If your copy is installed elsewhere, you can
+either create an appropriate link or modify {\tt Makefile}.
+
+\subsection{Silo and HDF}
+\label{silohdf}
+\index{Silo}
+\index{HDF}
+\index{HDF5}
+
+DEGAS 2 produces no direct graphical output.  Instead, the {\tt geomtesta}
+utility (see Secs.~\ref{maincode} and the
+\href{geomtesta.pdf#page.1}{source code} documentation.) generates
+device-independent binary files in either the HDF (more specifically,
+HDF Version 4) or Silo formats that can be processed by
+external graphical packages, such as VisIt or IDL.  The VisIt
+package in particular is freely available \\
+(see \href{https://wci.llnl.gov/codes/visit/home.html}{https://wci.llnl.gov/codes/visit/home.html}), can read Silo files directly, and can generate
+both 2-D and 3-D images.
+
+The Silo library can be found at \href{https://wci.llnl.gov/codes/silo/index.html}{https://wci.llnl.gov/codes/silo/index.html}.  It can use either its own
+PDB I/O driver or HDF5.  In the latter case, the HDF5 library
+must also be installed.  For HDF5 and / or HDF4, see
+\href{http://www.hdfgroup.org/}{http://www.hdfgroup.org/}.
+Note that as of HDF version 4, some of the netCDF functionality is 
+implemented in HDF. To avoid conflicts with the official netCDF libraries,
+do not install the netCDF portion of the HDF distribution.
+
+Note that {\tt definegeometry2d} also produces an HDF or Silo
+file, {\tt geomtestc.hdf} or {\tt geomtestc.silo}, as part of
+its test of the geometry.  
 
 \subsection{Concurrent Version System}
 \label{cvs}
@@ -2317,36 +2374,6 @@ page is complete, but lengthy. The man page for
 may be executed from within Emacs. See the Emacs Info page on
 {\tt Pcl-cvs} for more details.
 
-\subsection{HDF}
-\label{hdf}
-\index{HDF}
-
-HDF is another device-independent binary file format. At present, HDF files are
-used only by the {\tt geomtesta} utility as a convenient format for transferring
-the code results in graphical form for processing by commercial products.
-
-The HDF libraries can be obtained from \\
-\href{ftp://ftp.ncsa.uiuc.edu}{ftp://ftp.ncsa.uiuc.edu}
-Note that as of HDF version 4, some of the netCDF functionality is 
-implemented in HDF. To avoid conflicts with the official netCDF libraries,
-do not install the netCDF portion of the HDF distribution.
-
-\subsection{Triangle}
-\label{triangle}
-\index{Triangle}
-\index{definegeometry2d}
-
-Jonathan Shewchuck's 
-{\tt Triangle} program is used by the {\tt definegeometry2d}
-code to break polygons up into triangles. The home for {\tt Triangle}
-is \href{http://www.cs.cmu.edu/~quake/triangle.html}{http://www.cs.cmu.edu/~quake/triangle.html} 
-The {\tt Triangle} V. 1.3 was used in writing {\tt definegeometry2d}.
-Anyone downloading a more recent version should notify the {\tt DEGAS 2}
-authors. The {\tt DEGAS 2} {\tt Makefile} will expect to find
-the {\tt Triangle} files, \verb+triangle.c+, \verb+triangle.h+, etc., 
-in \verb+$HOME/Triangle+. If your copy is installed elsewhere, you can
-either create an appropriate link or modify {\tt Makefile}.
-
 \section{Structure of the DEGAS 2 File System}
 \label{structure}
 \index{directories}
@@ -2365,11 +2392,14 @@ the code elsewhere, see Sec.~\ref{adjustments}.
 \begin{description}
 \item[data] Input atomic and surface physics data and information (D)
 \item[src] All source code (D)
+\item[dg\_carre] Source and executable files for DG and Carre (D)
 \item[Doc] Location of the various formats of this document and ancilliary
 files (D)
 \item[examples] Input and output files from example and benchmark runs (D)
 \item[Aladdin] Source code and data for use with IAEA Aladdin package (D)
 \item[ALPHA] Object and executable files for Dec Alpha machines
+\item[LINUX] Object and executable files for Linux machines
+\item[LINUX64] Object and executable files for 64-bit Linux machines
 \item[SUN] Object and executable files for Sun Solaris and SunOS machines
 \item[CRAY] Pre-processed source code for export to Cray computers
 \item[tex] Intermediate files and final DVI documentation files generated 
@@ -2383,7 +2413,7 @@ directories with names like \verb+SUN-foo+ where ``foo'' is any string you like.
 \section{Components of the Code}
 \label{components}
 
-DEGAS 2 is not a single code (not now anyway), but a complex package of 
+DEGAS 2 is not a single code, but a complex package of 
 setup, test, simulation, and post-processing tools. Which ones are
 needed depend on the user's objectives and familiarity with DEGAS 2.
 A few additional ``targets'' are listed in the Makefile. These are
@@ -2411,13 +2441,16 @@ materials, atomic, and surface physics required for the
 current problem. The code
 accesses the required "reference" data, and compiles them
 into a netCDF file (the {\tt problem.nc} file).
-\item[definegeometry2d] Generates a DEGAS 2 netCDF geometry file from from a text
+\item[definegeometry2d] Generates a DEGAS 2 netCDF geometry file 
+from from a text
 input file. Input files for simple geometries may be
 generated manually; more complex geometries can be specified via other computer
 generated text files
 files referenced by the input file. For example, {\tt definegeometry2d} is
-able to read data produced by the {\tt DG} package (part of the {\tt B2-Eirene} or
-{\tt SOLPS} distribution) or by UEDGE. Of the three tools for setting up
+able to read data produced by the {\tt DG} package 
+(formerly part of the {\tt B2-Eirene} or
+{\tt SOLPS} distribution, but now included with
+DEGAS 2) or by UEDGE. Of the three tools for setting up
 DEGAS 2 geometries {\tt definegeometry2d} is the most flexible. 
 \item[readgeometry] Generates a DEGAS 2 netCDF geometry file from an
 existing DEGAS, UEDGE, or SONNET geometry description. This package has
@@ -2428,15 +2461,18 @@ through the transformation process.
 \item[defineback] Uses a short text input file to control the mapping of plasma
 data in external text files onto the DEGAS 2 geometry. Designed to be used in
 conjunction with {\tt definegeometry2d}, {\tt defineback} can utilize data
-produced by other codes. However, {\tt defineback} is not yet mature
-and is, consequently, a little ``rough around the edges''.
+produced by other codes, including UEDGE.  In particular, 
+{\tt defineback} can be run in an iterative mode with UEDGE 
+analogous to that provided by {\tt updatebackground} (see below
+and in the source \href{defineback.pdf#page12}{file}
+{\tt defineback.web}).
 \item[readbackground] Plasma data in an external file is mapped onto
 the zones of the DEGAS 2 geometry. Presently, only DEGAS and UEDGE files
 can be used; readgeometry and readbackground read the same data
 file. 
-\item[updatebackground] Is similar to readbackground, but is intended
+\item[updatebackground] Is similar to {\tt readbackground}, but is intended
 for use in iterations with the UEDGE code {\em only}. The source
-information generated by the initial run of readbackground is 
+information generated by the initial run of {\tt readbackground} is 
 stored in a separate file ({\tt oldsourcefile},
 Sec.~\ref{degas2in}). On subsequent
 iterations, small changes in the source terms are accounted for
@@ -2468,8 +2504,16 @@ continue extending this code to warrant development of an honest
 post-processing tool. The DEGAS 2 input and output files are read in by
 the code. Using the geometry information, the zone-based plasma and neutral
 data are transcribed onto a high density uniform rectangular mesh and
-dumped into the HDF files suitable for further manipulation by commercial
-products such as IDL and Noesys.
+dumped into Silo or HDF files suitable for further manipulation by 
+external graphics packages such as VisIt or IDL.
+\item[degas2\_xgc.a] This library contains the core routines of DEGAS 2
+and an interface for a subroutine based coupling to a plasma code.
+The primary quantities exchanged between the codes are moments of the
+plasma and neutral distribution functions.  An interface into the
+DEGAS 2 atomic physics routines is also provided.  This library was
+designed for and is used with the XGC0 guiding center neoclassical
+particle transport code as part of the Center for Plasma Edge
+Simulation \cite{Chan2008}.
 \end{description}
 
 \subsection{Other Setup Routines}
@@ -2535,20 +2579,22 @@ setting up simple problems.
 \index{randomtest}
 
 \begin{description}
-\item[reactiontest] Can be run after problemsetup to check the computation
+\item[reactiontest] Can be run after {\tt problemsetup} 
+to check the computation
 of the reaction rate, and collision products (including velocities and
 scoring data) for a given reaction.
-\item[pmitest] The analog of reactiontest for plasma-material
+\item[pmitest] The analog of {\tt reactiontest} for plasma-material
 interactions. Again, this code can be executed for a given problem once
-problemsetup has been run. Since the velocity distributions of some
+{\tt problemsetup} has been run. Since the velocity distributions of some
 plasma-material interactions are described statistically, pmitest
 is also set up to average the outcome of a given interaction over a
 specified number of trials and print out a list of the product velocities
 for external manipulation.
 \item[sourcetest] Tests the distribution in phase space of the source
 terms for a particular problem. Since the source is described in the 
-``background'' netCDF file, readbackground, boxgen, or something equivalent
-must be run prior to using this routine. Like pmitest, the code is able
+``background'' netCDF file, {\tt defineback}, 
+{\tt readbackground}, {\tt boxgen}, or something equivalent
+must be run prior to using this routine. Like {\tt pmitest}, the code is able
 to run many trials, compute averages, and printout data from each 
 individual trial.
 \item[dataexam] Provides the user with a convenient interface to the
@@ -2585,10 +2631,27 @@ the ouptut netCDF file, verifying this by visually comparing the files
 is impractical.  
 \item[matcheir] Is specifically designed for comparing with output from
 the EIRENE code. The name of the EIRENE file is specified on the command
-line.See Sec.(the same physics benchmark).
+line. See Sec.~\ref{outofthebox}.
 \item[datamatch] Provides a means for comparing the contents of the two
 netCDF data files specified on the command line.
 \end{description} 
+
+\subsection{DG and Carre}
+\label{dgcarre}
+\index{DG}
+\index{Carre}
+
+The graphical interface DG code is used here
+in conjunction with {\tt definegeometry2d}, as
+in B2-Eirene (its original application), to simplify specification of 
+2-D divertor tokamak geometries .  Since DG is also available
+separately from DEGAS 2, its manual, {\tt dg.pdf} is contained in the
+\verb+dg_carre/DG/DOC+ directory.  Carre\cite{Marc96} generates 2-D
+quasi-orthogonal meshes of the sort used by B2 and UEDGE. This
+version of Carre includes pre- and post-processing scripts that
+simplify its use with DG.  A number of utility programs for 
+manipulating magnetic equilibrium files also come with this
+DG distribution; see the DG manual for details. 
 
 \section{Input Files}
 
@@ -2875,55 +2938,44 @@ file can be found in the introduction to the
 \subsection{geomtesta Input}
 \index{geometry.inp}
 
-The post-processing utility {\tt geomtesta} produces HDF files which can
-be viewed using the freeware utility {\tt ximage}. However, commercial
-products such as IDL or Noesys from Research Systems, Inc. provide
-convenient tools for generating images and manipulating the data
-contained in these files.
-
-The input to {\tt geomtesta} is called
-{\tt geometry.inp} and consists of 4 lines:
-\begin{enumerate}
-\item $(x, y, z)$ coordinates of an origin
-\item $(x, y, z)$ unit vector giving one axis,
-\item $(x, y, z)$ unit vector giving a second axis,
-\item length of each of the two sides.
-\end{enumerate}
-
-For example,
-\begin{verbatim}
--0.013 0.0 -0.008
-1  0  0
-0  0  1
-0.056 1.088
-\end{verbatim}
-
-The code just plots the data on a 2-D slice through the
-3-D problem space.  Specifying the slice requires: an origin (first
-line), a vector for each edge of the slice (second and third lines), and
-the length of each edge (fourth line). Since most DEGAS 2 applications
-will involve either cylindrical or toroidal symmetry, i.e., with the
-$y$-coordinate ignorable, the specification of the vectors is usually
-going to be as in the example. In general, though, one could take a
-slice which goes in the third direction as well. The vectors do not 
-need to be orthogonal.
+The documentation for {\tt geomtesta} is maintained in
+the source code, {\tt geomtesta.web}.  For readers of the
+PDF version of the manual, here's a 
+\href{geomtesta.pdf#page.1}{link} to the corresponding PDF file.
 
 \section{Compiling DEGAS 2}
 
 The Makefile has been written to compile on  a variety of architectures
-and operating systems. Those currently supported and their corresponding
+and operating systems. Those that have been used in thus far, 
+and their corresponding
 symbols (in brackets) are:
 \begin{enumerate}
+\item Linux 32-bit [{\tt LINUX}]
+\item Linux 64-bit [{\tt LINUX64}]
 \item Sun Solaris [{\tt SUN}],
 \item IBM AIX [{\tt IBM}],
 \item Digital OSF1 [{\tt ALPHA}],
 \item Silicon Graphics IRIX [{\tt SGI}],
-\item Linux, NAG F95, Portland Group F90, and Lahey-Fujitsu F95 compilers 
-[{\tt LINUX}], (The code will work with the Lahey-Fujitsu compiler, but
-may run very slowly. This will likely be remedied in a subsequent version
-of the compiler.)
 \item Others (e.g., [{\tt CRAY}]) are available for cross-compilation.
 \end{enumerate}
+
+Note that due to the proliferation of relatively cheap and fast
+Linux clusters, usage of DEGAS 2 on other systems has essentially
+ceased and support for those systems cannot be guaranteed.
+The most frequently used compiler on Linux systems
+is Portland Group F90 compiler ({\tt PGROUP} in
+the {\tt Makefile}), albeit with F77 format code 
+({\tt FORTRAN90=no}).  The Pathscale ({\tt PATHSCALE} in 
+the {\tt Makefile}) and {\tt gfortran} (version 4.3) have been
+successfully tested with the F90 formatted code (in
+{\tt DEBUG} mode only). The use of
+the F90 option eliminates the need for system dependent code
+so that other compilers can be used without modifications to
+the {\tt sysdep.hweb} or {\tt sysdep.web} files; only the
+compiler
+related variables in the {\tt Makefile} or {\tt Makefile.local}
+need be defined. On the other hand, some F9x compilers (e.g.,
+Lahey-Fujitsu F95) may result in code that runs very slowly.
 
 By default, the Makefile assumes that the DEGAS 2 main directory
 exists at \verb+$HOME/degas2+. If you unpacked the {\tt tar} file
@@ -3019,7 +3071,7 @@ DEGASROOT = /u/somedir
   \item {\tt FORTRAN90=yes} switches from using the default FORTRAN 77 
 compiler to FORTRAN 90. Be aware that only some of the FORTRAN 90
 compilers available work satisfactorily. Some will compile the code,
-but run slowly. Others will not work at all.
+but run slowly.
   \item {\tt FCF77}, {\tt FCF90} tell {\tt Makefile} which ``normal'' (non-MPI)
 compiler to use.
   \item {\tt MPI=yes} will enable the MPI commands in the source
@@ -3039,6 +3091,12 @@ directories such as {\tt data}).
 \end{itemize}
 
 \subsection{Cross-Compiling}
+
+{\bf The mechanism for cross-compilation has been updated to use
+{\tt ssh} and {\tt scp} and no longer relies on the presence
+of AFS.  However, this section of the
+manual has not been correspondingly updated.
+Please contact the code authors if you need this capability.}
 
 As an example of how to cross-compile, here are the procedures for 
 making {\tt randomtest} on the NERSC Crays. This assumes that you
@@ -3928,6 +3986,8 @@ in general, the resulting rates had different numerical values. The
 initial implementation of the BGK algorithm in DEGAS 2 
 repeated this same mistake.
 
+% NOTE: have not made these changes to the code yet!
+
 To see the difference, you can modify the {\tt degas2.in} file to point to
 the {\tt reactions.input} and {\tt reactions.nc} files in this directory;
 these use the old versions of the neutral-neutral data files that are
@@ -3977,9 +4037,550 @@ estimator lists in each of the ``total'' tallies with the lists from the
 corresponding zone-resolved tallies.
 \end{enumerate}
 
+\subsection{definegeometry2d and defineback Examples}
+\label{defexamples}
+\index{definegeometry2d}
+\index{defineback}
 
+The {\tt definegeometry2d} (for setting up geometries, obviously)
+and {\tt defineback} (for specifying the corresponding sources
+and plasma background) are sufficiently flexible and general
+that specific examples are useful in illustrating the ways that
+they can be used.
 
+\subsubsection{Gas Puff Imaging Example}
+\index{DG}
+\index{Carre}
 
+This example illustrates the use of the DG and Carre codes
+with {\tt definegeometry2d}, and also demonstrates the 3-D
+capabilities of {\tt definegeometry2d}.  
+It is based on the DEGAS 2 simulation of the NSTX
+Gas Puff Imaging (GPI) GPI shot 112811, documented in 
+\cite{Stot2007}.
+
+To run the 2-D version of this example, follow
+these steps:
+\begin{enumerate}   
+  \item {\bf Switch to the example directory.}  If the main 
+DEGAS 2 directory sits
+within your home directory:
+\begin{verbatim}
+cd ~/degas2/examples/He_GPI
+\end{verbatim}
+  \item {\bf Copy the {\tt degas2.in} file into your working directory.}  
+E.g., if you are
+working on a 64-bit Linux machine,
+\begin{verbatim}
+cp degas2.in ../../LINUX64
+cd ../../LINUX64
+\end{verbatim}
+  \item {\bf Prepare reference data.}
+This example uses the standard reference data
+files in the data directory. Hence, this step can be skipped if those files
+have not been altered since you downloaded the code.
+\begin{verbatim}
+gmake datasetup
+./datasetup
+\end{verbatim}
+  \item {\bf Prepare problem data.}
+\begin{verbatim}
+gmake problemsetup
+./problemsetup
+\end{verbatim}
+  \item {\bf Generate geometry file.} Here, we outline 
+briefly the preliminary steps 
+leading up to the creation
+of the objects referred to in the {\tt definegeometry2d} input
+file. Users interested in learning
+more about that process should consult the DG User's Manual (in 
+the \verb+dg_carre/DG/DOC+ directory; 
+especially the DEGAS 2 specific sections under
+``Customizing DG'').
+
+The starting points for the DG code are a specification of the
+vacuum vessel shape [$(R,Z)$ coordinates; \verb+nstx_walls+ in this
+case] and an equilibrium (values of
+the poloidal flux on a rectangular $R,Z$ grid,
+\verb+g112811.00250.equ+, already converted from the EFIT format to DG's 
+preferred file format).  Once these are loaded into DG,
+the user proceeds to graphically generate the input for
+the Carre code.  Carre is run separately outside of DG to 
+create a nearly orthogonal 2-D mesh with one
+coordinate that follows the flux surfaces.  Although DEGAS 2 doesn't
+really need such a mesh, having one facilitates specifying plasma parameters
+(typically a function of a flux variable).  That mesh is then loaded into DG 
+and the user proceeds to connect it to the vacuum vessel 
+points forming the ``DG polygons'' 
+(see the entry in the \href{definegeometry2d.pdf#page.17}{definegeometry2d
+manual}).
+This
+process results in three files: the DG file (\verb+nstx_25.dg+),
+the mesh (\verb+nstx.carre.021+) and
+DG's objects (\verb+nstx_25.dgo+).  Only the latter two 
+are read in by {\tt definegeometry2d}.
+
+There are two {\tt definegeometry2d} input 
+files here, one for the 2-D (axisymmetric: 
+\verb+nstx_25_dg2d.in+) case and one for 3-D (\verb+nstx_25_dg3d.in+).  
+The results
+contained in the \verb+examples/He_GPI+ directory 
+are for the much quicker running 2-D
+case.  Note that 
+many of the 3-D lines appear in the 2-D file, but are commented
+out.  Both runs utilize just the portion of the Carre mesh directly
+in front of the gas manifold (``puffer'' in the {\tt definegeometry2d}
+input file); this is done using the additional arguments
+to the \verb+sonnet_mesh+ keyword.  One would establish the values of these
+indices during the creation of the DG polygons.  The 3-D run then only 
+simulates a portion of the torus (arguments to the \verb+bounds+ and 
+\verb+y_values+
+keywords).  These steps keep the problem size and run time down.
+
+The emulation of the GPI camera view is done with the code in 
+\verb+gpicamera.web+.
+Prior to compiling {\tt definegeometry2d}, the user should copy this file
+to \verb+usr2ddetector.web+ (see the brief explanation at the top of the
+default version of the file \verb+def2ddetector.web+).  This is actually
+just a placeholder $5 \times 5$ 
+pixel version of the camera.  The full resolution
+image is created during post-processing with the {\tt postdetector} routine.
+\begin{verbatim}
+cd ../src
+cp gpicamera.web usr2ddetector.web
+cd ../LINUX64
+gmake definegeometry2d 
+./definegeometry2d ../examples/He_GPI/nstx_25_dg2d.in
+\end{verbatim}
+  \item {\bf Generate background file.} The detailed
+specification of the plasma parameters is actually done with
+the code in \verb+nstxgpi2.web+.  Like \verb+gpicamera.web+, 
+this is a user-defined
+subroutine (\verb+get_n_t+) that needs to be compiled into the driver code.
+This routine will read the plasma density and temperature profiles 
+obtained with the NSTX 
+Thomson scattering system, \verb+ts_112811_base.TXT+ and map them on to 
+the entire geometry assuming that the plasma density
+and temperature are constant on flux surfaces.  On the Carre-generated
+mesh, this is straightforward.  Outside of it, where there are only
+triangles, an approximate procedure is used.
+
+The \verb+plasma_file+ keyword in the {\tt defineback} input file has two
+parameters used by the {\tt nstxgpi2.web} \verb+get_n_t+ routine.
+The second is the name of the Thomson scattering data file mentioned above.
+The first argument
+provides the subroutine with the location 
+of the separatrix in the Carre mesh
+subset used by {\tt definegeometry2d}.
+Specifically, the separatrix is assumed to be between the cells \verb+iz_sep+
+and \verb!iz_sep+1!.
+If one knows the number of ``cells'' used in DG's
+``Create Surface(s)...'' dialog for the core (\verb+n_cells+) 
+and the minimum \verb+iz+
+used in the mesh subset (specified via the \verb+sonnet_mesh+ keyword in 
+{\tt definegeometry2d}), \verb+iz_min+, 
+the value of this is: \verb!iz_sep = n_cells - iz_min + 2.!
+
+The second piece of input to {\tt defineback} is the specification of the
+neutral sources.  In the GPI simulations, this is a gas puff from
+the polygon representing the gas manifold, a vertical line
+in the 2-D case.
+The physical locations of the 2-D sources are
+provided by the ``stratum'' and ``segment'' indices
+in the file \verb+source_nstx_26+.  The ``stratum'' number
+corresponds to the ``stratum'' keyword used in {\tt definegeometry2d}.
+In general, the simplest way to determine the segment numbers
+is to use the ``\verb+*+'' option (see the 
+\href{defineback.pdf#page.8}{defineback documentation}) to
+select all of the segments associated with a stratum and then
+manually identify those desired for the problem at hand.
+In this
+problem, a constant flux source is used since the sizes of
+the segments vary.  The overall magnitude of the source is arbitrary
+in this problem, but physically realistic.  The source
+file for the 3-D case (\verb+source_nstx_26_3d+) is similar, but also provides
+the toroidal location of the source segments (\verb+Segment_iy+).  These
+were chosen so that the source points fall along a nearly straight
+line at the same angle with respect to horizontal as the actual gas
+manifold. 
+\begin{verbatim}
+cd ../src
+cp nstxgpi2.web usr2dplasma.web
+cd ../LINUX64
+gmake defineback
+./defineback ../examples/He_GPI/nstx_30_db.in
+\end{verbatim}
+  \item {\bf Set the number of flights.}
+The background file \verb+bk_nstx_30.nc+ contains the specification of the 
+number of flights to be run.  Open this file in an editor (Emacs
+will be the most convenient) and find the line: 
+\begin{verbatim}
+ source_num_flights = 100 ;
+\end{verbatim}
+The results in this directory were obtained with 100000 flights.
+However, the 3-D production run used  2000000.
+  \item {\bf Set up the tallies.}
+\begin{verbatim}
+gmake tallysetup
+./tallysetup
+\end{verbatim}
+  \item {\bf Run the code.}
+\begin{verbatim}
+gmake flighttest
+./flighttest
+\end{verbatim}
+  \item {\bf Check the text output.}
+The file {\tt density.out} can be directly compared with the one in the 
+\verb+examples/He_GPI+ directory.  The numbers in here have only five 
+digits of precision.  If an exact match is not obtained, something
+is amiss. These results were obtained with {\tt Triangle} V.\ 1.6.
+  \item {\bf Check the binary output.}
+You can use the {\tt matchout} utility to do this.  The largest differences
+should be $\sim 10^{-10}$ or smaller.
+  \item {\bf Generate graphical output.}
+For the 2-D simulation,
+\begin{verbatim}
+cp ../examples/He_GPI/geometry.inp .
+gmake geomtesta
+./geomtesta
+\end{verbatim}
+The currently recommended approach is to compile the code with the
+\verb+GRAPH_FILE=SILO+ or \verb+SILO_HDF5+ 
+option and use VisIt (built with Silo
+support) to view the Silo format file generated by {\tt geomtesta}.
+The primary output variables in this problem are the emission rate
+of the helium 5877 \AA\  (\verb+he_5877+) viewed by the GPI camera
+and the neutral helium density, \verb+spHeden+.
+
+For 3-D simulations, two example input files for {\tt geomtesta} are
+provided.  Keep in mind that these need to be copied to the
+run directory and renamed {\tt geometry.inp} in order for {\tt geomtesta} to
+find them.
+\item {\bf Generate camera image and associated data.}
+The camera simulated by the main code uses only a $5 \times 5$ mesh in
+this problem so as to not lengthen the run.  The
+generation of actual images suitable for comparison with
+experiment is deferred to postprocessing with the {\tt postdetector}
+code.  In principle, {\tt postdetector} can be parallelized (although recent
+changes to the code have yet to be propagated into the MPI-specific
+sections), further mitigating the time expense for producing
+the simulated camera image.
+
+While {\tt postdetector} has been generalized with regard to species
+(e.g., He or D$_{2}$), there are still application specific settings
+in the code.  These are primarily the camera resolution and
+specification of the target plane; note that these same
+quantities appear in the preamble of {\tt gpicamera.web}.
+The orientation of the simulated image can also vary with
+application; see subroutine \verb+wrdatap+ in {\tt postdetector.web}.
+
+Open {\tt postdetector.web} in an editor and find the section of
+code:
+\begin{verbatim}
+@#if 0
+@m nx 64
+@m ny 64
+@#else
+@m nx 5
+@m ny 5
+@#endif
+\end{verbatim}
+Edit the first line to read:
+\begin{verbatim}
+@#if 1
+\end{verbatim}
+This sets the camera resolution to $64 \times 64$.  The 
+$5 \times 5$ resolution is used as
+the default to facilitate testing.  
+
+A few lines below this, check that the application is set to
+``NSTX'':
+\begin{verbatim}
+@m APP NSTX
+\end{verbatim}
+As was the case in compiling {\tt definegeometry2d}, the file 
+{\tt usr2ddetector.web}
+should be a copy of {\tt gpicamera.web}.  Note that the camera resolution
+parameters in {\tt usr2ddetector.web} 
+are overridden by those in {\tt postdetector.web}
+and are not needed here.
+\begin{verbatim}
+gmake postdetector
+./postdetector
+\end{verbatim}
+The camera image and other data are written to HDF format files (this
+code has not yet been adapted for use with the Silo format).  Here
+are the contents of the most useful files:
+\begin{description}
+  \item[emtt] Total emission rate of the 5877 \AA\ line 
+[in W/(m$^{2}$ ster)].  This is  the simulated camera image.
+  \item[tane] Electron density (in $m^{-3}$) at the 
+target plane (intersection of the camera
+view and the idealized gas puff sheet).
+  \item[tate] Electron temperature (in eV) at the target plane.
+  \item[tarr] Major radius (in m) at the target plane.
+  \item[tarz] Vertical coordinate (in m) at the target plane.
+  \item[tns1] Neutral helium density (in m$^{-3}$) at the target plane.
+\end{description}
+
+Note, however, that the identification of the ``target plane zones'' is
+an automated optimization process that assumes a relatively fine toroidal
+discretization.  As such, its results are rather difficult to
+interpret in the 2-D case.
+
+The quantities in the other files require much more space to explain.  
+The
+interested reader can learn more in \cite{Stot2004} 
+  \item {\bf Three-dimensional simulation.}
+The process for producing the analogous three-dimensional simulation is
+the same as above.  The only modifications are:
+\begin{enumerate}
+  \item The input file for {\tt definegeometry2d} is 
+\verb+nstx_25_dg3d.in+.  Note
+that {\tt definegeometry2d} will require much more time (on the order of an
+hour) to run.
+  \item The pointer to the source file in the {\tt defineback} input
+file \verb+nstx_30_db.in+ must be changed to point to 
+\verb+source_nstx_26_3d+.
+  \item Many more flights are required for the main code, 
+e.g., 2000000, and
+the run time is correspondingly longer.
+  \item One of the two 3-D input files should be used for
+{\tt geomtesta}.
+\end{enumerate}
+The resulting camera image corresponds to Fig. 4(a) in 
+\cite{Stot2007}.  However,
+the latter also incorporated the effects of camera vignetting, which
+are not accounted for by the {\tt postdetector} routine.
+\end{enumerate}
+
+\subsubsection{NCSX Example}
+
+This example illustrates the use of {\tt definegeometry2d} with 
+input files generated with a relatively simple
+stand-alone code.  The same concepts could be used
+to manually create {\tt definegeometry2d} input files.
+This particular simulation provided
+neutral penetraton estimates used 
+in the design of plasma facing components for the
+National Compact Stellarator Experiment \cite{Zarn2001}.  
+Since the bulk of the recycled neutrals leave
+the surface with a cosine distribution (i.e., peaked about the normal 
+to the material surface), the
+greatest penetration will be achieved in the same poloidal plane as 
+the recycling surface.
+Consequently, toroidally axisymmetric 
+(i.e., a single plasma cross section at a 
+particular toroidal angle) neutral transport calculations 
+can place an upper bound
+on the neutral penetration distance.
+
+In scoping problems such
+as this, satisfactory results can be obtained by assuming that
+the plasma parameters are constant on flux surfaces (of course,
+if one does know the plasma variation along a flux surface, this
+assumption can be relaxed).  The DEGAS 2
+geometry can then be constructed out of flux surface shapes, e.g.,
+from an equilibrium calculation of some sort. The basic approach is
+to define a ``wall'' corresponding to each flux surface and then
+connect adjacent walls to form the ``polygons'' required
+by {\tt definegeometry2d} (see 
+\href{definegeometry2d.pdf#page.1}{its documentation} for
+detailed descriptions of these objects).  More specfically, each pair of
+adjacent flux surfaces  is used to construct two polygons (e.g., 
+a lower and upper half) so that
+the interior of both is topologically well defined.
+
+This objective can be in principle be achieved by manual manipulation
+of the coordinate data.  However, the process is sufficiently
+straightforward, not to mention tedious, that a code can be constructed that
+generates the {\tt wallfile} needed by
+{\tt definegeometry2d}, as well as the 
+polygons created out of those walls that form the bulk of 
+the {\tt definegeometry2d} input file.
+
+The starting point in this case was a 3-D equilibrium
+file generated by the VMEC code, containing Fourier representations
+of the NCSX flux surfaces.   An example code 
+distributed with the VMEC file was first modified to evaluate these
+surfaces at a set of input toroidal angles (actually just two, with
+one represented here).  A uniform poloidal angle mesh (an
+arbitrary choice) was then defined so that a given flux
+surface could be represented by a set of discrete points.
+There were many more flux surfaces in the VMEC equilibrium than were
+needed for this application.  The set of surfaces was
+reduced (again arbitrarily) so that the maximum distance
+between two adjacent surfaces was 5 cm.  A ``wall'' was 
+created out of each of these surfaces, with the
+constituent points being the $R$, $Z$ coordinates of the
+surface at each of the points along the poloidal angle mesh.
+Because the relative location of these walls was known,
+the generation of the corresponding polygons was a 
+simple matter.  
+The code also defined walls and polygons filling
+the gap between the VMEC surfaces and the vacuum vessel
+and connecting the vacuum vessel to the universal cell.
+Details such as these depend on the particular
+application and are, thus,
+not worth describing here.
+
+Another crucial task that must be begun at this stage is
+establishing the mechanism that will allow {\tt defineback}
+to map the plasma parameters onto these
+polygons.  The first, and generally essential, step to doing
+this is to label each polygon with a ``stratum'' number.
+Note that DEGAS 2's internal geometry specification, 
+contained in the geometry
+netCDF file, has no record of the polygons
+used by {\tt definegeometry2d}; it only knows about zones.
+The stratum labels are used in conjunction with the
+geometry's ``sectors'', but they are of little use within
+the plasma volume.  For this reason, {\tt definegeometry2d} also 
+generates its \verb+polygon_nc_file+ based on the
+2-D geometry class (see the  
+\href{classes.pdf#page.126}{geometry2d class documentation}).
+Via the \verb+g2_polygon_stratum+ and \verb+g2_polygon_zone+
+arrays in this class,
+the user can connect these  
+zones back to the polygons
+specified on input to {\tt definegeometry2d}.
+In this example, this objective is accomplished 
+by the subroutine in the
+{\tt ncsxplasma.web} file compiled into 
+{\tt defineback}.
+Be aware that the polygons in the \verb+polygon_nc_file+
+file are derived from, but not identical to, those
+input to {\tt definegeometry2d}.  Specifically,
+polygons broken up with {\tt definegeometry2d}'s
+\verb+breakup_polygon+ will remain as individual 
+polygons in the \verb+polygon_nc_file+.  But, 
+those processed with \verb+trianglulate_polygon+ or
+\verb+triangulate_to_zones+ are represented by the
+resulting triangles within the \verb+polygon_nc_file+ and, thus,
+correspond to multiple polygons there.  The stratum
+labels are propagated to the triangle polygons in the
+process, however, permitting them and the zone numbers
+to be related to the original polygons.
+
+In this example, the plasma profiles are specified as
+a function of the square root of the normalized toroidal flux.
+Consequently, the geometry setup code also writes out a file,
+{\tt radiiz1li383},
+containing the toroidal flux corresponding to each stratum.
+Because each pair of adjacent flux surfaces is used to construct
+two polygons, these two polygons are assigned the same stratum
+label in the {\tt definegeometry2d} input file.
+The names of the files containing the plasma profiles, the
+effective stratum radii, and the \verb+polygon_nc_file+
+are input to {\tt defineback} and passed to the routine 
+in {\tt ncsxplasma.web}.
+
+One will also need to be able to tell
+{\tt defineback} where to place the neutral sources.  This usually
+amounts to manually identifying  the ``strata'' corresponding to
+those sources within the {\tt definegeometry2d} input file, and
+then following a simple procedure for deducing the specific ``segments''
+of those strata that are to be used.
+
+To run this example, follow these steps:
+\begin{enumerate}   
+  \item {\bf Switch to the example directory.}  If the main 
+DEGAS 2 directory sits
+within your home directory:
+\begin{verbatim}
+cd ~/degas2/examples/NCSX
+\end{verbatim}
+  \item {\bf Copy the {\tt degas2.in} file into your working directory.}  
+E.g., if you are
+working on a 64-bit Linux machine,
+\begin{verbatim}
+cp degas2.in ../../LINUX64
+cd ../../LINUX64
+\end{verbatim}
+  \item {\bf Prepare reference data.}
+This example does use a modified PMI file that removes H as a 
+product in desorption from C.  Consequently, this step must be
+performed even if the standard reference data files in the
+data directory have been previously created.  The resulting
+{\tt pmi.nc} file will remain in the run directory and will not
+affect other runs utilizing the reference data.
+\begin{verbatim}
+gmake datasetup
+./datasetup
+\end{verbatim}
+  \item {\bf Prepare problem data.}
+\begin{verbatim}
+gmake problemsetup
+./problemsetup
+\end{verbatim}
+  \item {\bf Generate geometry file.}
+\begin{verbatim}
+gmake definegeometry2d 
+./definegeometry2d ../examples/NCSX/dg2dinz1li383
+\end{verbatim}
+  \item {\bf Generate background file.} As was described above,
+the detailed specification of the plasma parameters is done
+by the \verb+get_n_t+ routine in {\tt ncsxplasma.web}.  It requires
+as input the three files described previously (the effective radii for
+each stratum, the plasma profiles, and the \verb+polygon_nc_file+), 
+and the plasma density and temperature scrape-off lengths (the plasma
+parameters are only given on closed flux surfaces).
+
+The remainder of the {\tt defineback} input file 
+contains the specification of the
+neutral sources.  In this example, this is a recycling
+source at a limiter.  The corresponding ``stratum'' was
+established as part of the process of creating the input
+files for {\tt definegeometry2d}.  
+A general, and relatively quick, technique for 
+determining the source segment numbers
+is to use the ``\verb+*+'' option (see the 
+\href{defineback.pdf#page.8}{defineback documentation}) to
+select all of the segments associated with a stratum and then
+manually identify those desired for the problem at hand.
+The source strength is arbitrary in this problem, although
+a physically realistic value was selected.
+\begin{verbatim}
+cd ../src
+cp ncsxplasma.web usr2dplasma.web
+cd ../LINUX64
+gmake defineback
+./defineback ../examples/NCSX/z1li383_db.in
+\end{verbatim}
+  \item {\bf Set the number of flights.}
+The background file \verb+bk_ncsx.nc+ contains the specification of the 
+number of flights to be run.  Open this file in an editor (Emacs
+will be the most convenient) and find the line: 
+\begin{verbatim}
+ source_num_flights = 100 ;
+\end{verbatim}
+The results in this directory were obtained with 10000 flights.
+  \item {\bf Set up the tallies.}
+\begin{verbatim}
+gmake tallysetup
+./tallysetup
+\end{verbatim}
+  \item {\bf Run the code.}
+\begin{verbatim}
+gmake flighttest
+./flighttest
+\end{verbatim}
+  \item {\bf Check the text output.}
+The file {\tt density.out} can be directly compared with the one in the 
+\verb+examples/NCSX+ directory.  The numbers in here have only five 
+digits of precision.  If an exact match is not obtained, something
+is amiss.  These results were obtained with {\tt Triangle} V.\ 1.6.
+  \item {\bf Check the binary output.}
+You can use the matchout utility to do this.  The largest differences
+should be $\sim 10^{-10}$ or smaller.
+  \item {\bf Generate graphical output.}
+For the 2-D simulation,
+\begin{verbatim}
+cp ../examples/NCSX/geometry.inp .
+gmake geomtesta
+./geomtesta
+\end{verbatim}
+\end{enumerate}
 
 \section{Run Control Parameters}
 
@@ -4193,7 +4794,8 @@ Fig.~\ref{classeschart}.
 \begin{figure}
 \begin{center}
 \leavevmode
-\includegraphics[width=5in,angle=180]{classes_chart}
+\includegraphics[width=5in]{classes_chart}
+% \includegraphics[width=5in,angle=180]{classes_chart}
 \caption{Flow of atomic and surface physics data through various DEGAS 2
 classes during preprocessing.}
 \label{classeschart}
@@ -5672,48 +6274,6 @@ values more
 appropriate for this input file, the size of the code was reduced from
 142 MB to 55 MB.
 
-\chapter{Future Work}
-
-\section{To Do List}
-
-The following are known problems and / or are items which need
-to be done:
-
-\begin{itemize}
-\item Sampling from a drifting Maxwellian is fudged or not done at all
-(sampling recycling ion, recombining ion, charge exchange).
-\item H / H2 fraction for gas puffing is not implemented; needed for
-wall desorption, too.
-\item Need real sheath physics routine.
-\item Add fits to reactions, as done for PMI.
-\item Use FWEB to break up reaction-specific routines into separate files.
-\item Generalize detectors to treat finite solid angle?
-\item Might be able to replace eval\_data and pd\_eval\_data with a single
-routine.
-\item Generalize setup of detector views to permit chords not lying in poloidal
-plane.
-\item Need to add other H\_alpha emitting molecular reactions (will follow
-EIRENE here, unlike DEGAS, and explicitly track these reactions rather
-than fudging the emission rates of the dominant reactions).
-\item In readgeometry, set up detector views using chords from DEGAS input 
-file.
-\item Note: in readgeometry, improved treatment of double-null, vacuum, UEDGE
-option, but didn't do likewise for !vacuum case: it will probably not
-work.
-\item Manual and other documentation needs to be updated.
-\item Add a dump of trajectories? Charles says that we might even be able to
-plot these in real time using some MPI-based utilities.
-\item Define default PMI packages which are invoked based on all material and
-test pairs. Ideally, the user should be presented with the list compiled
-at problemsetup time and edit it prior to actually running problemsetup.
-\item Extend sector definition to use two surfaces and a zone. If needed,
-this could be an ordered pair with the second member optional (or duplicated).
-Do this only if it cleans up some of the ugly sector related code in
-readgeometry and sector scoring routines.
-\item Adapt DG to write DEGAS 2 geometry netCDF file.
-\item Begin development of hybrid kinetic-fluid neutral transport code.
-\end{itemize}
-
 \chapter{Troubleshooting}
 
 \section{Help!}
@@ -5761,10 +6321,12 @@ Fusion}, D. Post and R. Behrisch, Eds., (Plenum, New York, 1986), p. 695.
 R. H. Huddlestone and S. L. Leonard, Eds. (Academic, New York, 1965).
 \bibitem{FWEB} \verb+http://w3.pppl.gov/~krommes/fweb_toc.html+
 (\href{http://w3.pppl.gov/~krommes/fweb_toc.html}{FWEB home page})
-\bibitem{nCDF} \verb+http://www.unidata.ucar.edu/packages/netcdf/index.html+
-(\href{http://www.unidata.ucar.edu/packages/netcdf/index.html}{netCDF home page})
-\bibitem{HDF} \verb+http://hdf.ncsa.uiuc.edu/+
-(\href{http://hdf.ncsa.uiuc.edu/}{HDF home page})
+\bibitem{nCDF} \verb+http://www.unidata.ucar.edu/software/netcdf/+
+(\href{http://www.unidata.ucar.edu/software/netcdf/}{netCDF home page})
+\bibitem{HDF} \verb+http://www.hdfgroup.org/+
+(\href{http://www.hdfgroup.org/}{HDF home page})
+\bibitem{Silo} \verb+https://wci.llnl.gov/codes/silo/index.html+
+(\href{https://wci.llnl.gov/codes/silo/index.html}{Silo home page})
 \bibitem{Reit92} Although never formally published and not readily 
 available online, the EIRENE User's Manual is a very useful reference on 
 the physics and algorithms of Monte Carlo neutral transport: \\
@@ -5779,6 +6341,8 @@ information.
 \bibitem{Case67} K. M. Case
 and P. F. Zweifel, {\em Linear Transport Theory} (Addison-Wesley, Reading, MA,
 1967).
+\bibitem{Marc96} R. Marchand and M. Dumberry, {\em Comp. Phys. Comm.}
+{\bf 96}, 232 (1996).
 \bibitem{Stot96} D. P. Stotler, A. Yu. Pigarov, C. F. F. Karney, 
 S. I. Krasheninnikov, B. LaBombard, B. Lipschultz, G. M. McCracken,
 A. Niemczewski, J. A. Snipes, J. L. Terry, and R. A. Vesey, in {\em 
@@ -5838,6 +6402,8 @@ Theory of Non-Uniform Gases} (Cambridge University Press, 1970).
 Properties of Liquids and Gases} (McGraw-Hill Book Company, New York, 1987).
 \bibitem{CRC} {\em CRC Handbook of Chemistry and Physics, 75th Edition,
 1913--1995}, D. R. Lide, Ed., p. 6-239 (CRC Press, Boca Raton, 1994).
+\bibitem{Chan2008} C. S. Chang, S. Klasky, J. Cummings et al., 
+{\em J. Phys.: Conf. Ser.} {\bf 125}, 012040 (2008).
 \bibitem{Will62} D. R. Willis, {\em Phys. Fluids} {\bf 5}, 127 (1962).
 \bibitem{Cerc69} C. Cercignani, {\em J. Stat. Phys.} {\bf 1}, 297 (1969).
 \bibitem{Cerc75} C. Cercignani, {\em Theory and Application of the Boltzmann
@@ -5859,55 +6425,67 @@ Plasmas} {\bf 7}, 1894 (2000).
 et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
 \bibitem{Stot01} D. P. Stotler, C. S. Pitcher, C. J. Boswell et al.,
 {\em J. Nucl. Mater.} {\bf 290-293}, 967 (2001).
+\bibitem{Stot2007} D. P. Stotler,
+J. Boedo, B. LeBlanc, R. J. Maqueda, and S. J. Zweben, 
+{\em J. Nucl. Mater.} {\bf 363-365}, 686 (2007).
+\bibitem{Stot2004} D. P. Stotler, D. A. D'Ippolito, B. LeBlanc, 
+R. J. Maqueda, J. R. Myra, S. A. Sabbagh,
+and S. J. Zweben, {\em Contrib. Plasma Phys.} {\bf 44}, 294 (2004).
+\bibitem{Zarn2001} M. C. Zarnstorff, L. A. Berry, A. Brooks et al.,
+{\em Plasma Phys. Control. Fusion} {\bf 43}, A237 (2001).  See also
+the \href{http://ncsx.pppl.gov}{NCSX web site}.
 \end{thebibliography}
 
 %%tth:\printindex
 
 \begin{theindex}
 
-  \item adsorption, \hyperpage{60}
+  \item adsorption, \hyperpage{61}
   \item Allocation, memory, \hyperpage{3}
   \item Atomic physics, \hyperpage{23}
 
   \indexspace
 
-  \item background species, \hyperpage{60}
+  \item background species, \hyperpage{61}
   \item BGK, \hyperpage{42}
   \item Boltzmann equation, \hyperpage{1}
   \item boxgen, \hyperpage{55}
 
   \indexspace
 
+  \item Carre, \hyperpage{58}, \hyperpage{88}
   \item Charge exchange, \hyperpage{32}
-  \item chargex, \hyperpage{59}
+  \item chargex, \hyperpage{60}
   \item collisional-radiative, \hyperpage{23}
-  \item CVS, \hyperpage{4}, \hyperpage{51}
+  \item CVS, \hyperpage{4}, \hyperpage{52}
 
   \indexspace
 
   \item dataexam, \hyperpage{56}
   \item datamatch, \hyperpage{57}
   \item datasetup, \hyperpage{55}
-  \item defineback, \hyperpage{53}
-  \item defineback input, \hyperpage{61}
-  \item definegeometry2d, \hyperpage{52, 53}
-  \item definegeometry2d input, \hyperpage{61}
+  \item defineback, \hyperpage{53}, \hyperpage{88}
+  \item defineback input, \hyperpage{62}
+  \item definegeometry2d, \hyperpage{51}, \hyperpage{53}, 
+		\hyperpage{88}
+  \item definegeometry2d input, \hyperpage{62}
   \item DEGAS, \hyperpage{2}
-  \item desorption, \hyperpage{60}
+  \item desorption, \hyperpage{61}
+  \item DG, \hyperpage{58}, \hyperpage{88}
   \item Differential cross section, \hyperpage{32}
   \item Diffusion, \hyperpage{42}
   \item Diffusion cross section, \hyperpage{32}
   \item directories, \hyperpage{52}
-  \item dissoc, \hyperpage{59}
-  \item dissoc\_rec, \hyperpage{59}
+  \item dissoc, \hyperpage{60}
+  \item dissoc\_rec, \hyperpage{60}
   \item Distribution, probability, \hyperpage{5}
 
   \indexspace
 
-  \item elastic, \hyperpage{59}
+  \item elastic, \hyperpage{60}
   \item Elastic scattering, \hyperpage{32}
-  \item elements\_infile, \hyperpage{59}
-  \item elementsfile, \hyperpage{59}
+  \item elements\_infile, \hyperpage{60}
+  \item elementsfile, \hyperpage{60}
   \item Emacs, \hyperpage{50}
   \item emacs, \hyperpage{49}
 
@@ -5921,23 +6499,24 @@ et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
   \indexspace
 
   \item Generators, random number, \hyperpage{5}
-  \item generic, \hyperpage{59}
-  \item generic PMI, \hyperpage{60}
-  \item generic reactions, \hyperpage{59}
-  \item geometry.inp, \hyperpage{62}
+  \item generic, \hyperpage{60}
+  \item generic PMI, \hyperpage{61}
+  \item generic reactions, \hyperpage{60}
+  \item geometry.inp, \hyperpage{63}
   \item geomtesta, \hyperpage{53}
   \item gmake, \hyperpage{49}
 
   \indexspace
 
   \item HDF, \hyperpage{4}, \hyperpage{51}
+  \item HDF5, \hyperpage{51}
   \item HOME, \hyperpage{52}
 
   \indexspace
 
   \item ionization, \hyperpage{23}
-  \item ionize, \hyperpage{59}
-  \item ionize\_suppress, \hyperpage{59}
+  \item ionize, \hyperpage{60}
+  \item ionize\_suppress, \hyperpage{60}
 
   \indexspace
 
@@ -5951,8 +6530,8 @@ et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
   \item Makefile.local, \hyperpage{52}
   \item matcheir, \hyperpage{57}
   \item matchout, \hyperpage{57}
-  \item materials\_infile, \hyperpage{60}
-  \item materialsfile, \hyperpage{60}
+  \item materials\_infile, \hyperpage{61}
+  \item materialsfile, \hyperpage{61}
   \item Maxwell molecules, \hyperpage{42}
   \item Monte Carlo, \hyperpage{5}
 
@@ -5967,8 +6546,8 @@ et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
   \item Neutral Transport, \hyperpage{1}
   \item Neutral-ion scattering, \hyperpage{32}
   \item Neutral-neutral scattering, \hyperpage{42}
-  \item non-generic PMI, \hyperpage{60}
-  \item non-generic reactions, \hyperpage{59}
+  \item non-generic PMI, \hyperpage{61}
+  \item non-generic reactions, \hyperpage{60}
 
   \indexspace
 
@@ -5977,13 +6556,13 @@ et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
 
   \indexspace
 
-  \item Pcl-cvs, \hyperpage{51}
-  \item PMI, \hyperpage{60}
-  \item pmi\_infile, \hyperpage{60}
+  \item Pcl-cvs, \hyperpage{52}
+  \item PMI, \hyperpage{61}
+  \item pmi\_infile, \hyperpage{61}
   \item pmitest, \hyperpage{56}
   \item pmiwrite, \hyperpage{55}
-  \item problem\_infile, \hyperpage{60}
-  \item problemfile, \hyperpage{60}
+  \item problem\_infile, \hyperpage{61}
+  \item problemfile, \hyperpage{61}
   \item problemsetup, \hyperpage{53}
   \item Processing, parallel, \hyperpage{4}
 
@@ -5993,46 +6572,47 @@ et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
   \item randomtest, \hyperpage{56}
   \item ratecalc, \hyperpage{55}
   \item rates, atomic physics, \hyperpage{23}
-  \item reaction type, \hyperpage{59}
-  \item reaction\_infile, \hyperpage{59}
-  \item reactionfile, \hyperpage{59}
+  \item reaction type, \hyperpage{60}
+  \item reaction\_infile, \hyperpage{60}
+  \item reactionfile, \hyperpage{60}
   \item reactiontest, \hyperpage{56}
   \item reactionwrite, \hyperpage{55}
   \item readbackground, \hyperpage{53}
-  \item readbackground input, \hyperpage{61}
+  \item readbackground input, \hyperpage{62}
   \item readgeometry, \hyperpage{53}
-  \item readgeometry input, \hyperpage{61}
-  \item recombination, \hyperpage{23}, \hyperpage{59}
-  \item reference level, \hyperpage{60}
-  \item reflection, \hyperpage{60}
+  \item readgeometry input, \hyperpage{62}
+  \item recombination, \hyperpage{23}, \hyperpage{60}
+  \item reference level, \hyperpage{61}
+  \item reflection, \hyperpage{61}
 
   \indexspace
 
   \item Scattering angle, \hyperpage{32}
   \item Scoring, \hyperpage{5}
+  \item Silo, \hyperpage{51}
   \item sourcetest, \hyperpage{56}
-  \item species, \hyperpage{59}
-  \item species\_infile, \hyperpage{59}
-  \item speciesfile, \hyperpage{59}
+  \item species, \hyperpage{60}
+  \item species\_infile, \hyperpage{60}
+  \item speciesfile, \hyperpage{60}
   \item Spin exchange, \hyperpage{32}
-  \item subset data, \hyperpage{60}
-  \item symbolic name, \hyperpage{58}
+  \item subset data, \hyperpage{61}
+  \item symbolic name, \hyperpage{59}
   \item sysdeptest, \hyperpage{56}
 
   \indexspace
 
   \item Tags, \hyperpage{49}
-  \item tally, \hyperpage{61}
-  \item tally\_infile, \hyperpage{61}
-  \item tallyfile, \hyperpage{61}
-  \item tallysetup, \hyperpage{53}, \hyperpage{61}
-  \item test species, \hyperpage{60}
+  \item tally, \hyperpage{62}
+  \item tally\_infile, \hyperpage{62}
+  \item tallyfile, \hyperpage{62}
+  \item tallysetup, \hyperpage{53}, \hyperpage{62}
+  \item test species, \hyperpage{61}
   \item TeX, \hyperpage{50}
   \item Theory, transport, \hyperpage{1}
   \item Total cross section, \hyperpage{32}
   \item Tracking, \hyperpage{5}
   \item Transport codes, \hyperpage{1}
-  \item Triangle, \hyperpage{52}
+  \item Triangle, \hyperpage{51}
 
   \indexspace
 
@@ -6040,7 +6620,8 @@ et al., {\em J. Nucl. Mater.} {\bf 290-293}, 812 (2001).
   \item Viscosity cross section, \hyperpage{32}
 
 \end{theindex}
- 
+
+
 \tableofcontents
 
 \end{document}
