@@ -3,6 +3,9 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.43  2007/06/19 17:35:41  dstotler
+% Add allocation statements for plasma_e_ion_sheath.
+%
 % Revision 1.42  2006/01/19 19:23:45  dstotler
 % Add an assert section in check_geometry to identify outer surfaces
 % that are not part of the universal cell boundary.  Extend this assert
@@ -276,8 +279,6 @@ uninitialized; these are set in |boundaries_neighbors|.
       sc_plasma_num=0
       var_realloca(plasma_sector)
       plasma_sector[sc_plasma_num]=int_unused
-      var_realloca(plasma_temperature)
-      plasma_temperature[sc_plasma_num]=real_unused
       var_realloca(plasma_e_ion_delta)
       plasma_e_ion_delta[sc_plasma_num]=real_unused
       var_realloca(plasma_e_ion_mult)
@@ -294,10 +295,6 @@ uninitialized; these are set in |boundaries_neighbors|.
       target_temperature[sc_target_num]=real_unused
       var_realloca(target_recyc_coef)
       target_recyc_coef[sc_target_num]=real_unused
-      var_realloca(target_e_ion_delta)
-      target_e_ion_delta[sc_target_num]=real_unused
-      var_realloca(target_e_ion_mult)
-      target_e_ion_mult[sc_target_num]=real_unused
 
       sc_wall_num=0
       var_realloca(wall_sector)
@@ -639,7 +636,6 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(vacuum_sector)
 
       var_reallocb(plasma_sector)
-      var_reallocb(plasma_temperature)
       var_reallocb(plasma_e_ion_delta)
       var_reallocb(plasma_e_ion_mult)
       var_reallocb(plasma_e_ion_sheath)
@@ -648,8 +644,6 @@ uninitialized; these are set in |boundaries_neighbors|.
       var_reallocb(target_material)
       var_reallocb(target_temperature)
       var_reallocb(target_recyc_coef)
-      var_reallocb(target_e_ion_delta)
-      var_reallocb(target_e_ion_mult)
 
       var_reallocb(wall_sector)
       var_reallocb(wall_material)
@@ -1159,7 +1153,13 @@ break:         continue
                      end if
                   end do
 break2:           continue
-                  assert(opp_outer)
+                  if (!opp_outer) then
+                     write(stderr,*) 'This surface isn''t an outer surface, but there''s something on one side and not on the other (first instance)'
+                     write(stderr,*) k
+                     write(stderr,*) vc_expand(surface_points[0,k])
+                     write(stderr,*) vc_expand(surface_points[1,k])
+                     assert(.false.)
+                  end if
 /*
    Alternatively, if both sides of |k| have 0 |s_count|, we must then have a cut surface. This check verifies that.
    It's a little circuitous, but should work.
@@ -1260,7 +1260,7 @@ breakc:           continue
                      if (surface_equal(slice1(surface_coeffs,[k]),   // Not original, but still outer
      $                    slice1(surface_coeffs,[outer_surfaces[j]]),orientation)) goto break1
                   end do
-                  write(stderr,*) 'This surface isn''t an outer surface, but there''s something on one side and not on the other'
+                  write(stderr,*) 'This surface isn''t an outer surface, but there''s something on one side and not on the other (2nd instance)'
                   write(stderr,*) k
                   write(stderr,*) vc_expand(surface_points[0,k])
                   write(stderr,*) vc_expand(surface_points[1,k])
@@ -1344,7 +1344,6 @@ break1:        continue
       var_free(sector_type_pointer)
       var_free(vacuum_sector)
       var_free(plasma_sector)
-      var_free(plasma_temperature)
       var_free(plasma_e_ion_delta)
       var_free(plasma_e_ion_mult)
       var_free(plasma_e_ion_sheath)
@@ -1352,8 +1351,6 @@ break1:        continue
       var_free(target_material)
       var_free(target_temperature)
       var_free(target_recyc_coef)
-      var_free(target_e_ion_delta)
-      var_free(target_e_ion_mult)
       var_free(wall_sector)
       var_free(wall_material)
       var_free(wall_temperature)
