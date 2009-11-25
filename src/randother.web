@@ -2,6 +2,10 @@
 \Title{other random distributions}
 
 % $Log$
+% Revision 1.7  2000/03/20 22:20:30  dstotler
+% Fix bugs in random_gauss (skip do loop for n=1, change do loop limits,
+% add log in last setting of z).
+%
 % Revision 1.6  2000/01/27 18:34:46  karney
 % Portability fixes and minor updates to random.
 %
@@ -108,7 +112,7 @@ first consumes 4 random numbers; the second consumes 2.)
       real pi,theta,z
       real random               // External
       external random_array,random
-      data pi/const(3.14159265358979323846264338328)/
+      data pi/dconst(3.14159265358979323846264338328)/
 @#if !HIPREC
       single_precision ys[0:n-1] // Output
       single_precision spi,stheta,sz // Local
@@ -197,7 +201,7 @@ numbers before they are needed.
       integer i                 // Local
       real pi,costheta,phi
       external random_array     // External
-      data pi/const(3.14159265358979323846264338328)/
+      data pi/dconst(3.14159265358979323846264338328)/
 @#if !HIPREC
       single_precision vs[0:3*n-1] // Output
       single_precision spi,scostheta,sphi // Local
@@ -276,7 +280,7 @@ See the comments about the dimensioning of |v| in the discussion of
       integer i                 // Local
       real pi,costheta2,phi
       external random_array     // External
-      data pi/const(3.14159265358979323846264338328)/
+      data pi/dconst(3.14159265358979323846264338328)/
 @#if !HIPREC
       single_precision vs[0:2*n-1] // Output
       single_precision spi,scostheta2,sphi // Local
