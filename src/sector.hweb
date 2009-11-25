@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.12  2007/06/19 17:43:40  dstotler
+% Add plasma_e_ion_sheath for updated UEDGE coupling; clean
+% up related documentation.
+%
 % Revision 1.11  2006/01/19 20:02:14  dstotler
 % Extend to 3-D. Add sc_compare macro, sc_vacuum_check. Increase
 % sc_type_max for test case.
@@ -147,7 +151,6 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_var_pk(sc,sc_plasma_num,INT)
       define_dimen_pk(sc,plasma_ind,0,sc_plasma_num)
       define_varp_pk(sc,plasma_sector,INT,plasma_ind)
-      define_varp_pk(sc,plasma_temperature,FLOAT,plasma_ind)
       define_varp_pk(sc,plasma_e_ion_delta,FLOAT,plasma_ind)
       define_varp_pk(sc,plasma_e_ion_mult,FLOAT,plasma_ind)
       define_varp_pk(sc,plasma_e_ion_sheath,FLOAT,plasma_ind)
@@ -159,8 +162,6 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_varp_pk(sc,target_material,INT,target_ind)
       define_varp_pk(sc,target_temperature,FLOAT,target_ind)
       define_varp_pk(sc,target_recyc_coef,FLOAT,target_ind)
-      define_varp_pk(sc,target_e_ion_delta,FLOAT,target_ind)
-      define_varp_pk(sc,target_e_ion_mult,FLOAT,target_ind)
           // Properties: field-line-angle-of-incidence, for example
 
 /* |wall| subclass */
@@ -216,16 +217,14 @@ starting them at $0$, the dimensions have a length of at least $1$.
       var_realloca(vacuum_sector);
       vacuum_sector[sc_vacuum_num]=sc;
       sector_type_pointer[sc][sc_vacuum]=sc_vacuum_num @;
-@m define_sector_plasma(sc,temp)
+@m define_sector_plasma(sc)
       sc_plasma_num=sc_plasma_num+1;
       var_realloca(plasma_sector);
-      var_realloca(plasma_temperature);
       var_realloca(plasma_e_ion_delta);
       var_realloca(plasma_e_ion_mult);
       var_realloca(plasma_e_ion_sheath);
       plasma_sector[sc_plasma_num]=sc;
       sector_type_pointer[sc][sc_plasma]=sc_plasma_num; 
-      plasma_temperature[sc_plasma_num]=temp;
       plasma_e_ion_delta[sc_plasma_num]=zero;
       plasma_e_ion_mult[sc_plasma_num]=one; 
       plasma_e_ion_sheath[sc_plasma_num]=zero @; 
@@ -235,15 +234,11 @@ starting them at $0$, the dimensions have a length of at least $1$.
       var_realloca(target_material);
       var_realloca(target_temperature);
       var_realloca(target_recyc_coef);
-      var_realloca(target_e_ion_delta);
-      var_realloca(target_e_ion_mult);
       target_sector[sc_target_num]=sc;
       sector_type_pointer[sc][sc_target]=sc_target_num;
       target_material[sc_target_num]=mat;
       target_temperature[sc_target_num]=temp;
-      target_recyc_coef[sc_target_num]=recyc; 
-      target_e_ion_delta[sc_target_num]=zero;       // Simple default values,
-      target_e_ion_mult[sc_target_num]=one @;       // Reset with background
+      target_recyc_coef[sc_target_num]=recyc @; 
 @m define_sector_wall(sc,mat,temp,recyc)
       sc_wall_num=sc_wall_num+1;
       var_realloca(wall_sector);
@@ -443,11 +438,6 @@ to index |vacuum_ind| in the vacuum subclass list.
   \item[|plasma_sector[plasma_ind]|] Returns the sector index corresponding
 to index |plasma_ind| in the plasma subclass list.
 
-  \item[|plasma_temperature[plasma_ind]|] Is no longer used.
-This was originally intended
-to provide a means for specifying gas puff temperatures.  That task
-is now handled by the |so_params| array in the source class.
-
   \item[|plasma_e_ion_delta[plasma_ind]|] Contains $\delta$ (eV), the constant
 (i.e., not a function of the incident ion parameters) contribution
 to the incident ion energy following acceleration through the sheath:
@@ -482,11 +472,6 @@ target material comprising the target sector |target_ind|.
 absorbed fraction) of the target material comprising the target 
 sector |target_ind|.
 
-  \item[|target_e_ion_delta[target_ind]|] Is no longer used.
-This functionality has been transferred to the |plasma| sectors.
-
-  \item[|target_e_ion_mult[target_ind]|] Is no longer used.
-This functionality has been transferred to the |plasma| sectors.
 \end{description}
 
 {\bf wall subclass}
