@@ -2,6 +2,10 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.30  2006/01/19 19:03:34  dstotler
+% Add subroutines for excitation / deexcitation.  Modify handling of
+% emission rates to permit use of line-labeled rates.
+%
 % Revision 1.29  2002/01/28 16:49:30  dstotler
 % Add emission option to subr. dissoc and track_dissoc.
 %
@@ -149,6 +153,7 @@
 @m FILE 'collide.web'
 
 @m RR 1
+@m NEU_DIAG_CX 0
 
 @I macros.hweb
 @I particle.hweb
@@ -297,14 +302,13 @@
       vc_decl(vb_therm)
       vc_decl(vrel)
       vc_decl(v_i)
-      real v_thermal,ran,sgvmax,tempmax,cxsec,cx_v,m_i
+      real v_thermal,ran,sgvmax,cxsec,cx_v,m_i
       logical init
 
       external eval_data                              // External
       real eval_data
 
-      save tempmax,init,i_sigv_max,i_cx
-      data tempmax/zero/
+      save init,i_sigv_max,i_cx
       data init/.true./
 
       if (init) then
@@ -370,13 +374,9 @@ loop: continue
       assert(cx_v<=sgvmax)    // Can disable rejection with |sgvmax| = 0.
 @#endif
 
-      if (cx_v > tempmax) then
-         tempmax=cx_v
-      end if
       rn_next(ran,x)
 
       if (cx_v < ran*sgvmax) goto loop
-
 /*
    Assume that the background particle becomes the test species and
    vice-versa. Hence, the appearance of the former background velocity
@@ -491,16 +491,14 @@ loop: continue
       vc_decl(vb_therm)
       vc_decl(vrel)
       vc_decl(v_i)
-      real v_thermal,sigvmax,tempmax,cxsec,cx_v,m_i,angle,angle_min,ran
+      real v_thermal,sigvmax,cxsec,cx_v,m_i,angle,angle_min,ran
       logical init
 
       external eval_data                               // External
       real eval_data
       rn_decls
 
-      save tempmax,init,i_sigv_max,i_angle_min,i_cx,i_csang
-      data sigvmax / zero /
-      data tempmax / zero /
+      save init,i_sigv_max,i_angle_min,i_cx,i_csang
       data init/.true./
 
       if (init) then
@@ -825,7 +823,7 @@ loop: continue
 
 @ Process a dissociation. Arguments are the same as for |chargex|.
 
-@m max_lines 3
+@m max_lines 5
 
 @<Functions...@>=
       subroutine dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
@@ -1302,7 +1300,7 @@ break:continue
 routine is required for ionizations which are not treated by the method
 of suppressed absorption.
 
-@m max_lines 3
+@m max_lines 5
 
 @<Functions...@>=
       subroutine ionize(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
@@ -1510,13 +1508,9 @@ of suppressed absorption.
             assert(back_i != 0)
             psp_i=pr_problem_sp_back(back_i)
          end if
+@#if !NEU_DIAG_CX
          scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
      $        sp_m(prod[i])*rate
-@#if 0
-            if (i == 2) then         // See assertion below
-// Was this needed?  |v_prod| is set above.
-               vc_copy(v_test,v_prod[i])
-@#endif
          scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
      $        sp_m(prod[i])*v_prod[i][1]*rate 
          scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
@@ -1525,10 +1519,6 @@ of suppressed absorption.
      $        sp_m(prod[i])*v_prod[i][3]*rate
          scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
      $        half*sp_m(prod[i])*vc_abs2(v_prod[i])*rate
-@#if 0
-            else if (i == 3) then
-               vc_set(v_prod[i],zero,zero,zero)
-            end if
 @#endif
       end do
             
@@ -1550,7 +1540,7 @@ of suppressed absorption.
 @ Process an excitation or deexcitation. Arguments are the same as 
 for |chargex|.
 
-@m max_lines 3
+@m max_lines 5
 
 @<Functions...@>=
       subroutine excite(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
@@ -1988,7 +1978,8 @@ loop: continue
       pr_reaction_decl(pr_reac)                         // Local  
       pr_background_decl(back)
       integer i,j,i_0_1,i_0_2,nprod,back_i,test_i,psp_i
-      real ni_1up,ni_2up2,up2,up,u_abs,uprime_abs,m_i,e_src,e_eff
+      real ni_1up,ni_2up2,up2,up,u_abs,uprime_abs,m_i,e_src,e_eff,
+     $     i_term,i_term_org,i_term_lim
       vc_decl(u)
       vc_decl(uprime)
       vc_decl(vb_flow)
@@ -2036,18 +2027,50 @@ loop: continue
       u_abs=vc_abs(u)
       vc_difference(u,vb_flow,uprime)
       uprime_abs=vc_abs(uprime)
+/*
+   The combination in |i_term_org| appears in the expressions for both
+   the momentum and energy exchanges below.  At small values of |u| (or
+   |uprime|), the |ni_1up| is supposed to scale inversely with |u| and
+   the two terms of |i_term_org| largely cancel.
+   However, |u| can be arbitarily small here.  In particular, it can be
+   smaller than the smallest value provided for in the data table.  In that
+   case, the $1/|u|$ scaling will not arise and the expected cancellation 
+   will not occur.  Moreover, apart from a small range of |u| just below the
+   table limit, |i_term_org| will be evaluated (incorrectly) as negative.
+   When this occurs, we replace it with the expected result in the
+   $|u| \ll |up|$ limit, |i_term_lim|.  The assertion that ensures this
+   limit is valid should not be hit as long the lowest energies in the
+   table are well below the smallest expected ion temperatures, i.e., 
+   about 1 eV.
+*/
+      i_term_org=ni_1up/uprime_abs-half*up2*rate/uprime_abs**2
+      i_term_lim=two*ni_2up2/(const(3.)*up2)
+      if (i_term_org < zero) then
+         i_term=i_term_lim
+         assert(uprime_abs < half*up)
+      else
+         i_term=i_term_org
+      end if
 
       do i=1,2
          if (i == 1) then
             m_i=sp_m(pr_background(back))
             psp_i=pr_problem_sp_back(back)
             do j=1,3
+@#if 0
                mom_src[j]=rate*u[j]
      $              -(-half*up2*rate/uprime_abs**2+ni_1up/uprime_abs)*uprime[j]
+@#else
+               mom_src[j]=rate*u[j]-i_term*uprime[j]
+@#endif
             end do
             vc_copy(mom_src,vr_i)
+@#if 0
             e_src=half*u_abs**2*rate-vc_product(u,uprime)*ni_1up/uprime_abs
      $           +half*(up2*vc_product(u,uprime)*rate/uprime_abs**2+ni_2up2)
+@#else
+            e_src=half*u_abs**2*rate-vc_product(u,uprime)*i_term+half*ni_2up2
+@#endif
             e_eff=e_src
          else if (i == 2) then
             m_i=sp_m(pr_test(test))
@@ -2055,8 +2078,14 @@ loop: continue
             vc_scale(rate,u,vr_i)
             e_eff=half*u_abs**2*rate
          end if
+@#if NEU_DIAG_CX
+         if (i == 2) then
+@#endif
          scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
      $        -m_i*rate
+@#if NEU_DIAG_CX
+         endif
+@#endif
          scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
      $        -m_i*vr_i[1]
          scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
@@ -2216,7 +2245,7 @@ loop: continue
 
 @ Compute scoring data for dissociation track-length estimator.
 
-@m max_lines 3
+@m max_lines 5
 
 @<Functions...@>=
       subroutine track_dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
@@ -2319,14 +2348,13 @@ loop: continue
    Set emitter velocity. This is done just for completeness. Not likely to be a good
    approximation (since test energy usually much smaller than dissociation energy).
    This just assumes that the two product velocities are equal to the test velocity,
-   which they are on the average. The assert verifies that |rc_emitter| points to one
-   of the heavy products.
+   which they are on the average. There is a corresponding assert below (with setting
+   of emitter mass) that verifies that |rc_emitter| points to one of the heavy products.
 */
       reac=pr_reaction(pr_reac)
       if (rc_emitter(reac) != 0) then
          if (rc_emitter(reac) > 0) then
             vc_copy(v_test,v_emitter)
-            assert(sp_sy(prod[rc_emitter(reac)]) != 'e')
 /* Don't really recall which reagent is which. Should be able to tell
    test from a back just with |sp_generic|.
 */
@@ -2683,7 +2711,7 @@ loop: continue
 @ Set scoring data for recombinations. Recombination scoring is
 actually done at the source point or as a post-processor.
 
-@m max_lines 3
+@m max_lines 5
 
 @<Functions...@>=
       subroutine recombination_data(est,so_dummy(is),xseg,pt_dummy(p),
