@@ -2,6 +2,9 @@
 \Title{doflights}
 
 % $Log$
+% Revision 1.5  2007/06/19 17:35:01  dstotler
+% Fixed array dimensions in argument list of write_sources.
+%
 % Revision 1.4  2006/01/19 19:18:52  dstotler
 % Allow for 3-D symmetry in fill_coupling_arrays by dumping out only
 % zones for which zone_index[zone][zi_ptr]=zone.  Add output from
@@ -50,6 +53,7 @@
 @I problem.hweb
 @I random.hweb
 @I mpi.hweb
+@I background.hweb
 
 @ The unnamed module.
 
@@ -921,6 +925,7 @@ we don't set the dimensions until just before the call.
       implicit_none_f77
       zn_common
       sp_common
+      bk_common
       pr_common
       so_common
       tl_common
@@ -1027,9 +1032,13 @@ we don't set the dimensions until just before the call.
          end do
       end do
       close(unit=diskout)
-         
-      if (pr_reaction_num > 0) then      // else: these tallies undefined 
-         e_back=pr_background_lookup(sp_lookup('e'))
+/*
+   This output only makes sense in ``normal'' plasma simulations.
+   The following test is probably not comprehensive, but should
+   catch most exceptions.
+*/         
+      e_back=pr_background_lookup(sp_lookup('e'))
+      if ((pr_reaction_num > 0) && (bk_check(e_back))) then  
          open(unit=diskout,file='sources.out',status='unknown')
          do is=1,so_grps
             first_back=0
@@ -1127,6 +1136,7 @@ we don't set the dimensions until just before the call.
       end if
 
       var_free(zone_map)
+      var_free(test_data)
      
       return
       end
@@ -1165,6 +1175,12 @@ we don't set the dimensions until just before the call.
      
 @ Write out data into netcdf file \verb+output.nc+ 
 
+@ This is normally 0 (for ``32 bit offset'' files); set to 1 for large
+files (``64 bit offset'').  This is only available for netCDF version 3.6
+or later
+
+@m NC_LARGE_FILE 0   
+
 @<Functions...@>=
       subroutine nc_write_output
       implicit_none_f77
@@ -1187,7 +1203,12 @@ we don't set the dimensions until just before the call.
 
       tempfile=filenames_array[outputfile]
       assert(tempfile != char_undef)
+
+@#if !NC_LARGE_FILE
       fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
+@#else
+      fileid=nccreate(tempfile,or(NC_CLOBBER,NF_64BIT_OFFSET),nc_stat)
+@#endif
 
       description = 'Output from DEGAS 2'
 
@@ -1224,6 +1245,9 @@ we don't set the dimensions until just before the call.
 
       var_free(output_all)
       var_free(output_grp)
+      var_free(output_weight_grp)
+      var_free(output_num_flights)
+      var_free(output_random_seed)
       var_free(out_post_all)
       var_free(out_post_grp)
       var_free(output_2D_coupling)
