@@ -2,6 +2,11 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.40  2006/01/19 19:21:28  dstotler
+% Set up procedure for varying number of flights during BGK iterations.
+% This is enabled with the SCALE_FLIGHTS flag. Have bgk_test skip
+% iterations if bgk_max=0.
+%
 % Revision 1.39  2001/11/16 15:48:23  dstotler
 % Add separate setting of BGK parameters for COUETTE example. Reduce
 % normal convergence criteria to 5.e-3.
@@ -269,6 +274,7 @@ its original purpose as a geometry test routine.
 @#if (SCALE_FLIGHTS == 1)
       define_varp(original_nflights,INT,source_grp_ind)
 @#endif
+      define_varp(back_pressure,FLOAT,background_ind,bk_plasma_ind)
 
       implicit_none_f77
       zn_common
@@ -288,6 +294,7 @@ its original purpose as a geometry test routine.
 @#if (SCALE_FLIGHTS == 1)
       declare_varp(original_nflights)
 @#endif
+      declare_varp(back_pressure)
 
       @<Memory allocation interface@>
       mp_decls
@@ -305,6 +312,10 @@ its original purpose as a geometry test routine.
 
          iter_bgk=0      
          call decimal_to_seed(so_seed_string,rn_seed_args(io_seed))
+/*
+   Moved this up from |bgk_test|
+*/
+         var_alloc(back_pressure)
       end if
 
 bgk_loop: continue
@@ -365,7 +376,7 @@ bgk_loop: continue
       end if
 
       if (mpi_master) then
-         call bgk_test(bgk,iter_bgk,bgk_iteration)
+         call bgk_test(bgk,iter_bgk,bgk_iteration,back_pressure)
          iter_bgk++
       end if
 /*
@@ -386,9 +397,9 @@ bgk_loop: continue
       call MPI_bcast(bgk_iteration,1,mpi_int,mpi_root,MPI_COMM_WORLD,mpi_err)
 @#endif
       if (bgk_iteration == TRUE) then
-         cm_mpibcast
-         bk_mpibcast
-         so_mpibcast
+         cm_mpibcastna
+         bk_mpibcastna
+         so_mpibcastna
          go to bgk_loop
       end if
 
@@ -401,6 +412,7 @@ bgk_loop: continue
             var_free(original_nflights)
          end if
 @#endif
+         var_free(back_pressure)
       end if
 
       return
@@ -412,9 +424,7 @@ out the file |density.out|.
 @m back_pres(back,zone) back_pressure[back,zn_pointer(zone)]
 
 @<Functions...@>=
-      subroutine bgk_test(bgk,iter_bgk,bgk_iteration)
-
-      define_varp(back_pressure,FLOAT,background_ind,bk_plasma_ind)
+      subroutine bgk_test(bgk,iter_bgk,bgk_iteration,back_pressure)
 
       implicit_none_f77
       zn_common                                     // Common
@@ -427,7 +437,7 @@ out the file |density.out|.
 
       integer bgk,iter_bgk                          // Input
       integer bgk_iteration                         // Output
-
+      real back_pressure[*][bk_num]
       integer i,j,have_pressure,test,zone,back      // Local
       integer index_parameters[tl_index_max]
       real dummy,total_n,tot_dn,delta_n,total_p,tot_dp,delta_p,
@@ -439,8 +449,6 @@ out the file |density.out|.
       character*2 iter_char
       vc_decl(vel_test)
 
-      declare_varp(back_pressure)
-
       real extract_output_datum                   // External 
       external extract_output_datum
 
@@ -451,7 +459,11 @@ out the file |density.out|.
       if (bgk == TRUE && iter_bgk == 0) then
          if (bgk_max > 0) bgk_iteration=TRUE
          open(unit=diskout+2,file='cvg_global.txt',status='unknown') 
-         var_alloc(back_pressure)
+/*
+   Originally declared |back_pressure| in this routine, but
+   values were getting lost in between calls.  Moved up one
+   level and put in the argument list instead.
+*/
          do i=1,bk_num
             do j=1,zone_type_num[zn_plasma]
                back_pres(i,j)=real_uninit
