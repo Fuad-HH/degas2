@@ -2,6 +2,9 @@
 \Title{outputbrowser}
 
 % $Log$
+% Revision 1.5  2002/01/28 16:57:15  dstotler
+% Replace several i4 formats with i5 to allow for more zones.
+%
 % Revision 1.4  2001/11/16 15:51:11  dstotler
 % Use explicit formatting for some of the script file writes to prevent
 % unexpected commas, etc.
@@ -358,6 +361,7 @@ as the last tally.
 @I sources.hweb
 @I tally.hweb
 @I output.hweb
+@I geomint.hweb
 
 @ The main program.
 
@@ -888,6 +892,8 @@ test_tally: continue
      $              tally_rank[jscore]
             go to next_line
          end if
+      else
+         i1=1
       end if
       if (dim < 1 || dim > tally_dep_var_dim[jscore]) then
          if (tally_dep_var_dim[jscore] <= 1) then
@@ -984,17 +990,20 @@ by higher ranks when they are included.
       pr_common
       so_common
       tl_common
+      gi_common
       implicit_none_f90
       st_decls
       
       integer nunit,jscore,ivar,imin,imax           // Input
 
-      integer pointer,i,sec                         // Local
-      real energy,angle,wavelength
+      integer pointer,i,sec,zone                    // Local
+      real energy,angle,wavelength,circum,area
 
       character*LINELEN type_string
       character*20 psp_label
+      vc_decl(xdiff)
 
+      vc_decls
 /*
    Go through the list in tally.hweb
 */
@@ -1187,16 +1196,48 @@ by higher ranks when they are included.
          pointer=tally_geometry_ptr[jscore]
          write(nunit,*) ' SECTORS for diagnostic ''',
      $        trim(diagnostic_grp_name[pointer]),''':'
+         write(nunit,*) '   Note that in some instances the coordinate and / or area data may not be available.'
          write(nunit,*)
-         write(nunit,'(t30,a)') 'stratum'
-         write(nunit,'(a,2x,a,2x,a,2x,a,2x,a,9x,a,13x,a)') 'diagnostic',
-     $        'sector','stratum','segment','midpt: x1','x2','x3'
+         write(nunit,'(t32,a)') 'stratum'
+         write(nunit,'(a,3x,a,3x,a,2x,a,2x,a,9x,a,13x,a,10x,a,7x,a)') 'diagnostic',
+     $        'sector','stratum','segment','midpt: x1','x2','x3','iy','area'
          do i=imin,imax
             sec=diagnostic_sector(i,pointer)
-            write(nunit,'(2x,i4,6x,i4,4x,i4,6x,i4,1x,3(1pe13.5,2x))') i,sec,strata[sec],sector_strata_segment[sec],
+            vc_difference(sector_points[sec][sc_neg],
+     $           sector_points[sec][sc_pos],xdiff)
+            zone=sector_zone[sec]
+            if (geometry_symmetry == geometry_symmetry_plane) then
+/*
+   But, by definition of this symmetry the problem spans the full length 
+   of the univeral cell in this direction.
+*/
+               circum=universal_cell_max[2]-universal_cell_min[2]
+            else if (geometry_symmetry
+     $              == geometry_symmetry_plane_hw) then
+               circum=zone_max[zone][2]-zone_min[zone][2]
+            else if (geometry_symmetry 
+     $              == geometry_symmetry_cylindrical) then
+/*
+   Note that for this case, we follow the original convention of setting
+   |zone_min[zone][2]| = |zone_max[zone][2]| = 0, so use $\pi$ explicitly.
+*/
+               circum=PI*(sector_points[sec][sc_neg][1]
+     $                +sector_points[sec][sc_pos][1])
+            else if ((geometry_symmetry
+     $              == geometry_symmetry_cyl_hw) 
+     $              || (geometry_symmetry
+     $              == geometry_symmetry_cyl_section)) then
+               circum=half*(sector_points[sec][sc_neg][1]
+     $              +sector_points[sec][sc_pos][1])
+     $              *(zone_max[zone][2]-zone_min[zone][2])
+            end if
+            area=circum*vc_abs(xdiff)
+
+            write(nunit,'(2x,i5,6x,i5,4x,i4,6x,i4,1x,3(1pe13.5,2x),2x,i3,2x,e13.5)') i,sec,strata[sec],sector_strata_segment[sec],
      $      half*(sector_points[sec][sc_neg][1]+sector_points[sec][sc_pos][1]),
      $      half*(sector_points[sec][sc_neg][2]+sector_points[sec][sc_pos][2]),
-     $      half*(sector_points[sec][sc_neg][3]+sector_points[sec][sc_pos][3])
+     $      half*(sector_points[sec][sc_neg][3]+sector_points[sec][sc_pos][3]),
+     $      zone_index(zi_iy,sector_zone(sec)),area
          end do
       else
          write(nunit,*) ' Unknown independent variable'
