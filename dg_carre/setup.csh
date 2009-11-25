@@ -19,7 +19,16 @@ case "IRIX"
   setenv OBJECTCODE IRIX
   breaksw
 case "Linux"
-  setenv OBJECTCODE LINUX
+#
+# Both the 32 and 64 bit Linux OS have uname = Linux; use uname -m to
+# differentiate.
+# 
+  uname -m | grep 64 >& /dev/null
+  if ($status == 0) then
+    setenv OBJECTCODE LINUX64
+  else
+    setenv OBJECTCODE LINUX
+  endif
   setenv COMPILER UNKNOWN
   which pathf90 >& /dev/null
   if ($status == 0) setenv COMPILER PATHSCALE
