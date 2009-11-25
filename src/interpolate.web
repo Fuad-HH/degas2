@@ -2,6 +2,9 @@
 \Title{interpolate}
 
 % $Log$
+% Revision 1.1  1999/03/25 21:00:25  dstotler
+% Split off to make wider use simpler.
+%
 
 @* Interpolation and other general utility routines.
 
@@ -40,6 +43,42 @@ constant.
       ia=min(max(0,ia),n-1)
       ib=min(max(0,ib),n-1)
       interpolate1=array1(ia)*(one-fx)+array1(ib)*fx
+      
+      return
+      end
+
+@ One-dimensional interpolation and extrapolation. This is a trial
+version; extensions to higher dimension will come only after testing.
+
+@m array1(i) array[i]
+      
+@<Functions...@>=
+      function extrapolate1(f,array,n)
+      implicit_none_f77
+      implicit_none_f90
+      real extrapolate1         // Function
+      integer n                 // Input
+      real f,array[0:*]
+      integer ia,ib           // Local
+      real fx
+
+      if (f < zero) then
+         ia=0
+         ib=1
+         fx=f
+      else if (f > areal(n-1)) then
+         ia=n-1
+         ib=n-2
+         fx=areal(n-1)-f
+      else                           // Interpolation as above
+         ia=int(f)
+         if (f < areal(ia)) ia=ia-1  // Do we need this?
+         fx=f-areal(ia)
+         ib=ia+1
+      end if
+      assert((ia >= 0) && (ia <= n-1))
+      assert((ib >= 0) && (ib <= n-1))
+      extrapolate1=array1(ia)*(one-fx)+array1(ib)*fx
       
       return
       end
@@ -220,8 +259,9 @@ constant.
       return
       end
 
-@ Simple function to identify bounding indices prior to interpolation for nonuniform spacing
-cases. This assumes that |array| increases monotonically. Taken from Numerical Recipes.
+@ Simple function to identify bounding indices prior to interpolation for 
+nonuniform spacing cases. This assumes that |array| increases monotonically. 
+Taken from Numerical Recipes.
 
 @<Functions...@>=
       function find_index(x,array,n)
