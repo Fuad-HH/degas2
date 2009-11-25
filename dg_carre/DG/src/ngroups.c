@@ -176,18 +176,18 @@ void* Realloc(void* p,size_t size) {
 
   INCR_STATS(reallocStats);
 
-  #ifdef MALLOC_TRACE
+#ifdef MALLOC_TRACE
     p=(char*)p-MALLOC_PATTERN_OVERHEAD;
-  #endif
+#endif
 
   p=realloc(p,size+MALLOC_PATTERN_OVERHEAD);
   if (p==NULL)
     FatalError("Realloc()-no memory: fatal error 1");
 
-  #ifdef MALLOC_TRACE
+#ifdef MALLOC_TRACE
     *(long*)p=MALLOC_PATTERN;
     p=(char*)p+MALLOC_PATTERN_OVERHEAD;
-  #endif
+#endif
 
   return p;
 }
@@ -197,11 +197,11 @@ void* Free(void* p) {
 
   INCR_STATS(freeStats);
 
-  #ifdef MALLOC_TRACE
+#ifdef MALLOC_TRACE
     p=(char*)p-MALLOC_PATTERN_OVERHEAD;
     assert(*(long*)p==MALLOC_PATTERN);
     *(long*)p=0;
-  #endif
+#endif
 
   free(p);
 
