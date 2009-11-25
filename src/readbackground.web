@@ -2,6 +2,10 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.30  2007/06/19 17:42:45  dstotler
+% Extend documentation significantly to cover coupling to UEDGE.  Add update
+% flag to read_uedge_background.
+%
 % Revision 1.29  2006/01/19 19:59:38  dstotler
 % Replace target sectors with plasma sectors.  Set puff temperature from
 % DEGAS variable t0puff.
@@ -574,14 +578,6 @@ in this file is needed to relate the stratum labels in the
                      vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
                      sector=lookup_sector(x2,x1)
                      assert(sc_check(sector))
-@#if 0
-                     if (sc_target_check(sector_type_pointer[sector][sc_target])) then
-                        target_sc_ptr=sector_type_pointer[sector][sc_target]
-                        target_e_ion_delta[target_sc_ptr]=const(3.)*bk_temp(1,sector_zone[sector])
-                        target_e_ion_mult[target_sc_ptr]=one
-                     else if (sc_wall_check(sector_type_pointer[sector][sc_target])) then
-                        assert(so_type(so_grps) == so_puff)
-@#else
                      if (sc_plasma_check(sector_type_pointer[sector][sc_plasma])) then
                         plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
 /*
@@ -593,7 +589,6 @@ in this file is needed to relate the stratum labels in the
                         plasma_e_ion_sheath[plasma_sc_ptr]=zero
                      else if (sc_vacuum_check(sector_type_pointer[sector][sc_vacuum])) then
                         assert(so_type(so_grps) == so_puff)
-@#endif
                      end if
                      source_segment_ptr[seg]=sector
                   else
