@@ -15,14 +15,10 @@
  
 
    
-<title> User's Guide for DEGAS 2 \
-CVS Revision: 1.4 
-</title>
+<title> User's Guide for DEGAS 2, Release V. 4.3</title>
  
-<h1 align="center"><a href="degas2d.jpg">Figure</a>
-User's Guide for DEGAS 2 <br />
-CVS Revision: 1.4 
-<a href="#tthFtNtAAB" name="tthFrefAAB"><sup>1</sup></a> </h1>
+<h1 align="center">User's Guide for DEGAS 2 <br />
+Release V.&nbsp;4.3<a href="#tthFtNtAAB" name="tthFrefAAB"><sup>1</sup></a> </h1>
 
 <h3 align="center"> <br />Daren Stotler and Charles Karney <br /><em>Princeton Plasma Physics 
 Laboratory</em> <br />Randall Kanzleiter <br /><em>Rensselaer Polytechnic Institute</em> <br />
@@ -105,7 +101,7 @@ Up close, one sees that Seurat's paintings consist of a huge number of very
 tiny dots of paint of a variety of colors.  Only when viewed from a distance
 is the image and its coloring clearly apparent. In much the same way,
 the track of an individual neutral flight in the Monte Carlo code
-gives relatively insight into the problem being studied. Yet, when the
+gives relatively little insight into the problem being studied. Yet, when the
 results of many flights are compiled together, an accurate solution can
 be obtained.
 
@@ -251,7 +247,7 @@ Presently, the main code uses exclusively
 netCDF[<a href="#nCDF" name="CITEnCDF">8</a>] (Network Common Data
 Format) files for input and output. However, a simple post-processing
 utility is included which generates graphics and data in  
-HDF[<a href="#HDF" name="CITEHDF">9</a>] (Hierarchial Data Format) files. 
+HDF[<a href="#HDF" name="CITEHDF">9</a>] (Hierarchial Data Format) or Silo[<a href="#Silo" name="CITESilo">10</a>] files. 
 Hopefully, a single format will be settled upon eventually.
 <div class="p"><!----></div>
 </li>
@@ -589,7 +585,7 @@ the <em>non-analog</em> techniques (the rejection technique described in
 the previous subsection is a non-analog technique) used to make the Monte 
 Carlo process more efficient. We hope to familiarize the reader with
 the integral equations to the point where more detailed 
-references[<a href="#Span69" name="CITESpan69">2</a>,<a href="#Reit92" name="CITEReit92">10</a>] can be readily digested.
+references[<a href="#Span69" name="CITESpan69">2</a>,<a href="#Reit92" name="CITEReit92">11</a>] can be readily digested.
 
 <div class="p"><!----></div>
 From an analog point-of-view, we imagine a Monte Carlo particle simulation
@@ -1278,8 +1274,8 @@ of a sum over the relevant collision processes involving species i<sup><font fac
 <div class="p"><!----></div>
 The approach of writing the path integrals as above instead of as general
 phase-space volume integrals with the path enforced via 
-delta-functions[<a href="#Reit92" name="CITEReit92">10</a>]
-was copied from Case and Zweifel[<a href="#Case67" name="CITECase67">11</a>]
+delta-functions[<a href="#Reit92" name="CITEReit92">11</a>]
+was copied from Case and Zweifel[<a href="#Case67" name="CITECase67">12</a>]
 We find that this leads to expressions which are easier to work
 with and think about.
 
@@ -1577,8 +1573,8 @@ is the tracklength estimator.
 
 <div class="p"><!----></div>
 These estimators can be obtained by making a slight modification of the
-derivation given by Macmillan[<a href="#Macm67" name="CITEMacm67">47</a>] (who had improved upon an
-earlier approach described by Spanier[<a href="#Span66" name="CITESpan66">48</a>]). To make the connection
+derivation given by Macmillan[<a href="#Macm67" name="CITEMacm67">50</a>] (who had improved upon an
+earlier approach described by Spanier[<a href="#Span66" name="CITESpan66">51</a>]). To make the connection
 to DEGAS 2 clearer, we replace the <font face="symbol">S</font
 > and d variables of Macmillan
 with <font face="symbol">r</font
@@ -2083,7 +2079,7 @@ The function g can be a test particle attribute, such as
 mass, momentum, energy, or reaction-related, e.g., ion 
 momentum source due to charge exchange. The latter g quantity
 enter the track-length estimator as averages over the background 
-distribution[<a href="#Reit93" name="CITEReit93">14</a>].
+distribution[<a href="#Reit93" name="CITEReit93">16</a>].
 
 <div class="p"><!----></div>
 The second type of estimator is the collision estimator,
@@ -2933,7 +2929,7 @@ radiative and dielectronic recombination, respectively.
 </li>
 </ul>
 The two average energies are computed using 
-the expression given by Reiter[<a href="#Reit93" name="CITEReit93">14</a>],
+the expression given by Reiter[<a href="#Reit93" name="CITEReit93">16</a>],
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
@@ -3040,7 +3036,7 @@ use in DEGAS 2.
 The code we use to solve these equations for
 the hydrogen atom, <tt>collrad</tt>, 
 is based on the one described
-by Weisheit[<a href="#Weis75" name="CITEWeis75">17</a>]. The original
+by Weisheit[<a href="#Weis75" name="CITEWeis75">19</a>]. The original
 code assumed that ionization and recombination were in balance 
 so that the neutral density could be expressed 
 in terms of the ion density.  While this might be valid in
@@ -3048,11 +3044,11 @@ an astrophysical context, it is horribly wrong in fusion devices.
 The first major change to the code is to have
 it use Eq.&nbsp;(<a href="#crnm">2.41</a>) instead. The other
 change is to replace the cross sections
-with those provided in the Janev-Smith database[<a href="#Jane93" name="CITEJane93">15</a>].
+with those provided in the Janev-Smith database[<a href="#Jane93" name="CITEJane93">17</a>].
 The resulting collisional-radiative data are believed to be
 in good agreement with ADAS. Although the <tt>collrad</tt> code is not
 itself distributed with DEGAS 2, it can be obtained from the DEGAS 2
-authors (see Sec.&nbsp;<a href="#help">6.1</a>).
+authors (see Sec.&nbsp;<a href="#help">5.1</a>).
 
 <div class="p"><!----></div>
 The output data from <tt>collrad</tt> are contained in the file <tt>ehr2.dat</tt>.
@@ -3256,8 +3252,8 @@ them into those of Eq.&nbsp;(<a href="#elossprime">2.48</a>).
 
 <div class="p"><!----></div>
 The code used to solve the collisional radiative equations for
-the helium atom was developed by Goto[<a href="#Goto2003" name="CITEGoto2003">18</a>],
-based on Fujimoto's original[<a href="#Fuji79" name="CITEFuji79">19</a>].  This code actually
+the helium atom was developed by Goto[<a href="#Goto2003" name="CITEGoto2003">20</a>],
+based on Fujimoto's original[<a href="#Fuji79" name="CITEFuji79">21</a>].  This code actually
 generates data for two collisional radiative models.  In the 
 first, only the ground state (1<sup>1</sup>S) atom is considered slowly
 varying (i.e., must be treated explicitly as a transported
@@ -3449,10 +3445,10 @@ See the <tt>DATA_HISTORY</tt> file for additional details.
 </a>
 
 <div class="p"><!----></div>
-<em>Note: this subsection was extracted from Ref.&nbsp;[<a href="#Kanz00" name="CITEKanz00">20</a>]. 
+<em>Note: this subsection was extracted from Ref.&nbsp;[<a href="#Kanz00" name="CITEKanz00">22</a>]. 
 A few minor changes in notation have been made for consistency.</em>
 Only limited experimental data are available for ion-neutral elastic
-scattering at low energies.  The monograph by Janev[<a href="#Jane87" name="CITEJane87">13</a>] is one of the
+scattering at low energies.  The monograph by Janev[<a href="#Jane87" name="CITEJane87">15</a>] is one of the
 most widely used data sources available, but only contains charge
 exchange at moderate to high collision energies and no data for
 elastic scattering.  As divertor technology has progressed, low
@@ -3466,7 +3462,7 @@ comprehensive treatment of ion-neutral elastic collisions at low
 energies motivated the <a href="http://www-cfadc.phy.ornl.gov/">Controlled Fusion Atomic Data Center</a> at
 ORNL to produce a collection of total differential elastic scattering
 cross sections for 31 various isotopic combinations of hydrogen atoms
-and molecules[<a href="#Krst98" name="CITEKrst98">21</a>].
+and molecules[<a href="#Krst98" name="CITEKrst98">23</a>].
 
 <div class="p"><!----></div>
 DEGAS 2 represents an improvement over the
@@ -3477,11 +3473,11 @@ exchange with the background plasma over a wide range of background
 densities.  The rate expressions used by the track-length estimator
 involve the momentum transfer (or diffusion) 
 cross section, <font face="symbol">s</font
-><sub>d</sub>[<a href="#Bach95" name="CITEBach95">22</a>].
+><sub>d</sub>[<a href="#Bach95" name="CITEBach95">24</a>].
 
 <div class="p"><!----></div>
 A general
-expression for the integral cross sections is[<a href="#Bach95" name="CITEBach95">22</a>]
+expression for the integral cross sections is[<a href="#Bach95" name="CITEBach95">24</a>]
 <a name="sigmal">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -3617,7 +3613,7 @@ use of this small-angle cut-off leads to an efficient algorithm for
 simulating the dynamics of elastic collisions in Monte Carlo
 simulations.  Previous models based on classical collision kinetics
 for direct elastic scattering face difficulties in that the cross
-section is a rapidly varying function of the impact parameter[<a href="#Bach95" name="CITEBach95">22</a>].  
+section is a rapidly varying function of the impact parameter[<a href="#Bach95" name="CITEBach95">24</a>].  
 This
 precludes the use of efficient table-look-up methods and forces a time
 consuming evaluation of the collision integral for each individual
@@ -3630,7 +3626,7 @@ section, <font face="symbol">s</font
 >,E<sub>r</sub>), 
 allows development of a table-look-up interpolation
 for both direct elastic scattering and resonant charge exchange.
-Following the work by Abou-Gabal and Emmert[<a href="#Abou91" name="CITEAbou91">23</a>], 
+Following the work by Abou-Gabal and Emmert[<a href="#Abou91" name="CITEAbou91">25</a>], 
 we divide the total
 elastic cross section into n pieces and interpret the result as a
 cumulative probability distribution function,
@@ -3723,11 +3719,11 @@ to the total diffusion cross section in ion-neutral
 collisions, <font face="symbol">s</font
 ><sub>d</sub> <font face="symbol"> ~ </font
 >2 <font face="symbol">s</font
-><sub>cx</sub> [<a href="#Dalg58" name="CITEDalg58">24</a>,<a href="#Hols52" name="CITEHols52">25</a>,<a href="#Wade79" name="CITEWade79">26</a>]
+><sub>cx</sub> [<a href="#Dalg58" name="CITEDalg58">26</a>,<a href="#Hols52" name="CITEHols52">27</a>,<a href="#Wade79" name="CITEWade79">28</a>]
 The accuracy of this simple
 expression is demonstrated in Fig.&nbsp;<a href="#rjkfig3">2.7</a>, which compares the 
 diffusion cross section with results for the "spin exchange" cross
-section from the ORNL data[<a href="#Krst98" name="CITEKrst98">21</a>].  
+section from the ORNL data[<a href="#Krst98" name="CITEKrst98">23</a>].  
 Spin exchange is defined as the exchange
 of the intrinsic quantum mechanical property of particle spin; for
 distinguishable particles this is equivalent to charge exchange.  For
@@ -3771,7 +3767,7 @@ compares the new CFADC data (labeled "Krstic") with previous
 versions and with experimental data. The cross sections have been
 plotted as a function of the relative velocity so that both the
 hydrogen and deuterium data can be included. The Krstic cross sections
-are the "spin exchange" cross sections described in Ref.&nbsp;[<a href="#Krst98" name="CITEKrst98">21</a>].
+are the "spin exchange" cross sections described in Ref.&nbsp;[<a href="#Krst98" name="CITEKrst98">23</a>].
 They are thus <em>smaller</em> than the total elastic scattering
 cross sections that are to be used in DEGAS 2. This underscores the point
 that these new elastic scattering cross sections are intended to
@@ -3780,13 +3776,13 @@ them.
 
 <div class="p"><!----></div>
 The default data used heretofore
-in DEGAS 2 have been computed from the "Janev-Smith" fit[<a href="#Jane93" name="CITEJane93">15</a>].
-This fit was derived from older data published by Barnett[<a href="#Barn90" name="CITEBarn90">27</a>].
+in DEGAS 2 have been computed from the "Janev-Smith" fit[<a href="#Jane93" name="CITEJane93">17</a>].
+This fit was derived from older data published by Barnett[<a href="#Barn90" name="CITEBarn90">29</a>].
 Barnett's data were a compilation of various experimental results. 
-Included was the work by Newman[<a href="#Newm82" name="CITENewm82">28</a>]. Why the
+Included was the work by Newman[<a href="#Newm82" name="CITENewm82">30</a>]. Why the
 Barnett compilation diverges slightly from the 
 Newman data at the lowest energies is
-not clear. The Reviere[<a href="#Revi71" name="CITERevi71">29</a>] curve in Fig.&nbsp;<a href="#cxsummary">2.8</a> represents the
+not clear. The Reviere[<a href="#Revi71" name="CITERevi71">31</a>] curve in Fig.&nbsp;<a href="#cxsummary">2.8</a> represents the
 charge exchange cross section employed in the original DEGAS code. Not
 surprisingly, they are used in DEGAS 2 in the <tt>Degas_box_bench</tt>
 example. Note that Reviere's intended application was neutral beam
@@ -3838,14 +3834,14 @@ system size or of gradient scale lengths; K<sub>n</sub> is the
 Knudsen number) cases, 
 the most efficient approach would be to use a fluid model
 for the neutral species. This regime is also known as the "viscous
-flow" regime[<a href="#OHan89" name="CITEOHan89">30</a>]. However, K<sub>n</sub> is usually close to one in most
+flow" regime[<a href="#OHan89" name="CITEOHan89">32</a>]. However, K<sub>n</sub> is usually close to one in most
 fusion problems, even in vacuum regions. In that case, a kinetic
 treatment is required. Fortunately, such "transition regime" cases
 can be handled effectively with a Monte Carlo code. When K<sub>n</sub>  &gt;&gt; 1,
 the "molecular flow" regime, neutral-neutral collisions can be
 neglected. For a practical discussion
 of these three regimes as they apply to the tokamak divertor, see
-Ref.&nbsp;[<a href="#Niem95" name="CITENiem95">31</a>].
+Ref.&nbsp;[<a href="#Niem95" name="CITENiem95">33</a>].
 
 <div class="p"><!----></div>
 The great difficulty with treating neutral-neutral collisions is that they
@@ -3855,8 +3851,8 @@ linear one. The exact problem is very difficult to solve, and one is
 forced to resort to approximations. Reiter et al. addressed this issue
 first with the EIRENE code and concluded that an iterative "BGK" approach
 (referring to the original algorithm developed by Bhatnagar,
-Gross, and Krook[<a href="#Bhat54" name="CITEBhat54">32</a>]; proposed independently by 
-Welander[<a href="#Wela54" name="CITEWela54">33</a>]) was sufficient[<a href="#Mayxx" name="CITEMayxx">34</a>,<a href="#Reit97" name="CITEReit97">35</a>]. The BGK
+Gross, and Krook[<a href="#Bhat54" name="CITEBhat54">34</a>]; proposed independently by 
+Welander[<a href="#Wela54" name="CITEWela54">35</a>]) was sufficient[<a href="#Mayxx" name="CITEMayxx">36</a>,<a href="#Reit97" name="CITEReit97">37</a>]. The BGK
 approximation replaces the collision integral with a much simpler 
 expression in which the distribution function relaxes to a Maxwellian
 distribution
@@ -3870,8 +3866,8 @@ greater detail in Sec.&nbsp;<a href="#BGKRates">2.9.3</a>.
 <div class="p"><!----></div>
 Neutral-neutral collisions are included in DEGAS 2 in exactly the same
 way as in EIRENE. While more details on nature of the BGK algorithm
-are provided in Kanzleiter's thesis[<a href="#Kanz99" name="CITEKanz99">36</a>], the essential elements
-and references are covered in the more readily available Ref.&nbsp;[<a href="#Reit97" name="CITEReit97">35</a>].
+are provided in Kanzleiter's thesis[<a href="#Kanz99" name="CITEKanz99">38</a>], the essential elements
+and references are covered in the more readily available Ref.&nbsp;[<a href="#Reit97" name="CITEReit97">37</a>].
 The BGK algorithm approximates the binary collision integral for species i as
 <a name="bgk">
 </a>
@@ -4070,7 +4066,7 @@ Conservation of mass, momentum, and energy are also enforced in the
 the mixed-species case to determine the M<sub>ij</sub>. Additional constraints
 are obtained by requiring that the ratio of the momentum and energy
 relaxation rates is the same as for the full collision integral.
-The results are[<a href="#Mayxx" name="CITEMayxx">34</a>,<a href="#Reit97" name="CITEReit97">35</a>,<a href="#Kanz99" name="CITEKanz99">36</a>] are
+The results are[<a href="#Mayxx" name="CITEMayxx">36</a>,<a href="#Reit97" name="CITEReit97">37</a>,<a href="#Kanz99" name="CITEKanz99">38</a>] are
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table border="0" cellspacing="0" cellpadding="0">
@@ -4189,7 +4185,7 @@ this becomes just
 </td><td width="1%">(2.71)</td></tr></table>
 
 
-May[<a href="#Mayxx" name="CITEMayxx">34</a>,<a href="#Reit97" name="CITEReit97">35</a>] sets the values of the reaction rates for
+May[<a href="#Mayxx" name="CITEMayxx">36</a>,<a href="#Reit97" name="CITEReit97">37</a>] sets the values of the reaction rates for
 mixed collisions using empirical diffusion coefficients; 
 the rates for self-collisions
 come from measured viscosity coefficients. The end result is that
@@ -4254,12 +4250,12 @@ carrying out more iterations.
 </a>
 
 <div class="p"><!----></div>
-As described by May[<a href="#Mayxx" name="CITEMayxx">34</a>], the reaction rates for the BGK algorithm
+As described by May[<a href="#Mayxx" name="CITEMayxx">36</a>], the reaction rates for the BGK algorithm
 can be determined by matching physical quantities, the viscosity and
 diffusion cofficients, against measured values. However, since May's thesis
-work and the publication of Reiter[<a href="#Reit97" name="CITEReit97">35</a>], the ORNL 
+work and the publication of Reiter[<a href="#Reit97" name="CITEReit97">37</a>], the ORNL 
 CFADC has
-computed <a href="http://www-cfadc.phy.ornl.gov/elastic/elastic0.html">differential scattering cross sections</a> [<a href="#Krst98" name="CITEKrst98">21</a>], analogous to those
+computed <a href="http://www-cfadc.phy.ornl.gov/elastic/elastic0.html">differential scattering cross sections</a> [<a href="#Krst98" name="CITEKrst98">23</a>], analogous to those
 described in Sec.&nbsp;<a href="#NeutralIon">2.9.1</a>, for these neutral-neutral systems.
 In this subsection we will show that the two approaches are largely
 consistent, at least near room temperature.
@@ -4273,7 +4269,7 @@ Sec.&nbsp;<a href="#NeutralNeutral">2.9.2</a>.
 
 <div class="p"><!----></div>
 For self-collisions, consider the viscosity. The general expression 
-derived in Chapman and Cowling[<a href="#Chap70" name="CITEChap70">37</a>] [their Eq.&nbsp;(10.1,4)] is
+derived in Chapman and Cowling[<a href="#Chap70" name="CITEChap70">39</a>] [their Eq.&nbsp;(10.1,4)] is
 <a name="visc1">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -4293,14 +4289,14 @@ k T
 where <font face="symbol">W</font
 ><sub>1</sub><sup>(l)</sup>(n) corresponds directly to the <font face="symbol">W</font
 ><sup>l,n</sup>
-integrals described by Bachmann[<a href="#Bach95" name="CITEBach95">22</a>].  The subscript "1" here 
+integrals described by Bachmann[<a href="#Bach95" name="CITEBach95">24</a>].  The subscript "1" here 
 is to be associated with the cross section and refers to collisions of species 
 "1" with itself (as opposed to collisions between species "1" and 
 "2" which will be labeled with "12" below).
 
 <div class="p"><!----></div>
 Likewise, we have for the diffusion coefficient [Eq.&nbsp;(9.81,1) in
-Ref.&nbsp;[<a href="#Chap70" name="CITEChap70">37</a>]],
+Ref.&nbsp;[<a href="#Chap70" name="CITEChap70">39</a>]],
 <a name="diff1">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -4325,7 +4321,7 @@ The <font face="symbol">W</font
 cross sections over Maxwellian distributions for both species. The
 <tt>ratecalc</tt> code is able to integrate these cross sections over
 a single Maxwellian distribution,
-namely, the I<sub>l,n</sub> described in Reiter[<a href="#Reit93" name="CITEReit93">14</a>]
+namely, the I<sub>l,n</sub> described in Reiter[<a href="#Reit93" name="CITEReit93">16</a>]
 and the <a href="ratecalc.pdf#page.3">documentation</a> for <tt>ratecalc</tt>.
 Fortunately, the double integral we need here can be found as a limiting case of 
 the single integral:
@@ -4380,7 +4376,7 @@ u<sub>p</sub><sup><font face="symbol">¢</font
 </td><td width="1%">(2.75)</td></tr></table>
 
 
-The same result is quoted in Ref.&nbsp;[<a href="#Bach95" name="CITEBach95">22</a>] and in [<a href="#Reit93" name="CITEReit93">14</a>],
+The same result is quoted in Ref.&nbsp;[<a href="#Bach95" name="CITEBach95">24</a>] and in [<a href="#Reit93" name="CITEReit93">16</a>],
 although in the latter case the variable equivalent to u<sub>p</sub><sup><font face="symbol">¢</font
 ></sup>
 is incorrectly defined.
@@ -4391,7 +4387,7 @@ two species diffusion coefficients from the CFADC differential scattering
 cross sections. The corresponding expressions for the "Maxwell molecule"
 interaction [intermolecular force given by <font face="symbol">k</font
 >/ r<sup>5</sup>; e.g., see
-Eq.&nbsp;(12.1,1) in Ref.&nbsp;[<a href="#Chap70" name="CITEChap70">37</a>])] are
+Eq.&nbsp;(12.1,1) in Ref.&nbsp;[<a href="#Chap70" name="CITEChap70">39</a>])] are
 <a name="visc2">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -4416,7 +4412,7 @@ k T
 
 
 where A<sub>2</sub>(5) = 0.436 is the result of a dimensionless integral.
-And from Eq.&nbsp;(14.2,2) of Ref.&nbsp;[<a href="#Chap70" name="CITEChap70">37</a>],
+And from Eq.&nbsp;(14.2,2) of Ref.&nbsp;[<a href="#Chap70" name="CITEChap70">39</a>],
 <a name="diff2">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -4441,7 +4437,7 @@ where A<sub>1</sub>(5) = 0.422 is the result of another dimensionless integratio
 
 <div class="p"><!----></div>
 The reaction rates needed for the BGK algorithm are related to the constant
-in the Maxwell molecule force law by (see Ref.&nbsp;[<a href="#Mors63" name="CITEMors63">38</a>] or [<a href="#Mayxx" name="CITEMayxx">34</a>]),
+in the Maxwell molecule force law by (see Ref.&nbsp;[<a href="#Mors63" name="CITEMors63">40</a>] or [<a href="#Mayxx" name="CITEMayxx">36</a>]),
 <a name="sv11">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -4601,20 +4597,22 @@ May data in Fig.&nbsp;<a href="#scattering">2.9</a>.
 
 <div class="p"><!----></div>
 One concern with May's treatment of the D<sub>2</sub> + D<sub>2</sub> case is that the 
-empirical viscosity formula quoted in Ref.&nbsp;[<a href="#Mayxx" name="CITEMayxx">34</a>] does not
+empirical viscosity formula quoted in Ref.&nbsp;[<a href="#Mayxx" name="CITEMayxx">36</a>] does not
 appear in the literature, nor is its origin clearly stated. The best
 guess for its origin is that it was obtained by rescaling the 
-"Fuller" expression for the diffusion coefficient[<a href="#Reid87" name="CITEReid87">39</a>]
+"Fuller" expression for the diffusion coefficient[<a href="#Reid87" name="CITEReid87">41</a>]
 into a viscosity using the theoretical expressions to relate the two.
 In Fig.&nbsp;<a href="#viscosities">2.10</a>, we compare May's expression with two that do
-appear directly in Ref.&nbsp;[<a href="#Reid87" name="CITEReid87">39</a>] ("Chung" and "Lewis") and with
-individual data points listed in the CRC Handbook[<a href="#CRC" name="CITECRC">40</a>].  The 
+appear directly in Ref.&nbsp;[<a href="#Reid87" name="CITEReid87">41</a>] ("Chung" and "Lewis") and with
+individual data points listed in the CRC Handbook[<a href="#CRC" name="CITECRC">42</a>].  The 
 agreement of these values near room temperature (<font face="symbol"> ~ </font
 >0.03 eV) is
 expected. However, May's formula has a stronger temperature scaling than
 the others and exceeds them by about a factor of 15 at 10 eV. The
 relevant temperature range for this process is expected to be between
 1 and 10 eV.
+
+<div class="p"><!----></div>
 
 <div class="p"><!----></div>
 Figure&nbsp;<a href="#scattering">2.9</a> shows that at least near room temperature,  
@@ -4642,7 +4640,7 @@ room temperature (300 K = 0.02585 eV) value according to May's formulas.
 <a href="scattering_plot.jpg">Figure</a>
 
 <center>Figure 2.9: Comparison of reaction rates for the D + D<sub>2</sub> and D + D 
-systems.  The original rates suggested by May[<a href="#Mayxx" name="CITEMayxx">34</a>] and effective
+systems.  The original rates suggested by May[<a href="#Mayxx" name="CITEMayxx">36</a>] and effective
 rates computed from the CFADC data are shown.</center>
 <a name="scattering">
 </a>
@@ -4656,9 +4654,9 @@ rates computed from the CFADC data are shown.</center>
 <center>
 <a href="viscosity_plot.jpg">Figure</a>
 
-<center>Figure 2.10: Comparison of viscosity formulas from May[<a href="#Mayxx" name="CITEMayxx">34</a>], 
-Reid[<a href="#Reid87" name="CITEReid87">39</a>] (the "Chung" and "Lewis" expressions), and the CRC
-Handbook[<a href="#CRC" name="CITECRC">40</a>].</center>
+<center>Figure 2.10: Comparison of viscosity formulas from May[<a href="#Mayxx" name="CITEMayxx">36</a>], 
+Reid[<a href="#Reid87" name="CITEReid87">41</a>] (the "Chung" and "Lewis" expressions), and the CRC
+Handbook[<a href="#CRC" name="CITECRC">42</a>].</center>
 <a name="viscosities">
 </a>
 </center>
@@ -4829,10 +4827,9 @@ the <tt>-b</tt> or <tt>-o&nbsp;netcdf_filename</tt> option to let the utility kn
 that you want it to generate a netCDF file (see: <tt>man ncgen</tt>).
 
 <div class="p"><!----></div>
-netCDF (see Sec.&nbsp;<a href="#netcdf">3.2.2</a>) can be obtained from  
-<a href="ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z">ftp://unidata.ucar.edu/pub/netcdf/netcdf-3.4.tar.Z</a>
-Other compression formats and files are also present in this same directory.
-See the link to "FAQ" for the answers to frequently asked questions.
+netCDF can be obtained from  
+<a href="http://www.unidata.ucar.edu/software/netcdf/">http://www.unidata.ucar.edu/software/netcdf/</a>.  The version presently being used for DEGAS 2 development
+is 3.6.3. 
 
 <div class="p"><!----></div>
      <h3><a name="tth_sEc3.2.3">
@@ -4866,7 +4863,7 @@ files; most of the macros are located in the header *.hweb files.
 FWEB is fully documented in the Info facility of Emacs. 
 
 <div class="p"><!----></div>
-FWEB (version 1.62) (see Sec.&nbsp;<a href="#fweb">3.2.3</a>) is available at
+FWEB (version 1.62) is available at  <br />
 <a href="ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz">ftp://ftp.pppl.gov/pub/fweb/fweb-1.62.tar.gz</a>
 
 <div class="p"><!----></div>
@@ -4876,14 +4873,78 @@ a version of <span class="roman">T</span><sub><span class="roman">E</span></sub>
 
 <div class="p"><!----></div>
 <span class="roman">L</span><sup><span class="roman">A</span></sup><span class="roman">T</span><sub><span class="roman">E</span></sub><span class="roman">X</span>&nbsp;is available in lots of places. To begin with, see the
+introductory material and pointers on the
 official CTAN <span class="roman">T</span><sub><span class="roman">E</span></sub><span class="roman">X</span>&nbsp;network page at  
 <a href="http://www.tex.ac.uk/ctan">http://www.tex.ac.uk/ctan</a>. The 
-distribution in use at PPPL is called <tt>teTeX</tt>,
-<a href="ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources">ftp://ctan.tug.org/tex-archive/systems/unix/teTeX/1.0/distrib/sources</a>.
+recommended distribution for Unix (including Linux) systems
+is <span class="roman">T</span><sub><span class="roman">E</span></sub><span class="roman">X</span>&nbsp;Live (<a href="http://www.tug.org/texlive/">http://www.tug.org/texlive/</a>.
+<span class="roman">T</span><sub><span class="roman">E</span></sub><span class="roman">X</span>&nbsp;Live is also available for Windows.
 
 <div class="p"><!----></div>
      <h3><a name="tth_sEc3.2.4">
-3.2.4</a>&nbsp;&nbsp;Concurrent Version System</h3>
+3.2.4</a>&nbsp;&nbsp;Triangle</h3>
+<a name="triangle">
+</a>
+<a name="Triangle32">
+</a>
+<a name="definegeometry2d32">
+</a>
+
+<div class="p"><!----></div>
+Jonathan Shewchuck's 
+<tt>Triangle</tt> program is used by the <tt>definegeometry2d</tt>
+code to break polygons up into triangles. The home for <tt>Triangle</tt>
+is <br />
+<a href="http://www.cs.cmu.edu/~quake/triangle.html">http://www.cs.cmu.edu/&nbsp;quake/triangle.html</a> 
+The <tt>Triangle</tt> V. 1.6 was used in the creation of
+the <tt>definegeometry2d</tt> examples described in
+Sec.&nbsp;<a href="#defexamples">3.7.3</a>.
+Anyone downloading a more recent version should notify the <tt>DEGAS 2</tt>
+authors. The <tt>DEGAS 2</tt> <tt>Makefile</tt> will expect to find
+the <tt>Triangle</tt> files, <tt>triangle.c</tt>, <tt>triangle.h</tt>, etc., 
+in <tt>$HOME/Triangle</tt>. If your copy is installed elsewhere, you can
+either create an appropriate link or modify <tt>Makefile</tt>.
+
+<div class="p"><!----></div>
+     <h3><a name="tth_sEc3.2.5">
+3.2.5</a>&nbsp;&nbsp;Silo and HDF</h3>
+<a name="silohdf">
+</a>
+<a name="Silo32">
+</a>
+<a name="HDF32">
+</a>
+<a name="HDF532">
+</a>
+
+<div class="p"><!----></div>
+DEGAS 2 produces no direct graphical output.  Instead, the <tt>geomtesta</tt>
+utility (see Secs.&nbsp;<a href="#maincode">3.4.1</a> and the
+<a href="geomtesta.pdf#page.1">source code</a> documentation.) generates
+device-independent binary files in either the HDF (more specifically,
+HDF Version 4) or Silo formats that can be processed by
+external graphical packages, such as VisIt or IDL.  The VisIt
+package in particular is freely available <br />
+(see <a href="https://wci.llnl.gov/codes/visit/home.html">https://wci.llnl.gov/codes/visit/home.html</a>), can read Silo files directly, and can generate
+both 2-D and 3-D images.
+
+<div class="p"><!----></div>
+The Silo library can be found at <a href="https://wci.llnl.gov/codes/silo/index.html">https://wci.llnl.gov/codes/silo/index.html</a>.  It can use either its own
+PDB I/O driver or HDF5.  In the latter case, the HDF5 library
+must also be installed.  For HDF5 and / or HDF4, see
+<a href="http://www.hdfgroup.org/">http://www.hdfgroup.org/</a>.
+Note that as of HDF version 4, some of the netCDF functionality is 
+implemented in HDF. To avoid conflicts with the official netCDF libraries,
+do not install the netCDF portion of the HDF distribution.
+
+<div class="p"><!----></div>
+Note that <tt>definegeometry2d</tt> also produces an HDF or Silo
+file, <tt>geomtestc.hdf</tt> or <tt>geomtestc.silo</tt>, as part of
+its test of the geometry.  
+
+<div class="p"><!----></div>
+     <h3><a name="tth_sEc3.2.6">
+3.2.6</a>&nbsp;&nbsp;Concurrent Version System</h3>
 <a name="cvs">
 </a>
 <a name="CVS32">
@@ -4917,48 +4978,6 @@ may be executed from within Emacs. See the Emacs Info page on
 <tt>Pcl-cvs</tt> for more details.
 
 <div class="p"><!----></div>
-     <h3><a name="tth_sEc3.2.5">
-3.2.5</a>&nbsp;&nbsp;HDF</h3>
-<a name="hdf">
-</a>
-<a name="HDF32">
-</a>
-
-<div class="p"><!----></div>
-HDF is another device-independent binary file format. At present, HDF files are
-used only by the <tt>geomtesta</tt> utility as a convenient format for transferring
-the code results in graphical form for processing by commercial products.
-
-<div class="p"><!----></div>
-The HDF libraries can be obtained from <br />
-<a href="ftp://ftp.ncsa.uiuc.edu">ftp://ftp.ncsa.uiuc.edu</a>
-Note that as of HDF version 4, some of the netCDF functionality is 
-implemented in HDF. To avoid conflicts with the official netCDF libraries,
-do not install the netCDF portion of the HDF distribution.
-
-<div class="p"><!----></div>
-     <h3><a name="tth_sEc3.2.6">
-3.2.6</a>&nbsp;&nbsp;Triangle</h3>
-<a name="triangle">
-</a>
-<a name="Triangle32">
-</a>
-<a name="definegeometry2d32">
-</a>
-
-<div class="p"><!----></div>
-Jonathan Shewchuck's 
-<tt>Triangle</tt> program is used by the <tt>definegeometry2d</tt>
-code to break polygons up into triangles. The home for <tt>Triangle</tt>
-is <a href="http://www.cs.cmu.edu/~quake/triangle.html">http://www.cs.cmu.edu/&nbsp;quake/triangle.html</a> 
-The <tt>Triangle</tt> V. 1.3 was used in writing <tt>definegeometry2d</tt>.
-Anyone downloading a more recent version should notify the <tt>DEGAS 2</tt>
-authors. The <tt>DEGAS 2</tt> <tt>Makefile</tt> will expect to find
-the <tt>Triangle</tt> files, <tt>triangle.c</tt>, <tt>triangle.h</tt>, etc., 
-in <tt>$HOME/Triangle</tt>. If your copy is installed elsewhere, you can
-either create an appropriate link or modify <tt>Makefile</tt>.
-
-<div class="p"><!----></div>
  <h2><a name="tth_sEc3.3">
 3.3</a>&nbsp;&nbsp;Structure of the DEGAS 2 File System</h2>
 <a name="structure">
@@ -4987,6 +5006,8 @@ the code elsewhere, see Sec.&nbsp;<a href="#adjustments">3.6.3</a>.
 	<dd> Input atomic and surface physics data and information (D)</dd>
  <dt><b>src</b></dt>
 	<dd> All source code (D)</dd>
+ <dt><b>dg_carre</b></dt>
+	<dd> Source and executable files for DG and Carre (D)</dd>
  <dt><b>Doc</b></dt>
 	<dd> Location of the various formats of this document and ancilliary
 files (D)</dd>
@@ -4996,6 +5017,10 @@ files (D)</dd>
 	<dd> Source code and data for use with IAEA Aladdin package (D)</dd>
  <dt><b>ALPHA</b></dt>
 	<dd> Object and executable files for Dec Alpha machines</dd>
+ <dt><b>LINUX</b></dt>
+	<dd> Object and executable files for Linux machines</dd>
+ <dt><b>LINUX64</b></dt>
+	<dd> Object and executable files for 64-bit Linux machines</dd>
  <dt><b>SUN</b></dt>
 	<dd> Object and executable files for Sun Solaris and SunOS machines</dd>
  <dt><b>CRAY</b></dt>
@@ -5017,7 +5042,7 @@ directories with names like <tt>SUN-foo</tt> where "foo" is any string you like.
 </a>
 
 <div class="p"><!----></div>
-DEGAS 2 is not a single code (not now anyway), but a complex package of 
+DEGAS 2 is not a single code, but a complex package of 
 setup, test, simulation, and post-processing tools. Which ones are
 needed depend on the user's objectives and familiarity with DEGAS 2.
 A few additional "targets" are listed in the Makefile. These are
@@ -5060,13 +5085,16 @@ current problem. The code
 accesses the required "reference" data, and compiles them
 into a netCDF file (the <tt>problem.nc</tt> file).</dd>
  <dt><b>definegeometry2d</b></dt>
-	<dd> Generates a DEGAS 2 netCDF geometry file from from a text
+	<dd> Generates a DEGAS 2 netCDF geometry file 
+from from a text
 input file. Input files for simple geometries may be
 generated manually; more complex geometries can be specified via other computer
 generated text files
 files referenced by the input file. For example, <tt>definegeometry2d</tt> is
-able to read data produced by the <tt>DG</tt> package (part of the <tt>B2-Eirene</tt> or
-<tt>SOLPS</tt> distribution) or by UEDGE. Of the three tools for setting up
+able to read data produced by the <tt>DG</tt> package 
+(formerly part of the <tt>B2-Eirene</tt> or
+<tt>SOLPS</tt> distribution, but now included with
+DEGAS 2) or by UEDGE. Of the three tools for setting up
 DEGAS 2 geometries <tt>definegeometry2d</tt> is the most flexible.</dd>
  <dt><b>readgeometry</b></dt>
 	<dd> Generates a DEGAS 2 netCDF geometry file from an
@@ -5079,17 +5107,20 @@ through the transformation process.</dd>
 	<dd> Uses a short text input file to control the mapping of plasma
 data in external text files onto the DEGAS 2 geometry. Designed to be used in
 conjunction with <tt>definegeometry2d</tt>, <tt>defineback</tt> can utilize data
-produced by other codes. However, <tt>defineback</tt> is not yet mature
-and is, consequently, a little "rough around the edges".</dd>
+produced by other codes, including UEDGE.  In particular, 
+<tt>defineback</tt> can be run in an iterative mode with UEDGE 
+analogous to that provided by <tt>updatebackground</tt> (see below
+and in the source <a href="defineback.pdf#page12">file</a>
+<tt>defineback.web</tt>).</dd>
  <dt><b>readbackground</b></dt>
 	<dd> Plasma data in an external file is mapped onto
 the zones of the DEGAS 2 geometry. Presently, only DEGAS and UEDGE files
 can be used; readgeometry and readbackground read the same data
 file.</dd>
  <dt><b>updatebackground</b></dt>
-	<dd> Is similar to readbackground, but is intended
+	<dd> Is similar to <tt>readbackground</tt>, but is intended
 for use in iterations with the UEDGE code <em>only</em>. The source
-information generated by the initial run of readbackground is 
+information generated by the initial run of <tt>readbackground</tt> is 
 stored in a separate file (<tt>oldsourcefile</tt>,
 Sec.&nbsp;<a href="#degas2in">3.5.1</a>). On subsequent
 iterations, small changes in the source terms are accounted for
@@ -5125,8 +5156,17 @@ continue extending this code to warrant development of an honest
 post-processing tool. The DEGAS 2 input and output files are read in by
 the code. Using the geometry information, the zone-based plasma and neutral
 data are transcribed onto a high density uniform rectangular mesh and
-dumped into the HDF files suitable for further manipulation by commercial
-products such as IDL and Noesys.</dd>
+dumped into Silo or HDF files suitable for further manipulation by 
+external graphics packages such as VisIt or IDL.</dd>
+ <dt><b>degas2_xgc.a</b></dt>
+	<dd> This library contains the core routines of DEGAS 2
+and an interface for a subroutine based coupling to a plasma code.
+The primary quantities exchanged between the codes are moments of the
+plasma and neutral distribution functions.  An interface into the
+DEGAS 2 atomic physics routines is also provided.  This library was
+designed for and is used with the XGC0 guiding center neoclassical
+particle transport code as part of the Center for Plasma Edge
+Simulation [<a href="#Chan2008" name="CITEChan2008">43</a>].</dd>
 </dl>
 
 <div class="p"><!----></div>
@@ -5220,13 +5260,14 @@ setting up simple problems.</dd>
 
 <dl compact="compact">
  <dt><b>reactiontest</b></dt>
-	<dd> Can be run after problemsetup to check the computation
+	<dd> Can be run after <tt>problemsetup</tt> 
+to check the computation
 of the reaction rate, and collision products (including velocities and
 scoring data) for a given reaction.</dd>
  <dt><b>pmitest</b></dt>
-	<dd> The analog of reactiontest for plasma-material
+	<dd> The analog of <tt>reactiontest</tt> for plasma-material
 interactions. Again, this code can be executed for a given problem once
-problemsetup has been run. Since the velocity distributions of some
+<tt>problemsetup</tt> has been run. Since the velocity distributions of some
 plasma-material interactions are described statistically, pmitest
 is also set up to average the outcome of a given interaction over a
 specified number of trials and print out a list of the product velocities
@@ -5234,8 +5275,9 @@ for external manipulation.</dd>
  <dt><b>sourcetest</b></dt>
 	<dd> Tests the distribution in phase space of the source
 terms for a particular problem. Since the source is described in the 
-"background" netCDF file, readbackground, boxgen, or something equivalent
-must be run prior to using this routine. Like pmitest, the code is able
+"background" netCDF file, <tt>defineback</tt>, 
+<tt>readbackground</tt>, <tt>boxgen</tt>, or something equivalent
+must be run prior to using this routine. Like <tt>pmitest</tt>, the code is able
 to run many trials, compute averages, and printout data from each 
 individual trial.</dd>
  <dt><b>dataexam</b></dt>
@@ -5285,11 +5327,34 @@ is impractical.</dd>
  <dt><b>matcheir</b></dt>
 	<dd> Is specifically designed for comparing with output from
 the EIRENE code. The name of the EIRENE file is specified on the command
-line.See Sec.(the same physics benchmark).</dd>
+line. See Sec.&nbsp;<a href="#outofthebox">4.3</a>.</dd>
  <dt><b>datamatch</b></dt>
 	<dd> Provides a means for comparing the contents of the two
 netCDF data files specified on the command line.</dd>
 </dl> 
+
+<div class="p"><!----></div>
+     <h3><a name="tth_sEc3.4.5">
+3.4.5</a>&nbsp;&nbsp;DG and Carre</h3>
+<a name="dgcarre">
+</a>
+<a name="DG34">
+</a>
+<a name="Carre34">
+</a>
+
+<div class="p"><!----></div>
+The graphical interface DG code is used here
+in conjunction with <tt>definegeometry2d</tt>, as
+in B2-Eirene (its original application), to simplify specification of 
+2-D divertor tokamak geometries .  Since DG is also available
+separately from DEGAS 2, its manual, <tt>dg.pdf</tt> is contained in the
+<tt>dg_carre/DG/DOC</tt> directory.  Carre[<a href="#Marc96" name="CITEMarc96">13</a>] generates 2-D
+quasi-orthogonal meshes of the sort used by B2 and UEDGE. This
+version of Carre includes pre- and post-processing scripts that
+simplify its use with DG.  A number of utility programs for 
+manipulating magnetic equilibrium files also come with this
+DG distribution; see the DG manual for details. 
 
 <div class="p"><!----></div>
  <h2><a name="tth_sEc3.5">
@@ -5703,55 +5768,10 @@ file can be found in the introduction to the
 </a>
 
 <div class="p"><!----></div>
-The post-processing utility <tt>geomtesta</tt> produces HDF files which can
-be viewed using the freeware utility <tt>ximage</tt>. However, commercial
-products such as IDL or Noesys from Research Systems, Inc. provide
-convenient tools for generating images and manipulating the data
-contained in these files.
-
-<div class="p"><!----></div>
-The input to <tt>geomtesta</tt> is called
-<tt>geometry.inp</tt> and consists of 4 lines:
-
-<ol type="1">
-<li> (x, y, z) coordinates of an origin
-<div class="p"><!----></div>
-</li>
-
-<li> (x, y, z) unit vector giving one axis,
-<div class="p"><!----></div>
-</li>
-
-<li> (x, y, z) unit vector giving a second axis,
-<div class="p"><!----></div>
-</li>
-
-<li> length of each of the two sides.
-<div class="p"><!----></div>
-</li>
-</ol>
-
-<div class="p"><!----></div>
-For example,
-
-<pre>
--0.013&nbsp;0.0&nbsp;-0.008
-1&nbsp;&nbsp;0&nbsp;&nbsp;0
-0&nbsp;&nbsp;0&nbsp;&nbsp;1
-0.056&nbsp;1.088
-
-</pre>
-
-<div class="p"><!----></div>
-The code just plots the data on a 2-D slice through the
-3-D problem space.  Specifying the slice requires: an origin (first
-line), a vector for each edge of the slice (second and third lines), and
-the length of each edge (fourth line). Since most DEGAS 2 applications
-will involve either cylindrical or toroidal symmetry, i.e., with the
-y-coordinate ignorable, the specification of the vectors is usually
-going to be as in the example. In general, though, one could take a
-slice which goes in the third direction as well. The vectors do not 
-need to be orthogonal.
+The documentation for <tt>geomtesta</tt> is maintained in
+the source code, <tt>geomtesta.web</tt>.  For readers of the
+PDF version of the manual, here's a 
+<a href="geomtesta.pdf#page.1">link</a> to the corresponding PDF file.
 
 <div class="p"><!----></div>
  <h2><a name="tth_sEc3.6">
@@ -5759,10 +5779,19 @@ need to be orthogonal.
 
 <div class="p"><!----></div>
 The Makefile has been written to compile on  a variety of architectures
-and operating systems. Those currently supported and their corresponding
+and operating systems. Those that have been used in thus far, 
+and their corresponding
 symbols (in brackets) are:
 
 <ol type="1">
+<li> Linux 32-bit [<tt>LINUX</tt>]
+<div class="p"><!----></div>
+</li>
+
+<li> Linux 64-bit [<tt>LINUX64</tt>]
+<div class="p"><!----></div>
+</li>
+
 <li> Sun Solaris [<tt>SUN</tt>],
 <div class="p"><!----></div>
 </li>
@@ -5779,17 +5808,29 @@ symbols (in brackets) are:
 <div class="p"><!----></div>
 </li>
 
-<li> Linux, NAG F95, Portland Group F90, and Lahey-Fujitsu F95 compilers 
-[<tt>LINUX</tt>], (The code will work with the Lahey-Fujitsu compiler, but
-may run very slowly. This will likely be remedied in a subsequent version
-of the compiler.)
-<div class="p"><!----></div>
-</li>
-
 <li> Others (e.g., [<tt>CRAY</tt>]) are available for cross-compilation.
 <div class="p"><!----></div>
 </li>
 </ol>
+
+<div class="p"><!----></div>
+Note that due to the proliferation of relatively cheap and fast
+Linux clusters, usage of DEGAS 2 on other systems has essentially
+ceased and support for those systems cannot be guaranteed.
+The most frequently used compiler on Linux systems
+is Portland Group F90 compiler (<tt>PGROUP</tt> in
+the <tt>Makefile</tt>), albeit with F77 format code 
+(<tt>FORTRAN90=no</tt>).  The Pathscale (<tt>PATHSCALE</tt> in 
+the <tt>Makefile</tt>) and <tt>gfortran</tt> (version 4.3) have been
+successfully tested with the F90 formatted code (in
+<tt>DEBUG</tt> mode only). The use of
+the F90 option eliminates the need for system dependent code
+so that other compilers can be used without modifications to
+the <tt>sysdep.hweb</tt> or <tt>sysdep.web</tt> files; only the
+compiler
+related variables in the <tt>Makefile</tt> or <tt>Makefile.local</tt>
+need be defined. On the other hand, some F9x compilers (e.g.,
+Lahey-Fujitsu F95) may result in code that runs very slowly.
 
 <div class="p"><!----></div>
 By default, the Makefile assumes that the DEGAS 2 main directory
@@ -5922,7 +5963,7 @@ DEGASROOT&nbsp;=&nbsp;/u/somedir
 <li> <tt>FORTRAN90=yes</tt> switches from using the default FORTRAN 77 
 compiler to FORTRAN 90. Be aware that only some of the FORTRAN 90
 compilers available work satisfactorily. Some will compile the code,
-but run slowly. Others will not work at all.
+but run slowly.
 <div class="p"><!----></div>
 </li>
 
@@ -5964,6 +6005,13 @@ directories such as <tt>data</tt>).
 <div class="p"><!----></div>
      <h3><a name="tth_sEc3.6.4">
 3.6.4</a>&nbsp;&nbsp;Cross-Compiling</h3>
+
+<div class="p"><!----></div>
+<b>The mechanism for cross-compilation has been updated to use
+<tt>ssh</tt> and <tt>scp</tt> and no longer relies on the presence
+of AFS.  However, this section of the
+manual has not been correspondingly updated.
+Please contact the code authors if you need this capability.</b>
 
 <div class="p"><!----></div>
 As an example of how to cross-compile, here are the procedures for 
@@ -6081,7 +6129,7 @@ variables. This is useful for debugging Makefile problems.
 <div class="p"><!----></div>
 Properly privileged (in the UNIX sense) authors of DEGAS 2 will be given
 access to the
-CVS (see Sec.&nbsp;<a href="#cvs">3.2.4</a>) repository for the code. With this access,
+CVS (see Sec.&nbsp;<a href="#cvs">3.2.6</a>) repository for the code. With this access,
 one can obtain the latest version of the source with:
 
 <div class="p"><!----></div>
@@ -6103,7 +6151,7 @@ CVS commands. More importantly, the user will be able to <em>update</em>
 the CVS repository. For this reason, such access is controlled by 
 the primary authors of DEGAS 2. Contact them if you feel that you can
 contribute to the DEGAS 2 source code
-(see Sec.&nbsp;<a href="#help">6.1</a>).
+(see Sec.&nbsp;<a href="#help">5.1</a>).
 
 <div class="p"><!----></div>
  <h2><a name="tth_sEc3.7">
@@ -6117,7 +6165,7 @@ of the code give the same results. Namely, the user should be able to
 download the code and generate exactly (to within roundoff error) the
 results contained within each of the example subdirectories. Any
 discrepancies should be reported to the primary code authors (see
-Sec.&nbsp;<a href="#help">6.1</a>).
+Sec.&nbsp;<a href="#help">5.1</a>).
 
 <div class="p"><!----></div>
      <h3><a name="tth_sEc3.7.1">
@@ -6128,7 +6176,7 @@ Sec.&nbsp;<a href="#help">6.1</a>).
 <div class="p"><!----></div>
 This simple run demonstrates that DEGAS 2 matches the results of an analytic
 model in the fluid limit. More information on this comparison can be
-found in the IAEA proceedings[<a href="#Stot96" name="CITEStot96">12</a>] or on the Web as a 
+found in the IAEA proceedings[<a href="#Stot96" name="CITEStot96">14</a>] or on the Web as a 
 <a href="http://www.pppl.gov/pub_report/1997/PPPL-3221.ps">PostScript</a>
 or 
 <a href="http://www.pppl.gov/pub_report/1997/PPPL-3221.pdf">PDF</a> file.
@@ -6252,7 +6300,7 @@ gmake&nbsp;flighttest
 compared with either <tt>density_1600.out</tt> or <tt>density_6400.out</tt>,
 depending on the number of flights. The numbers in here have only five
 digits of precision. If an exact match is not obtained, something is
-amiss. Please contact the code authors (see Sec.&nbsp;<a href="#help">6.1</a>) if you feel
+amiss. Please contact the code authors (see Sec.&nbsp;<a href="#help">5.1</a>) if you feel
 that a problem exists with the code as you downloaded it.
 <div class="p"><!----></div>
 </li>
@@ -6334,7 +6382,7 @@ has been tested by comparison
 with analytic expressions for the time dependence of the relaxation of 
 a distribution function (both in self-collision and
 mixed-species collision systems) and against models describing the
-Couette flow problem.[<a href="#Mayxx" name="CITEMayxx">34</a>] The relaxation benchmarks have been
+Couette flow problem.[<a href="#Mayxx" name="CITEMayxx">36</a>] The relaxation benchmarks have been
 repeated with DEGAS 2, but have not been formally made into an example
 run and will not be discussed here. 
 Further details can be provided upon request. However, the Couette flow
@@ -6372,7 +6420,7 @@ collision limit, particles make only one round trip across the box.
 <div class="p"><!----></div>
 The choice of the distributions used at the plates is crucial
 to reproducing the analytic models. In particular, the "Maxwell flux"
-distribution [<a href="#Reit92" name="CITEReit92">10</a>] must be used. This distribution describes a 
+distribution [<a href="#Reit92" name="CITEReit92">11</a>] must be used. This distribution describes a 
 recycling thermal flux
 of particles moving in a particular direction (in this case, perpendicularly
 away from the wall). This is the distribution used in some of the
@@ -6673,7 +6721,7 @@ v<sub>y0</sub><sup>2</sup>.</td></tr></table></td><td width="50%"></td><td width
 
 <div class="p"><!----></div>
 The primary physical quantity appearing in the analytic 
-models[<a href="#Will62" name="CITEWill62">41</a>,<a href="#Cerc69" name="CITECerc69">42</a>,<a href="#Cerc75" name="CITECerc75">43</a>] of Couette
+models[<a href="#Will62" name="CITEWill62">44</a>,<a href="#Cerc69" name="CITECerc69">45</a>,<a href="#Cerc75" name="CITECerc75">46</a>] of Couette
 flow is the x-y component of the stress tensor,
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -6735,10 +6783,10 @@ extent, and <font face="symbol">P</font
 ><sub>xy</sub><sup><span class="roman">fm</span></sup>.
 
 <div class="p"><!----></div>
-The variational theory of Cercignani[<a href="#Cerc69" name="CITECerc69">42</a>,<a href="#Cerc75" name="CITECerc75">43</a>] yields a 
+The variational theory of Cercignani[<a href="#Cerc69" name="CITECerc69">45</a>,<a href="#Cerc75" name="CITECerc75">46</a>] yields a 
 relatively compact formula for <font face="symbol">P</font
 ><sub>xy</sub> that matches the 
-numerical results of Willis[<a href="#Will62" name="CITEWill62">41</a>] to within 0.5 %.
+numerical results of Willis[<a href="#Will62" name="CITEWill62">44</a>] to within 0.5 %.
 With <font face="symbol">d</font
 > =  1 / K<sub>n</sub>,
 
@@ -7029,7 +7077,7 @@ If you have repeated the run at the above-described length, you should
 be able to match the text files exactly. The level of agreement in the
 netCDF file should be several digits (perhaps as many as 10).
 If a satisfactory match is not obtained, something is
-amiss. Please contact the code authors (see Sec.&nbsp;<a href="#help">6.1</a>) if you feel
+amiss. Please contact the code authors (see Sec.&nbsp;<a href="#help">5.1</a>) if you feel
 that a problem exists with the code as you downloaded it.
 <div class="p"><!----></div>
 </li>
@@ -7198,7 +7246,7 @@ numbers and two values of v<sub>y0</sub> in Fig.&nbsp;<a href="#couetteplot">3.1
 <center>Figure 3.1: Comparison of 8 DEGAS 2 simulations (symbols) 
 of the Couette flow problem
 with the analytic expression for the normalized shear stress 
-Eq.&nbsp;(<a href="#cercig">3.12</a>) obtained by Cercignani[<a href="#Cerc69" name="CITECerc69">42</a>,<a href="#Cerc75" name="CITECerc75">43</a>]. Two
+Eq.&nbsp;(<a href="#cercig">3.12</a>) obtained by Cercignani[<a href="#Cerc69" name="CITECerc69">45</a>,<a href="#Cerc75" name="CITECerc75">46</a>]. Two
 different plate velocities V = v<sub>y0</sub> were used in the simulations. 
 For the higher velocity, better agreement with the analytic expression
 is obtained if the inverse Knudsen parameter is computed from the
@@ -7222,10 +7270,10 @@ elastic scattering processes. The complexity of the physics also
 makes for a good demonstration of DEGAS 2's conservation checks.
 
 <div class="p"><!----></div>
-Experiments by Pitcher et al. [<a href="#Pitc00" name="CITEPitc00">50</a>,<a href="#Pitc01" name="CITEPitc01">51</a>] on the Alcator C-Mod tokamak
+Experiments by Pitcher et al. [<a href="#Pitc00" name="CITEPitc00">53</a>,<a href="#Pitc01" name="CITEPitc01">54</a>] on the Alcator C-Mod tokamak
 indicated that the flow of neutral gas through material structures around
 the plasma was being limited by its diffusion rate through the divertor plasma.
-Pitcher [<a href="#Pitc01" name="CITEPitc01">51</a>] developed a semi-analytic model that reproduced this
+Pitcher [<a href="#Pitc01" name="CITEPitc01">54</a>] developed a semi-analytic model that reproduced this
 behavior. An attempt was made to precisely reproduce the
 results of that model with DEGAS 2. The overall effort consisted of several
 simulations in which the model assumptions were gradually relaxed towards those
@@ -7234,7 +7282,7 @@ having atomic and surface physics assumptions more like a normal DEGAS 2 run.
 The remaining difference from a "full physics" DEGAS 2 run (apart from the
 greatly simplified geometry) is that the neutral source is a gas puff rather
 than a recycling source. The full physics and geometry simulations are described 
-in Ref.&nbsp;[<a href="#Stot01" name="CITEStot01">52</a>].
+in Ref.&nbsp;[<a href="#Stot01" name="CITEStot01">55</a>].
 
 <div class="p"><!----></div>
 To run this example, follow these steps:
@@ -7416,7 +7464,7 @@ The numbers in the text files have only five
 digits of precision and should be matched exactly. The level of agreement
 in the netCDF file should be several digits (perhaps as many as 10).
 If a satisfactory match is not obtained, something is
-amiss. Please contact the code authors (see Sec.&nbsp;<a href="#help">6.1</a>) if you feel
+amiss. Please contact the code authors (see Sec.&nbsp;<a href="#help">5.1</a>) if you feel
 that a problem exists with the code as you downloaded it.
 <div class="p"><!----></div>
 </li>
@@ -7455,6 +7503,7 @@ For this case, the following totals are obtained:
  <dt><b>particles</b></dt>
 	<dd> &nbsp;<br />
   
+       D<sub>2</sub> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#175; 3 &times;10<sup>15</sup> 
        D &nbsp;<font face="symbol">-</font
 >2 &times;10<sup>16</sup>  <br />
        D<sub>2</sub> &nbsp;8 &times;10<sup>15</sup> <br />
@@ -7462,6 +7511,7 @@ For this case, the following totals are obtained:
  <dt><b>momentum 1</b></dt>
 	<dd> &nbsp;<br />
   
+       D<sub>2</sub> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#175;  &lt;  3 &times;10<sup>15</sup> 
        D  &nbsp; &lt;  1 &times;10<sup><font face="symbol">-</font
 >6</sup> <br />
        D<sub>2</sub> &nbsp;2 &times;10<sup><font face="symbol">-</font
@@ -7470,6 +7520,7 @@ For this case, the following totals are obtained:
  <dt><b>energy</b></dt>
 	<dd> &nbsp;<br />
   
+       D<sub>2</sub> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#175; 3 &times;10<sup>15</sup> 
        D &nbsp;<font face="symbol">-</font
 >5 &times;10<sup><font face="symbol">-</font
 >2</sup> <br />
@@ -7635,6 +7686,8 @@ initial implementation of the BGK algorithm in DEGAS 2
 repeated this same mistake.
 
 <div class="p"><!----></div>
+
+<div class="p"><!----></div>
 To see the difference, you can modify the <tt>degas2.in</tt> file to point to
 the <tt>reactions.input</tt> and <tt>reactions.nc</tt> files in this directory;
 these use the old versions of the neutral-neutral data files that are
@@ -7696,6 +7749,736 @@ accurate values for the code output, but will exhibit conservation only
 in a statistical sense.  You can demonstrate this by replacing the
 estimator lists in each of the "total" tallies with the lists from the
 corresponding zone-resolved tallies.
+<div class="p"><!----></div>
+</li>
+</ol>
+
+<div class="p"><!----></div>
+     <h3><a name="tth_sEc3.7.3">
+3.7.3</a>&nbsp;&nbsp;definegeometry2d and defineback Examples</h3>
+<a name="defexamples">
+</a>
+<a name="definegeometry2d37">
+</a>
+<a name="defineback37">
+</a>
+
+<div class="p"><!----></div>
+The <tt>definegeometry2d</tt> (for setting up geometries, obviously)
+and <tt>defineback</tt> (for specifying the corresponding sources
+and plasma background) are sufficiently flexible and general
+that specific examples are useful in illustrating the ways that
+they can be used.
+
+<div class="p"><!----></div>
+
+<h4>Gas Puff Imaging Example</h4>
+<a name="DG37">
+</a>
+<a name="Carre37">
+</a>
+
+<div class="p"><!----></div>
+This example illustrates the use of the DG and Carre codes
+with <tt>definegeometry2d</tt>, and also demonstrates the 3-D
+capabilities of <tt>definegeometry2d</tt>.  
+It is based on the DEGAS 2 simulation of the NSTX
+Gas Puff Imaging (GPI) GPI shot 112811, documented in 
+[<a href="#Stot2007" name="CITEStot2007">56</a>].
+
+<div class="p"><!----></div>
+To run the 2-D version of this example, follow
+these steps:
+
+<ol type="1">
+<li> <b>Switch to the example directory.</b>  If the main 
+DEGAS 2 directory sits
+within your home directory:
+
+<pre>
+cd&nbsp;~/degas2/examples/He_GPI
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Copy the <tt>degas2.in</tt> file into your working directory.</b>  
+E.g., if you are
+working on a 64-bit Linux machine,
+
+<pre>
+cp&nbsp;degas2.in&nbsp;../../LINUX64
+cd&nbsp;../../LINUX64
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Prepare reference data.</b>
+This example uses the standard reference data
+files in the data directory. Hence, this step can be skipped if those files
+have not been altered since you downloaded the code.
+
+<pre>
+gmake&nbsp;datasetup
+./datasetup
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Prepare problem data.</b>
+
+<pre>
+gmake&nbsp;problemsetup
+./problemsetup
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Generate geometry file.</b> Here, we outline 
+briefly the preliminary steps 
+leading up to the creation
+of the objects referred to in the <tt>definegeometry2d</tt> input
+file. Users interested in learning
+more about that process should consult the DG User's Manual (in 
+the <tt>dg_carre/DG/DOC</tt> directory; 
+especially the DEGAS 2 specific sections under
+"Customizing DG").
+
+<div class="p"><!----></div>
+The starting points for the DG code are a specification of the
+vacuum vessel shape [(R,Z) coordinates; <tt>nstx_walls</tt> in this
+case] and an equilibrium (values of
+the poloidal flux on a rectangular R,Z grid,
+<tt>g112811.00250.equ</tt>, already converted from the EFIT format to DG's 
+preferred file format).  Once these are loaded into DG,
+the user proceeds to graphically generate the input for
+the Carre code.  Carre is run separately outside of DG to 
+create a nearly orthogonal 2-D mesh with one
+coordinate that follows the flux surfaces.  Although DEGAS 2 doesn't
+really need such a mesh, having one facilitates specifying plasma parameters
+(typically a function of a flux variable).  That mesh is then loaded into DG 
+and the user proceeds to connect it to the vacuum vessel 
+points forming the "DG polygons" 
+(see the entry in the <a href="definegeometry2d.pdf#page.17">definegeometry2d
+manual</a>).
+This
+process results in three files: the DG file (<tt>nstx_25.dg</tt>),
+the mesh (<tt>nstx.carre.021</tt>) and
+DG's objects (<tt>nstx_25.dgo</tt>).  Only the latter two 
+are read in by <tt>definegeometry2d</tt>.
+
+<div class="p"><!----></div>
+There are two <tt>definegeometry2d</tt> input 
+files here, one for the 2-D (axisymmetric: 
+<tt>nstx_25_dg2d.in</tt>) case and one for 3-D (<tt>nstx_25_dg3d.in</tt>).  
+The results
+contained in the <tt>examples/He_GPI</tt> directory 
+are for the much quicker running 2-D
+case.  Note that 
+many of the 3-D lines appear in the 2-D file, but are commented
+out.  Both runs utilize just the portion of the Carre mesh directly
+in front of the gas manifold ("puffer" in the <tt>definegeometry2d</tt>
+input file); this is done using the additional arguments
+to the <tt>sonnet_mesh</tt> keyword.  One would establish the values of these
+indices during the creation of the DG polygons.  The 3-D run then only 
+simulates a portion of the torus (arguments to the <tt>bounds</tt> and 
+<tt>y_values</tt>
+keywords).  These steps keep the problem size and run time down.
+
+<div class="p"><!----></div>
+The emulation of the GPI camera view is done with the code in 
+<tt>gpicamera.web</tt>.
+Prior to compiling <tt>definegeometry2d</tt>, the user should copy this file
+to <tt>usr2ddetector.web</tt> (see the brief explanation at the top of the
+default version of the file <tt>def2ddetector.web</tt>).  This is actually
+just a placeholder 5 &times;5 
+pixel version of the camera.  The full resolution
+image is created during post-processing with the <tt>postdetector</tt> routine.
+
+<pre>
+cd&nbsp;../src
+cp&nbsp;gpicamera.web&nbsp;usr2ddetector.web
+cd&nbsp;../LINUX64
+gmake&nbsp;definegeometry2d&nbsp;
+./definegeometry2d&nbsp;../examples/He_GPI/nstx_25_dg2d.in
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Generate background file.</b> The detailed
+specification of the plasma parameters is actually done with
+the code in <tt>nstxgpi2.web</tt>.  Like <tt>gpicamera.web</tt>, 
+this is a user-defined
+subroutine (<tt>get_n_t</tt>) that needs to be compiled into the driver code.
+This routine will read the plasma density and temperature profiles 
+obtained with the NSTX 
+Thomson scattering system, <tt>ts_112811_base.TXT</tt> and map them on to 
+the entire geometry assuming that the plasma density
+and temperature are constant on flux surfaces.  On the Carre-generated
+mesh, this is straightforward.  Outside of it, where there are only
+triangles, an approximate procedure is used.
+
+<div class="p"><!----></div>
+The <tt>plasma_file</tt> keyword in the <tt>defineback</tt> input file has two
+parameters used by the <tt>nstxgpi2.web</tt> <tt>get_n_t</tt> routine.
+The second is the name of the Thomson scattering data file mentioned above.
+The first argument
+provides the subroutine with the location 
+of the separatrix in the Carre mesh
+subset used by <tt>definegeometry2d</tt>.
+Specifically, the separatrix is assumed to be between the cells <tt>iz_sep</tt>
+and <tt>iz_sep+1</tt>.
+If one knows the number of "cells" used in DG's
+"Create Surface(s)..." dialog for the core (<tt>n_cells</tt>) 
+and the minimum <tt>iz</tt>
+used in the mesh subset (specified via the <tt>sonnet_mesh</tt> keyword in 
+<tt>definegeometry2d</tt>), <tt>iz_min</tt>, 
+the value of this is: <tt>iz_sep&nbsp;=&nbsp;n_cells&nbsp;-&nbsp;iz_min&nbsp;+&nbsp;2.</tt>
+
+<div class="p"><!----></div>
+The second piece of input to <tt>defineback</tt> is the specification of the
+neutral sources.  In the GPI simulations, this is a gas puff from
+the polygon representing the gas manifold, a vertical line
+in the 2-D case.
+The physical locations of the 2-D sources are
+provided by the "stratum" and "segment" indices
+in the file <tt>source_nstx_26</tt>.  The "stratum" number
+corresponds to the "stratum" keyword used in <tt>definegeometry2d</tt>.
+In general, the simplest way to determine the segment numbers
+is to use the "<tt>*</tt>" option (see the 
+<a href="defineback.pdf#page.8">defineback documentation</a>) to
+select all of the segments associated with a stratum and then
+manually identify those desired for the problem at hand.
+In this
+problem, a constant flux source is used since the sizes of
+the segments vary.  The overall magnitude of the source is arbitrary
+in this problem, but physically realistic.  The source
+file for the 3-D case (<tt>source_nstx_26_3d</tt>) is similar, but also provides
+the toroidal location of the source segments (<tt>Segment_iy</tt>).  These
+were chosen so that the source points fall along a nearly straight
+line at the same angle with respect to horizontal as the actual gas
+manifold. 
+
+<pre>
+cd&nbsp;../src
+cp&nbsp;nstxgpi2.web&nbsp;usr2dplasma.web
+cd&nbsp;../LINUX64
+gmake&nbsp;defineback
+./defineback&nbsp;../examples/He_GPI/nstx_30_db.in
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Set the number of flights.</b>
+The background file <tt>bk_nstx_30.nc</tt> contains the specification of the 
+number of flights to be run.  Open this file in an editor (Emacs
+will be the most convenient) and find the line: 
+
+<pre>
+&nbsp;source_num_flights&nbsp;=&nbsp;100&nbsp;;
+
+</pre>
+The results in this directory were obtained with 100000 flights.
+However, the 3-D production run used  2000000.
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Set up the tallies.</b>
+
+<pre>
+gmake&nbsp;tallysetup
+./tallysetup
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Run the code.</b>
+
+<pre>
+gmake&nbsp;flighttest
+./flighttest
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Check the text output.</b>
+The file <tt>density.out</tt> can be directly compared with the one in the 
+<tt>examples/He_GPI</tt> directory.  The numbers in here have only five 
+digits of precision.  If an exact match is not obtained, something
+is amiss. These results were obtained with <tt>Triangle</tt> V.&nbsp;1.6.
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Check the binary output.</b>
+You can use the <tt>matchout</tt> utility to do this.  The largest differences
+should be <font face="symbol"> ~ </font
+>10<sup><font face="symbol">-</font
+>10</sup> or smaller.
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Generate graphical output.</b>
+For the 2-D simulation,
+
+<pre>
+cp&nbsp;../examples/He_GPI/geometry.inp&nbsp;.
+gmake&nbsp;geomtesta
+./geomtesta
+
+</pre>
+The currently recommended approach is to compile the code with the
+<tt>GRAPH_FILE=SILO</tt> or <tt>SILO_HDF5</tt> 
+option and use VisIt (built with Silo
+support) to view the Silo format file generated by <tt>geomtesta</tt>.
+The primary output variables in this problem are the emission rate
+of the helium 5877 &#197;&nbsp;(<tt>he_5877</tt>) viewed by the GPI camera
+and the neutral helium density, <tt>spHeden</tt>.
+
+<div class="p"><!----></div>
+For 3-D simulations, two example input files for <tt>geomtesta</tt> are
+provided.  Keep in mind that these need to be copied to the
+run directory and renamed <tt>geometry.inp</tt> in order for <tt>geomtesta</tt> to
+find them.
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Generate camera image and associated data.</b>
+The camera simulated by the main code uses only a 5 &times;5 mesh in
+this problem so as to not lengthen the run.  The
+generation of actual images suitable for comparison with
+experiment is deferred to postprocessing with the <tt>postdetector</tt>
+code.  In principle, <tt>postdetector</tt> can be parallelized (although recent
+changes to the code have yet to be propagated into the MPI-specific
+sections), further mitigating the time expense for producing
+the simulated camera image.
+
+<div class="p"><!----></div>
+While <tt>postdetector</tt> has been generalized with regard to species
+(e.g., He or D<sub>2</sub>), there are still application specific settings
+in the code.  These are primarily the camera resolution and
+specification of the target plane; note that these same
+quantities appear in the preamble of <tt>gpicamera.web</tt>.
+The orientation of the simulated image can also vary with
+application; see subroutine <tt>wrdatap</tt> in <tt>postdetector.web</tt>.
+
+<div class="p"><!----></div>
+Open <tt>postdetector.web</tt> in an editor and find the section of
+code:
+
+<pre>
+@#if&nbsp;0
+@m&nbsp;nx&nbsp;64
+@m&nbsp;ny&nbsp;64
+@#else
+@m&nbsp;nx&nbsp;5
+@m&nbsp;ny&nbsp;5
+@#endif
+
+</pre>
+Edit the first line to read:
+
+<pre>
+@#if&nbsp;1
+
+</pre>
+This sets the camera resolution to 64 &times;64.  The 
+5 &times;5 resolution is used as
+the default to facilitate testing.  
+
+<div class="p"><!----></div>
+A few lines below this, check that the application is set to
+"NSTX":
+
+<pre>
+@m&nbsp;APP&nbsp;NSTX
+
+</pre>
+As was the case in compiling <tt>definegeometry2d</tt>, the file 
+<tt>usr2ddetector.web</tt>
+should be a copy of <tt>gpicamera.web</tt>.  Note that the camera resolution
+parameters in <tt>usr2ddetector.web</tt> 
+are overridden by those in <tt>postdetector.web</tt>
+and are not needed here.
+
+<pre>
+gmake&nbsp;postdetector
+./postdetector
+
+</pre>
+The camera image and other data are written to HDF format files (this
+code has not yet been adapted for use with the Silo format).  Here
+are the contents of the most useful files:
+
+<dl compact="compact">
+ <dt><b>emtt</b></dt>
+	<dd> Total emission rate of the 5877 &#197;&nbsp;line 
+[in W/(m<sup>2</sup> ster)].  This is  the simulated camera image.</dd>
+ <dt><b>tane</b></dt>
+	<dd> Electron density (in m<sup><font face="symbol">-</font
+>3</sup>) at the 
+target plane (intersection of the camera
+view and the idealized gas puff sheet).</dd>
+ <dt><b>tate</b></dt>
+	<dd> Electron temperature (in eV) at the target plane.</dd>
+ <dt><b>tarr</b></dt>
+	<dd> Major radius (in m) at the target plane.</dd>
+ <dt><b>tarz</b></dt>
+	<dd> Vertical coordinate (in m) at the target plane.</dd>
+ <dt><b>tns1</b></dt>
+	<dd> Neutral helium density (in m<sup><font face="symbol">-</font
+>3</sup>) at the target plane.</dd>
+</dl>
+
+<div class="p"><!----></div>
+Note, however, that the identification of the "target plane zones" is
+an automated optimization process that assumes a relatively fine toroidal
+discretization.  As such, its results are rather difficult to
+interpret in the 2-D case.
+
+<div class="p"><!----></div>
+The quantities in the other files require much more space to explain.  
+The
+interested reader can learn more in [<a href="#Stot2004" name="CITEStot2004">57</a>]
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Three-dimensional simulation.</b>
+The process for producing the analogous three-dimensional simulation is
+the same as above.  The only modifications are:
+
+<ol type="a">
+<li> The input file for <tt>definegeometry2d</tt> is 
+<tt>nstx_25_dg3d.in</tt>.  Note
+that <tt>definegeometry2d</tt> will require much more time (on the order of an
+hour) to run.
+<div class="p"><!----></div>
+</li>
+
+<li> The pointer to the source file in the <tt>defineback</tt> input
+file <tt>nstx_30_db.in</tt> must be changed to point to 
+<tt>source_nstx_26_3d</tt>.
+<div class="p"><!----></div>
+</li>
+
+<li> Many more flights are required for the main code, 
+e.g., 2000000, and
+the run time is correspondingly longer.
+<div class="p"><!----></div>
+</li>
+
+<li> One of the two 3-D input files should be used for
+<tt>geomtesta</tt>.
+<div class="p"><!----></div>
+</li>
+</ol>
+The resulting camera image corresponds to Fig. 4(a) in 
+[<a href="#Stot2007" name="CITEStot2007">56</a>].  However,
+the latter also incorporated the effects of camera vignetting, which
+are not accounted for by the <tt>postdetector</tt> routine.
+<div class="p"><!----></div>
+</li>
+</ol>
+
+<div class="p"><!----></div>
+
+<h4>NCSX Example</h4>
+
+<div class="p"><!----></div>
+This example illustrates the use of <tt>definegeometry2d</tt> with 
+input files generated with a relatively simple
+stand-alone code.  The same concepts could be used
+to manually create <tt>definegeometry2d</tt> input files.
+This particular simulation provided
+neutral penetraton estimates used 
+in the design of plasma facing components for the
+National Compact Stellarator Experiment [<a href="#Zarn2001" name="CITEZarn2001">58</a>].  
+Since the bulk of the recycled neutrals leave
+the surface with a cosine distribution (i.e., peaked about the normal 
+to the material surface), the
+greatest penetration will be achieved in the same poloidal plane as 
+the recycling surface.
+Consequently, toroidally axisymmetric 
+(i.e., a single plasma cross section at a 
+particular toroidal angle) neutral transport calculations 
+can place an upper bound
+on the neutral penetration distance.
+
+<div class="p"><!----></div>
+In scoping problems such
+as this, satisfactory results can be obtained by assuming that
+the plasma parameters are constant on flux surfaces (of course,
+if one does know the plasma variation along a flux surface, this
+assumption can be relaxed).  The DEGAS 2
+geometry can then be constructed out of flux surface shapes, e.g.,
+from an equilibrium calculation of some sort. The basic approach is
+to define a "wall" corresponding to each flux surface and then
+connect adjacent walls to form the "polygons" required
+by <tt>definegeometry2d</tt> (see 
+<a href="definegeometry2d.pdf#page.1">its documentation</a> for
+detailed descriptions of these objects).  More specfically, each pair of
+adjacent flux surfaces  is used to construct two polygons (e.g., 
+a lower and upper half) so that
+the interior of both is topologically well defined.
+
+<div class="p"><!----></div>
+This objective can be in principle be achieved by manual manipulation
+of the coordinate data.  However, the process is sufficiently
+straightforward, not to mention tedious, that a code can be constructed that
+generates the <tt>wallfile</tt> needed by
+<tt>definegeometry2d</tt>, as well as the 
+polygons created out of those walls that form the bulk of 
+the <tt>definegeometry2d</tt> input file.
+
+<div class="p"><!----></div>
+The starting point in this case was a 3-D equilibrium
+file generated by the VMEC code, containing Fourier representations
+of the NCSX flux surfaces.   An example code 
+distributed with the VMEC file was first modified to evaluate these
+surfaces at a set of input toroidal angles (actually just two, with
+one represented here).  A uniform poloidal angle mesh (an
+arbitrary choice) was then defined so that a given flux
+surface could be represented by a set of discrete points.
+There were many more flux surfaces in the VMEC equilibrium than were
+needed for this application.  The set of surfaces was
+reduced (again arbitrarily) so that the maximum distance
+between two adjacent surfaces was 5 cm.  A "wall" was 
+created out of each of these surfaces, with the
+constituent points being the R, Z coordinates of the
+surface at each of the points along the poloidal angle mesh.
+Because the relative location of these walls was known,
+the generation of the corresponding polygons was a 
+simple matter.  
+The code also defined walls and polygons filling
+the gap between the VMEC surfaces and the vacuum vessel
+and connecting the vacuum vessel to the universal cell.
+Details such as these depend on the particular
+application and are, thus,
+not worth describing here.
+
+<div class="p"><!----></div>
+Another crucial task that must be begun at this stage is
+establishing the mechanism that will allow <tt>defineback</tt>
+to map the plasma parameters onto these
+polygons.  The first, and generally essential, step to doing
+this is to label each polygon with a "stratum" number.
+Note that DEGAS 2's internal geometry specification, 
+contained in the geometry
+netCDF file, has no record of the polygons
+used by <tt>definegeometry2d</tt>; it only knows about zones.
+The stratum labels are used in conjunction with the
+geometry's "sectors", but they are of little use within
+the plasma volume.  For this reason, <tt>definegeometry2d</tt> also 
+generates its <tt>polygon_nc_file</tt> based on the
+2-D geometry class (see the  
+<a href="classes.pdf#page.126">geometry2d class documentation</a>).
+Via the <tt>g2_polygon_stratum</tt> and <tt>g2_polygon_zone</tt>
+arrays in this class,
+the user can connect these  
+zones back to the polygons
+specified on input to <tt>definegeometry2d</tt>.
+In this example, this objective is accomplished 
+by the subroutine in the
+<tt>ncsxplasma.web</tt> file compiled into 
+<tt>defineback</tt>.
+Be aware that the polygons in the <tt>polygon_nc_file</tt>
+file are derived from, but not identical to, those
+input to <tt>definegeometry2d</tt>.  Specifically,
+polygons broken up with <tt>definegeometry2d</tt>'s
+<tt>breakup_polygon</tt> will remain as individual 
+polygons in the <tt>polygon_nc_file</tt>.  But, 
+those processed with <tt>trianglulate_polygon</tt> or
+<tt>triangulate_to_zones</tt> are represented by the
+resulting triangles within the <tt>polygon_nc_file</tt> and, thus,
+correspond to multiple polygons there.  The stratum
+labels are propagated to the triangle polygons in the
+process, however, permitting them and the zone numbers
+to be related to the original polygons.
+
+<div class="p"><!----></div>
+In this example, the plasma profiles are specified as
+a function of the square root of the normalized toroidal flux.
+Consequently, the geometry setup code also writes out a file,
+<tt>radiiz1li383</tt>,
+containing the toroidal flux corresponding to each stratum.
+Because each pair of adjacent flux surfaces is used to construct
+two polygons, these two polygons are assigned the same stratum
+label in the <tt>definegeometry2d</tt> input file.
+The names of the files containing the plasma profiles, the
+effective stratum radii, and the <tt>polygon_nc_file</tt>
+are input to <tt>defineback</tt> and passed to the routine 
+in <tt>ncsxplasma.web</tt>.
+
+<div class="p"><!----></div>
+One will also need to be able to tell
+<tt>defineback</tt> where to place the neutral sources.  This usually
+amounts to manually identifying  the "strata" corresponding to
+those sources within the <tt>definegeometry2d</tt> input file, and
+then following a simple procedure for deducing the specific "segments"
+of those strata that are to be used.
+
+<div class="p"><!----></div>
+To run this example, follow these steps:
+
+<ol type="1">
+<li> <b>Switch to the example directory.</b>  If the main 
+DEGAS 2 directory sits
+within your home directory:
+
+<pre>
+cd&nbsp;~/degas2/examples/NCSX
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Copy the <tt>degas2.in</tt> file into your working directory.</b>  
+E.g., if you are
+working on a 64-bit Linux machine,
+
+<pre>
+cp&nbsp;degas2.in&nbsp;../../LINUX64
+cd&nbsp;../../LINUX64
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Prepare reference data.</b>
+This example does use a modified PMI file that removes H as a 
+product in desorption from C.  Consequently, this step must be
+performed even if the standard reference data files in the
+data directory have been previously created.  The resulting
+<tt>pmi.nc</tt> file will remain in the run directory and will not
+affect other runs utilizing the reference data.
+
+<pre>
+gmake&nbsp;datasetup
+./datasetup
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Prepare problem data.</b>
+
+<pre>
+gmake&nbsp;problemsetup
+./problemsetup
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Generate geometry file.</b>
+
+<pre>
+gmake&nbsp;definegeometry2d&nbsp;
+./definegeometry2d&nbsp;../examples/NCSX/dg2dinz1li383
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Generate background file.</b> As was described above,
+the detailed specification of the plasma parameters is done
+by the <tt>get_n_t</tt> routine in <tt>ncsxplasma.web</tt>.  It requires
+as input the three files described previously (the effective radii for
+each stratum, the plasma profiles, and the <tt>polygon_nc_file</tt>), 
+and the plasma density and temperature scrape-off lengths (the plasma
+parameters are only given on closed flux surfaces).
+
+<div class="p"><!----></div>
+The remainder of the <tt>defineback</tt> input file 
+contains the specification of the
+neutral sources.  In this example, this is a recycling
+source at a limiter.  The corresponding "stratum" was
+established as part of the process of creating the input
+files for <tt>definegeometry2d</tt>.  
+A general, and relatively quick, technique for 
+determining the source segment numbers
+is to use the "<tt>*</tt>" option (see the 
+<a href="defineback.pdf#page.8">defineback documentation</a>) to
+select all of the segments associated with a stratum and then
+manually identify those desired for the problem at hand.
+The source strength is arbitrary in this problem, although
+a physically realistic value was selected.
+
+<pre>
+cd&nbsp;../src
+cp&nbsp;ncsxplasma.web&nbsp;usr2dplasma.web
+cd&nbsp;../LINUX64
+gmake&nbsp;defineback
+./defineback&nbsp;../examples/NCSX/z1li383_db.in
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Set the number of flights.</b>
+The background file <tt>bk_ncsx.nc</tt> contains the specification of the 
+number of flights to be run.  Open this file in an editor (Emacs
+will be the most convenient) and find the line: 
+
+<pre>
+&nbsp;source_num_flights&nbsp;=&nbsp;100&nbsp;;
+
+</pre>
+The results in this directory were obtained with 10000 flights.
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Set up the tallies.</b>
+
+<pre>
+gmake&nbsp;tallysetup
+./tallysetup
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Run the code.</b>
+
+<pre>
+gmake&nbsp;flighttest
+./flighttest
+
+</pre>
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Check the text output.</b>
+The file <tt>density.out</tt> can be directly compared with the one in the 
+<tt>examples/NCSX</tt> directory.  The numbers in here have only five 
+digits of precision.  If an exact match is not obtained, something
+is amiss.  These results were obtained with <tt>Triangle</tt> V.&nbsp;1.6.
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Check the binary output.</b>
+You can use the matchout utility to do this.  The largest differences
+should be <font face="symbol"> ~ </font
+>10<sup><font face="symbol">-</font
+>10</sup> or smaller.
+<div class="p"><!----></div>
+</li>
+
+<li> <b>Generate graphical output.</b>
+For the 2-D simulation,
+
+<pre>
+cp&nbsp;../examples/NCSX/geometry.inp&nbsp;.
+gmake&nbsp;geomtesta
+./geomtesta
+
+</pre>
 <div class="p"><!----></div>
 </li>
 </ol>
@@ -7878,7 +8661,7 @@ if the number of flights were large enough.
 
 <div class="p"><!----></div>
 An equally effective alternative can be developed based on hashing
-algorithms described by Knuth[<a href="#Knuth97" name="CITEKnuth97">49</a>]. The idea is to replace the
+algorithms described by Knuth[<a href="#Knuth97" name="CITEKnuth97">52</a>]. The idea is to replace the
 pseudo-random number <font face="symbol">x</font
 > usually used in the source sampling process with
 
@@ -8043,7 +8826,7 @@ the data tables) to return a vector.
 
 <div class="p"><!----></div>
 A particularly involved example of a PMI is the specification of
-"Bateman format" data[<a href="#Heif82" name="CITEHeif82">3</a>,<a href="#Bate80" name="CITEBate80">46</a>]. A few uses of this for
+"Bateman format" data[<a href="#Heif82" name="CITEHeif82">3</a>,<a href="#Bate80" name="CITEBate80">49</a>]. A few uses of this for
 reflection processes are currently in the code. A large set of data
 for PMI in an improved version of this format will soon be added.
 
@@ -9249,7 +10032,7 @@ output relative standard deviation by <font face="symbol">m</font
 <div class="p"><!----></div>
 The common ancestry of EIRENE, DEGAS, and DEGAS 2 is apparent in their
 atomic physics data. All three
-codes rely upon the molecular data in the Janev book[<a href="#Jane87" name="CITEJane87">13</a>] (see 
+codes rely upon the molecular data in the Janev book[<a href="#Jane87" name="CITEJane87">15</a>] (see 
 Sec.&nbsp;<a href="#h2rate">4.5.5</a>, however). The reaction rates
 are explicitly the same in all three codes, as are the dissociation energies,
 and the electron energy loss rates. 
@@ -9262,7 +10045,7 @@ components of the momentum transfer in all reactions.
 
 <div class="p"><!----></div>
 This version of EIRENE (with the present input file) uses the reaction
-rate for charge exchange in the Janev book[<a href="#Jane87" name="CITEJane87">13</a>]. 
+rate for charge exchange in the Janev book[<a href="#Jane87" name="CITEJane87">15</a>]. 
 No attempt is made to ensure
 that the sampled background ion velocities are consistent with the 
 charge exchange cross section[<a href="#Heif82" name="CITEHeif82">3</a>].
@@ -9273,26 +10056,26 @@ in the limit of <font face="symbol">á</font
 > =  <font face="symbol">s</font
 >v 
 (see Sec.&nbsp;<a href="#estdiffs">4.5.6</a>). More recent
-versions of the code certainly do better than this[<a href="#Reit93" name="CITEReit93">14</a>].
+versions of the code certainly do better than this[<a href="#Reit93" name="CITEReit93">16</a>].
 
 <div class="p"><!----></div>
 The DEGAS 2 standard charge exchange data comes from
 the
-Janev-Smith database[<a href="#Jane93" name="CITEJane93">15</a>], with 
+Janev-Smith database[<a href="#Jane93" name="CITEJane93">17</a>], with 
 consistently computed reaction rates, and
-energy and momentum transfer rates[<a href="#Reit93" name="CITEReit93">14</a>]. The simulation described in
+energy and momentum transfer rates[<a href="#Reit93" name="CITEReit93">16</a>]. The simulation described in
 Sec.&nbsp;<a href="#outofthebox">4.3</a> used these data. For subsequent runs, data
 equivalent to those in EIRENE will be substituted.
 
 <div class="p"><!----></div>
 DEGAS 2 and EIRENE each rely on their own collisional 
-radiative[<a href="#Reit93" name="CITEReit93">14</a>] codes for 
+radiative[<a href="#Reit93" name="CITEReit93">16</a>] codes for 
 the multi-step electron-impact ionization and recombination of 
 hydrogen data. 
 These two codes have been compared several times in the past.
 The basic
 difference is that the EIRENE code, AMJUEL, 
-is based upon the Johnson-Hinnov ionization cross sections[<a href="#John73" name="CITEJohn73">16</a>].
+is based upon the Johnson-Hinnov ionization cross sections[<a href="#John73" name="CITEJohn73">18</a>].
 The data used in DEGAS 2 are described in Sec.&nbsp;<a href="#AtomicPhysics">2.8</a>.
 
 <div class="p"><!----></div>
@@ -9349,12 +10132,12 @@ lost.</center>
 
 <div class="p"><!----></div>
 Figure&nbsp;<a href="#hrecombine">4.7</a> shows that the recombination rates agree well. 
-The reason is that the Johnson-Hinnov[<a href="#John73" name="CITEJohn73">16</a>] 
+The reason is that the Johnson-Hinnov[<a href="#John73" name="CITEJohn73">18</a>] 
 recombination cross section data are used in both collisional radiative
 codes. The energy exchange rates agree for T<sub>e</sub>  &lt;  10 eV, but disagree
 at higher temperatures. This quantity includes the average energy of
 a radiatively recombining electron; the expression used to compute 
-it involves[<a href="#Reit93" name="CITEReit93">14</a>] 
+it involves[<a href="#Reit93" name="CITEReit93">16</a>] 
 d <font face="symbol">á</font
 ><font face="symbol">s</font
 >v <font face="symbol">ñ</font
@@ -9418,7 +10201,7 @@ requisite data from EIRENE.
 Figure&nbsp;<a href="#sourcesegments">4.8</a> shows that the two codes are able to match
 the input distribution (to within the error bars). To make the comparison
 quantitative, we use a <font face="symbol">c</font
-><sup>2</sup> test[<a href="#Bevi69" name="CITEBevi69">44</a>]. The result is p, 
+><sup>2</sup> test[<a href="#Bevi69" name="CITEBevi69">47</a>]. The result is p, 
 the probability that sampled distribution  matches the parent distribution.
 For the 5000 samples used in generating Fig.&nbsp;<a href="#sourcesegments">4.8</a>, 
 the DEGAS 2 results yield p = 0.97. For EIRENE, we get p = 0.69. 
@@ -9472,7 +10255,7 @@ not make an overall comparison with different
 surface physics data. Instead, we have translated the Bateman format data 
 for reflection of D off of Mo taken from EIRENE's <tt>TRIM</tt> input
 file into a DEGAS 2 format. To be more precise, the Mo data obtained from
-Fe data using a scaling argument[<a href="#Ecks91" name="CITEEcks91">45</a>].
+Fe data using a scaling argument[<a href="#Ecks91" name="CITEEcks91">48</a>].
 
 <div class="p"><!----></div>
 These data prescribe the reflection coefficient, the outgoing energy, and
@@ -9597,7 +10380,7 @@ data successfully mimic the EIRENE extrapolation behavior.
 <div class="p"><!----></div>
 Significant differences in the electron energy sink were traced to
 a discrepancy in the H<sub>2</sub> dissociation rate (reaction 2.2.5
-in the Janev book[<a href="#Jane87" name="CITEJane87">13</a>]) at the lowest electron temperatures,
+in the Janev book[<a href="#Jane87" name="CITEJane87">15</a>]) at the lowest electron temperatures,
 T<sub>e</sub>  <font face="symbol">@</font
 > 1 eV. Unfortunately, both the plot and the fit 
 for these data in the Janev book are <em>wrong</em>. One needs
@@ -9647,7 +10430,7 @@ estimator, rather than the track length estimator used in EIRENE.
 The original reason for choosing the collision estimator in DEGAS 2
 was that the charge exchange data file did not have the required
 integrals of the cross section needed to score the energy and momentum
-exchanges[<a href="#Reit93" name="CITEReit93">14</a>]. We have now worked out the forms these
+exchanges[<a href="#Reit93" name="CITEReit93">16</a>]. We have now worked out the forms these
 integrals must have to emulate the EIRENE assumption of constant
 <font face="symbol">s</font
 >v and incorporated them into the charge exchange data file.
@@ -10348,110 +11131,11 @@ appropriate for this input file, the size of the code was reduced from
 
 <div class="p"><!----></div>
  <h1><a name="tth_chAp5">
-Chapter 5 </a><br />Future Work</h1>
+Chapter 5 </a><br />Troubleshooting</h1>
 
 <div class="p"><!----></div>
  <h2><a name="tth_sEc5.1">
-5.1</a>&nbsp;&nbsp;To Do List</h2>
-
-<div class="p"><!----></div>
-The following are known problems and / or are items which need
-to be done:
-
-<div class="p"><!----></div>
-
-<ul>
-<li> Sampling from a drifting Maxwellian is fudged or not done at all
-(sampling recycling ion, recombining ion, charge exchange).
-<div class="p"><!----></div>
-</li>
-
-<li> H / H2 fraction for gas puffing is not implemented; needed for
-wall desorption, too.
-<div class="p"><!----></div>
-</li>
-
-<li> Need real sheath physics routine.
-<div class="p"><!----></div>
-</li>
-
-<li> Add fits to reactions, as done for PMI.
-<div class="p"><!----></div>
-</li>
-
-<li> Use FWEB to break up reaction-specific routines into separate files.
-<div class="p"><!----></div>
-</li>
-
-<li> Generalize detectors to treat finite solid angle?
-<div class="p"><!----></div>
-</li>
-
-<li> Might be able to replace eval_data and pd_eval_data with a single
-routine.
-<div class="p"><!----></div>
-</li>
-
-<li> Generalize setup of detector views to permit chords not lying in poloidal
-plane.
-<div class="p"><!----></div>
-</li>
-
-<li> Need to add other H_alpha emitting molecular reactions (will follow
-EIRENE here, unlike DEGAS, and explicitly track these reactions rather
-than fudging the emission rates of the dominant reactions).
-<div class="p"><!----></div>
-</li>
-
-<li> In readgeometry, set up detector views using chords from DEGAS input 
-file.
-<div class="p"><!----></div>
-</li>
-
-<li> Note: in readgeometry, improved treatment of double-null, vacuum, UEDGE
-option, but didn't do likewise for !vacuum case: it will probably not
-work.
-<div class="p"><!----></div>
-</li>
-
-<li> Manual and other documentation needs to be updated.
-<div class="p"><!----></div>
-</li>
-
-<li> Add a dump of trajectories? Charles says that we might even be able to
-plot these in real time using some MPI-based utilities.
-<div class="p"><!----></div>
-</li>
-
-<li> Define default PMI packages which are invoked based on all material and
-test pairs. Ideally, the user should be presented with the list compiled
-at problemsetup time and edit it prior to actually running problemsetup.
-<div class="p"><!----></div>
-</li>
-
-<li> Extend sector definition to use two surfaces and a zone. If needed,
-this could be an ordered pair with the second member optional (or duplicated).
-Do this only if it cleans up some of the ugly sector related code in
-readgeometry and sector scoring routines.
-<div class="p"><!----></div>
-</li>
-
-<li> Adapt DG to write DEGAS 2 geometry netCDF file.
-<div class="p"><!----></div>
-</li>
-
-<li> Begin development of hybrid kinetic-fluid neutral transport code.
-<div class="p"><!----></div>
-</li>
-</ul>
-
-<div class="p"><!----></div>
- <h1><a name="tth_chAp6">
-Chapter 6 </a><br />Troubleshooting</h1>
-
-<div class="p"><!----></div>
- <h2><a name="tth_sEc6.1">
-6.1</a>&nbsp;&nbsp;Help!</h2>
+5.1</a>&nbsp;&nbsp;Help!</h2>
 <a name="help">
 </a>
 
@@ -10509,13 +11193,16 @@ R. H. Huddlestone and S. L. Leonard, Eds. (Academic, New York, 1965).
  <dt><a href="#CITEFWEB" name="FWEB">[7]</a></dt><dd> <tt>http://w3.pppl.gov/~krommes/fweb_toc.html</tt>
 (<a href="http://w3.pppl.gov/~krommes/fweb_toc.html">FWEB home page</a>)
 </dd>
- <dt><a href="#CITEnCDF" name="nCDF">[8]</a></dt><dd> <tt>http://www.unidata.ucar.edu/packages/netcdf/index.html</tt>
-(<a href="http://www.unidata.ucar.edu/packages/netcdf/index.html">netCDF home page</a>)
+ <dt><a href="#CITEnCDF" name="nCDF">[8]</a></dt><dd> <tt>http://www.unidata.ucar.edu/software/netcdf/</tt>
+(<a href="http://www.unidata.ucar.edu/software/netcdf/">netCDF home page</a>)
 </dd>
- <dt><a href="#CITEHDF" name="HDF">[9]</a></dt><dd> <tt>http://hdf.ncsa.uiuc.edu/</tt>
-(<a href="http://hdf.ncsa.uiuc.edu/">HDF home page</a>)
+ <dt><a href="#CITEHDF" name="HDF">[9]</a></dt><dd> <tt>http://www.hdfgroup.org/</tt>
+(<a href="http://www.hdfgroup.org/">HDF home page</a>)
 </dd>
- <dt><a href="#CITEReit92" name="Reit92">[10]</a></dt><dd> Although never formally published and not readily 
+ <dt><a href="#CITESilo" name="Silo">[10]</a></dt><dd> <tt>https://wci.llnl.gov/codes/silo/index.html</tt>
+(<a href="https://wci.llnl.gov/codes/silo/index.html">Silo home page</a>)
+</dd>
+ <dt><a href="#CITEReit92" name="Reit92">[11]</a></dt><dd> Although never formally published and not readily 
 available online, the EIRENE User's Manual is a very useful reference on 
 the physics and algorithms of Monte Carlo neutral transport: <br />
 D. Reiter, "The EIRENE Code, Version: Jan. 92, Users Manual", EURATOM-KFA
@@ -10527,130 +11214,148 @@ Plasmaphysik in Garching. Try the
 <a href="http://www.rzg.mpg.de/~dpc/solps.html">SOLPS home page</a> for more
 information.
 </dd>
- <dt><a href="#CITECase67" name="Case67">[11]</a></dt><dd> K. M. Case
+ <dt><a href="#CITECase67" name="Case67">[12]</a></dt><dd> K. M. Case
 and P. F. Zweifel, <em>Linear Transport Theory</em> (Addison-Wesley, Reading, MA,
 1967).
 </dd>
- <dt><a href="#CITEStot96" name="Stot96">[12]</a></dt><dd> D. P. Stotler, A. Yu. Pigarov, C. F. F. Karney, 
+ <dt><a href="#CITEMarc96" name="Marc96">[13]</a></dt><dd> R. Marchand and M. Dumberry, <em>Comp. Phys. Comm.</em>
+<b>96</b>, 232 (1996).
+</dd>
+ <dt><a href="#CITEStot96" name="Stot96">[14]</a></dt><dd> D. P. Stotler, A. Yu. Pigarov, C. F. F. Karney, 
 S. I. Krasheninnikov, B. LaBombard, B. Lipschultz, G. M. McCracken,
 A. Niemczewski, J. A. Snipes, J. L. Terry, and R. A. Vesey, in <em>
 Fusion Energy 1996</em> (Proc. 16th Int. Conf. Montreal, 1996), Vol. 2 
 (IAEA, Vienna, 1997) p. 633 (see also the corresponding
 <a href="http://www.pppl.gov/pub_report/1997/PPPL-3221-abs.html">PPPL Report</a>).
   </dd>
- <dt><a href="#CITEJane87" name="Jane87">[13]</a></dt><dd> R. K. Janev, W. D. Langer, K. Evans, Jr., and D. E. Post, Jr., <em>Elementary
+ <dt><a href="#CITEJane87" name="Jane87">[15]</a></dt><dd> R. K. Janev, W. D. Langer, K. Evans, Jr., and D. E. Post, Jr., <em>Elementary
 Processes in Hydrogen-Helium Plasmas</em> (Springer-Verlag, Berlin, 1987)
 (see also the corresponding <a href="http://www-cfadc.phy.ornl.gov/aladdin/aladdin_list.html">Aladdin data file</a>).
 </dd>
- <dt><a href="#CITEReit93" name="Reit93">[14]</a></dt><dd> D. Reiter, in <em>Atomic and Plasma-Material Interaction
+ <dt><a href="#CITEReit93" name="Reit93">[16]</a></dt><dd> D. Reiter, in <em>Atomic and Plasma-Material Interaction
 Processes in Controlled Thermonuclear Fusion</em>, R. K. Janev and H. W.
 Drawin, Eds., (Elsevier, New York, 1993), p. 243.
 </dd>
- <dt><a href="#CITEJane93" name="Jane93">[15]</a></dt><dd> R. K. Janev and J. J. Smith, <em>Atomic and Plasma-Material
+ <dt><a href="#CITEJane93" name="Jane93">[17]</a></dt><dd> R. K. Janev and J. J. Smith, <em>Atomic and Plasma-Material
 Interaction Data for Fusion</em> (Supplement to the journal Nuclear
 Fusion) <b>4</b> (1993) (see also the corresponding <a href="http://www-cfadc.phy.ornl.gov/aladdin/aladdin_list.html">Aladdin data file</a>).
 </dd>
- <dt><a href="#CITEJohn73" name="John73">[16]</a></dt><dd> L. C. Johnson and E. Hinnov, <em>J. Quant. Spectrosc.
+ <dt><a href="#CITEJohn73" name="John73">[18]</a></dt><dd> L. C. Johnson and E. Hinnov, <em>J. Quant. Spectrosc.
 Radiat. Transfer</em> <b>13</b>, 333 (1973).
 </dd>
- <dt><a href="#CITEWeis75" name="Weis75">[17]</a></dt><dd> J. C. Weisheit, <em>J. Phys. B: Atom. Molec. Phys.</em> <b>8</b>,
+ <dt><a href="#CITEWeis75" name="Weis75">[19]</a></dt><dd> J. C. Weisheit, <em>J. Phys. B: Atom. Molec. Phys.</em> <b>8</b>,
 2556 (1975).
 </dd>
- <dt><a href="#CITEGoto2003" name="Goto2003">[18]</a></dt><dd> M. Goto, <em>J. Quant. Spectrosc. Radiat.
+ <dt><a href="#CITEGoto2003" name="Goto2003">[20]</a></dt><dd> M. Goto, <em>J. Quant. Spectrosc. Radiat.
 Transfer</em> <b>76</b>, 331 (2003).
 </dd>
- <dt><a href="#CITEFuji79" name="Fuji79">[19]</a></dt><dd> T. Fujimoto,  <em>J. Quant. Spectrosc. Radiat. 
+ <dt><a href="#CITEFuji79" name="Fuji79">[21]</a></dt><dd> T. Fujimoto,  <em>J. Quant. Spectrosc. Radiat. 
 Transfer</em> <b>21</b>, 439 (1979).
 </dd>
- <dt><a href="#CITEKanz00" name="Kanz00">[20]</a></dt><dd> R. J. Kanzleiter, D. P. Stotler, C. F. F. Karney, and 
+ <dt><a href="#CITEKanz00" name="Kanz00">[22]</a></dt><dd> R. J. Kanzleiter, D. P. Stotler, C. F. F. Karney, and 
 D. Steiner <em>Phys. Plasmas</em> <b>7</b>, 5064 (2000).
 </dd>
- <dt><a href="#CITEKrst98" name="Krst98">[21]</a></dt><dd> P. S. Krstic and D. R. Schultz, <em>Atomic and 
+ <dt><a href="#CITEKrst98" name="Krst98">[23]</a></dt><dd> P. S. Krstic and D. R. Schultz, <em>Atomic and 
 Plasma-Material Data for Fusion</em> <b>8</b>, 1 (1998).
 </dd>
- <dt><a href="#CITEBach95" name="Bach95">[22]</a></dt><dd> P. Bachmann and D. Reiter, <em>Contrib. Plasma Phys.</em> 
+ <dt><a href="#CITEBach95" name="Bach95">[24]</a></dt><dd> P. Bachmann and D. Reiter, <em>Contrib. Plasma Phys.</em> 
 <b>35</b>, 45 (1995).
 </dd>
- <dt><a href="#CITEAbou91" name="Abou91">[23]</a></dt><dd> H. H. Abou-Gabal and G. A. Emmert, <em>Nucl. Fusion</em>
+ <dt><a href="#CITEAbou91" name="Abou91">[25]</a></dt><dd> H. H. Abou-Gabal and G. A. Emmert, <em>Nucl. Fusion</em>
 <b>31</b>, 407 (1991).
 </dd>
- <dt><a href="#CITEDalg58" name="Dalg58">[24]</a></dt><dd> A. Dalgarno, <em>Phil. Trans. R. Soc. London, Ser. A</em>
+ <dt><a href="#CITEDalg58" name="Dalg58">[26]</a></dt><dd> A. Dalgarno, <em>Phil. Trans. R. Soc. London, Ser. A</em>
 <b>250</b>, 426 (1958).
 </dd>
- <dt><a href="#CITEHols52" name="Hols52">[25]</a></dt><dd> T. Holstein, <em>J. Phys. Chem.</em> <b>56</b>, 832 (1952).
+ <dt><a href="#CITEHols52" name="Hols52">[27]</a></dt><dd> T. Holstein, <em>J. Phys. Chem.</em> <b>56</b>, 832 (1952).
 </dd>
- <dt><a href="#CITEWade79" name="Wade79">[26]</a></dt><dd> J. M. Wadehra, <em>Phys. Rev. A</em> <b>20</b>, 1859 (1979).
+ <dt><a href="#CITEWade79" name="Wade79">[28]</a></dt><dd> J. M. Wadehra, <em>Phys. Rev. A</em> <b>20</b>, 1859 (1979).
 </dd>
- <dt><a href="#CITEBarn90" name="Barn90">[27]</a></dt><dd>C. F. Barnett, <em>Atomic Data for Fusion</em>, Oak Ridge
+ <dt><a href="#CITEBarn90" name="Barn90">[29]</a></dt><dd>C. F. Barnett, <em>Atomic Data for Fusion</em>, Oak Ridge
 National Laboratory Report ORNL-6086, Vol. 1 (1990).
 </dd>
- <dt><a href="#CITENewm82" name="Newm82">[28]</a></dt><dd> J. H. Newman, J. D. Cogan, D. L. Ziegler et al., <em>Phys.
+ <dt><a href="#CITENewm82" name="Newm82">[30]</a></dt><dd> J. H. Newman, J. D. Cogan, D. L. Ziegler et al., <em>Phys.
 Rev. A</em> <b>25</b>, 2976 (1982).
 </dd>
- <dt><a href="#CITERevi71" name="Revi71">[29]</a></dt><dd> A. C. Reviere, <em>Nucl. Fusion</em> <b>11</b>, 363 (1971). 
+ <dt><a href="#CITERevi71" name="Revi71">[31]</a></dt><dd> A. C. Reviere, <em>Nucl. Fusion</em> <b>11</b>, 363 (1971). 
 </dd>
- <dt><a href="#CITEOHan89" name="OHan89">[30]</a></dt><dd>J. F. O'Hanlon, <em>A User's Guide to Vacuum Technology</em>
+ <dt><a href="#CITEOHan89" name="OHan89">[32]</a></dt><dd>J. F. O'Hanlon, <em>A User's Guide to Vacuum Technology</em>
 (John Wiley &amp; Sons, New York, 1989).
 </dd>
- <dt><a href="#CITENiem95" name="Niem95">[31]</a></dt><dd> A. Niemczewski, Ph. D. Thesis, Massachusetts Institute
+ <dt><a href="#CITENiem95" name="Niem95">[33]</a></dt><dd> A. Niemczewski, Ph. D. Thesis, Massachusetts Institute
 of Technology, Plasma Fusion Center Report PFC/RR-95-8 (1995).
 </dd>
- <dt><a href="#CITEBhat54" name="Bhat54">[32]</a></dt><dd> P. L. Bhatnagar, E. P. Gross, and M. Krook, <em>Phys.
+ <dt><a href="#CITEBhat54" name="Bhat54">[34]</a></dt><dd> P. L. Bhatnagar, E. P. Gross, and M. Krook, <em>Phys.
 Rev.</em> <b>94</b>, 511 (1954).
 </dd>
- <dt><a href="#CITEWela54" name="Wela54">[33]</a></dt><dd> P. Welander, <em>Arkiv Fysik</em> <b>7</b>, 507 (1954).
+ <dt><a href="#CITEWela54" name="Wela54">[35]</a></dt><dd> P. Welander, <em>Arkiv Fysik</em> <b>7</b>, 507 (1954).
 </dd>
- <dt><a href="#CITEMayxx" name="Mayxx">[34]</a></dt><dd> Chr. May, Ph. D. Thesis. 
+ <dt><a href="#CITEMayxx" name="Mayxx">[36]</a></dt><dd> Chr. May, Ph. D. Thesis. 
 </dd>
- <dt><a href="#CITEReit97" name="Reit97">[35]</a></dt><dd> D. Reiter, Chr. May,
+ <dt><a href="#CITEReit97" name="Reit97">[37]</a></dt><dd> D. Reiter, Chr. May,
 M. Baelmans, and P. B&#246;rner, <em>J. Nucl. Mater.</em> <b>241</b>, 342 (1997).
 </dd>
- <dt><a href="#CITEKanz99" name="Kanz99">[36]</a></dt><dd> R. J. Kanzleiter, Ph. D. Thesis, Rensselaer Polytechnic
+ <dt><a href="#CITEKanz99" name="Kanz99">[38]</a></dt><dd> R. J. Kanzleiter, Ph. D. Thesis, Rensselaer Polytechnic
 Institute (1999).
 </dd>
- <dt><a href="#CITEChap70" name="Chap70">[37]</a></dt><dd> S. Chapman and T. G. Cowling, <em>The Mathematical
+ <dt><a href="#CITEChap70" name="Chap70">[39]</a></dt><dd> S. Chapman and T. G. Cowling, <em>The Mathematical
 Theory of Non-Uniform Gases</em> (Cambridge University Press, 1970).
 </dd>
- <dt><a href="#CITEMors63" name="Mors63">[38]</a></dt><dd> T. F. Morse, <em>Phys. Fluids</em> <b>6</b>, 1420 (1963).
+ <dt><a href="#CITEMors63" name="Mors63">[40]</a></dt><dd> T. F. Morse, <em>Phys. Fluids</em> <b>6</b>, 1420 (1963).
 </dd>
- <dt><a href="#CITEReid87" name="Reid87">[39]</a></dt><dd> R. C. Reid, J. M. Prausnitz, B. E. Poling, <em>The
+ <dt><a href="#CITEReid87" name="Reid87">[41]</a></dt><dd> R. C. Reid, J. M. Prausnitz, B. E. Poling, <em>The
 Properties of Liquids and Gases</em> (McGraw-Hill Book Company, New York, 1987).
 </dd>
- <dt><a href="#CITECRC" name="CRC">[40]</a></dt><dd> <em>CRC Handbook of Chemistry and Physics, 75th Edition,
+ <dt><a href="#CITECRC" name="CRC">[42]</a></dt><dd> <em>CRC Handbook of Chemistry and Physics, 75th Edition,
 1913-1995</em>, D. R. Lide, Ed., p. 6-239 (CRC Press, Boca Raton, 1994).
 </dd>
- <dt><a href="#CITEWill62" name="Will62">[41]</a></dt><dd> D. R. Willis, <em>Phys. Fluids</em> <b>5</b>, 127 (1962).
+ <dt><a href="#CITEChan2008" name="Chan2008">[43]</a></dt><dd> C. S. Chang, S. Klasky, J. Cummings et al., 
+<em>J. Phys.: Conf. Ser.</em> <b>125</b>, 012040 (2008).
 </dd>
- <dt><a href="#CITECerc69" name="Cerc69">[42]</a></dt><dd> C. Cercignani, <em>J. Stat. Phys.</em> <b>1</b>, 297 (1969).
+ <dt><a href="#CITEWill62" name="Will62">[44]</a></dt><dd> D. R. Willis, <em>Phys. Fluids</em> <b>5</b>, 127 (1962).
 </dd>
- <dt><a href="#CITECerc75" name="Cerc75">[43]</a></dt><dd> C. Cercignani, <em>Theory and Application of the Boltzmann
+ <dt><a href="#CITECerc69" name="Cerc69">[45]</a></dt><dd> C. Cercignani, <em>J. Stat. Phys.</em> <b>1</b>, 297 (1969).
+</dd>
+ <dt><a href="#CITECerc75" name="Cerc75">[46]</a></dt><dd> C. Cercignani, <em>Theory and Application of the Boltzmann
 Equation</em> (Scottish Academic Press, New York, 1975).
 </dd>
- <dt><a href="#CITEBevi69" name="Bevi69">[44]</a></dt><dd> P. R. Bevington, <em>Data Reduction and Error Analysis
+ <dt><a href="#CITEBevi69" name="Bevi69">[47]</a></dt><dd> P. R. Bevington, <em>Data Reduction and Error Analysis
 for the Physical Sciences</em> (McGraw-Hill Book Company, New York, 1969).
 </dd>
- <dt><a href="#CITEEcks91" name="Ecks91">[45]</a></dt><dd> W. Eckstein, <em>Computer Simulation of Ion-Solid
+ <dt><a href="#CITEEcks91" name="Ecks91">[48]</a></dt><dd> W. Eckstein, <em>Computer Simulation of Ion-Solid
 Interactions</em> (Springer-Verlag, New York, 1991).
 </dd>
- <dt><a href="#CITEBate80" name="Bate80">[46]</a></dt><dd> G. Bateman, "Distribution of Neutrals Scattered Off 
+ <dt><a href="#CITEBate80" name="Bate80">[49]</a></dt><dd> G. Bateman, "Distribution of Neutrals Scattered Off 
 A Wall", PPPL Applied Physics Division Report # 1 (1980).
 </dd>
- <dt><a href="#CITEMacm67" name="Macm67">[47]</a></dt><dd> D. B. Macmillan, <em>SIAM J. Appl. Math.</em> <b>15</b>, 264 
+ <dt><a href="#CITEMacm67" name="Macm67">[50]</a></dt><dd> D. B. Macmillan, <em>SIAM J. Appl. Math.</em> <b>15</b>, 264 
 (1967).
 </dd>
- <dt><a href="#CITESpan66" name="Span66">[48]</a></dt><dd> J. Spanier, <em>SIAM J. Appl. Math.</em> <b>14</b>, 702 (1966).
+ <dt><a href="#CITESpan66" name="Span66">[51]</a></dt><dd> J. Spanier, <em>SIAM J. Appl. Math.</em> <b>14</b>, 702 (1966).
 </dd>
- <dt><a href="#CITEKnuth97" name="Knuth97">[49]</a></dt><dd> D. E. Knuth, <em>The Art of Computer Programming</em> 
+ <dt><a href="#CITEKnuth97" name="Knuth97">[52]</a></dt><dd> D. E. Knuth, <em>The Art of Computer Programming</em> 
 (Addison-Wesley, Reading, MA, 1997).
 </dd>
- <dt><a href="#CITEPitc00" name="Pitc00">[50]</a></dt><dd> C. S. Pitcher, C. J. Boswell, J. A. Goetz et al., <em>Phys.
+ <dt><a href="#CITEPitc00" name="Pitc00">[53]</a></dt><dd> C. S. Pitcher, C. J. Boswell, J. A. Goetz et al., <em>Phys.
 Plasmas</em> <b>7</b>, 1894 (2000).
 </dd>
- <dt><a href="#CITEPitc01" name="Pitc01">[51]</a></dt><dd> C. S. Pitcher, C. J. Boswell, T. Chung
+ <dt><a href="#CITEPitc01" name="Pitc01">[54]</a></dt><dd> C. S. Pitcher, C. J. Boswell, T. Chung
 et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 </dd>
- <dt><a href="#CITEStot01" name="Stot01">[52]</a></dt><dd> D. P. Stotler, C. S. Pitcher, C. J. Boswell et al.,
-<em>J. Nucl. Mater.</em> <b>290-293</b>, 967 (2001).</dd>
+ <dt><a href="#CITEStot01" name="Stot01">[55]</a></dt><dd> D. P. Stotler, C. S. Pitcher, C. J. Boswell et al.,
+<em>J. Nucl. Mater.</em> <b>290-293</b>, 967 (2001).
+</dd>
+ <dt><a href="#CITEStot2007" name="Stot2007">[56]</a></dt><dd> D. P. Stotler,
+J. Boedo, B. LeBlanc, R. J. Maqueda, and S. J. Zweben, 
+<em>J. Nucl. Mater.</em> <b>363-365</b>, 686 (2007).
+</dd>
+ <dt><a href="#CITEStot2004" name="Stot2004">[57]</a></dt><dd> D. P. Stotler, D. A. D'Ippolito, B. LeBlanc, 
+R. J. Maqueda, J. R. Myra, S. A. Sabbagh,
+and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
+</dd>
+ <dt><a href="#CITEZarn2001" name="Zarn2001">[58]</a></dt><dd> M. C. Zarnstorff, L. A. Berry, A. Brooks et al.,
+<em>Plasma Phys. Control. Fusion</em> <b>43</b>, A237 (2001).  See also
+the <a href="http://ncsx.pppl.gov">NCSX web site</a>.</dd>
 </dl>
 
 <div class="p"><!----></div>
@@ -10675,6 +11380,8 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
  <dt><b></b></dt>
 	<dd>boxgen, <a href="#boxgen34">3.4</a><br /><br /></dd>
  <dt><b></b></dt>
+	<dd>Carre, <a href="#Carre34">3.4</a>, <a href="#Carre37">3.7</a></dd>
+ <dt><b></b></dt>
 	<dd>Charge exchange, <a href="#Charge exchange29">2.9</a></dd>
  <dt><b></b></dt>
 	<dd>chargex, <a href="#chargex35">3.5</a></dd>
@@ -10689,18 +11396,22 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
  <dt><b></b></dt>
 	<dd>datasetup, <a href="#datasetup34">3.4</a></dd>
  <dt><b></b></dt>
-	<dd>defineback, <a href="#defineback34">3.4</a></dd>
+	<dd>defineback, <a href="#defineback34">3.4</a>, 
+		<a href="#defineback37">3.7</a></dd>
  <dt><b></b></dt>
 	<dd>defineback input, <a href="#defineback input35">3.5</a></dd>
  <dt><b></b></dt>
 	<dd>definegeometry2d, <a href="#definegeometry2d32">3.2</a>, 
-		<a href="#definegeometry2d34">3.4</a></dd>
+		<a href="#definegeometry2d34">3.4</a>, 
+		<a href="#definegeometry2d37">3.7</a></dd>
  <dt><b></b></dt>
 	<dd>definegeometry2d input, <a href="#definegeometry2d input35">3.5</a></dd>
  <dt><b></b></dt>
 	<dd>DEGAS, <a href="#DEGAS12">1.2</a>, <a href="#DEGAS13">1.3</a></dd>
  <dt><b></b></dt>
 	<dd>desorption, <a href="#desorption35">3.5</a></dd>
+ <dt><b></b></dt>
+	<dd>DG, <a href="#DG34">3.4</a>, <a href="#DG37">3.7</a></dd>
  <dt><b></b></dt>
 	<dd>Differential cross section, 
 		<a href="#Differential cross section29">2.9</a></dd>
@@ -10756,6 +11467,8 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 	<dd>gmake, <a href="#gmake32">3.2</a><br /><br /></dd>
  <dt><b></b></dt>
 	<dd>HDF, <a href="#HDF14">1.4</a>, <a href="#HDF32">3.2</a></dd>
+ <dt><b></b></dt>
+	<dd>HDF5, <a href="#HDF532">3.2</a></dd>
  <dt><b></b></dt>
 	<dd>HOME, <a href="#HOME33">3.3</a></dd>
 </dl></td></tr><tr><td width="48%" valign="top"><hr />
@@ -10876,6 +11589,8 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
  <dt><b></b></dt>
 	<dd>Scoring, <a href="#Scoring21">2.1</a></dd>
  <dt><b></b></dt>
+	<dd>Silo, <a href="#Silo32">3.2</a></dd>
+ <dt><b></b></dt>
 	<dd>sourcetest, <a href="#sourcetest34">3.4</a></dd>
  <dt><b></b></dt>
 	<dd>species, <a href="#species35">3.5</a></dd>
@@ -10926,7 +11641,7 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 
 
 <div class="p"><!----></div>
- 
+
 <h1>Contents </h1><a href="#tth_chAp1"
 >1&nbsp; Introduction</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc1.1"
@@ -10998,11 +11713,11 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.3"
 >3.2.3&nbsp; FWEB</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.4"
->3.2.4&nbsp; Concurrent Version System</a><br />
+>3.2.4&nbsp; Triangle</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.5"
->3.2.5&nbsp; HDF</a><br />
+>3.2.5&nbsp; Silo and HDF</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.2.6"
->3.2.6&nbsp; Triangle</a><br />
+>3.2.6&nbsp; Concurrent Version System</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.3"
 >3.3&nbsp; Structure of the DEGAS 2 File System</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.4"
@@ -11015,6 +11730,8 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 >3.4.3&nbsp; Test Routines</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.4.4"
 >3.4.4&nbsp; Miscellaneous Routines</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.4.5"
+>3.4.5&nbsp; DG and Carre</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.5"
 >3.5&nbsp; Input Files</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.5.1"
@@ -11067,6 +11784,10 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 >3.7.1&nbsp; Analytic_fluid_bench</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.7.2"
 >3.7.2&nbsp; Neutral-Neutral Scattering Examples</a><br />
+
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.7.3"
+>3.7.3&nbsp; definegeometry2d and defineback Examples</a><br />
 
 
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.8"
@@ -11158,13 +11879,9 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc4.7.11"
 >4.7.11&nbsp; EIRENE Performance</a><br />
 <a href="#tth_chAp5"
->5&nbsp; Future Work</a><br />
+>5&nbsp; Troubleshooting</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc5.1"
->5.1&nbsp; To Do List</a><br />
-<a href="#tth_chAp6"
->6&nbsp; Troubleshooting</a><br />
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc6.1"
->6.1&nbsp; Help!</a><br />
+>5.1&nbsp; Help!</a><br />
 <a href="#tth_sEcindex">Index</a><br />
 
 <div class="p"><!----></div>
@@ -11173,11 +11890,11 @@ et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 <div class="p"><!----></div>
 <a name="tthFtNtAAB"></a><a href="#tthFrefAAB"><sup>1</sup></a>This file is written in <span class="roman">T</span><sub><span class="roman">E</span></sub><span class="roman">X</span>. 
 A hyper-linked PDF
-file is generated from that source using <tt>pdflatex</tt>. The version number 
-here is the CVS version number for the User's Manual itself.  This document
-is now distributed as part of the DEGAS 2 code. The user can be best assured
-of concurrence between code and manual by referring to the version of the manual
-that came with the code. Copyright &#169;  2001 PPPL.
+file is generated from that source using <tt>pdflatex</tt>. This document
+is distributed as part of the DEGAS 2 code. The user can be best assured
+of concurrence between code and manual by referring to the 
+version of the manual
+that came with the code. Copyright &#169;  2009 PPPL.
 Permission is granted to make and distribute verbatim copies of this manual
 provided the copyright and permission notice is preserved on all copies.
 Permission is granted to copy and distribute modified versions of this
@@ -11198,5 +11915,5 @@ D2+ totals will also stand out as apparently significant discrepancies.
 T<sub><font size="-1">E</font></sub>X
 by <a href="http://hutchinson.belmont.ma.us/tth/">
 T<sub><font size="-1">T</font></sub>H</a>,
-version 3.72.<br />On 22 Jun 2007, 12:08.</small>
+version 3.72.<br />On 24 Nov 2009, 14:24.</small>
 </html>
