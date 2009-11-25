@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.29  1999/03/25 20:45:21  dstotler
+% Fix fweave bug in a comment. Changed section titles.
+%
 % Revision 1.28  1998/09/29 13:12:14  dstotler
 % Define an existing, but trivial mp_mod for non-MPI builds under F90,
 % rather than a non-existing one.
@@ -633,6 +636,7 @@ same. */
       $DEFINE(pk##_pvmput process_pk(pk,pvmput))
       $DEFINE(pk##_pvmget process_pk(pk,pvmget))
       $DEFINE(pk##_mpibcast process_pk(pk,mpibcast))
+      $DEFINE(pk##_mpibcastna process_pk(pk,mpibcastna))
       $DEFINE(pk##_mpisend(dest,tag) process_pk(pk,mpisend,dest,tag))
       $DEFINE(pk##_mpireceive(source,tag) process_pk(pk,mpireceive,source,tag))
 
@@ -873,6 +877,34 @@ invoking a macro for entity.
 @#endif
 
 @m end_mpibcast(pk)
+//
+// This is the same as the above, but skips the
+// allocation step on the slaves; to be used
+// for iterative calculations.
+//
+@m start_mpibcastna(pk)
+
+@#if MPI
+@m do_mpibcastna(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        mpi_broadcast(var);,
+        mpi_broadcast(var);,
+        )
+@#else
+@m do_mpibcastna(pk,var,cat)
+      $ASSERT( cat >= PK_CAT_MIN && cat <= PK_CAT_MAX )
+      $IFCASE(cat,
+        ,
+        ,
+        ,
+        ,
+        )
+@#endif
+
+@m end_mpibcastna(pk)
 
 @m start_mpisend(pk,dest,tag)
 
