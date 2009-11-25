@@ -1056,7 +1056,7 @@ by executing the \textbf{\texttt{Edit $\mid$ Delete $\mid$ Surfaces}} command
 The next step is to open the \textbf{\texttt{Create surface(s)...}} dialog,
 \textbf{\texttt{Edit  \begin{math}\vert{}\end{math}  Create \begin{math}\vert{}\end{math}  Surfaces...}} (see Fig~\ref{createsurfacesfig}).
 In Carre mode, the user can only create multiple surfaces (i.e., the ``Single''
-option will not work).  The ''Area'' menu determines in which part
+option will not work).  The ``Area'' menu determines in which part
 (topologically) of the equilibrium the surfaces will be drawn.  The number
 of Cells must be input manually.  The line graph in the dialog box is a
 simple depiction of the relative spacing of the surfaces.  In Carre mode,
@@ -1977,7 +1977,188 @@ These are not needed after this step and can be deleted.
    \end{enumerate}
 \end{enumerate}
 
+\section{Example application of DG \& Carre with DEGAS 2}
+\label{dgdegas2}
 
+This example workflow illustrates the application of the combined
+DG, Carre, and DEGAS 2's {\tt definegeometry2d} codes for a single
+problem.
+
+\begin{enumerate}
+  \item {\bf Prepare equilibrium data}
+  \begin{itemize}
+    \item EFIT equilibrium data usually consist of 
+3 files, having names beginning with 
+``a'', ``g'', and ``k''.  This letter is followed by additional information
+that somehow encodes the shot number or date and time during the
+shot (this varies from one machine to the next). 
+DG only needs the ``g'' file.
+    \item Copy the desired ``g'' file to \verb+degas2/dg_carre/DG/equtrn+.  
+To avoid confusion, add \verb+.efit+ to this file name.
+    \item Run \verb+e2d+ on this file, e.g., \\
+\verb+e2d g112811.00490.efit g112811.00490.equ+ \\
+The translated \verb+.equ+ file is in a format that DG can read.
+    \item Copy the resulting file to the DG run directory, 
+e.g., \\
+\verb+degas2/dg_carre/DG/class/nstx+.  
+Moving both the \verb+.efit+ and \verb+.equ+ files 
+will help prevent the {\tt equtrn} directory from getting cluttered.  E.g., \\
+\verb+mv g112811.00490.e* ../class/nstx/+
+  \end{itemize}
+  \item {\bf Run DG}
+  \begin{itemize}
+    \item Change to the DG run directory.  The {\tt setup.csh} 
+script creates an alias for this with the name \verb+cddg+.
+    \item The DG documentation describes procedures for setting up the geometry
+of an experiment from scratch.  Instead, the following describes 
+modifications to an existing geometry, 
+creating a new mesh from the equilibrium and
+matching it up to the hardware (``elements'' in DG).  E.g., begin by
+running on the command line: \\
+\verb+dg nstx_25.dg+
+    \item Check the 
+\textbf{\texttt{Options  \begin{math}\vert{}\end{math} Output Mode...}} 
+dialog to be sure that the \textbf{\texttt{Carre}} radio button is selected.
+    \item Under DG's \textbf{\texttt{Edit}} menu, 
+\textbf{\texttt{Delete}} the Mesh and Equilibrium.
+    \item Then, use \textbf{\texttt{File \begin{math}\vert{}\end{math} Import \begin{math}\vert{}\end{math} Equilibrium}} to load the new equilibrium
+file.
+  \end{itemize}
+  \item {\bf Create plasma mesh}
+  \begin{itemize}
+    \item DG is used to graphically set up the input for Carre.  Carre is run 
+explicitly on the command line and the resulting mesh is loaded
+into DG.
+    \item The first step is to create the flux surfaces that Carre will use. 
+Choose \textbf{\texttt{View \begin{math}\vert{}\end{math} Display \begin{math}\vert{}\end{math} Surfaces}} to see if there are any surfaces
+already defined. 
+    \begin{itemize}
+      \item If none are seen, use the \textbf{\texttt{File \begin{math}\vert{}\end{math} Import \begin{math}\vert{}\end{math} Topology}} dialog
+to import the topology corresponding to this equilibrium (e.g.,
+SN for lower single null).
+      \item If there are existing surfaces, use \textbf{\texttt{Edit \begin{math}\vert{}\end{math} Delete \begin{math}\vert{}\end{math} Surfaces}} to
+delete them.
+    \end{itemize}
+    \item In DG's Carre mode, one uses the \textit{\texttt{Add surface}} 
+mouse button to create a single surface in the core of an X-point 
+equilibrium.
+    \item The \textbf{\texttt{Edit \begin{math}\vert{}\end{math} Create Surface(s)...}} dialog is then used to generate the rest.
+    \begin{itemize}
+      \item A typical number of cells for the Core might be 26
+with 19 in the SOL.  The number in the PFR must match
+that of the Core. 
+      \item Make a note of the number of cells used in the 
+Core; this will be useful in setting up the input file for 
+DEGAS 2's {\tt defineback} input file.
+      \item The values of ``Delta1'' and ``Delta2'' can then be varied, 
+either by hand or by tweaking the graphical display in the dialog box.
+      \item The particular objective depends on the problem at hand.  E.g.,
+it might be to get the spacing of surfaces
+near midplane roughly uniform going across the separatrix about
+1 mm apart.
+    \end{itemize}
+    \item Similarly, the \textbf{\texttt{Edit \begin{math}\vert{}\end{math} Create grid point(s)...}} dialog is run to 
+set the spacing of the mesh along the separatrix.
+    \begin{itemize}
+      \item Be sure to select \textbf{\texttt{View \begin{math}\vert{}\end{math} Display \begin{math}\vert{}\end{math} Grid points}}.
+      \item The dialog box works just like the one for 
+\textbf{\texttt{Create surface(s)}}.
+      \item Again, the number and spacing of the cells depends on the
+problem at hand.
+    \end{itemize}
+    \item To prepare to run Carre:
+    \begin{itemize}
+      \item Do \textbf{\texttt{File \begin{math}\vert{}\end{math} Save}} 
+to save the \verb+.dg+ file,
+      \item \textbf{\texttt{File \begin{math}\vert{}\end{math} Output}} 
+to create the files Carre will use,
+      \item Create the links to those files using the {\tt lns} script.  The
+argument for this script is the root of the DG file name.  E.g.,
+for \verb+nstx_25.dg+, we would do on the command line: \\
+\verb+lns nstx_25+
+    \end{itemize}
+    \item Run Carre
+    \begin{itemize}
+      \item Change to the Carre directory with the alias \verb+cdcarre+
+      \item On the command line, type: \\ \verb+carre -+
+      \item If all goes well, one can use the default response (in 
+parentheses) to each of Carre's queries and ``y'' to the yes / no questions.
+      \item Make a note of the number of the file containing the resulting
+grid.  This will be stored in DG's run directory.
+    \end{itemize}
+    \item Load mesh into DG with the 
+\textbf{\texttt{File \begin{math}\vert{}\end{math} Import \begin{math}\vert{}\end{math} Mesh}} dialog.
+    \item Note that this dialog box initially looks for files ending in 
+\verb+.sno+.  Replace this \verb+*.sno+ with "*" and click the 
+\textbf{\texttt{Filter}} button.
+  \end{itemize}
+  \item {\bf Create DG's polygons}
+  \begin{itemize}
+    \item The first step here is to decide how much of the mesh will be used in
+the DEGAS 2 simulation.  That is, {\tt definegeometry2d} allows one
+to use only a contiguous subset of the entire mesh generated by Carre.
+    \begin{itemize}
+      \item Note that the outermost mesh cells are very narrow and can
+only be discerned by zooming in.  These are used to set boundary
+conditions in fluid plasma transport codes.
+      \item Note also that both DG and the Carre-generated mesh file 
+(this is referred to as the ``Sonnet format'' file) 
+begin numbering mesh cells at 0.  In contrast, DEGAS 2's 
+{\tt definegeometry2d} 
+starts its numbering at 1, so add 1 to the indices noted in DG.
+      \item As on the outer edge of the mesh, 
+there is also a very narrow ``ghost'' cell at the
+innermost edge.
+    \end{itemize}
+    \item The objective in defining polygons for use with 
+{\tt definegeometry2d} is to have them fill the entire problem space.  
+To facilitate that, begin by defining a rectangular box
+(with \textbf{\texttt{Edit \begin{math}\vert{}\end{math} Create \begin{math}\vert{}\end{math} Point...}}) with
+corners exactly matching the box defined by the \verb+bounds+ keyword
+in {\tt definegeometry2d}.  That these match exactly is crucial.
+    \item Existing polygons can be examined via the 
+\textbf{\texttt{Variables \begin{math}\vert{}\end{math} Polygon \begin{math}\vert{}\end{math} (polygon number)}} dialogs. 
+    \begin{itemize}
+      \item The ``Wall'' component of the polygon 
+refers to a set of contiguous elements that will form most or 
+all of the polygon.  The \textbf{\texttt{Mark}} 
+button can be used to show the current definition.  Its value can 
+be changed by marking or unmarking elements and then clicking the 
+\textbf{\texttt{Set}} button.
+      \item The \textbf{\texttt{Material}} 
+component is currently not used and can be ignored.
+    \end{itemize}
+    \item Polygons consisting only of a ``Wall'' (closed polygons) 
+are complete.
+    \begin{itemize}
+      \item The ``First Mesh Connection'' and ``Second Mesh Connection'' 
+components need not be specified.
+    \end{itemize}
+    \item However, some polygons will be closed by connecting the 
+``Wall'' elements to an edge of the mesh and following along that edge.  
+The points at which these connections are made and the edge to be included are
+specified by the ``First Mesh Connection'' and ``Second Mesh Connection'' 
+components and the \verb+iedge+ keyword in {\tt definegeometry2d}.
+    \begin{itemize}
+      \item Each ``Mesh Connection'' consists of the two mesh elements 
+adjacent to the desired connection point, one going along the
+flux surface and one along the orthogonal.  If the 
+\verb+sonnet_mesh+ keyword in {\tt definegeometry2d} 
+will use a subset of the mesh, these elements need to be in that subset.
+      \item  Make a note of the corresponding mesh edge to use with the
+\verb+iedge+ keyword in {\tt definegeometry2d}.  These are denoted by
+S (for ``south'', $i_z = 0$), E (``east'', $i_x = n_x$), N 
+(``north'', $i_z = n_z$), or W (``west'', $i_x = 0$).
+    \end{itemize}
+  \end{itemize}
+  \item {\bf Finish with DG}
+  \begin{itemize}
+    \item Again, save the file and do 
+\textbf{\texttt{File \begin{math}\vert{}\end{math} Output}}.
+    \item Copy the resulting \verb+.dgo+ (not \verb+.dg+) and Carre mesh
+files to the DEGAS 2 run directory.
+  \end{itemize}
+\end{enumerate}
 
 \chapter{File formats}
 
