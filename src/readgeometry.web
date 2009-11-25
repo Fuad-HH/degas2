@@ -2,6 +2,9 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.46  2007/06/19 17:43:15  dstotler
+% Modified inpt_uedge to match revised header format.
+%
 % Revision 1.45  2006/01/19 20:00:28  dstotler
 % Make calling arguments for decompose_polygon consistent with dummy
 % arguments (i.e., zonearray and facearray).  Use new interface to
@@ -663,6 +666,10 @@ See the Examples section in the manual for additional examples of
 
       num_polygon=0
 
+      minx=zero
+      minz=zero
+      mindensity=zero
+
       var_realloca(polygon_x)
       var_realloca(polygon_temperature)
       var_realloca(polygon_recyc_coef)
@@ -1003,7 +1010,7 @@ eof:  continue
                   if ((zn_type(zone1) == zn_solid) && (zn_type(zone2) == zn_plasma)) then
                      sector1=define_sector(stratum,polygon_segment[j+1,i],
      $                    -face1,zone2,zone1)
-                     define_sector_plasma(sector1,polygon_temperature[i]*boltzmanns_const)
+                     define_sector_plasma(sector1)
                      sector2=define_sector(stratum,polygon_segment[j+1,i],
      $                    face1,zone1,zone2)
                      assert(ma_check(polygon_material[i]))
@@ -1027,7 +1034,7 @@ eof:  continue
                   else if ((zn_type(zone1) == zn_exit) && ((zn_type(zone2) == zn_plasma) )) then
                      sector1=define_sector(stratum,polygon_segment[j+1,i],
      $                    -face1,zone2,zone1)
-                     define_sector_plasma(sector1,zero)
+                     define_sector_plasma(sector1)
                      sector2=define_sector(stratum,polygon_segment[j+1,i],
      $                    face1,zone1,zone2)
                      define_sector_exit(sector2) 
@@ -2707,16 +2714,16 @@ so that their array indexing gets handled correctly.
       real theta[ctop_views]
 
       data (theta(i),i=1,ctop_views)
-     .      /const(-1.59500,1),const(-1.50800,1),const(-1.41000,1),
-     .       const(-1.32200,1),const(-1.22200,1),const(-1.12700,1),
-     .       const(-1.03200,1),const(-9.35501),const(-8.39001),const(-7.46500),
-     .       const(-6.54001),const(-5.51001),const(-4.48001),const(-3.48999),
-     .       const(-2.50000),const(-1.66699),const(-8.34015,-1),
-     .       const(2.63000,-1),const(1.35999),const(2.50500),const(3.64999),
-     .       const(4.53000),const(5.41000),const(6.33499),const(7.26001),
-     .       const(8.28500),const(9.31000),const(1.02650,1),const(1.12200,1),
-     .       const(1.21700,1),const(1.31200,1),const(1.41000,1),
-     .       const(1.50800,1),const(1.59500,1),const(1.69100,1)/
+     .      /dconst(-1.59500,1),dconst(-1.50800,1),dconst(-1.41000,1),
+     .       dconst(-1.32200,1),dconst(-1.22200,1),dconst(-1.12700,1),
+     .       dconst(-1.03200,1),dconst(-9.35501),dconst(-8.39001),dconst(-7.46500),
+     .       dconst(-6.54001),dconst(-5.51001),dconst(-4.48001),dconst(-3.48999),
+     .       dconst(-2.50000),dconst(-1.66699),dconst(-8.34015,-1),
+     .       dconst(2.63000,-1),dconst(1.35999),dconst(2.50500),dconst(3.64999),
+     .       dconst(4.53000),dconst(5.41000),dconst(6.33499),dconst(7.26001),
+     .       dconst(8.28500),dconst(9.31000),dconst(1.02650,1),dconst(1.12200,1),
+     .       dconst(1.21700,1),dconst(1.31200,1),dconst(1.41000,1),
+     .       dconst(1.50800,1),dconst(1.59500,1),dconst(1.69100,1)/
 
       declare_varp(zone_frags)
 
