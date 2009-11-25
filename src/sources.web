@@ -2,6 +2,10 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.24  2007/06/19 17:44:11  dstotler
+% Modify incident ion energy to use plasma_e_ion_sheath. Add an assert
+% on background species in plate_v_details.
+%
 % Revision 1.23  2006/01/19 20:03:38  dstotler
 % Add an assert on ion_energy in plate_v_details.  Extend to 3-D.
 % Changed usage of 2nd component of R-weighting of surface and volume
@@ -364,7 +368,7 @@ If present, the third dimension is sampled uniformly.
       fr=geom_epsilon/vc_abs(vnorm)
       vc_xvt(xsrc,vnorm,fr,lc_x(x))
 
-      lc_set(x)
+      lc_set_a(x)
 /* 
    Add this to double-check 3-D cases.
 */
@@ -419,7 +423,7 @@ the third dimension is sampled uniformly.
 
       if (est == tl_est_post_process) then
          vc_copy(zone_center[xseg],lc_x(x))
-         lc_set(x)
+         lc_set_a(x)
          assert((lc_cell(x) > 0) && (lc_zone(x) == xseg))
       else
          i=0
@@ -471,7 +475,7 @@ loop:    continue
             vc_set(lc_x(x),x0*cos(y0),x0*sin(y0),z0)
          end if
 
-         lc_set(x)
+         lc_set_a(x)
 
          if (lc_cell(x) < 0 || lc_zone(x) != xseg) goto loop
       end if
@@ -739,12 +743,6 @@ with an isotropic distribution; we would need another routine for that.
          temp=wall_temperature[sector_type_pointer[xseg][sc_wall]]
       else if (sc_target_check(sector_type_pointer[xseg][sc_target])) then
          temp=target_temperature[sector_type_pointer[xseg][sc_target]]
-/*
-   Just add this on for 3-D in the hope of facilitating backward
-   compatibility.
-*/
-      else if (sc_plasma_check(sector_type_pointer[xseg][sc_plasma])) then
-         temp=plasma_temperature[sector_type_pointer[xseg][sc_plasma]]
       else
          assert('Puffing surface not found' == ' ')
       end if
