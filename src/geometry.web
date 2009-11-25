@@ -3,6 +3,13 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.35  2006/01/19 19:22:21  dstotler
+% Add factor of v to e1 in normal-incidence section of surface_reflect
+% so test in final assert is dimensionless.  Move evaluation of outgoing
+% sector in fn. track outside the test on particle type. Increase factor
+% in surface_reflect test from 3 to 4.  Replace two asserts with more
+% detailed information dumps to facilitate debugging of long runs.
+%
 % Revision 1.34  2001/07/16 20:54:10  dstotler
 % Another modification to the special cases in surface_reflect (on
 % second test of e1).
@@ -897,7 +904,8 @@ $\vect e_2 = \vect e_3 \times \vect e_1$.
       integer face              // Input
       real x[3],v[3],w[3]
       real v1[3]                // Output
-      real e[3,3],e1[3],e2[3],e3[3] // Local
+      real e[3,3],e1[3],e2[3],e3[3],vunit[3] // Local
+      real vperp
       equivalence (e1,e[1,1]),(e2,e[1,2]),(e3,e[1,3])
       vc_decls
       integer i
@@ -905,12 +913,20 @@ $\vect e_2 = \vect e_3 \times \vect e_1$.
 
       call surface_gradient(surface_info(face),x,e3)
       vc_unit(e3,e3)
-      vc_xvt(v,e3,-vc_product(e3,v),e1)
 
-@#if 0
-      if (vc_abs(e1) == zero) then // $\vect v_\parallel = 0$, so choose an arbitrary direction in the surface
-@#else
+      if (vc_abs(v) > zero) then
+         vc_unit(v,vunit)
+         vperp=abs(one+vc_product(e3,vunit))
+      else
+         vperp=one
+      end if
+
+      vc_xvt(v,e3,-vc_product(e3,v),e1)
+      if ((vc_abs(e1) <= vc_abs(v)*const(4.)*epsilon) 
+     $     || (vperp <= const(4.)*epsilon)) then
 /*
+   $\vect v_\parallel = 0$, so choose an arbitrary direction in the surface.
+
    This calculation appears particularly prone to roundoff errors in
    the (frequent) case of normal incidence (at the start of a flight).
    The original fix of comparing |e1| with |epsilon| has failed 
@@ -924,21 +940,20 @@ $\vect e_2 = \vect e_3 \times \vect e_1$.
    The subsequent assert using
    $\sqrt{\epsilon}$ will still catch those cases which are
    not caught by this test, but should be treated with suspicion.
+
+   Another case arose with a nearly horizontal target in which |e1| was
+   orders of magnitude larger than $\epsilon$ due to roundoff error.
+   Developed the expression for |vperp| as an alternative test for 
+   parallel vectors; it seems to work better for this situation.
 */
-      if (vc_abs(e1) <= vc_abs(v)*const(4.)*epsilon) then
-@#endif
          vc_set(e2,one,zero,zero)
          vc_cross(e3,e2,e1)
-@#if 0
-         if (vc_abs(e1) == zero) then
-@#else
+         if (vc_abs(e1) <= vc_abs(v)*const(3.)*epsilon) then
 /*
    Found a case (box geometry with plate source) that slipped through 
    this with $\vec{e2}$ and $\vec{e3}$ differing only by roundoff
    error. This result argued for loosening this test as well.
 */
-         if (vc_abs(e1) <= vc_abs(v)*const(3.)*epsilon) then
-@#endif
             e[2,2]=one
             vc_cross(e3,e2,e1)
          end if
