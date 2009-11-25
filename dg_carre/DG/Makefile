@@ -31,10 +31,24 @@ ifeq ($(SYSTEM),IRIX64)
   MACHINE=SGI
 endif
 ifeq ($(SYSTEM),Linux)
-  MACHINE=LINUX
-  LIBS=-L/usr/X11R6/lib -lXm -lXt -lX11 -lm -lpthread
-  CFLAGS=-g
-#  LIBS= -L$(LESSTIF) -lXm -L/usr/X11R6/lib -lXt -lX11 -lm
+#
+# Both the 32 and 64 bit Linux OS have uname = Linux; use uname -m to
+# differentiate.  The lib64 business may also be peculiar to PPPL; beware.
+# An alternative might be to compile with -m32; can then use regular lib.
+# 
+  IS64:=$(shell uname -m | grep 64)
+  ifneq ($(strip $(IS64)),)
+    MACHINE=LINUX64
+#    LIBS=-L/usr/X11R6/lib64 -lXm -lXt -lX11 -lm -lpthread
+#    CFLAGS=-g 
+    LIBS= -L/usr/X11R6/lib -lXm -lXt -lX11 -lm -lpthread    
+    CFLAGS=-g -m32
+  else
+    MACHINE=LINUX
+    CFLAGS=-g
+    LIBS=-L/usr/X11R6/lib -lXm -lXt -lX11 -lm -lpthread
+  endif
+#  LIBS= -L$(LESSTIF) -lXm -L/usr/X11R6/lib -lXt -lX11 -lm -lpthread
    CC=gcc
   INCLUDES=-I/usr/local/include
 endif

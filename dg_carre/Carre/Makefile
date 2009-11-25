@@ -65,12 +65,22 @@ ifeq ($(SYSTEM),IRIX)
   MACHINE=SGI
 endif
 ifeq ($(SYSTEM),Linux)
-  MACHINE=LINUX
+#
+# Both the 32 and 64 bit Linux OS have uname = Linux; use uname -m to
+# differentiate.
+# 
+  IS64:=$(shell uname -m | grep 64)
+  ifneq ($(strip $(IS64)),)
+    MACHINE=LINUX64
+    LDFLAGS=$(NCAR_LIBS) -L/usr/X11R6/lib64 -lX11 -lm -lmscl
+  else
+    MACHINE=LINUX
+    LDFLAGS=$(NCAR_LIBS) -L/usr/X11R6/lib -lX11 -lm -lmscl
+  endif
   CPP=/lib/cpp -C -traditional
 #  LDLIBS= -L$${NCARG_ROOT}/lib -L$(MSCL)
 #  LDFLAGS=-lncarg -lncarg_gks -lncarg_c -L/usr/X11R6/lib -lX11 -lm -lmscl
   LDLIBS=-L$(MSCL)
-  LDFLAGS=$(NCAR_LIBS) -L/usr/X11R6/lib -lX11 -lm -lmscl
   LDEXTRA= 
 #
 #  See about setting the compiler via an environment variable

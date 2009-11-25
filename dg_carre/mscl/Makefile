@@ -27,7 +27,16 @@ ifeq ($(SYSTEM),IRIX)
   MACHINE=SGI
 endif
 ifeq ($(SYSTEM),Linux)
-  MACHINE=LINUX
+#
+# Both the 32 and 64 bit Linux OS have uname = Linux; use uname -m to
+# differentiate.
+# 
+  IS64:=$(shell uname -m | grep 64)
+  ifneq ($(strip $(IS64)),)
+    MACHINE=LINUX64
+  else
+    MACHINE=LINUX
+  endif
   CPP=/lib/cpp -C -traditional
   ifeq ($(COMPILER),PATHSCALE)
     FC=pathf90
