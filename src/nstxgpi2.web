@@ -2,6 +2,9 @@
 \Title{nstxgpi}
 
 % $Log$
+% Revision 1.1  2006/01/19 19:48:39  dstotler
+% Added to repository.
+%
 
 @* Plasma setup routine for use with the NSTX GPI experiments. 
 
@@ -38,7 +41,7 @@ assumed present.
 
       subroutine get_n_t(nt_string)
 
-      define_dimen(z_ind2_ind,z_ind2_max)
+      define_dimen(z_ind2_ind,z_ind2_min,z_ind2_max)
       define_varp(z_min,FLOAT,z_ind2_ind)
       define_varp(r,FLOAT,z_ind2_ind)
 
@@ -221,6 +224,9 @@ rho_loop: continue
             bk_temp(3,zone)=zero
          end if
       end do
+
+      var_free(z_min)
+      var_free(r)
 
       return
       end
