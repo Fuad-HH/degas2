@@ -2,6 +2,16 @@
 \Title{score}
 
 % $Log$
+% Revision 1.18  2006/01/19 20:01:34  dstotler
+% Replace lc_face in angle calculation of sector_scoring_data with
+% sector_surface[lc_sector] and sector_surface[lc_sector_next] (using
+% whichever is nontrivial) so that the orientation is correct for both
+% outgoing and incoming directions. Use j instead of 0 in add_scores
+% particle argument in score_diagnostics.  Raise max_segments to 3000
+% for 3-D C-Mod runs.  In score_diagnostics and handle_diagnostics,
+% match up zone number of flight with sector in choosing diagnostics to
+% score.
+%
 % Revision 1.17  2002/01/28 16:58:02  dstotler
 % Allow for multiple sectors per surface in score_diagnostics and
 % handle_diagnostics.
@@ -1279,9 +1289,16 @@ bins. The treated variables thus far are energy and angle of incicidence.
                      assert(zn_check(zone))
                      if (zn_type(zone) == zn_plasma) then
                         vc_copy(zone_center[zone],lc_x(zone_loc))
+/*
+  This can take up huge chunks of time in large geometries and
+  is really not needed.
+*/
+@#if 0
                         lc_set_a(zone_loc)
                         assert(lc_zone(zone_loc) == zone)
-
+@#else
+                        lc_zone(zone_loc)=zone
+@#endif
                         particle_no=stat_flt[out_array_index(1,ind_val,jscore)][o_mean]
                         do ic=1,tally_dep_var_dim[jscore_v]
 @#if 0
