@@ -2,6 +2,11 @@
 \Title{aux2dsetup}
 
 % $Log$
+% Revision 1.6  2006/01/19 18:57:35  dstotler
+% Add close of nunit to read_sonnet_mesh.  Modify find_poly_zone to
+% return arrays of zones for 3-D case and to handle toroidally mixed
+% zones.
+%
 % Revision 1.5  2002/01/28 16:47:44  dstotler
 % Moved null_detector_setup to def2ddetector.web.  Add code to
 % read_sonnet_mesh to aid in processing files from DIVIMP (commented
@@ -245,11 +250,16 @@ sonnet_loop: continue
    of the Sonnet mesh corners into the desired one. The center is denoted
    as corner $0$.
 */
+            read(nunit,'(30x,e17.10,1x,e17.10,8x,e17.10,1x,e17.10)') 
+     $           mesh_xz[iz][ix][2][g2_x],mesh_xz[iz][ix][2][g2_z],
+     $           mesh_xz[iz][ix][3][g2_x],mesh_xz[iz][ix][3][g2_z]
+@#if 0
             read(nunit,'(19x,i3,1x,i3,4x,e17.10,1x,e17.10,8x,e17.10,1x,e17.10)') 
      $           ixl,izl,mesh_xz[iz][ix][2][g2_x],mesh_xz[iz][ix][2][g2_z],
      $           mesh_xz[iz][ix][3][g2_x],mesh_xz[iz][ix][3][g2_z]
             assert(ixl == ix_0-1)
             assert(izl == iz_0-1)
+@#endif
 @#if 0
             read(nunit,'(49x,e17.10,1x,e17.10)')
      $           mesh_xz[iz][ix][0][g2_x],mesh_xz[iz][ix][0][g2_z]
