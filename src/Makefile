@@ -1,5 +1,11 @@
 # $Id$
 # $Log$
+# Revision 1.77  2006/01/19 18:56:25  dstotler
+# Added postdetector. Add plotgeom and HDF to definegeometry2d. Add
+# PATHSCALE compiler. Fix problem with dataexam dependencies.  Replace
+# AFS approach to cross-compiling with one based on ssh/scp.  Also did
+# some cleanup.  Update flags for PGROUP.
+#
 # Revision 1.76  2002/01/28 16:46:55  dstotler
 # Add DETECTORFILE variable to definegeometry2d and readgeometry.  Add
 # PLASMAFILE variable to defineback.
@@ -341,6 +347,9 @@ REMOTEMACH=unknown.host.gov
 REMOTEDIR=unknown/dir
 REMOTELOGIN=source .login
 REXEC=ssh
+# GRAPH_FILE=HDF4
+# GRAPH_FILE=SILO
+GRAPH_FILE=SILO_HDF5
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -387,8 +396,17 @@ ifeq ($(SYSTEM),IRIX64)
   OPTFLAGS=-O3
 endif
 ifeq ($(SYSTEM),Linux)
-  MACHINE=LINUX
   PVMARCH=LINUX
+#
+# Both the 32 and 64 bit Linux OS have uname = Linux; use uname -m to
+# differentiate.
+# 
+  IS64:=$(shell uname -m | grep 64)
+  ifneq ($(strip $(IS64)),)
+    MACHINE=LINUX64
+  else
+    MACHINE=LINUX
+  endif
 endif
 ifeq ($(findstring sn,$(SYSTEM)),sn)
   MACHINE=CRAY
@@ -408,6 +426,14 @@ endif
 ifeq ($(TARGET),LINUX)
   COMPILER=PGROUP
   FORTRAN90=no
+endif
+ifeq ($(TARGET),LINUX64)
+  COMPILER=PGROUP
+  FORTRAN90=no
+#
+# This defaults to pgcc if we don't override
+#
+  CC=cc
 endif
 
 ifneq ($(TARGET),$(MACHINE))
@@ -525,6 +551,26 @@ endif
 ifeq ($(COMPILER),PATHSCALE)
   TANGLEFLAGS+=-mPATHSCALE
   FCF90=pathf90
+  FFLAGS+=-fno-fast-math -mx87-precision=64
+endif
+
+ifeq ($(GRAPH_FILE),HDF4)
+  TANGLEFLAGS+=-mHDF4
+  GRAPH_LIB=$(HDF)
+endif
+ifeq ($(GRAPH_FILE),SILO)
+  TANGLEFLAGS+=-mSILO
+  GRAPH_LIB=-lsilo -lm
+endif
+#
+# Note that SILO has multiple options for writing HDF5 formatted
+# files (see the manual).  The macro that determines the particular
+# one used here is in sysdep.hweb.  If the SILO library was compiled
+# with HDF5, SILO_HDF5 must be used (because there is no libsilo.a).
+#
+ifeq ($(GRAPH_FILE),SILO_HDF5)
+  TANGLEFLAGS+=-mSILO_HDF5
+  GRAPH_LIB=-lhdf5 -lsiloh5 -lm
 endif
 
 FC=$(FCF77)
@@ -582,6 +628,13 @@ ifndef CROSSCOMPILE
 	$(FC) -c $(FFLAGS) $(COMPFLAGS) $*.id.f
 	$(LD) $(FFLAGS) $(COMPFLAGS) $(PROFILE) -o $@ $(filter %.$O,$^) $*.id.o $($@_libs) $(PROF_LD)
  DG2D=definegeometry2d.o definegeometry2dc.o triangle.o
+
+%.a: %.o $(SYSDEPO) string.$O idtof 
+	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
+	$(FC) -c $(FFLAGS) $(COMPFLAGS) $*.id.f
+	ar r $@ $(filter %.$O,$^) $*.id.o
+	ranlib $@
+
 else # We're cross compiling
 # The approach here is to explicitly tranfer files to the
 # remote machine, but maintain locally a timestamp (.ts)
@@ -732,12 +785,20 @@ flighttest = flighttest.$O doflights.$O elementread.$O pmimatread.$O geometry.$O
 flighttest_libs = $(NETCDF) $(MPILIBSA)
 flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg)))
 
+degas2_xgc = degas2_xgc.$O doflights.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O interpolate.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O writeback.$O aux2dsetup.$O geomsetup.$O geomfaces.$O geomutils.$O allocate.$O composite.$O
+degas2_xgc_libs = $(NETCDF) $(MPILIBSA)
+degas2_xgc.a: $(degas2_xgc) $(foreach arg,$(subst .$O,_mods,$(degas2_xgc)),$($(arg)))
+
+poly_to_tri = poly_to_tri.$O geometry.$O allocate.$O readfilenames.$O 
+poly_to_tri_libs = $(NETCDF)
+poly_to_tri: $(poly_to_tri) $(foreach arg,$(subst .$O,_mods,$(poly_to_tri)),$($(arg)))
+
 geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O dediagsetup.$O
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
 
-geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O score.$O reaction.$O interpolate.$O collide.$O randother.$O random.$O conversions.$O voigt.$O degasinit.$O sources.$O
-geomtesta_libs =  $(NETCDF) $(HDF)
+geomtesta = geomtesta.$O geometry.$O plotgeom.$O elementread.$O pmimatread.$O readfilenames.$O reaction.$O interpolate.$O collide.$O randother.$O random.$O conversions.$O voigt.$O degasinit.$O 
+geomtesta_libs =  $(NETCDF) $(GRAPH_LIB)
 geomtesta: $(geomtesta) $(foreach arg,$(subst .$O,_mods,$(geomtesta)),$($(arg)))
 
 matchout = matchout.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O degasinit.$O
@@ -789,7 +850,7 @@ readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
 
 definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O plotgeom.$O $(DETECTORFILE).$O
-definegeometry2d_libs = $(NETCDF) $(HDF)
+definegeometry2d_libs = $(NETCDF) $(GRAPH_LIB)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
 defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O $(PLASMAFILE).$O
