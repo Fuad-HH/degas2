@@ -2,6 +2,9 @@
 \Title{problemsetup}
 
 % $Log$
+% Revision 1.36  2007/06/19 17:41:28  dstotler
+% Add adsorption process back in, with set_prod_adsorption.
+%
 % Revision 1.35  2006/01/19 19:57:07  dstotler
 % Add set_prod_excite to set up products for excitation and deexcitation
 % reactions. Remove references to adsorb PMIs in example and code.
@@ -1279,7 +1282,8 @@ exchange reaction specification takes the form:
 {\rm A}^{+} + {\rm B} \rightarrow {\rm A} + {\rm B}^{+}.
 \end{equation}
 the superscript ``+''s are used only to indicate a change in charge state;
-the actual charge states of A and B are intended to be arbitrary.
+the actual charge states of A and B are intended to be arbitrary.  The 
+procedure below can handle both single and double electron charge exchange.
 
 @<Functions...@>=
       subroutine set_prod_chargex(pr_test_dummy(ts),sp_dummy(reagents),rc_dummy(r))
@@ -1297,36 +1301,54 @@ the actual charge states of A and B are intended to be arbitrary.
       external species_add_check         // External
       logical species_add_check
 
-      integer i                          // Local
+      integer i,num_electrons            // Local
 
-      sp_decl(product[2])
+      sp_decl(product[3])
 
       st_decls
 
+      num_electrons=0
       assert(rc_product_num(r)==2)
       pr_num_arrangements(ts,pr_rc_num(ts))=1
       pr_prod_mult(ts,pr_rc_num(ts),1)=one
-
-/* The first product should match up with the first reagent plus an electron. */
+/* 
+   The first product should match up with the first reagent 
+   plus one or two electrons. 
+*/
       product[1]=sp_lookup('e')
       product[2]=reagents[1]
       do i=1,num_equiv[generics[rc_product(r,1)]]
          if (species_add_check(2,sp_args(product),1,sp_args(equivalents[i,generics[rc_product(r,1)]]))) then
             pr_ts_prod(ts,pr_rc_num(ts),1,1)=equivalents[i,generics[rc_product(r,1)]]
+            num_electrons=1
             goto loop1
+         else              // Might be double charge exchange
+            product[3]=product[1]
+            if (species_add_check(3,sp_args(product),1,sp_args(equivalents[i,generics[rc_product(r,1)]]))) then
+               pr_ts_prod(ts,pr_rc_num(ts),1,1)=equivalents[i,generics[rc_product(r,1)]]
+               num_electrons=2
+               goto loop1
+            end if
          end if
       end do
       assert('Unmatched first charge exchange product' == ' ')
 
 loop1: continue
-
-/* Likewise, the second reagent should match the second product plus an
-electron. */
+/* 
+   Likewise, the second reagent should match the second product plus 
+   one or two electrons. 
+*/
       do i=1,num_equiv[generics[rc_product(r,2)]]
          product[2]=equivalents[i,generics[rc_product(r,2)]]
-         if (species_add_check(2,sp_args(product),1,sp_args(reagents[2]))) then
+         if ((num_electrons == 1) 
+     $        && (species_add_check(2,sp_args(product),1,sp_args(reagents[2])))) then
             pr_ts_prod(ts,pr_rc_num(ts),1,2)=product[2]
             return
+         else if (num_electrons == 2) then
+            if (species_add_check(3,sp_args(product),1,sp_args(reagents[2]))) then
+               pr_ts_prod(ts,pr_rc_num(ts),1,2)=product[2]
+               return
+            end if
          end if
       end do
       assert('Unmatched second charge exchange product' == ' ')
