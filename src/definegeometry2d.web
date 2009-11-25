@@ -2,6 +2,9 @@
 \Title{definegeometry2d}
 
 % $Log$
+% Revision 1.7  2007/06/19 17:34:28  dstotler
+% Revert length of "line" from 300 to LINELEN (changed LINELEN instead).  Update integer data read in at start of uedge_mesh file.
+%
 % Revision 1.6  2006/01/19 19:17:08  dstotler
 % - Extend to 3-D.  Made special case for half-cylinder section.  Add
 % asserts ensuring that y_values are monotonically increasing.  Permit
@@ -97,12 +100,9 @@ AVS/Express, providing a precise description of the geometry
 for use in plotting DEGAS 2 results (as opposed to the
 approximate approach used in {\tt geomtesta}).
 
-DG is currently distributed
-as part of the {\tt SOLPS} package. For more information, see: \newline \newline
-\verb+http://www.rzg.mpg.de/~dpc/solps.html+ \newline \newline
-Modifications to
-DG specifically needed for coupling to this code are contained
-in the file {\tt XXXX}.
+A version of DG is now distributed as part of DEGAS 2.  See the
+additional documentation in the DEGAS 2 User's Manual and in
+the manual provided with DG. 
 
 Note that this program makes extensive use of Jonathan Shewchuck's
 {\tt Triangle} package to break polygons up into triangles. The user
@@ -353,6 +353,11 @@ the hardware can be specified and translated into ``walls''. The mesh
 edges can be used together with the walls to specify the rest of the
 polygons required to fill the universal cell.
 \end{enumerate}
+
+The DEGAS 2 User's Manual contains two example applications of
+{\tt definegeometry2d}, one demonstrating the use of DG and
+the other illustrating the use of an external code to
+create walls and polygons out of flux surfaces.
 
 \section{Input File}
 
@@ -764,8 +769,9 @@ or more points. Like other {\tt DEGAS 2} text files,
 |wallfiles| can contain blank
 lines and comments (beginning with \verb+#+). Spacing should not matter.
 The first line provides the number of walls in the file, |num_new_walls|.
-The second line lists the number of points comprising each wall. I.e.,
-this line must contain |num_new_walls| integers.
+The following line or lines list 
+the number of points comprising each wall. I.e.,
+these lines must contain |num_new_walls| integers. 
 The rest of the file contains the coordinates in ordered pairs, with one
 $(X,Z)$ pair per line, starting with the first point of the first wall.
 The other points in that wall follow on consecutive lines. The points in
@@ -941,7 +947,7 @@ be used. The additional argument {\tt reverse} can be added at the
 end of the line to reverse the ordering of the points indicated by
 $j_{\rm start}$, $j_{\rm stop}$, and / or \verb+*+. The primary usage of
 {\tt reverse}, however, will be in conjunction with \verb+*+.
-  \item[|edge|] $i_{x,{\rm start}}$ $i_{x,{\rm stop}}$ $i_{z,{\rm start}}$ $i_{z,{\rm stop}}$ {\tt reverse} 
+  \item[|edge|] $i_{x,{\rm start}}$ $i_{x,{\rm stop}}$ $i_{z,{\rm start}}$ $i_{z,{\rm stop}}$ {\tt xcut} {\tt reverse}
 takes an ``edge'' from a plasma mesh defined with either the
 |sonnet_mesh| or |uedge_mesh| keywords 
 and adds it to the current polygon. To properly refer to an edge,
@@ -955,10 +961,41 @@ The code used to process the arguments ``knows'' about the four corners
 comprising each mesh zone so that \verb+edge * 0 0+ actually
 refers $n_{x} + 1$ points (see also the additional detail below on corners). 
 If a subset of a Sonnet mesh is being used, these values are relative
-to it, not to the original, full mesh.
+to it, not to the original, full mesh.  
+
+The one instance where this
+is not quite true is at a discontinuity (a
+``cut'') in the $x$ direction of the computational mesh. 
+On the ``right''
+side of the cut (``right'' in the topological sense; i.e., 
+the mesh cells $i_{x}$ and $i_{x}-1$ do {\em not}
+share a common edge), adding the optional |xcut| argument
+to the |edge| command 
+with  $i_{x,{\rm start}} = i_{x,{\rm stop}} = i_{x}$ will allow the
+edge of the $i_{x}$ cell along this 
+cut to be added to the polygon.  Without
+the |xcut| argument, this command would instead yield
+segments following the boundary between the $i_{x}$ and $i_{x}+1$
+cells.  
+On the ``left''
+side of the cut (the mesh cells $i_{x}$ and $i_{x}+1$ do not
+share a common edge), the usual |edge| command 
+with  $i_{x,{\rm start}} = i_{x,{\rm stop}} = i_{x}$ will
+work as is, and the |xcut| command is not needed.  The |xcut| 
+argument may also be needed in conjunction with 
+an $i_{y,{\rm start}} = i_{y,{\rm stop}}$ edge to specify a
+single point on the ``right'' side of a cut.  Doing so
+requires a {\em separate} |edge| command for that point (i.e., it
+would have both  $i_{x,{\rm start}} = i_{x,{\rm stop}}$
+and $i_{y,{\rm start}} = i_{y,{\rm stop}}$, as well as the
+|xcut| argument).  The specific implementation of the |xcut| option
+is described below under ``Other Considerations''.
+
 As with the |wall| keyword, the |reverse|
 argument can be used to indicate that the points should be added to the
 polygon in the order opposite to that indicated by the other arguments.
+One, none, or both of the |xcut| and |reverse| options may appear.  If
+both are present, they do not need to be in a particular order.
   \item[|dg_polygon|] $i_{\rm polygon}$ adds the segments associated
 with the $i_{\rm polygon}$th polygon defined in DG to the current polygon.
 This functionality allows the user to set up polygons in DG
@@ -1026,12 +1063,13 @@ calculation when one or more edges
 of this polygon ends up being a target or wall
 sector.
   \item[|recyc_coef|] $R$ associates a recycling coefficient of
-$R$ ($R$ a real number, $0 < R \leq 1$) to the polygon.
+$R$ ($R$ a real number, $0 \leq R \leq 1$) to the polygon.
 It will be applied to all subsequent polygons
 until used again. Note that this setting only affects the
 calculation when one or more edges 
 of this polygon ends up being a target or wall
-sector. 
+sector.  Setting $R = 0$ allows a purely absorbing boundary
+to be modeled.
   \item[|triangle_area|] $A$ specifies a minimum area in square meters
 for the triangles
 to be created by {\tt Triangle} (with $A$ a real number) when the
@@ -1095,7 +1133,9 @@ direction. However, a clockwise orientation is recommended since this
 will preserve (as |strata_segment| labels) the relationship between 
 the resulting bounding segments and the original polygon points.
 This command does only a basic triangulation and is 
-only recommended for use with polygons in solid zones.
+only recommended for use with polygons in solid zones.  In nearly
+symmetric 3-D cases, these zones {\em will not} be resolved
+in the $i_{y}$ direction.
   \item[|triangulate_to_zones|] instructs the code to use the
 {\tt Triangle} package to break the polygon up into {\tt DEGAS 2}'s
 internal geometry elements. The {\tt Triangle} routine is extremely
@@ -1103,12 +1143,14 @@ tolerant and robust; the input polygon can be traced out in either
 direction. Each resulting triangle is added to the geometry as a 
 separate zone (of the current type). A second refining call to 
 {\tt Triangle} beyond the one analogous to that done with 
-|triangulate_to_zones|
+|triangulate_polygon|
 is performed that permits the application
 of additional constraints such as a minimum area.
 A clockwise orientation is recommended since this
 will preserve (as |strata_segment| labels) the relationship between 
 the resulting bounding segments and the original polygon points.
+This option also ensures that zones are resolved in the
+$i_{y}$ direction in nearly symmetric 3-D problems.
 {\bf Note: the next polygon to appear in the file must be preceded by
 a |new_zone| command.} (This is the last of the
 polygon-specific keywords.)
@@ -1263,6 +1305,17 @@ that there is no $(0,0)$ zone).
   \item If $i_{x} \neq 0$, but $i_{z} = 0$, corner 4 of the $(i_{x},1)$ zone.
   \item Otherwise, use corner 3 of the $(i_{x},i_{z})$ zone.
 \end{enumerate}
+
+If the |xcut| argument for the |edge| keyword has been invoked, a 
+separate set of logic is required:
+\begin{enumerate}
+  \item $i_{x} \neq 0$ is asserted.  The above logic already handles 
+this case.
+  \item If $i_{z} = 0$,  corner 1 of the $(i_{x},1)$ zone.
+  \item Otherwise, use corner 2 of the $(i_{x},i_{z})$ zone.
+\end{enumerate}
+In this way, the ``left'' edge of the $i_{x}$ zone can be specified;
+the usual logic results in the ``right'' edge (except at $i_{x}$ = 0).
 
 {\em Regarding the definition of detectors:} Ideally the user would
 also be able to specify detectors via this
@@ -1434,7 +1487,7 @@ be other requirements as well.
 @m triangulate_polygon 2
 @m triangulate_to_zones 3
 
-@m max_triangles 4200
+@m max_triangles 5500
 
 @m increment_num_elements       num_elements++;
       dim_elements=max(dim_elements,num_elements);
@@ -1465,7 +1518,11 @@ be other requirements as well.
 
 @m increment_y_div        y_div++;
       dim_y=max(dim_y,y_div);
-      var_realloca(y_values) @;
+      dim_ym=max(dim_ym,y_div);
+      var_realloca(y_values);
+      var_realloca(facearray);
+      var_realloca(zonearray);
+      var_realloca(zone_type_array) @;
 
 @m increment_g2_num_polygons    g2_num_polygons++;
       var_realloca(g2_polygon_xz);
@@ -1571,7 +1628,7 @@ be other requirements as well.
       define_dimen(mesh_senw_ind,mesh_num_edges)
       define_dimen(poly_int_ind,poly_int_max)
       define_dimen(poly_real_ind,poly_real_max)
-      define_dimen(y_ind,0,dim_y)
+      define_dimen(y_ind,0,dim_ym)
       define_dimen(y_indm,0,dim_y-1)
       define_dimen(y_sect_ind,dim_y)
 
@@ -1655,7 +1712,7 @@ be other requirements as well.
       integer ielement,section,i,inode,                     // Process DG File
      $     miss_elem,start,end,iwall,iseg,ielement2,
      $     skip_elem,poly_elem,num_h_elems,
-     $     num_mesh_elems,mesh_elem
+     $     num_mesh_elems,mesh_elem,exp_inc
       real temp_x,temp_z,mult
 
       integer mesh_sense,ix,iz,n                            // Mesh Polygons
@@ -1732,7 +1789,7 @@ be other requirements as well.
 
       integer num_nodes,num_elements,num_walls,            // Local pointers
      $        dim_nodes,dim_elements,dim_walls,nxd,nzd,
-     $        num_y,y_div,dim_y,num_aux_sectors,dim_aux_sectors,
+     $        num_y,y_div,dim_y,dim_ym,num_aux_sectors,dim_aux_sectors,
      $        num_diags,dim_diags,num_dg_poly,dim_dg_poly
 
       declare_varp(nodes)
@@ -1863,6 +1920,12 @@ loop1: continue
      $           iz_min,iz_max,nxd,nzd,mesh_xz)
          else if (keyword == 'uedge_mesh') then
             call read_uedge_mesh(diskin2,nxd,nzd,nxpt,mesh_xz)
+            nxd_0=nxd
+            nzd_0=nzd
+            ix_min=1
+            ix_max=nxd
+            iz_min=1
+            iz_max=nzd
          end if
 
       else if (keyword == 'wallfile') then
@@ -1911,7 +1974,7 @@ loop1: continue
          num_y=read_integer(line(b:e))
          assert(num_y > 0)
          y_div=num_y-1
-         dim_y=max(dim_y,y_div)
+         dim_ym=max(dim_ym,y_div)
          var_realloca(y_values)
          do i=0,y_div
 /*
@@ -2209,6 +2272,7 @@ allowed it to run successfully.
       dim_elements=mem_inc
       dim_aux_sectors=mem_inc
       dim_diags=mem_inc
+      dim_dg_poly=mem_inc
 
       var_alloc(nodes)
       var_alloc(node_type)
@@ -2232,7 +2296,12 @@ allowed it to run successfully.
    Default in purely 2-D case.
 */
       y_div=1
+@#if 0
       dim_y=2*mem_inc
+@#else
+      dim_y=mem_inc
+      dim_ym=mem_inc-1
+@#endif
       var_alloc(y_values)
       var_alloc(facearray)
       var_alloc(zonearray)
@@ -2383,6 +2452,7 @@ section. Also, assumes that symmetry has already been set. DOCUMENT!!!
       var_reallocb(dg_poly_meshcon_hv)
 
       dim_y=y_div
+      dim_ym=y_div
       var_reallocb(y_values)
       var_reallocb(facearray)
       var_reallocb(zonearray)
@@ -2480,11 +2550,14 @@ section. Also, assumes that symmetry has already been set. DOCUMENT!!!
 /*
    Assume that if the file has a ``.dgo'' that it came from DG and needs
    to be converted from mm to meters. Assume that it is otherwise in meters.
+   Developed |read_real_scaled| expressly for this task since direct multiplication
+   introduces round-off error that can cause these coordinates to differ from the
+   same ones read in from other files.
 */
       if (index(line(b:e),'.dgo') > 0) then
-         mult=const(1.,-3)
+         exp_inc=-3
       else
-         mult=one
+         exp_inc=0
       end if
 
 dg_loop: continue
@@ -2547,18 +2620,20 @@ dg_loop: continue
             section=sec_done
          else
             if (section == sec_p1 || section == sec_p2) then
-               temp_x=read_real_soft_fail(line(b:e)) 
+               temp_x=read_real_scaled(line(b:e),exp_inc) 
                if (temp_x != real_undef) then    // Failure
                   assert(next_token(line,b,e,p))
-                  temp_z=read_real_soft_fail(line(b:e))
+                  temp_z=read_real_scaled(line(b:e),exp_inc)
                end if
                if (temp_x == real_undef || temp_z == real_undef) then
                   section=sec_undef
                   go to dg_loop // Can trash this line since it did not match anything we've planned for
                end if
+@#if 0
+// Replaced this with the use of |read_real_scaled.|
                temp_x*=mult
                temp_z*=mult
-            
+@#endif            
                inode=0
                if (num_nodes > 0) then
                   do i=1,num_nodes
@@ -2831,7 +2906,13 @@ are used later in the code.
       length=parse_string(line(:length))
       p=0
       do iwall=1,num_new_walls
-         assert(next_token(line,b,e,p))
+         if (!next_token(line,b,e,p)) then
+            assert(read_string(diskin2,line,length))
+            assert(length<=len(line))
+            length=parse_string(line(:length))
+            p=0
+            assert(next_token(line,b,e,p))
+         end if
          wall_segment_count[num_walls+iwall]=read_int_soft_fail(line(b:e))
       end do
 
@@ -3178,12 +3259,6 @@ file. This step facilitate their use in polygons.
                poly_real_props[g2_num_polygons][i_prop]
      $              =current_real_props[i_prop]
             end do
-@#if 0
-            zonearray[0]=zone
-            call decompose_polygon(n,
-     $           g2_polygon_xz[g2_num_polygons][0][g2_x],
-     $           zonearray,1,facearray)
-@#else
 /* 
    Had originally thought of dividing plasma and vacuum zones up in |y|,
    but assume user would be using |triangulate_to_zones| in that case.
@@ -3192,7 +3267,6 @@ file. This step facilitate their use in polygons.
             call decompose_polygon(n,
      $           g2_polygon_xz[g2_num_polygons][0][g2_x],
      $           solid_zone,1,solid_faces)
-@#endif
 /*
    Try to handle carefully those cases where we can. For $|n| > 4$,
    just use the first point. If this zone really needs a center,
@@ -3349,23 +3423,28 @@ sector_break2: continue
      $                 =current_real_props[i_prop]
                end do
 @#if 0
-               zonearray[0]=zone
-               call decompose_polygon(nt,
-     $              g2_polygon_xz[g2_num_polygons][0][g2_x],
-     $              zonearray,1,facearray)
-@#else
                if ((new_zone_type == "solid") 
      $              || (new_zone_type == "exit")
      $              || (process_polygon == triangulate_polygon)) then
+@#else
+/*
+   Have removed consideration of zone type in deciding whether or
+   not to resolve zones in the |y| direction.  This is now
+   controlled entirely by |process_polygon|.
+*/
+               if (process_polygon == triangulate_polygon) then
+@#endif
                   solid_zone[0]=zone
                   one_zone_type[0]=new_zone_type
                   call decompose_polygon(nt,
      $                 g2_polygon_xz[g2_num_polygons][0][g2_x],
      $                 solid_zone,1,solid_faces)
                else
+@#if 0
                   assert((new_zone_type == "plasma") 
      $                 || (new_zone_type == "vacuum")
      $                 || (new_zone_type == "mixed"))
+@#endif
                   assert(process_polygon == triangulate_to_zones)
                   do i=0,y_div-1
                      if (i > 0) zone=zone+1
@@ -3377,12 +3456,15 @@ sector_break2: continue
      $                 g2_polygon_xz[g2_num_polygons][0][g2_x],
      $                 zonearray,y_div,facearray)
                end if
-@#endif
                if (j == 0 || process_polygon == triangulate_to_zones)
      $              call triangle_centroid(temp_triangles[j][0][g2_x],center)
+@#if 0
                if ((new_zone_type == "solid") 
      $              || (new_zone_type == "exit")
      $              || (process_polygon == triangulate_polygon)) then
+@#else
+               if (process_polygon == triangulate_polygon) then
+@#endif
                   call update_zone_info(solid_zone,ix,iz,one_zone_type,nt,
      $                 g2_polygon_xz[g2_num_polygons][0][g2_x],center,
      $                 1,solid_ys)
@@ -3676,7 +3758,7 @@ mixed zone types in 3-D cases.
      $                             solid_zone_p)
                               other_type=zn_type(other_zone)
                               if (other_type == zn_plasma) then
-                                 define_sector_plasma(other_sector,this_temp)
+                                 define_sector_plasma(other_sector)
                               else if (other_type == zn_vacuum) then
                                  define_sector_vacuum(other_sector)
                               else
@@ -3765,30 +3847,35 @@ auxiliary strata.
 
 @* Read mesh file from UEDGE.
 
+@m max_xpts 2
+
 @<Functions...@>=
       subroutine read_uedge_mesh(nunit,nxd,nzd,nxpt,mesh_xz)
 
       implicit_none_f77
       implicit_none_f90
 
-      integer nunit,nxd,nzd,nxpt                            // Input
+      integer nunit,nxd,nzd,nxpt                                      // Input
 
-      real mesh_xz[nzd][nxd][0:4][g2_x:g2_z]                // Output
+      real mesh_xz[nzd][nxd][0:4][g2_x:g2_z]                          // Output
 
       
-      integer ix,iz,i                                       // Local
-      integer corner_ptr[0:4]
+      integer ix,iz,i                                                 // Local
+      integer corner_ptr[0:4],iysptrx1[max_xpts],iysptrx2[max_xpts],
+     $        ixlb[max_xpts],ixpt1[max_xpts],ixmdp[max_xpts],
+     $        ixpt2[max_xpts],ixrb[max_xpts]
       real dummy
 /*
   This file format now deals with both single and double nulls.
   Although we don't really need to know which for present purposes
   (since we have corner data for all zones), we do need to use
-  the number of X-points, |nxpt|, to count off the initial lines.
+  the number of X-points, |nxpt|, to count off the initial lines. 
+  All of the other indices are read in for completeness and possible future use.
 */
-      assert(nxpt >= 1) 
+      assert((nxpt >= 1) && (nxpt <= max_xpts))
       do i=1,nxpt
-         read(nunit,*)   //    |iysptrx1(i)|, |iysptrx2(i)|
-         read(nunit,*)   //    |ixlb|, |ixpt1|, |ixmdp|, |ixpt2|, all |(i)|
+         read(nunit,*) iysptrx1[i], iysptrx2[i]
+         read(nunit,*) ixlb[i], ixpt1[i], ixmdp[i], ixpt2[i], ixrb[i]
       end do
 /*
    The specific ordering to be used in the rest of this code is that a 
@@ -4140,7 +4227,7 @@ scratch space for the |iedge| command.
      $     num_ends,end_point,end_tip,print_polygon,iedge_points,
      $     num_curves,num_iedges,i_tot,closed_curve,j_min,j_max,n_iedge,
      $     iedge_order,i_mc,swap_edges,tmp_edge,tmp_seg,j_init,j_fin,
-     $     common_node
+     $     common_node,edge_reverse,xcut
       integer end_nodes[2*g2_num_points],end_elements[2*g2_num_points],
      $        end_tips[2*g2_num_points],curve_type[dim_curves],
      $        curve_start[dim_curves],curve_start_tip[dim_curves],
@@ -4230,7 +4317,7 @@ poly_loop: continue
       else if (keyword == 'recyc_coef') then
          assert(next_token(line,b,e,p))
          real_props[poly_recyc_coef]=read_real(line(b:e))
-         assert(real_props[poly_recyc_coef] > zero 
+         assert(real_props[poly_recyc_coef] >= zero 
      $        && real_props[poly_recyc_coef] <= one)
 
       else if (keyword == 'triangle_area') then
@@ -4418,8 +4505,29 @@ outer_loop: continue
             assert(next_token(line,b,e,p))
             iz_stop=read_integer(line(b:e))
          end if
+/*
+   The |reverse| and |xcut| options can both appear and may be in
+   either order.  Hence, the extended logic here.
+*/
+         edge_reverse=FALSE
+         xcut=FALSE
          if (next_token(line,b,e,p)) then
-            assert(line(b:e) == 'reverse')
+            if (line(b:e) == 'reverse') then
+               edge_reverse=TRUE
+               if (next_token(line,b,e,p)) then
+                  assert(line(b:e) == 'xcut')
+                  xcut=TRUE
+               end if
+            else 
+               assert(line(b:e) == 'xcut')
+               xcut=TRUE
+               if (next_token(line,b,e,p)) then
+                  assert(line(b:e) == 'reverse')
+                  edge_reverse=TRUE
+               end if
+            end if
+         end if
+         if (edge_reverse == TRUE) then
             temp=ix_start
             ix_start=ix_stop
             ix_stop=temp
@@ -4453,23 +4561,37 @@ outer_loop: continue
          ix=ix_start
          iz=iz_start
          do i=1,num
-            if (ix == 0 && iz == 0) then
-               corner=1
-               ixi=1
-               izi=1
-            else if (ix == 0) then
-               corner=2
-               ixi=1
-               izi=iz
-            else if (iz == 0) then
-               corner=4
-               ixi=ix
-               izi=1
-            else
-               corner=3
-               ixi=ix
-               izi=iz
+            if (xcut == FALSE) then
+               if (ix == 0 && iz == 0) then
+                  corner=1
+                  ixi=1
+                  izi=1
+               else if (ix == 0) then
+                  corner=2
+                  ixi=1
+                  izi=iz
+               else if (iz == 0) then
+                  corner=4
+                  ixi=ix
+                  izi=1
+               else
+                  corner=3
+                  ixi=ix
+                  izi=iz
+               end if
+            else                      // |xcut| == |TRUE|
+               assert(ix != 0)        // A cut at |ix| = 0 makes no sense
+               if (iz == 0) then
+                  corner=1
+                  ixi=ix
+                  izi=1
+               else
+                  corner=2
+                  ixi=ix
+                  izi=iz
+               end if
             end if
+               
             polygon[n][g2_x]=mesh_xz[izi][ixi][corner][g2_x]
             polygon[n][g2_z]=mesh_xz[izi][ixi][corner][g2_z]
             ix+=ix_step
@@ -4508,6 +4630,10 @@ Both open and closed loops are treated.
          end_point=end_elements[1]
          end_tip=end_tips[1]
       else
+/*
+   If you see this assertion, you likely have a stray, unintended
+   element in this |dg_polygon|.
+*/
          assert('should have 0 or 2 endpoints here' == ' ')
       end if 
       call elements_to_polygon(nodes,dg_elements_list,
@@ -4527,8 +4653,18 @@ Both open and closed loops are treated.
          if (poly_area < zero) call reverse_polygon(n,polygon[0][g2_x])
       else
          assert(n == dg_poly_num_elements[poly]+1)
+/*
+  Pretty sure this test is supposed to be the ``else'' version.
+  Because the |n|th entry is usually garbage, the first version
+  has been succeeding regardless of the situation.
+*/
+@#if 0
          assert((polygon[n][g2_x] != polygon[0][g2_x])
      $        || (polygon[n][g2_z] != polygon[0][g2_z]))
+@#else
+         assert((polygon[n-1][g2_x] != polygon[0][g2_x])
+     $        || (polygon[n-1][g2_z] != polygon[0][g2_z]))
+@#endif
       end if
 
 @ Isolate a mesh edge for subsequent addition to current polygon.
@@ -4609,6 +4745,12 @@ the processing.
       else if (n > 0) then
          if ((num_iedges == 0) && (poly != int_undef)) then
             if (dg_poly_num_meshcon[poly] > 0) then
+/*
+   If you see this assertion, you may have mesh connections unintentionally
+   set for this |dg_polygon|.  Go back to DG, unmark everything and hit
+   the ``set'' button for both of these mesh connections (see that they
+   are listed as ``Empty'').
+*/
                assert(dg_poly_num_meshcon[poly] == 1)
                @<Process Single Mesh Point@>
             else
@@ -6112,9 +6254,7 @@ added.
      $                             poly_int_props[i_poly][poly_stratum],
      $                             polygon_segment[i_poly][j],-face1,
      $                             sect_zone2[k_zone2],sect_zone1[k_zone1])
-                              define_sector_plasma(sector1,
-     $                           poly_real_props[i_poly][poly_temperature]
-     $                           *boltzmanns_const)
+                              define_sector_plasma(sector1)
 /* 
    This is then the sector based on the zone on the other side.  I.e.,
    this zone is part of polygon |i_poly|.  In principle, we could have
@@ -6182,10 +6322,7 @@ added.
      $                             poly_int_props[i_poly][poly_stratum],
      $                             polygon_segment[i_poly][j],-face1,
      $                             sect_zone2[k_zone2],sect_zone1[k_zone1])
-/*
-   NOTE: Using a zero temperature here!!!
-*/
-                              define_sector_plasma(sector1,zero)
+                              define_sector_plasma(sector1)
                               if ((num_zone1 > 1) || (side1_done == FALSE)) then
                                  sector1=define_sector(    
      $                                poly_int_props[i_poly][poly_stratum],
