@@ -2,6 +2,9 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.14  2006/01/19 20:05:23  dstotler
+% Associate excitation and deexcitation reaction types with pr_rc_ionize.
+%
 % Revision 1.13  2001/11/16 16:00:11  dstotler
 % Set var_num[tl_index_source_group] to int_unused since so_grps is not
 % available.
@@ -326,6 +329,7 @@ this ``equivalence'' is defined in the species input file.
 @I detector.hweb
 @I location.hweb
 @I pmiformat.hweb
+@I random.hweb
 
 @   These tags will make it easier to pick the estimators for
    each reaction. Largely, these designations are the same as 
@@ -550,6 +554,7 @@ this ``equivalence'' is defined in the species input file.
       est_name[tl_est_track]='T'
       est_name[tl_est_collision]='C'
       est_name[tl_est_post_process]='P'
+      est_name[tl_est_snapshot]='S'
 
       tally_version=
      $     '$Id$'
@@ -739,6 +744,8 @@ eof: continue
                if (estimator[i] < 0 || estimator[i] > tl_est_max) then
                   write(stdout,*) line(b:e)
                   assert(' Unknown estimator' == ' ')
+               else if (estimator[i] == tl_est_snapshot) then
+                  assert(' No snapshot estimators for reactions' == ' ')
                else if (estimator[i] == 0) then
                   assert(line(b:e) == 'N')
                end if
