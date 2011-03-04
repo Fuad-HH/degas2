@@ -2,6 +2,10 @@
 \Title{defineback}
 
 % $Log$
+% Revision 1.5  2009/11/25 14:48:02  dstotler
+% Move assignment of the targ sector for the plate type source.
+% Replace target_e_ion_delta and _mult with plasma_e_ion_delta and mult.
+%
 % Revision 1.4  2007/06/19 17:33:43  dstotler
 % Replace inc_ion_energy calls with phi_sheath function; add associated plasma_e_ion_sheath variable.  Add call to nc_read_elements.  Modify to handle updates, as in updatebackground.
 %
@@ -766,6 +770,7 @@ weight rescaling.
 @I problem.hweb
 @I geometry2d.hweb
 @I location.hweb
+@I random.hweb
 
 @* The Main Program.
 
@@ -873,6 +878,23 @@ weight rescaling.
          end do;
       end if @;
 
+@m increment_params(num_params) so_params_list_size+=num_params;
+         if (so_params_list_size > so_params_list_dim) then;
+            var_realloc(source_parameters_list,so_params_list_dim,so_params_list_size);
+            so_params_list_dim=so_params_list_size;
+         end if @;
+
+@m sector_segment_test(sector,iseg)  
+   (sc_plasma_check(sector_type_pointer[sector][sc_plasma]) 
+      || sc_vacuum_check(sector_type_pointer[sector][sc_vacuum])) 
+      && (strata[sector] == source_int_params[iseg][code_stratum]) 
+      && ((zn_index(sector_zone[sector],zi_iy) 
+                 == source_int_params[iseg][code_segment_iy]) 
+        || (source_int_params[iseg][code_segment_iy] == int_uninit)) 
+      && ((sector_strata_segment[sector] 
+                 == source_int_params[iseg][code_segment]) 
+        || (source_int_params[iseg][code_all_segs] == TRUE))
+
 @<Functions...@>=
       subroutine setup_background(inputfile)
 
@@ -899,11 +921,11 @@ weight rescaling.
       character*FILELEN inputfile                               // Input
 
       real density,temperature,dummy,circum,area,               // Local
-     $     rtest,real_mult,mult,puff_temp     
+     $     rtest,real_mult,mult,puff_temp,puff_exponent
       integer type,geom,nflights,length,p,b,e,nunit_n,specify_flux,
      $        nunit_t,num_segments,iseg,i,open_stat,targ,diskin2,
      $        dim_segments,itest,data_type,data_code,update,old_grps,
-     $        old_seg_tot,grp,iterative,jr
+     $        old_seg_tot,grp,iterative,jr,iparam,time_varn
 
       character*1 back_label
       character*LINELEN line,type_string,nt_string,file_format
@@ -941,6 +963,27 @@ weight rescaling.
          so_set_run_flags
          so_grps=0
          so_seg_tot=0
+
+         so_gparams_list_size=0
+         so_gparams_list_dim=1
+         so_params_list_size=0
+         so_params_list_dim=1
+         so_params_data_size=0
+         so_params_data_dim=1
+         so_giparams_list_size=0
+         so_giparams_list_dim=1
+         so_iparams_list_size=0
+         so_iparams_list_dim=1
+         so_iparams_data_size=0
+         so_iparams_data_dim=1
+         var_alloc(source_gparameters_list)
+         var_alloc(source_parameters_list)
+         var_alloc(source_gparameters_data)
+         var_alloc(source_parameters_data)
+         var_alloc(source_giparameters_list)
+         var_alloc(source_iparameters_list)
+         var_alloc(source_giparameters_data)
+         var_alloc(source_iparameters_data)
       else
          assert(so_grps > 0)
          assert(so_seg_tot > 0)
@@ -1023,6 +1066,22 @@ next_line: continue
         else if (line(b:e) == 'iterative_run') then
            iterative=TRUE
 
+        else if (line(b:e) == 'time_interval') then
+           assert(next_token(line,b,e,p))
+           so_time_initial=read_real(line(b:e))
+/*
+   For now assuming that the interval consists of an
+   initial and final time pair.  May eventually allow
+   for just the specification of a time step.
+*/
+           assert(next_token(line,b,e,p))
+           so_time_final=read_real(line(b:e))
+           if (so_time_final > so_time_initial) then 
+              so_time_dependent=TRUE
+           else
+              so_time_dependent=FALSE
+           end if
+
          else if (line(b:e) == 'new_source_group') then
             so_grps++
             type=int_undef
@@ -1030,9 +1089,12 @@ next_line: continue
             species=int_undef
             root_sp=int_undef
             puff_temp=const(3.,2)*boltzmanns_const
+	    puff_exponent=one
             nflights=100
             specify_flux=TRUE
             num_segments=int_uninit
+            time_varn=so_delta_fn
+
 /*
    We can initialize these arrays out to their current dimensions.
    If they get expanded during the process of adding segments, the
@@ -1098,6 +1160,11 @@ next_line: continue
             assert(next_token(line,b,e,p))
             puff_temp=read_real(line(b:e))*boltzmanns_const
             assert(puff_temp >= zero)
+
+         else if (line(b:e) == 'source_puff_exponent') then
+            assert(next_token(line,b,e,p))
+            puff_exponent=read_real(line(b:e))
+            assert(puff_exponent > const(-1.0))  
 
          else if (line(b:e) == 'specify_flux') then
             specify_flux=TRUE
@@ -1223,6 +1290,16 @@ next_tabline: continue
                @<Read Row Source File@>
             end if
 
+         else if (line(b:e) == 'source_time_variation') then
+            assert(next_token(line,b,e,p))
+            if (line(b:e) == 'delta') then
+               time_varn=so_delta_fn
+            else if (line(b:e) == 'uniform') then
+               time_varn=so_time_uniform
+            else
+               assert('Unsupported time variation' == line(b:e))
+            end if
+
          else if (line(b:e) == 'end_source_group') then
             @<Setup Source Group@>
          else
@@ -1280,18 +1357,25 @@ input_done: continue
          var_reallocb(source_num_checkpoints)
          var_reallocb(source_species)
          var_reallocb(source_root_species)
+         var_reallocb(source_time_variation)
+@#if 0
          var_reallocb(source_parameters)
+@#else
+         var_reallocb(source_num_gparameters)
+         var_reallocb(source_num_parameters)
+         var_reallocb(source_gparameters_base)
+         var_reallocb(source_parameters_base)
+         var_reallocb(source_parameters_data_base)
+         var_reallocb(source_num_giparameters)
+         var_reallocb(source_num_iparameters)
+         var_reallocb(source_giparameters_base)
+         var_reallocb(source_iparameters_base)
+         var_reallocb(source_iparameters_data_base)
+@#endif
          var_reallocb(source_total_current)
          var_reallocb(source_weight_norm)
          var_reallocb(source_scale_factor)
       end if
-@#if 0
-      var_reallocb(source_current)
-      var_reallocb(source_segment_ptr)
-      var_reallocb(source_segment_rel_wt)
-      var_reallocb(source_segment_prob_alias)
-      var_reallocb(source_segment_ptr_alias)
-@#endif
 
       var_reallocb(source_int_params)
       var_reallocb(source_real_params)
@@ -1302,6 +1386,7 @@ input_done: continue
 
       if (update == FALSE) then
          call set_background_sources
+         if (so_time_dependent == TRUE) call set_snapshot_source
       else
          assert(update == TRUE)
          assert(iterative == TRUE)
@@ -1490,7 +1575,19 @@ next_datum: continue
          var_realloca(source_num_checkpoints)
          var_realloca(source_species)
          var_realloca(source_root_species)
-         var_realloca(source_parameters)
+         var_realloca(source_time_variation)
+
+         var_realloca(source_num_gparameters)
+         var_realloca(source_num_parameters)
+         var_realloca(source_gparameters_base)
+         var_realloca(source_parameters_base)
+         var_realloca(source_parameters_data_base)
+         var_realloca(source_num_giparameters)
+         var_realloca(source_num_iparameters)
+         var_realloca(source_giparameters_base)
+         var_realloca(source_iparameters_base)
+         var_realloca(source_iparameters_data_base)
+
          var_realloca(source_total_current)
          var_realloca(source_weight_norm)
          var_realloca(source_scale_factor)
@@ -1505,7 +1602,21 @@ next_datum: continue
          so_species(so_grps)=species  // Use |neutralize_species|?
          assert(sp_check(root_sp))
          so_root_sp(so_grps)=root_sp
+         so_t_varn(so_grps)=time_varn
+@#if 0
          so_params(so_grps,so_param_puff_temp)=puff_temp
+@#endif
+	 source_num_gparameters[so_grps]=0
+	 source_num_parameters[so_grps]=0
+	 source_gparameters_base[so_grps]=so_gparams_list_size
+	 source_parameters_base[so_grps]=so_params_list_size
+	 source_parameters_data_base[so_grps]=so_params_data_size
+	 source_num_giparameters[so_grps]=0
+	 source_num_iparameters[so_grps]=0
+	 source_giparameters_base[so_grps]=so_giparams_list_size
+	 source_iparameters_base[so_grps]=so_iparams_list_size
+	 source_iparameters_data_base[so_grps]=so_iparams_data_size
+
          so_tot_curr(so_grps)=zero
          so_scale(so_grps)=one
       else
@@ -1520,13 +1631,56 @@ next_datum: continue
          assert(so_geom(so_grps) == geom)
          so_tot_curr(so_grps)=zero
       end if
+/*
+   Set global source parameters.  Presently only have these for the 
+   puff type.
+*/
+      if (so_type(so_grps) == so_puff) then
+         source_num_gparameters[so_grps]=2
+         so_gparams_list_size+=source_num_gparameters[so_grps]
+         if (so_gparams_list_size > so_gparams_list_dim) then
+            var_realloc(source_gparameters_list,so_gparams_list_dim,so_gparams_list_size)
+            var_realloc(source_gparameters_data,so_gparams_list_dim,so_gparams_list_size)
+            so_gparams_list_dim=so_gparams_list_size
+         end if
+	 so_gparams_list(1,so_grps)=so_gparam_puff_temp
+	 so_gparams_data(1,so_grps)=puff_temp
+	 so_gparams_list(2,so_grps)=so_gparam_puff_exponent
+	 so_gparams_data(2,so_grps)=puff_exponent
+/*
+   Segment based parameters for plate source (presently for testing only).
+*/
+      else if (so_type(so_grps) == so_plate) then
+         source_num_parameters[so_grps]=3
+         increment_params(source_num_parameters[so_grps])
+	 so_params_list(1,so_grps)=so_param_e_ion_delta
+	 so_params_list(2,so_grps)=so_param_e_ion_mult
+	 so_params_list(3,so_grps)=so_param_e_ion_sheath
+/*
+   Externally specified volume source (not recombination)
+*/
+      else if (so_type(so_grps) == so_vol_source) then
+         source_num_parameters[so_grps]=4
+         increment_params(source_num_parameters[so_grps])
+	 so_params_list(1,so_grps)=so_param_v1
+	 so_params_list(2,so_grps)=so_param_v2
+	 so_params_list(3,so_grps)=so_param_v3
+	 so_params_list(4,so_grps)=so_param_temperature
+      end if
+
       write(stdout,*)
       write(stdout,*) ' Processing source group ',so_grps
       write(stdout,*)
-      write(stdout,'(2x,a,12x,a,2x,a,30x,a)') 'source','stratum','segment','sector points'
-      write(stdout,'(2x,a,2x,a,2x,a,4x,a,4x,a,6x,a,4x,a,4x,a,13x,a,5x,a,5x,a)') 
-     $     'segment','stratum','segment','iy',
-     $     'sector','x1','start','x3','x1','end','x3'
+/*
+   Have separate sections for the two geometries; originally 
+   just had surface sources.  
+*/
+      if (so_geom(so_grps) == so_surface) then
+   
+         write(stdout,'(2x,a,12x,a,2x,a,30x,a)') 'source','stratum','segment','sector points'
+         write(stdout,'(2x,a,2x,a,2x,a,4x,a,4x,a,6x,a,4x,a,4x,a,13x,a,5x,a,5x,a)') 
+     $        'segment','stratum','segment','iy',
+     $        'sector','x1','start','x3','x1','end','x3'
 /*
    Go through all of the segments one time just to count the number of
    sectors associated with each (due to the ``all segments'' option
@@ -1534,75 +1688,230 @@ next_datum: continue
    ``multiplicity'' factor,
    so we need to know its value before setting the final source arrays.
 */
-      do sector=1,nsectors
-         do iseg=1,num_segments
+         do sector=1,nsectors
+            do iseg=1,num_segments
 /*
    Having |code_segment_iy| be |int_uninit| is designed to handle two cases
    without any user input: the fully symmetric (2-D) case and the
    nearly symmetric case in which all sectors labeled with the
    same stratum and segment numbers are to be included.
 */
-            if ((sc_plasma_check(sector_type_pointer[sector][sc_plasma])
-     $           || sc_vacuum_check(sector_type_pointer[sector][sc_vacuum]))
-     $           && (strata[sector] == source_int_params[iseg][code_stratum]) 
-     $           && ((zn_index(sector_zone[sector],zi_iy)
-     $                      == source_int_params[iseg][code_segment_iy])
-     $             || (source_int_params[iseg][code_segment_iy] == int_uninit))
-     $           && ((sector_strata_segment[sector] 
-     $                      == source_int_params[iseg][code_segment])
-     $             || (source_int_params[iseg][code_all_segs] == TRUE))) 
+               if (sector_segment_test(sector,iseg)) 
      $           then
-               source_int_params[iseg][code_multiplicity]++
-            end if
+                  source_int_params[iseg][code_multiplicity]++
+               end if
+            end do
          end do
-      end do
 /*
    Now set up the final source arrays.
 */
-      do sector=1,nsectors
-         do iseg=1,num_segments
-            if ((sc_plasma_check(sector_type_pointer[sector][sc_plasma])
-     $           || sc_vacuum_check(sector_type_pointer[sector][sc_vacuum]))
-     $           && (strata[sector] == source_int_params[iseg][code_stratum]) 
-     $           && ((zn_index(sector_zone[sector],zi_iy)
-     $                      == source_int_params[iseg][code_segment_iy])
-     $             || (source_int_params[iseg][code_segment_iy] == int_uninit))
-     $           && ((sector_strata_segment[sector] 
-     $                      == source_int_params[iseg][code_segment])
-     $             || (source_int_params[iseg][code_all_segs] == TRUE))) 
+         do sector=1,nsectors
+            do iseg=1,num_segments
+               if (sector_segment_test(sector,iseg)) 
      $           then
-               zone=sector_zone[sector]
-               so_seg_tot++
-@#if 0
-               write(stdout,'(2x,i4,5x,i4,5x,i4,5x,i4,4x,i5,1x,4(1pe13.5,2x))') iseg,source_int_params[iseg][code_stratum],
-/*
-   This is the subsequent version.  Replace use of |source_int_params|
-   here with the equivalent sector-based quantity below.
-*/
-               write(stdout,'(2x,i4,5x,i4,5x,i4,5x,i4,4x,i5,1x,4(1pe13.5,2x))') so_seg_tot-so_base(so_grps)+1,source_int_params[iseg][code_stratum],
-     $              source_int_params[iseg][code_segment],
+                  zone=sector_zone[sector]
+                  so_seg_tot++
 
-@#else
-               write(stdout,'(2x,i4,5x,i4,5x,i4,5x,i4,4x,i5,1x,4(1pe13.5,2x))') so_seg_tot-so_base(so_grps)+1,strata[sector],
-     $              sector_strata_segment[sector],
-     $              zn_index(sector_zone[sector],zi_iy), 
-     $              sector,sector_points[sector][sc_neg][1],
-     $              sector_points[sector][sc_neg][3],
-     $              sector_points[sector][sc_pos][1],
-     $              sector_points[sector][sc_pos][3]
-@#endif
-               if (update == FALSE) then
-                  var_realloca(source_current)
-                  var_realloca(source_segment_ptr)
-                  var_realloca(source_segment_rel_wt)
-                  var_realloca(source_segment_prob_alias)
-                  var_realloca(source_segment_ptr_alias)
+                  write(stdout,'(2x,i4,5x,i4,5x,i4,5x,i4,4x,i5,1x,4(1pe13.5,2x))') 
+     $                 so_seg_tot-so_base(so_grps)+1,strata[sector],
+     $                 sector_strata_segment[sector],
+     $                 zn_index(sector_zone[sector],zi_iy), 
+     $                 sector,sector_points[sector][sc_neg][1],
+     $                 sector_points[sector][sc_neg][3],
+     $                 sector_points[sector][sc_pos][1],
+     $                 sector_points[sector][sc_pos][3]
+                  if (update == FALSE) then
+                     var_realloca(source_current)
+                     var_realloca(source_segment_ptr)
+                     var_realloca(source_segment_rel_wt)
+                     var_realloca(source_segment_prob_alias)
+                     var_realloca(source_segment_ptr_alias)
+
+	             if (source_num_parameters[so_grps] > 0) then
+                        so_params_data_size+=source_num_parameters[so_grps]
+                        if (so_params_data_size > so_params_data_dim) then
+                           var_realloc(source_parameters_data,so_params_data_dim,
+     $                                 so_params_data_size)
+                           so_params_data_dim=so_params_data_size
+                        end if
+                     end if
+                  end if
+                  assert(source_real_params[iseg][code_strength] > zero 
+     $                 && source_real_params[iseg][code_strength] != real_uninit)
+                  assert(source_int_params[iseg][code_multiplicity] > 0)
+                  mult=one/float(source_int_params[iseg][code_multiplicity])
+                  if (specify_flux == TRUE) then
+                     @<Calculate Source Current@>
+                  else
+/*
+   Specify current
+*/
+                     source_current[so_seg_tot]
+     $                   =source_real_params[iseg][code_strength]*mult
+                  end if
+                  so_tot_curr(so_grps)+=source_current[so_seg_tot]
+                  if (update == FALSE) then
+                     source_segment_ptr[so_seg_tot]=sector
+                     source_segment_rel_wt[so_seg_tot]=one
+                  else
+                     assert(source_segment_ptr[so_seg_tot] == sector)
+/*
+                  |source_segment_rel_wt| gets set in |update_wt_alias|.
+*/
+                  end if
+/*
+   Assign sheath properties using the old {\tt DEGAS} model since we lack
+   specific boundary parameters (and fluid velocities). An alternative
+   (e.g., in the UEDGE case) would be to use the |phi_sheath|
+   function. Assumes that the first background species is ``e''.
+*/
+                  if (so_type(so_grps) == so_plate) then
+                     @<Assign Sheath Parameters@>
+                  end if
                end if
-               assert(source_real_params[iseg][code_strength] > zero 
-     $              && source_real_params[iseg][code_strength] != real_uninit)
-               assert(source_int_params[iseg][code_multiplicity] > 0)
-               mult=one/float(source_int_params[iseg][code_multiplicity])
-               if (specify_flux == TRUE) then
+            end do
+         end do
+         if (update == FALSE) then
+            so_nseg(so_grps)=so_seg_tot-so_base(so_grps)+1
+         else
+            assert(so_nseg(so_grps) == so_seg_tot-so_base(so_grps)+1)
+         end if
+/*
+   Corresponding process for volume source.
+*/
+      else if (so_geom(so_grps) == so_volume) then
+         write(stdout,'(2x,a,2x,a,4x,a,4x,a,4x,a)') 'segment','iy','x1','x2','x3'
+/*
+   PRINT HEADER FOR OUTPUT 
+*/
+/*
+   Go through all ``segments'' and count number of zones
+   associated with each.  Initially assuming that we're
+   2-D so that this is trivial.
+*/
+         assert((geometry_symmetry == geometry_symmetry_plane) 
+     $          || (geometry_symmetry == geometry_symmetry_cylindrical))
+         do zone=1,zn_num
+            do iseg=1,num_segments
+               if (((zn_type(zone) == zn_plasma) 
+     $              || (zn_type(zone) == zn_vacuum))
+     $              && (source_int_params[iseg][code_zone] == zone)) then
+                  source_int_params[iseg][code_multiplicity]++
+               end if
+            end do
+         end do
+/*
+   Then make a second pass and process all of the segments.
+*/
+         do zone=1,zn_num
+            do iseg=1,num_segments
+               if (((zn_type(zone) == zn_plasma) 
+     $              || (zn_type(zone) == zn_vacuum))
+     $              && (source_int_params[iseg][code_zone] == zone)) then
+                  so_seg_tot++
+/*
+   PRINT OUTPUT FOR THIS SEGMENT
+*/
+                  write(stdout,'(2x,i4,5x,i4,1x,3(1pe13.5,2x))') 
+     $              so_seg_tot-so_base(so_grps)+1,zn_index(zone,zi_iy),
+     $              zone_center[zone][1],zone_center[zone][2],
+     $              zone_center[zone][3]
+                  if (update == FALSE) then
+                     var_realloca(source_current)
+                     var_realloca(source_segment_ptr)
+                     var_realloca(source_segment_rel_wt)
+                     var_realloca(source_segment_prob_alias)
+                     var_realloca(source_segment_ptr_alias)
+*/
+	             if (source_num_parameters[so_grps] > 0) then
+                        so_params_data_size+=source_num_parameters[so_grps]
+                        if (so_params_data_size > so_params_data_dim) then
+                         var_realloc(source_parameters_data,so_params_data_dim,
+     $                                 so_params_data_size)
+                           so_params_data_dim=so_params_data_size
+                        end if
+                     end if			
+                  end if
+                  assert(source_real_params[iseg][code_strength] > zero 
+     $               && source_real_params[iseg][code_strength] != real_uninit)
+                  assert(source_int_params[iseg][code_multiplicity] > 0)
+                  mult=one/float(source_int_params[iseg][code_multiplicity])
+                  if (specify_flux == TRUE) then
+/*
+   The generalization is actually of a volumetric source.
+   There is no analog of the plasma-parameter based flux
+   calculation done for the surface source.  So, this is 
+   relatively simple.
+*/
+	             assert(zn_volume(zone) > zero)
+                     source_current[so_seg_tot]
+     $            =source_real_params[iseg][code_strength]*zn_volume(zone)*mult
+                  else	       
+                     source_current[so_seg_tot]
+     $                    =source_real_params[iseg][code_strength]*mult
+                  end if
+                  so_tot_curr(so_grps)+=source_current[so_seg_tot]
+                  if (update == FALSE) then
+                     source_segment_ptr[so_seg_tot]=zone
+                     source_segment_rel_wt[so_seg_tot]=one
+                  else
+                     assert(source_segment_ptr[so_seg_tot] == zone)
+/*
+                  |source_segment_rel_wt| gets set in |update_wt_alias|.
+*/
+                  end if
+/*
+   Corresponding setting of parameters for a generic (i.e., externally 
+   specified, not recombination) volume source.  Could in principle 
+   skip the check on source type, but keep for consistency with the 
+   preliminary parameter-related assignments.
+*/
+                  if (so_type(so_grps) == so_vol_source) then
+                     do iparam=1,source_num_parameters[so_grps]
+                        if (so_params_list(iparam,so_grps) 
+     $                       == so_param_temperature) then
+/*
+   This is the only one that needs to be non-zero.
+*/
+                           assert((source_real_params[iseg][code_temperature_J]
+     $                          != real_uninit)
+     $               && (source_real_params[iseg][code_temperature_J] > zero))
+                           so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_temperature_J]
+
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_v1) then
+                           if (source_real_params[iseg][code_velocity_1] 
+     $                                  != real_uninit) 
+     $                          so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_velocity_1]
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_v2) then
+                           if (source_real_params[iseg][code_velocity_2]
+     $                            != real_uninit) 
+     $                          so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_velocity_2]
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_v3) then
+			   if (source_real_params[iseg][code_velocity_3] 
+     $                          != real_uninit) 
+     $                          so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_velocity_3]
+                        end if
+                     end do
+                  end if
+               end if           // Segment-zone test
+            end do              // Segments
+         end do                 // Zones
+      else
+         assert(' This source geometry not handled in defineback' == ' ')
+      end if                    // Source geometry
+
+
+
+@* Calculate the current for a surface source from the flux.
+
+@<Calculate Source Current@>=
                   vc_difference(sector_points[sector][sc_neg],
      $                 sector_points[sector][sc_pos],xdiff)
                   assert(xdiff[2] == zero)
@@ -1637,30 +1946,10 @@ next_datum: continue
                   assert(area > zero)
                   source_current[so_seg_tot]
      $                 =source_real_params[iseg][code_strength]*area*mult
-               else
-/*
-   Specify current
-*/
-                  source_current[so_seg_tot]
-     $                    =source_real_params[iseg][code_strength]*mult
-               end if
-               so_tot_curr(so_grps)+=source_current[so_seg_tot]
-               if (update == FALSE) then
-                  source_segment_ptr[so_seg_tot]=sector
-                  source_segment_rel_wt[so_seg_tot]=one
-               else
-                  assert(source_segment_ptr[so_seg_tot] == sector)
-/*
-                  |source_segment_rel_wt| gets set in |update_wt_alias|.
-*/
-               end if
-/*
-   Assign sheath properties using the old {\tt DEGAS} model since we lack
-   specific boundary parameters (and fluid velocities). An alternative
-   (e.g., in the UEDGE case) would be to use the |phi_sheath|
-   function. Assumes that the first background species is ``e''.
-*/
-               if (so_type(so_grps) == so_plate) then
+
+@* Assign sheath parameters for a plate source.
+
+@<Assign Sheath Parameters@>=
                   assert(sc_plasma_check(sector_type_pointer[sector][sc_plasma]))
                   targ=sector_type_pointer[sector][sc_plasma]
                   if ((source_real_params[iseg][code_e_delta] != real_uninit)
@@ -1672,22 +1961,47 @@ next_datum: continue
      $                    source_real_params[iseg][code_e_sheath]
                      plasma_e_ion_mult[targ]=
      $                    source_real_params[iseg][code_e_mult]
+/*
+   For testing now; may eventually replace the above.
+*/ 
+                     assert(source_num_parameters[so_grps] > 0) // Should be 3!
+                     do iparam=1,source_num_parameters[so_grps]
+                        if (so_params_list(iparam,so_grps) 
+     $                       == so_param_e_ion_delta) then
+                           so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_e_delta]
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_e_ion_mult) then
+                           so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_e_sheath]
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_e_ion_sheath) then
+                           so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_e_mult]
+                        end if
+                     end do
                   else
                      assert(sp_sy(pr_background(1)) == 'e')
                      assert(bk_temp(1,zone) > zero)
                      plasma_e_ion_delta[targ]=const(3.)*bk_temp(1,zone)
                      plasma_e_ion_mult[targ]=one
                      plasma_e_ion_sheath[targ]=zero
+                     assert(source_num_parameters[so_grps] > 0) // Should be 3!
+                     do iparam=1,source_num_parameters[so_grps]
+                        if (so_params_list(iparam,so_grps) 
+     $                       == so_param_e_ion_delta) then
+                           so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =const(3.)*bk_temp(1,zone)
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_e_ion_mult) then
+                           so_params_data(iparam,so_seg_tot,so_grps)=one
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_e_ion_sheath) then
+                           so_params_data(iparam,so_seg_tot,so_grps)=zero
+                        end if
+                     end do
                   end if
-               end if
-            end if
-         end do
-      end do
-      if (update == FALSE) then
-         so_nseg(so_grps)=so_seg_tot-so_base(so_grps)+1
-      else
-         assert(so_nseg(so_grps) == so_seg_tot-so_base(so_grps)+1)
-      end if
+
 
 @* Parse tabular plasma data header. 
 This routine takes the text description of the
