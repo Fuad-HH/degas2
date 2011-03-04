@@ -2,6 +2,18 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.31  2009/11/25 14:43:40  dstotler
+% Increase max_lines from 3 to 5. Modify track_chargex so that the
+% combination of I_0n integrals appearing in the momentum and energy
+% sources is evaluated accurately when the neutral energy falls
+% below the lower limit of the data table.  Delete data
+% statements invoking the "zero" macro.  The resulting
+% parentheses cause a syntax error; the data statements
+% were doing nothing anyway.  Deleted a broken assertion
+% in track_dissoc.  Add macro flag NEU_DIAG_CX for use
+% with corresponding input parameter in XGC0.  In the process,
+% removed some old unused code in ionize.
+%
 % Revision 1.30  2006/01/19 19:03:34  dstotler
 % Add subroutines for excitation / deexcitation.  Modify handling of
 % emission rates to permit use of line-labeled rates.
@@ -378,6 +390,12 @@ loop: continue
 
       if (cx_v < ran*sgvmax) goto loop
 /*
+   This was previously inside the ``test'' section of the velocity
+   setting code.  But, it wasn't getting executed for the case 
+   in which there are no test products.  
+*/
+      vc_add(vb_therm,vb_flow,v_back)
+/*
    Assume that the background particle becomes the test species and
    vice-versa. Hence, the appearance of the former background velocity
    in the first assignment below for the intended test particle.
@@ -387,7 +405,6 @@ loop: continue
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
          if (pr_test_lookup(prod[i]) != 0) then
             w_prod[i]=one
-            vc_add(vb_therm,vb_flow,v_back)
             vc_copy(v_back,v_prod[i])
          else
             w_prod[i]=one                        // Was zero - check
