@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.78  2009/11/25 14:32:39  dstotler
+# Add some simple commands to build a "degas2_xgc" library.  Add the LINUX64 machine type.  Add poly_to_tri.  Add the SILO library as an alternative to HDF (i.e., HDF4); include both the PDB and HDF5 options.  Remove score.o and sources.o as geomtesta dependencies.  Added PATHSCALE FFLAGS (for DEBUG) that correspond to those used with PGROUP.
+#
 # Revision 1.77  2006/01/19 18:56:25  dstotler
 # Added postdetector. Add plotgeom and HDF to definegeometry2d. Add
 # PATHSCALE compiler. Fix problem with dataexam dependencies.  Replace
@@ -331,7 +334,9 @@ LATEX=latex
 # now don't stress tangle so much
 # TANGLEFLAGS=-mINLINE -W[ -ytt40000000 -yn8000 -ymb65536 -n/ -n')' -Tv -j
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000 -- it's a little stressed
-TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
+# Code has evolved enough that we are stressing some more
+# TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
+TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn8000 -yb200000
 WEAVEFLAGS=-f -i! -W[ -ykw700 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
@@ -554,6 +559,13 @@ ifeq ($(COMPILER),PATHSCALE)
   FFLAGS+=-fno-fast-math -mx87-precision=64
 endif
 
+ifeq ($(COMPILER),INTEL)
+  TANGLEFLAGS+=-mINTEL
+  FCF77=ifort
+  FCF90=ifort
+  FFLAGS+=-pc64
+endif
+
 ifeq ($(GRAPH_FILE),HDF4)
   TANGLEFLAGS+=-mHDF4
   GRAPH_LIB=$(HDF)
@@ -759,7 +771,7 @@ documentation: random.dvi randomtest.dvi geometry.dvi geomsetup.dvi \
   geomtest.dvi sysdep.dvi vector.dvi
 
 foof:
-	echo MACHINE=$(MACHINE) TARGET=$(TARGET) SOURCEDIR=$(SOURCEDIR) STANDALONE=$(STANDALONE) FC=$(FC) FORTRAN90=$(FORTRAN90) CROSSCOMPILE=$(CROSSCOMPILE) MPI=$(MPI) SYSDEPC=$(SYSDEPC)
+	echo MACHINE=$(MACHINE) TARGET=$(TARGET) SOURCEDIR=$(SOURCEDIR) STANDALONE=$(STANDALONE) FC=$(FC) FORTRAN90=$(FORTRAN90) CROSSCOMPILE=$(CROSSCOMPILE) MPI=$(MPI) SYSDEPC=$(SYSDEPC) COMPILER=$(COMPILER)
 
 sysdeptest = sysdeptest.$O
 sysdeptest_libs = 
