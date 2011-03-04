@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.12  2006/01/19 20:02:44  dstotler
+% Add miscellaneous parameter array with puff temperature being the initial entry.
+%
 % Revision 1.11  2001/07/16 21:04:18  dstotler
 % Add source_root_species and source_name.
 %
@@ -75,16 +78,18 @@ sources are handled.
 @m so_chkpt(i)    source_num_checkpoints[i]
 @m so_species(i)  source_species[i]
 @m so_root_sp(i)  source_root_species[i]
+@m so_t_varn(i)   source_time_variation[i]
 @m so_tot_curr(i) source_total_current[i]
 @m so_wt_norm(i)  source_weight_norm[i]
 @m so_scale(i)    source_scale_factor[i]
 @m so_name(i)     source_name[i]
-@m so_params(i,p) source_parameters[p,i]
 
 @m so_plate 1                // Source types
 @m so_puff 2
 @m so_recomb 3
-@m so_type_num 3
+@m so_vol_source 4
+@m so_snapshot 5
+@m so_type_num 5
 @m so_name_len 10
 
 @m so_point 0                // Source geometries
@@ -94,29 +99,71 @@ sources are handled.
 
 @m so_random 0               // Source sampling schemes
 @m so_direct 1
+
+@m so_delta_fn 0             // Source time variation
+@m so_time_uniform 1
  
-@m so_param_unknown 0        // Indices for miscellaneous source parameters
-@m so_param_puff_temp 1
-@m so_param_max 1
+@m so_gparam_unknown 0        // Labels for global source parameters
+@m so_gparam_puff_temp 1
+@m so_gparam_puff_exponent 2
+
+@m so_param_unknown 0         // Labels for segment source parameters
+@m so_param_v1 1              // Volume source
+@m so_param_v2 2
+@m so_param_v3 3
+@m so_param_temperature 4
+@m so_param_e_ion_delta 5     // Sheath (development purposes only for now)
+@m so_param_e_ion_mult 6
+@m so_param_e_ion_sheath 7
+@m so_param_pt_t 8            // For snapshot source
+@m so_param_pt_v1 9
+@m so_param_pt_v2 10
+@m so_param_pt_v3 11
+@m so_param_lc_x1 12
+@m so_param_lc_x2 13
+@m so_param_lc_x3 14
+
+@m so_iparam_pt_sp 1          // Other snapshot integer data
+@m so_iparam_pt_test 2        // meaningless for source particles.
+@m so_iparam_lc_cell 3
+@m so_iparam_lc_zone 4
+@m so_iparam_pt_type 5
+@m so_iparam_pt_author 6
+
+@m so_gparams_list(i,g) source_gparameters_list[source_gparameters_base[g]+i]
+@m so_gparams_data(i,g) source_gparameters_data[source_gparameters_base[g]+i]
+
+@m so_params_list(i,g) source_parameters_list[source_parameters_base[g]+i]
+/*
+   Note that |s| here is the total segment index so that |so_base(g)|
+   must be subtracted by the macro.
+*/
+@m so_params_data(i,s,g) source_parameters_data[source_parameters_data_base[g]+(s-so_base(g))*source_num_parameters[g]+i]
+
+@m so_giparams_list(i,g) source_giparameters_list[source_giparameters_base[g]+i]
+@m so_giparams_data(i,g) source_giparameters_data[source_giparameters_base[g]+i]
+
+@m so_iparams_list(i,g) source_iparameters_list[source_iparameters_base[g]+i]
+@m so_iparams_data(i,s,g) source_iparameters_data[source_iparameters_data_base[g]+(s-so_base(g))*source_num_iparameters[g]+i]
 
 @m so_direct_mult half*(sqrt(const(5.))-one)
-
-@ Length of random seed string. Routines in |random.web| talk about seed
-strings needing to be at least 17 characters long.
-
-@m so_seed_len 20
 
 @ Standard initialization statements. These should eventually be in
 a ``run control'' dialog along with the number of flights, etc.
 
 @m so_set_run_flags so_restart=FALSE;
-      so_seed_string='12';
+      so_seed_decimal='12';
       so_spaced_seeds=FALSE;
       so_seed_spacing=100000000;
       so_sampling=so_random;
+      so_time_dependent=FALSE;
+      so_time_initial=const(0.0);
+      so_time_final=const(0.0);
       so_name(so_plate)='plate';
       so_name(so_puff)='puff';
       so_name(so_recomb)='recomb';
+      so_name(so_vol_source)='vol_source';
+      so_name(so_snapshot)='snapshot';
       so_rel_wt_min=const(5.,-1);
       so_rel_wt_max=const(2.);
       so_wt_norm_min=const(5.,-1);
@@ -133,18 +180,40 @@ a ``run control'' dialog along with the number of flights, etc.
       define_var_pk(so,so_spaced_seeds,INT)
       define_var_pk(so,so_seed_spacing,INT)
       define_var_pk(so,so_sampling,INT)
+      define_var_pk(so,so_time_dependent,INT)
+      define_var_pk(so,so_time_initial,FLOAT)
+      define_var_pk(so,so_time_final,FLOAT)
       define_var_pk(so,so_rel_wt_min,FLOAT)
       define_var_pk(so,so_rel_wt_max,FLOAT)
       define_var_pk(so,so_wt_norm_min,FLOAT)
       define_var_pk(so,so_wt_norm_max,FLOAT)
+
+      define_var_pk(so,so_gparams_list_size,INT)
+      define_var_pk(so,so_gparams_list_dim,INT)
+      define_var_pk(so,so_params_list_size,INT)
+      define_var_pk(so,so_params_list_dim,INT)
+      define_var_pk(so,so_params_data_size,INT)
+      define_var_pk(so,so_params_data_dim,INT)
+      define_var_pk(so,so_giparams_list_size,INT)
+      define_var_pk(so,so_giparams_list_dim,INT)
+      define_var_pk(so,so_iparams_list_size,INT)
+      define_var_pk(so,so_iparams_list_dim,INT)
+      define_var_pk(so,so_iparams_data_size,INT)
+      define_var_pk(so,so_iparams_data_dim,INT)
+
       define_dimen_pk(so,source_grp_ind,so_grps)
       define_dimen_pk(so,source_seg_ind,so_seg_tot)
-      define_dimen_pk(so,so_seed_string_ind,so_seed_len)
+      define_dimen_pk(so,so_seed_decimal_ind,ran_c)
       define_dimen_pk(so,so_name_ind,so_name_len)
       define_dimen_pk(so,so_type_ind,so_type_num)
-      define_dimen_pk(so,so_param_ind,0,so_param_max)
-      
-      define_var_pk(so,so_seed_string,CHAR,so_seed_string_ind)
+      define_dimen_pk(so,source_gparams_ind,so_gparams_list_dim)
+      define_dimen_pk(so,source_params_ind,so_params_list_dim)
+      define_dimen_pk(so,source_params_data_ind,so_params_data_dim)
+      define_dimen_pk(so,source_giparams_ind,so_giparams_list_dim)
+      define_dimen_pk(so,source_iparams_ind,so_iparams_list_dim)
+      define_dimen_pk(so,source_iparams_data_ind,so_iparams_data_dim)
+
+      define_var_pk(so,so_seed_decimal,CHAR,so_seed_decimal_ind)
       define_var_pk(so,source_name,CHAR,so_name_ind,so_type_ind)
 
       define_varp_pk(so,source_base_ptr,INT,source_grp_ind)
@@ -155,8 +224,27 @@ a ``run control'' dialog along with the number of flights, etc.
       define_varp_pk(so,source_num_checkpoints,INT,source_grp_ind)
       define_varp_pk(so,source_species,INT,source_grp_ind)
       define_varp_pk(so,source_root_species,INT,source_grp_ind)
-      define_varp_pk(so,source_parameters,FLOAT,so_param_ind,source_grp_ind)
+      define_varp_pk(so,source_time_variation,INT,source_grp_ind)
       
+      define_varp_pk(so,source_num_gparameters,INT,source_grp_ind)
+      define_varp_pk(so,source_num_parameters,INT,source_grp_ind)
+      define_varp_pk(so,source_gparameters_list,INT,source_gparams_ind)
+      define_varp_pk(so,source_parameters_list,INT,source_params_ind)
+      define_varp_pk(so,source_gparameters_base,INT,source_grp_ind)
+      define_varp_pk(so,source_parameters_base,INT,source_grp_ind)
+      define_varp_pk(so,source_parameters_data_base,INT,source_grp_ind)
+      define_varp_pk(so,source_gparameters_data,FLOAT,source_gparams_ind)
+      define_varp_pk(so,source_parameters_data,FLOAT,source_params_data_ind)
+      define_varp_pk(so,source_num_giparameters,INT,source_grp_ind)
+      define_varp_pk(so,source_num_iparameters,INT,source_grp_ind)
+      define_varp_pk(so,source_giparameters_list,INT,source_giparams_ind)
+      define_varp_pk(so,source_iparameters_list,INT,source_iparams_ind)
+      define_varp_pk(so,source_giparameters_base,INT,source_grp_ind)
+      define_varp_pk(so,source_iparameters_base,INT,source_grp_ind)
+      define_varp_pk(so,source_iparameters_data_base,INT,source_grp_ind)
+      define_varp_pk(so,source_giparameters_data,INT,source_giparams_ind)
+      define_varp_pk(so,source_iparameters_data,INT,source_iparams_data_ind)
+
       define_varp_pk(so,source_total_current,FLOAT,source_grp_ind)
       define_varp_pk(so,source_weight_norm,FLOAT,source_grp_ind)
       define_varp_pk(so,source_scale_factor,FLOAT,source_grp_ind)
@@ -226,6 +314,12 @@ species sourced. In the cases of plate and recombination (and, perhaps,
 puff) sources, this is a background species providing the distribution
 function for the source.
 
+  \item[|so_time_varn(igroup)|] Specifies the time variation of group
+|igroup| in a time dependent simulation.  The currently supported values
+are |so_delta_fn| (all flights start at |so_time_initial|; this is the 
+default) and |so_time_uniform| (the initial time for flight is uniformly 
+sampled between |so_time_initial| and |so_time_final|).
+
   \item[|so_tot_curr(igroup)|] Total current (particles per second) of all
 segments in group |igroup|.
 
@@ -239,9 +333,6 @@ as rescaling all of the segment currents by this factor. This provides
 additional flexibility for combining source groups since it can be applied
 after the run has been completed.
 
-  \item[|so_params(igroup,iparam)|] Set of miscellaneous (real) parameters 
-used to describe group |igroup|. The initial entry into this array is
-the gas puff temperature.
 \end{description}
 
 @ Internal variables in the sources class.
@@ -291,8 +382,8 @@ may eventually be relocated and / or reset elsewhere.
   \item[|so_restart|] If |FALSE|, the code will start a new run. If |TRUE|, the
 code will read an existing output file and add to the data contained therein.
 
-  \item[|so_seed_string|] String representation of the initial random
-number seed.
+  \item[|so_seed_decimal|] Character variable containing the decimal 
+representation of the random number seed. 
 
   \item[|so_spaced_seeds|] If |FALSE|, the random number seed will be 
 advanced continuously between source groups (i.e., the original mode
@@ -310,6 +401,23 @@ selected by |so_random|. The scheme selected by |so_direct| flight
 number to directly generate an irrational number between 0 and 1 which
 is then used in the usual fashion in extracting a segment number from
 the ``probability alias'' arrays.
+
+  \item[|so_time_dependent|] Is usually left at the default |FALSE| 
+value, representing a steady state or time independent simulation.
+When |TRUE|, the value of |so_time_final| must be set to something
+larger than |so_time_initial|, determining the time interval (as
+experienced by the flights) over which the flights will be followed.
+
+  \item[|so_time_initial|] For a time dependent simulation, the smallest
+initial time that can be assigned to a flight.  E.g., for a time
+independent source, the initial time will be randomly sampled between
+|so_time_initial| and |so_time_final|.
+
+  \item[|so_time_final|] For a time dependent simulation, the largest
+initial time that can be assigned to a flight.  E.g., for a time
+independent source, the initial time will be randomly sampled between
+|so_time_initial| and |so_time_final|.  More importantly, all flights
+will be stopped when their time reaches this value.
 
   \item[|so_rel_wt_min|] For iterations with a coupled plasma code only,
 places a lower bound on the ratio of the updated current in a source segment
@@ -335,5 +443,86 @@ an essentially global check on |source_segment_rel_wt|).
 Larger values of |so_wt_norm| will cause the source sampling
 arrays to be updated. 
 \end{description}
+
+@ Parameters and arrays associated with miscellaneous source parameters.
+
+\begin{description}
+  \item[|so_gparams_list_size|] Number of entries in the list of global
+parameters.
+  \item[|so_gparams_list_dim|] The dimension corresponding to 
+|so_gparams_list_size|.  Need a separate variable to allow the arrays
+to be nontrivial (for the sake of netCDF) when |so_gparams_list_size| = 0.
+  \item[|so_params_list_size|] Number of entries in the list of segment
+based parameters.
+  \item[|so_params_list_dim|] The dimension corresponding to 
+|so_params_list_size|.  Need a separate variable to allow the arrays
+to be nontrivial (for the sake of netCDF) when |so_params_list_size| = 0.
+  \item[|so_params_data_size|] Number of entries in the full set of
+segment based parameter data.
+  \item[|so_params_data_dim|] The dimension corresponding to 
+|so_params_data_size|.  Need a separate variable to allow the arrays
+to be nontrivial (for the sake of netCDF) when |so_params_data_size| = 0.
+  \item[|so_giparams_list_size|] Number of entries in the list of integer
+global parameters.
+  \item[|so_giparams_list_dim|] The dimension corresponding to 
+|so_giparams_list_size|.  Need a separate variable to allow the arrays
+to be nontrivial (for the sake of netCDF) when |so_giparams_list_size| = 0.
+  \item[|so_iparams_list_size|] Number of entries in the list of integer
+segment based parameters.
+  \item[|so_iparams_list_dim|] The dimension corresponding to 
+|so_iparams_list_size|.  Need a separate variable to allow the arrays
+to be nontrivial (for the sake of netCDF) when |so_iparams_list_size| = 0.
+  \item[|so_iparams_data_size|] Number of entries in the full set of
+integer segment based parameter data.
+  \item[|so_iparams_data_dim|] The dimension corresponding to 
+|so_iparams_data_size|.  Need a separate variable to allow the arrays
+to be nontrivial (for the sake of netCDF) when |so_iparams_data_size| = 0.
+  \item[|source_num_gparameters[igroup]|] Number of global,
+miscellaneous parameters associated with source group |igroup|.
+  \item[|source_num_parameters[igroup]|] Number of segment based,
+miscellaneous parameters associated with source group |igroup|.
+  \item[|so_gparams_list(iparam,igroup)|] Identity 
+(e.g., |so_gparam_puff_temp|) of miscellaneous global parameter |iparam|
+for source group |igroup|.
+  \item[|so_gparams_data(iparam,igroup)|] Real value of miscellaneous global 
+parameter |iparam| for source group |igroup|.
+  \item[|so_params_list(iparam,igroup)|] Identity 
+(e.g., |so_param_temperature|) of miscellaneous segment based 
+parameter |iparam| for source group |igroup|.
+  \item[|so_params_data(iparam,iseg,igroup)|] Real value of miscellaneous 
+segment based parameter |iparam| for source group |igroup| at total segment
+|iseg| (i.e., $1 \leq$ |iseg| $\leq$ |so_seg_tot|).
+  \item[|source_giparameters_base[igroup]|] Pointer to the starting point
+in the |source_giparameters_list| and |source_giparameters_data| arrays
+for source group |igroup|.
+  \item[|source_iparameters_base[igroup]|] Pointer to the starting point
+in the |source_iparameters_list| for source group |igroup|.
+  \item[|source_iparameters_data_base[igroup]|] Pointer to the starting point
+in the |source_iparameters_data| for source group |igroup|.
+  \item[|source_num_giparameters[igroup]|] Number of integer, global,
+miscellaneous parameters associated with source group |igroup|.
+  \item[|source_num_iparameters[igroup]|] Number of integer, segment based,
+miscellaneous parameters associated with source group |igroup|.
+  \item[|so_giparams_list(iparam,igroup)|] Identity of miscellaneous integer,
+global parameter |iparam| for source group |igroup|.
+  \item[|so_giparams_data(iparam,igroup)|] Real value of miscellaneous, 
+integer, global parameter |iparam| for source group |igroup|.
+  \item[|so_iparams_list(iparam,igroup)|] Identity of miscellaneous, 
+integer, segment based parameter |iparam| for source group |igroup|.
+  \item[|so_iparams_data(iparam,iseg,igroup)|] Real value of miscellaneous, 
+integer, segment based parameter |iparam| for source group |igroup| at 
+total segment |iseg|  (i.e., $1 \leq$ |iseg| $\leq$ |so_seg_tot|).
+  \item[|source_giparameters_base[igroup]|] Pointer to the starting point
+in the |source_giparameters_list| and |source_giparameters_data| arrays
+for source group |igroup|.
+  \item[|source_iparameters_base[igroup]|] Pointer to the starting point
+in the |source_iparameters_list| for source group |igroup|.
+  \item[|source_iparameters_data_base[igroup]|] Pointer to the starting point
+in the |source_iparameters_data| for source group |igroup|.
+\end{description}
+  
+
+
+
 
 
