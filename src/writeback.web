@@ -2,6 +2,9 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.14  2009/11/25 20:18:00  dstotler
+% Extend UEDGE background to handle double null.
+%
 % Revision 1.13  2007/06/19 17:46:03  dstotler
 % Many improvements to UEDGE interface, including: documentation,
 % multiple ion species, updating capability, generalized sheath
@@ -97,6 +100,7 @@ The principal routines in this file are those used to read and interpret
 @I reaction.hweb
 @I materials.hweb
 @I geometry2d.hweb
+@I snapshot_pdf.hweb
 
 @m OLD_UEDATA 0    //  Set to 1 if file does not contain ghost cell data
 
@@ -212,7 +216,7 @@ of the source definition.
          var_reallocc(source_num_checkpoints,0,so_grps)
          var_reallocc(source_species,0,so_grps)
          var_reallocc(source_root_species,0,so_grps)
-         var_reallocc(source_parameters,0,so_grps)
+         var_reallocc(source_time_variation,0,so_grps)
          var_reallocc(source_total_current,0,so_grps)
          var_reallocc(source_weight_norm,0,so_grps)
          var_reallocc(source_scale_factor,0,so_grps)
@@ -235,7 +239,7 @@ of the source definition.
                      grp=group_map[itarg,js,ixpt]
                      so_root_sp(grp)=sp_lookup(uedge_species[js])
                      assert(sp_check(so_root_sp(grp)))
-                     so_params(grp,so_param_puff_temp)=real_unused
+                     so_t_varn(grp)=so_delta_fn
                      so_species(grp)=neutralize_species(so_root_sp(grp))
                      assert(sp_check(so_species(grp)))
                      so_tot_curr(grp)=zero
@@ -932,7 +936,7 @@ If not, add to the list.
          var_realloc(source_num_checkpoints,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_species,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_root_species,so_grps,so_grps+pr_bkrc_num)
-         var_realloc(source_parameters,so_grps,so_grps+pr_bkrc_num)
+         var_realloc(source_time_variation,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_total_current,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_weight_norm,so_grps,so_grps+pr_bkrc_num)
          var_realloc(source_scale_factor,so_grps,so_grps+pr_bkrc_num)
@@ -951,7 +955,7 @@ If not, add to the list.
  */
             so_species(so_grps)=pr_bkrc_prod(jr,1)
             so_root_sp(so_grps)=pr_background(pr_bkrc_rg(jr,2))
-            so_params(so_grps,so_param_puff_temp)=real_unused
+            so_t_varn(so_grps)=so_delta_fn 
             so_nseg(so_grps)=0
             so_geom(so_grps)=so_volume
             so_nflights(so_grps)=100
@@ -1278,6 +1282,229 @@ one applied by EIRENE in the benchmark runs.
       return
       end
 
+@ Read in snapshot particles from file.
+
+@<Functions...@>=
+      subroutine nc_read_snapshot(have_snapshot_file)
+      implicit_none_f77
+      sn_common
+      rf_common
+      implicit_none_f90
+      integer have_snapshot_file     // Output
+      integer fileid            // Local
+      character*FILELEN tempfile
+      nc_decls
+      @<Memory allocation interface@>
+      sn_ncdecl
+
+      tempfile=filenames_array[snapshotfile]
+      if (tempfile == char_undef) then
+         have_snapshot_file=FALSE
+         return
+      end if
+      call ncpopt(0)
+      fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
+      if (nc_stat != 0) then
+         have_snapshot_file=FALSE
+         return
+      else
+         have_snapshot_file=TRUE
+      end if
+      call ncpopt(NC_VERBOSE+NC_FATAL)
+      
+      sn_ncread(fileid)
+      call ncclose(fileid,nc_stat)
+
+      return
+      end
+
+@ Set up a source based on snapshot particles.
+
+@<Functions...@>=
+      subroutine set_snapshot_source
+      implicit_none_f77
+      so_common
+      sn_common
+      implicit_none_f90
+
+      integer have_snapshot_file,new_seg_tot,ip,iparam
+
+      @<Memory allocation interface@>
+
+      call nc_read_snapshot(have_snapshot_file)
+      if ((have_snapshot_file == FALSE) || (sn_number_particles <= 0)) return
+
+      var_realloc(source_base_ptr,so_grps,so_grps+1)
+      var_realloc(source_num_segments,so_grps,so_grps+1)
+      var_realloc(source_type,so_grps,so_grps+1)
+      var_realloc(source_geometry,so_grps,so_grps+1)
+      var_realloc(source_num_flights,so_grps,so_grps+1)
+      var_realloc(source_num_checkpoints,so_grps,so_grps+1)
+      var_realloc(source_species,so_grps,so_grps+1)
+      var_realloc(source_root_species,so_grps,so_grps+1)
+      var_realloc(source_time_variation,so_grps,so_grps+1)
+
+      var_realloc(source_num_gparameters,so_grps,so_grps+1)
+      var_realloc(source_num_parameters,so_grps,so_grps+1)
+      var_realloc(source_gparameters_base,so_grps,so_grps+1)
+      var_realloc(source_parameters_base,so_grps,so_grps+1)
+      var_realloc(source_parameters_data_base,so_grps,so_grps+1)
+      var_realloc(source_num_giparameters,so_grps,so_grps+1)
+      var_realloc(source_num_iparameters,so_grps,so_grps+1)
+      var_realloc(source_giparameters_base,so_grps,so_grps+1)
+      var_realloc(source_iparameters_base,so_grps,so_grps+1)
+      var_realloc(source_iparameters_data_base,so_grps,so_grps+1)
+
+      var_realloc(source_total_current,so_grps,so_grps+1)
+      var_realloc(source_weight_norm,so_grps,so_grps+1)
+      var_realloc(source_scale_factor,so_grps,so_grps+1)
+/* 
+   Reset the seed string to avoid random number overlap 
+   between consecutive runs.
+*/
+      so_seed_decimal=sn_seed_decimal
+
+      so_grps++
+      so_base(so_grps)=so_seg_tot+1
+      so_type(so_grps)=so_snapshot
+      so_t_varn(so_grps)=so_delta_fn
+      so_nseg(so_grps)=sn_number_particles
+      so_geom(so_grps)=so_volume
+      so_nflights(so_grps)=100
+      so_chkpt(so_grps)=0
+      so_scale(so_grps)=one
+
+      source_num_gparameters[so_grps]=0
+      source_num_parameters[so_grps]=7
+      source_gparameters_base[so_grps]=so_gparams_list_size
+      source_parameters_base[so_grps]=so_params_list_size
+      source_parameters_data_base[so_grps]=so_params_data_size
+      source_num_giparameters[so_grps]=0
+      source_num_iparameters[so_grps]=6
+      source_giparameters_base[so_grps]=so_giparams_list_size
+      source_iparameters_base[so_grps]=so_iparams_list_size
+      source_iparameters_data_base[so_grps]=so_iparams_data_size
+
+      so_params_list_size+=source_num_parameters[so_grps]
+      if (so_params_list_size > so_params_list_dim) then
+         var_realloc(source_parameters_list,so_params_list_dim,
+     $        so_params_list_size)
+         so_params_list_dim=so_params_list_size
+      end if
+      so_params_list(1,so_grps)=so_param_pt_t
+      so_params_list(2,so_grps)=so_param_pt_v1
+      so_params_list(3,so_grps)=so_param_pt_v2
+      so_params_list(4,so_grps)=so_param_pt_v3
+      so_params_list(5,so_grps)=so_param_lc_x1
+      so_params_list(6,so_grps)=so_param_lc_x2
+      so_params_list(7,so_grps)=so_param_lc_x3
+
+      so_iparams_list_size+=source_num_iparameters[so_grps]
+      if (so_iparams_list_size > so_iparams_list_dim) then
+         var_realloc(source_iparameters_list,so_iparams_list_dim,
+     $        so_iparams_list_size)
+         so_iparams_list_dim=so_iparams_list_size
+      end if
+      so_iparams_list(1,so_grps)=so_iparam_pt_sp
+      so_iparams_list(2,so_grps)=so_iparam_pt_test
+      so_iparams_list(3,so_grps)=so_iparam_lc_cell
+      so_iparams_list(4,so_grps)=so_iparam_lc_zone
+      so_iparams_list(5,so_grps)=so_iparam_pt_type
+      so_iparams_list(6,so_grps)=so_iparam_pt_author
+
+      new_seg_tot=so_seg_tot+sn_number_particles
+      var_realloc(source_segment_ptr,so_seg_tot,new_seg_tot)
+      var_realloc(source_current,so_seg_tot,new_seg_tot)
+      var_realloc(source_segment_rel_wt,so_seg_tot,new_seg_tot)
+      var_realloc(source_segment_prob_alias,so_seg_tot,new_seg_tot)
+      var_realloc(source_segment_ptr_alias,so_seg_tot,new_seg_tot)
+
+      so_params_data_size+=source_num_parameters[so_grps]*sn_number_particles
+      if (so_params_data_size > so_params_data_dim) then
+         var_realloc(source_parameters_data,so_params_data_dim,
+     $               so_params_data_size)
+         so_params_data_dim=so_params_data_size
+      end if
+
+      so_iparams_data_size+=source_num_iparameters[so_grps]*sn_number_particles
+      if (so_iparams_data_size > so_iparams_data_dim) then
+         var_realloc(source_iparameters_data,so_iparams_data_dim,
+     $               so_iparams_data_size)
+         so_iparams_data_dim=so_iparams_data_size
+      end if
+
+      so_tot_curr(so_grps)=zero
+      do ip=1,sn_number_particles
+         so_seg_tot++
+         source_segment_ptr[so_seg_tot]=ip
+         source_current[so_seg_tot]=sn_particles_float[ip][sn_float_pt_w]
+         so_tot_curr(so_grps)+=sn_particles_float[ip][sn_float_pt_w]
+/*
+   Write the loop like this to be sure we get them all
+*/
+         do iparam=1,source_num_parameters[so_grps]
+            if (so_params_list(iparam,so_grps) == so_param_pt_t) then
+               so_params_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_float[ip][sn_float_pt_t]
+/*
+   May eventually relax this if there is a need.  Check just the first
+   particle to avoid output overflow in the event of a problem.
+*/
+               if (iparam == 1) then
+                  assert(so_params_data(iparam,so_seg_tot,so_grps) 
+     $                 == so_time_initial)
+               end if
+            else if (so_params_list(iparam,so_grps) == so_param_pt_v1) then
+               so_params_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_float[ip][sn_float_pt_v1]
+            else if (so_params_list(iparam,so_grps) == so_param_pt_v2) then
+               so_params_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_float[ip][sn_float_pt_v2]
+            else if (so_params_list(iparam,so_grps) == so_param_pt_v3) then
+               so_params_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_float[ip][sn_float_pt_v3]
+            else if (so_params_list(iparam,so_grps) == so_param_lc_x1) then
+               so_params_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_float[ip][sn_float_lc_x1]
+            else if (so_params_list(iparam,so_grps) == so_param_lc_x2) then
+               so_params_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_float[ip][sn_float_lc_x2]
+            else if (so_params_list(iparam,so_grps) == so_param_lc_x3) then
+               so_params_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_float[ip][sn_float_lc_x3]
+            else
+               assert(' Inconsistent number of snapshot parameters' == ' ')
+            end if
+         end do
+
+         do iparam=1,source_num_iparameters[so_grps]
+            if (so_iparams_list(iparam,so_grps) == so_iparam_pt_sp) then
+               so_iparams_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_int[ip][sn_int_pt_sp]
+            else if (so_iparams_list(iparam,so_grps) == so_iparam_pt_test) then
+               so_iparams_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_int[ip][sn_int_pt_test]
+            else if (so_iparams_list(iparam,so_grps) == so_iparam_lc_cell) then
+               so_iparams_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_int[ip][sn_int_lc_cell]
+            else if (so_iparams_list(iparam,so_grps) == so_iparam_lc_zone) then
+               so_iparams_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_int[ip][sn_int_lc_zone]
+            else if (so_iparams_list(iparam,so_grps) == so_iparam_pt_type) then
+               so_iparams_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_int[ip][sn_int_pt_type]
+            else if (so_iparams_list(iparam,so_grps) == so_iparam_pt_author) then
+               so_iparams_data(iparam,so_seg_tot,so_grps)
+     $              =sn_particles_int[ip][sn_int_pt_author]
+            end if
+         end do
+
+      end do
+      assert(so_seg_tot == new_seg_tot)
+
+      return
+      end
+
 @ Allocate and initialize background arrays. This routine also checks for
 overlap between the test and background species (i.e., for BGK neutrals).
 If present, vacuum zones are relabeled as plasma zones to permit 
@@ -1450,7 +1677,7 @@ break: continue
 @ Set Probability Aliases Used for Sampling. This implementation follows
 the description of the sampling algorithm described in Sec. 3.4.1 (and
 Exercise 7) of Knuth. He refers to the originator, A. J. Walker,
-[{\em Electronics Letters} {\bf 10}, 8 (1974), 127-128; {\em ACM Trans.
+[{\em Electronics Letters} {\bf 10}, 8 (1977), 127-128; {\em ACM Trans.
 Math. Software} {\bf 3} (1976), 253-256].
 
 @<Functions...@>=
