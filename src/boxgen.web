@@ -2,6 +2,9 @@
 \Title{boxgen}
 
 % $Log$
+% Revision 1.21  2009/11/25 14:40:19  dstotler
+% Remove temp from define_sector_plasma.
+%
 % Revision 1.20  2007/06/19 17:32:13  dstotler
 % Move soln_2 boundary condition to be exactly at x=L.  Compute (internally) absolute normalization in soln_2.
 %
@@ -139,6 +142,7 @@ extraneous material should be stripped out.
 @I sources.hweb
 @I species.hweb
 @I detector.hweb
+@I random.hweb
 
 @ The main program.
 
@@ -911,6 +915,28 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_set_run_flags
       so_grps=1
       so_seg_tot=0
+      so_gparams_list_size=2   // For gas puff (see below)
+      so_gparams_list_dim=2
+      so_params_list_size=0
+      so_params_list_dim=1
+      so_params_data_size=0
+      so_params_data_dim=1
+      so_giparams_list_size=0
+      so_giparams_list_dim=1
+      so_iparams_list_size=0
+      so_iparams_list_dim=1
+      so_iparams_data_size=0
+      so_iparams_data_dim=1
+
+      var_alloc(source_gparameters_list)
+      var_alloc(source_parameters_list)
+      var_alloc(source_gparameters_data)
+      var_alloc(source_parameters_data)
+      var_alloc(source_giparameters_list)
+      var_alloc(source_iparameters_list)
+      var_alloc(source_giparameters_data)
+      var_alloc(source_iparameters_data)
+
       var_realloca(source_base_ptr)
       var_realloca(source_num_segments)
       var_realloca(source_type)
@@ -919,7 +945,17 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_realloca(source_num_checkpoints)
       var_realloca(source_species)
       var_realloca(source_root_species)
-      var_realloca(source_parameters)
+      var_realloca(source_time_variation)
+      var_realloca(source_num_gparameters)
+      var_realloca(source_num_parameters)
+      var_realloca(source_gparameters_base)
+      var_realloca(source_parameters_base)
+      var_realloca(source_parameters_data_base)
+      var_realloca(source_num_giparameters)
+      var_realloca(source_num_iparameters)
+      var_realloca(source_giparameters_base)
+      var_realloca(source_iparameters_base)
+      var_realloca(source_iparameters_data_base)
       var_realloca(source_total_current)
       var_realloca(source_weight_norm)
       var_realloca(source_scale_factor)
@@ -930,7 +966,23 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       so_chkpt(so_grps)=0
       so_species(so_grps)=sp_lookup(puff_species)
       so_root_sp(so_grps)=so_species(so_grps)     // Same for now
-      so_params(so_grps,so_param_puff_temp)=temp_min*electron_charge
+      so_t_varn(so_grps)=so_delta_fn              // Not used here
+
+      source_num_parameters[so_grps]=0            // Not used
+      source_parameters_base[so_grps]=so_params_list_size
+      source_parameters_data_base[so_grps]=so_params_data_size
+      source_num_giparameters[so_grps]=0
+      source_num_iparameters[so_grps]=0
+      source_giparameters_base[so_grps]=so_giparams_list_size
+      source_iparameters_base[so_grps]=so_iparams_list_size
+      source_iparameters_data_base[so_grps]=so_iparams_data_size
+
+      source_num_gparameters[so_grps]=2           // Gas puff parameters
+      source_gparameters_base[so_grps]=0
+      so_gparams_list(1,so_grps)=so_gparam_puff_temp
+      so_gparams_data(1,so_grps)=temp_min*electron_charge
+      so_gparams_list(2,so_grps)=so_gparam_puff_exponent
+      so_gparams_data(2,so_grps)=one
       so_tot_curr(so_grps)=zero
       so_scale(so_grps)=one
       do sector=1,nsectors
@@ -971,7 +1023,17 @@ A single source, a gas puff of H, is set up uniformly along |x| = |x_min|.
       var_reallocb(source_num_checkpoints)
       var_reallocb(source_species)
       var_reallocb(source_root_species)
-      var_reallocb(source_parameters)
+      var_reallocb(source_time_variation)
+      var_reallocb(source_num_gparameters)
+      var_reallocb(source_num_parameters)
+      var_reallocb(source_gparameters_base)
+      var_reallocb(source_parameters_base)
+      var_reallocb(source_parameters_data_base)
+      var_reallocb(source_num_giparameters)
+      var_reallocb(source_num_iparameters)
+      var_reallocb(source_giparameters_base)
+      var_reallocb(source_iparameters_base)
+      var_reallocb(source_iparameters_data_base)
       var_reallocb(source_total_current)
       var_reallocb(source_weight_norm)
       var_reallocb(source_scale_factor)
