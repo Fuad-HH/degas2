@@ -2,6 +2,13 @@
 \Title{doflights}
 
 % $Log$
+% Revision 1.6  2009/11/25 18:43:27  dstotler
+% Add NC_LARGE_FILE macro to invoke the 64 bit offset option for
+% the output netCDF file.  Add a check in fill_coupling_arrays to skip
+% sources.out if there is no electron background.  Free test_data in
+% fill_coupling_arrays.  Free output_weight_grp, output_num_flights,
+% output_random_seed in clear_output.
+%
 % Revision 1.5  2007/06/19 17:35:01  dstotler
 % Fixed array dimensions in argument list of write_sources.
 %
@@ -54,6 +61,7 @@
 @I random.hweb
 @I mpi.hweb
 @I background.hweb
+@I snapshot_pdf.hweb
 
 @ The unnamed module.
 
@@ -84,6 +92,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       ou_common
       sa_common
       mp_common
+      sn_common
       implicit_none_f90
 
       rn_seed_decl(io_seed)                            // Input / Output
@@ -92,10 +101,11 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
      $        iview,det,ibin,iauth,jscore_detail,
      $        jscore_total,icp,num_chkpts,group_tot_flights,
      $        nflights,nfrag,nparcel,num,nstart,nslaves,slave,
-     $        send_data,post_arrays_allocd,isp
+     $        send_data,post_arrays_allocd,isp,ip,
+     $        last_sn_num_particles
       integer index_parameters[tl_index_max]
 
-      real mult,tot_scale_curr,prob,signal,wavelength
+      real mult,tot_scale_curr,prob,signal,wavelength,avg_part_per_sec
       real sig_det[20]
       logical need_scores
       rn_seed_decl(seed)
@@ -128,13 +138,6 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
          post_arrays_allocd=FALSE      // Allocate |out_post_grp|, etc. later
 
          rn_seed_copy(io_seed,output_random_seed[1])
-@#if 0
-         if(iter_count <= 0) then
-            call decimal_to_seed(so_seed_string,rn_seed_args(output_random_seed[1]))
-         else
-            call next_seed(1,rn_seed_args(output_random_seed[1]))
-         endif
-@#endif
          
          if (so_spaced_seeds == TRUE && so_grps > 1) then
             do is=2,so_grps
@@ -161,6 +164,11 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
          output_index_1_max=zone_index_max[1]
          output_index_2_min=zone_index_min[2]
          output_index_2_max=zone_index_max[2]
+
+         sn_number_particles=0
+         sn_particles_dim=mem_inc
+         var_alloc(sn_particles_float)
+         var_alloc(sn_particles_int)
       else if (so_restart == TRUE) then
          assert(output_old_file == TRUE) 
          post_arrays_allocd=TRUE
@@ -169,7 +177,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       end if
 
       if (so_sampling == so_direct) then
-         call decimal_to_seed(so_seed_string,rn_seed_args(temp_seed))
+         call decimal_to_seed(so_seed_decimal,rn_seed_args(temp_seed))
          call next_seed(-1,rn_seed_args(temp_seed))
          rn_init(rn_seed_args(temp_seed),temp_rand)
          rn_next(so_direct_delta,temp_rand)
@@ -234,6 +242,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       is=0
       do icp=1,num_chkpts
          nflights=chkpt_nflights[icp]
+         last_sn_num_particles=sn_number_particles
 
          if (is != chkpt_grp[icp]) then
             is=chkpt_grp[icp]
@@ -314,7 +323,12 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             @<Merge results@>
          end do
 @#endif
-         
+         if (sn_number_particles > last_sn_num_particles) then
+            do ip=last_sn_num_particles+1,sn_number_particles
+               sn_particles_float[ip][sn_float_pt_w]
+     $              *=so_scale(is)*so_tot_curr(is)/output_weight_grp[is]
+            end do
+         end if
          if (stat_comp_frag == TRUE)   // |output_grp| here, too!
      $   call stat_wt_balance(output_weight_grp[is],stat_size_fin,stat_dim_fin,
      $           output_grp[is][0][o_mean],stat_wt_dim_fin,stat_wt_fin)
@@ -331,13 +345,17 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             rn_seed_copy(seed,output_random_seed[is])
          else
 /*
-   Make 'em all the same to prevent |so_spaced_seeds| from being reset
-   for the restart.
+   Otherwise, when the run is complete, all the output seed for all
+   groups will be that at the end of the run.
 */
             do isp=1,so_grps
                rn_seed_copy(seed,output_random_seed[isp])
             end do
          end if
+/*
+   Will write the same seed to the snapshot file in time dependent runs.
+*/
+         if (so_time_dependent == TRUE) call seed_to_decimal(seed,sn_seed_decimal)
 
 @#if MPI_messages
          write(stderr,*) ' Before allocation of post arrays'
@@ -378,7 +396,19 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
          if (icp < num_chkpts && chkpt_write[icp] == TRUE) call nc_write_output
            
       end do           // Over |icp|
-
+@#if !MPI
+/*
+   In the MPI case, these arrays are reallocated to the 
+   exact size as they are being accumulated from the slaves.
+*/
+      if (sn_number_particles > 0) then
+         sn_particles_dim=sn_number_particles
+      else
+         sn_particles_dim=1
+      end if
+      var_reallocb(sn_particles_float)
+      var_reallocb(sn_particles_int)
+@#endif
 /*
    In preparation for combining results from various source groups, scale
    up according to total source rate for this group (presumably determined
@@ -410,18 +440,21 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
          end do
       end do
 /*
-   NOTE: the loop below previously divided the volume out of all of the
-   means. Temporarily skip this: the appropriate normalizing factor will
-   depend on the particular geometry. Furthermore, would need to extract
-   from the tally arrays the particular geometry index for each tally.
+   For the time dependent case, the input ``currents'' represent particles.
+   Divide by the time interval to give the total (scaled) current
+   units of particles per second, the same as in the time independent case.
 */
-
+      if (so_time_dependent == TRUE) then
+         avg_part_per_sec=tot_scale_curr/(so_time_final-so_time_initial)
+      else
+         avg_part_per_sec=tot_scale_curr
+      end if
       do i=0,tally_size-1
          output_all[i][o_var]=sqrt(output_all[i][o_var])/max(abs(output_all[i][o_mean]),const(1.0,-100))
-         output_all[i][o_mean]*=tot_scale_curr
+         output_all[i][o_mean]*=avg_part_per_sec
          do is=1,so_grps
             out_post_grp[is][i][o_var]=sqrt(out_post_grp[is][i][o_var])/max(abs(out_post_grp[is][i][o_mean]),const(1.0,-100))
-            out_post_grp[is][i][o_mean]*=tot_scale_curr
+            out_post_grp[is][i][o_mean]*=avg_part_per_sec
          end do
       end do
 /*
@@ -681,10 +714,11 @@ break:  continue
       implicit_none_f77
       mp_common
       sa_common
+      sn_common
       implicit_none_f90
       mp_decls
       integer slave,nstart,nflights
-      integer tag,new_dim
+      integer tag,new_dim,new_sn_num_particles
       @<Memory allocation interface@>
 
       tag=400
@@ -728,13 +762,30 @@ break:  continue
          var_realloc(stat_wt_frag,stat_wt_dim_frag-1,new_dim-1)
          stat_wt_dim_frag=new_dim
       end if
+
       tag++
-@#if 0
-      call MPI_recv(stat_wt_frag,array_size(stat_wt_frag),mpi_real,MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
-@#endif
-// Shouldn't |MPI_ANY_SOURCE| here be |slave|?
       call MPI_recv(stat_wt_frag,array_size(stat_wt_frag),mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 
+      tag++
+      call MPI_recv(new_sn_num_particles,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+      if (new_sn_num_particles > 0) then
+         var_realloc(sn_particles_float,sn_number_particles,sn_number_particles+new_sn_num_particles)
+         var_realloc(sn_particles_int,sn_number_particles,sn_number_particles+new_sn_num_particles)
+         
+         tag++
+         call MPI_recv(sn_particles_float[sn_number_particles+1][1],
+     $                 array_unit(sn_particles_float)*new_sn_num_particles,
+     $                 mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+         tag++
+         call  MPI_recv(sn_particles_int[sn_number_particles+1][1],
+     $                 array_unit(sn_particles_int)*new_sn_num_particles,
+     $                 mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+
+         sn_number_particles+=new_sn_num_particles
+         sn_particles_dim=sn_number_particles
+      end if
 
 break:  continue
       return
@@ -753,6 +804,7 @@ results back to the master.  It's only defined for MPI.
       pr_common
       so_common
       tl_common
+      sn_common
       implicit_none_f90
       mp_decls
       integer nstart,nflights,tag,done_flag,send_data
@@ -767,6 +819,11 @@ results back to the master.  It's only defined for MPI.
       integer i
       
       var_alloc(estimator_factors)
+
+      sn_number_particles=0
+      sn_particles_dim=mem_inc
+      var_alloc(sn_particles_float)
+      var_alloc(sn_particles_int)
 
       mpi_broadcast(so_direct_delta)
 
@@ -787,14 +844,14 @@ loop: continue
 @#if MPI_slave_messages
       write(diskout+3,*) ' Beginning receive calls; tag = ',tag
 @#endif
-      call MPI_recv(nflights,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(nflights,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       if (nflights == 0) goto break
       tag++
-      call MPI_recv(nstart,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       tag++
-      call MPI_recv(isource,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(isource,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       tag++
-      call MPI_recv(seed,ran_s,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(seed,ran_s,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' End of receive calls; tag = ',tag
       call flush(diskout+3)
@@ -809,7 +866,7 @@ loop: continue
       write(diskout+3,*) ' End of receive calls; tag = ',tag
       call flush(diskout+3)
 @#endif
-      call MPI_send(done_flag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(done_flag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' Sent done_flag; tag = ',tag
       call flush(diskout+3)
@@ -820,7 +877,7 @@ loop: continue
       write(diskout+3,*) ' Before receipt of send_data; tag = ',tag
       call flush(diskout+3)
 @#endif
-      call MPI_recv(send_data,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(send_data,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' After receipt of send_data; tag = ',tag
       call flush(diskout+3)
@@ -835,36 +892,52 @@ loop: continue
          write(diskout+3,*) ' Before final data send calls; tag = ',tag
          call flush(diskout+3)
 @#endif
-         call MPI_send(stat_comp_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_comp_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
-         call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
-         call MPI_send(stat_size_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_size_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 
          tag++
-         call MPI_send(stat_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
-         call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 
          tag++
-         call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
-         call MPI_send(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 
          tag++
-         call MPI_send(stat_ps_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_ps_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
-         call MPI_send(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 
          tag++
-         call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag++
-         call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 @#if MPI_slave_messages
          write(diskout+3,*) ' After final data send calls; tag = ',tag
          call flush(diskout+3)
 @#endif
+         if (sn_number_particles > 0) then
+            sn_particles_dim=sn_number_particles
+         else
+            sn_particles_dim=1
+         end if
+         var_reallocb(sn_particles_float)
+         var_reallocb(sn_particles_int)
+         tag++
+         call MPI_send(sn_number_particles,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 
+         if (sn_number_particles > 0) then
+            tag++
+            call MPI_send(sn_particles_float,array_size(sn_particles_float),mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         
+            tag++
+            call MPI_send(sn_particles_int,array_size(sn_particles_int),mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         end if
 /*
    Reinitialize |stat_frag|. In |do_flights_master|, these would be done
    instead by |stat_acc| and |stat_wt_balance|.
@@ -1189,12 +1262,14 @@ or later
       pr_common
       tl_common
       ou_common
+      sn_common
       implicit_none_f90
       nc_decls
       st_decls
       tl_decls
       integer fileid             // Local
       ou_ncdecl
+      sn_ncdecl
       character*LINELEN description,program_version
       character*FILELEN tempfile
 
@@ -1226,6 +1301,16 @@ or later
 
       call ncclose(fileid,nc_stat)
 
+      if (so_time_dependent == TRUE) then
+         tempfile=filenames_array[snapshotfile]
+         assert(tempfile != char_undef)
+         fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
+         sn_ncdef(fileid)
+         call ncendef(fileid,nc_stat);
+         sn_ncwrite(fileid)
+         call ncclose(fileid,nc_stat)
+      end if
+
       return
       end
 
@@ -1238,6 +1323,7 @@ or later
       pr_common
       tl_common
       ou_common
+      sn_common
       implicit_none_f90
       tl_decls
 
@@ -1251,6 +1337,9 @@ or later
       var_free(out_post_all)
       var_free(out_post_grp)
       var_free(output_2D_coupling)
+
+      var_free(sn_particles_float)
+      var_free(sn_particles_int)
 
       return
       end
