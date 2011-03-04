@@ -2,6 +2,13 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.43  2006/01/19 19:20:02  dstotler
+% Allow for plasma sectors in loop over non-diagnostic sectors in
+% score_sectors (skip decrement of fl_pointer).  Do an lc_thru_face for
+% PMI products corresponding to the swap done in pick_pmi.  Add an
+% assert of lc_check on these to be sure everything is consistent.  Add
+% some diagnostic output in subr. follow for MPI cases.
+%
 % Revision 1.42  2002/01/28 16:55:36  dstotler
 % Just a change in a comment.
 %
@@ -216,6 +223,7 @@
 @I output.hweb
 @I stat.hweb
 @I materials.hweb
+@I snapshot_pdf.hweb
 
 @ The main program.
 
@@ -225,15 +233,13 @@
 @ Follow a bunch of flights.
 
 @<Functions...@>=
-@#if 0      
-subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scores1,estimator_factors)
-@#endif
       subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,estimator_factors)
       implicit_none_f77
       zn_common
       pr_common
       tl_common
       sa_common
+      sn_common
       implicit_none_f90
       tl_decls
       integer nstart,nflights            // Input
@@ -248,15 +254,6 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
       real rel_wt
       
       rn_seed_copy(seed0,seed)
-
-@#if 0
-      weight=zero
-      do i=0,tally_size-1
-         scores[i][o_mean]=zero
-         scores[i][o_var]=zero
-      end do
-@#endif
-
 /*
    This used to be taken care of in |stat_wt_balance|. Added the check
    on weight to permit re-entry in the MPI case.
@@ -270,9 +267,6 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
       do j=nstart,nstart+nflights-1
          fl_label(x,j,isource)
 
-@#if 0
-         call follow(fl_args(x),scores1,weight1,seed,estimator_factors)
-@#endif
          call follow(fl_args(x),seed,rel_wt,estimator_factors)
          stat_wt_tot_flt=rel_wt
 
@@ -288,9 +282,6 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
             stat_wt_dim_frag=new_dim
          end if
 
-@#if 0
-         call stat_acc(tally_size,weight1,scores1,weight,scores)
-@#endif
          call stat_acc(stat_comp_flt,stat_wt_tot_flt,stat_size_flt,
      $         stat_dim_flt,stat_flt,stat_pf_dim_flt,stat_ptr2full_flt,
      $         stat_ps_dim_flt,stat_ptr2short_flt,
@@ -302,12 +293,6 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
          call next_seed(1,seed)
       end do
 
-@#if 0
-      if (stat_comp_flt == TRUE)  // Move to |Merge results|
-     $    call stat_wt_balance(stat_wt_tot_frag,stat_size_frag,stat_dim_frag,
-     $        stat_frag,stat_wt_dim_frag,stat_wt_frag)
-@#endif
-      
       return
       end
       
@@ -360,9 +345,6 @@ subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,scores,weight,scor
    This call now combines the source sampling and scoring.
 */
       call sample_sources(tl_est_collision,fl_args(x),estimator_factors,rel_wt)
-@#if 0
-      call score_sources(fl_args(x),estimator_factors)
-@#endif
 
 loop1: continue                 // Start a new 
 
@@ -402,7 +384,9 @@ loop: continue                  // Still in same zone
          tmax=-log(random(rn_args(fl_rand(x))))/other_rate
       else
          tmax=geom_infinity
-      end if         
+      end if  
+      if (so_time_dependent == TRUE) 
+     $     tmax=min(tmax,so_time_final-pt_t(fl_current(x)))
 
       if (pt_w(fl_current(x)) < WMIN) then  
          if (random(rn_args(fl_rand(x))) > half) then
@@ -413,17 +397,15 @@ loop: continue                  // Still in same zone
          else
             pt_w(fl_current(x)) = two*pt_w(fl_current(x))
          end if
+      else if ((so_time_dependent == TRUE)
+     $        && (pt_t(fl_current(x)) >= (so_time_final-epsilon))) then
+         fl_pointer(x)--
+         if (fl_pointer(x) <= 0) goto break
+         assert(fl_check(x))
+         goto loop1
       end if
 
       done=pt_track(tmax,t,fl_current(x))
-
-@#if 0
-      if (ionize_rate > epsilon) then
-         t_fac=(one-exp(-ionize_rate*t))/ionize_rate
-      else
-         t_fac=t
-      end if   
-@#else
 /*
    The use of the additional expansion term here makes the code more
    robust to precision differences across platforms.
@@ -435,8 +417,6 @@ loop: continue                  // Still in same zone
       else
          t_fac=t
       end if   
-@#endif
-         
       call score_test(tl_est_track,t_fac,pt_args(fl_current(x)),estimator_factors)
 
       pt_copy(fl_current(x),prod[0])
@@ -452,46 +432,55 @@ loop: continue                  // Still in same zone
 
       pt_w(fl_current(x))=exp(-ionize_rate*t)*pt_w(fl_current(x))
       
-      if (done) then            // Have a collision
-         assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
+      if (done) then       
+         if ((so_time_dependent == TRUE)
+     $  && (pt_t(fl_current(x)) >= (so_time_final-epsilon))) then       // Time boundary
+/*
+   Score the snapshot estimators at the time boundary.  Note that effectively, 
+   the scoring functions include a delta-function in time.  Consequently, this
+   |t_fac| is included to cancel the overall factor in subroutine |do_flights_master|.
+*/
+            t_fac=so_time_final-so_time_initial
+            call score_test(tl_est_snapshot,t_fac,pt_args(fl_current(x)),estimator_factors)
 
-         rn_next(rnd,fl_rand(x))
-         rnd=rnd*other_rate
-         sum=zero
-         assert(pr_rc_num(pt_test(fl_current(x))) > 0)
-         do i=1,pr_rc_num(pt_test(fl_current(x)))
-            sum=sum+rate[i]
-            if (sum >= rnd) then
-               assert(rate[i] > zero)
-               call score_test(tl_est_collision,one/other_rate,
-     $              pt_args(fl_current(x)),
-     $              estimator_factors)
+         else                                                           // Have a collision
+            assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
+            rn_next(rnd,fl_rand(x))
+            rnd=rnd*other_rate
+            sum=zero
+            assert(pr_rc_num(pt_test(fl_current(x))) > 0)
+            do i=1,pr_rc_num(pt_test(fl_current(x)))
+               sum=sum+rate[i]
+               if (sum >= rnd) then
+                  assert(rate[i] > zero)
+                  call score_test(tl_est_collision,one/other_rate,
+     $                 pt_args(fl_current(x)),
+     $                 estimator_factors)
 
-               pt_copy(fl_current(x),prod[0])
-               call score_reaction(tl_est_collision,  // {\em And process!}
-     $              one/rate[i],pr_reaction_args(i),rate[i],
-     $              nprod,pt_args(prod[0]),estimator_factors,
-     $              rn_args(fl_rand(x)))
-               goto break1
-            end if
-         end do
-         assert(.false.)
-break1:  continue
-         fl_pointer(x)--
-         if (nprod > 0) then
-            do i=1,nprod
-               if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
-                  fl_pointer(x)++
-                  pt_copy(prod[i],fl_current(x))
+                  pt_copy(fl_current(x),prod[0])
+                  call score_reaction(tl_est_collision,  // {\em And process !}
+     $                 one/rate[i],pr_reaction_args(i),rate[i],
+     $                 nprod,pt_args(prod[0]),estimator_factors,
+     $                 rn_args(fl_rand(x)))
+                  goto break1
                end if
             end do
+            assert(.false.)
+break1:     continue
+            fl_pointer(x)--
+            if (nprod > 0) then
+               do i=1,nprod
+                  if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
+                     fl_pointer(x)++
+                     pt_copy(prod[i],fl_current(x))
+                  end if
+               end do
+            end if
+            if (fl_pointer(x) <= 0) goto break
+            assert(fl_check(x))
          end if
-         if (fl_pointer(x) <= 0) goto break
-         assert(fl_check(x))
-
          goto loop
       else               
-
 /* 
    Go to next zone or process a sector.
    Universal cell crossings should have been handled by a transformation or
