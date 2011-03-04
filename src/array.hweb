@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.30  2009/11/25 14:34:54  dstotler
+% Add the mpibcastna algorithm that eliminates the allocation step from mpibcast.
+%
 % Revision 1.29  1999/03/25 20:45:21  dstotler
 % Fix fweave bug in a comment. Changed section titles.
 %
@@ -373,18 +376,18 @@ of the  ranges of the dimensions. The range is defined by a macro
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)*range_size(ind_##x##_5)))
-
-/* |array_unit(x)| is the size calculated by leaving out the last dimension of
-the array x. */
-
-@#if FORTRAN77
+/* 
+   |array_unit(x)| is the size calculated by leaving out the last dimension of
+   the array x.  This was previously set for use only with FORTRAN77, but don't
+   know why.  Using this with FORTRAN90 rather than developing analogous
+   capability (via |size| function?).
+*/
 @m array_unit(x)
       $IFCASE(rank_##x,,1,
       (range_size(ind_##x##_1)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)),
       (range_size(ind_##x##_1)*range_size(ind_##x##_2)*range_size(ind_##x##_3)*range_size(ind_##x##_4)))
-@#endif
 
 /* |array_sizev(x,y)| gives the size of an array x if its last
 dimension (upper limit) is y. This can be used to calculate the new size of
@@ -863,7 +866,7 @@ invoking a macro for entity.
         ,
         ,
         mpi_broadcast(var);,
-        if (mpi_rank != mpi_root) then; var_alloc(var); endif;mpi_broadcast(var);,
+        if (mpi_rank != mpi_degas2_root) then; var_alloc(var); endif;mpi_broadcast(var);,
         )
 @#else
 @m do_mpibcast(pk,var,cat)
