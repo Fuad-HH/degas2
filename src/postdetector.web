@@ -2,6 +2,10 @@
 \Title{postdetector}
 
 % $Log$
+% Revision 1.3  2009/11/25 19:59:19  dstotler
+% This generalized version is effectively a merge of the two separate
+% ones used for NSTX / He and C-Mod / D2.
+%
 % Revision 1.2  2007/06/19 17:41:05  dstotler
 % Hack in some simple profile analyses for use with sampled plasma profiles.
 %
@@ -251,9 +255,9 @@ must match that in the corresponding |gpi_views| routine (see, e.g.,
 
 
 @#if MPI
-      call MPI_bcast(em_data,zn_num,mpi_real,mpi_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(em_sp_data,zn_num*nsd,mpi_real,mpi_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(test_density,zn_num*nsd,mpi_real,mpi_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(em_data,zn_num,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(em_sp_data,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(test_density,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
 need ns?  other stuff?
 @#endif
 
@@ -633,8 +637,8 @@ routines.
       var_alloc(test_density)
       var_alloc(zone_frags)
 
-      call MPI_bcast(em_data,zn_num,mpi_real,mpi_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(test_density,zn_num,mpi_real,mpi_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(em_data,zn_num,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(test_density,zn_num,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
 
       do iy=1,ny
          do ix=1,nx
@@ -647,31 +651,31 @@ routines.
 
 loop: continue
       tag=100
-      call MPI_recv(num,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(num,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       if (num == 0) goto break
       tag++
-      call MPI_recv(nstart,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       @<Compute Signal@>
 
       done_flag=TRUE
       tag=200
-      call MPI_send(done_flag,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(done_flag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 
       tag=300
-      call MPI_recv(send_data,1,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(send_data,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       if (send_data == FALSE) then
          goto loop
       else if (send_data == TRUE) then
          
          tag=400
 
-         call MPI_send(signal_array,nx*ny,mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(signal_array,nx*ny,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag=401
-         call MPI_send(target_map,nx*ny,mpi_int,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(target_map,nx*ny,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag=402
-         call MPI_send(n_eff2,nx*ny,mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(n_eff2,nx*ny,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          tag=403
-         call MPI_send(fwpa_avg,nx*ny,mpi_real,mpi_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(fwpa_avg,nx*ny,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          do iy=1,ny
             do ix=1,nx
                signal_array[ix][iy]=real_unused
