@@ -2,6 +2,10 @@
 \Title{score}
 
 % $Log$
+% Revision 1.19  2009/11/25 20:07:03  dstotler
+% Replace lc_set_a(zone_loc) in post_process_test_scores with
+% just setting the zone to save time.
+%
 % Revision 1.18  2006/01/19 20:01:34  dstotler
 % Replace lc_face in angle calculation of sector_scoring_data with
 % sector_surface[lc_sector] and sector_surface[lc_sector_next] (using
@@ -149,7 +153,7 @@
 @I sources.hweb
 @I background.hweb
 @I zone.hweb
-
+@I snapshot_pdf.hweb
 
 @ The main program
 
@@ -199,6 +203,8 @@
          call add_scores(tl_type_test,pt_args(p),pr_reaction_args(pr_reac),
      $        scoring_data,estimator_factors)
       end if
+
+      if (est == tl_est_snapshot) call build_snapshot_pdf(pt_args(p))
 
       return
       end
@@ -1298,6 +1304,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
                         assert(lc_zone(zone_loc) == zone)
 @#else
                         lc_zone(zone_loc)=zone
+                        lc_sector(zone_loc)=0
 @#endif
                         particle_no=stat_flt[out_array_index(1,ind_val,jscore)][o_mean]
                         do ic=1,tally_dep_var_dim[jscore_v]
@@ -1375,7 +1382,11 @@ situation.
       lc_decls
       rn_decls
       st_decls
-
+/*
+   Skip for the snapshot source for now.  Need to fix before public
+   release.
+*/
+      if (so_type(is) == so_snapshot) return
 /*
    Similar to above, but the ``fake'' particle now corresponds to the sourced
    species.
@@ -1389,7 +1400,8 @@ situation.
 
          pt_init(fake_pt,sp_sy(so_species(is)),is)
          pt_w(fake_pt)=so_scale(is)*source_current[seg_tot]
-         call set_source_x(est,so_args(is),xseg,rn_args(fake_rn),lc_args(pt_loc(fake_pt)))
+         call set_source_x(est,so_args(is),xseg,kseg,
+     $        rn_args(fake_rn),lc_args(pt_loc(fake_pt)))
          if (so_type(is) == so_recomb) then
             bk_rc_is=0
             do i=1,pr_bkrc_num
@@ -1469,6 +1481,55 @@ situation.
       
       return
       end
+
+@ Load data for a single particle into the snapshot arrays.
+
+@<Functions...@>=
+      subroutine build_snapshot_pdf(pt_dummy(p))
+
+      implicit_none_f77
+      sn_common                                  // Common
+      implicit_none_f90
+
+      pt_decl(p)                                 // Input
+
+      @<Memory allocation interface@>
+
+      sn_number_particles++
+      sn_particles_dim=max(sn_particles_dim,sn_number_particles)
+      var_realloca(sn_particles_float)
+      var_realloca(sn_particles_int)
+/*
+   The order of these statements is not random, but corresponds to that in 
+   |pt_decl| and |lc_decl|.
+*/
+      sn_particles_int[sn_number_particles][sn_int_pt_sp]=pt_sp(p)
+      sn_particles_int[sn_number_particles][sn_int_pt_test]=pt_test(p)
+      sn_particles_float[sn_number_particles][sn_float_pt_t]=pt_t(p)
+      sn_particles_float[sn_number_particles][sn_float_pt_w]=pt_w(p)
+      sn_particles_float[sn_number_particles][sn_float_pt_v1]=pt_v(p)[1]
+      sn_particles_float[sn_number_particles][sn_float_pt_v2]=pt_v(p)[2]
+      sn_particles_float[sn_number_particles][sn_float_pt_v3]=pt_v(p)[3]
+      sn_particles_float[sn_number_particles][sn_float_lc_x1]=lc_x(pt_loc(p))[1]
+      sn_particles_float[sn_number_particles][sn_float_lc_x2]=lc_x(pt_loc(p))[2]
+      sn_particles_float[sn_number_particles][sn_float_lc_x3]=lc_x(pt_loc(p))[3]
+      sn_particles_int[sn_number_particles][sn_int_lc_cell]=lc_cell(pt_loc(p))
+      sn_particles_int[sn_number_particles][sn_int_lc_zone]=lc_zone(pt_loc(p))
+      sn_particles_int[sn_number_particles][sn_int_lc_face]=lc_face(pt_loc(p))
+      sn_particles_int[sn_number_particles][sn_int_lc_cell_next]=lc_cell_next(pt_loc(p))
+      sn_particles_int[sn_number_particles][sn_int_lc_zone_next]=lc_zone_next(pt_loc(p))
+      sn_particles_int[sn_number_particles][sn_int_lc_sector]=lc_sector(pt_loc(p))
+      sn_particles_int[sn_number_particles][sn_int_lc_sector_next]=lc_sector_next(pt_loc(p))
+      sn_particles_int[sn_number_particles][sn_int_pt_type]=pt_type(p)
+      sn_particles_int[sn_number_particles][sn_int_pt_author]=pt_author(p)
+
+      return
+      end
+
+      
+
+
+      
 
 
 
