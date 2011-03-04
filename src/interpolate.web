@@ -2,6 +2,9 @@
 \Title{interpolate}
 
 % $Log$
+% Revision 1.2  2009/11/25 19:42:38  dstotler
+% Add a trial version of 1-D linear extrapolation.
+%
 % Revision 1.1  1999/03/25 21:00:25  dstotler
 % Split off to make wider use simpler.
 %
@@ -260,8 +263,8 @@ version; extensions to higher dimension will come only after testing.
       end
 
 @ Simple function to identify bounding indices prior to interpolation for 
-nonuniform spacing cases. This assumes that |array| increases monotonically. 
-Taken from Numerical Recipes.
+nonuniform spacing cases. This assumes that |array| decreases or 
+increases monotonically. Taken from Numerical Recipes.
 
 @<Functions...@>=
       function find_index(x,array,n)
@@ -277,7 +280,11 @@ Taken from Numerical Recipes.
 loop1: continue
       if (ju-jl > 1) then
          jm=(ju+jl)/2
-         if (x > array[jm]) then
+/*
+   The |.eqv.| here is what allows this to work for both
+   increasing and decreasing functions.
+*/
+         if ((array[n-1] > array[0]) .eqv. (x > array[jm])) then
             jl=jm
          else
             ju=jm
@@ -289,7 +296,8 @@ loop1: continue
 /* Arranged so that if $|x| < |array[0]|, |find_index| < 0$ and if 
    $|x| > |array[n-1]|$,
    $|find_index| > |n| - 1$. In either case, the interpolation routines will
-   yield the limiting values. */
+   yield the limiting values. 
+*/
       find_index=(x - array[jl]) / (array[jl+1] - array[jl]) + jl
 
       return
