@@ -2,6 +2,13 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.29  2009/11/25 19:40:15  dstotler
+% Extend to permit the use of SILO format files as an alternative to
+% HDF4.  Extend to allow external zone based data to be read in and
+% plotted along with the other variables.  Add write of zone volume.
+% Add some documentation at the top of the file.  Clean up species
+% symbols appearing in file and external variable names.
+%
 % Revision 1.28  2006/01/19 19:26:34  dstotler
 % Add print of "Dalpha by species" tally.  Switch read of input file to
 % tokens to permit generation of 3-D data.  Strip out problem characters
@@ -204,6 +211,46 @@ zone    data
 where |zone| is an integer between 1 and |zn_num| (inclusive) and
 |data| is the (real) data value.
 
+By the definition of the mesh, mesh point $(i, j, k)$ corresponds to
+the physical point $x$ according to:
+\begin{equation}
+\vec{x} = \vec{x}_{0} + (i + \frac{1}{2}) \Delta_{1} \hat{v}_{1}
+ + (j + \frac{1}{2}) \Delta_{2} \hat{v}_{2}
+ + (k + \frac{1}{2}) \Delta_{3} \hat{v}_{3},
+\end{equation}
+where $\vec{x}_{0}$ are the coordinates of the origin, $\hat{v}_{1}$
+is the unit vector describing the first axis, $\Delta_{1}$ is the 
+mesh spacing along that axis, and so on for the other two axes.
+
+The mesh coordinate axes $(x_{1}, x_{2}, x_{3})$
+are computed via:
+\begin{equation}
+x_{1}(i) = \vec{x}_{0} \cdot \hat{v}_{1} + (i + \frac{1}{2}) \Delta_{1},
+\end{equation}
+\begin{equation}
+x_{2}(j) = \vec{x}_{0} \cdot \hat{v}_{2} + (j + \frac{1}{2}) \Delta_{2},
+\end{equation}
+and
+\begin{equation}
+x_{3}(k) = \vec{x}_{0} \cdot \hat{v}_{3} + (k + \frac{1}{2}) \Delta_{3}.
+\end{equation}
+
+Eliminating the mesh indices between these two sets of equations provides
+the mapping between the mesh and physical coordinates:
+\begin{equation}
+\vec{x} = \vec{x}_{0} + (x_{1} - \vec{x}_{0} \cdot \hat{v}_{1}) \hat{v}_{1}
++ (x_{2} - \vec{x}_{0} \cdot \hat{v}_{2}) \hat{v}_{2}
++ (x_{3} - \vec{x}_{0} \cdot \hat{v}_{3}) \hat{v}_{3}.
+\end{equation}
+
+For the common case in which the three unit vectors specifying
+the mesh axes are orthogonal
+to each other, 
+this mapping simplifies to the obvious form:
+\begin{equation}
+\vec{x} = x_{1} \hat{v}_{1} + x_{2} \hat{v}_{2} + x_{3} \hat{v}_{3}.
+\end{equation}
+
 \ID{$Id$}
 
 @m FILE 'geomtesta.web'
@@ -222,6 +269,7 @@ where |zone| is an integer between 1 and |zn_num| (inclusive) and
 @I readfilenames.hweb
 @I reaction.hweb
 @I materials.hweb
+@I random.hweb
 
 @ The main program.
 
@@ -523,6 +571,12 @@ loop: continue
          zone_data[i]=zn_volume(i)
       end do
       call write_hdf('volume.hdf',zone_data,'zone_volume','m**3','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+
+      do i=1,zn_num
+         zone_data[i]=areal(zn_type(i))
+      end do
+      call write_hdf('zone_type.hdf',zone_data,'zone number',' ','E11.3',
      $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
 @#if 1
