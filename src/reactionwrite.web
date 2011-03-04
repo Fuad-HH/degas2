@@ -2,6 +2,10 @@
 \Title{reactionwrite}
 
 % $Log$
+% Revision 1.16  2007/06/22 16:42:33  dstotler
+% Switch from ehr2.dat to ehr3.dat.  Change the way spaces are
+% handled in the tags used to search the data files.
+%
 % Revision 1.15  1998/12/22 16:48:52  dstotler
 % Fill unused portion of main data table with real_unused. Incremented
 % version number.
@@ -94,9 +98,9 @@ format with a complete specification of the reaction.
       implicit_none_f77
       implicit_none_f90
       call reaction_write('hionize','ehr3.dat',
-     &     'V. 2.5, e ionization of H, CR data from ehr3.dat')
+     &     'V. 2.6, e ionization of H, CR data from ehr3.dat')
       call reaction_write('hrecombine','ehr3.dat',
-     &     'V. 2.5, e recombination of H+, CR data from ehr3.dat')
+     &     'V. 2.6, e recombination of H+, CR data from ehr3.dat')
       stop
       end
 
@@ -126,7 +130,7 @@ format with a complete specification of the reaction.
       xs_name=name
       xsection_version=version
       if (name == 'hionize') then
-         xs_num_dep_var=3
+         xs_num_dep_var=4
       else if (name == 'hrecombine') then
          xs_num_dep_var=4
       end if
@@ -186,6 +190,13 @@ format with a complete specification of the reaction.
       xs_var[0,xs_num_dep_var]='emission_rate'
       xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
       xs_mult[0,xs_num_dep_var]=const(1.0,-13)
+
+      if (name == 'hionize') then
+         xs_num_dep_var++
+         xs_var[0,xs_num_dep_var]='n=2/n=1'
+         xs_units[0,xs_num_dep_var]='none'
+         xs_mult[0,xs_num_dep_var]=one
+      end if
 
       do i=xs_num_dep_var+1,xs_num_dep_var+3
          xs_units[0,i]='Angstroms'
@@ -310,6 +321,11 @@ format with a complete specification of the reaction.
          end do
       end do
 
+      if (name == 'hionize') then
+         xs_num_dep_var++
+         call file_read(filein,xs_num_dep_var,trim(tag)\/' n=2 / n=1')
+      end if
+
       xs_num_dep_var++
       xs_data_table(0,0,0,xs_num_dep_var)=zero
       xs_data_table(1,0,0,xs_num_dep_var)=const(6.56280,3)
@@ -329,9 +345,9 @@ format with a complete specification of the reaction.
       xs_data_table(3,0,0,xs_num_dep_var)=zero
 
       do i=xs_num_dep_var+1,xs_dep_var_max
-         do j=0,xs_tab_index[3,j]-1
-            do k=0,xs_tab_index[2,j]-1
-               do l=0,xs_tab_index[3,j]-1
+         do j=0,xs_tab_index[3,i]-1
+            do k=0,xs_tab_index[2,i]-1
+               do l=0,xs_tab_index[3,i]-1
                   xs_data_table(l,k,j,i)=real_unused
                end do
             end do
