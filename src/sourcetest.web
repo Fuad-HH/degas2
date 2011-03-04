@@ -2,6 +2,9 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.12  2007/06/19 17:44:42  dstotler
+% Replace assert on zone_segment with a comment and a warning.
+%
 % Revision 1.11  2006/01/19 20:04:33  dstotler
 % Generalize segment test to work at arbitrary toroidal angle. Clarify
 % documentation on segment test.  Insert a space at beginning of output
@@ -79,7 +82,8 @@ primary pieces:
 (indicated below by ``velocity test'').
 \end{enumerate}
 
-|sourcetest| can only be after the problem and background netCDF files have 
+|sourcetest| can only be run 
+after the problem and background netCDF files have 
 been generated. Only the sources specified in those files can be tested.
 
 \section*{Segment Test}
@@ -93,7 +97,7 @@ used in the test:
 \begin{verbatim}
  Enter index for a source group, 1 to   2 And number of samples
 \end{verbatim}
-The users response should be a pair of integers, with the first being
+The user's response should be a pair of integers, with the first being
 between the indicated limits (the upper bound being the number
 of source groups in the problem, |so_grps|). For the second, any
 number larger than 1 is valid. A useful number would be one comparable
@@ -378,7 +382,8 @@ the variance).
      $     min_prob,max_prob,energy_avg,fr_avg,costh_avg,vpar1_avg,
      $     vpar2_avg,fr_y_avg,dummy
       real chi_sqd[max_num_chis],estimator_factors[1]
-      integer num,i,xseg,nsample,zone,nseg,j,num_chis,warning_given
+      integer num,i,xseg,nsample,zone,nseg,j,num_chis,warning_given,kseg,
+     $        iparam,seg_ref
       integer num_points[max_num_chis]
       integer length,p,b,e
       character*LINELEN line
@@ -427,7 +432,7 @@ the variance).
 @#if 0
       rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
 @#endif
-      call decimal_to_seed(so_seed_string,rn_seed_args(seed))
+      call decimal_to_seed(so_seed_decimal,rn_seed_args(seed))
       if (so_sampling == so_direct) then
          rn_seed_copy(seed,temp_seed)
          call next_seed(-1,rn_seed_args(temp_seed))
@@ -459,41 +464,65 @@ loop1: continue
       nsample=read_integer(line(b:e))
 
       do i=1,zn_num
-         zone_segment[i]=0
+         zone_segment[i]=int_undef
       end do
       warning_given=FALSE
 
       if (so_nseg(isource) > 1) then
-         min_prob=one
-         max_prob=zero
          do i=1,so_nseg(isource)
             if (so_geom(isource) == so_surface) then
                zone=sector_zone[source_segment_ptr[so_base(isource)+i-1]]
             else if (so_geom(isource) == so_volume) then
-               zone=source_segment_ptr[so_base(isource)+i-1]
+               if (so_type(isource) != so_snapshot) then
+                  zone=source_segment_ptr[so_base(isource)+i-1]
+               else
+                  assert(source_num_iparameters[isource] > 0)
+                  do iparam=1,source_num_iparameters[isource]
+                     if (so_iparams_list(iparam,isource) == so_iparam_lc_zone) 
+     $                    then
+                      zone=so_iparams_data(iparam,so_base(isource)+i-1,isource)
+                     end if
+                  end do
+               end if
             else
                assert("Unsupported source geometry" == " ")
             end if
+            if (zone_segment[zone] == int_undef) then
+               zone_segment[zone]=i
+               segment_zone[i]=zone
+               prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
+            else
 /*
-   The need for this assertion is undocumented; it dates back to the original
-   version of the code.  Suspect that it's needed to make the mapping between
-   zone and segment one-to-one.  One might be able to relax this by setting
-   the "origin sector" value for the flight and then checking it here instead
-   of the zone value.  For now, just replace the assertion with a warning.
+   For the snapshot case, there may be multiple source ``segments'' (i.e.,
+   particles in a zone, preventing a one-to-one mapping with zone.  Instead,
+   we make the first segment the ``reference'' segment for that zone and
+   associate all subsequent particles in that zone with that segment.
+
+   In case there are other problems without a one-to-one mapping,
+   print a warning:
 */
-@#if 0
-            assert(zone_segment[zone] == 0)
-@#else
-            if ((zone_segment[zone] != 0) && (warning_given == FALSE)) then
-               write(stdout,*) ' Zone - segment mapping is not unique.  Segment sampling test may give spurious results.'
-               warning_given=TRUE
+               if ((warning_given == FALSE) 
+     $  &&          (so_type(isource) != so_snapshot)) then
+                  write(stdout,*) ' Zone - segment mapping is not unique.  Segment sampling test may give spurious results.'
+                  warning_given=TRUE
+               end if
+               seg_ref=zone_segment[zone]
+               segment_zone[i]=int_undef
+               prob_seg[i]=zero
+               prob_seg[seg_ref]+=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
             end if
-@#endif
-            zone_segment[zone]=i
-            segment_zone[i]=zone
-            prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
-            min_prob=min(min_prob,prob_seg[i])
-            max_prob=max(max_prob,prob_seg[i])
+         end do
+/*
+   This used to be inside the above loop.  But, need to split out
+   because of the multi-valued mapping in the snapshot case.
+*/
+         min_prob=one
+         max_prob=zero
+         do i=1,so_nseg(isource)
+            if (prob_seg[i] > zero) then
+               min_prob=min(min_prob,prob_seg[i])
+               max_prob=max(max_prob,prob_seg[i])
+            end if
          end do
          assert(min_prob > zero)
          assert(max_prob < one)
@@ -533,24 +562,26 @@ loop1: continue
          write(diskout,*) 
      $        '  Seg  Ptr    Weight      Rel.Wt.   Rel.Curr.' 
          do i=1,so_nseg(isource)
-            write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
-     $           i,source_segment_ptr[so_base(isource)+i-1],
-     $           stat[segment_zone[i]],stat[segment_zone[i]]/weight_tot,
-     $           prob_seg[i]
-            do j=1,num_chis
-               if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
-                  num_points[j]++
-                  chi_sqd[j]+=(stat[segment_zone[i]]-weight_tot*prob_seg[i])**2
-     $                 /(weight_tot*prob_seg[i])
-               end if
-            end do
+            if (segment_zone[i] != int_undef) then
+               write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
+     $              i,source_segment_ptr[so_base(isource)+i-1],
+     $              stat[segment_zone[i]],stat[segment_zone[i]]/weight_tot,
+     $              prob_seg[i]
+               do j=1,num_chis
+                  if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
+                     num_points[j]++
+                     chi_sqd[j]+=(stat[segment_zone[i]]-weight_tot*prob_seg[i])**2
+     $                    /(weight_tot*prob_seg[i])
+                  end if
+               end do
+            end if
          end do
 
          write(diskout,*) '  Minimum'
          write(diskout,*) ' Rel.Curr.   Num. Points    Chi Sqd./Num.Pts.    Prob.'
          do j=1,num_chis
             assert(num_points[j] > 0)
-            write(diskout,'(2x,1pe8.1,7x,i5,11x,0pf9.6,5x,f9.6)') min_prob*const(1.,1)**(j-1),num_points[j],
+            write(diskout,'(2x,1pe8.1,7x,i5,8x,e13.6,5x,e13.6)') min_prob*const(1.,1)**(j-1),num_points[j],
      $           chi_sqd[j]/num_points[j],gammq(areal(num_points[j])*half,
      $           chi_sqd[j]*half)
          end do
@@ -594,6 +625,8 @@ loop3: continue
       nsample=read_integer(line(b:e))
 
       xseg=source_segment_ptr[so_base(isource)+nseg-1]
+      kseg=int_lookup(xseg,source_segment_ptr[so_base(isource)],
+     $                so_nseg(isource))-1
 
       vc_set(vzero,zero,zero,zero)
       vc_set(vone,zero,zero,one)
@@ -617,7 +650,7 @@ loop3: continue
 /*
    Try to sync these samples with a normal run, too. 
 */
-      call decimal_to_seed(so_seed_string,rn_seed_args(seed))
+      call decimal_to_seed(so_seed_decimal,rn_seed_args(seed))
       
 @#if 0
       do i=1,nsample
@@ -628,12 +661,17 @@ loop3: continue
          if (so_sampling == so_random) then
             rn_next(dummy,fl_rand(x))     // Match one used for segment choice.
          end if
-         call set_source_x(tl_est_unknown,so_args(isource),xseg,
+         call set_source_x(tl_est_unknown,so_args(isource),xseg,kseg,
      $        rn_args(fl_rand(x)),lc_args(xsrc))
-         call set_source_v(so_args(isource),xseg,lc_args(xsrc),
+         call set_source_v(so_args(isource),xseg,kseg,lc_args(xsrc),
      $        rn_args(fl_rand(x)),vc_args(vsrc))
          call next_seed(1,seed)
-         spsrc=so_species(isource)
+         if (so_type(isource) != so_snapshot) then
+            spsrc=so_species(isource)
+         else
+            call init_snapshot_fl(so_args(isource),xseg,kseg,fl_args(x))
+            spsrc=pt_sp(fl_origin(x))
+         end if
          energy=half*sp_m(spsrc)*vc_abs2(vsrc)/electron_charge
 /* For surface sources, break |xsrc| and |vsrc| down into components
    relative to surface.
