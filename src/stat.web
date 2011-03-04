@@ -2,6 +2,10 @@
 \Title{statisticw}
 
 % $Log$
+% Revision 1.13  1999/05/25 13:37:23  dstotler
+% Remove zeroing of weight array in stat_wt_balance; do in calling
+% routines instead.
+%
 % Revision 1.12  1998/09/04 17:23:49  dstotler
 % Reset wt[i]=0. in stat_wt_balance at the end. Zero the variance of the
 % increment as well as the mean in the uncompressed cases in
@@ -82,39 +86,6 @@ $w$, a mean $m$ and a variance $s$.  This routine combines scores $[w_0,
 m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
 
 @<Functions...@>=
-
-@#if 0
-      subroutine stat_acc(n,w1,stat1,w0,stat0)
-      implicit_none_f77
-      implicit_none_f90
-      integer n                 // Input
-      real w1,stat1[0:n-1][o_mean:o_var]
-      real w0,stat0[0:n-1][o_mean:o_var]        // Input/Output
-      real wa,ma             // Local
-      integer i
-
-      wa=w0+w1
-
-      assert(w0 >= zero && w1 >= zero && wa > zero)
-
-      do i=0,n-1
-/* This is the same as $(w_0 m_0 + w_1 m_1)/w_a$ */
-         ma=stat0[i][o_mean]+(stat1[i][o_mean]-stat0[i][o_mean])*w1/wa
-         stat0[i][o_var]=(w0-one)*stat0[i][o_var]+(w1-one)*stat1[i][o_var]
-     $+(stat1[i][o_mean]-stat0[i][o_mean])*(stat1[i][o_mean]-ma)*w1
-         if (wa > one) then
-            stat0[i][o_var]=stat0[i][o_var]/(wa-one)
-         else
-            stat0[i][o_var]=zero         // Strictly, is infinite
-         end if
-         stat0[i][o_mean]=ma
-      end do
-
-      w0=wa
-
-      return
-      end
-@#endif
 
       subroutine stat_acc(inc_compress,inc_wt,inc_size,inc_dim,inc_stat,
      $    inc_pf_dim,inc_ptr2full,inc_ps_dim,inc_ptr2short,
