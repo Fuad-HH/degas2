@@ -2,6 +2,9 @@
 \Title{degas2_xgc}
 
 % $Log$
+% Revision 1.1  2009/11/25 18:34:10  dstotler
+% Add to repository.
+%
 
 @* These routines establish a subroutine based coupling between
 DEGAS 2 and the XGC-0 neoclassical plasma transport codem as well as
@@ -48,7 +51,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       mp_decls
 
 @#if MPI
-      mpi_root=root       
+      mpi_degas2_root=root       
       mpi_size=sml_totalpe
       mpi_rank=sml_mype
 @#else
@@ -170,7 +173,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 
       if (mpi_master) then
          call write_background
-         call decimal_to_seed(so_seed_string,rn_seed_args(io_seed))
+         call decimal_to_seed(so_seed_decimal,rn_seed_args(io_seed))
       end if
 
       if (mpi_master) then
@@ -287,15 +290,15 @@ there is a fair bit of hardwired code here, e.g., regarding species.
          end if
       end if
 @#if MPI
-      call MPI_bcast(neu_n0,ntriangle*xgc_test_num,mpi_real,mpi_root,
+      call MPI_bcast(neu_n0,ntriangle*xgc_test_num,mpi_real,mpi_degas2_root,
      $               MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(neu_v0,3*ntriangle*xgc_test_num,mpi_real,mpi_root,
+      call MPI_bcast(neu_v0,3*ntriangle*xgc_test_num,mpi_real,mpi_degas2_root,
      $               MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(neu_t0,ntriangle*xgc_test_num,mpi_real,mpi_root,
+      call MPI_bcast(neu_t0,ntriangle*xgc_test_num,mpi_real,mpi_degas2_root,
      $               MPI_COMM_WORLD,mpi_err)
       if (get_source == 1)
      $     call MPI_bcast(neu_source,ntriangle*max_species*max_change,mpi_real,
-     $                    mpi_root,MPI_COMM_WORLD,mpi_err)
+     $                    mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
 @#endif
 /*
    Calculate maximum reaction rate over the volume.  This represents
@@ -326,7 +329,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
          end if
       end do
 @#if MPI
-      call MPI_bcast(nu_max,1,mpi_real,mpi_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(nu_max,1,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
 @#endif
 
       return

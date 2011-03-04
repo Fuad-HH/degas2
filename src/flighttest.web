@@ -2,6 +2,12 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.41  2009/11/25 19:16:37  dstotler
+% Move the declaration & allocation of back_pressure up one level in the
+% call chain since it is not getting "saved" between calls to bgk_test;
+% need for 64 bit.  Replace the mpibcast's in bgk_flighttest with
+% mpibcastna so as to skip the allocation step.
+%
 % Revision 1.40  2006/01/19 19:21:28  dstotler
 % Set up procedure for varying number of flights during BGK iterations.
 % This is enabled with the SCALE_FLIGHTS flag. Have bgk_test skip
@@ -311,7 +317,7 @@ its original purpose as a geometry test routine.
          end do
 
          iter_bgk=0      
-         call decimal_to_seed(so_seed_string,rn_seed_args(io_seed))
+         call decimal_to_seed(so_seed_decimal,rn_seed_args(io_seed))
 /*
    Moved this up from |bgk_test|
 */
@@ -394,7 +400,7 @@ bgk_loop: continue
       end if
 
 @#if MPI
-      call MPI_bcast(bgk_iteration,1,mpi_int,mpi_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(bgk_iteration,1,mpi_int,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
 @#endif
       if (bgk_iteration == TRUE) then
          cm_mpibcastna
