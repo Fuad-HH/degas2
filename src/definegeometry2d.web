@@ -2,6 +2,21 @@
 \Title{definegeometry2d}
 
 % $Log$
+% Revision 1.8  2009/11/25 14:53:33  dstotler
+% Add xcut option to the edge keyword.  Fix minor bug in documentation.
+% Initialize dim_dg_poly.  Allow number of wall points in wallfile to
+% extend over multiple lines.  Set ix_min, etc.  for the uedge_mesh
+% case. Read in (unused) mesh parameters for UEDGE geometries.
+% Allow recyc_coef = 0.  Permit discretization of solid zones in iy via
+% triangulate_to_zones.  Revise an assertion in the DG Polygon Keyword
+% section.  Change initial allocation of y_values, etc. to mem_inc to
+% match the standard practice.  Added facearray, etc. to the
+% increment_y_div macro so that these dimensions are all updated
+% simultaneously.  Use a separate dimension dim_ym for y_values,
+% etc. that can be set to mem_inc-1 initially to force the initial
+% allocation to be exactly mem_inc.  Increase max_triangles.  Remove
+% temp from define_sector_plasma.
+%
 % Revision 1.7  2007/06/19 17:34:28  dstotler
 % Revert length of "line" from 300 to LINELEN (changed LINELEN instead).  Update integer data read in at start of uedge_mesh file.
 %
@@ -1488,6 +1503,7 @@ be other requirements as well.
 @m triangulate_to_zones 3
 
 @m max_triangles 5500
+@m max_grp_sectors 8000
 
 @m increment_num_elements       num_elements++;
       dim_elements=max(dim_elements,num_elements);
@@ -1782,7 +1798,7 @@ be other requirements as well.
       real this_temp,this_rc
 
       integer i_diag,i_grp,is_aux_sector                   // Diagnostic init
-      integer grp_sectors[g2_num_points]
+      integer grp_sectors[max_grp_sectors]
 
       integer y_mat[0:1],y_stratum[0:1],       
      $        y_p_stratum[0:1],end_zones[0:1]
@@ -2363,10 +2379,25 @@ section. Also, assumes that symmetry has already been set. DOCUMENT!!!
          assert(next_token(line,b,e,p))
          yb_max=read_real(line(b:e))
       else
-         yb_min=zero
-         yb_max=one
-         if ((symmetry == geometry_symmetry_cylindrical) 
-     $        || (symmetry == geometry_symmetry_cyl_hw)) yb_max=const(3.6,2)
+         if ((symmetry == geometry_symmetry_plane) 
+     $        || (symmetry == geometry_symmetry_oned)) then
+/*
+   Choose these since default source location is $y = 0$.
+*/
+            yb_min=-one
+            yb_max=one
+         else if ((symmetry == geometry_symmetry_cylindrical) 
+     $        || (symmetry == geometry_symmetry_cyl_hw)) then
+            yb_min=zero
+            yb_max=const(3.6,2)
+         else
+/*
+   The remaining cases should have explicitly specified $y$ bounds,
+   but keep these since this is what we had before.
+*/
+            yb_min=zero
+            yb_max=one
+         end if
       end if
       if ((symmetry == geometry_symmetry_cylindrical)
      $     || (symmetry == geometry_symmetry_cyl_hw)
@@ -2925,8 +2956,15 @@ are used later in the code.
             p=0
             assert(next_token(line,b,e,p))
             x_wall=read_real_soft_fail(line(b:e))
+/*
+  Using |read_real_soft_fail| here since debugging read statements is
+  difficult.  Instead, use this assertion to check for the error
+  indicator returned by |read_real_soft_fail|.
+*/
+            assert(x_wall != real_undef)
             assert(next_token(line,b,e,p))
             z_wall=read_real_soft_fail(line(b:e))
+            assert(z_wall != real_undef)
 
             if (num_nodes > 0) then
                do inode=1,num_nodes
@@ -3796,7 +3834,7 @@ auxiliary strata.
                      end do
                      if (is_aux_sector == TRUE) then
                         i_grp++
-                        assert(i_grp <= g2_num_points)  // Dim. of |grp_sectors|
+                        assert(i_grp <= max_grp_sectors)  // Dim. of |grp_sectors|
                         grp_sectors[i_grp]=i_sect
                      else
 /*
@@ -3816,7 +3854,7 @@ auxiliary strata.
      $                            || sc_vacuum_check(sector_type_pointer[i_sect][sc_vacuum]))))
      $                   then
                            i_grp++
-                           assert(i_grp <= g2_num_points)  // Dim. of |grp_sectors|
+                           assert(i_grp <= max_grp_sectors)  // Dim. of |grp_sectors|
                            grp_sectors[i_grp]=i_sect
                         end if
                      end if
@@ -3828,7 +3866,7 @@ auxiliary strata.
      $                          && (zn_index(g2_polygon_zone[i_poly],zi_ptr)
      $                          == zn_index(sector_zone[i_sect],zi_ptr))) then
                               i_grp++
-                              assert(i_grp <= g2_num_points)  // Dim. of |grp_sectors|
+                              assert(i_grp <= max_grp_sectors)  // Dim. of |grp_sectors|
                               grp_sectors[i_grp]=i_sect
                            end if
                         end do
