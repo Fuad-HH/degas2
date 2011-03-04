@@ -2,6 +2,10 @@
 \Title{nstxgpi}
 
 % $Log$
+% Revision 1.2  2009/11/25 19:46:45  dstotler
+% Add minimum index for the z_ind2_ind dimension.  Free z_min and r
+% arrays.
+%
 % Revision 1.1  2006/01/19 19:48:39  dstotler
 % Added to repository.
 %
@@ -30,13 +34,6 @@ experiments.  This differs from the C-Mod version in that ion temperatures
 are treated separately and that a third ion species (for helium) is 
 assumed present.
 
-@m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
-         assert(open_stat == 0) @;
-
-@m max_rho 105
-
-@m rho_loop #:0
-      
 @<Functions...@>=
 
       subroutine get_n_t(nt_string)
@@ -47,15 +44,57 @@ assumed present.
 
       implicit_none_f77
       zn_common                                             // Common
-      bk_common
-      gi_common
       implicit_none_f90
 
       character*LINELEN nt_string                           // Input
 
+      integer z_ind2_min,z_ind2_max                         // Local
+
+      declare_varp(z_min)
+      declare_varp(r)
+
+      @<Memory allocation interface@>
+
+      z_ind2_min=zone_index_min[2]
+      z_ind2_max=zone_index_max[2]
+      var_alloc(z_min)
+      var_alloc(r)
+
+      call get_n_t_a(nt_string,z_ind2_min,z_ind2_max,z_min,r)
+
+      var_free(z_min)
+      var_free(r)
+
+      return
+      end
+
+@ Subsidiary routine to the above needed to ensure that the indices of the
+dynamically allocated arrays are properly recognized.
+
+@m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
+         assert(open_stat == 0) @;
+
+@m max_rho 105
+
+@m rho_loop #:0
+      
+@<Functions...@>=
+
+      subroutine get_n_t_a(nt_string,z_ind2_min,z_ind2_max,z_min,r)
+
+      implicit_none_f77
+      zn_common                                             // Common
+      bk_common
+      gi_common
+      implicit_none_f90
+
+      integer z_ind2_min,z_ind2_max                         // Input
+      real z_min[z_ind2_min:z_ind2_max],
+     $     r[z_ind2_min:z_ind2_max]
+      character*LINELEN nt_string                         
+
       integer p,b,e,length,zone,iz_sep,num_rho,             // Local
-     $        z_ind2_min,z_ind2_max,iz,open_stat,
-     $        zone2,back,diskin3,ix_max,irho
+     $        iz,open_stat,zone2,back,diskin3,ix_max,irho
 
       real r_sep_m,r_sep_p,r_sep,rho_zone,ne_zone,te_zone,delta_min,
      $     delta,j_rho,z_max,kfac,zfac,ti_zone
@@ -69,13 +108,8 @@ assumed present.
       external find_index,interpolate1                       // External
       real find_index,interpolate1
 
-      declare_varp(z_min)
-      declare_varp(r)
-
-      @<Memory allocation interface@>
       st_decls
       vc_decls
-
 /*
    Could have put all of these arguments in yet another text input file,
    but decided that there were already too many input files for this
@@ -123,11 +157,6 @@ rho_loop: continue
       end if
       close(unit=diskin3)
       assert(num_rho > 0)
-
-      z_ind2_min=zone_index_min[2]
-      z_ind2_max=zone_index_max[2]
-      var_alloc(z_min)
-      var_alloc(r)
 
       z_max=universal_cell_min[3]
       ix_max=0
@@ -224,9 +253,6 @@ rho_loop: continue
             bk_temp(3,zone)=zero
          end if
       end do
-
-      var_free(z_min)
-      var_free(r)
 
       return
       end
