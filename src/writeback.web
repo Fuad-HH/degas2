@@ -2,6 +2,11 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.15  2011/03/04 18:10:24  dstotler
+% Fix reference to Walker paper.  Add variables for time dependence.
+% Modify for miscellaneous source parameters. Add routine to set up
+% source based on snapshot particles.
+%
 % Revision 1.14  2009/11/25 20:18:00  dstotler
 % Extend UEDGE background to handle double null.
 %
@@ -100,6 +105,7 @@ The principal routines in this file are those used to read and interpret
 @I reaction.hweb
 @I materials.hweb
 @I geometry2d.hweb
+@I mpi.hweb
 @I snapshot_pdf.hweb
 
 @m OLD_UEDATA 0    //  Set to 1 if file does not contain ghost cell data
@@ -217,6 +223,18 @@ of the source definition.
          var_reallocc(source_species,0,so_grps)
          var_reallocc(source_root_species,0,so_grps)
          var_reallocc(source_time_variation,0,so_grps)
+
+         var_reallocc(source_num_gparameters,0,so_grps)
+         var_reallocc(source_num_parameters,0,so_grps)
+         var_reallocc(source_gparameters_base,0,so_grps)
+         var_reallocc(source_parameters_base,0,so_grps)
+         var_reallocc(source_parameters_data_base,0,so_grps)
+         var_reallocc(source_num_giparameters,0,so_grps)
+         var_reallocc(source_num_iparameters,0,so_grps)
+         var_reallocc(source_giparameters_base,0,so_grps)
+         var_reallocc(source_iparameters_base,0,so_grps)
+         var_reallocc(source_iparameters_data_base,0,so_grps)
+
          var_reallocc(source_total_current,0,so_grps)
          var_reallocc(source_weight_norm,0,so_grps)
          var_reallocc(source_scale_factor,0,so_grps)
@@ -251,6 +269,17 @@ of the source definition.
                      so_chkpt(grp)=0
                      so_base(grp)=tot+1
                      tot+=ny
+
+                     source_num_gparameters[grp]=0
+                     source_num_parameters[grp]=0
+                     source_gparameters_base[grp]=so_gparams_list_size
+                     source_parameters_base[grp]=so_params_list_size
+                     source_parameters_data_base[grp]=so_params_data_size
+                     source_num_giparameters[grp]=0
+                     source_num_iparameters[grp]=0
+                     source_giparameters_base[grp]=so_giparams_list_size
+                     source_iparameters_base[grp]=so_iparams_list_size
+                     source_iparameters_data_base[grp]=so_iparams_data_size
                   end if
                end do
             end do
@@ -1289,31 +1318,37 @@ one applied by EIRENE in the benchmark runs.
       implicit_none_f77
       sn_common
       rf_common
+      mp_common
       implicit_none_f90
       integer have_snapshot_file     // Output
       integer fileid            // Local
       character*FILELEN tempfile
       nc_decls
+      mp_decls
       @<Memory allocation interface@>
       sn_ncdecl
 
-      tempfile=filenames_array[snapshotfile]
-      if (tempfile == char_undef) then
-         have_snapshot_file=FALSE
-         return
+      have_snapshot_file=FALSE
+      if (mpi_master) then
+         tempfile=filenames_array[snapshotfile]
+         if (tempfile != char_undef) then
+            call ncpopt(0)
+            fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
+            if (nc_stat == 0) then
+               have_snapshot_file=TRUE
+               call ncpopt(NC_VERBOSE+NC_FATAL)
+               sn_ncread(fileid)
+               call ncclose(fileid,nc_stat)
+            end if
+         end if
       end if
-      call ncpopt(0)
-      fileid=ncopen(tempfile,NC_NOWRITE,nc_stat)
-      if (nc_stat != 0) then
-         have_snapshot_file=FALSE
-         return
-      else
-         have_snapshot_file=TRUE
+@#if MPI
+      call MPI_bcast(have_snapshot_file,1,mpi_int,mpi_degas2_root,
+     $     MPI_COMM_WORLD,mpi_err)
+@#endif
+      if (have_snapshot_file == TRUE) then
+         sn_mpibcast
       end if
-      call ncpopt(NC_VERBOSE+NC_FATAL)
-      
-      sn_ncread(fileid)
-      call ncclose(fileid,nc_stat)
 
       return
       end
@@ -1325,152 +1360,180 @@ one applied by EIRENE in the benchmark runs.
       implicit_none_f77
       so_common
       sn_common
+      mp_common
       implicit_none_f90
 
-      integer have_snapshot_file,new_seg_tot,ip,iparam
+      integer have_snapshot_file,new_seg_tot,ip,iparam,igrp,
+     $        iseg,snapshot_reset
 
       @<Memory allocation interface@>
 
       call nc_read_snapshot(have_snapshot_file)
       if ((have_snapshot_file == FALSE) || (sn_number_particles <= 0)) return
-
-      var_realloc(source_base_ptr,so_grps,so_grps+1)
-      var_realloc(source_num_segments,so_grps,so_grps+1)
-      var_realloc(source_type,so_grps,so_grps+1)
-      var_realloc(source_geometry,so_grps,so_grps+1)
-      var_realloc(source_num_flights,so_grps,so_grps+1)
-      var_realloc(source_num_checkpoints,so_grps,so_grps+1)
-      var_realloc(source_species,so_grps,so_grps+1)
-      var_realloc(source_root_species,so_grps,so_grps+1)
-      var_realloc(source_time_variation,so_grps,so_grps+1)
-
-      var_realloc(source_num_gparameters,so_grps,so_grps+1)
-      var_realloc(source_num_parameters,so_grps,so_grps+1)
-      var_realloc(source_gparameters_base,so_grps,so_grps+1)
-      var_realloc(source_parameters_base,so_grps,so_grps+1)
-      var_realloc(source_parameters_data_base,so_grps,so_grps+1)
-      var_realloc(source_num_giparameters,so_grps,so_grps+1)
-      var_realloc(source_num_iparameters,so_grps,so_grps+1)
-      var_realloc(source_giparameters_base,so_grps,so_grps+1)
-      var_realloc(source_iparameters_base,so_grps,so_grps+1)
-      var_realloc(source_iparameters_data_base,so_grps,so_grps+1)
-
-      var_realloc(source_total_current,so_grps,so_grps+1)
-      var_realloc(source_weight_norm,so_grps,so_grps+1)
-      var_realloc(source_scale_factor,so_grps,so_grps+1)
-/* 
-   Reset the seed string to avoid random number overlap 
-   between consecutive runs.
+/*
+   Check to see if this is a continuation of a previous time step invoked
+   via subroutine interface (i.e., via |xgc_flighttest|).  If so, |so_grps|
+   has already been incremented and most of the |so_grps| array entries
+   already set.  All of the source segments in this group are to be 
+   overwritten.  The lines of code involved have been written to 
+   work for either value of |snapshot_reset|.
 */
-      so_seed_decimal=sn_seed_decimal
+      snapshot_reset=FALSE
+      do igrp=1,so_grps
+         if (so_type(igrp) == so_snapshot) then
+/*
+   The following code will assume that this is the last group.
+   Put this assert in here as a reminder in case some other 
+   consideration suggests that it be otherwise.
+*/
+            assert(igrp == so_grps)
+            snapshot_reset=TRUE
+         end if
+      end do
 
-      so_grps++
-      so_base(so_grps)=so_seg_tot+1
-      so_type(so_grps)=so_snapshot
-      so_t_varn(so_grps)=so_delta_fn
-      so_nseg(so_grps)=sn_number_particles
-      so_geom(so_grps)=so_volume
-      so_nflights(so_grps)=100
-      so_chkpt(so_grps)=0
-      so_scale(so_grps)=one
+      if (snapshot_reset == FALSE) then
+         var_realloc(source_base_ptr,so_grps,so_grps+1)
+         var_realloc(source_num_segments,so_grps,so_grps+1)
+         var_realloc(source_type,so_grps,so_grps+1)
+         var_realloc(source_geometry,so_grps,so_grps+1)
+         var_realloc(source_num_flights,so_grps,so_grps+1)
+         var_realloc(source_num_checkpoints,so_grps,so_grps+1)
+         var_realloc(source_species,so_grps,so_grps+1)
+         var_realloc(source_root_species,so_grps,so_grps+1)
+         var_realloc(source_time_variation,so_grps,so_grps+1)
 
-      source_num_gparameters[so_grps]=0
-      source_num_parameters[so_grps]=7
-      source_gparameters_base[so_grps]=so_gparams_list_size
-      source_parameters_base[so_grps]=so_params_list_size
-      source_parameters_data_base[so_grps]=so_params_data_size
-      source_num_giparameters[so_grps]=0
-      source_num_iparameters[so_grps]=6
-      source_giparameters_base[so_grps]=so_giparams_list_size
-      source_iparameters_base[so_grps]=so_iparams_list_size
-      source_iparameters_data_base[so_grps]=so_iparams_data_size
+         var_realloc(source_num_gparameters,so_grps,so_grps+1)
+         var_realloc(source_num_parameters,so_grps,so_grps+1)
+         var_realloc(source_gparameters_base,so_grps,so_grps+1)
+         var_realloc(source_parameters_base,so_grps,so_grps+1)
+         var_realloc(source_parameters_data_base,so_grps,so_grps+1)
+         var_realloc(source_num_giparameters,so_grps,so_grps+1)
+         var_realloc(source_num_iparameters,so_grps,so_grps+1)
+         var_realloc(source_giparameters_base,so_grps,so_grps+1)
+         var_realloc(source_iparameters_base,so_grps,so_grps+1)
+         var_realloc(source_iparameters_data_base,so_grps,so_grps+1)
 
-      so_params_list_size+=source_num_parameters[so_grps]
-      if (so_params_list_size > so_params_list_dim) then
-         var_realloc(source_parameters_list,so_params_list_dim,
-     $        so_params_list_size)
-         so_params_list_dim=so_params_list_size
+         var_realloc(source_total_current,so_grps,so_grps+1)
+         var_realloc(source_weight_norm,so_grps,so_grps+1)
+         var_realloc(source_scale_factor,so_grps,so_grps+1)
+
+         so_grps++
+         so_base(so_grps)=so_seg_tot+1
+         so_type(so_grps)=so_snapshot
+         so_t_varn(so_grps)=so_delta_fn
+         so_geom(so_grps)=so_volume
+         so_nflights(so_grps)=100
+         so_chkpt(so_grps)=0
+         so_scale(so_grps)=one
+
+         source_num_gparameters[so_grps]=0
+         source_num_parameters[so_grps]=7
+         source_gparameters_base[so_grps]=so_gparams_list_size
+         source_parameters_base[so_grps]=so_params_list_size
+         source_parameters_data_base[so_grps]=so_params_data_size
+         source_num_giparameters[so_grps]=0
+         source_num_iparameters[so_grps]=6
+         source_giparameters_base[so_grps]=so_giparams_list_size
+         source_iparameters_base[so_grps]=so_iparams_list_size
+         source_iparameters_data_base[so_grps]=so_iparams_data_size
+
+         so_params_list_size+=source_num_parameters[so_grps]
+         if (so_params_list_size > so_params_list_dim) then
+            var_realloc(source_parameters_list,so_params_list_dim,
+     $           so_params_list_size)
+            so_params_list_dim=so_params_list_size
+         end if
+         so_params_list(1,so_grps)=so_param_pt_t
+         so_params_list(2,so_grps)=so_param_pt_v1
+         so_params_list(3,so_grps)=so_param_pt_v2
+         so_params_list(4,so_grps)=so_param_pt_v3
+         so_params_list(5,so_grps)=so_param_lc_x1
+         so_params_list(6,so_grps)=so_param_lc_x2
+         so_params_list(7,so_grps)=so_param_lc_x3
+
+         so_iparams_list_size+=source_num_iparameters[so_grps]
+         if (so_iparams_list_size > so_iparams_list_dim) then
+            var_realloc(source_iparameters_list,so_iparams_list_dim,
+     $           so_iparams_list_size)
+            so_iparams_list_dim=so_iparams_list_size
+         end if
+         so_iparams_list(1,so_grps)=so_iparam_pt_sp
+         so_iparams_list(2,so_grps)=so_iparam_pt_test
+         so_iparams_list(3,so_grps)=so_iparam_lc_cell
+         so_iparams_list(4,so_grps)=so_iparam_lc_zone
+         so_iparams_list(5,so_grps)=so_iparam_pt_type
+         so_iparams_list(6,so_grps)=so_iparam_pt_author
       end if
-      so_params_list(1,so_grps)=so_param_pt_t
-      so_params_list(2,so_grps)=so_param_pt_v1
-      so_params_list(3,so_grps)=so_param_pt_v2
-      so_params_list(4,so_grps)=so_param_pt_v3
-      so_params_list(5,so_grps)=so_param_lc_x1
-      so_params_list(6,so_grps)=so_param_lc_x2
-      so_params_list(7,so_grps)=so_param_lc_x3
 
-      so_iparams_list_size+=source_num_iparameters[so_grps]
-      if (so_iparams_list_size > so_iparams_list_dim) then
-         var_realloc(source_iparameters_list,so_iparams_list_dim,
-     $        so_iparams_list_size)
-         so_iparams_list_dim=so_iparams_list_size
-      end if
-      so_iparams_list(1,so_grps)=so_iparam_pt_sp
-      so_iparams_list(2,so_grps)=so_iparam_pt_test
-      so_iparams_list(3,so_grps)=so_iparam_lc_cell
-      so_iparams_list(4,so_grps)=so_iparam_lc_zone
-      so_iparams_list(5,so_grps)=so_iparam_pt_type
-      so_iparams_list(6,so_grps)=so_iparam_pt_author
-
-      new_seg_tot=so_seg_tot+sn_number_particles
+      new_seg_tot=so_base(so_grps)-1+sn_number_particles
       var_realloc(source_segment_ptr,so_seg_tot,new_seg_tot)
       var_realloc(source_current,so_seg_tot,new_seg_tot)
       var_realloc(source_segment_rel_wt,so_seg_tot,new_seg_tot)
       var_realloc(source_segment_prob_alias,so_seg_tot,new_seg_tot)
       var_realloc(source_segment_ptr_alias,so_seg_tot,new_seg_tot)
 
-      so_params_data_size+=source_num_parameters[so_grps]*sn_number_particles
+      so_params_data_size=source_parameters_data_base[so_grps]
+     $     +source_num_parameters[so_grps]*sn_number_particles
+//      so_params_data_size+=source_num_parameters[so_grps]*sn_number_particles
       if (so_params_data_size > so_params_data_dim) then
          var_realloc(source_parameters_data,so_params_data_dim,
      $               so_params_data_size)
          so_params_data_dim=so_params_data_size
       end if
 
-      so_iparams_data_size+=source_num_iparameters[so_grps]*sn_number_particles
+      so_iparams_data_size=source_iparameters_data_base[so_grps]
+     $     +source_num_iparameters[so_grps]*sn_number_particles
+//      so_iparams_data_size+=source_num_iparameters[so_grps]*sn_number_particles
       if (so_iparams_data_size > so_iparams_data_dim) then
          var_realloc(source_iparameters_data,so_iparams_data_dim,
      $               so_iparams_data_size)
          so_iparams_data_dim=so_iparams_data_size
       end if
 
+      so_nseg(so_grps)=sn_number_particles
+
       so_tot_curr(so_grps)=zero
+      iseg=so_base(so_grps)-1
       do ip=1,sn_number_particles
-         so_seg_tot++
-         source_segment_ptr[so_seg_tot]=ip
-         source_current[so_seg_tot]=sn_particles_float[ip][sn_float_pt_w]
+         iseg++
+         source_segment_ptr[iseg]=ip
+         source_current[iseg]=sn_particles_float[ip][sn_float_pt_w]
          so_tot_curr(so_grps)+=sn_particles_float[ip][sn_float_pt_w]
 /*
-   Write the loop like this to be sure we get them all
+   Write the loop like this to be sure we get them all.
 */
          do iparam=1,source_num_parameters[so_grps]
             if (so_params_list(iparam,so_grps) == so_param_pt_t) then
-               so_params_data(iparam,so_seg_tot,so_grps)
+               so_params_data(iparam,iseg,so_grps)
      $              =sn_particles_float[ip][sn_float_pt_t]
 /*
-   May eventually relax this if there is a need.  Check just the first
-   particle to avoid output overflow in the event of a problem.
+   Was unable to satisfy this in initial application to the XGC0 coupling.
+   Attempt to relax it to a comparison with the |epsilon| parameter defined
+   in sysdep.hweb.
 */
-               if (iparam == 1) then
-                  assert(so_params_data(iparam,so_seg_tot,so_grps) 
-     $                 == so_time_initial)
+               if ((ip == 1) && mpi_master) then
+                  if ((abs(so_params_data(iparam,iseg,so_grps)
+     $                 -so_time_initial))/(max(so_time_initial,epsilon))
+     $                 > epsilon) write(stderr,*) 
+     $            ' Warning: snapshot particle time does not match so_time_initial'
                end if
             else if (so_params_list(iparam,so_grps) == so_param_pt_v1) then
-               so_params_data(iparam,so_seg_tot,so_grps)
+               so_params_data(iparam,iseg,so_grps)
      $              =sn_particles_float[ip][sn_float_pt_v1]
             else if (so_params_list(iparam,so_grps) == so_param_pt_v2) then
-               so_params_data(iparam,so_seg_tot,so_grps)
+               so_params_data(iparam,iseg,so_grps)
      $              =sn_particles_float[ip][sn_float_pt_v2]
             else if (so_params_list(iparam,so_grps) == so_param_pt_v3) then
-               so_params_data(iparam,so_seg_tot,so_grps)
+               so_params_data(iparam,iseg,so_grps)
      $              =sn_particles_float[ip][sn_float_pt_v3]
             else if (so_params_list(iparam,so_grps) == so_param_lc_x1) then
-               so_params_data(iparam,so_seg_tot,so_grps)
+               so_params_data(iparam,iseg,so_grps)
      $              =sn_particles_float[ip][sn_float_lc_x1]
             else if (so_params_list(iparam,so_grps) == so_param_lc_x2) then
-               so_params_data(iparam,so_seg_tot,so_grps)
+               so_params_data(iparam,iseg,so_grps)
      $              =sn_particles_float[ip][sn_float_lc_x2]
             else if (so_params_list(iparam,so_grps) == so_param_lc_x3) then
-               so_params_data(iparam,so_seg_tot,so_grps)
+               so_params_data(iparam,iseg,so_grps)
      $              =sn_particles_float[ip][sn_float_lc_x3]
             else
                assert(' Inconsistent number of snapshot parameters' == ' ')
@@ -1479,28 +1542,41 @@ one applied by EIRENE in the benchmark runs.
 
          do iparam=1,source_num_iparameters[so_grps]
             if (so_iparams_list(iparam,so_grps) == so_iparam_pt_sp) then
-               so_iparams_data(iparam,so_seg_tot,so_grps)
+               so_iparams_data(iparam,iseg,so_grps)
      $              =sn_particles_int[ip][sn_int_pt_sp]
             else if (so_iparams_list(iparam,so_grps) == so_iparam_pt_test) then
-               so_iparams_data(iparam,so_seg_tot,so_grps)
+               so_iparams_data(iparam,iseg,so_grps)
      $              =sn_particles_int[ip][sn_int_pt_test]
             else if (so_iparams_list(iparam,so_grps) == so_iparam_lc_cell) then
-               so_iparams_data(iparam,so_seg_tot,so_grps)
+               so_iparams_data(iparam,iseg,so_grps)
      $              =sn_particles_int[ip][sn_int_lc_cell]
             else if (so_iparams_list(iparam,so_grps) == so_iparam_lc_zone) then
-               so_iparams_data(iparam,so_seg_tot,so_grps)
+               so_iparams_data(iparam,iseg,so_grps)
      $              =sn_particles_int[ip][sn_int_lc_zone]
             else if (so_iparams_list(iparam,so_grps) == so_iparam_pt_type) then
-               so_iparams_data(iparam,so_seg_tot,so_grps)
+               so_iparams_data(iparam,iseg,so_grps)
      $              =sn_particles_int[ip][sn_int_pt_type]
             else if (so_iparams_list(iparam,so_grps) == so_iparam_pt_author) then
-               so_iparams_data(iparam,so_seg_tot,so_grps)
+               so_iparams_data(iparam,iseg,so_grps)
      $              =sn_particles_int[ip][sn_int_pt_author]
             end if
          end do
 
       end do
-      assert(so_seg_tot == new_seg_tot)
+      assert(iseg == new_seg_tot)
+      so_seg_tot=new_seg_tot
+/* 
+   Reset the seed string to avoid random number overlap 
+   between consecutive runs.
+*/
+      so_seed_decimal=sn_seed_decimal
+/*
+   Done with these and need to free them since they will be 
+   allocated from scratch at the start of |do_flights_master|
+   and |do_flights_slave|.
+*/
+      var_free(sn_particles_float)
+      var_free(sn_particles_int)
 
       return
       end
@@ -1677,8 +1753,19 @@ break: continue
 @ Set Probability Aliases Used for Sampling. This implementation follows
 the description of the sampling algorithm described in Sec. 3.4.1 (and
 Exercise 7) of Knuth. He refers to the originator, A. J. Walker,
-[{\em Electronics Letters} {\bf 10}, 8 (1977), 127-128; {\em ACM Trans.
-Math. Software} {\bf 3} (1976), 253-256].
+[{\em Electronics Letters} {\bf 10}, 8 (1974), 127-128; {\em ACM Trans.
+Math. Software} {\bf 3} (1977), 253-256].
+
+However, this procedure necessarily involves a nested do-loop over the
+entire source array, i.e., it entails on the order of $n^{2}$ steps.
+For very large sources (e.g., snapshot), the time required by this
+routine can exceed that for the main run.  As an alternative, we have
+implemented a basic sampling scheme for $n > $ |n_max|.  In this case,
+the |pa| array just has a cumulative probability and the |ya| is filled
+with |int_undefined|.  The latter is used as the signal to the sampling
+routine that this alternative method has been employed.
+
+@m n_max 100000
 
 @<Functions...@>=
       subroutine set_prob_alias(n,so,wt,x_ptr,pa,ya,wtnorm)
@@ -1707,9 +1794,6 @@ c      integer ia(n)
       declare_varp(prob)
       declare_varp(ia)
       
-      var_alloc(prob)
-      var_alloc(ia)
-
       sum=zero
       sum1=zero
       do i=1,n
@@ -1721,14 +1805,43 @@ c      integer ia(n)
 
       wtnorm=sum/sum1
 
-      do i=1,n
-         if (wt[i] > zero) then
-            prob[i]=so[i]/(sum*wt[i])
-         else
-            prob[i]=zero
-         end if
-         ia[i]=i
-      end do
+      if (n > n_max) then
+/*
+  Set up basic sampling scheme.
+*/
+         pa[1]=zero
+         ya[1]=int_unused
+         do i=2,n
+            pa[i]=pa[i-1]+so[i-1]/wt[i-1]
+            ya[i]=int_unused
+         end do
+/*
+   If we put this factor into the above loop, get significant
+   roundoff accumulation.
+*/
+         do i=1,n
+            pa[i]/=sum
+         end do
+/*
+   Just check that the total still sums to 1.
+*/
+         assert(abs((pa[n]+so[n]/(sum*wt[n]))-one) < epsilon)
+         return
+      else
+/*
+   Use the alias method.
+*/
+         var_alloc(prob)
+         var_alloc(ia)
+
+         do i=1,n
+            if (wt[i] > zero) then
+               prob[i]=so[i]/(sum*wt[i])
+            else
+               prob[i]=zero
+            end if
+            ia[i]=i
+         end do
 /*  
    The sort routine should place the entries in |prob| in order
    of increasing magnitude. The entries in |ia| should follow suit.
@@ -1736,33 +1849,34 @@ c      integer ia(n)
    so that they range from 1 to |n|, rather than 0 to |n-1| as in
    Knuth. There is a corresponding shift used in the sampling.
  */
-      call sort2(n,prob,ia)
-      do i=n,1,-1
-         pa[ia[1]]=areal(n)*prob[1]
-         ya[ia[1]]=x_ptr[ia[i]]
-         probnew=prob[i]-(one/areal(n) - prob[1])
-         inew=ia[i]
-         if (i > 2) then
-            do j=1,i-2
-               if (probnew < prob[j+1]) then
-                  prob[j]=probnew
-                  ia[j]=inew
-                  goto 10
-               end if
-               prob[j]=prob[j+1]
-               ia[j]=ia[j+1]
-            end do
-            prob[i-1]=probnew
-            ia[i-1]=inew
-   10       continue
-         else if (i == 2) then
-            prob[1]=probnew
-            ia[1]=inew
-         end if
-      end do
+         call sort2(n,prob,ia)
+         do i=n,1,-1
+            pa[ia[1]]=areal(n)*prob[1]
+            ya[ia[1]]=x_ptr[ia[i]]
+            probnew=prob[i]-(one/areal(n) - prob[1])
+            inew=ia[i]
+            if (i > 2) then
+               do j=1,i-2
+                  if (probnew < prob[j+1]) then
+                     prob[j]=probnew
+                     ia[j]=inew
+                     goto 10
+                  end if
+                  prob[j]=prob[j+1]
+                  ia[j]=ia[j+1]
+               end do
+               prob[i-1]=probnew
+               ia[i-1]=inew
+   10          continue
+            else if (i == 2) then
+               prob[1]=probnew
+               ia[1]=inew
+            end if
+         end do
 
-      var_free(prob)
-      var_free(ia)
+         var_free(prob)
+         var_free(ia)
+      end if
 
       return
       end
