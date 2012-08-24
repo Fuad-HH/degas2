@@ -1,4 +1,4 @@
-#! /usr/bin/ksh
+#! /bin/bash
 
 #  VERSION : 20.07.2000 14:15
 
@@ -134,6 +134,7 @@ do {
                 [ -f $1 ] && {
                     n=`ls $griddir/$grid_stem.* | tail -1`
                     n=${n#*/$grid_stem.}
+	            n=`echo $n | sed 's/0*//'`
                     let "n = n + 1"
                 }
                 [ ${#n} -lt 2 ] && n=00$n || {
