@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.12  2011/03/04 18:09:36  dstotler
+% Add snapshot estimator to test tallies (yet to be documented).
+%
 % Revision 1.11  2001/11/16 15:59:08  dstotler
 % Note that tl_index_source_group won't be used.
 %
@@ -59,11 +62,13 @@
 @I sector.hweb
 @I problem.hweb
 
-@ Scoring can happen at one of four points within degas 2: (a) when a
+@ Scoring can happen at one of five points within DEGAS 2: (a) when a
 track crosses a sector (e.g., to compute a flux), (b) when a track
 travels through a zone (e.g., to compute a track length estimator), 
 (c) at a collision event (e.g., to compute a collision estimator),
-and (d) after the run (to compute a derived score).
+(d) at a time boundary (e.g., a snapshot estimator of the 
+density),
+and (e) after the run (to compute a derived score).
 
 Used the word ``tally'' here instead of ``score'' since the two-letter
 prefix for the latter would be too similar to those for sectors and
@@ -303,7 +308,12 @@ type of estimator |tl_est_post_process| must be derived from existing
 tallies. This option is implemented presently for only certain reactions,
 sources 
 and tallies; no effort is made to propagate the standard deviation
-values through this process. There is also a null estimator,
+values through this process. 
+A fourth, |tl_est_snapshot|, scores |tl_type_test| tallies at the
+end of a time dependent calculation.  That is, it essentially computes
+a tally based on the particle positions and
+velocities as they reach |so_time_final|.
+There is also a null estimator,
 |tl_est_unknown| that provides an easy way to ignore the contribution of,
 say, a particular reaction to a score.
 
