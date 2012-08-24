@@ -2,6 +2,9 @@
 \Title{tallysetup}
 
 % $Log$
+% Revision 1.15  2011/03/04 18:09:46  dstotler
+% Add snapshot estimator to test tallies (yet to be documented).
+%
 % Revision 1.14  2006/01/19 20:05:23  dstotler
 % Associate excitation and deexcitation reaction types with pr_rc_ionize.
 %
@@ -209,7 +212,13 @@ tally. Since sector type tallies necessarily use only an event estimator,
 this subsection is not needed there. For tallies of type test, only
 a single estimator is required. A single line containing a  \verb+T+
 specifies a track-length estimator, a \verb+C+ designates a collision
-(based on all reactions) estimator. The default is track-length estimator.
+(based on all reactions) estimator. In time-dependent runs, the 
+snapshot estimator, \verb+S+, will compute the tally based on the
+particle positions and velocities at the end of the run.  Note that
+tallies performed with track-length or collision estimators in time 
+dependent runs are effectively averaged over the time interval.
+The default estimator for test tallies is the
+track-length estimator.
 
 For tallies of type reaction, different
 estimators can be used for each of several ``reaction groups''. These
@@ -234,7 +243,7 @@ because, charged test particles are not tracked (they effectively have
 a velocity of 0), a track-length estimator cannot be used. In fact,
 |tallysetup| will check that a collision estimator has been chosen.
 
-The estimators for reaction type tallies are specified one a single 
+The estimators for reaction type tallies are specified on a single 
 line with spaces in between. In addition to \verb+T+ and \verb+C+,
 \verb+P+ is also valid. This last option refers to ``post processed
 tallies'' and is available for most cases. The order of the characters
@@ -252,6 +261,7 @@ used with a track-length estimator (there is no tracking),
 for recombination (which uses an average ion velocity). For other 
 reactions, the instantaneous kinetic velocity is needed to compute
 the spectrum properly.
+  \item the snapshot estimator is not available.
 \end{itemize}
 
 A fourth estimator, \verb+N+, corresponding to ``none'', is provided for
@@ -343,11 +353,13 @@ this ``equivalence'' is defined in the species input file.
 @m pr_rc_elastic 4
 @m pr_rc_dissociation 5
 @m pr_rc_test_ion 6
-@m pr_rc_plate 7
+@m pr_rc_plate 7            // Sources
 @m pr_rc_puff 8
 @m pr_rc_recombination 9
-@m pr_rc_unknown 10
-@m pr_rc_max 10
+@m pr_rc_vol_source 10
+@m pr_rc_snapshot 11
+@m pr_rc_unknown 12
+@m pr_rc_max 12
 
 @ To simplify the specification of the conversions to be used to change
   tallies from their internal values to the external quantities of interest
@@ -541,6 +553,8 @@ this ``equivalence'' is defined in the species input file.
       pr_rc_type[pr_reaction_num+so_plate]=pr_rc_plate
       pr_rc_type[pr_reaction_num+so_puff]=pr_rc_puff
       pr_rc_type[pr_reaction_num+so_recomb]=pr_rc_recombination
+      pr_rc_type[pr_reaction_num+so_vol_source]=pr_rc_vol_source
+      pr_rc_type[pr_reaction_num+so_snapshot]=pr_rc_snapshot
 
       nconversions=0
       do icv=1,tl_cv_max_conversions
@@ -761,7 +775,9 @@ eof: continue
             assert(' Collision estimator not possible for ionize supress' == ' ')
          else if (estimator[pr_rc_recombination] == tl_est_track 
      $           || estimator[pr_rc_plate] == tl_est_track
-     $           || estimator[pr_rc_puff] == tl_est_track) then
+     $           || estimator[pr_rc_puff] == tl_est_track
+     $           || estimator[pr_rc_vol_source] == tl_est_track
+     $           || estimator[pr_rc_snapshot] == tl_est_track) then
             assert(' Track length estimator not possible for sources' == ' ')
          else if (estimator[pr_rc_test_ion] != tl_est_collision) then
             assert(' Test ions must use collision estimator' == ' ')
