@@ -1,5 +1,10 @@
 % $Id$
 % $Log$
+% Revision 1.6  2009/11/25 20:50:52  dstotler
+% Extensive update to cover current operating systems and compilers,
+% as well as DG.  Add the two new definegeometry2d /
+% defineback examples.
+%
 % Revision 1.5  2007/06/22 16:32:02  dstotler
 % Update particle balance analysis for CMod_1D example for changes
 % associated with switch to ehr3.dat.
@@ -27,11 +32,15 @@
 % (in tex directory), do the following with 
 % codefile = ratecalc, readgeometry, random, classes, geometry, tallysetup,
 % elementsetup, speciesetup, reactionsetup, materialsetup, pmisetup,
-% problemsetup, outputbrowser, definegeometry2d, defineback, geomtesta:
+% problemsetup, outputbrowser, definegeometry2d, defineback, geomtesta,
+% ucd_plot:
 %   gmake codefile.tex
-%   pdflatex codefile.tex (may need to be done twice)
+%   pdflatex codefile.tex (may need to be done two or three times)
 %   mv codefile.pdf ../Doc
-% update page numbers in href's to these files.  Also, the DEGAS 2
+% update page numbers in href's to these files; 
+% use the actual numbers printed
+% on the page for this, not the page number in the PDF.  
+% Also, the DEGAS 2
 % web page now has links to pages in this manual; those also
 % need to be checked.
 % rm degas2_all.html
@@ -82,13 +91,13 @@
 % for the code.
 \title{\includegraphics{degas2d}
 User's Guide for DEGAS 2 \\
-Release V.\ 4.3\thanks{This file is written in \TeX. 
+Release V.\ 4.5\thanks{This file is written in \TeX. 
 A hyper-linked PDF
 file is generated from that source using {\tt pdflatex}. This document
 is distributed as part of the DEGAS 2 code. The user can be best assured
 of concurrence between code and manual by referring to the 
 version of the manual
-that came with the code. Copyright \copyright 2009 PPPL.
+that came with the code. Copyright \copyright 2012 PPPL.
 Permission is granted to make and distribute verbatim copies of this manual
 provided the copyright and permission notice is preserved on all copies.
 Permission is granted to copy and distribute modified versions of this
@@ -103,14 +112,17 @@ Jaishankar S. \\ {\em Institute for Plasma Research, India}}
 \begin{abstract}
 This is the user's manual for DEGAS 2 - A
 Monte Carlo code for the study of neutral atom and molecular transport 
-in confined plasmas. It is intended to cover all aspects of DEGAS 2 from the
+in confined plasmas. It is intended to provide an
+introduction to DEGAS 2 from the
 user's point-of-view: obtaining
 the files, compiling them, setting up the input files, executing the
 code, and interpreting the output. 
 References will be provided for the underlying physics, but the
-essential aspects will be highlighted. Information for programmers
-interested in modifying DEGAS 2 can be found within the source code
-itself. Links to some of the more useful ones are provided.
+essential aspects will be highlighted. 
+More detailed documentation of the procedures used to
+create input files is contained in the typeset
+source code of the relevant pre-processors; links
+to those files are provided.
 \end{abstract}
 \maketitle
 
@@ -956,7 +968,7 @@ DEGAS 2 subroutine for following flights in Fig.~\ref{flightflowchart}.
 \leavevmode
 \includegraphics[width=6in]{flight_flowchart}
 \vspace{-1.85in}
-\caption{Flow chart of DEGAS 2 subroutine {\tt follow}, showing the steps 
+\caption{Simplified flow chart of DEGAS 2 subroutine {\tt follow}, showing the steps 
 involved in tracking a flight from its birth to its termination. Note
 the weight reduction, and collision and tracklength estimators 
 (Sec.~\ref{Estimators}). The operators from the integral equations are
@@ -1077,7 +1089,7 @@ scores to corresponding ``diagnostics'' (groups of sectors)
 are also tabulated. The essential identifying information 
 of a sector are its surface and zone numbers.
 See the 
-\href{classes.pdf#page.34}{sector class} documentation for a more
+\href{classes.pdf#page.39}{sector class} documentation for a more
 detailed description.  Default diagnostic sector groups defined
 by all DEGAS 2 geometry setup programs are discussed in 
 Sec.~\ref{Diagnostic}.
@@ -1157,6 +1169,51 @@ is bounded by $\phi = $ constant surfaces at the extrema of this
 range.  Extending the ``pie slice'' analogy, this case represents
 some number of slices, but less than the whole pie!
 \end{description}
+
+\section{Time Dependence}
+\label{TimeDep}
+\index{time dependence}
+\index{snapshot}
+\index{defineback}
+
+The default and most frequently used mode of running DEGAS 2 simulates a
+steady state or time independent system.  The reason for this is physically
+obvious: unconstrained by magnetic field lines, neutral particles can
+travel through a plasma much more quickly than charged species, and
+in many cases, the neutral profile equilibrates on a time scale
+short compared with global transport times.
+For a rapidly evolving system, however, a
+time dependent calculation may be needed. The implementation
+of time dependence in DEGAS 2 follows
+that used in EIRENE \cite{Reit95}.
+
+Only the {\tt defineback} input preprocessor is presently set up
+to handle direct user specification of a time dependent run;
+see the corresponding \href{defineback.pdf#page13}{source file} 
+for details on how this is done.
+However, the user can in principle also manually
+set the controlling
+parameters in the \href{classes.pdf#page.25}{source class}.
+
+The user specified sources in a time dependent run are
+either fixed in time during a time 
+interval (uniform) or start at the beginning of the interval 
+($\delta$ function).  More complex time variation of the sources
+can be created by breaking up the source time dependence into a
+set of discrete time intervals with the sources being uniform
+over each.
+
+To provide continuity between consecutive time intervals, an
+additional ``snapshot'' source group is set up to sample
+from the neutral particle distribution function (PDF) 
+that was in the volume at
+the end of the end of a previous interval.  
+Again following \cite{Reit95}, we represent this PDF via the
+particle positions,
+velocities, and weights; this is the purpose of the
+\href{classes.pdf#page.128}{snapshot class}.  With this
+approach, the amount of kinetic detail in the PDF is
+maximized.
 
 \section{Atomic Physics}
 \label{AtomicPhysics}
@@ -1523,8 +1580,8 @@ and are analogous to Eqs.~(\ref{pemiti}) and (\ref{pemitii}) above.
 The total emitted power (per unit volume) is obtained at run
 time by combining them with the ground state and ion densities:
 \begin{equation}
-P_{5877} = P_{5877}^{(i)} N_{1^{1}S} + 
-P_{5877}^{(ii)} n_{i}.
+P_{5877} = P_{5877}^{(i)} N_{1^{1}S} n_{e} + 
+P_{5877}^{(ii)} n_{i} n_{e}.
 \end{equation}
 Note that $E_{3^{3}D \rightarrow 2^{3}P} = 2.10955$ eV,
 $A_{3^{3}D \rightarrow 2^{3}P} = 7.069 \times 10^{7}$ s$^{-1}$, and
@@ -2146,25 +2203,15 @@ Handbook\cite{CRC}.}
 
 \section{Getting DEGAS 2}
 
-DEGAS 2 can be obtained from the anonymous FTP site at Princeton Plasma
-Physics Labs (PPPL). It can be found in the directory
-{\tt /pub/degas2}. The procedure for getting it is:
+DEGAS 2 is now govern by a 
+\href{http://theorycodes.pppl.wikispaces.net/Theory+Department+Codes}{licensing
+procedure} developed and managed by the PPPL Theory and Computation
+Department. Prospective users of the code should visit this site and
+follow the instructions spelled out there.
 
-\begin{verbatim}
-ftp ftp.pppl.gov
-user: anonymous 
-Password: < your email adress > 
-ftp> cd pub/degas2 
-ftp> binary 
-ftp> get degas2.tar 
-ftp> bye 
-\end{verbatim}
-
-If you want to download DEGAS 2 through your browser
-now, \href{ftp://ftp.pppl.gov/pub/degas2}{here's a link} to it.
-Currently, there are three forms: 
+The DEGAS 2 source code is available in three formats:
 \begin{enumerate}
-\item {\tt degas2.tar} An uncompressed tar file (extract with:
+\item {\tt degas2.tar} An uncompressed tar file; extract with:
 \begin{verbatim}
 tar xf degas2.tar
 \end{verbatim}
@@ -2260,8 +2307,15 @@ the \verb+-b+ or \verb+-o netcdf_filename+ option to let the utility know
 that you want it to generate a netCDF file (see: {\tt man ncgen}).
 
 netCDF can be obtained from  
-\href{http://www.unidata.ucar.edu/software/netcdf/}{http://www.unidata.ucar.edu/software/netcdf/}.  The version presently being used for DEGAS 2 development
-is 3.6.3. 
+\href{http://www.unidata.ucar.edu/software/netcdf/}{http://www.unidata.ucar.edu/software/netcdf/}.  
+The version presently being used for DEGAS 2 development
+is 4.1.1.  Note, however, that the version of {\tt ncgen}
+that comes with this library has a bug that causes problems
+when creating large files. This is remedied in netCDF
+V. 4.2, but a workaround with V. 4.1.1 is to use instead
+{\tt ncgen3}.
+If you are using {\tt ncgen-filter}, you would need
+use {\tt ncgen3} there as well.
 
 \subsection{FWEB}
 \label{fweb}
@@ -2333,7 +2387,16 @@ HDF Version 4) or Silo formats that can be processed by
 external graphical packages, such as VisIt or IDL.  The VisIt
 package in particular is freely available \\
 (see \href{https://wci.llnl.gov/codes/visit/home.html}{https://wci.llnl.gov/codes/visit/home.html}), can read Silo files directly, and can generate
-both 2-D and 3-D images.
+both 2-D and 3-D images.  A similar alternative to
+{\tt geomtesta}, {\tt ucd\_plot}, is now available.  It's
+more restrictive in that it requires the Silo library
+and works only with 2-D geometries created by 
+{\tt definegeometry2d}.  On the other hand, the data
+contained in the Silo file are effectively
+represented on the actual DEGAS 2 mesh instead of
+a pixelated representation.  Visualization of the
+{\tt ucd\_plot} Silo has only been performed with VisIt.
+
 
 The Silo library can be found at \href{https://wci.llnl.gov/codes/silo/index.html}{https://wci.llnl.gov/codes/silo/index.html}.  It can use either its own
 PDB I/O driver or HDF5.  In the latter case, the HDF5 library
@@ -2428,6 +2491,7 @@ mention here.
 \index{tallysetup}
 \index{flighttest}
 \index{geomtesta}
+\index{ucd\_plot}
 \index{definegeometry2d}
 \index{defineback}
 
@@ -2498,7 +2562,7 @@ with a minimum of hardwired physics).
 problem) and allows the user to interactively browse its contents.
 A script facility is provided for batch-like operation. 
 \item[geomtesta] Another inappropriately named routine which serves as
-the principal post-processing cdoe for DEGAS 2. Although originally
+the principal post-processing code for DEGAS 2. Although originally
 designed as a diagnostic for the geometry, it has proven too easy to 
 continue extending this code to warrant development of an honest
 post-processing tool. The DEGAS 2 input and output files are read in by
@@ -2506,6 +2570,9 @@ the code. Using the geometry information, the zone-based plasma and neutral
 data are transcribed onto a high density uniform rectangular mesh and
 dumped into Silo or HDF files suitable for further manipulation by 
 external graphics packages such as VisIt or IDL.
+\item[ucd\_plot] Alternative post-processing code that uses DEGAS 2's
+own mesh for representing output data.  Creates a Silo format file
+for visualization with VisIt.
 \item[degas2\_xgc.a] This library contains the core routines of DEGAS 2
 and an interface for a subroutine based coupling to a plasma code.
 The primary quantities exchanged between the codes are moments of the
@@ -2730,11 +2797,14 @@ cramdproblemfile cramdprob.nc
 tallyfile tally_uers.nc
 outputfile degas2_uers_out.nc
 oldsourcefile os_uers.nc
+snapshotfile sn_uers.nc
 \end{verbatim}
 
 Note that some of these are 
 outdated or rarely used (unused entries may be deleted from the file, if
-desired). Most of the files come in pairs with the name
+desired);
+see the \href{classes.pdf#page.130}{readfilenames class} for
+more specific information. Most of the files come in pairs with the name
 \verb+XXX_infile+ corresponding to a text input file and
 \verb+XXXfile+ being a netCDF file generated by a program
 like {\tt datasetup}, {\tt problemsetup}, etc.
@@ -2921,7 +2991,7 @@ For that reason, no additional documentation is provided at this point.
 The documentation on the input file for {\tt tallysetup} is maintained
 in the source code, {\tt tallysetup.web}. This 
 \href{tallysetup.pdf#page.1}{link} will take the reader to the corresponding
-PDF file. The \href{classes.pdf#page.49}{tally class} contains more 
+PDF file. The \href{classes.pdf#page.53}{tally class} contains more 
 extensive and detailed information.
 
 \subsection{outputbrowser Input}
@@ -2942,6 +3012,13 @@ The documentation for {\tt geomtesta} is maintained in
 the source code, {\tt geomtesta.web}.  For readers of the
 PDF version of the manual, here's a 
 \href{geomtesta.pdf#page.1}{link} to the corresponding PDF file.
+
+\subsection{ucd\_plot Input}
+
+The documentation for {\tt ucd\_plot} is maintained in
+the source code, {\tt ucd\_plot.web}.  For readers of the
+PDF version of the manual, here's a 
+\href{ucd_plot.pdf#page.1}{link} to the corresponding PDF file.
 
 \section{Compiling DEGAS 2}
 
@@ -3575,7 +3652,7 @@ file in an editor (Emacs will be the most convenient) and find the line
 The results in this directory were obtained with 10 BGK iterations of
 4000000 flights each. Such a run could easily require
 more than a day if run on a single processor (this run was executed
-in about an hour using 10 1.7 GHz AMD Athlon PCs). 
+in 15 minutes using 16 Dual-core AMD Opteron 1 GHz processors).
 You can probably run a smaller
 number of flights (say, 100000) and still get reasonable results.
 Save the file and exit the editor.
@@ -3984,17 +4061,22 @@ the two rates. However, because the temperatures of \verb+D2+ and
 \verb+D+ species are different
 in general, the resulting rates had different numerical values. The
 initial implementation of the BGK algorithm in DEGAS 2 
-repeated this same mistake.
+repeated this same mistake.  Due to a dearth of applications for
+these reactions, this problem has not yet been remedied.
 
-% NOTE: have not made these changes to the code yet!
-
-To see the difference, you can modify the {\tt degas2.in} file to point to
-the {\tt reactions.input} and {\tt reactions.nc} files in this directory;
-these use the old versions of the neutral-neutral data files that are
-also in this directory.
-When you run the code again (you at least need to rerun {\tt problemsetup}
-first), you will find something like the results contained in 
-{\tt bgkbalances\_default.out}:
+To obtain the nearly equal transfer rates seen above,
+the {\tt degas2.in} file in this example actually points to a 
+dedicated {\tt reactions.input} file in the same directory 
+that uses modified (``hacked'') data files for these two elastic 
+scattering processes.  To see the effect of unequal reaction 
+rates, modify the {\tt degas2.in} file to instead point
+to the {\tt reactions.input} in the {\tt data} directory.
+Rerun both {\tt datasetup} and {\tt problemsetup}, then
+run the code again.  Note that you should also rerun {\tt boxgen}
+to start the code off in the same initial state.  The
+result after five iterations can
+be compared with 
+{\tt bgkbalances\_default.out} that comes with the examples:
 \begin{tabbing}
   mom. 1 to \verb+D+: \= xx $-9.39835 \times 10^{-3}$ xx \=  
 mom. 1 to \verb+D2+: \= xx $+9.19450 \times 10^{-3}$ \kill
@@ -4438,7 +4520,7 @@ geometry's ``sectors'', but they are of little use within
 the plasma volume.  For this reason, {\tt definegeometry2d} also 
 generates its \verb+polygon_nc_file+ based on the
 2-D geometry class (see the  
-\href{classes.pdf#page.126}{geometry2d class documentation}).
+\href{classes.pdf#page.132}{geometry2d class documentation}).
 Via the \verb+g2_polygon_stratum+ and \verb+g2_polygon_zone+
 arrays in this class,
 the user can connect these  
@@ -4591,8 +4673,26 @@ they must be changed manually by editing the background netCDF file.
 The following subsections describe the features, roughly in order of usefulness
 to the average user:
 
+\subsection{Time Dependence}
+\label{TimeDep2}
+\index{time dependence}
+
+The use of time dependence in DEGAS 2 is described above
+in Sec.~\ref{TimeDep}.  For completeness, we only note here
+the principal controlling parameters in the
+\href{classes.pdf#page.26}{sources class}.  The switch
+{\tt so\_time\_dependent} will be {\tt FALSE} (0) for steady-state
+runs and {\tt TRUE} (1) for the time dependent case.
+For the latter, the time interval for the run will 
+be from {\tt so\_time\_initial} to {\tt so\_time\_final};
+both have units of seconds.
+There is also a source-group dependent parameter
+{\tt so\_time\_varn} that controls the time
+variation of tahat group.
+
 \subsection{Checkpoints}
 \label{checkpoints}
+\index{checkpoints}
 
 By default, the DEGAS 2 output netCDF file is written only at the end of
 the run. Each source group can be broken up into an integral number
@@ -4607,6 +4707,7 @@ cannot be used with post-processing utilities. The raw data there are
 suitable only for a restart of the code.
 
 \subsection{Restarting}
+\index{restarting}
 
 The two main uses of the restarting capability are 
 
@@ -4753,9 +4854,9 @@ array are computed on the fly based on the number of values used for
 each independent variable.
 \end{enumerate}
 For more details, see the description of the 
-\href{classes.pdf#page.67}{cross section class}.  % Start of the description section
+\href{classes.pdf#page.71}{cross section class}.  % Start of the description section
 The corresponding information for PMI is in the description of the
-\href{classes.pdf#page.75}{PMI format class}.
+\href{classes.pdf#page.79}{PMI format class}.
 
 The only general tool available for creating new data files is {\tt ratecalc}
 (see Sec.~\ref{othersetup} and \href{ratecalc.pdf#page.1}{the ratecalc
@@ -4926,7 +5027,7 @@ ion temperature, rather than generating the random numbers on the
 fly in the interpolation process. Hence, the appearance of 
 \verb+1st_random_number+, \verb+2nd_random_number+, and
 \verb+3rd_random_number+ in the independent variables list
-(see the \href{classes.pdf#page.75}{PMI format class}).
+(see the \href{classes.pdf#page.79}{PMI format class}).
 
 So, each file for such PMI contains
 \begin{enumerate}
@@ -4937,7 +5038,7 @@ So, each file for such PMI contains
 \end{enumerate}
 Again, all of the data values are stored in a single 1-D array
 with the array behavior specified by macros
-(see the \href{classes.pdf#page.75}{PMI format class}).
+(see the \href{classes.pdf#page.79}{PMI format class}).
 
 \subsection{Reaction Processing Routines}
 \label{reactionprocessing}
@@ -4973,7 +5074,7 @@ minimum, maximum, and the number of wavelength bins.
   \end{itemize}
 \end{enumerate}
 The actual variables are defined and described in the
-\href{classes.pdf#page.46}{detector class}.
+\href{classes.pdf#page.50}{detector class}.
 
 Views are machine specific and not frequently changed. For these reasons,
 the user will need to specify them via specific lines of code in
@@ -6315,6 +6416,8 @@ D. B. Heifetz, in {\em Physics of Plasma-Wall Interactions in Controlled
 Fusion}, D. Post and R. Behrisch, Eds., (Plenum, New York, 1986), p. 695.
 \bibitem{Stot92} D. P. Stotler et al., {\em J. Nucl. Mater.}
 {\bf 196-198}, 894 (1992).
+\bibitem{Reit95} D.~Reiter et al., {\em J. Nucl. Mater.} {\bf 220--222}
+987 (1995).
 \bibitem{Bate61} D. R. Bates, A. E. Kingston, and R. W. P. McWhirter,
 {\em Proc. R. Soc. A} {\bf 267}, 297 (1962).
 \bibitem{McWh65} R. W. P. McWhirter, in {\em Plasma Diagnostic Techniques},
@@ -6413,7 +6516,7 @@ for the Physical Sciences} (McGraw-Hill Book Company, New York, 1969).
 \bibitem{Ecks91} W. Eckstein, {\em Computer Simulation of Ion-Solid
 Interactions} (Springer-Verlag, New York, 1991).
 \bibitem{Bate80} G. Bateman, ``Distribution of Neutrals Scattered Off 
-A Wall'', PPPL Applied Physics Division Report \# 1 (1980).
+A Wall'', \href{http://w3.pppl.gov/degas2/Bateman_distribution.pdf}{PPPL Applied Physics Division Report \# 1 (1980)}.
 \bibitem{Macm67} D. B. Macmillan, {\em SIAM J. Appl. Math.} {\bf 15}, 264 
 (1967).
 \bibitem{Span66} J. Spanier, {\em SIAM J. Appl. Math.} {\bf 14}, 702 (1966).
@@ -6442,7 +6545,7 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
 
   \item adsorption, \hyperpage{61}
   \item Allocation, memory, \hyperpage{3}
-  \item Atomic physics, \hyperpage{23}
+  \item Atomic physics, \hyperpage{24}
 
   \indexspace
 
@@ -6456,15 +6559,16 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
   \item Carre, \hyperpage{58}, \hyperpage{88}
   \item Charge exchange, \hyperpage{32}
   \item chargex, \hyperpage{60}
-  \item collisional-radiative, \hyperpage{23}
-  \item CVS, \hyperpage{4}, \hyperpage{52}
+  \item checkpoints, \hyperpage{99}
+  \item collisional-radiative, \hyperpage{24}
+  \item CVS, \hyperpage{4}, \hyperpage{51}
 
   \indexspace
 
   \item dataexam, \hyperpage{56}
   \item datamatch, \hyperpage{57}
   \item datasetup, \hyperpage{55}
-  \item defineback, \hyperpage{53}, \hyperpage{88}
+  \item defineback, \hyperpage{23}, \hyperpage{53}, \hyperpage{88}
   \item defineback input, \hyperpage{62}
   \item definegeometry2d, \hyperpage{51}, \hyperpage{53}, 
 		\hyperpage{88}
@@ -6486,7 +6590,7 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
   \item Elastic scattering, \hyperpage{32}
   \item elements\_infile, \hyperpage{60}
   \item elementsfile, \hyperpage{60}
-  \item Emacs, \hyperpage{50}
+  \item Emacs, \hyperpage{49}
   \item emacs, \hyperpage{49}
 
   \indexspace
@@ -6514,7 +6618,7 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
 
   \indexspace
 
-  \item ionization, \hyperpage{23}
+  \item ionization, \hyperpage{24}
   \item ionize, \hyperpage{60}
   \item ionize\_suppress, \hyperpage{60}
 
@@ -6537,12 +6641,12 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
 
   \indexspace
 
-  \item ncdum, \hyperpage{50}
-  \item ncdump-filter, \hyperpage{50}
-  \item ncgen, \hyperpage{50}
-  \item ncgen-filter, \hyperpage{50}
+  \item ncdum, \hyperpage{49}
+  \item ncdump-filter, \hyperpage{49}
+  \item ncgen, \hyperpage{49}
+  \item ncgen-filter, \hyperpage{49}
   \item NetCDF, \hyperpage{4}
-  \item netCDF, \hyperpage{50}
+  \item netCDF, \hyperpage{49}
   \item Neutral Transport, \hyperpage{1}
   \item Neutral-ion scattering, \hyperpage{32}
   \item Neutral-neutral scattering, \hyperpage{42}
@@ -6552,11 +6656,11 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
   \indexspace
 
   \item Object oriented programming, \hyperpage{3}
-  \item outputscript, \hyperpage{62}
+  \item outputscript, \hyperpage{63}
 
   \indexspace
 
-  \item Pcl-cvs, \hyperpage{52}
+  \item Pcl-cvs, \hyperpage{51}
   \item PMI, \hyperpage{61}
   \item pmi\_infile, \hyperpage{61}
   \item pmitest, \hyperpage{56}
@@ -6571,7 +6675,7 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
   \item Random, \hyperpage{5}
   \item randomtest, \hyperpage{56}
   \item ratecalc, \hyperpage{55}
-  \item rates, atomic physics, \hyperpage{23}
+  \item rates, atomic physics, \hyperpage{24}
   \item reaction type, \hyperpage{60}
   \item reaction\_infile, \hyperpage{60}
   \item reactionfile, \hyperpage{60}
@@ -6581,15 +6685,17 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
   \item readbackground input, \hyperpage{62}
   \item readgeometry, \hyperpage{53}
   \item readgeometry input, \hyperpage{62}
-  \item recombination, \hyperpage{23}, \hyperpage{60}
+  \item recombination, \hyperpage{24}, \hyperpage{60}
   \item reference level, \hyperpage{61}
   \item reflection, \hyperpage{61}
+  \item restarting, \hyperpage{100}
 
   \indexspace
 
   \item Scattering angle, \hyperpage{32}
   \item Scoring, \hyperpage{5}
   \item Silo, \hyperpage{51}
+  \item snapshot, \hyperpage{23}
   \item sourcetest, \hyperpage{56}
   \item species, \hyperpage{60}
   \item species\_infile, \hyperpage{60}
@@ -6602,13 +6708,14 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
   \indexspace
 
   \item Tags, \hyperpage{49}
-  \item tally, \hyperpage{62}
-  \item tally\_infile, \hyperpage{62}
-  \item tallyfile, \hyperpage{62}
-  \item tallysetup, \hyperpage{53}, \hyperpage{62}
+  \item tally, \hyperpage{63}
+  \item tally\_infile, \hyperpage{63}
+  \item tallyfile, \hyperpage{63}
+  \item tallysetup, \hyperpage{53}, \hyperpage{63}
   \item test species, \hyperpage{61}
   \item TeX, \hyperpage{50}
   \item Theory, transport, \hyperpage{1}
+  \item time dependence, \hyperpage{23}, \hyperpage{99}
   \item Total cross section, \hyperpage{32}
   \item Tracking, \hyperpage{5}
   \item Transport codes, \hyperpage{1}
@@ -6616,11 +6723,14 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
 
   \indexspace
 
+  \item ucd\_plot, \hyperpage{53}
+
+  \indexspace
+
   \item Viscosity, \hyperpage{42}
   \item Viscosity cross section, \hyperpage{32}
 
 \end{theindex}
-
 
 \tableofcontents
 
