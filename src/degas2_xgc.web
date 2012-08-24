@@ -2,6 +2,10 @@
 \Title{degas2_xgc}
 
 % $Log$
+% Revision 1.2  2011/03/04 17:59:09  dstotler
+% Replace mpi_root with mpi_degas2_root to avoid name collision on Jaguar.
+% Replace so_seed_string with so_seed_decimal.
+%
 % Revision 1.1  2009/11/25 18:34:10  dstotler
 % Add to repository.
 %
@@ -31,6 +35,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 @I string.hweb
 @I reactiondata.hweb
 @I xsection.hweb
+@I degas2_xgc.hweb
 
 @ The unnamed module.
 
@@ -40,15 +45,31 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 @* Initialization routine
 
 @<Functions...@>=
-      subroutine degas2_xgc_init(root,sml_totalpe,sml_mype)
+      subroutine degas2_xgc_init(root,sml_totalpe,sml_mype,
+     $                           num_xgc_segs,xgc_bdy_r,xgc_bdy_z)
 
       implicit_none_f77
-      mp_common                               // Common
+      mp_common                                               // Common
+      dx_common
+      so_common
+      sc_common
       implicit_none_f90
      
-      integer root,sml_totalpe,sml_mype       // Input
+      integer root,sml_totalpe,sml_mype,num_xgc_segs          // Input
+      real xgc_bdy_r(num_xgc_segs),xgc_bdy_z(num_xgc_segs)
+
+      integer i,j,plasma_sc,igrp,iseg                         // Local
+      real slop
+      sc_decl(sector)
+      sc_plasma_decl(plasma_sc_ptr)
+      vc_decl(x1)
+      vc_decl(x2)
+
+      external sloppy_lookup_sector
+      integer sloppy_lookup_sector
 
       mp_decls
+      @<Memory allocation interface@>
 
 @#if MPI
       mpi_degas2_root=root       
@@ -81,6 +102,75 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 */
       call nc_read_background
       call nc_read_tally
+/*
+   Set up map between XGC0 boundary segments and the DEGAS 2 
+   source segments read in from the background netCDF file.
+   These should be the same segments, but the relative ordering
+   is not known a priori.  
+
+   The coordinates in the DG file only have seven digits of
+   precision.  Created and use here |sloppy_lookup_sector| 
+   to do the matching.
+*/
+      dx_num_src_segments=num_xgc_segs
+      var_alloc(dx_source_segments)
+      var_alloc(dx_xgc_segment)
+      do i=1,num_xgc_segs
+         dx_source_segments[i]=int_uninit
+         dx_xgc_segment[i]=int_uninit
+      end do
+      slop=const(1.,-5)
+      do i=1,num_xgc_segs
+         if (i < num_xgc_segs) then
+            vc_set(x1,xgc_bdy_r[i],zero,xgc_bdy_z[i])
+            vc_set(x2,xgc_bdy_r[i+1],zero,xgc_bdy_z[i+1])
+         else
+            vc_set(x1,xgc_bdy_r[i],zero,xgc_bdy_z[i])
+            vc_set(x2,xgc_bdy_r[1],zero,xgc_bdy_z[1])
+         end if
+         sector=sloppy_lookup_sector(x1,x2,slop)
+         if (sc_check(sector)) then
+            plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+            if (sc_plasma_check(plasma_sc_ptr)) then
+               plasma_sc=TRUE
+            else
+               plasma_sc=FALSE
+            end if
+         else
+            plasma_sc=FALSE
+         end if
+         if (plasma_sc == FALSE) then
+            sector=sloppy_lookup_sector(x2,x1,slop)
+            assert(sc_check(sector))
+            plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+            assert(sc_plasma_check(plasma_sc_ptr))
+            plasma_sc=TRUE
+         end if
+         assert(plasma_sc == TRUE)
+         igrp=1
+         do iseg=1,so_seg_tot
+            if (iseg >= so_base(igrp)+so_nseg(igrp)) then
+               igrp++
+            end if
+/*
+  Check the type here in case we have sources other than plate.
+  Am assuming that all plate source segments are coming from XGC0.
+  The assertions double-check uniqueness; required because of the
+  use of |sloppy_lookup_sector|.
+*/
+            if ((so_type(igrp) == so_plate)
+     $          && (source_segment_ptr[iseg] == sector)) then
+               dx_source_segments[i]=iseg
+               assert(dx_xgc_segment[iseg] == int_uninit)
+               dx_xgc_segment[iseg]=i
+               if (i > 1) then
+                  do j=1,i-1
+                     assert(dx_source_segments[j] != iseg)
+                  end do
+               end if
+            end if
+         end do
+      end do
 
       return
       end
@@ -103,8 +193,10 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 
 @<Functions...@>=
       subroutine xgc_flighttest(ntriangle,xgc_ion,xgc_elec,get_source,
-     $                          neu_np,neu_vp,neu_tp,
-     $                          neu_n0,neu_v0,neu_t0,nu_max,neu_source)
+     $                          neu_np,neu_vp,neu_tp,neu_hload_weight,
+     $                          t_init,t_final,
+     $                          neu_n0,neu_v0,neu_t0,nu_max,neu_source,
+     $                          neu_total_source)
 
       implicit_none_f77
       zn_common
@@ -115,26 +207,32 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       sp_common
       tl_common
       ou_common
+      dx_common
+      sc_common
       implicit_none_f90
 
       integer ntriangle,xgc_ion,xgc_elec,get_source   // Input
       real neu_np(xgc_bk_num,ntriangle),neu_vp(3,xgc_bk_num,ntriangle),
-     $     neu_tp(xgc_bk_num,ntriangle)
+     $     neu_tp(xgc_bk_num,ntriangle),neu_hload_weight(dx_num_src_segments)
+      real t_init,t_final
 
       real neu_n0(xgc_test_num,ntriangle),            // Output
      $     neu_v0(3,xgc_test_num,ntriangle),
      $     neu_t0(xgc_test_num,ntriangle),
-     $     neu_source(max_change,max_species,ntriangle)
+     $     neu_source(max_change,max_species,ntriangle),
+     $     neu_total_source(max_change,max_species)
 
       real nu_max
 
       integer zone,have_pressure,test,neu_spec,        // Local
-     $        back,xgc_sp
+     $        back,xgc_sp,iseg,iterative,igrp
       integer index_parameters[tl_index_max]
       real density,pressure,edrift,temperature,ei,
      $     sigma_v_ion,sigma_v_cx
       bk_decl(back_ion)
       bk_decl(back_elec)
+      sc_decl(sector)
+      sc_plasma_decl(plasma_sc)
       rn_seed_decl(io_seed)
       vc_decl(vel_test)
 
@@ -170,6 +268,64 @@ there is a fair bit of hardwired code here, e.g., regarding species.
          bk_temp(back_ion,zone)=neu_tp(xgc_ion,zone)
          bk_temp(back_elec,zone)=neu_tp(xgc_elec,zone)
       end do
+/*
+   Set source data
+*/
+      igrp=1
+      so_tot_curr(1)=zero
+      do iseg=1,so_seg_tot
+         if (iseg >= so_base(igrp)+so_nseg(igrp)) then
+            igrp++
+            so_tot_curr(igrp)=zero
+         end if
+         if (so_type(igrp) == so_plate) then
+            source_current[iseg]=neu_hload_weight[dx_xgc_segment[iseg]]
+            so_tot_curr(igrp)+=source_current[iseg]
+/*
+   And sheath parameters.  It looks like the electron temperature is
+   frequently zero, at least at the outset.  Use a default of 3 eV
+   in this case.  The other two sheath parameters are fixed and do
+   not need to be updated.
+*/
+            sector=source_segment_ptr[iseg]
+            assert(sc_check(sector))
+            plasma_sc=sector_type_pointer[sector][sc_plasma]
+            assert(sc_plasma_check(plasma_sc))
+
+            zone=sector_zone[sector]
+            assert(zn_check(zone))
+            if (bk_temp(back_elec,zone) > zero) then
+               plasma_e_ion_delta[plasma_sc]=const(3.)*bk_temp(back_elec,zone)
+            else
+               plasma_e_ion_delta[plasma_sc]=const(3.)*electron_charge
+            end if
+         else
+/*
+   May eventually allow for other source types.  Would need to modify
+   this section to do so.
+*/
+            assert(so_type(igrp) == so_snapshot)
+         end if
+      end do
+
+      so_time_initial=t_init
+      so_time_final=t_final
+      assert(so_time_dependent == TRUE)
+
+      call set_snapshot_source
+/*
+   Should do an intelligent setting of all |so_nflights| here.
+   In the absence of that, do the simplest thing to override the
+   default setting for the number of snapshot flights.
+*/
+      do igrp=1,so_grps
+         if (so_type(igrp) == so_snapshot) then
+            assert(igrp != 1)
+            so_nflights(igrp)=so_nflights(1)
+         end if
+      end do
+      iterative=FALSE
+      call init_wt_alias(iterative)
 
       if (mpi_master) then
          call write_background
@@ -197,9 +353,18 @@ there is a fair bit of hardwired code here, e.g., regarding species.
          end if
          do test=2,pr_test_num    // Exclude ``0'' test species
             neu_spec=test-1
+            assert(neu_spec == xgc_h_atom)
             index_parameters[tl_index_test]=test
             index_parameters[tl_index_problem_sp]=pr_problem_sp_test(test)
-
+/*
+   Could get this by summing |neu_source|, but want this available
+   for rescaling in XGC0 even if |get_source| is turned off.  Only 
+   tallying |mass_change| at the moment, but could easily add the others.
+   Also, since the tally is a rate, need to convert to a current.
+*/
+            neu_total_source(mass_change,xgc_h_atom)
+     $          =extract_output_datum(index_parameters,1,out_post_all,o_mean,
+     $           'total ion source rate')
             do zone=1,zn_num
                if (zone_type[zone] == zn_plasma) then
                   index_parameters[tl_index_zone]=zone
@@ -226,7 +391,12 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 */
                      edrift=half*sp_m(pr_test(test))*vc_abs2(vel_test)
                      temperature=(pressure/density) - edrift/const(1.5)
-                     assert(temperature > const(-1.,-30))
+                     if (temperature < const(-1.,-30)) then
+                        write(stderr,*) ' temperature = ',temperature,' at zone = ',zone
+                        write(stderr,*) ' pressure = ',pressure,', density = ',density
+                        write(stderr,*) ' vel_test = ',vel_test
+                        write(stderr,*) ' t_init = ',t_init
+                     end if
                      if (temperature <= const(1.,-30)) temperature=const(1.,-30)
                   else
                      density=const(1.,-30)
@@ -236,7 +406,6 @@ there is a fair bit of hardwired code here, e.g., regarding species.
                   vc_copy(vel_test,neu_v0(neu_spec,zone))
                   neu_t0(neu_spec,zone)=temperature       // still in J
                   if (get_source == 1) then
-                     assert(neu_spec == xgc_h_atom)
                      neu_source(mass_change,xgc_h_atom,zone)
      $                    =extract_output_datum(index_parameters,1,
      $                    out_post_all,o_mean,'ion source rate')
@@ -256,16 +425,20 @@ there is a fair bit of hardwired code here, e.g., regarding species.
                end if
             end do
          end do
-         if (get_source == 1) then
-            do back=1,pr_background_num
-               if (back == back_elec) then
-                  xgc_sp=xgc_electron
-               else if (back == back_ion) then
-                  xgc_sp=xgc_h_ion
-               else
-                  assert(' Too many background species for XGC!' == ' ')
-               end if
-               index_parameters[tl_index_problem_sp]=pr_problem_sp_back(back)
+
+         do back=1,pr_background_num
+            if (back == back_elec) then
+               xgc_sp=xgc_electron
+            else if (back == back_ion) then
+               xgc_sp=xgc_h_ion
+            else
+               assert(' Too many background species for XGC!' == ' ')
+            end if
+            index_parameters[tl_index_problem_sp]=pr_problem_sp_back(back)
+            neu_total_source(mass_change,xgc_sp)
+     $           =extract_output_datum(index_parameters,1,out_post_all,
+     $           o_mean,'total ion source rate')
+            if (get_source == 1) then
                do zone=1,zn_num
                   if (zone_type[zone] == zn_plasma) then
                      index_parameters[tl_index_zone]=zone
@@ -286,8 +459,8 @@ there is a fair bit of hardwired code here, e.g., regarding species.
      $                    out_post_all,o_mean,'ion energy source')
                   end if
                end do
-            end do
-         end if
+            end if
+         end do
       end if
 @#if MPI
       call MPI_bcast(neu_n0,ntriangle*xgc_test_num,mpi_real,mpi_degas2_root,
@@ -296,6 +469,8 @@ there is a fair bit of hardwired code here, e.g., regarding species.
      $               MPI_COMM_WORLD,mpi_err)
       call MPI_bcast(neu_t0,ntriangle*xgc_test_num,mpi_real,mpi_degas2_root,
      $               MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(neu_total_source,max_species*max_change,mpi_real,
+     $               mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
       if (get_source == 1)
      $     call MPI_bcast(neu_source,ntriangle*max_species*max_change,mpi_real,
      $                    mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
@@ -331,6 +506,16 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 @#if MPI
       call MPI_bcast(nu_max,1,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
 @#endif
+/*
+   The output and snapshot arrays are reallocated on every call
+   to |do_flights_master|.  This call will free the memory 
+   used in this iteration so that it doesn't get tied up
+   indefinitely.  This call mirrors the one inside the BGK loop
+   in |bgk_flighttest|.
+*/
+      if (mpi_master) then
+         call clear_output
+      end if
 
       return
       end
