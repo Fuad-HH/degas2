@@ -2,6 +2,9 @@
 \Title{statisticw}
 
 % $Log$
+% Revision 1.14  2011/03/04 18:08:46  dstotler
+% Removed old, unused code.
+%
 % Revision 1.13  1999/05/25 13:37:23  dstotler
 % Remove zeroing of weight array in stat_wt_balance; do in calling
 % routines instead.
@@ -109,7 +112,14 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
       integer i_inc,ifull,i_base                              // Local
       real b_wt,tot_wt,ma
 
-      assert(inc_wt >= zero && base_wt_tot >= zero && inc_size >= 0)
+      if (!(inc_wt >= zero)) then
+         write(stderr,*) ' Bad value of inc_wt = ',inc_wt
+         write(stderr,*) ' inc_size = ',inc_size
+         call flush(stderr)
+         assert(inc_wt >= zero)
+      end if
+      assert(base_wt_tot >= zero)
+      assert(inc_size >= 0)
 
       do i_inc=0,inc_size-1
          if (inc_compress == TRUE) then
