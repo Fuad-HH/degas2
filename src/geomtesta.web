@@ -2,6 +2,9 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.30  2011/03/04 18:02:38  dstotler
+%  Add plot of zone_type.  Insert equations for axis coordinates in preamble.
+%
 % Revision 1.29  2009/11/25 19:40:15  dstotler
 % Extend to permit the use of SILO format files as an alternative to
 % HDF4.  Extend to allow external zone based data to be read in and
@@ -158,8 +161,8 @@ format to be used is specified by the
 as either |HDF4|, |SILO|, or |SILO_HDF5|.
 The Silo
 format naturally handles multiple variables in a single file; that
-file is just the name of the main output netCDF file with |.silo| replacing
-|.nc|.  The variables that are output are hardcoded below, although
+file is just the name of the main output netCDF file with \verb+.silo+ replacing
+\verb+.nc+.  The variables that are output are hardcoded below, although
 some control is provided by FWEB macros to enable or disable 
 particular variables.
 
@@ -199,8 +202,8 @@ External zone based data can also be read in via text files and
 will be output in the same manner as the other variables.  The
 names of the text files can follow the above data in the |geometry.inp|
 file.  Each text file can have keywords ``name'', ``format'' (as
-in FORTRAN output; not used in SILO mode), ``units'' to provide
-additional information on the data.  If provided the name will be
+in a Fortran output specification; not used in SILO mode), ``units'' to provide
+additional information on the data.  If provided, the name will be
 used to name the file and variable.  If not, the name will be
 |ext_var_n| where |n| is the number of the file in the list of
 external files.  All other lines in the file should be in the
@@ -208,8 +211,36 @@ form:
 \begin{verbatim}
 zone    data
 \end{verbatim}
-where |zone| is an integer between 1 and |zn_num| (inclusive) and
-|data| is the (real) data value.
+where {\tt zone} is an integer between 1 and |zn_num| (inclusive) and
+{\tt data} is the (real) data value.  One way to generate such files
+within DEGAS 2 would be to use |outputbrowser| to write out
+zone based data (e.g., for a tally unique to the problem at hand)
+to a file and then edit the file to these specifications.
+
+Here is an explicit example:
+\begin{verbatim}
+name neu_ob
+units m^-3
+        1     8.57659E+14 
+        2     6.70615E+14 
+        3     7.16331E+14 
+        4     6.29992E+14 
+        5     5.83773E+14 
+\end{verbatim}
+
+This technique can also be used for time dependent data.  If one 
+were looping through a sequence of time intervals, data from each
+step could be stored in text files of this format.  In SILO mode, 
+time dependent data should be stored in separate SILO files, one
+per time step.  The convention used here is to append to
+the variable ``name'' an integer designation for the time step
+preceded by a \$ sign, e.g., \verb+density_$00100+ for the density
+at time step 100.  The code will interpret the presence of
+the \$ sign as indicating time dependent data and use the 
+following integer in naming the SILO file.  In HDF4 mode, all
+variables are already in separate files, and the \$ is just
+stripped out and used as the file name.  I.e., in this case
+the \$ sign isn't actually needed.
 
 By the definition of the mesh, mesh point $(i, j, k)$ corresponds to
 the physical point $x$ according to:
@@ -341,7 +372,7 @@ this mapping simplifies to the obvious form:
       real extract_output_datum
       character*4 ivlab
       character*1 ind_sy[3]
-      character*2 iflab
+      character*3 iflab
       character*3 vtag,auth
       character*tl_tag_length vname
       character*sp_sy_len clean_sy
@@ -362,16 +393,17 @@ this mapping simplifies to the obvious form:
       vc_decls
 @#if SILO
       include 'silo.inc'
-      integer dbfile,ret
-      logical write_mesh
-      character*FILELEN mesh_name,silo_file
-      common /silo_common/ dbfile,write_mesh,mesh_name
+      integer dbfile,dbfile_td,ret,itxt
+      logical write_mesh,dbfile_td_open
+      character*FILELEN mesh_name,silo_file,ext_silo_file
+      common /silo_common/ dbfile,dbfile_td,write_mesh,mesh_name
       e=index(filenames_array[outputfile],'.nc')
       assert(e > 0)
       silo_file=filenames_array[outputfile]SP(:e)\/'silo'
       ret=dbcreate(trim(silo_file),string_length(silo_file),
      $     DB_CLOBBER,DB_LOCAL,DB_F77NULL,0,silo_format,dbfile)
       assert((ret != -1) && (dbfile != -1))
+      dbfile_td_open=.false.
 @#endif      
       open(unit=diskin,file='geometry.inp',status='old',form='formatted')
 /*
@@ -1017,8 +1049,8 @@ loop: continue
             open(unit=diskin,file=ext_filenames[ifile],
      $           status='old',form='formatted',iostat=open_stat)
             if (open_stat == 0) then
-               assert(ifile < 100)
-               write(iflab,'(i2.2)') ifile
+               assert(ifile < 1000)
+               write(iflab,'(i3.3)') ifile
                ext_var_name='ext_var'\/iflab
                ext_var_units=' '
                ext_var_format='E11.3'
@@ -1050,6 +1082,28 @@ loop2: continue
                   go to loop2
                end if
                close(unit=diskin)
+               i=index(ext_var_name,'$')
+@#if SILO
+               if (i > 0) then
+                  if (dbfile_td_open) then
+                     ret=dbclose(dbfile_td)
+                     dbfile_td_open=.false.   // Not sure if I need this
+                     assert(ret != -1)
+                  end if
+                  itxt=index(ext_filenames[ifile],'.txt')
+                  ext_silo_file=ext_filenames[ifile]SP(:itxt)\/'silo'
+                  ret=dbcreate(trim(ext_silo_file),string_length(ext_silo_file),
+     $                 DB_CLOBBER,DB_LOCAL,DB_F77NULL,0,silo_format,dbfile_td)
+                  assert((ret != -1) && (dbfile_td != -1))
+                  dbfile_td_open=.true.
+                  write_mesh=.true.
+                  mesh_name='LowRes2d'
+               end if
+@#else
+               if (i > 0) then
+                  ext_var_name=ext_var_name(:i-1)\/ext_var_name(i+1:)
+               end if
+@#endif
                call write_hdf(trim(ext_var_name)\/'.hdf',zone_data,
      $              trim(ext_var_name),trim(ext_var_units),
      $              trim(ext_var_format),
@@ -1081,6 +1135,10 @@ loop2: continue
 @#if SILO
       ret=dbclose(dbfile)
       assert(ret != -1)
+      if (dbfile_td_open) then
+         ret=dbclose(dbfile_td)
+         assert(ret != -1)
+      end if
 @#endif
       return
       end
