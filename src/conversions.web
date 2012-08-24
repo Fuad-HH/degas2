@@ -2,6 +2,9 @@
 \Title{conversions}
 
 % $Log$
+% Revision 1.6  2001/07/16 20:41:09  dstotler
+% Note that divide number conversion is broken.
+%
 % Revision 1.5  2000/04/01 17:31:36  dstotler
 % Merged with dps_2_6_changes branch; a few minor conflicts were
 % resolved.
@@ -79,56 +82,45 @@
       end do
 
 /*
-   Should we do a test in the calling routine so that this one gets called
-   only when needed? Notes for future use: first, the call to 
-   |set_track_cv_params| need not be inside the do-loop, I guess. Second,
-   we originally had |scoring_data| in the assignment of |local_data| below.
+   We originally had |scoring_data| in the assignment of |local_data| below.
    If there were more than one track conversion for this score, that would
    have meant that only the last would have been remembered.
 */
-      if (tally_num_conversions[jscore] > 0) then
+      assert(tally_num_conversions[jscore] > 0)
 
-         call set_track_cv_params(tl_args(jscore),index_parameters,
-     $              pt_args(p),cv_params)
+      call set_track_cv_params(tl_args(jscore),index_parameters,
+     $     pt_args(p),cv_params)
 
-         do j_tl_cv=1,tally_num_conversions[jscore]
-            icv=tally_cv_ptr[jscore][j_tl_cv]
-            if (tally_cv_type[icv] == tl_cv_track) then
-
-@#if 0
-               call set_track_cv_params(tl_args(jscore),ind_valp1,pt_args(p),
-     $cv_params)
-                      MOVED OUTSIDE OF DO-LOOP!!!
-@#endif
-
-               i=0
-               do ip=1,tally_cv_num_partners[icv]
-                  do j=1,tally_dep_var_dim[tally_cv_partners[icv][ip]]
-                     i++
-                     local_data[i]=converted_data[
-     $             tl_scoring_index(tally_dep_var[tally_cv_partners[icv][ip]],
+      do j_tl_cv=1,tally_num_conversions[jscore]
+         icv=tally_cv_ptr[jscore][j_tl_cv]
+         if (tally_cv_type[icv] == tl_cv_track) then
+            i=0
+            do ip=1,tally_cv_num_partners[icv]
+               do j=1,tally_dep_var_dim[tally_cv_partners[icv][ip]]
+                  i++
+                  local_data[i]=converted_data[
+     $            tl_scoring_index(tally_dep_var[tally_cv_partners[icv][ip]],
      $                              j,index_parameters)]
-                  end do
                end do
-               assert(i <= tl_cv_max_local_data)
+            end do
+            assert(i <= tl_cv_max_local_data)
 
-               call do_conversions(icv,cv_params,local_data,
-     $              tally_dep_var_dim[tally_cv_partners[icv][1]],
-     $              local_data_out)
+            call do_conversions(icv,cv_params,local_data,
+     $           tally_dep_var_dim[tally_cv_partners[icv][1]],
+     $           local_data_out)
                   
 /*
    Only the data for the first partner (i.e., the score itself) gets altered.
 */
-               i=0
-               do j=1,tally_dep_var_dim[tally_cv_partners[icv][1]]
-                  i++
-                  converted_data[
+            i=0
+            do j=1,tally_dep_var_dim[tally_cv_partners[icv][1]]
+               i++
+               converted_data[
      $              tl_scoring_index(tally_dep_var[tally_cv_partners[icv][1]],
-     $                 j,index_parameters)]=local_data_out[i]
-               end do
-            end if
-         end do
-      end if
+     $              j,index_parameters)]=local_data_out[i]
+            end do
+         end if
+      end do
 
       return
       end
