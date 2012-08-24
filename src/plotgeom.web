@@ -2,6 +2,10 @@
 \Title{plot geometry}
 
 % $Log$
+% Revision 1.19  2009/11/25 19:50:50  dstotler
+% Write out SILO format files as an alternative to HDF.  Modified both
+% write_hdf and pixel_map_test.
+%
 % Revision 1.18  2006/01/19 19:51:16  dstotler
 % Extend to 3-D, generate a stack of 2-D slices. Subsequently modify
 % this to do dynamic allocation of the data array used in data_slice to
@@ -510,7 +514,8 @@ to hold the pixel-based version of the data, |pixel_data|.
       ret=dspdata(hdffile,rank,dims,pixel_data[0])
 
 @#elif SILO
-      integer i,rank,ret,ret2,var_opts
+      real time_slice
+      integer i,rank,ret,ret2,var_opts,time_ind,dbfile_local
       integer dims[3]
       st_decls
       include 'silo.inc'
@@ -518,10 +523,10 @@ to hold the pixel-based version of the data, |pixel_data|.
    These are set in the calling program and passed via common
    so we don't have to alter the interface of this routine.
 */
-      integer dbfile
+      integer dbfile,dbfile_td
       logical write_mesh
       character*FILELEN mesh_name,var_name
-      common /silo_common/ dbfile,write_mesh,mesh_name
+      common /silo_common/ dbfile,dbfile_td,write_mesh,mesh_name
 
       do i=0,na*nb*nc-1
          if (pixel_zones[i] != zn_undefined) then
@@ -539,13 +544,31 @@ to hold the pixel-based version of the data, |pixel_data|.
          rank=3
          dims[3]=nc
       end if
+      ret=dbmkoptlist(1,var_opts)
+      assert(ret != -1)
+      if (len(cunits) > 0) then
+         ret=dbaddcopt(var_opts,DBOPT_UNITS,cunits,len(cunits))
+         assert(ret != -1)
+      end if
+      i=index(hdffile,'.hdf')
+      time_ind=index(hdffile,'$')
+      if (time_ind > 0) then
+         dbfile_local=dbfile_td
+         time_slice=areal(read_integer(hdffile(time_ind+1:i-1)))
+         ret=dbadddopt(var_opts,DBOPT_DTIME,time_slice)
+         assert(ret != -1)
+         var_name=hdffile(:time_ind-1)
+      else
+         dbfile_local=dbfile
+         var_name=hdffile(:i-1)
+      end if
       if (write_mesh) then
          if (nc == 1) then
-            ret=dbputqm(dbfile, trim(mesh_name),string_length(mesh_name),
+            ret=dbputqm(dbfile_local, trim(mesh_name),string_length(mesh_name),
      $           'x',1,'y',1,'z',1,xa[0],xb[0],DB_F77NULL,dims,rank,
      $           silo_precision,DB_COLLINEAR,DB_F77NULL,ret2)
          else
-            ret=dbputqm(dbfile, trim(mesh_name),string_length(mesh_name),
+            ret=dbputqm(dbfile_local, trim(mesh_name),string_length(mesh_name),
      $           'x',1,'y',1,'z',1,xa[0],xb[0],xc[0],dims,rank,silo_precision,
      $           DB_COLLINEAR,DB_F77NULL,ret2)
          end if
@@ -555,15 +578,7 @@ to hold the pixel-based version of the data, |pixel_data|.
 /*
    Now output the data
 */
-      ret=dbmkoptlist(1,var_opts)
-      assert(ret != -1)
-      if (len(cunits) > 0) then
-         ret=dbaddcopt(var_opts,DBOPT_UNITS,cunits,len(cunits))
-         assert(ret  != -1)
-      end if
-      i=index(hdffile,'.hdf')
-      var_name=hdffile(:i-1)
-      ret=dbputqv1(dbfile,trim(var_name),string_length(var_name),
+      ret=dbputqv1(dbfile_local,trim(var_name),string_length(var_name),
      $     trim(mesh_name),string_length(mesh_name),
      $     pixel_data[0],dims,rank,DB_F77NULL,0,silo_precision,
      $     DB_NODECENT,var_opts,ret2)
@@ -599,7 +614,7 @@ This should catch geometry errors that get by |check_geometry|.
       implicit_none_f90
       real alen,blen,clen,z_scale,r_min,r_max,phi_min,phi_max,
      $     x_min,x_max,y_min,y_max,dx,dz
-      integer pixsize,na,nb,nc,i,nq,q_min,iq,q_next
+      integer pixsize,na,nb,nc,i,nq,q_min,iq,q_next,q_max
       vc_decl(x)
       vc_decl(a)
       vc_decl(b)
@@ -617,10 +632,10 @@ This should catch geometry errors that get by |check_geometry|.
       st_decls
 @#if SILO
       include 'silo.inc'
-      integer dbfile,ret
+      integer dbfile,dbfile_td,ret
       logical write_mesh
       character*FILELEN mesh_name,silo_file
-      common /silo_common/ dbfile,write_mesh,mesh_name
+      common /silo_common/ dbfile,dbfile_td,write_mesh,mesh_name
       silo_file='geomtestc.silo'
       ret=dbcreate(trim(silo_file),string_length(silo_file),
      $     DB_CLOBBER,DB_LOCAL,DB_F77NULL,0,silo_format,dbfile)
@@ -692,30 +707,44 @@ This should catch geometry errors that get by |check_geometry|.
    The above only works when the problem is confined inside a
    single quadrant.  Otherwise, the $x$, $y$ extrema arise at
    intermediate toroidal angles.  First, determine the total
-   number of quadrants spanned.  We include the |epsilon_angle| here
-   to err on the side of larger |nq|.  This will prevent problems
-   caused by roundoff error in the determination of |q_min|.
-*/
-         nq=(phi_max-phi_min+epsilon_angle)/(half*PI)
-         if (nq >= 1) then
-/*
+   number of quadrants spanned. 
+
    Determine quadrant associated with |phi_min|.
 */
-            if ((cos(phi_min) > zero) && (sin(phi_min) >= zero)) then
-               q_min=1
-            else if ((cos(phi_min) <= zero) && (sin(phi_min) > zero)) then
-               q_min=2
-            else if ((cos(phi_min) < zero) && (sin(phi_min) <= zero)) then
-               q_min=3
-            else if ((cos(phi_min) >= zero) && (sin(phi_min) < zero)) then
-               q_min=4
-            else
-               assert(' Unable to located quadrant for phi_min' == ' ')
-            end if
+         if ((cos(phi_min) > zero) && (sin(phi_min) >= zero)) then
+            q_min=1
+         else if ((cos(phi_min) <= zero) && (sin(phi_min) > zero)) then
+            q_min=2
+         else if ((cos(phi_min) < zero) && (sin(phi_min) <= zero)) then
+            q_min=3
+         else if ((cos(phi_min) >= zero) && (sin(phi_min) < zero)) then
+            q_min=4
+         else
+            assert(' Unable to located quadrant for phi_min' == ' ')
+         end if
+/*
+   Determine quadrant associated with |phi_max|.
+*/
+         if ((cos(phi_max) > zero) && (sin(phi_max) >= zero)) then
+            q_max=1
+         else if ((cos(phi_max) <= zero) && (sin(phi_max) > zero)) then
+            q_max=2
+         else if ((cos(phi_max) < zero) && (sin(phi_max) <= zero)) then
+            q_max=3
+         else if ((cos(phi_max) >= zero) && (sin(phi_max) < zero)) then
+            q_max=4
+         else
+            assert(' Unable to located quadrant for phi_max' == ' ')
+         end if
+         nq=q_max-q_min+1
+         if (nq <= 0) nq=nq+4
+         assert(nq >= 1)
+         if (nq > 1) then
+
 /*
    Loop over quadrants covered, noting extrema associated with each.
 */
-            do iq=1,nq
+            do iq=1,nq-1
                q_next=mod(q_min-1+iq,4)+1
                if (q_next == 1) then
                   x_max=r_max
