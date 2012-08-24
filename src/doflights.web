@@ -2,6 +2,12 @@
 \Title{doflights}
 
 % $Log$
+% Revision 1.7  2011/03/04 17:59:51  dstotler
+% Replace mpi_root with mpi_degas2_root to avoid name collision on
+% Jaguar.  Add overall scaling factor of 1/time intervalfor time
+% dependent runs.  Incorporate changes for dealing with snapshot particles.
+% Replace so_seed_string with so_seed_decimal.
+%
 % Revision 1.6  2009/11/25 18:43:27  dstotler
 % Add NC_LARGE_FILE macro to invoke the 64 bit offset option for
 % the output netCDF file.  Add a check in fill_coupling_arrays to skip
@@ -106,7 +112,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       integer index_parameters[tl_index_max]
 
       real mult,tot_scale_curr,prob,signal,wavelength,avg_part_per_sec
-      real sig_det[20]
+      real sig_det[30]
       logical need_scores
       rn_seed_decl(seed)
       rn_seed_decl(temp_seed)
@@ -557,7 +563,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             det=de_lookup('Halpha spectrum')   // Same name for all isotopes
             assert(detector_spacing[det] == de_spacing_linear)
             assert(detector_tab_index[det] == tally_tab_index[jscore_detail][3])
-            assert(tally_tab_index[jscore_detail][2] <= 20)   // |sig_det| dimension
+            assert(tally_tab_index[jscore_detail][2] <= 30)   // |sig_det| dimension
             assert(tally_indep_var[jscore_total][2] == tl_index_wavelength_bin)
             assert(tally_tab_index[jscore_total][1] >= 1) // views
             assert(detector_tab_index[det] == tally_tab_index[jscore_total][2])
@@ -624,7 +630,19 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
                stat_wt_dim_fin=new_dim
             end if
                                   // Accumulating directly into |output_grp|! 
-            assert(stat_comp_fin == FALSE && stat_dim_fin == tally_size) 
+            assert(stat_comp_fin == FALSE && stat_dim_fin == tally_size)
+/*
+   These are temporary diagnostic statements.
+*/
+            if (stat_wt_tot_frag < zero) then
+               write(stderr,*) ' Bad value of stat_wt_tot_frag = ',stat_wt_tot_frag
+               write(stderr,*) ' slave = ',slave
+               assert(stat_wt_tot_frag >= zero)
+               call flush(stderr)
+            end if
+/*
+   End of temporary diagnostics.
+*/               
             call stat_acc(stat_comp_frag,stat_wt_tot_frag,stat_size_frag,
      $           stat_dim_frag,stat_frag,stat_pf_dim_frag,stat_ptr2full_frag,
      $           stat_ps_dim_frag,stat_ptr2short_frag,
@@ -816,7 +834,7 @@ results back to the master.  It's only defined for MPI.
       @<Memory allocation interface@>
       tl_decls
       declare_varp(estimator_factors)
-      integer i
+      integer i,j
       
       var_alloc(estimator_factors)
 
@@ -921,22 +939,15 @@ loop: continue
          write(diskout+3,*) ' After final data send calls; tag = ',tag
          call flush(diskout+3)
 @#endif
-         if (sn_number_particles > 0) then
-            sn_particles_dim=sn_number_particles
-         else
-            sn_particles_dim=1
-         end if
-         var_reallocb(sn_particles_float)
-         var_reallocb(sn_particles_int)
          tag++
          call MPI_send(sn_number_particles,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 
          if (sn_number_particles > 0) then
             tag++
-            call MPI_send(sn_particles_float,array_size(sn_particles_float),mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+            call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          
             tag++
-            call MPI_send(sn_particles_int,array_size(sn_particles_int),mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+            call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
          end if
 /*
    Reinitialize |stat_frag|. In |do_flights_master|, these would be done
@@ -955,6 +966,18 @@ loop: continue
                stat_frag[i][o_var]=zero
             end do
          end if
+/*
+   Do the same for the snapshot particle data.
+*/
+         sn_number_particles=0
+         do i=1,sn_particles_dim
+            do j=1,sn_pt_float_max
+               sn_particles_float[i][j]=real_uninit
+            end do
+            do j=1,sn_pt_int_max
+               sn_particles_int[i][j]=int_uninit
+            end do
+         end do
 
          goto loop
       else
@@ -964,6 +987,8 @@ loop: continue
 break:  continue
       call clear_stat
       var_free(estimator_factors)
+      var_free(sn_particles_float)
+      var_free(sn_particles_int)
 @#if MPI_slave_messages
       close(diskout+3)
 @#endif
