@@ -2,6 +2,13 @@
 \Title{sourcetest}
 
 % $Log$
+% Revision 1.13  2011/03/04 18:08:32  dstotler
+% Add setting of kseg and place in set_source argument lists.  Tweak
+% documentation.  Adapted the segment test to work with a snapshot
+% source; had to relax the requirement on a 1-to-1 mapping between source
+% segments and zone number for this.  Changed printout of chi's and
+% probabilities to exponential format.
+%
 % Revision 1.12  2007/06/19 17:44:42  dstotler
 % Replace assert on zone_segment with a comment and a warning.
 %
@@ -365,9 +372,7 @@ the variance).
 
 @<Functions...@>=
       subroutine do_src_tests
-      define_varp(stat,FLOAT,zone_ind)
-      define_varp(zone_segment,INT,zone_ind)
-      define_varp(segment_zone,INT,source_seg_ind)
+      define_varp(stat,FLOAT,source_seg_ind)
       define_varp(prob_seg,FLOAT,source_seg_ind)
 
       implicit_none_f77
@@ -382,8 +387,7 @@ the variance).
      $     min_prob,max_prob,energy_avg,fr_avg,costh_avg,vpar1_avg,
      $     vpar2_avg,fr_y_avg,dummy
       real chi_sqd[max_num_chis],estimator_factors[1]
-      integer num,i,xseg,nsample,zone,nseg,j,num_chis,warning_given,kseg,
-     $        iparam,seg_ref
+      integer num,i,xseg,nsample,zone,nseg,j,num_chis,kseg,iparam
       integer num_points[max_num_chis]
       integer length,p,b,e
       character*LINELEN line
@@ -419,14 +423,10 @@ the variance).
       lc_decls
       vc_decls
 
-      declare_varp(zone_segment)
       declare_varp(stat)
-      declare_varp(segment_zone)
       declare_varp(prob_seg)
 
-      var_alloc(zone_segment)
       var_alloc(stat)
-      var_alloc(segment_zone)   // Upper bound on size
       var_alloc(prob_seg)
 
 @#if 0
@@ -463,62 +463,11 @@ loop1: continue
       assert(next_token(line,b,e,p))
       nsample=read_integer(line(b:e))
 
-      do i=1,zn_num
-         zone_segment[i]=int_undef
-      end do
-      warning_given=FALSE
-
       if (so_nseg(isource) > 1) then
-         do i=1,so_nseg(isource)
-            if (so_geom(isource) == so_surface) then
-               zone=sector_zone[source_segment_ptr[so_base(isource)+i-1]]
-            else if (so_geom(isource) == so_volume) then
-               if (so_type(isource) != so_snapshot) then
-                  zone=source_segment_ptr[so_base(isource)+i-1]
-               else
-                  assert(source_num_iparameters[isource] > 0)
-                  do iparam=1,source_num_iparameters[isource]
-                     if (so_iparams_list(iparam,isource) == so_iparam_lc_zone) 
-     $                    then
-                      zone=so_iparams_data(iparam,so_base(isource)+i-1,isource)
-                     end if
-                  end do
-               end if
-            else
-               assert("Unsupported source geometry" == " ")
-            end if
-            if (zone_segment[zone] == int_undef) then
-               zone_segment[zone]=i
-               segment_zone[i]=zone
-               prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
-            else
-/*
-   For the snapshot case, there may be multiple source ``segments'' (i.e.,
-   particles in a zone, preventing a one-to-one mapping with zone.  Instead,
-   we make the first segment the ``reference'' segment for that zone and
-   associate all subsequent particles in that zone with that segment.
-
-   In case there are other problems without a one-to-one mapping,
-   print a warning:
-*/
-               if ((warning_given == FALSE) 
-     $  &&          (so_type(isource) != so_snapshot)) then
-                  write(stdout,*) ' Zone - segment mapping is not unique.  Segment sampling test may give spurious results.'
-                  warning_given=TRUE
-               end if
-               seg_ref=zone_segment[zone]
-               segment_zone[i]=int_undef
-               prob_seg[i]=zero
-               prob_seg[seg_ref]+=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
-            end if
-         end do
-/*
-   This used to be inside the above loop.  But, need to split out
-   because of the multi-valued mapping in the snapshot case.
-*/
          min_prob=one
          max_prob=zero
          do i=1,so_nseg(isource)
+            prob_seg[i]=source_current[so_base(isource)+i-1]/so_tot_curr(isource)
             if (prob_seg[i] > zero) then
                min_prob=min(min_prob,prob_seg[i])
                max_prob=max(max_prob,prob_seg[i])
@@ -527,7 +476,7 @@ loop1: continue
          assert(min_prob > zero)
          assert(max_prob < one)
 
-         do i=1,zn_num
+         do i=1,so_nseg(isource)
             stat[i]=zero
          end do
 
@@ -544,7 +493,7 @@ loop1: continue
 @#if 0
          call sample_sources(fl_args(x),rel_wt) 
 @#endif
-            stat[lc_zone(pt_loc(fl_origin(x)))]+=rel_wt
+            stat[fl_source_seg(x)+1]+=rel_wt
             weight_tot+=rel_wt
             call next_seed(1,seed)
          end do
@@ -562,19 +511,16 @@ loop1: continue
          write(diskout,*) 
      $        '  Seg  Ptr    Weight      Rel.Wt.   Rel.Curr.' 
          do i=1,so_nseg(isource)
-            if (segment_zone[i] != int_undef) then
-               write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
-     $              i,source_segment_ptr[so_base(isource)+i-1],
-     $              stat[segment_zone[i]],stat[segment_zone[i]]/weight_tot,
-     $              prob_seg[i]
-               do j=1,num_chis
-                  if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
-                     num_points[j]++
-                     chi_sqd[j]+=(stat[segment_zone[i]]-weight_tot*prob_seg[i])**2
-     $                    /(weight_tot*prob_seg[i])
-                  end if
-               end do
-            end if
+            write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
+     $           i,source_segment_ptr[so_base(isource)+i-1],
+     $           stat[i],stat[i]/weight_tot,prob_seg[i]
+            do j=1,num_chis
+               if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
+                  num_points[j]++
+                  chi_sqd[j]+=(stat[i]-weight_tot*prob_seg[i])**2
+     $                 /(weight_tot*prob_seg[i])
+               end if
+            end do
          end do
 
          write(diskout,*) '  Minimum'
@@ -590,8 +536,6 @@ loop1: continue
 break:  continue
 
       var_free(stat)
-      var_free(zone_segment)
-      var_free(segment_zone)
       var_free(prob_seg)
 
 loop2: continue
