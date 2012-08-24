@@ -3,12 +3,19 @@
 % $Id$
 
 % $Log$
+% Revision 1.1  2011/03/04 18:06:59  dstotler
+% Added to repository.
+%
 
 \ID{$Id$}
 
-@ Contains an external representation of the particle distribution function.
-The initial application of this class is as a record of the discrete
-record of the pdf at the end of a time step (``snapshot'').
+@I random.hweb
+
+@ Contains an external representation of the particle distribution function (pdf).
+More precisely, this class provides a record of the discrete
+record of the pdf at the end of a time step (``snapshot''). The principal
+application is to then sample from the pdf during a subsequent time step
+in a time dependent run.
 
 @ Indices for entries in the main arrays. This list is intended to mirror 
 exactly the attributes of a ``particle'', specifically, those enumerated in 
@@ -67,4 +74,19 @@ purpose of restarting a particle trajectory will be checked, however.
 @ Define structures for storing, passing, and reusing particle data. 
 Prefix is |sn|.
 
-Insert more documentation here.
+\begin{description}
+  \item[|sn_number_particles|] Number of particles contained in the snapshot.
+
+  \item[|sn_seed_decimal|] The random number seed at the end of the run in which
+the snapshot was taken.  This is used as the seed in the subsequent time interval
+to ensure that the random number sequence is different from that of the previous
+interval.
+
+  \item[|sn_particles_float[ip][i_float]|] Value of float property |i_float| (see
+index list above) for snapshot particle |ip|.
+
+  \item[|sn_particles_int[ip][i_int]|] Value of integer property |i_int| (see
+index list above) for snapshot particle |ip|.
+\end{description}
+
+
