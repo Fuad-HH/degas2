@@ -2,6 +2,10 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.42  2011/03/04 18:01:38  dstotler
+% Replace mpi_root with mpi_degas2_root to avoid name collision on Jaguar.
+% Replace so_seed_string with so_seed_decimal.
+%
 % Revision 1.41  2009/11/25 19:16:37  dstotler
 % Move the declaration & allocation of back_pressure up one level in the
 % call chain since it is not getting "saved" between calls to bgk_test;
@@ -557,7 +561,11 @@ out the file |density.out|.
 */
                   edrift=half*sp_m(pr_test(test))*vc_abs2(vel_test)
                   temperature=(pressure/density) - edrift/const(1.5)
-                  assert(temperature > const(-1.,-30))
+                  if (temperature < const(-1.,-30)) then
+                     write(stderr,*) ' temperature = ',temperature,' at zone = ',zone
+                     write(stderr,*) ' pressure = ',pressure,', density = ',density
+                     write(stderr,*) ' vel_test = ',vel_test
+                  end if
                   if (temperature <= const(1.,-30)) temperature=const(1.,-30)
 @#if COUETTE
                   xz_stress-=
