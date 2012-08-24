@@ -2,6 +2,9 @@
 \Title{readbackground}
 
 % $Log$
+% Revision 1.31  2009/11/25 20:05:10  dstotler
+%  Remove some old code dealing with target_e_ion_delta and mult.
+%
 % Revision 1.30  2007/06/19 17:42:45  dstotler
 % Extend documentation significantly to cover coupling to UEDGE.  Add update
 % flag to read_uedge_background.
@@ -197,7 +200,7 @@ The available keywords are
   \item[|uedge_file|] {\tt filename} specifies the name of the {\tt UEDGE}
 data file.  In this case, {\tt filename} does {\em not} need to end in
 \verb+.u+.
-  \item[|uedge_species|] {\tt sp1} {\tt sp2} {\tt sp3} \ldots 
+  \item[|ion_species|] {\tt sp1} {\tt sp2} {\tt sp3} \ldots 
 provides the list of ion species appearing in the {\tt UEDGE} run.  The
 order of this list must correspond to the species ordering used
 by {\tt UEDGE} in writing the file.  The strings provided here should
@@ -220,7 +223,7 @@ targets will be used to define source groups, one per species per
 target.  These are always assumed to be plate (recycling) sources.
   \item[|bdy_ni|] {\tt sp} $i_{s}$ $n$ instructs the code to assign
 ion species {\tt sp} (again, representing a species symbol; it must appear
-in the |uedge_species| keyword and in the current problem input
+in the |ion_species| keyword and in the current problem input
 file) a density $n$ (in $m^{-3}$) in zones associated with stratum
 $i_{s}$.  This stratum number corresponds to those used in 
 |definegeometry2d|'s |stratum| keyword.  The stratum number
@@ -313,6 +316,7 @@ in this file is needed to relate the stratum labels in the
       zn_common
       pr_common
       bk_common
+      so_common
       gi_common
       implicit_none_f90
       character*FILELEN datafilename,degasfilename,uedgefilename
@@ -361,6 +365,32 @@ in this file is needed to relate the stratum labels in the
 
       call setup_back_arrays
 
+      so_grps=0
+      so_seg_tot=0
+      so_set_run_flags
+      so_time_dependent=FALSE
+
+      so_gparams_list_size=0
+      so_gparams_list_dim=1
+      so_params_list_size=0
+      so_params_list_dim=1
+      so_params_data_size=0
+      so_params_data_dim=1
+      so_giparams_list_size=0
+      so_giparams_list_dim=1
+      so_iparams_list_size=0
+      so_iparams_list_dim=1
+      so_iparams_data_size=0
+      so_iparams_data_dim=1
+      var_alloc(source_gparameters_list)
+      var_alloc(source_parameters_list)
+      var_alloc(source_gparameters_data)
+      var_alloc(source_parameters_data)
+      var_alloc(source_giparameters_list)
+      var_alloc(source_iparameters_list)
+      var_alloc(source_giparameters_data)
+      var_alloc(source_iparameters_data)
+
       if (degas == TRUE) then
          call read_degas_background(degasfilename)
       elseif (uedge == TRUE) then
@@ -384,6 +414,12 @@ in this file is needed to relate the stratum labels in the
       end
 
 @ Set up the background data using a DEGAS input file.
+
+@m increment_params(num_params) so_params_list_size+=num_params;
+         if (so_params_list_size > so_params_list_dim) then;
+            var_realloc(source_parameters_list,so_params_list_dim,so_params_list_size);
+            so_params_list_dim=so_params_list_size;
+         end if @;
 
 @<Functions...@>=
       subroutine read_degas_background(file)
@@ -503,13 +539,11 @@ in this file is needed to relate the stratum labels in the
             end do
          end if
       end do
-
-/* DEGAS only uses cartesian flow velocities */
+/* 
+   DEGAS only uses cartesian flow velocities 
+*/
       background_coords=plasma_coords_cartesian
                                                        
-      so_grps=0
-      so_seg_tot=0
-      so_set_run_flags
       do js=1,npis
          do jwall=1,nowals
             new_group=.true.
@@ -529,7 +563,19 @@ in this file is needed to relate the stratum labels in the
                      var_realloca(source_num_checkpoints)
                      var_realloca(source_species)
                      var_realloca(source_root_species)
-                     var_realloca(source_parameters)
+                     var_realloca(source_time_variation)
+
+                     var_realloca(source_num_gparameters)
+                     var_realloca(source_num_parameters)
+                     var_realloca(source_gparameters_base)
+                     var_realloca(source_parameters_base)
+                     var_realloca(source_parameters_data_base)
+                     var_realloca(source_num_giparameters)
+                     var_realloca(source_num_iparameters)
+                     var_realloca(source_giparameters_base)
+                     var_realloca(source_iparameters_base)
+                     var_realloca(source_iparameters_data_base)
+
                      var_realloca(source_total_current)
                      var_realloca(source_weight_norm)
                      var_realloca(source_scale_factor)
@@ -537,20 +583,49 @@ in this file is needed to relate the stratum labels in the
                      so_nseg(so_grps)=nosegsxz[jwall]
                      so_nflights(so_grps)=100
                      so_chkpt(so_grps)=0
-/* Assume these are same for all segments: 
- */
+                     so_t_varn(so_grps)=so_delta_fn
+
+                     source_num_gparameters[so_grps]=0
+                     source_num_parameters[so_grps]=0
+                     source_gparameters_base[so_grps]=so_gparams_list_size
+                     source_parameters_base[so_grps]=so_params_list_size
+                     source_parameters_data_base[so_grps]=so_params_data_size
+                     source_num_giparameters[so_grps]=0
+                     source_num_iparameters[so_grps]=0
+                     source_giparameters_base[so_grps]=so_giparams_list_size
+                     source_iparameters_base[so_grps]=so_iparams_list_size
+                     source_iparameters_data_base[so_grps]=so_iparams_data_size
+/*
+   Assume these are same for all segments: 
+*/
                      if (currxzt[jseg,1,jwall,js] > zero) then 
                         so_type(so_grps)=so_plate  
                         so_root_sp(so_grps)=
      $                       sp_lookup(trim(sp_sy(degas_species[js])) \/ '+')
                         so_species(so_grps)=
      $                       neutralize_species(so_root_sp(so_grps))
-                        so_params(so_grps,so_param_puff_temp)=real_unused
+                        source_num_parameters[so_grps]=3            // Placeholder only
+                        increment_params(source_num_parameters[so_grps])
+                        so_params_list(1,so_grps)=so_param_e_ion_delta
+                        so_params_list(2,so_grps)=so_param_e_ion_mult
+                        so_params_list(3,so_grps)=so_param_e_ion_sheath
                      else                                    
                         so_type(so_grps)=so_puff 
                         so_species(so_grps)=degas_species[js]
                         so_root_sp(so_grps)=degas_species[js]
-                        so_params(so_grps,so_param_puff_temp)=t0puff[js]*electron_charge
+                        source_num_gparameters[so_grps]=2
+                        so_gparams_list_size+=source_num_gparameters[so_grps]
+                        if (so_gparams_list_size > so_gparams_list_dim) then
+                           var_realloc(source_gparameters_list,
+     $                          so_gparams_list_dim,so_gparams_list_size)
+                           var_realloc(source_gparameters_data,
+     $                          so_gparams_list_dim,so_gparams_list_size)
+                           so_gparams_list_dim=so_gparams_list_size
+                        end if
+                        so_gparams_list(1,so_grps)=so_gparam_puff_temp
+                        so_gparams_data(1,so_grps)=t0puff[js]*electron_charge
+                        so_gparams_list(2,so_grps)=so_gparam_puff_exponent
+                        so_gparams_data(2,so_grps)=one   // Hardwired !
                      end if
                      assert(so_species(so_grps) > 0)
                      so_geom(so_grps)=so_surface
