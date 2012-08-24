@@ -1,5 +1,8 @@
 # $Id$
 # $Log$
+# Revision 1.79  2011/03/04 17:54:28  dstotler
+# Increase limits in TANGLEFLAGS, add INTEL compiler.
+#
 # Revision 1.78  2009/11/25 14:32:39  dstotler
 # Add some simple commands to build a "degas2_xgc" library.  Add the LINUX64 machine type.  Add poly_to_tri.  Add the SILO library as an alternative to HDF (i.e., HDF4); include both the PDB and HDF5 options.  Remove score.o and sources.o as geomtesta dependencies.  Added PATHSCALE FFLAGS (for DEBUG) that correspond to those used with PGROUP.
 #
@@ -337,7 +340,7 @@ LATEX=latex
 # Code has evolved enough that we are stressing some more
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
 TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn8000 -yb200000
-WEAVEFLAGS=-f -i! -W[ -ykw700 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
+WEAVEFLAGS=-f -i! -W[ -ykw800 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
 SYSDEPC=no
@@ -804,6 +807,10 @@ degas2_xgc.a: $(degas2_xgc) $(foreach arg,$(subst .$O,_mods,$(degas2_xgc)),$($(a
 poly_to_tri = poly_to_tri.$O geometry.$O allocate.$O readfilenames.$O 
 poly_to_tri_libs = $(NETCDF)
 poly_to_tri: $(poly_to_tri) $(foreach arg,$(subst .$O,_mods,$(poly_to_tri)),$($(arg)))
+
+ucd_plot = ucd_plot.$O geometry.$O allocate.$O readfilenames.$O elementread.$O pmimatread.$O  reaction.$O interpolate.$O random.$O degasinit.$O
+ucd_plot_libs = $(NETCDF) $(GRAPH_LIB)
+ucd_plot: $(ucd_plot) $(foreach arg,$(subst .$O,_mods,$(ucd_plot)),$($(arg)))
 
 geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O dediagsetup.$O
 geomtest_libs = $(NETCDF)
