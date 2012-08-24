@@ -3,6 +3,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.13  2011/03/04 18:07:28  dstotler
+% Add parameters for time dependence and miscellaneous source parameters.
+% Replace so_seed_string with so_seed_decimal, of length ran_c.
+%
 % Revision 1.12  2006/01/19 20:02:44  dstotler
 % Add miscellaneous parameter array with puff temperature being the initial entry.
 %
@@ -52,6 +56,8 @@
 %
 
 \ID{$Id$}
+
+@I random.hweb
 
 @ Specification of the sources.  At present only surface and volume
 sources are handled.
@@ -263,7 +269,7 @@ a ``run control'' dialog along with the number of flights, etc.
 @ Define properties of sources. Prefix is |so|. 
 
 Individual source elements or ``segments''
-are sorted into source ``groups''. These groups may be aligned with
+are sorted into source ``groups''. Surface source groups may be aligned with
 the sector strata, if desired, for external labeling purposes.
 Both the source group and
 segment are represented by integer variables. The segment
@@ -290,12 +296,22 @@ segments at which the segments of group |igroup| begin.
   \item[|so_nseg(igroup)|] Number of segments in group |igroup|.
 
   \item[|so_type(igroup)|] Physical process associated with group |igroup|. 
-Presently treat plate (recycling), gas puff, and recombination.
+Presently treat plate (recycling), gas puff, recombination, volume
+(|vol_source|, a specified volumetric source distinct from recombination), and
+snapshot.  A recombination source will be set up automatically by
+the code when a recombining reaction is present in the problem
+specification.  Likewise, a snapshot source is set up automatically
+in time dependent runs when a |snapshotfile| netCDF file is present
+from a previous time step.
 
   \item[|so_geom(igroup)|] Geometry of group |igroup|. Presently treat
 axisymmetric surface and volume sources. Although in general the geometry
 should be independent of the source type, practically we expect plate and
-puff sources to have surface geometry and recombination to be volume.
+puff sources to have surface geometry.  Both recombination and volume
+sources are sampled randomly throughout the volume (according to
+source strength).  Snapshot sources are effectively volumetric, but
+the source locations are determined by the particles stored in and
+sampled from the data in the |snapshotfile|.
 
   \item[|so_nflights(igroup)|] Number of flights to be used for group 
 |igroup| during the run. These may be set independently of the source
@@ -358,7 +374,11 @@ is also required for this purpose.
 |iseg|. In sampling from this source group, a random number is compared 
 with entries in this array. For further explanation see the routines
 |sample_sources| and |set_prob_alias|. This is computed as part of the
-setup process from the source current distribution.
+setup process from the source current distribution.  An alternative,
+more basic sampling procedure is available for large source groups
+(e.g., a snapshot source).
+When that procedure is to be used, this array will contain the cumulative
+probability distribution.
 
   \item[|source_segment_ptr_alias[iseg]|] ``Pointer alias'' for segment 
 |iseg|. Used in sampling from this source group. A random number is
@@ -367,7 +387,10 @@ to an entry in |source_segment_ptr| or to an entry in this array which
 serves as an indirect pointer to the same set of geometry elements.
 For further explanation see the routines
 |sample_sources| and |set_prob_alias|. This is computed as part of the
-setup process from the source current distribution.
+setup process from the source current distribution.  An alternative,
+more basic sampling procedure is available for large source groups.
+When that procedure is to be used, all elements of this array will
+be |int_unused|.
 
   \item[|so_name(itype)|] Name of each of the source types stored as
 a string for output purposes.
@@ -409,15 +432,16 @@ larger than |so_time_initial|, determining the time interval (as
 experienced by the flights) over which the flights will be followed.
 
   \item[|so_time_initial|] For a time dependent simulation, the smallest
-initial time that can be assigned to a flight.  E.g., for a time
+initial time (in seconds) that can be assigned to a flight.  E.g., for a time
 independent source, the initial time will be randomly sampled between
 |so_time_initial| and |so_time_final|.
 
   \item[|so_time_final|] For a time dependent simulation, the largest
-initial time that can be assigned to a flight.  E.g., for a time
+initial time (in seconds) that can be assigned to a flight.  E.g., for a time
 independent source, the initial time will be randomly sampled between
 |so_time_initial| and |so_time_final|.  More importantly, all flights
-will be stopped when their time reaches this value.
+will be stopped when their time reaches this value, provided they have
+not been already terminated due to ionization, absorption, etc.
 
   \item[|so_rel_wt_min|] For iterations with a coupled plasma code only,
 places a lower bound on the ratio of the updated current in a source segment
