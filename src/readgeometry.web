@@ -2,6 +2,11 @@
 \Title{readgeometry}
 
 % $Log$
+% Revision 1.47  2009/11/25 20:06:16  dstotler
+% Insert default values for minx, minz, mindensity.  Replace
+% const with dconst in Wising C-Mod data statement.  Remove temp
+% from define_sector_plasma.
+%
 % Revision 1.46  2007/06/19 17:43:15  dstotler
 % Modified inpt_uedge to match revised header format.
 %
@@ -3057,16 +3062,20 @@ c3333 format(19x,i3,1x,i3,4x,e16.10,1x,e16.10)
      $     rmu,zmu,m1x,m1y,null_type,ix_mirror)
       implicit_none_f77
       implicit_none_f90
-      integer m1x,m1y
+      integer m1x,m1y 
 c      parameter (mx=120,my=50)
       real rmu[m1x,m1y,0:4],zmu[m1x,m1y,0:4]
-      integer ix,iy,i,nu,nx,ny,ixpt1,ixpt2,iysptrx,ix_mirror,null_type
-
-
+      integer ix,iy,i,nu,nx,ny,ixpt1,ixpt2,iysptrx,ix_mirror,
+     $        null_type,nxpt,ixlb,ixmdp,ixrb
+/*
+   Updated this to match more recent UEDGE reading routines, but
+   not sure this would actually work with a double null.
+*/
       read(nu,*)
-      read(nu,*) nx, ny
-      read(nu,*) ixpt1, ixpt2
+      read(nu,*) nx, ny, nxpt
+      assert(nxpt == 1)
       read(nu,*) iysptrx
+      read(nu,*) ixlb, ixpt1, ixmdp, ixpt2, ixrb
       read(nu,*)SP(((rmu(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
       read(nu,*)SP(((zmu(ix,iy,i),ix=1,nx),iy=1,ny),i=0,4)
 /* its a good idea to check that data before going further */
