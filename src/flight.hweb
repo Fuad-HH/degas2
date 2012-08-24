@@ -3,6 +3,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.10  2011/03/04 18:00:49  dstotler
+% Add pt_check to fl_check.
+%
 % Revision 1.9  1999/03/25 20:58:30  dstotler
 % Moved in descriptions from classes.web.
 %
@@ -44,13 +47,15 @@
 @f fl_decl integer
 @f fl_common integer
 
-@m fl_args(x) fl_number(x),fl_source(x),pt_args(fl_origin(x)),
-      rn_args(fl_rand(x)),pt_args(fl_stack(x)[1]),fl_pointer(x) @;
+@m fl_args(x) fl_number(x),fl_source(x),fl_source_seg(x),
+      pt_args(fl_origin(x)),rn_args(fl_rand(x)),pt_args(fl_stack(x)[1]),
+      fl_pointer(x) @;
 
-@m fl_dummy(x) fl_number(x),fl_source(x),pt_dummy(fl_origin(x)),
-      rn_dummy(fl_rand(x)),pt_dummy(fl_stack(x)),fl_pointer(x) @;
+@m fl_dummy(x) fl_number(x),fl_source(x),fl_source_seg(x),
+      pt_dummy(fl_origin(x)),rn_dummy(fl_rand(x)),pt_dummy(fl_stack(x)),
+      fl_pointer(x) @;
 
-@m fl_decl(x) integer fl_number(x),fl_source(x),fl_pointer(x);
+@m fl_decl(x) integer fl_number(x),fl_source(x),fl_source_seg(x),fl_pointer(x);
       pt_decl(fl_origin(x)); 
       rn_decl(fl_rand(x));
       pt_decl(fl_stack(x)[fl_stack_max]) @;
@@ -60,6 +65,7 @@
 @m fl_copy(x,y) 
       fl_number(y)=fl_number(x);
       fl_source(y)=fl_source(x);
+      fl_source_seg(y)=fl_source_seg(x);
       pt_copy(fl_origin(x),fl_origin(y));
       rn_copy(fl_rand(x),fl_rand(y));
       fl_pointer(x)=fl_pointer(y);
@@ -69,11 +75,13 @@
 
 @m fl_check(x) (fl_number(x) >= 0 && 
       (fl_source(x) > 0 && fl_source(x) <= so_grps) &&
+      (fl_source_seg(x) >= 0 && fl_source_seg(x) < so_nseg(fl_source(x))) &&
       fl_pointer(x) > 0 && fl_pointer(x) <= fl_stack_max
       && pt_check(fl_current(x)))
 
 @m fl_number(x) number_##x
 @m fl_source(x) source_##x
+@m fl_source_seg(x) source_seg_##x
 @m fl_origin(x) origin_##x
 @m fl_rand(x) x
 @m fl_stack(x) stack_##x
@@ -89,8 +97,9 @@
 @m fl_label(x,num,isource) fl_number(x)=num;
       fl_source(x)=isource @;
 
-@m fl_init(x,sy) pt_init(fl_origin(x),sy,fl_source(x));
+@m fl_init(x,sy,kseg) pt_init(fl_origin(x),sy,fl_source(x));
       fl_pointer(x)=1;
+      fl_source_seg(x)=kseg;
       pt_copy(fl_origin(x),fl_current(x)) @;
 
 @* Flight class attribute descriptions.
@@ -103,6 +112,8 @@ The identifier |flight| is a string tag.
   \item[|fl_number(flight)|] Is the flight number.
   \item[|fl_source(flight)|] Is the number of the source which gave rise 
 to the flight.
+  \item[|fl_source_seg(flight)|] Is the segment number of the source 
+which gave rise to the flight.
   \item[|fl_origin(flight)|] Is the particle initiating the flight.
   \item[|fl_rand(flight)|] Is the random number information for the flight.
   \item[|fl_stack(flight)|] Is the stack of particles being processed.
@@ -117,9 +128,10 @@ to the flight.
 \begin{description}
   \item[|fl_label(flight,num,isource)|] Sets |fl_number(flight)| to |num| and 
   \item[|fl_source(flight)|] To source number |isource|.
-  \item[|fl_init(flight,sy)|] Sets up a current flight containing a 
+  \item[|fl_init(flight,sy,kseg)|] Sets up a current flight containing a 
 particle of species |sy|, using |fl_origin(flight)| for the other particle 
-properties and |fl_source(flight)| as the ``author''.
+properties and |fl_source(flight)| as the ``author''.  The source
+segment number |kseg| is recorded as a separate parameter.
 \end{description}
 
       
