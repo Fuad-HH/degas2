@@ -2,6 +2,9 @@ $Id$
 \Title{poly_to_tri}
 
 % $Log$
+% Revision 1.1  2009/11/25 19:52:22  dstotler
+% Add to repository.
+%
 @* Read in a polygon netCDF file (i.e., the g2 class) and transform
 rectangles and triangles into Triangle's ``nodes'' and ``elements''.
 
@@ -36,6 +39,7 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
 
       define_varp(nodes,FLOAT,g2_xz_ind,node_ind)
       define_varp(boundary_nodes,INT,node_ind)
+      define_varp(node_index,INT,zone_index_ind,node_ind)
       define_varp(triangles,INT,corner_ind,tri_ind)
 
       implicit_none_f77
@@ -57,6 +61,7 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
 
       declare_varp(nodes)
       declare_varp(boundary_nodes)
+      declare_varp(node_index)
       declare_varp(triangles)
 
       @<Memory allocation interface@>
@@ -70,6 +75,7 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
       num_tri=0
       var_alloc(nodes)
       var_alloc(boundary_nodes)
+      var_alloc(node_index)
       var_alloc(triangles)
 
       call readfilenames
@@ -133,8 +139,11 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
                   num_nodes++
                   var_realloca(nodes)
                   var_realloca(boundary_nodes)
+                  var_realloca(node_index)
                   nodes[num_nodes][g2_x]=g2_polygon_xz[ipoly][i][g2_x]
                   nodes[num_nodes][g2_z]=g2_polygon_xz[ipoly][i][g2_z]
+                  node_index[num_nodes][zi_ix]=0  // Initialize
+                  node_index[num_nodes][zi_iz]=0 
 /*
    Determine whether or not this node lies on a ``boundary''.  Since
    we have access to all of the geometry data, this amounts to searching
@@ -156,6 +165,19 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
                   this_node=num_nodes
                end if
                this_polygon[i]=this_node
+/*
+   Attempt to propagate |zone_index| information from the original geometry
+   data (specifically, that remaining from the Sonnet mesh) to the nodes.
+   To keep this one-to-one, need to pick a specific point in each polygon.
+   The choice of point 2 is somewhat arbitrary.  Do this based on |this_node|
+   rather than when a new node is defined since the early zones contribute 
+   multiple nodes.
+*/
+               if ((i == 2) && (zn_index(zone,zi_ix) > 0)
+     $             && (zn_index(zone,zi_iz) > 0)) then
+                  node_index[this_node][zi_ix]=zn_index(zone,zi_ix)
+                  node_index[this_node][zi_iz]=zn_index(zone,zi_iz)
+               end if
             end do
             num_tri++
             var_realloca(triangles)
@@ -198,7 +220,9 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
       open(unit=node_unit,file=trim(file_root)\/'.node')
       write(node_unit,*) num_nodes,' 2   0   1'
       do i=1,num_nodes
-         write(node_unit,*) i,nodes[i][g2_x],nodes[i][g2_z],boundary_nodes[i]
+         write(node_unit,'(i6,2x,f18.15,2x,f18.15,2x,i3,2x,i4,2x,i4)') i,
+     $        nodes[i][g2_x],nodes[i][g2_z],boundary_nodes[i],
+     $        node_index[i][zi_ix],node_index[i][zi_iz]
       end do
       close(unit=node_unit)
 
