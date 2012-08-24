@@ -2,6 +2,9 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.32  2011/03/04 17:56:57  dstotler
+% Move setting of v_back in subroutine chargex.
+%
 % Revision 1.31  2009/11/25 14:43:40  dstotler
 % Increase max_lines from 3 to 5. Modify track_chargex so that the
 % combination of I_0n integrals appearing in the momentum and energy
@@ -1482,7 +1485,8 @@ of suppressed absorption.
       if (num_lines > 0) then
          do i=1,num_lines
             if (i_gen_rate > 0) then
-               if (scoring_data[lines[i]] > zero) then
+               if ((scoring_data[lines[i]] > zero) 
+     $               && (scoring_data[i_gen_rate] > zero)) then
                   assert(scoring_data[e_rates[i]] == zero)
                   assert(rc_emitter(reac) != 0)
                   scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
@@ -1721,7 +1725,8 @@ for |chargex|.
       if (num_lines > 0) then
          do i=1,num_lines
             if (i_gen_rate > 0) then
-               if (scoring_data[lines[i]] > zero) then
+               if ((scoring_data[lines[i]] > zero) 
+     $               && (scoring_data[i_gen_rate] > zero)) then
                   assert(scoring_data[e_rates[i]] == zero)
                   assert(rc_emitter(reac) != 0)
                   scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
@@ -2903,7 +2908,8 @@ actually done at the source point or as a post-processor.
       if (num_lines > 0) then
          do i=1,num_lines
             if (i_gen_rate > 0) then
-               if (scoring_data[lines[i]] > zero) then
+               if ((scoring_data[lines[i]] > zero) 
+     $               && (scoring_data[i_gen_rate] > zero)) then
                   assert(scoring_data[e_rates[i]] == zero)
                   assert(rc_emitter(reac) != 0)
 /*
