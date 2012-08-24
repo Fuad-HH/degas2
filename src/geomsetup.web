@@ -3,6 +3,11 @@
 \Title{geometry setup}
 
 % $Log$
+% Revision 1.44  2009/11/25 19:31:23  dstotler
+% Provide diagnostic information with the opp_outer assertion
+% in check_geometry.  Remove target_e_ion_delta and mult,
+% also plasma_temperature.
+%
 % Revision 1.43  2007/06/19 17:35:41  dstotler
 % Add allocation statements for plasma_e_ion_sheath.
 %
@@ -818,6 +823,38 @@ these values match.
       end do
       
       lookup_sector=0
+         
+      return
+      end
+
+@ Sloppy version of |lookup_sector|.  Returns 0 if none found.  Allow the
+permitted error, |slop| (in meters), to be input since the initial need 
+for this routine is the result of limited precision in an external code.
+
+@m sloppy_vc_equal(x,y)
+      ((abs(x[1]-y[1]) < slop) && (abs(x[2]-y[2]) < slop) && (abs(x[3]-y[3]) < slop))
+
+@<Functions...@>=
+      function sloppy_lookup_sector(x1,x2,slop)
+      implicit_none_f77
+      gi_common                       // Input/Output
+      sc_common
+      implicit_none_f90
+      integer sloppy_lookup_sector    // Function
+      real x1[3],x2[3]                // Input
+      real slop
+      integer k                       // Local
+
+
+      do k=1,nsectors
+         if (sloppy_vc_equal(x1,sector_points[0,k]) &&
+     $        sloppy_vc_equal(x2,sector_points[1,k])) then
+            sloppy_lookup_sector = k
+            return
+         end if
+      end do
+      
+      sloppy_lookup_sector=0
          
       return
       end
