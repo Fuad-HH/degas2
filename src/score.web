@@ -2,6 +2,11 @@
 \Title{score}
 
 % $Log$
+% Revision 1.20  2011/03/04 18:06:28  dstotler
+% Set lc_sector in post_process_test_scores (bug fix). Add compilation of
+% snapshot particle data. Skip post_process_source_scores for
+% snapshot source (temporary hack).
+%
 % Revision 1.19  2009/11/25 20:07:03  dstotler
 % Replace lc_set_a(zone_loc) in post_process_test_scores with
 % just setting the zone to save time.
@@ -516,7 +521,8 @@ instances of the particle class.
 collision routines. 
 
 @<Functions...@>=
-      subroutine puff_data(est,so_dummy(isource),xseg,pt_dummy(p),scoring_data)
+      subroutine puff_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
+     $                     scoring_data)
 
       implicit_none_f77
       sp_common
@@ -524,7 +530,7 @@ collision routines.
       sc_common
       implicit_none_f90
 
-      integer est,xseg                            // Input
+      integer est,xseg,kseg                        // Input
       so_decl(isource)
       pt_decl(p)
 
@@ -564,7 +570,7 @@ collision routines.
 @ Scoring data for plate source.
 
 @<Functions...@>=
-      subroutine plate_data(est,so_dummy(isource),xseg,pt_dummy(p),
+      subroutine plate_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
      $                      scoring_data)
 
       implicit_none_f77
@@ -574,7 +580,7 @@ collision routines.
       sc_common
       implicit_none_f90
 
-      integer est,xseg                            // Input
+      integer est,xseg,kseg                        // Input
       so_decl(isource)
       pt_decl(p)
 
@@ -629,6 +635,101 @@ collision routines.
       return
       end
 
+@ Set up scoring data for volume source. This routine is analogous to the
+collision routines. 
+
+@<Functions...@>=
+      subroutine vol_source_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
+     $                           scoring_data)
+
+      implicit_none_f77
+      sp_common
+      pr_common
+      implicit_none_f90
+
+      integer est,xseg,kseg                        // Input
+      so_decl(isource)
+      pt_decl(p)
+
+      real scoring_data[scoring_data_max]         // Output
+
+      integer psp                                 // Local
+      real temp,energy
+      vc_decl(v_gauss)
+      vc_decl(vsrc)
+
+      if (est == tl_est_post_process) then
+         vc_set(v_gauss,zero,zero,zero)
+         call vol_source_v_details(so_args(isource),xseg,kseg,
+     $        lc_args(pt_loc(p)),vc_args(v_gauss),vc_args(vsrc),temp)
+         energy=const(1.5)*temp+half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+      else if (est == tl_est_collision) then
+         vc_copy(pt_v(p),vsrc)
+         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+      else 
+         assert('Incorrect value of est' == ' ')
+      end if
+      psp=pr_problem_sp_test(pt_test(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp)]+=
+     $  sp_m(pt_sp(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[1] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[2] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[3] 
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp)]+=
+     $     energy
+      
+      return
+      end
+
+@ Scoring data for snapshot source.  An approach to post-process scoring
+remains to be established.
+
+@<Functions...@>=
+      subroutine snapshot_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
+     $                         scoring_data)
+
+      implicit_none_f77
+      sp_common
+      pr_common
+      sc_common
+      implicit_none_f90
+
+      integer est,xseg,kseg                        // Input
+      so_decl(isource)
+      pt_decl(p)
+
+      real scoring_data[scoring_data_max]         // Output
+
+      integer psp                                 // Local
+      real energy
+      vc_decl(vsrc)
+
+      if (est == tl_est_post_process) then
+         assert('Snapshot source cannot be post-processed' == ' ')
+      else if (est == tl_est_collision) then
+         vc_copy(pt_v(p),vsrc)
+         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+      else 
+         assert('Incorrect value of est' == ' ')
+      end if
+      psp=pr_problem_sp_test(pt_test(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp)]+=
+     $  sp_m(pt_sp(p))
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[1] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[2] 
+      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp)]+=
+     $     sp_m(pt_sp(p))*vsrc[3] 
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp)]+=
+     $     energy
+      
+      return
+      end
+
 @ Loop through and fill all of the scores of this type.    
 The geometry segments may be: a zone, a (diagnostic) sector, or a detector.
 Since more than one detector may be affected by this reaction, this routine
@@ -657,13 +758,14 @@ more than one scoring bin. Again, the affected bins are in an array |bins|.
 
                                                  // Local
       integer i,j,k,jscore,problem_sp,number_segments,geom_seg_label,geom_seg,
-     $     bin_label,ibin,problem_sp_min,problem_sp_max
+     $     bin_label,ibin,problem_sp_min,problem_sp_max,j_tl_cv,icv
       integer index_parameters[tl_index_unknown:tl_index_max],
      $     segments[max_segments],ind_val[tl_rank_max],
      $     number_bins[max_segments],bins[max_segments][max_bins] 
       real check_data
       real geom_mult[max_segments][max_bins],
      $     converted_data[scoring_data_max]
+      logical need_track_conversions
 
       @<Memory allocation interface@>
 
@@ -682,7 +784,14 @@ more than one scoring bin. Again, the affected bins are in an array |bins|.
 
       do i=1,tally_type_num[type]
          jscore=tally_type_base[type]+i-1
-
+         need_track_conversions=.false.
+         if (tally_num_conversions[jscore] > 0) then
+            do j_tl_cv=1,tally_num_conversions[jscore]
+               icv=tally_cv_ptr[jscore][j_tl_cv]
+               if (tally_cv_type[icv] == tl_cv_track) 
+     $              need_track_conversions=.true.
+            end do
+         end if
 /*
    Determine whether or not |jscore| has a dependence on the background
    species. Also, see if the value of the dependent variable in 
@@ -735,18 +844,34 @@ more than one scoring bin. Again, the affected bins are in an array |bins|.
                            ind_val[k]=0
                         end if
                      end do
-                     call track_conversions(tl_args(jscore),pt_args(p),
+/*
+   The calls to |track_conversion| end up being numerous and, thus,
+   expensive.  One of the reasons is that it copies |scoring_data|
+   to |converted_data| in all cases.  Work around this by first
+   identifying (above) the scores that actually have a track conversion
+   and then use a separate call to |set_comp_scores| in the two cases.
+*/
+                     if (need_track_conversions) then 
+                        call track_conversions(tl_args(jscore),pt_args(p),
      $                    index_parameters,scoring_data,converted_data)
-
-                     do j=1,tally_dep_var_dim[jscore]
-                        call set_comp_scores(
-     $                     out_array_index(j,ind_val,jscore),
-     $                     converted_data[
+                        do j=1,tally_dep_var_dim[jscore]
+                           call set_comp_scores(
+     $                          out_array_index(j,ind_val,jscore),
+     $                          converted_data[
      $             tl_scoring_index(tally_dep_var[jscore],j,index_parameters)]
      $                       *geom_mult[geom_seg][ibin]
      $                       *estimator_factors[jscore])
-
-                     end do 
+                        end do 
+                     else
+                        do j=1,tally_dep_var_dim[jscore]
+                           call set_comp_scores(
+     $                          out_array_index(j,ind_val,jscore),
+     $                          scoring_data[
+     $             tl_scoring_index(tally_dep_var[jscore],j,index_parameters)]
+     $                       *geom_mult[geom_seg][ibin]
+     $                       *estimator_factors[jscore])
+                        end do 
+                     end if
                   end do  // |problem_sp|
                end do     // |ibin|
             end do        // |geom_seg|
@@ -1418,14 +1543,14 @@ situation.
             vc_set(pt_v(fake_pt),zero,zero,zero)  // Tentative
          end if
 
-         call score_sources(est,so_args(is),xseg,pt_args(fake_pt),
+         call score_sources(est,so_args(is),xseg,kseg,pt_args(fake_pt),
      $        estimator_factors,rn_args(fake_rn))
       end do      // |is|
 
       return
       end
 
-      subroutine score_sources(est,so_dummy(is),xseg,pt_dummy(p),
+      subroutine score_sources(est,so_dummy(is),xseg,kseg,pt_dummy(p),
      $     estimator_factors,rn_dummy(x))
 
       implicit_none_f77                          // Common
@@ -1434,7 +1559,7 @@ situation.
       so_common
       implicit_none_f90
 
-      integer est,xseg                           // Input
+      integer est,xseg,kseg                       // Input
       so_decl(is)
       pt_decl(p)
       real estimator_factors[*]                  // Scratch
@@ -1470,9 +1595,13 @@ situation.
             call recombination_data(est,so_args(is),xseg,pt_args(p),
      $           scoring_data,rn_args(x))
          else if (so_type(is) == so_plate) then
-            call plate_data(est,so_args(is),xseg,pt_args(p),scoring_data)
+            call plate_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
          else if (so_type(is) == so_puff) then
-            call puff_data(est,so_args(is),xseg,pt_args(p),scoring_data)
+            call puff_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
+         else if (so_type(is) == so_vol_source) then
+            call vol_source_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
+         else if (so_type(is) == so_snapshot) then
+            call snapshot_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
          end if
          call add_scores(tl_type_reaction,pt_args(p),prso_reac,
      $        scoring_data,estimator_factors)
@@ -1489,16 +1618,25 @@ situation.
 
       implicit_none_f77
       sn_common                                  // Common
+      zn_common
       implicit_none_f90
 
       pt_decl(p)                                 // Input
 
       @<Memory allocation interface@>
 
+      if (!((zn_type(lc_zone(pt_loc(p))) == zn_plasma)
+     $     || (zn_type(lc_zone(pt_loc(p))) == zn_vacuum))) then
+         write(stdout,*) lc_x(pt_loc(p))[1],
+     $   lc_x(pt_loc(p))[2],lc_x(pt_loc(p))[3]
+         assert(' Bad snapshot particle' == ' ')
+      end if
       sn_number_particles++
-      sn_particles_dim=max(sn_particles_dim,sn_number_particles)
-      var_realloca(sn_particles_float)
-      var_realloca(sn_particles_int)
+      if (sn_number_particles > sn_particles_dim) then
+         sn_particles_dim=max(sn_particles_dim,sn_number_particles)
+         var_realloca(sn_particles_float)
+         var_realloca(sn_particles_int)
+      end if
 /*
    The order of these statements is not random, but corresponds to that in 
    |pt_decl| and |lc_decl|.
