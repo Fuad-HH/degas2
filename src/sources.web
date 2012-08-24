@@ -2,6 +2,10 @@
 \Title{sources.web}
 
 % $Log$
+% Revision 1.26  2011/03/04 18:07:52  dstotler
+% Add time dependence and snapshot source type. Use miscellaneous source
+% parameters for puff temperature and exponent.
+%
 % Revision 1.25  2009/11/25 20:09:10  dstotler
 % Replace lc_set with lc_set_a everywhere (initialize sector, etc.).
 %
@@ -191,13 +195,20 @@ species and ``relative weight''.
       rn_decls
       lc_decls
 
+      external find_index           // External
+      real find_index
+
       is=fl_source(x)
 /*
-   Sample one segment from this source group. This implementation follows
-   the description of the sampling algorithm described in Sec. 3.4.1 (and
-   Exercise 7) of Knuth. He refers to the originator, A. J. Walker,
-   [{\em Electronics Letters} {\bf 10}, 8 (1974), 127-128; {\em ACM Trans.
-   Math. Software} {\bf 3} (1976), 253-256]. 
+   Sample one segment from this source group.  Two different techniques are
+   employed here.  The original (``alias'') follows the sampling algorithm 
+   described in Sec. 3.4.1 (and Exercise 7) of Knuth. He refers to the originator, 
+   A. J. Walker, [{\em Electronics Letters} {\bf 10}, 8 (1974), 127-128; {\em ACM Trans.
+   Math. Software} {\bf 3} (1977), 253-256].  But, setting up the alias arrays can
+   be extremely time consuming for large sources.  Consequently, a more basic
+   approach is available for those cases.  The controlling parameter is in the
+   |set_prob_alias| routine.  The two are distinguished here by whether or not
+   the |source_segment_ptr_alias| array is trivial (i.e., set to |int_unused|).
 */
       if (so_sampling == so_random) then
          rn_next(urd,fl_rand(x))
@@ -206,13 +217,19 @@ species and ``relative weight''.
       else
          assert('Illegal value of so_sampling' == ' ')
       end if
-      kseg=int(so_nseg(is)*urd)
-      vprob=so_nseg(is)*urd - kseg
-      if (vprob < source_segment_prob_alias[so_base(is)+kseg]) then
+      if (source_segment_ptr_alias[so_base(is)] != int_unused) then
+         kseg=int(so_nseg(is)*urd)                                  // ``Alias'' sampling
+         vprob=so_nseg(is)*urd - kseg
+         if (vprob < source_segment_prob_alias[so_base(is)+kseg]) then
+            xseg=source_segment_ptr[so_base(is)+kseg]
+         else
+            xseg=source_segment_ptr_alias[so_base(is)+kseg]
+            kseg=int_lookup(xseg,source_segment_ptr[so_base(is)],so_nseg(is))-1
+         end if
+      else                                                           // Basic sampling
+         kseg=int(find_index(urd,source_segment_prob_alias[so_base(is)],so_nseg(is)))
+         kseg=min(kseg,so_nseg(is)-1)
          xseg=source_segment_ptr[so_base(is)+kseg]
-      else
-         xseg=source_segment_ptr_alias[so_base(is)+kseg]
-         kseg=int_lookup(xseg,source_segment_ptr[so_base(is)],so_nseg(is))-1
       end if
 
       call set_source_x(est,so_args(is),xseg,kseg,rn_args(fl_rand(x)),
@@ -235,7 +252,7 @@ species and ``relative weight''.
       end if
 
       if (so_type(is) != so_snapshot) then
-         fl_init(x,sp_sy(so_species(is)))
+         fl_init(x,sp_sy(so_species(is)),kseg)
       else
          call init_snapshot_fl(so_args(is),xseg,kseg,fl_args(x))
       end if
@@ -246,9 +263,17 @@ species and ``relative weight''.
 @#endif
       rel_wt=source_segment_rel_wt[so_base(is)+kseg]
      $     *so_wt_norm(is)
+      if (rel_wt <= zero) then
+         write(stderr,*) ' Bad value of rel_wt in sample_sources'
+         write(stderr,*) ' is = ',is
+         write(stderr,*) ' kseg = ',kseg
+         write(stderr,*) ' rel_wt = ',rel_wt
+         call flush(stderr)
+         assert(rel_wt > zero)
+      end if
 
       if (est != tl_est_unknown) then
-         call score_sources(est,so_args(is),xseg,pt_args(fl_current(x)),
+         call score_sources(est,so_args(is),xseg,kseg,pt_args(fl_current(x)),
      $        estimator_factors,rn_args(fl_rand(x)))
       end if
 
@@ -320,7 +345,7 @@ If present, the third dimension is sampled uniformly.
       lc_decl(x)                 // Output
 
       integer zone               // Local
-      real urd,r0,r1,fr,urd_y,delta_y,y
+      real urd,r0,r1,fr,urd_y,delta_y,y,delta
       vc_decl(deltax)
       vc_decl(xsrc)
       vc_decl(vzero)
@@ -396,18 +421,30 @@ If present, the third dimension is sampled uniformly.
       call surface_reflect(sector_surface[xseg],vc_args(xsrc),vc_args(vzero),
      $     vc_args(vone),vc_args(vnorm))
       vc_copy(xsrc,x_surface)    // For use in |set_plate_source_v|
-/* Then take a small step along the normal to be sure we're in the cell */
-      fr=geom_epsilon/vc_abs(vnorm)
+/* 
+   Then take a small step along the normal to be sure we're in the cell.
+   In some (unusual) cases, this step can actually be big enough to enter
+   an adjacent cell.  Added the loop shrink the size of the step until
+   the resulting zone matches the sector |zone|.
+*/
+      delta=geom_epsilon
+loop: continue
+      fr=delta/vc_abs(vnorm)
       vc_xvt(xsrc,vnorm,fr,lc_x(x))
 
       lc_set_a(x)
+      if (lc_zone(x) != zone) then
+         delta*=half
+         assert(delta > epsilon)  // Give up at some point
+         go to loop
+      end if
 /* 
    Add this to double-check 3-D cases.
 */
 @#if 0
       assert((lc_cell(x) > 0) && (lc_zone(x) == zone))
 @#else
-      if (!(lc_cell(x) > 0) && (lc_zone(x) == zone)) then
+      if (!((lc_cell(x) > 0) && (lc_zone(x) == zone))) then
          write(stderr,*) ' Inconsistent source zone in set_surface_source_x'
          write(stderr,*) ' zone = ',zone
          write(stderr,*) ' lc_zone(x) = ',lc_zone(x)
@@ -595,6 +632,9 @@ using routines specific for the type of that source.
      $        rn_args(r),vc_args(vsrc))
       else if (so_type(isource) == so_recomb) then
          call set_recomb_source_v(so_args(isource),xseg,kseg,lc_args(x),
+     $        rn_args(r),vc_args(vsrc))
+      else if (so_type(isource) == so_vol_source) then
+         call set_vol_source_v(so_args(isource),xseg,kseg,lc_args(x),
      $        rn_args(r),vc_args(vsrc))
       else if (so_type(isource) == so_snapshot) then
          call set_snapshot_source_v(so_args(isource),xseg,kseg,lc_args(x),
@@ -912,6 +952,97 @@ with an isotropic distribution; we would need another routine for that.
       return
       end
 
+@ Volume source velocity.  The basic expressions used here are directly
+analogous to those for recombination, although the structure of this and
+the ``details'' routine more closely resemble the plate and puff routines.
+      
+@<Functions...@>=
+      subroutine set_vol_source_v(so_dummy(isource),xseg,kseg,lc_dummy(x),
+     $   rn_dummy(r),vc_dummy(vsrc))
+      implicit_none_f77
+      so_common                     // Common
+      implicit_none_f90
+
+      so_decl(isource)              // Input
+      integer xseg,kseg
+      lc_decl(x)                
+      rn_decl(r)                    // Input/output
+      vc_decl(vsrc)                 // Output
+
+      real temp                     // Local
+      vc_decl(v_gauss)
+
+      assert(so_geom(isource) == so_volume)
+
+      call random_gauss(v_gauss,3,rn_args(r))
+      call vol_source_v_details(so_args(isource),xseg,kseg,lc_args(x),
+     $                          vc_args(v_gauss),vc_args(vsrc),temp)
+
+      return
+      end
+
+@ Volume source velocity details. This routine extracts the description
+of the soure velocity from the miscellaenous source parameter arrays.
+The interface is chosen so as to be callable from both runtime and
+post-processing environments. The |v_gauss| argument is a velocity 
+vector in which each component is Gaussian distributed.  For the former 
+this is a random variable; for the latter, the average value (i.e.,
+zero) is used. The temperature is also returned so that the average
+energy can be computed in post-processing.
+
+@<Functions...@>=
+      subroutine vol_source_v_details(so_dummy(isource),xseg,kseg,lc_dummy(x),
+     $                                vc_dummy(v_gauss),vc_dummy(vsrc),temp)
+
+      implicit_none_f77
+      so_common                     // Common
+      bk_common
+      gi_common
+      sp_common
+      implicit_none_f90
+
+      so_decl(isource)              // Input
+      integer xseg,kseg
+      lc_decl(x) 
+      vc_decl(v_gauss)
+      vc_decl(vsrc)                 // Output
+      real temp
+
+      integer i,seg_tot,iparam      // Local
+      real v1,v2,v3,vion
+      sp_decl(spsrc)
+      vc_decl(vb_flow)
+
+      spsrc=so_species(isource)
+      v1=zero
+      v2=zero
+      v3=zero
+
+      assert(source_num_parameters[isource] > 0)
+      seg_tot=so_base(isource)+kseg
+      do iparam=1,source_num_parameters[isource]
+         if (so_params_list(iparam,isource) == so_param_temperature) then
+            temp=so_params_data(iparam,seg_tot,isource)
+            assert(temp > zero)
+         else if (so_params_list(iparam,isource) == so_param_v1) then
+            v1=so_params_data(iparam,seg_tot,isource)
+         else if (so_params_list(iparam,isource) == so_param_v2) then
+            v2=so_params_data(iparam,seg_tot,isource)
+         else if (so_params_list(iparam,isource) == so_param_v3) then
+            v3=so_params_data(iparam,seg_tot,isource)
+         end if
+      end do
+      vc_set(vsrc,v1,v2,v3)
+
+      v_ext_to_int(lc_x(x),vsrc,vb_flow,geometry_symmetry,background_coords)
+      vion=sqrt(temp/sp_m(spsrc))
+      do i=1,3
+         vsrc[i]=vion*v_gauss[i]+vb_flow[i]
+      end do
+
+      return
+      end
+
 @ Snapshot source velocity.  Note that most of the arguments are not
 used and are retained only for uniformity.
       
@@ -987,6 +1118,7 @@ from the generic source group parameters.
 
       pt_w(fl_origin(x))=one
       fl_pointer(x)=1
+      fl_source_seg(x)=kseg
 
       pt_copy(fl_origin(x),fl_current(x))
       
