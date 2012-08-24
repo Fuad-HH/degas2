@@ -2,6 +2,9 @@
 \Title{flight}
 
 % $Log$
+% Revision 1.44  2011/03/04 18:01:09  dstotler
+% Add time dependence and snapshot machinery.  Remove old, commented out code.
+%
 % Revision 1.43  2006/01/19 19:20:02  dstotler
 % Allow for plasma sectors in loop over non-diagnostic sectors in
 % score_sectors (skip decrement of fl_pointer).  Do an lc_thru_face for
@@ -281,7 +284,20 @@
             stat_pf_dim_frag=new_dim
             stat_wt_dim_frag=new_dim
          end if
-
+/* 
+   Temporary diagnostic output.
+*/
+         if (!(stat_wt_tot_flt >= zero)) then
+            write(stderr,*) ' Bad value of stat_wt_tot_flt = ',stat_wt_tot_flt
+            write(stderr,*) ' Source = ',fl_source(x)
+            write(stderr,*) ' Number = ',fl_number(x)
+            write(stderr,*) ' Size = ',stat_size_flt
+            call flush(stderr)
+            assert(stat_wt_tot_flt >= zero)
+         end if
+/*
+   End of temporary output.
+*/
          call stat_acc(stat_comp_flt,stat_wt_tot_flt,stat_size_flt,
      $         stat_dim_flt,stat_flt,stat_pf_dim_flt,stat_ptr2full_flt,
      $         stat_ps_dim_flt,stat_ptr2short_flt,
@@ -345,6 +361,13 @@
    This call now combines the source sampling and scoring.
 */
       call sample_sources(tl_est_collision,fl_args(x),estimator_factors,rel_wt)
+      if (!((zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
+     $     || (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_vacuum))) then
+         write(stdout,*) fl_source(x),fl_number(x)
+         write(stdout,*) lc_x(pt_loc(fl_current(x)))[1],
+     $   lc_x(pt_loc(fl_current(x)))[2],lc_x(pt_loc(fl_current(x)))[3]
+         assert(' Bad flight origin' == ' ')
+      end if
 
 loop1: continue                 // Start a new 
 
