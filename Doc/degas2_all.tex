@@ -1,5 +1,15 @@
 % $Id$
 % $Log$
+% Revision 1.7  2012/08/24 16:20:13  dstotler
+% Corrected error in Eq. (2.59): n_e factor missing in He line
+% radiation rate.  Add link to the Bateman distribution report.
+% Revised the discussion of transfers between BGK species in
+% connection with the CMod-1D example to reflect the current
+% (not yet corrected) state of the BGK data files.  Updated
+% run time information for Couette flow example. Added ucd_plot
+% in same places where geomtesta appears.  Noted problem with
+% ncgen and netcdf 4.1.1.
+%
 % Revision 1.6  2009/11/25 20:50:52  dstotler
 % Extensive update to cover current operating systems and compilers,
 % as well as DG.  Add the two new definegeometry2d /
@@ -33,7 +43,7 @@
 % codefile = ratecalc, readgeometry, random, classes, geometry, tallysetup,
 % elementsetup, speciesetup, reactionsetup, materialsetup, pmisetup,
 % problemsetup, outputbrowser, definegeometry2d, defineback, geomtesta,
-% ucd_plot:
+% ucd_plot, postdetector, gpicamera:
 %   gmake codefile.tex
 %   pdflatex codefile.tex (may need to be done two or three times)
 %   mv codefile.pdf ../Doc
@@ -91,13 +101,13 @@
 % for the code.
 \title{\includegraphics{degas2d}
 User's Guide for DEGAS 2 \\
-Release V.\ 4.5\thanks{This file is written in \TeX. 
+Release V.\ 4.6\thanks{This file is written in \TeX. 
 A hyper-linked PDF
 file is generated from that source using {\tt pdflatex}. This document
 is distributed as part of the DEGAS 2 code. The user can be best assured
 of concurrence between code and manual by referring to the 
 version of the manual
-that came with the code. Copyright \copyright 2012 PPPL.
+that came with the code. Copyright \copyright 2013 PPPL.
 Permission is granted to make and distribute verbatim copies of this manual
 provided the copyright and permission notice is preserved on all copies.
 Permission is granted to copy and distribute modified versions of this
@@ -1051,7 +1061,7 @@ DEGAS 2 is, from the lowest level to the highest level, is:
   \item zone.
 \end{enumerate}
 Individual cells are composed of surfaces, as discussed in the documentation
-for the internal geometry (e.g., see |geometry.web|; follow
+for the internal geometry (e.g., see {\tt geometry.web}; follow
 this \href{geometry.pdf#page.1}{link} to the PDF version of this file). 
 The next level up
 in two (and three, to a limited extent) dimensions
@@ -1193,7 +1203,7 @@ see the corresponding \href{defineback.pdf#page13}{source file}
 for details on how this is done.
 However, the user can in principle also manually
 set the controlling
-parameters in the \href{classes.pdf#page.25}{source class}.
+parameters in the \href{classes.pdf#page.26}{source class}.
 
 The user specified sources in a time dependent run are
 either fixed in time during a time 
@@ -1211,7 +1221,10 @@ the end of the end of a previous interval.
 Again following \cite{Reit95}, we represent this PDF via the
 particle positions,
 velocities, and weights; this is the purpose of the
-\href{classes.pdf#page.128}{snapshot class}.  With this
+\href{classes.pdf#page.128}{snapshot class}.  These
+data are written to the file indicated by the
+\verb+snapshotfile+ in {\tt degas2.in} (Sec.~\ref{degas2in}).
+With this
 approach, the amount of kinetic detail in the PDF is
 maximized.
 
@@ -2199,6 +2212,65 @@ Handbook\cite{CRC}.}
 \end{center}
 \end{figure}
 
+\section{Recycling}
+
+Recycling of both ions and neutral species in DEGAS 2 is controlled by
+the set of PMI (``Plasma Material Interactions'', e.g., see 
+the PMI \href{pmisetup.pdf#page.1}{setup} file) and one additional
+parameter generically referred to as the ``recycling coefficient''.
+The value of the recycling coefficient is a constant associated with
+each wall and target sector (see the \href{classes.pdf#page.39}{sector class}).
+These are prescribed during geometry definition, e.g., via 
+the {\tt recyc\_coef} keyword in {\tt definegeometry2d}.
+
+The best way to understand the recycling coefficient, $\cal{R}$,
+is to note that $P_{a} = 1 - \cal{R}$ is the probability for
+a flight (the ``projectile'') striking that sector to be absorbed.
+Adsorption, is effectively 
+one of the plasma-material interactions that the
+code will choose from in deciding the fate of the projectile.
+
+The second PMI that is always present is referred to as the
+``default PMI'' since the code defaults to that PMI should
+none of the other prescribed PMI (including adsorption) be
+selected.  Since all PMI must have an
+associated probability or ``yield'', a ``default PMI'' is
+assigned a negative (i.e., unphysical) yield.
+The most common default PMI is desorption.
+
+The third PMI we consider here is ``reflection'' or ``backscattering''
+in which the incident particle returns immediately to the 
+plasma with most of its incident energy.
+The data associated with the reflection PMI
+are used to compute a probability or yield, $P_{r}$, for
+the process.
+This probability is, in general, a function of the
+projectile energy and angle with respect to the surface normal.
+
+Consider now the common case of an incident hydrogen atom for which
+both reflection and desorption (default) PMI's have been specified,
+as well as a recycling coefficient $\cal{R}$.  The probability
+assigned to the desorption PMI is 
+$P_{d} = 1 - P_{r} - P_{a} = {\cal R} - P_{r}$.  In the case
+of unity recycling (the surface is in steady state), the physical 
+interpretation is that atoms not reflected are adsorbed, 
+eventually recombine with another atom, and are desorbed as
+molecules.  In a steady state simulation, the time interval
+associated with ``eventually'' is meaningless, so the process might
+as well be instantaneous.
+
+In the case of less than unity recycling, i.e. net adsorption, 
+the value of $P_{d}$ is reduced accordingly.  If ${\cal R} < P_{r}$,
+$P_{d}$ is negative and there is no desorption and the
+reflection probability is effectively $\cal{R}$.
+
+If ${\cal R} = 0$, the sector is equivalent to an ``exit''.
+One operational difference is that flights striking an
+exit are terminated immediately.  Flights striking a 
+zero recycling sector will still undergo the process of
+selecting a PMI, even though the result will always
+be adsorption.
+
 \chapter{Running DEGAS 2}
 
 \section{Getting DEGAS 2}
@@ -2973,7 +3045,7 @@ corresponding PDF file.
 \subsection{readbackground Input}
 \index{readbackground input}
 
-Currently, the only possible inputs to |readbackground| are the
+Currently, the only possible inputs to {\tt readbackground} are the
 {\tt UEDGE} (a specifically formatted text file generated during
 {\tt UEDGE} post-processing) and {\tt DEGAS} formats (an input file for
 the old DEGAS code). This routine makes some specific assumptions about
@@ -4131,6 +4203,7 @@ that specific examples are useful in illustrating the ways that
 they can be used.
 
 \subsubsection{Gas Puff Imaging Example}
+\label{HeGPI}
 \index{DG}
 \index{Carre}
 
@@ -4580,12 +4653,7 @@ cp degas2.in ../../LINUX64
 cd ../../LINUX64
 \end{verbatim}
   \item {\bf Prepare reference data.}
-This example does use a modified PMI file that removes H as a 
-product in desorption from C.  Consequently, this step must be
-performed even if the standard reference data files in the
-data directory have been previously created.  The resulting
-{\tt pmi.nc} file will remain in the run directory and will not
-affect other runs utilizing the reference data.
+This example uses the standard reference data files.
 \begin{verbatim}
 gmake datasetup
 ./datasetup
@@ -5048,9 +5116,13 @@ collision and track-length routines if new type.
 
 \section{Defining Radiation Detectors}
 
-The user defines ``groups'' of detector ``views''. Each view needs
-to be defined only once and can be used in more than one group. A
-view is defined by:
+The ``detector'' class contains the objects needed to assemble
+synthetic diagnostics for filterscopes, imaging cameras, and other
+diagnostics that effectively integrate light emission along a 
+chord through the problem volume.  In the detector class, each
+such chord is referred to as a ``view''.  
+
+All of the views in the problem are characterized by:
 \begin{enumerate}
   \item Two points,
   \begin{itemize}
@@ -5061,7 +5133,7 @@ view is defined by:
 the starting point),
   \item An averaging algorithm, used to simulate the finite spatial
 resolution obtained with real detectors.  
-The two techniques available now are
+The two techniques, each having 2-D and 3-D variants, available are
   \begin{itemize}
     \item Uniform weighting (i.e., square),
     \item Circular weighting.
@@ -5073,26 +5145,34 @@ The two techniques available now are
 minimum, maximum, and the number of wavelength bins.
   \end{itemize}
 \end{enumerate}
+The views thus defined can be separated into ``groups''. 
+E.g., each group might represent a different diagnostic.
 The actual variables are defined and described in the
 \href{classes.pdf#page.50}{detector class}.
 
-Views are machine specific and not frequently changed. For these reasons,
-the user will need to specify them via specific lines of code in
-{\tt readgeometry}, {\tt boxgen}, or {\tt btopdetector}.
-
-\subsection{Signal Computation}
-
-The contribution from each zone to a view is usually precomputed so that the
+The contribution from the light emitted in
+each zone to a view is usually precomputed so that the
 signal can be quickly determined
-during or after the run from volumetric emission. However, this can
+during or after the run from the volumetric emission. However, storing
+these data can
 become impractical when a large number of chords ($ \gg 100$) are
 called for since the preprocessing yields an array of size
 (number of zones) $\times$ (number of chords).  In that case, the 
 user may want to use just a subset
-of chords during geometry setup and save processing the full array
-for postprocessing. The chord signals can be individually evaluated,
+of chords during geometry setup and only generate the full array
+during postprocessing. The chord signals can be evaluated independently,
 in parallel if need be, in this case so that the aforementioned
-array is not required.
+array is not required.  
+
+The first of the three following subsections, Sec.~\ref{frags}, describes
+the computation of these signal contributions.  The second subsection,
+Sec.~\ref{detectorsetup}, outlines the structure of the subroutine
+used to set up the detector views and groups of views.  The third
+subsection, Sec.~\ref{postdetector}, describes one approach to
+computing the detector signal in post-processing.
+
+\subsection{Signal Computation}
+\label{frags}
 
 There are two situations:
 \begin{enumerate}
@@ -5208,8 +5288,65 @@ defined in Sec.~\ref{AtomicPhysics}.
 Note, however, that the code is completely general regarding wavelength 
 and origin of radiation. Other line emission rates can be scored in
 an analogous if the appropriate data are present in the input data
-files. Again note that the views cannot be toroidally directed. If
-needed, this option could be incorporated with relative ease.
+files. 
+
+\subsection{The Detector Setup Subroutine}
+\label{detectorsetup}
+
+The subroutine used to set up the detector views and groups of views
+should be named {\tt detector\_setup}; all DEGAS 2 geometry definition routines
+({\tt boxgen}, {\tt readgeometry}, and {\tt definegeometry2d}) call this subroutine.
+The default, null implementation is contained in {\tt def2ddetector.web}.
+A user developed {\tt detector\_setup} replacement for this routine should
+be placed in a file called {\tt usr2ddetector.web} in the {\tt src} directory.
+Example implementations of this routine provided with the code are
+{\tt btopdetector.web} (a 1-D array) and {\tt gpicamera.web} (a 2-D imaging
+camera; see also its \href{gpicamera.pdf#page.1}{documentation}).
+
+The suggested structure of {\tt detector\_setup} is:
+\begin{enumerate}
+  \item For each view, 
+  \begin{itemize}
+    \item Set the two points defining the viewing chord,
+    \item Set the algorithm and half-width values.
+    \item Use these as arguments to the {\tt detector\_view\_setup}
+subroutine (in {\tt dediagsetup.web}).
+    \item This returns the contribution of each zone in the
+problem to that view's signal, $f(z_{j})$ in Sec.~\ref{frags}.  This
+quantity is copied into the {\tt de\_zone\_frags} array.
+  \end{itemize}
+  \item Assemble these views into one or more groups, defining each with
+a call to {\tt de\_grp\_init} (in {\tt dediagsetup.web}).
+  \begin{itemize}
+    \item If the detector group is to compute the spectrum of light
+emission, the requisite parameters are also passed to 
+{\tt de\_grp\_init}.
+  \end{itemize}
+\end{enumerate}
+
+\subsection{Detector Computation in Post-Processing}
+\label{postdetector}
+
+The {\tt postdetector} (see also its \href{postdetector.pdf#page.1}{documentation})
+code provides an example of detector signal
+computation during post-processing.  As alluded to above, only a 
+low resolution detector signal would be computed by {\tt flighttest} (e.g., 
+as a check) to avoid using large amounts of memory.  {\tt postdetector}
+would then be invoked to compute the complete signal. 
+
+As is noted in Sec.~\ref{HeGPI}, the version of {\tt postdetector.web} 
+distributed with DEGAS 2 was developed for simulating the camera
+in Gas Puff Imaging experiments.  Device and experiment specific
+information (namely a specification of the ``target plane''; see
+\href{gpicamera.pdf#page.1}{gpicamera.web}) appear here.  Moreover,
+it explicitly calls the {\tt gpi\_views} subroutine invoked by
+{\tt detector\_setup} in {\tt gpicamera.web}.  Both there and in 
+{\tt postdetector}, the coordinates of a particular pixel are
+passed to {\tt gpi\_views}; it returns the end points and contributions
+of each zone to the signal, $f(z_{j})$.
+In this way, the detailed information required to deterimine
+the view endpoints can be confined to a single 
+subroutine, {\tt gpi\_views}.
 
 \section{Diagnostic Sectors}
 \label{Diagnostic}
@@ -6543,187 +6680,187 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
 
 \begin{theindex}
 
-  \item adsorption, \hyperpage{61}
+  \item adsorption, \hyperpage{62}
   \item Allocation, memory, \hyperpage{3}
   \item Atomic physics, \hyperpage{24}
 
   \indexspace
 
-  \item background species, \hyperpage{61}
+  \item background species, \hyperpage{62}
   \item BGK, \hyperpage{42}
   \item Boltzmann equation, \hyperpage{1}
-  \item boxgen, \hyperpage{55}
+  \item boxgen, \hyperpage{56}
 
   \indexspace
 
-  \item Carre, \hyperpage{58}, \hyperpage{88}
+  \item Carre, \hyperpage{59}, \hyperpage{89}
   \item Charge exchange, \hyperpage{32}
-  \item chargex, \hyperpage{60}
-  \item checkpoints, \hyperpage{99}
+  \item chargex, \hyperpage{61}
+  \item checkpoints, \hyperpage{100}
   \item collisional-radiative, \hyperpage{24}
-  \item CVS, \hyperpage{4}, \hyperpage{51}
+  \item CVS, \hyperpage{4}, \hyperpage{52}
 
   \indexspace
 
-  \item dataexam, \hyperpage{56}
-  \item datamatch, \hyperpage{57}
-  \item datasetup, \hyperpage{55}
-  \item defineback, \hyperpage{23}, \hyperpage{53}, \hyperpage{88}
-  \item defineback input, \hyperpage{62}
-  \item definegeometry2d, \hyperpage{51}, \hyperpage{53}, 
-		\hyperpage{88}
-  \item definegeometry2d input, \hyperpage{62}
+  \item dataexam, \hyperpage{57}
+  \item datamatch, \hyperpage{58}
+  \item datasetup, \hyperpage{56}
+  \item defineback, \hyperpage{23}, \hyperpage{54}, \hyperpage{89}
+  \item defineback input, \hyperpage{63}
+  \item definegeometry2d, \hyperpage{52}, \hyperpage{54}, 
+		\hyperpage{89}
+  \item definegeometry2d input, \hyperpage{63}
   \item DEGAS, \hyperpage{2}
-  \item desorption, \hyperpage{61}
-  \item DG, \hyperpage{58}, \hyperpage{88}
+  \item desorption, \hyperpage{62}
+  \item DG, \hyperpage{59}, \hyperpage{89}
   \item Differential cross section, \hyperpage{32}
   \item Diffusion, \hyperpage{42}
   \item Diffusion cross section, \hyperpage{32}
-  \item directories, \hyperpage{52}
-  \item dissoc, \hyperpage{60}
-  \item dissoc\_rec, \hyperpage{60}
+  \item directories, \hyperpage{53}
+  \item dissoc, \hyperpage{61}
+  \item dissoc\_rec, \hyperpage{61}
   \item Distribution, probability, \hyperpage{5}
 
   \indexspace
 
-  \item elastic, \hyperpage{60}
+  \item elastic, \hyperpage{61}
   \item Elastic scattering, \hyperpage{32}
-  \item elements\_infile, \hyperpage{60}
-  \item elementsfile, \hyperpage{60}
-  \item Emacs, \hyperpage{49}
-  \item emacs, \hyperpage{49}
+  \item elements\_infile, \hyperpage{61}
+  \item elementsfile, \hyperpage{61}
+  \item Emacs, \hyperpage{50}
+  \item emacs, \hyperpage{50}
 
   \indexspace
 
-  \item flighttest, \hyperpage{53}
-  \item ftangle, \hyperpage{50}
-  \item fweave, \hyperpage{50}
-  \item FWEB, \hyperpage{3}, \hyperpage{50}
+  \item flighttest, \hyperpage{54}
+  \item ftangle, \hyperpage{51}
+  \item fweave, \hyperpage{51}
+  \item FWEB, \hyperpage{3}, \hyperpage{51}
 
   \indexspace
 
   \item Generators, random number, \hyperpage{5}
-  \item generic, \hyperpage{60}
-  \item generic PMI, \hyperpage{61}
-  \item generic reactions, \hyperpage{60}
-  \item geometry.inp, \hyperpage{63}
-  \item geomtesta, \hyperpage{53}
-  \item gmake, \hyperpage{49}
+  \item generic, \hyperpage{61}
+  \item generic PMI, \hyperpage{62}
+  \item generic reactions, \hyperpage{61}
+  \item geometry.inp, \hyperpage{64}
+  \item geomtesta, \hyperpage{54}
+  \item gmake, \hyperpage{50}
 
   \indexspace
 
-  \item HDF, \hyperpage{4}, \hyperpage{51}
-  \item HDF5, \hyperpage{51}
-  \item HOME, \hyperpage{52}
+  \item HDF, \hyperpage{4}, \hyperpage{52}
+  \item HDF5, \hyperpage{52}
+  \item HOME, \hyperpage{53}
 
   \indexspace
 
   \item ionization, \hyperpage{24}
-  \item ionize, \hyperpage{60}
-  \item ionize\_suppress, \hyperpage{60}
+  \item ionize, \hyperpage{61}
+  \item ionize\_suppress, \hyperpage{61}
 
   \indexspace
 
-  \item LaTeX, \hyperpage{50}
+  \item LaTeX, \hyperpage{51}
 
   \indexspace
 
   \item Macros, \hyperpage{3}
-  \item make, \hyperpage{49}
-  \item Makefile, \hyperpage{49}
-  \item Makefile.local, \hyperpage{52}
-  \item matcheir, \hyperpage{57}
-  \item matchout, \hyperpage{57}
-  \item materials\_infile, \hyperpage{61}
-  \item materialsfile, \hyperpage{61}
+  \item make, \hyperpage{50}
+  \item Makefile, \hyperpage{50}
+  \item Makefile.local, \hyperpage{53}
+  \item matcheir, \hyperpage{58}
+  \item matchout, \hyperpage{58}
+  \item materials\_infile, \hyperpage{62}
+  \item materialsfile, \hyperpage{62}
   \item Maxwell molecules, \hyperpage{42}
   \item Monte Carlo, \hyperpage{5}
 
   \indexspace
 
-  \item ncdum, \hyperpage{49}
-  \item ncdump-filter, \hyperpage{49}
-  \item ncgen, \hyperpage{49}
-  \item ncgen-filter, \hyperpage{49}
+  \item ncdum, \hyperpage{50}
+  \item ncdump-filter, \hyperpage{50}
+  \item ncgen, \hyperpage{50}
+  \item ncgen-filter, \hyperpage{50}
   \item NetCDF, \hyperpage{4}
-  \item netCDF, \hyperpage{49}
+  \item netCDF, \hyperpage{50}
   \item Neutral Transport, \hyperpage{1}
   \item Neutral-ion scattering, \hyperpage{32}
   \item Neutral-neutral scattering, \hyperpage{42}
-  \item non-generic PMI, \hyperpage{61}
-  \item non-generic reactions, \hyperpage{60}
+  \item non-generic PMI, \hyperpage{62}
+  \item non-generic reactions, \hyperpage{61}
 
   \indexspace
 
   \item Object oriented programming, \hyperpage{3}
-  \item outputscript, \hyperpage{63}
+  \item outputscript, \hyperpage{64}
 
   \indexspace
 
-  \item Pcl-cvs, \hyperpage{51}
-  \item PMI, \hyperpage{61}
-  \item pmi\_infile, \hyperpage{61}
-  \item pmitest, \hyperpage{56}
-  \item pmiwrite, \hyperpage{55}
-  \item problem\_infile, \hyperpage{61}
-  \item problemfile, \hyperpage{61}
-  \item problemsetup, \hyperpage{53}
+  \item Pcl-cvs, \hyperpage{52}
+  \item PMI, \hyperpage{62}
+  \item pmi\_infile, \hyperpage{62}
+  \item pmitest, \hyperpage{57}
+  \item pmiwrite, \hyperpage{56}
+  \item problem\_infile, \hyperpage{62}
+  \item problemfile, \hyperpage{62}
+  \item problemsetup, \hyperpage{54}
   \item Processing, parallel, \hyperpage{4}
 
   \indexspace
 
   \item Random, \hyperpage{5}
-  \item randomtest, \hyperpage{56}
-  \item ratecalc, \hyperpage{55}
+  \item randomtest, \hyperpage{57}
+  \item ratecalc, \hyperpage{56}
   \item rates, atomic physics, \hyperpage{24}
-  \item reaction type, \hyperpage{60}
-  \item reaction\_infile, \hyperpage{60}
-  \item reactionfile, \hyperpage{60}
-  \item reactiontest, \hyperpage{56}
-  \item reactionwrite, \hyperpage{55}
-  \item readbackground, \hyperpage{53}
-  \item readbackground input, \hyperpage{62}
-  \item readgeometry, \hyperpage{53}
-  \item readgeometry input, \hyperpage{62}
-  \item recombination, \hyperpage{24}, \hyperpage{60}
-  \item reference level, \hyperpage{61}
-  \item reflection, \hyperpage{61}
+  \item reaction type, \hyperpage{61}
+  \item reaction\_infile, \hyperpage{61}
+  \item reactionfile, \hyperpage{61}
+  \item reactiontest, \hyperpage{57}
+  \item reactionwrite, \hyperpage{56}
+  \item readbackground, \hyperpage{54}
+  \item readbackground input, \hyperpage{63}
+  \item readgeometry, \hyperpage{54}
+  \item readgeometry input, \hyperpage{63}
+  \item recombination, \hyperpage{24}, \hyperpage{61}
+  \item reference level, \hyperpage{62}
+  \item reflection, \hyperpage{62}
   \item restarting, \hyperpage{100}
 
   \indexspace
 
   \item Scattering angle, \hyperpage{32}
   \item Scoring, \hyperpage{5}
-  \item Silo, \hyperpage{51}
+  \item Silo, \hyperpage{52}
   \item snapshot, \hyperpage{23}
-  \item sourcetest, \hyperpage{56}
-  \item species, \hyperpage{60}
-  \item species\_infile, \hyperpage{60}
-  \item speciesfile, \hyperpage{60}
+  \item sourcetest, \hyperpage{57}
+  \item species, \hyperpage{61}
+  \item species\_infile, \hyperpage{61}
+  \item speciesfile, \hyperpage{61}
   \item Spin exchange, \hyperpage{32}
-  \item subset data, \hyperpage{61}
-  \item symbolic name, \hyperpage{59}
-  \item sysdeptest, \hyperpage{56}
+  \item subset data, \hyperpage{62}
+  \item symbolic name, \hyperpage{60}
+  \item sysdeptest, \hyperpage{57}
 
   \indexspace
 
-  \item Tags, \hyperpage{49}
-  \item tally, \hyperpage{63}
-  \item tally\_infile, \hyperpage{63}
-  \item tallyfile, \hyperpage{63}
-  \item tallysetup, \hyperpage{53}, \hyperpage{63}
-  \item test species, \hyperpage{61}
-  \item TeX, \hyperpage{50}
+  \item Tags, \hyperpage{50}
+  \item tally, \hyperpage{64}
+  \item tally\_infile, \hyperpage{64}
+  \item tallyfile, \hyperpage{64}
+  \item tallysetup, \hyperpage{54}, \hyperpage{64}
+  \item test species, \hyperpage{62}
+  \item TeX, \hyperpage{51}
   \item Theory, transport, \hyperpage{1}
-  \item time dependence, \hyperpage{23}, \hyperpage{99}
+  \item time dependence, \hyperpage{23}, \hyperpage{100}
   \item Total cross section, \hyperpage{32}
   \item Tracking, \hyperpage{5}
   \item Transport codes, \hyperpage{1}
-  \item Triangle, \hyperpage{51}
+  \item Triangle, \hyperpage{52}
 
   \indexspace
 
-  \item ucd\_plot, \hyperpage{53}
+  \item ucd\_plot, \hyperpage{54}
 
   \indexspace
 
