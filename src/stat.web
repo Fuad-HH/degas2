@@ -2,6 +2,11 @@
 \Title{statisticw}
 
 % $Log$
+% Revision 1.15  2012/08/24 15:57:14  dstotler
+% Separateed the three assertions at the top of stat_acc to
+% facilitate debugging.  Add some more, perhaps temporary diagnostic
+% output, to this.
+%
 % Revision 1.14  2011/03/04 18:08:46  dstotler
 % Removed old, unused code.
 %
@@ -241,6 +246,39 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
       return
       end
 
+@ Reinitialize a scoring array.  Made into a subroutine to allow use
+for any set of scoring arrays.  Subroutine |stat_acc| also does this
+explicitly, but need to re-initialize the final set of scoring data
+on slaves after they have sent data.
+
+@<Functions...@>=
+      subroutine stat_zero(wt_tot,compress,size,ps_dim,ptr2short,dim,stat)
+      implicit_none_f77
+      implicit_none_f90
+
+      integer compress,size,ps_dim,dim             // Input
+      integer ptr2short[0:ps_dim-1]
+      real wt_tot
+      real stat[0:dim-1][o_mean:o_var]
+
+      integer i                                    // Local
+      wt_tot=zero
+      if (compress == TRUE) then
+         size=0
+         do i=0,ps_dim-1
+            ptr2short[i]=int_uninit
+         end do
+      end if
+      if (compress == FALSE) then 
+         do i=0,dim-1
+            stat[i][o_mean]=zero
+            stat[i][o_var]=zero
+         end do
+      end if
+
+      return
+      end
+
 @ Allocate and initialize local scoring arrays and their pointers.
 
 @<Functions...@>=
@@ -312,9 +350,10 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
          end do
       end if
 /*
-   Do not expect to compress final array. Rather than duplicate
-   space provided by |output_grp|, disable allocation here and
-   note changes required to permit compression if needed later.
+   In |do_flights_master|, |output_grp| takes the place of
+   the final array and is, thus, not compressed.  However,
+   we do use a compressed final array in performing multi-level
+   data aggregation on the meta-slaves.
 */
       stat_wt_tot_fin=zero           // Have really replaced with |weight_grp|
       if (stat_comp_fin == TRUE) then
@@ -334,8 +373,7 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
             stat_wt_dim_fin=1
          end if
       end if
-      assert(stat_comp_fin == FALSE)    
-@#if 0
+
       var_alloc(stat_fin)
       if (stat_comp_fin == FALSE) then  
          do i=0,stat_dim_fin-1
@@ -343,7 +381,7 @@ m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
             stat_fin[i][o_var]=zero
          end do
       end if
-@#endif
+
       var_alloc(stat_ptr2full_fin)
       var_alloc(stat_ptr2short_fin)
       var_alloc(stat_wt_fin)
@@ -420,10 +458,7 @@ for next use.
 
       var_free(stat_flt)
       var_free(stat_frag)
-      assert(stat_comp_fin == FALSE)
-@#if 0
       var_free(stat_fin)
-@#endif
       var_free(stat_ptr2full_flt)
       var_free(stat_ptr2full_frag)
       var_free(stat_ptr2full_fin)
