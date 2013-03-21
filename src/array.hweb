@@ -2,6 +2,10 @@
 % $Id$
 
 % $Log$
+% Revision 1.31  2011/03/04 17:55:30  dstotler
+% Replace mpi_root with mpi_degas2_root to avoid name collision on Jaguar.
+% Remove the FORTRAN77 qualifiers on the array_unit macro.
+%
 % Revision 1.30  2009/11/25 14:34:54  dstotler
 % Add the mpibcastna algorithm that eliminates the allocation step from mpibcast.
 %
@@ -539,12 +543,10 @@ value.	*/
 @m last_sizeb(x) (mem_size(range_size(ind_##x##_m))-mem_inc)
 @m last_sizec(x,y) mem_size((y)-range_min(ind_##x##_m)+1)
 
-@#if FORTRAN90
 @m last_ubound(x) range_max(ind_##x##_m)
 @m last_ubounda(x) (last_sizea(x)+range_min(ind_##x##_m)-1)
 @m last_uboundb(x) (last_sizeb(x)+range_min(ind_##x##_m)-1)
 @m last_uboundc(x,y) (last_sizec(x,y)+range_min(ind_##x##_m)-1)
-@#endif
 
 @#if FORTRAN77
 @m array_sizea(x) array_unit(x)*last_sizea(x)
