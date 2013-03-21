@@ -3,6 +3,9 @@
 \Title{geometry}
 
 % $Log$
+% Revision 1.38  2012/08/24 15:35:30  dstotler
+% Fix a comment typo.
+%
 % Revision 1.37  2011/03/04 18:02:05  dstotler
 % Fix comments on surfaces_tx arrays.
 %
@@ -1429,6 +1432,25 @@ cells, it checks that the cells are neighbors.
       end if
       check_location = .true.
       
+      return
+      end
+
+@* Check zone number and type.  This used to be a simple macro, but
+transformed it into code to avoid possibly referencing |zone_type(0)|.
+
+@<Functions...@>=
+      function check_zone(zn_dummy(x))
+      implicit_none_f77
+      zn_common
+      implicit_none_f90
+      logical check_zone    // Function
+      zn_decl(x)            // Input
+
+      check_zone=.false.
+      if (x <= 0 || x > zn_num) return
+      if (zn_type(x) <= 0 || zn_type(x) > zn_type_max) return
+      check_zone=.true.
+
       return
       end
 
