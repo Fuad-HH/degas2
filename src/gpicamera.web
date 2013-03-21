@@ -2,6 +2,9 @@
 \Title{gpicamera}
 
 % $Log$
+% Revision 1.3  2009/11/25 19:41:30  dstotler
+% Move minus signs in macro constants inside the const macro.
+%
 % Revision 1.2  2007/06/19 17:36:16  dstotler
 % Change radial shift in camera (cx,cy) -> (R,Z) mapping from 2.67 pixels to 6.0.
 %
@@ -10,8 +13,116 @@
 %
 
 @* Routine to set up camera views for use with NSTX Gas Puff Imaging
-Experiment.  This version uses parameters appropriate for the 2004
-campaign.
+Experiment.  
+
+This file serves as an example |usr2ddetector.web| routine for the
+more complicated case of a 2-D imaging camera.  The particular
+parameters used here are from the 2004 NSTX run campaign.  More recent
+versions differ only in the numerical values of these
+parameters; the basic principles remain the same.
+
+A key distinction between this and the approach used in simulating
+one dimensional imaging arrays (e.g., as in |btopdetector.web|) is that
+memory considerations prohibit computing the simulated image as part
+of the primary simulation (i.e., |flighttest|).  For example, in this
+case, the |de_zone_frags| array would have 
+$64 \times 64 \times$ |zn_num| elements.
+For a typical 3-D GPI simulation, |zn_num| 
+$\sim 10^{5} \rightarrow 4 \times 10^{8}$ 64
+bit real numbers or $> 3$ GB, quite a large amount of memory.
+
+We instead compute a much lower resolution (represented by
+the |nx| and |ny| macro parameters below; both $= 5$) image during
+the run of |flighttest|; the resulting data are used only to
+check the simulation and camera geometry.
+The full camera image is computed subsequently via the |postdetector|
+routine.
+Because all of the constituent 
+chord integrals are independent, each can be computed separately
+so that only |zn_num| elements are needed in 
+|de_zone_frags| at a time.
+This independence also allows 
+the calculation to be parallelized for efficiency.  The particular
+subroutine called from |postdetector| is {\em not} 
+|detector_setup|, but |gpi_views|.  An important implication of 
+this is that |postdetector| is presently specific to these
+GPI applications.  
+
+Each of the camera pixels corresponds to a single chord specified by two
+points, as is described in the {\em Defining Radiation Detectors} section
+of the User's Manual.  One of these points is the camera vertex, represented
+by the macros |x_p0|, |y_p0|, |z_p0| below.  The ``p'' in the macro 
+refers to the fact that the DEGAS 2 values for these coordinates are 
+in a system rotated toroidally from the experimental coordinate system;
+this is explained further below.
+
+The second point of each chord can be determined by whatever means
+are available.  In all GPI simulations to date, these second points
+are obtained as a mapping between the camera's pixel coordinates
+and physical coordinates on a ``target plane''. 
+Conceptually, this is just a plane centered on the gas puff. 
+In the NSTX case, it is defined in principle by a line (the gas manifold,
+a stainless steel tube) and a vector pointing at the center
+stack.   In reality, it corresponds to a rectangular piece of metal bolted
+to the gas manifold.  
+
+Coordinates of arbitrarily located
+physical points on this ``plane'' are taken
+via a precision measuring arm, and a plane of the form
+\[
+a_{0} x + a_{1} y + a_{2} z = 1
+\]
+is fit to the resulting data.  For convenience, the DEGAS 2 simulations
+place the center of the gas manifold at zero toroidal angle.  
+Since the measurement arm
+data are referenced to a different location, a toroidal rotation |phi| must be 
+applied to the target plane before use here.  The end result is a second set
+of plane coefficients, $a_{0}^{\prime} \rightarrow$ |a0_p|, etc.  As
+noted above, this same rotation is applied to the coordinates of the
+camera vertex.
+
+The gas puff for GPI experiments on Alcator C-Mod is provided by one or
+more capillaries at a single toroidal angle.  In this case, the target
+plane is simply a vertical plane at that angle.  The adaptation of this
+file to those experiments would require changing the values of the
+plane coefficients.  Examples of such specifications can be found
+in |postdetector.web|, where the same target plane data are also
+used.
+
+The mapping of points on this target plane to pixel coordinates
+is determined from an image of this 
+same calibration target plane recorded by the camera
+(in NSTX, the process is rendered more complex
+by the optical system, although the overall procedure is the same).
+The particular approach used in NSTX consists first of
+using the resulting image to fit the mapping between 
+the pixel coordinates ($c_{x}$, $c_{y}$) and 
+spatial coordinates $(R,Z)$:
+\[
+R = a_{Rx} c_{x} + a_{Ry} c_{y} + R_{0} 
+\]
+\[
+Z = a_{Zx} c_{x} + a_{Zy} c_{y} + Z_{0},
+\] 
+where $c_{x}$ ranges from |cx_min| to |cx_max|,
+and $c_{y}$ ranges from |cy_min| to |cy_max|.
+Note that the coefficients in these equations
+do not appear below as variables or macros but
+simply as constants in the expressions for |r_maj| and |z|.  Also
+note that relative spatial calibrations made during the campaign
+indicated that the camera view had shifted in the $c_{y}$ 
+direction, leading to the shift in that coordinate noted
+below.
+
+But, in a 3-D simulation we need to know all three
+coordinates, $(x, y, z)$ in the target plane for each pixel.
+Obviously, $z(c_{x},c_{y}) = Z(c_{x},c_{y})$.  The values of
+$x(c_{x},c_{y})$ and $y(c_{x},c_{y})$  are obtained from 
+a quadratic equation derived by combining the
+definition of $R = \sqrt{x^{2} + y^{2}}$ with the above
+equation for the target plane.
+
+
 
 \ID{$Id$}
 
@@ -173,12 +284,14 @@ detector class arrays.
       cy=cy_min+areal(iy-1)*delta_cy
 /*
    This was the original mapping provided by Ricky Maqueda.
-
+*/
+@#if 0
       r_maj=const(1.,-3)*(-const(0.7555)*cx-const(3.5159)*(cy+const(2.67))
      $  +const(1.604,3))
       z=const(1.,-3)*(const(2.8476)*cx-const(0.5254)*(cy+const(2.67))
      $     +const(1.31,2))
-
+@#endif
+/*
    Subsequently concluded that a 6 pixel was appropriate for these shots:
 */
       r_maj=const(1.,-3)*(-const(0.7555)*cx-const(3.5159)*(cy+const(6.0))
