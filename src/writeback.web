@@ -2,6 +2,19 @@
 \Title{writeback}
 
 % $Log$
+% Revision 1.16  2012/08/24 16:04:23  dstotler
+% set_snapshot_source now keeps track of whether or not a snapshot
+% source was used on a previous iteration / run. Relaxed the test
+% on the time found in the snapshot file to be within rounding error.
+% Freed the snapshot arrays read in from the netCDF file after the
+% source has been set up; this fixes a memory leak. Adapted the UEDGE routines for
+% the miscellaneous source parameters.  Implemented alternative, basic
+% segment sampling technique for really large source groups (e.g., snapshot).
+% Revised the snapshot nc_read routine for use with MPI in the same way
+% as the other nc_read routines. Replaced the assertion in
+% set_snapshot_source on initial time with a warning (this may
+% occur in testing).
+%
 % Revision 1.15  2011/03/04 18:10:24  dstotler
 % Fix reference to Walker paper.  Add variables for time dependence.
 % Modify for miscellaneous source parameters. Add routine to set up
@@ -376,6 +389,7 @@ of the source definition.
       g2_ncdecl
       nc_decls
       vc_decls
+      zn_decls
 /*
    To permit these to be reallocated by any of the three possible macros,
    helps to make the initial allocation of size |mem_inc|. 
@@ -984,7 +998,12 @@ If not, add to the list.
  */
             so_species(so_grps)=pr_bkrc_prod(jr,1)
             so_root_sp(so_grps)=pr_background(pr_bkrc_rg(jr,2))
-            so_t_varn(so_grps)=so_delta_fn 
+            if (so_time_dependent == TRUE) then
+               assert(so_time_final > so_time_initial)
+               so_t_varn(so_grps)=so_time_uniform
+            else
+               so_t_varn(so_grps)=so_delta_fn
+            end if
             so_nseg(so_grps)=0
             so_geom(so_grps)=so_volume
             so_nflights(so_grps)=100
@@ -1061,6 +1080,10 @@ If not, add to the list.
                   var_realloca(source_segment_prob_alias)
                   var_realloca(source_segment_ptr_alias)
                   source_segment_ptr[so_seg_tot]=zone
+               end if
+               if (so_time_dependent == TRUE) then
+                  assert(so_time_final > so_time_initial)
+                  rate*=(so_time_final-so_time_initial)
                end if
                source_current[so_seg_tot]=rate
                so_tot_curr(grp)+=rate
@@ -1356,14 +1379,16 @@ one applied by EIRENE in the benchmark runs.
 @ Set up a source based on snapshot particles.
 
 @<Functions...@>=
-      subroutine set_snapshot_source
+      subroutine set_snapshot_source(standalone)
       implicit_none_f77
       so_common
       sn_common
       mp_common
       implicit_none_f90
 
-      integer have_snapshot_file,new_seg_tot,ip,iparam,igrp,
+      integer standalone                                      // Input
+
+      integer have_snapshot_file,new_seg_tot,ip,iparam,igrp,  // Local
      $        iseg,snapshot_reset
 
       @<Memory allocation interface@>
@@ -1466,11 +1491,31 @@ one applied by EIRENE in the benchmark runs.
       end if
 
       new_seg_tot=so_base(so_grps)-1+sn_number_particles
-      var_realloc(source_segment_ptr,so_seg_tot,new_seg_tot)
-      var_realloc(source_current,so_seg_tot,new_seg_tot)
-      var_realloc(source_segment_rel_wt,so_seg_tot,new_seg_tot)
-      var_realloc(source_segment_prob_alias,so_seg_tot,new_seg_tot)
-      var_realloc(source_segment_ptr_alias,so_seg_tot,new_seg_tot)
+      if (standalone == TRUE) then
+/*
+   If this routine is called from preprocessing setup routine
+   (e.g., |defineback|), the source segment arrays are growing
+   in chunks of |mem_inc|.  In this case, we need to use the
+   |var_reallocc| macro to redimension for the snapshot segments.
+*/
+         var_reallocc(source_segment_ptr,so_seg_tot,new_seg_tot)
+         var_reallocc(source_current,so_seg_tot,new_seg_tot)
+         var_reallocc(source_segment_rel_wt,so_seg_tot,new_seg_tot)
+         var_reallocc(source_segment_prob_alias,so_seg_tot,new_seg_tot)
+         var_reallocc(source_segment_ptr_alias,so_seg_tot,new_seg_tot)
+      else
+/*
+   Otherwise, the routine is being called {\em after} the background
+   netCDF file has been read in.  In this case, the source segment
+   arrays are precisely |so_seg_tot| long so that we need to use
+   |var_realloc| to redimension.
+*/
+         var_realloc(source_segment_ptr,so_seg_tot,new_seg_tot)
+         var_realloc(source_current,so_seg_tot,new_seg_tot)
+         var_realloc(source_segment_rel_wt,so_seg_tot,new_seg_tot)
+         var_realloc(source_segment_prob_alias,so_seg_tot,new_seg_tot)
+         var_realloc(source_segment_ptr_alias,so_seg_tot,new_seg_tot)
+      end if
 
       so_params_data_size=source_parameters_data_base[so_grps]
      $     +source_num_parameters[so_grps]*sn_number_particles
