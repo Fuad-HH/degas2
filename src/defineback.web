@@ -2,6 +2,12 @@
 \Title{defineback}
 
 % $Log$
+% Revision 1.7  2012/08/24 15:10:22  dstotler
+% Replaced assertion on bk_temp in setting of plasma_e_ion_delta
+% with a minimum value for the latter.  Final changes for volume
+% source, including making default velocity zero.  Documented
+% volume source and time dependent operation.
+%
 % Revision 1.6  2011/03/04 17:57:43  dstotler
 % Incorporate miscellaneous source parameters, setting of time dependence
 % parameters; add call to set_snapshot_source.  A generic volume source is
@@ -819,7 +825,9 @@ time dependent calculation may be needed.  Only two keywords
 are required in the |defineback| input file to enable time
 dependent operation: |time_interval| specifies the initial and final times
 for the solution interval, and |source_time_variation| specifies the manner
-in which the source(s) varies in time.
+in which the source(s) varies in time.  Note also that the strength
+of the source in a time dependent run represents a number of particles (|specify_current|) or
+particles per square meter (|specify_flux|).
 
 A typical time dependent application would be an explicit, synchronized coupling with
 a plasma simulation code.  At each step, the output from the plasma code
@@ -1017,7 +1025,8 @@ used should be as well.
       integer type,geom,nflights,length,p,b,e,nunit_n,specify_flux,
      $        nunit_t,num_segments,iseg,i,open_stat,targ,diskin2,
      $        dim_segments,itest,data_type,data_code,update,old_grps,
-     $        old_seg_tot,grp,iterative,jr,iparam,time_varn
+     $        old_seg_tot,grp,iterative,jr,iparam,time_varn,
+     $        standalone
 
       character*1 back_label
       character*LINELEN line,type_string,nt_string,file_format
@@ -1478,7 +1487,10 @@ input_done: continue
 
       if (update == FALSE) then
          call set_background_sources
-         if (so_time_dependent == TRUE) call set_snapshot_source
+         if (so_time_dependent == TRUE) then
+            standalone=TRUE
+            call set_snapshot_source(standalone)
+         end if
       else
          assert(update == TRUE)
          assert(iterative == TRUE)
@@ -2302,6 +2314,7 @@ the user to provide fewer data values than zones, if desired.
 
       @<Memory allocation interface@>
       st_decls
+      zn_decls
 
       var_alloc(zone_list)
       var_alloc(n_iy)
