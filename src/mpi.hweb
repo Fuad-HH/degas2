@@ -2,6 +2,9 @@
 % $Id$
 
 % $Log$
+% Revision 1.4  2011/03/04 18:03:24  dstotler
+% Replace mpi_root with mpi_degas2_root to avoid name collision on Jaguar.
+%
 % Revision 1.3  2009/11/25 19:44:04  dstotler
 % Add call to MPI_barrier before MPI_finalize to deal with "could
 % not write to fd=5" errors.
@@ -52,6 +55,9 @@
       tag=mpi_status(MPI_TAG) @;
 
 @m mpi_master (mpi_rank==mpi_degas2_root)
+
+@m mpi_slave_map_m(il,is) mpi_slave_map[(il-1)*mpi_nslaves+is]
+
 @#else
 @m mp_decls
 @m mp_common
@@ -69,5 +75,14 @@
       define_var_pk(mp,mpi_degas2_root,INT)
       define_var_pk(mp,mpi_size,INT)
       define_var_pk(mp,mpi_rank,INT)
+      define_var_pk(mp,mpi_nslaves,INT)
+      define_var_pk(mp,mpi_nlevels,INT)
+
+      define_dimen_pk(mp,mpi_levels_ind,mpi_nlevels)
+      define_dimen_pk(mp,mpi_slave_map_ind,mpi_nslaves*mpi_nlevels)
+
+      define_varp_pk(mp,mpi_slave_map,INT,mpi_slave_map_ind)
+      define_varp_pk(mp,mpi_meta_slave_comms,INT,mpi_levels_ind)
+      define_varp_pk(mp,mpi_meta_slave_groups,INT,mpi_levels_ind)
 @#endif
       package_end(mp)
