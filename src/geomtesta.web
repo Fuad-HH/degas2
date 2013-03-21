@@ -2,6 +2,12 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.31  2012/08/24 15:37:51  dstotler
+% Added capability to write multiple time slices. Used separate
+% dbfile designation for time dependent variables since they
+% need to be in separate files, allowing other variables in
+% external files to remain in the main file.
+%
 % Revision 1.30  2011/03/04 18:02:38  dstotler
 %  Add plot of zone_type.  Insert equations for axis coordinates in preamble.
 %
@@ -391,6 +397,7 @@ this mapping simplifies to the obvious form:
       st_decls
       tl_decls
       vc_decls
+      zn_decls
 @#if SILO
       include 'silo.inc'
       integer dbfile,dbfile_td,ret,itxt
@@ -526,6 +533,7 @@ loop: continue
          go to loop
       end if
       close(unit=diskin)
+      var_reallocb(ext_filenames)
 
       var_alloc(zone_data)
 /*
