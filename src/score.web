@@ -2,6 +2,15 @@
 \Title{score}
 
 % $Log$
+% Revision 1.21  2012/08/24 15:49:30  dstotler
+% Updated sn_particles_dim only if smaller than sn_number_particles;
+% fixes a recurring memory problem.  Added snapshot_data for
+% reaction tally of source data. Called track_conversions only when
+% needed.  Used a separate call to set_comp_scores with this so that
+% the scoring_data don't have to be copied. Merged in volume source
+% changes, including subroutine vol_source_data and adding kseg to
+% various argument lists.
+%
 % Revision 1.20  2011/03/04 18:06:28  dstotler
 % Set lc_sector in post_process_test_scores (bug fix). Add compilation of
 % snapshot particle data. Skip post_process_source_scores for
@@ -1376,6 +1385,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
       st_decls
       lc_decls
       rn_decls
+      zn_decls
 
       real find_rate                                      // External
       external find_rate
@@ -1636,6 +1646,12 @@ situation.
          sn_particles_dim=max(sn_particles_dim,sn_number_particles)
          var_realloca(sn_particles_float)
          var_realloca(sn_particles_int)
+/*
+   This macro resets |sn_particles_dim| to the actual dimension of the
+   arrays as allocated by |var_realloca|.  See also corresponding comment
+   in |slave_receive_flights|.
+*/
+         sn_particles_dim=last_ubounda(sn_particles_float)
       end if
 /*
    The order of these statements is not random, but corresponds to that in 
