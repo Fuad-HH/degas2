@@ -30,7 +30,7 @@
  
 <h1 align="center"><a href="degas2d.jpg">Figure</a>
 User's Guide for DEGAS 2 <br />
-Release V.&nbsp;4.5<a href="#tthFtNtAAB" id="tthFrefAAB"><sup>1</sup></a> </h1>
+Release V.&nbsp;4.6<a href="#tthFtNtAAB" id="tthFrefAAB"><sup>1</sup></a> </h1>
 
 <h3 align="center"> <br />Daren Stotler and Charles Karney <br /><em>Princeton Plasma Physics 
 Laboratory</em> <br />Randall Kanzleiter <br /><em>Rensselaer Polytechnic Institute</em> <br />
@@ -1941,7 +1941,7 @@ DEGAS 2 is, from the lowest level to the highest level, is:
 </li>
 </ol>
 Individual cells are composed of surfaces, as discussed in the documentation
-for the internal geometry (e.g., see  - geometry.web - ; follow
+for the internal geometry (e.g., see <tt>geometry.web</tt>; follow
 this <a href="geometry.pdf#page.1">link</a> to the PDF version of this file). 
 The next level up
 in two (and three, to a limited extent) dimensions
@@ -2112,7 +2112,7 @@ see the corresponding <a href="defineback.pdf#page13">source file</a>
 for details on how this is done.
 However, the user can in principle also manually
 set the controlling
-parameters in the <a href="classes.pdf#page.25">source class</a>.
+parameters in the <a href="classes.pdf#page.26">source class</a>.
 
 <div class="p"><!----></div>
 The user specified sources in a time dependent run are
@@ -2132,7 +2132,10 @@ the end of the end of a previous interval.
 Again following [<a href="#Reit95">5</a>], we represent this PDF via the
 particle positions,
 velocities, and weights; this is the purpose of the
-<a href="classes.pdf#page.128">snapshot class</a>.  With this
+<a href="classes.pdf#page.128">snapshot class</a>.  These
+data are written to the file indicated by the
+<tt>snapshotfile</tt> in <tt>degas2.in</tt> (Sec.&nbsp;<a href="#degas2in">3.5.1</a>).
+With this
 approach, the amount of kinetic detail in the PDF is
 maximized.
 
@@ -3898,6 +3901,74 @@ Handbook[<a href="#CRC">43</a>].</div>
 </div>
 
 <div class="p"><!----></div>
+ <a id="tth_sEc2.11"></a><h2>
+2.11&nbsp;&nbsp;Recycling</h2>
+
+<div class="p"><!----></div>
+Recycling of both ions and neutral species in DEGAS 2 is controlled by
+the set of PMI ("Plasma Material Interactions", e.g., see 
+the PMI <a href="pmisetup.pdf#page.1">setup</a> file) and one additional
+parameter generically referred to as the "recycling coefficient".
+The value of the recycling coefficient is a constant associated with
+each wall and target sector (see the <a href="classes.pdf#page.39">sector class</a>).
+These are prescribed during geometry definition, e.g., via 
+the <tt>recyc_coef</tt> keyword in <tt>definegeometry2d</tt>.
+
+<div class="p"><!----></div>
+The best way to understand the recycling coefficient, &#8476;,
+is to note that P<sub>a</sub> = 1 &#8722; &#8476; is the probability for
+a flight (the "projectile") striking that sector to be absorbed.
+Adsorption, is effectively 
+one of the plasma-material interactions that the
+code will choose from in deciding the fate of the projectile.
+
+<div class="p"><!----></div>
+The second PMI that is always present is referred to as the
+"default PMI" since the code defaults to that PMI should
+none of the other prescribed PMI (including adsorption) be
+selected.  Since all PMI must have an
+associated probability or "yield", a "default PMI" is
+assigned a negative (i.e., unphysical) yield.
+The most common default PMI is desorption.
+
+<div class="p"><!----></div>
+The third PMI we consider here is "reflection" or "backscattering"
+in which the incident particle returns immediately to the 
+plasma with most of its incident energy.
+The data associated with the reflection PMI
+are used to compute a probability or yield, P<sub>r</sub>, for
+the process.
+This probability is, in general, a function of the
+projectile energy and angle with respect to the surface normal.
+
+<div class="p"><!----></div>
+Consider now the common case of an incident hydrogen atom for which
+both reflection and desorption (default) PMI's have been specified,
+as well as a recycling coefficient &#8476;.  The probability
+assigned to the desorption PMI is 
+P<sub>d</sub> = 1 &#8722; P<sub>r</sub> &#8722; P<sub>a</sub> = &#8476; &#8722; P<sub>r</sub>.  In the case
+of unity recycling (the surface is in steady state), the physical 
+interpretation is that atoms not reflected are adsorbed, 
+eventually recombine with another atom, and are desorbed as
+molecules.  In a steady state simulation, the time interval
+associated with "eventually" is meaningless, so the process might
+as well be instantaneous.
+
+<div class="p"><!----></div>
+In the case of less than unity recycling, i.e. net adsorption, 
+the value of P<sub>d</sub> is reduced accordingly.  If &#8476;  &lt;  P<sub>r</sub>,
+P<sub>d</sub> is negative and there is no desorption and the
+reflection probability is effectively &#8476;.
+
+<div class="p"><!----></div>
+If &#8476; = 0, the sector is equivalent to an "exit".
+One operational difference is that flights striking an
+exit are terminated immediately.  Flights striking a 
+zero recycling sector will still undergo the process of
+selecting a PMI, even though the result will always
+be adsorption.
+
+<div class="p"><!----></div>
  <a id="tth_chAp3"></a><h1>
 Chapter 3 <br />Running DEGAS 2</h1>
 
@@ -4964,7 +5035,7 @@ corresponding PDF file.
 id="readbackground_input35131"></a>
 
 <div class="p"><!----></div>
-Currently, the only possible inputs to  - readbackground -  are the
+Currently, the only possible inputs to <tt>readbackground</tt> are the
 <tt>UEDGE</tt> (a specifically formatted text file generated during
 <tt>UEDGE</tt> post-processing) and <tt>DEGAS</tt> formats (an input file for
 the old DEGAS code). This routine makes some specific assumptions about
@@ -6879,6 +6950,8 @@ they can be used.
 <div class="p"><!----></div>
 
 <h4>Gas Puff Imaging Example</h4>
+<a id="HeGPI">
+</a>
 <a 
 id="DG37140"></a>
 <a 
@@ -7453,12 +7526,7 @@ cd&nbsp;../../LINUX64
 </li>
 
 <li> <b>Prepare reference data.</b>
-This example does use a modified PMI file that removes H as a 
-product in desorption from C.  Consequently, this step must be
-performed even if the standard reference data files in the
-data directory have been previously created.  The resulting
-<tt>pmi.nc</tt> file will remain in the run directory and will not
-affect other runs utilizing the reference data.
+This example uses the standard reference data files.
 
 <pre>
 gmake&nbsp;datasetup
@@ -8138,9 +8206,14 @@ collision and track-length routines if new type.
 3.10&nbsp;&nbsp;Defining Radiation Detectors</h2>
 
 <div class="p"><!----></div>
-The user defines "groups" of detector "views". Each view needs
-to be defined only once and can be used in more than one group. A
-view is defined by:
+The "detector" class contains the objects needed to assemble
+synthetic diagnostics for filterscopes, imaging cameras, and other
+diagnostics that effectively integrate light emission along a 
+chord through the problem volume.  In the detector class, each
+such chord is referred to as a "view".  
+
+<div class="p"><!----></div>
+All of the views in the problem are characterized by:
 
 <ol type="1">
 <li> Two points,
@@ -8164,7 +8237,7 @@ the starting point),
 
 <li> An averaging algorithm, used to simulate the finite spatial
 resolution obtained with real detectors.  
-The two techniques available now are
+The two techniques, each having 2-D and 3-D variants, available are
   
 <ul>
 <li> Uniform weighting (i.e., square),
@@ -8193,30 +8266,39 @@ minimum, maximum, and the number of wavelength bins.
 <div class="p"><!----></div>
 </li>
 </ol>
+The views thus defined can be separated into "groups". 
+E.g., each group might represent a different diagnostic.
 The actual variables are defined and described in the
 <a href="classes.pdf#page.50">detector class</a>.
 
 <div class="p"><!----></div>
-Views are machine specific and not frequently changed. For these reasons,
-the user will need to specify them via specific lines of code in
-<tt>readgeometry</tt>, <tt>boxgen</tt>, or <tt>btopdetector</tt>.
-
-<div class="p"><!----></div>
-     <a id="tth_sEc3.10.1"></a><h3>
-3.10.1&nbsp;&nbsp;Signal Computation</h3>
-
-<div class="p"><!----></div>
-The contribution from each zone to a view is usually precomputed so that the
+The contribution from the light emitted in
+each zone to a view is usually precomputed so that the
 signal can be quickly determined
-during or after the run from volumetric emission. However, this can
+during or after the run from the volumetric emission. However, storing
+these data can
 become impractical when a large number of chords (  &gt;&gt; 100) are
 called for since the preprocessing yields an array of size
 (number of zones) &times; (number of chords).  In that case, the 
 user may want to use just a subset
-of chords during geometry setup and save processing the full array
-for postprocessing. The chord signals can be individually evaluated,
+of chords during geometry setup and only generate the full array
+during postprocessing. The chord signals can be evaluated independently,
 in parallel if need be, in this case so that the aforementioned
-array is not required.
+array is not required.  
+
+<div class="p"><!----></div>
+The first of the three following subsections, Sec.&nbsp;<a href="#frags">3.10.1</a>, describes
+the computation of these signal contributions.  The second subsection,
+Sec.&nbsp;<a href="#detectorsetup">3.10.2</a>, outlines the structure of the subroutine
+used to set up the detector views and groups of views.  The third
+subsection, Sec.&nbsp;<a href="#postdetector">3.10.3</a>, describes one approach to
+computing the detector signal in post-processing.
+
+<div class="p"><!----></div>
+     <a id="tth_sEc3.10.1"></a><h3>
+3.10.1&nbsp;&nbsp;Signal Computation</h3>
+<a id="frags">
+</a>
 
 <div class="p"><!----></div>
 There are two situations:
@@ -8486,8 +8568,96 @@ defined in Sec.&nbsp;<a href="#AtomicPhysics">2.9</a>.
 Note, however, that the code is completely general regarding wavelength 
 and origin of radiation. Other line emission rates can be scored in
 an analogous if the appropriate data are present in the input data
-files. Again note that the views cannot be toroidally directed. If
-needed, this option could be incorporated with relative ease.
+files. 
+
+<div class="p"><!----></div>
+     <a id="tth_sEc3.10.2"></a><h3>
+3.10.2&nbsp;&nbsp;The Detector Setup Subroutine</h3>
+<a id="detectorsetup">
+</a>
+
+<div class="p"><!----></div>
+The subroutine used to set up the detector views and groups of views
+should be named <tt>detector_setup</tt>; all DEGAS 2 geometry definition routines
+(<tt>boxgen</tt>, <tt>readgeometry</tt>, and <tt>definegeometry2d</tt>) call this subroutine.
+The default, null implementation is contained in <tt>def2ddetector.web</tt>.
+A user developed <tt>detector_setup</tt> replacement for this routine should
+be placed in a file called <tt>usr2ddetector.web</tt> in the <tt>src</tt> directory.
+Example implementations of this routine provided with the code are
+<tt>btopdetector.web</tt> (a 1-D array) and <tt>gpicamera.web</tt> (a 2-D imaging
+camera; see also its <a href="gpicamera.pdf#page.1">documentation</a>).
+
+<div class="p"><!----></div>
+The suggested structure of <tt>detector_setup</tt> is:
+
+<ol type="1">
+<li> For each view, 
+  
+<ul>
+<li> Set the two points defining the viewing chord,
+<div class="p"><!----></div>
+</li>
+
+<li> Set the algorithm and half-width values.
+<div class="p"><!----></div>
+</li>
+
+<li> Use these as arguments to the <tt>detector_view_setup</tt>
+subroutine (in <tt>dediagsetup.web</tt>).
+<div class="p"><!----></div>
+</li>
+
+<li> This returns the contribution of each zone in the
+problem to that view's signal, f(z<sub>j</sub>) in Sec.&nbsp;<a href="#frags">3.10.1</a>.  This
+quantity is copied into the <tt>de_zone_frags</tt> array.
+<div class="p"><!----></div>
+</li>
+</ul>
+<div class="p"><!----></div>
+</li>
+
+<li> Assemble these views into one or more groups, defining each with
+a call to <tt>de_grp_init</tt> (in <tt>dediagsetup.web</tt>).
+  
+<ul>
+<li> If the detector group is to compute the spectrum of light
+emission, the requisite parameters are also passed to 
+<tt>de_grp_init</tt>.
+<div class="p"><!----></div>
+</li>
+</ul>
+<div class="p"><!----></div>
+</li>
+</ol>
+
+<div class="p"><!----></div>
+     <a id="tth_sEc3.10.3"></a><h3>
+3.10.3&nbsp;&nbsp;Detector Computation in Post-Processing</h3>
+<a id="postdetector">
+</a>
+
+<div class="p"><!----></div>
+The <tt>postdetector</tt> (see also its <a href="postdetector.pdf#page.1">documentation</a>)
+code provides an example of detector signal
+computation during post-processing.  As alluded to above, only a 
+low resolution detector signal would be computed by <tt>flighttest</tt> (e.g., 
+as a check) to avoid using large amounts of memory.  <tt>postdetector</tt>
+would then be invoked to compute the complete signal. 
+
+<div class="p"><!----></div>
+As is noted in Sec.&nbsp;<a href="#HeGPI">3.7.3</a>, the version of <tt>postdetector.web</tt> 
+distributed with DEGAS 2 was developed for simulating the camera
+in Gas Puff Imaging experiments.  Device and experiment specific
+information (namely a specification of the "target plane"; see
+<a href="gpicamera.pdf#page.1">gpicamera.web</a>) appear here.  Moreover,
+it explicitly calls the <tt>gpi_views</tt> subroutine invoked by
+<tt>detector_setup</tt> in <tt>gpicamera.web</tt>.  Both there and in 
+<tt>postdetector</tt>, the coordinates of a particular pixel are
+passed to <tt>gpi_views</tt>; it returns the end points and contributions
+of each zone to the signal, f(z<sub>j</sub>).
+In this way, the detailed information required to deterimine
+the view endpoints can be confined to a single 
+subroutine, <tt>gpi_views</tt>.
 
 <div class="p"><!----></div>
  <a id="tth_sEc3.11"></a><h2>
@@ -10572,6 +10742,8 @@ the <a href="http://ncsx.pppl.gov">NCSX web site</a>.</dd>
 >2.10.2&nbsp; Neutral-Neutral Elastic Scattering</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.10.3"
 >2.10.3&nbsp; Validation of BGK Model and Rates</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.11"
+>2.11&nbsp; Recycling</a><br />
 <a href="#tth_chAp3"
 >3&nbsp; Running DEGAS 2</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1"
@@ -10690,6 +10862,10 @@ the <a href="http://ncsx.pppl.gov">NCSX web site</a>.</dd>
 >3.10&nbsp; Defining Radiation Detectors</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.10.1"
 >3.10.1&nbsp; Signal Computation</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.10.2"
+>3.10.2&nbsp; The Detector Setup Subroutine</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.10.3"
+>3.10.3&nbsp; Detector Computation in Post-Processing</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.11"
 >3.11&nbsp; Diagnostic Sectors</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.12"
@@ -10770,7 +10946,7 @@ file is generated from that source using <tt>pdflatex</tt>. This document
 is distributed as part of the DEGAS 2 code. The user can be best assured
 of concurrence between code and manual by referring to the 
 version of the manual
-that came with the code. Copyright &#169;  2012 PPPL.
+that came with the code. Copyright &#169;  2013 PPPL.
 Permission is granted to make and distribute verbatim copies of this manual
 provided the copyright and permission notice is preserved on all copies.
 Permission is granted to copy and distribute modified versions of this
@@ -10791,5 +10967,5 @@ D2+ totals will also stand out as apparently significant discrepancies.
 T<sub><span class="small">E</span></sub>X
 by <a href="http://hutchinson.belmont.ma.us/tth/">
 T<sub><span class="small">T</span></sub>H</a>,
-version 4.03.<br />On 23 Aug 2012, 17:05.</small>
+version 4.03.<br />On 20 Mar 2013, 17:27.</small>
 </html>
