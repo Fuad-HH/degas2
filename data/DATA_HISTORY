@@ -60,6 +60,13 @@ incorporated into the repository version to serve as a placeholder
 for eventual use with Lyman-alpha emission rate.  These were created
 by reactionwrite v. 1.17.
 
+  -Version 2.7--
+Add Lyman-alpha emission rate in a manner analogous to that done
+for Balmer-alpha except that an isotope independent wavelength
+is used for simplicity.  The n=2/n=1 population is retained
+in hionize.nc and added to hrecombine.nc.  These were created by
+reactionwrite v. 1.18.
+
 HYDROGEN CHARGE EXCHANGE
 hchex.nc
 
@@ -388,7 +395,6 @@ h2discramd.nc
     --Version 2.0--
 As above, updated the variables in the file.
 
-
 ATOMIC DEUTERIUM ION ELASTIC SCATTERING
 dd_00_elastic.nc
 
@@ -582,7 +588,7 @@ manipulate them are in the CVS archive "elastic" (tag "V2").
 The data in this netCDF file were produced with ratecalc, revision
 1.36, using dd2_elastic.input, revision 1.2, as the input file. 
 Manual editing of the file was performed to implement the changes
-noted above.
+noted above, with sigv_max = 5.e-8.
 
 
 MOLECULAR DEUTERIUM ION ELASTIC SCATTERING 5 DEGREE CUT-OFF
@@ -645,7 +651,114 @@ manipulate them are in the CVS archive "elastic" (tag "V2").
 The data in this netCDF file were produced with ratecalc, revision
 1.36, using dd2_elastic.input, revision 1.2, as the input file. 
 Manual editing of the file was performed to implement the changes
-noted above.
+noted above, with sigv_max = 7.2e-9.
+
+MOLECULAR HYDROGEN ION ELASTIC SCATTERING
+hh2_00_elastic.nc
+
+     --Version 1.0--
+The production of this file closely parallels that of the revised (V. 3.2)
+version of dd2_00_elastic.nc.  As in that case, the original data were
+downloaded from the CFADC web site, covering center-of-mass energies from
+0.1 to 100 eV.  The spline fits of the integrated cross sections stored
+in the Aladdin formatted HH_elastic.dat include linear extrapolations at
+both ends of the energy range.  The original data and the methods
+used to process them are in the CVS archive "elastic" (needs to be 
+updated and tagged).  That extrapolation was explicitly used to
+extend the lower energy range to 1.e-3 eV.  As in the D2 + D+ case,
+the CFADC data were missing a couple of higher energy values and the 
+scattering angle probability tables had to be interpolated.  
+
+The data in this netCDF file were produced with ratecalc, revision
+1.38, using hh2_elastic.input, revision 1.0, as the input file. 
+Manual editing of the file was performed to implement the changes
+noted above, with sigv_max = 6.4e-7.
+
+MOLECULAR HYDROGEN ION ELASTIC SCATTERING
+hh2_05_elastic.nc
+
+     --Version 1.0--
+The production of this file closely parallels that of the revised (V. 3.2)
+version of dd2_05_elastic.nc.  As in that case, the original data were
+downloaded from the CFADC web site, covering center-of-mass energies from
+0.1 to 100 eV.  The spline fits of the integrated cross sections stored
+in the Aladdin formatted HH_elastic.dat include linear extrapolations at
+both ends of the energy range.  The original data and the methods
+used to process them are in the CVS archive "elastic" (needs to be 
+updated and tagged).  That extrapolation was explicitly used to
+extend the lower energy range to 1.e-3 eV.  As in the D2 + D+ case,
+the CFADC data were missing a couple of higher energy values and the 
+scattering angle probability tables had to be interpolated.  
+
+The data in this netCDF file were produced with ratecalc, revision
+1.38, using hh2_elastic.input, revision 1.0, as the input file. 
+Manual editing of the file was performed to implement the changes
+noted above, with sigv_max = 1.1e-8.
+
+HYDROGEN CHARGE EXCHANGE - KRSTIC DATA
+hh_chargex.nc
+
+    --Version 1.0--
+Production of this data file closely parallels that of dd_chargex.nc.
+As in that case, the Janev-Smith charge exchange fit was rescaled to
+match the value at 1.e2 eV and used to extrapolate the cross section
+out to 1.e6 eV.  Then applied the same spline routines used in fitting
+the elastic cross sections (in the CVS archive "elastic") to generate
+an analogous fit to these data.  This procedure includes the 
+definition of linear extrapolations at both ends of the fits.
+The rates and other data in the netCDF file were computed by ratecalc,
+revision 1.38, using hh_chargex.input, revision 1.0, as the input
+file.  The only additional change is the manual insertion of the value
+of sigv_max, 1.15e-7, at the end of the file.  Note that when
+expressed as a function of specific energy and temperature, these
+rates are essentially the same as those in dd_chargex.nc.  However,
+we chose to create a separate set to prevent confusion from 
+arising with regard to the companion elastic files since the
+same statement does not apply to them.
+
+ATOMIC HYDROGEN ION ELASTIC SCATTERING
+hh_00_elastic.nc
+
+    --Version 1.0--
+These data were produced following procedures established in
+creating the corresponding deuterium data files.  One key 
+difference is that the basic differential scattering cross
+sections were obtained from the CFADC web site, and the
+minimum center-of-mass energy in this case is 0.1 eV.  Since doing 
+so also eliminates the highly oscillatory behavior in the 
+differential cross section found at lower energies, ratecalc 
+could be run with its default accuracy.  The processing procedure 
+is otherwise as described for dd_00_elastic.nc.
+
+The processing of the raw data was performed within the 
+"elastic" directory (associated with a CVS archive of the
+same name) and documented more completely there.  The
+resulting Aladdin input file was processed with ratecalc V. 1.38
+using hh_elastic.input, V. 1.0.  Manual editing of the file was 
+performed to implement the changes noted in dd_00_elastic.nc, 
+with sigv_max = 1.5e-7.
+
+ATOMIC HYDROGEN ION ELASTIC SCATTERING
+hh_05_elastic.nc
+
+    --Version 1.0--
+These data were produced following procedures established in
+creating the corresponding deuterium data files.  One key 
+difference is that the basic differential scattering cross
+sections were obtained from the CFADC web site, and the
+minimum center-of-mass energy in this case is 0.1 eV.  Since doing 
+so also eliminates the highly oscillatory behavior in the 
+differential cross section found at lower energies, ratecalc 
+could be run with its default accuracy.  The processing procedure 
+is otherwise as described for dd_05_elastic.nc.
+
+The processing of the raw data was performed within the 
+"elastic" directory (associated with a CVS archive of the
+same name) and documented more completely there.  The
+resulting Aladdin input file was processed with ratecalc V. 1.38
+using hh_elastic.input, V. 1.0.  Manual editing of the file was 
+performed to implement the changes noted in dd_05_elastic.nc, 
+with sigv_max = 5.4e-8.
 
 ELECTRON IMPACT IONIZATION OF ARGON
 arionize.nc
@@ -1234,6 +1347,15 @@ directly by pmiwrite v. 1.11, without modification.
 Use the exact same data file for handling reflection of the two
 metastable states.  Both are changed to ground state upon reflection.
 
+HELIUM REFLECTION (TRIM) ON MOLYBDENUM
+He_refl_strim_Mo.nc
+
+     --Version 1.0--
+Data were scaled from the He on Fe TRIM data in the manner
+described above for D_refl_strim_Mo.  The file was generated
+by pmiwrite v. 1.15, without modification (note that the
+corresponding section of code is now commented out).
+
 HELIUM DESORPTION FROM CARBON
 hedesorbc.nc
 
@@ -1263,8 +1385,11 @@ h_des_maxw_LiOH.nc
 H DESORPTION (MAXWELL FLUX) FROM TIC
 h_des_maxw_TiC.nc
 
-LITHIUNM DESORPTION (MAXWELL FLUX) FROM Y2O3
+LITHIUM DESORPTION (MAXWELL FLUX) FROM Y2O3
 Li_des_maxw_Y2O3.nc
+
+HELIUM DESORPTION (MAXWELL FLUX) FROM MOLYBDENUM
+he_des_maxw_mo.nc
 
      --Version 1.1--
 Copied directly from h_des_maxw_mo.nc, V. 1.1, and just changed pf_name
@@ -1289,6 +1414,16 @@ range is extended downward from 10 to 1 eV); the original file was an
 Excel spreadsheet, saved as tab-delimited text for use here.  The netCDF
 file was generated by pmiwrite v. 1.14, without modification.
 
+H REFLECTION ON LI, VFTRIM DATA FROM RUZIC
+H_refl_svftrim_Li.nc
+
+     --Version 1.1--
+This file was generated from the above D_on_Li_Reflect2.txt by applying
+the reduced energy formalism.  The energy scaling was incorporated into
+the pmiwrite subroutine in the same manner used for TRIM data.  The file
+was generated by this version of pmiwrite, which will be assigned 
+version 1.15 at the next update.
+
 D REFLECTION ON LIOH, VFTRIM DATA FROM RUZIC
 D_refl_vftrim_LiOH.nc
 
@@ -1305,7 +1440,8 @@ D_refl_vftrim_TiC.nc
 Created from VFTRIM data for D -> TiC from Ruzic, D_on_TiC_Reflect.txt.
 The original file was an Excel spreadsheet, edited slightly and saved as 
 tab-delimited text for use here.  The netCDF file was generated by 
-pmiwrite v. 1.14, without modification.
+pmiwrite v. 1.14, without modification (although the lines of code used
+were deleted for neatness).
 
 LITHIUM REFLECTION ON CARBON - Li_refl_C
 D_refl_vftrim_Li.nc
