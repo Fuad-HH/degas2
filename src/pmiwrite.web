@@ -2,6 +2,11 @@
 \Title{pmiwrite}
 
 % $Log$
+% Revision 1.14  2007/06/19 17:40:08  dstotler
+% Add a new routine to read TRIM data in a different format, pmi_write_trim2.  Use
+% this to read the D_on_Be.txt data and scale it to Li (commented out).  Add another
+% routine to read in Ruzic's D -> Li VFTRIM data (from Excel spreadsheet).
+%
 % Revision 1.13  2006/01/19 19:53:28  dstotler
 % Remove writes of exit files; replace mirror-related files with generic
 % one. Add calls to subroutines to generate TRIM H -> Fe and Marlowe D
@@ -170,6 +175,11 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
       version='V. 1.0. He reflection on Fe, trim data'
       call pmi_write_trim(tag,data_tag,version)
 
+      tag='He -> Mo'
+      data_tag='He -> Fe'
+      version='V. 1.0. He reflection on Mo, trim data scaled from He on Fe'
+      call pmi_write_trim(tag,data_tag,version)
+
       tag='D -> Fe'        
       data_tag='D -> Fe'
       version='V. 1.1. D reflection on Fe, trim data'
@@ -197,9 +207,17 @@ where $\theta$ is in degrees. An upper limit to $R_{N}$ of 0.9 is enforced.
    is the second of these files; asked to have the energy range extended
    downward from 10 to 1 eV.
 */
+      data_tag=tag
       version='V. 1.1. D reflection on Li, VFTRIM data from Ruzic'
       filein='../data/D_on_Li_Reflect2.txt'
-      call pmi_write_xls_vftrim(tag,version,filein)
+      call pmi_write_xls_vftrim(tag,data_tag,version,filein)
+
+      tag='H -> Li'
+      data_tag='D -> Li'
+      version='V. 1.1. H reflection on Li, VFTRIM data from Ruzic'
+      filein='../data/D_on_Li_Reflect2.txt'
+      call pmi_write_xls_vftrim(tag,data_tag,version,filein)
+
 @#endif
 
       stop
@@ -1554,18 +1572,18 @@ from a tab-delimited text version of this file.
 @m num_new_angles 6
 
 @<Functions...@>=
-      subroutine pmi_write_xls_vftrim(tag,version,filein)
+      subroutine pmi_write_xls_vftrim(tag,data_tag,version,filein)
       implicit_none_f77
       pf_common                                                // Common
       implicit_none_f90
       pf_decls
-      character*LINELEN tag,version                            // Input
+      character*LINELEN tag,data_tag,version                   // Input
       character*FILELEN filein
 
       integer i,j,fileid,b,e,p,bin,ein,bm,em,k,l,m,n           // Local
       character*LINELEN line,description
       character*FILELEN fileout
-      character*el_sy_len proj,target
+      character*el_sy_len proj,target,data_proj,data_target
       logical cosspec,cosine
       real old_energies[0:num_old_energies-1],
      $     new_energies[0:num_new_energies-1],
@@ -1575,9 +1593,10 @@ from a tab-delimited text version of this file.
      $     new_rn[0:num_new_angles-1][0:num_new_energies-1],
      $     old_eout[0:num_old_angles-1][0:num_old_energies-1],
      $     new_eout[0:num_new_angles-1][0:num_new_energies-1]
-      real angle,energy,dummy,delta_e,delta_a
-      external find_index                                       // External
-      real find_index
+      real angle,energy,dummy,delta_e,delta_a,e_red_data,
+     $     e_red_actual
+      external find_index,find_reduced_energy                   // External
+      real find_index,find_reduced_energy 
 
       nc_decls
       pf_ncdecl
@@ -1599,7 +1618,30 @@ from a tab-delimited text version of this file.
       assert( next_token(tag,bm,em,p) )
       proj=tag(bin:ein)
       target=tag(bm:em)
-      pf_name=tag(bin:ein) \/ '_refl_vftrim_' \/ tag(bm:em)
+
+/* Parse data tag into name */      
+      p=0
+      assert( next_token(data_tag,bin,ein,p) )
+      assert( next_token(data_tag,b,e,p) )
+      assert( data_tag(b:e) == '->' )
+      assert( next_token(data_tag,bm,em,p) )
+      data_proj=data_tag(bin:ein)
+      data_target=data_tag(bm:em)
+
+      if (proj == data_proj && target == data_target) then
+         pf_name=tag(bin:ein) \/ '_refl_vftrim_' \/ tag(bm:em)
+      else
+         pf_name=tag(bin:ein) \/ '_refl_svftrim_' \/ tag(bm:em)  // ``scaled VFTRIM''
+      end if
+/*
+   Compute scaling factor of incident and outgoing energies
+*/
+      e_red_data=find_reduced_energy(data_proj,data_target)
+      e_red_actual=find_reduced_energy(proj,target)
+      if (proj == data_proj && target == data_target) then 
+         assert(e_red_data == e_red_actual)
+      end if
+      assert(e_red_data > zero && e_red_actual > zero)
 
       open(unit=diskin,file=filein,status='old',form='formatted')
 /*
@@ -1654,7 +1696,7 @@ from a tab-delimited text version of this file.
       pf_var[0,2]='energy_out'
       pf_spacing[0,2]='log'
       pf_units[0,2]='eV'
-      pf_mult[0,2]=electron_charge
+      pf_mult[0,2]=electron_charge*e_red_actual/e_red_data
       
       do i=1,2
          pf_eval_name[i]='table'
@@ -1663,7 +1705,7 @@ from a tab-delimited text version of this file.
          pf_var[1,i]='energy_in'
          pf_tab_index[1,i]=num_new_energies
          pf_units[1,i]='eV'
-         pf_mult[1,i]=electron_charge
+         pf_mult[1,i]=electron_charge*e_red_actual/e_red_data
          pf_spacing[1,i]='log'
          pf_min[1,i]=one
          delta_e=const(10.0)**(one/const(3.))
@@ -1812,6 +1854,7 @@ from a tab-delimited text version of this file.
       var_free(pf_data_tab)
 
       call ncclose(fileid,nc_stat)
+      close(unit=diskin)
 
       return
       end
