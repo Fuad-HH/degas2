@@ -2,6 +2,10 @@
 \Title{flighttest}
 
 % $Log$
+% Revision 1.43  2012/08/24 15:34:11  dstotler
+% Replace the assertion on temperature in bgk_test
+% with the diagnostic output developed for xgc_flighttest.
+%
 % Revision 1.42  2011/03/04 18:01:38  dstotler
 % Replace mpi_root with mpi_degas2_root to avoid name collision on Jaguar.
 % Replace so_seed_string with so_seed_decimal.
@@ -261,13 +265,24 @@ its original purpose as a geometry test routine.
       implicit_none_f90
       mp_decls
 
+      integer standalone      // Local
+
+@#if 0
       mpi_init
+@#else
+      standalone=TRUE
+      call degas2_mpi_init(standalone)
+@#endif
 
       if (mpi_master) call readfilenames
       call degas_init       // Eventually separate out |nc_read_background|
       call bgk_flighttest
 
+@#if 0
       mpi_end
+@#else
+      call degas2_mpi_end(standalone)
+@#endif
       
       stop
       end
