@@ -2,6 +2,11 @@
 \Title{definegeometry2d}
 
 % $Log$
+% Revision 1.9  2011/03/04 17:58:31  dstotler
+% Gave the grp_sectors array its own dimension,  max_grp_sectors (set to 8000).
+% Add assertions on results of read_real_soft_fail in reading
+% wallfile data.  Make default y range for plane symmetry cases -1 to 1.
+%
 % Revision 1.8  2009/11/25 14:53:33  dstotler
 % Add xcut option to the edge keyword.  Fix minor bug in documentation.
 % Initialize dim_dg_poly.  Allow number of wall points in wallfile to
@@ -2002,7 +2007,12 @@ loop1: continue
          end do
 
       else if (keyword == 'y_values') then
-         mult=PI/const(1.8,2)
+         if ((symmetry == geometry_symmetry_cyl_hw)
+     $        || (symmetry == geometry_symmetry_cyl_section)) then
+            mult=PI/const(1.8,2)
+         else if (symmetry == geometry_symmetry_plane_hw) then
+            mult=one
+         end if
          assert(next_token(line,b,e,p))
          rtest=read_real_soft_fail(line(b:e))
          if (rtest == real_undef) then
