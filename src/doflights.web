@@ -2,6 +2,11 @@
 \Title{doflights}
 
 % $Log$
+% Revision 1.8  2012/08/24 15:28:30  dstotler
+% Fixed a problem with allocation of snapshot particle arrays on slaves.
+% Increased size of sig_det from 20 to 30.  Add a temporary diagnostic
+% output prior to call to stat_acc (problem encounted with XGC0-DEGAS2).
+%
 % Revision 1.7  2011/03/04 17:59:51  dstotler
 % Replace mpi_root with mpi_degas2_root to avoid name collision on
 % Jaguar.  Add overall scaling factor of 1/time intervalfor time
@@ -52,6 +57,10 @@
 
 @m MPI_messages 0
 @m MPI_slave_messages 0
+
+@m send_data_no 0
+@m send_data_meta_slave 1
+@m send_data_all 2
 
 @I macros.hweb
 @I sysdep.hweb
@@ -203,7 +212,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       stat_comp_flt=FALSE
       stat_comp_frag=FALSE
 @#endif
-      stat_comp_fin=FALSE  // Additional code changes required if set = TRUE
+      stat_comp_fin=FALSE  // May be set differently on slaves
 
       call stat_init
 
@@ -295,7 +304,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
                write(stderr,*) 'Slave ',slave,' is done with a batch'
                write(stderr,*) 'Sending ',num,' more to slave ',slave
 @#endif
-               send_data=FALSE
+               send_data=send_data_no
                call slave_send_flag(slave,send_data)
                call slave_send_flights(slave,output_num_flights[is]+nstart,num,so_args(is),seed)
             else
@@ -311,22 +320,34 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
 */
             @<Merge results@>
 @#endif
-            
-
             call next_seed(num,seed) // Advance the seed
          end do
          
 @#if MPI
-         do j=0,min(nparcel,nslaves)-1 // Retrieve data from slaves this time
+         do j=0,min(nparcel,nslaves)-1 // Now just tell all slaves to send data.
             call slave_receive_flag(slave)
-            send_data=TRUE
+            if (nslaves < nparcel) then
+               send_data=send_data_meta_slave
+            else
+               send_data=send_data_all  // Dispense with data aggregation
+            end if
             call slave_send_flag(slave,send_data)
-            call slave_receive_flights(slave)
+         end do	
+/*
+   The above will initiate the data compilation amongst all of the
+   slaves.  All we need here is to loop over the final level
+   of meta-slaves that send data here.  Note that this assumes
+   that the |mpi_slave_map| for non-meta-slaves is {\em not} |mpi_degas2_root|.
+*/
+         do j=1,min(nparcel,nslaves)
+            if (mpi_slave_map_m(mpi_nlevels,j) == mpi_degas2_root) then
+               call slave_receive_flights(slave)
 @#if MPI_messages
-            write(stderr,*) 'Received batch back from slave ',slave
-            call flush(stderr)
+               write(stderr,*) 'Received batch back from slave ',slave
+               call flush(stderr)
 @#endif
-            @<Merge results@>
+               @<Merge results@>
+            end if
          end do
 @#endif
          if (sn_number_particles > last_sn_num_particles) then
@@ -611,16 +632,17 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       return
       end
 
-@ Merge results from a fragment.
+@ Merge results from a fragment.  This is the original version of this
+bit of code and still the one used by the master (and without MPI).
 
 @<Merge results@>=
 
-            if (stat_comp_flt == TRUE)  // Moved from |do_flights|
+            if (stat_comp_frag == TRUE)  // Moved from |do_flights|
      $      call stat_wt_balance(stat_wt_tot_frag,stat_size_frag,stat_dim_frag,
      $        stat_frag,stat_wt_dim_frag,stat_wt_frag)
             if (min(stat_size_fin+stat_size_frag,tally_size)>stat_dim_fin) then
                assert(stat_comp_fin == TRUE) 
-               mult=max(one,areal(stat_size_flt)/areal(stat_mem_inc_fin))
+               mult=max(one,areal(stat_size_frag)/areal(stat_mem_inc_fin))
                new_dim=min(stat_dim_fin+int(mult*stat_mem_inc_fin),tally_size)
                var_realloc(stat_fin,stat_dim_fin-1,new_dim-1)
                var_realloc(stat_ptr2full_fin,stat_pf_dim_fin-1,new_dim-1)
@@ -651,6 +673,163 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
      $           stat_pf_dim_fin,stat_ptr2full_fin,
      $           stat_ps_dim_fin,stat_ptr2short_fin,stat_wt_dim_fin,
      $           stat_wt_fin)
+
+@ Merge results from a fragment into |stat_fin|.  This is the same as the above
+passage, but with the merger done into |stat_fin|, with total weight going into
+|stat_wt_tot_fin|.  This is used only on meta-slaves during their data collection.
+
+@<Merge fin results@>=
+
+            if (stat_comp_frag == TRUE)
+     $      call stat_wt_balance(stat_wt_tot_frag,stat_size_frag,stat_dim_frag,
+     $        stat_frag,stat_wt_dim_frag,stat_wt_frag)
+            if (min(stat_size_fin+stat_size_frag,tally_size)>stat_dim_fin) then
+               assert(stat_comp_fin == TRUE) 
+               mult=max(one,areal(stat_size_frag)/areal(stat_mem_inc_fin))
+               new_dim=min(stat_dim_fin+int(mult*stat_mem_inc_fin),tally_size)
+               var_realloc(stat_fin,stat_dim_fin-1,new_dim-1)
+               var_realloc(stat_ptr2full_fin,stat_pf_dim_fin-1,new_dim-1)
+               var_realloc(stat_wt_fin,stat_wt_dim_fin-1,new_dim-1)
+               stat_dim_fin=new_dim
+               stat_pf_dim_fin=new_dim
+               stat_wt_dim_fin=new_dim
+            end if
+/*
+   These are temporary diagnostic statements.
+*/
+            if (stat_wt_tot_frag < zero) then
+               write(stderr,*) ' Bad value of stat_wt_tot_frag = ',stat_wt_tot_frag
+               write(stderr,*) ' slave = ',mpi_rank
+               assert(stat_wt_tot_frag >= zero)
+               call flush(stderr)
+            end if
+/*
+   End of temporary diagnostics.
+*/               
+            call stat_acc(stat_comp_frag,stat_wt_tot_frag,stat_size_frag,
+     $           stat_dim_frag,stat_frag,stat_pf_dim_frag,stat_ptr2full_frag,
+     $           stat_ps_dim_frag,stat_ptr2short_frag,
+     $           stat_comp_fin,stat_wt_tot_fin,stat_size_fin,
+     $           stat_dim_fin,stat_fin,
+     $           stat_pf_dim_fin,stat_ptr2full_fin,
+     $           stat_ps_dim_fin,stat_ptr2short_fin,stat_wt_dim_fin,
+     $           stat_wt_fin)
+
+@ Send frag.  I.e., send a |stat_frag| object.  Defining this not because
+it gets used multiple times, but to improve readability.  However, the
+subsequent chunk of code is intended to be exactly the same thing, 
+but for |stat_fin|.
+
+@<Send frag@>=
+      
+      tag=400
+
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Before final data send calls; tag = ',tag
+      call flush(diskout+3)
+@#endif
+      call MPI_send(stat_comp_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_size_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_ps_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' After final data send calls; tag = ',tag
+      call flush(diskout+3)
+@#endif
+      tag++
+      call MPI_send(sn_number_particles,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      if (sn_number_particles > 0) then
+         tag++
+         call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+         
+         tag++
+         call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      end if
+/*
+   Reinitialize the arrays just sent.  This is otherwise done within |stat_acc|, but
+   these arrays are locally only the ``base'' in |stat_acc|.
+*/
+      call stat_zero(stat_wt_tot_frag,stat_comp_frag,stat_size_frag,stat_ps_dim_frag,
+     $     stat_ptr2short_frag,stat_dim_frag,stat_frag)
+
+@ Send fin.  I.e., send a |stat_fin| object.  This is the exact same bit of code as
+the |Send frag| section above, but with |_frag| replaced by |_fin|.
+
+@<Send fin@>=
+      
+      tag=400
+
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Before final data send calls; tag = ',tag
+      call flush(diskout+3)
+@#endif
+      call MPI_send(stat_comp_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_wt_tot_fin,1,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_size_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_fin,array_size(stat_fin),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_pf_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2full_fin,array_size(stat_ptr2full_fin),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_ps_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2short_fin,array_size(stat_ptr2short_fin),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      tag++
+      call MPI_send(stat_wt_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(stat_wt_fin,array_size(stat_wt_fin),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' After final data send calls; tag = ',tag
+      call flush(diskout+3)
+@#endif
+      tag++
+      call MPI_send(sn_number_particles,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+
+      if (sn_number_particles > 0) then
+         tag++
+         call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+         
+         tag++
+         call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      end if
+/*
+   Reinitialize the arrays just sent.  This is otherwise done within |stat_acc|, but
+   these arrays are locally only the ``base'' in |stat_acc|.
+*/
+      call stat_zero(stat_wt_tot_fin,stat_comp_fin,stat_size_fin,stat_ps_dim_fin,
+     $  stat_ptr2short_fin,stat_dim_fin,stat_fin)
 
 @ Send data to slave.
 
@@ -788,8 +967,26 @@ break:  continue
       call MPI_recv(new_sn_num_particles,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 
       if (new_sn_num_particles > 0) then
-         var_realloc(sn_particles_float,sn_number_particles,sn_number_particles+new_sn_num_particles)
-         var_realloc(sn_particles_int,sn_number_particles,sn_number_particles+new_sn_num_particles)
+/*
+   The reallocations of these arrays roughly parallel that of some in
+   |definegeometry2d| (e.g., |wall_nodes|) with initial reallocations 
+   done in |mem_inc| steps via |var_realloca| (in    |build_snapshot_pdf|) 
+   and then here in larger steps.  |var_reallocc| works better than just
+   |var_realloc| in that it expects the array dimension to be the
+   appropriate multiple of |mem_inc|.
+
+   One problem is that the actual array dimension is not the second
+   argument to |var_reallocc|; we instead invoke the |last_uboundc| macro 
+   to get it.  By setting |sn_particles_dim| thus, the |var_free| calls 
+   for these arrays will finish without complaint.  Note that in general the
+   tactic should be to call |var_reallocb| once the array finishes 
+   growing.  That point is difficult to determine for these arrays.
+*/
+         if (sn_number_particles+new_sn_num_particles > sn_particles_dim) then
+            var_reallocc(sn_particles_float,sn_particles_dim,sn_number_particles+new_sn_num_particles)
+            var_reallocc(sn_particles_int,sn_particles_dim,sn_number_particles+new_sn_num_particles)
+            sn_particles_dim=last_uboundc(sn_particles_float,sn_number_particles+new_sn_num_particles)
+         end if
          
          tag++
          call MPI_recv(sn_particles_float[sn_number_particles+1][1],
@@ -802,7 +999,6 @@ break:  continue
      $                 mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 
          sn_number_particles+=new_sn_num_particles
-         sn_particles_dim=sn_number_particles
       end if
 
 break:  continue
@@ -825,17 +1021,19 @@ results back to the master.  It's only defined for MPI.
       sn_common
       implicit_none_f90
       mp_decls
-      integer nstart,nflights,tag,done_flag,send_data
+      integer nstart,nflights,tag,done_flag,send_data,
+     $        i,j,ilevel,min_level,islave,sending_slave,
+     $        new_dim
+      real mult
 @#if MPI_slave_messages
-      character*3 cslave
+      character*6 cslave
 @#endif
       so_decl(isource)
       rn_seed_decl(seed)
       @<Memory allocation interface@>
       tl_decls
+
       declare_varp(estimator_factors)
-      integer i,j
-      
       var_alloc(estimator_factors)
 
       sn_number_particles=0
@@ -846,14 +1044,14 @@ results back to the master.  It's only defined for MPI.
       mpi_broadcast(so_direct_delta)
 
 @#if MPI_slave_messages
-      assert((mpi_rank > 0) && (mpi_rank < 1000))
-      write(cslave,'(i3.3)') mpi_rank
+      assert((mpi_rank > 0) && (mpi_rank < 1000000))
+      write(cslave,'(i6.6)') mpi_rank
       open(unit=diskout+3,file='/local/dps_slave_' \/ cslave,status='unknown')
 @#endif
 
       stat_comp_flt=TRUE
       stat_comp_frag=TRUE // Set using |nfrag| and |nflights|?
-      stat_comp_fin=FALSE  // Additional code changes required if set = TRUE
+      stat_comp_fin=TRUE  // Using the |stat_fin| arrays for intermediate aggregation levels
 
       call stat_init
 
@@ -900,90 +1098,83 @@ loop: continue
       write(diskout+3,*) ' After receipt of send_data; tag = ',tag
       call flush(diskout+3)
 @#endif
-      if (send_data == FALSE) then
+      if (send_data == send_data_no) then
          goto loop
-      else if (send_data == TRUE) then
-
-         tag=400
-
-@#if MPI_slave_messages
-         write(diskout+3,*) ' Before final data send calls; tag = ',tag
-         call flush(diskout+3)
-@#endif
-         call MPI_send(stat_comp_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         tag++
-         call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         tag++
-         call MPI_send(stat_size_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-
-         tag++
-         call MPI_send(stat_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         tag++
-         call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-
-         tag++
-         call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         tag++
-         call MPI_send(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-
-         tag++
-         call MPI_send(stat_ps_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         tag++
-         call MPI_send(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-
-         tag++
-         call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         tag++
-         call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-@#if MPI_slave_messages
-         write(diskout+3,*) ' After final data send calls; tag = ',tag
-         call flush(diskout+3)
-@#endif
-         tag++
-         call MPI_send(sn_number_particles,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-
-         if (sn_number_particles > 0) then
-            tag++
-            call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         
-            tag++
-            call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
-         end if
+      else if ((send_data == send_data_meta_slave)
+     $        || (send_data == send_data_all)) then
+         min_level=1
+         if (send_data == send_data_all) min_level=mpi_nlevels  // Skip aggregation
+         do ilevel=min_level,mpi_nlevels
+            if (mpi_slave_map_m(ilevel,mpi_rank) == mpi_rank) then
 /*
-   Reinitialize |stat_frag|. In |do_flights_master|, these would be done
-   instead by |stat_acc| and |stat_wt_balance|.
+   This is a meta-slave for this level.  Begin by merging
+   its |stat_frag| data into |stat_fin|.
 */
-         stat_wt_tot_frag=zero
-         if (stat_comp_frag == TRUE) then
-            stat_size_frag=0
-            do i=0,stat_ps_dim_frag-1
-               stat_ptr2short_frag[i]=int_uninit
-            end do
-         end if
-         if (stat_comp_frag == FALSE) then 
-            do i=0,stat_dim_frag-1
-               stat_frag[i][o_mean]=zero
-               stat_frag[i][o_var]=zero
-            end do
-         end if
+               if (ilevel == min_level) then
+                  @<Merge fin results@>
+               end if
 /*
-   Do the same for the snapshot particle data.
+   Now retreive data from all underlying slaves.  Note that we use
+   |islave| here really just as a counter.  The order in which the
+   slaves send data to this meta-slave is indeterminate, but also
+   immaterial.  For diagnostic purposes, we can track it with the 
+   returned |sending_slave|.  The slave data are deposited in
+   |stat_frag| and then merged into |stat_fin|.  Note that |stat_frag|
+   gets reset at the end of each call to |stat_acc| and is, thus,
+   ready to be used again.  |stat_fin| is always being accumulated.
 */
-         sn_number_particles=0
-         do i=1,sn_particles_dim
-            do j=1,sn_pt_float_max
-               sn_particles_float[i][j]=real_uninit
-            end do
-            do j=1,sn_pt_int_max
-               sn_particles_int[i][j]=int_uninit
-            end do
-         end do
-
-         goto loop
+               do islave=1,mpi_nslaves
+                  if ((islave != mpi_rank) 
+     $                 && (mpi_slave_map_m(ilevel,islave) == mpi_rank)) then
+                     call slave_receive_flights(sending_slave)
+                     @<Merge fin results@>
+                  end if
+               end do
+            else
+/*
+   And {\em not} a meta-slave at this level  Only have to send
+   data to the meta-slave for the next level.  At the last level, the
+   destination is |mpi_degas2_root|.
+*/
+               if (ilevel == min_level) then
+                  @<Send frag@>
+               else
+                  @<Send fin@>
+               end if
+/*
+   The above ``send'' macros reset the sent |stat| arrays when they are 
+   done so as to be ready for the next source group, etc.  These are
+   the corresponding reinitializations for the snapshot paricle data.
+   The same arrays are used whether this is a meta-slave or not.
+*/
+               sn_number_particles=0
+               do i=1,sn_particles_dim
+                  do j=1,sn_pt_float_max
+                     sn_particles_float[i][j]=real_uninit
+                  end do
+                  do j=1,sn_pt_int_max
+                     sn_particles_int[i][j]=int_uninit
+                  end do
+               end do
+/*
+   This slave is done with data aggregation.  It can go back to 
+   the top of the routine (|loop|) to see if there are more
+   flights via a new source group, etc.
+*/
+               goto loop
+            end if
+/*
+   Make sure all meta-slaves are done with this level before 
+   going to the next one.
+*/
+         call MPI_barrier(mpi_meta_slave_comms[ilevel],mpi_err)
+         end do       // Loop over aggregation levels
       else
          assert('Illegal value of send_data' == ' ')
-      end if
-
+      end if          // On |send_data|
+/*
+   Now everything is done.  Clean up and return.
+*/
 break:  continue
       call clear_stat
       var_free(estimator_factors)
@@ -1039,6 +1230,7 @@ we don't set the dimensions until just before the call.
       @<Memory allocation interface@>
       st_decls
       tl_decls
+      zn_decls
 
       external extract_output_datum                            // External
       real extract_output_datum
@@ -1277,7 +1469,7 @@ we don't set the dimensions until just before the call.
 files (``64 bit offset'').  This is only available for netCDF version 3.6
 or later
 
-@m NC_LARGE_FILE 0   
+@m NC_LARGE_FILE 1   
 
 @<Functions...@>=
       subroutine nc_write_output
