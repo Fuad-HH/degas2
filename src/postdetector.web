@@ -2,6 +2,14 @@
 \Title{postdetector}
 
 % $Log$
+% Revision 1.5  2012/08/24 15:44:10  dstotler
+% Reviseed MPI code to match serial version.  Added parameters
+% for the NSTX_2010 application; this camera has 64x80
+% pixels, so have to set ny by application now.   Removed
+% assertion on n_avg[1] in fwpa_avg calculation and allowed
+% for invalid "close_zone".  Replaced steradian units with
+% "sr". Documented output files (and variables).
+%
 % Revision 1.4  2011/03/04 18:04:51  dstotler
 % Replace mpi_root with mpi_degas2_root to avoid name collision on Jaguar.
 %
@@ -19,20 +27,34 @@
 % be of interest for those simulations.
 %
 
-@* Compute detector signals in a post-processing mode.  This version has
-been generalized to a large degree, although it's only been
-applied to Gas Puff Imaging (GPI) experiments.  Namely, it handles both
+@* Compute detector signals in a post-processing mode.  
+
+This code uses the |gpi_views| subroutine,
+e.g., as in the example |gpicamera.web| file to compute
+the end points of the chord representing each camera pixel
+as well as the contributions of each zone to that chord's signal.  
+Since the |gpi_views|
+subroutine depends on data specific to the GPI application,
+it cannot be easily adapted to other situations. 
+This version has
+been generalized in that it handles both
 D$_{2}$ (with photons coming from D, D$_{2}$, and D$_{2}^{+}$) and
-He puffed gases. The only other problem specific information needed
-is the camera resolution (which happens to be the same for the
-applications considered so far) and the target plane.  The
-data for the latter are hardcoded here with the specific instances
+He puffed gases and has been adapted to multiple GPI applications.
+
+The only problem specific information appearing in this file
+are
+the camera resolution and the target plane.  The
+data for the latter are hardcoded here with the specific applications
 identified with the |APP| macro.  In principle, these could be moved
 to an input file.  However, the camera resolution must remain in macro
 statements since the corresponding parameters appear in dimension
 statements.  Note that all of the application specific information
 must match that in the corresponding |gpi_views| routine (see, e.g.,
-{\tt gpicamera.web}).
+{\tt gpicamera.web}).  Note also that {\tt gpicamera.web} is
+to be used with the |APP| = |NSTX| option here.  The other
+values of |APP| are paired with corresponding variants
+of the |detector_setup| routine in {\tt gpicamera.web} that
+are {\em not} provided with DEGAS 2.
 
 In addition to the total emission rate (i.e., the quantity to be
 compared with the experimentally observed emission), various other
@@ -238,6 +260,7 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
       st_decls
       vc_decls
       mp_decls
+      zn_decls
       
       var_alloc(em_data)
       var_alloc(em_sp_data)
