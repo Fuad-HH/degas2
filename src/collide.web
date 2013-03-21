@@ -2,6 +2,9 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.33  2012/08/24 15:06:47  dstotler
+% Tweak test on emitting lines to allow multiple species.
+%
 % Revision 1.32  2011/03/04 17:56:57  dstotler
 % Move setting of v_back in subroutine chargex.
 %
@@ -886,7 +889,7 @@ loop: continue
       vc_decl(v_emitter)
       real sum,ran,ediss,elediss,v_diss1,v_diss2,m_i
       real mass[2]
-      logical init
+      logical init,first_line
       character*tl_tag_length line
 
       external eval_data                               // External
@@ -924,7 +927,6 @@ loop: continue
       pr_reac=pr_ts_rc(test,ts_reac)   // Index to problem-reaction list
       nprod=rc_product_num(pr_reaction(pr_reac))
       back=pr_ts_bk(test,ts_reac)
-
 /*
    Randomly select from the various product arrangements available for this
    test particle-reaction combination. The array |pr_prod_mult| provides the
@@ -994,18 +996,25 @@ break:continue
    specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
    the density factor, as is done for the ionization rate above.  For
    the explicitly labeled lines, just need to add density factor.
+
+   See comment in subroutine |ionize| regarding generic and explicit
+   wavelengths.
 */
       if (num_lines > 0) then
+         first_line=.true.
          do i=1,num_lines
-            if (i_gen_rate > 0) then
+            if ((i_gen_rate > 0) && first_line) then
                if (scoring_data[lines[i]] > zero) then
                   assert(scoring_data[e_rates[i]] == zero)
                   assert(rc_emitter(reac) != 0)
                   scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
      $                 *independent_parameters[xs_var_density]
+                  first_line=.false.
                end if
             else
-               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
+               if (scoring_data[lines[i]] > zero) then
+                  scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
+               end if
             end if
          end do
       end if
@@ -1360,7 +1369,7 @@ of suppressed absorption.
       vc_decl(v_test)
       vc_decl(v_emitter)
       character*tl_tag_length line
-      logical init
+      logical init,first_line
 
       external eval_data,species_add_check             // External
       real eval_data
@@ -1467,15 +1476,25 @@ of suppressed absorption.
    have the name of the line appended to the variable names. For the case
    of greatest interest, this would entail carrying around 3 sets of 
    (usually) identical data - one for each hydrogen isotope. This
-   is a compromise : since we assume only one emitter, we can give it a
-   generic name without confusion. Below we look for the nonzero wavelength
-   and upon finding it reset the emission rate variable to have the 
-   corresponding line name.  If we had multiple lines per emitter (e.g.,
-   we were scoring H$_{\alpha}$, H$_{\beta}$, etc.), we could 
-   conceivably have an array of ``generic'' rates and lines.  The 
-   practice thus far, however, is to compute most of these during 
-   post-processing.  Only more detailed scores, such as a spectrum,
-   need to be during during the main run.
+   is a compromise: since we assume only one emitter, we can give it a
+   generic name without confusion. Below we look for the {\em first} nonzero 
+   wavelength and upon finding it reset the emission rate variable to 
+   have the corresponding line name.  
+
+   This sort of detail is only needed when computing spectra.  For more
+   typical applications, a single, isotope-independent line will suffice.
+   These can be used in addition to the generic line(s), but their 
+   wavelengths must come after those of the generic line(s) in the
+   input file.
+
+   If we had multiple lines per emitter (e.g., we were scoring H$_{\alpha}$, 
+   H$_{\beta}$, etc. all with isotope-specific wavelengths), we would 
+   need an array of ``generic'' rates and lines.  In this case, would
+   likely associate each generic line with an index, e.g., 
+   |emission_rate_gen1|, |emission_rate_gen2|, etc.  Then, the first
+   of these would be associated with the first non-zero wavelength,
+   the second with the second non-zero wavelength, etc.  Again, any
+   explicit, isotope independent lines, would then come after these.
 
    Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
    specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
@@ -1483,24 +1502,27 @@ of suppressed absorption.
    the explicitly labeled lines, just need to add density factor.
 */
       if (num_lines > 0) then
+         first_line=.true.
          do i=1,num_lines
-            if (i_gen_rate > 0) then
+            if ((i_gen_rate > 0) && first_line) then
                if ((scoring_data[lines[i]] > zero) 
      $               && (scoring_data[i_gen_rate] > zero)) then
                   assert(scoring_data[e_rates[i]] == zero)
                   assert(rc_emitter(reac) != 0)
                   scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
      $                 *independent_parameters[xs_var_density]
+                  first_line=.false.
                end if
             else
-               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
+               if (scoring_data[lines[i]] > zero) then
+                  scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
+               end if
             end if
          end do
       end if
 /*
    Collision scoring of coupling scores
 */
-
       psp_i=pr_problem_sp_back(back)
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
      $  -sp_m(pr_background(back))*rate
@@ -1601,7 +1623,7 @@ for |chargex|.
       vc_decl(v_test)
       vc_decl(v_emitter)
       character*tl_tag_length line
-      logical init
+      logical init,first_line
 
       external eval_data,species_add_check             // External
       real eval_data
@@ -1689,16 +1711,7 @@ for |chargex|.
          scoring_data[pr_var_emitter_v_2]=v_emitter[2]
          scoring_data[pr_var_emitter_v_3]=v_emitter[3]
       end if
-/*
-   ``In general'' the emission rate and wavelength variables should both
-   have the name of the line appended to the variable names. For the case
-   of greatest interest, this would entail carrying around 3 sets of 
-   (usually) identical data - one for each hydrogen isotope. This
-   is a compromise : since we assume only one emitter, we can give it a
-   generic name without confusion. Below we look for the nonzero wavelength
-   and upon finding it reset the emission rate variable to have the 
-   corresponding line name.
-*/
+
       eloss=zero
       esrc=zero
       do i=1,rd_dep_var_max
@@ -1717,23 +1730,30 @@ for |chargex|.
          end if
       end do
 /*
+   See comments in subroutine |ionize| regarding computation of the
+   emission rate data for isotope dependent wavelengths..
+
    Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
    specific slot |e_rates[i]| corresponding to non-zero wavelength. Note
    the density factor, as is done for the ionization rate above. For
    the explicitly labeled lines, just need to add density factor.
 */
       if (num_lines > 0) then
+         first_line=.true.
          do i=1,num_lines
-            if (i_gen_rate > 0) then
+            if ((i_gen_rate > 0) && first_line) then
                if ((scoring_data[lines[i]] > zero) 
      $               && (scoring_data[i_gen_rate] > zero)) then
                   assert(scoring_data[e_rates[i]] == zero)
                   assert(rc_emitter(reac) != 0)
                   scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
      $                 *independent_parameters[xs_var_density]
+                  first_line=.false.
                end if
             else
-               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
+               if (scoring_data[lines[i]] > zero) then
+                  scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]
+               end if
             end if
          end do
       end if
@@ -2306,7 +2326,7 @@ loop: continue
       vc_decl(v_emitter)
       real ediss,elediss,mass_total,m_i,this_line
       real mass[2]
-      logical init
+      logical init,first_line
       character*tl_tag_length line
 
       external eval_data                               // External
@@ -2464,8 +2484,12 @@ loop: continue
    differ from those in subroutine |dissoc| in that the line-specific elements
    of |scoring_data| are incremented rather than set since there may be multiple
    contributions from the various arrangements. 
+
+   See also comments from subroutine |ionize| regarding generic and
+   explicit lines.  
 */
          if (num_lines > 0) then
+            first_line=.true.
             do i_line=1,num_lines
                do i=1,rd_dep_var_max
                   if (reaction_handling_var0[pr_reac][i] == lines[i_line]) then
@@ -2473,13 +2497,16 @@ loop: continue
      $                    [pr_reac][i]),independent_parameters,rn_args(x))
                      if (this_line > zero) then
                         assert(rc_emitter(reac) != 0)
-                        if (i_gen_rate > 0) then
+                        if ((i_gen_rate > 0) && first_line) then
                            scoring_data[e_rates[i_line]]+=scoring_data[i_gen_rate]
      $                          *independent_parameters[xs_var_density]
      $                          *pr_prod_mult(test,ts_reac,j_arr)
+                           first_line=.false.
                         else
-                           scoring_data[e_rates[i_line]]*=(independent_parameters[xs_var_density]
-     $                          *pr_prod_mult(test,ts_reac,j_arr))
+                           if (scoring_data[lines[i]] > zero) then
+                              scoring_data[e_rates[i_line]]*=(independent_parameters[xs_var_density]
+     $                             *pr_prod_mult(test,ts_reac,j_arr))
+                           end if
                         end if
                      end if
                   end if
@@ -2774,7 +2801,7 @@ actually done at the source point or as a post-processor.
       real rate,e_loss,e_e_loss,e_e_src
       real independent_parameters[xs_max_indep_params]
       character*tl_tag_length line
-      logical init
+      logical init,first_line
 
       external eval_data,find_rate          // External
       real eval_data,find_rate
@@ -2904,10 +2931,14 @@ actually done at the source point or as a post-processor.
 /*
    Transfer emission rate data from generic slot |i_gen_rate| to wavelength-
    specific slot |e_rates[i]| corresponding to non-zero wavelength.
+
+   See comment in subroutine |ionize| regarding generic and explicit
+   wavelengths.
 */
       if (num_lines > 0) then
+         first_line=.true.
          do i=1,num_lines
-            if (i_gen_rate > 0) then
+            if ((i_gen_rate > 0) && first_line) then
                if ((scoring_data[lines[i]] > zero) 
      $               && (scoring_data[i_gen_rate] > zero)) then
                   assert(scoring_data[e_rates[i]] == zero)
@@ -2918,9 +2949,12 @@ actually done at the source point or as a post-processor.
 */
                   scoring_data[e_rates[i]]=scoring_data[i_gen_rate]
      $                    *independent_parameters[xs_var_density]/rate
+                  first_line=.false.
                end if
             else
-               scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]/rate
+               if (scoring_data[lines[i]] > zero) then
+                  scoring_data[e_rates[i]]*=independent_parameters[xs_var_density]/rate
+               end if
             end if
          end do
       end if
