@@ -2,6 +2,10 @@
 \Title{geomtesta}
 
 % $Log$
+% Revision 1.32  2013/03/21 11:24:11  dstotler
+% Add zn_decls to subroutine exercise.  Add a
+% var_reallocb for ext_filenames.
+%
 % Revision 1.31  2012/08/24 15:37:51  dstotler
 % Added capability to write multiple time slices. Used separate
 % dbfile designation for time dependent variables since they
@@ -876,6 +880,84 @@ loop: continue
          if (halpha_tot > zero) then
             call write_hdf('halpha'\/trim(clean_sy)\/'.hdf',zone_data,
      $        'H_alpha_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         end if
+      end do
+
+@#endif
+@#if 1
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H LYMAN-ALPHA
+     $        || (sp_sy(pr_test(test)) == 'D')
+     $        || (sp_sy(pr_test(test)) == 'T'))
+     $        && string_lookup('Lyman-alpha emission rate',tally_name,tl_num) > 0) then
+            ha_temp=zero
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'Lyman-alpha emission rate')
+     $                 /(const(10.196)*electron_charge)
+                  zone_data[zone]+=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+@#if 0
+               else if (zn_type(zone) == zn_solid) then  // Can plot solid
+                  zone_data[zone]=-one                    // regions 
+@#endif
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+      end do
+
+      halpha_tot=zero
+      do zone=1,zn_num
+         halpha_tot+=zone_data[zone]*zn_volume(zone)
+      end do
+
+      if (halpha_tot > zero) then
+         call write_hdf('lyman_alpha.hdf',zone_data,
+     $        'Lyman_alpha_rate','photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      end if
+
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (string_lookup('Lyman-alpha emission rate by species',tally_name,tl_num) > 0) then
+            name_clean(sp_sy(pr_test(test)),clean_sy)
+            ha_temp=zero
+            index_parameters[tl_index_test]=test
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'Lyman-alpha emission rate by species')
+     $                 /(const(10.196)*electron_charge)
+                  zone_data[zone]=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+         halpha_tot=zero
+         do zone=1,zn_num
+            halpha_tot+=zone_data[zone]*zn_volume(zone)
+         end do
+
+         if (halpha_tot > zero) then
+            call write_hdf('lyman_alpha'\/trim(clean_sy)\/'.hdf',zone_data,
+     $        'Lyman_alpha_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
      $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
          end if
       end do
