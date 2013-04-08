@@ -2,6 +2,12 @@
 \Title{collide}
 
 % $Log$
+% Revision 1.34  2013/03/21 11:13:42  dstotler
+% Tweak usage of "generic" emission rate and wavelengths to
+% also allow use of explicit lines.  The new, key assumption
+% is that a generic emission rate will be associated with the
+% first non-zero wavelength.
+%
 % Revision 1.33  2012/08/24 15:06:47  dstotler
 % Tweak test on emitting lines to allow multiple species.
 %
@@ -846,8 +852,6 @@ loop: continue
 
 @ Process a dissociation. Arguments are the same as for |chargex|.
 
-@m max_lines 5
-
 @<Functions...@>=
       subroutine dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
@@ -883,7 +887,7 @@ loop: continue
       rc_decl(reac)
       integer i,i_ediss,i_elediss,num_heavy_products,j_arr,psp_i,
      $        num_lines,i_e_rate,i_gen_rate
-      integer product_index[2],lines[max_lines],e_rates[max_lines]
+      integer product_index[2],lines[pr_max_lines],e_rates[pr_max_lines]
       vc_decl(v_test)
       vc_decl(v_iso)
       vc_decl(v_emitter)
@@ -1329,8 +1333,6 @@ break:continue
 routine is required for ionizations which are not treated by the method
 of suppressed absorption.
 
-@m max_lines 5
-
 @<Functions...@>=
       subroutine ionize(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
@@ -1364,7 +1366,7 @@ of suppressed absorption.
       pr_test_decl(test_i)
       rc_decl(reac)
       integer i,i_eioniz,num_lines,i_e_rate,i_gen_rate,psp_i
-      integer lines[max_lines],e_rates[max_lines]
+      integer lines[pr_max_lines],e_rates[pr_max_lines]
       real eioniz,m_i
       vc_decl(v_test)
       vc_decl(v_emitter)
@@ -1583,8 +1585,6 @@ of suppressed absorption.
 @ Process an excitation or deexcitation. Arguments are the same as 
 for |chargex|.
 
-@m max_lines 5
-
 @<Functions...@>=
       subroutine excite(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
@@ -1618,7 +1618,7 @@ for |chargex|.
       pr_test_decl(test_i)
       rc_decl(reac)
       integer i,i_eloss,i_esrc,num_lines,i_e_rate,i_gen_rate,psp_i
-      integer lines[max_lines],e_rates[max_lines]
+      integer lines[pr_max_lines],e_rates[pr_max_lines]
       real eloss,esrc,m_i
       vc_decl(v_test)
       vc_decl(v_emitter)
@@ -2287,8 +2287,6 @@ loop: continue
 
 @ Compute scoring data for dissociation track-length estimator.
 
-@m max_lines 5
-
 @<Functions...@>=
       subroutine track_dissoc(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
      $     rate,independent_parameters,
@@ -2321,7 +2319,7 @@ loop: continue
       sp_decl(prod[rc_product_max])
       integer i,i_ediss,i_elediss,nprod,num_heavy_products,j_arr,k,psp_i,
      $        num_lines,i_e_rate,i_gen_rate,i_line
-      integer product_index[2],lines[max_lines],e_rates[max_lines]
+      integer product_index[2],lines[pr_max_lines],e_rates[pr_max_lines]
       vc_decl(v_test)
       vc_decl(v_emitter)
       real ediss,elediss,mass_total,m_i,this_line
@@ -2760,8 +2758,6 @@ loop: continue
 @ Set scoring data for recombinations. Recombination scoring is
 actually done at the source point or as a post-processor.
 
-@m max_lines 5
-
 @<Functions...@>=
       subroutine recombination_data(est,so_dummy(is),xseg,pt_dummy(p),
      $   scoring_data,rn_dummy(x))
@@ -2797,7 +2793,7 @@ actually done at the source point or as a post-processor.
       vc_decl(vb_flow)
       vc_decl(v_src)
       integer i,i_e_loss,i_e_src,num_lines,i_e_rate,i_gen_rate,psp_1,psp_2
-      integer lines[max_lines],e_rates[max_lines]
+      integer lines[pr_max_lines],e_rates[pr_max_lines]
       real rate,e_loss,e_e_loss,e_e_src
       real independent_parameters[xs_max_indep_params]
       character*tl_tag_length line

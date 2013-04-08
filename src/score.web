@@ -2,6 +2,10 @@
 \Title{score}
 
 % $Log$
+% Revision 1.22  2013/03/21 11:29:51  dstotler
+% Add zn_decls to post_process_test_scores.
+% Set sn_particles_dim using last_ubounda macro.
+%
 % Revision 1.21  2012/08/24 15:49:30  dstotler
 % Updated sn_particles_dim only if smaller than sn_number_particles;
 % fixes a recurring memory problem.  Added snapshot_data for
@@ -989,8 +993,6 @@ tracked by those elements.
 only independent variable tracked on these detectors presently is the
 wavelength of emissions. 
 
-@m max_lines 3
-
 @<Functions...@>=
       subroutine handle_detectors(pt_dummy(p),pointer,dep_var,
      $   scoring_data,number_segments,segments,
@@ -1018,7 +1020,7 @@ wavelength of emissions.
 
       integer de_group,iview,i,ibin,num_lines,i_e_rate,       // Local
      $        i_line
-      integer lines[max_lines],e_rates[max_lines]
+      integer lines[pr_max_lines],e_rates[pr_max_lines]
       real lambda0,lambda,lambda_f,dl,vth,delta_l_th,f,density,delta_l_st,
      $     x_voigt,y_voigt
       character*tl_tag_length line
