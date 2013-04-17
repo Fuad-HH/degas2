@@ -403,6 +403,11 @@ ifeq ($(SYSTEM),IRIX64)
   FFLAGS=-64
   OPTFLAGS=-O3
 endif
+ifeq ($(SYSTEM),Darwin)
+  MACHINE=MACOSX
+  FFLAGS=
+  OPTFLAGS=
+endif
 ifeq ($(SYSTEM),Linux)
   PVMARCH=LINUX
 #
