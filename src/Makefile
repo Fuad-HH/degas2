@@ -57,6 +57,7 @@ PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
 FTANGLE=ftangle
 FWEAVE=fweave
 LATEX=latex
+PDFLATEX=pdflatex
 # These are the old tangle flags -- not needed any more since we
 # now don't stress tangle so much
 # TANGLEFLAGS=-mINLINE -W[ -ytt40000000 -yn8000 -ymb65536 -n/ -n')' -Tv -j
@@ -474,6 +475,16 @@ endef
 
 %.dvi: %.tex fweboptions.sty fweb.sty
 	$(RUN-LATEX)
+
+define RUN-PDFLATEX
+  if [ -r $*.aux ]; then cp $*.aux $*.aux0; fi
+  $(PDFLATEX) $*.tex
+  if [ -r $*.aux ]; then cmp -s $*.aux $*.aux0 || $(PDFLATEX) $*.tex; fi
+  rm -f $*.aux0
+endef
+
+%.pdf: %.tex fweboptions.sty fweb.sty
+	$(RUN-PDFLATEX)
 
 %.bbl: %.aux ../../degas.bib
 	bibtex $*
