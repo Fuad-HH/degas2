@@ -6,11 +6,6 @@
 # write Fortran block data subprogram 'id_data' to standard output with
 # the identifiers data loaded in a common block 'id_common'.
 
-# $Log$
-# Revision 1.1  1992/06/27  21:02:45  karney
-# Initial check in
-#
-
 cat $* | ident -q | egrep '\$(Id|Header):' | sort | uniq | sed 's/^ *//' | \
 awk '
 BEGIN {

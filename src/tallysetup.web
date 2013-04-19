@@ -1,82 +1,6 @@
 % $Id$
 \Title{tallysetup}
 
-% $Log$
-% Revision 1.15  2011/03/04 18:09:46  dstotler
-% Add snapshot estimator to test tallies (yet to be documented).
-%
-% Revision 1.14  2006/01/19 20:05:23  dstotler
-% Associate excitation and deexcitation reaction types with pr_rc_ionize.
-%
-% Revision 1.13  2001/11/16 16:00:11  dstotler
-% Set var_num[tl_index_source_group] to int_unused since so_grps is not
-% available.
-%
-% Revision 1.12  2001/07/16 21:07:36  dstotler
-% Added source type to reaction list for tally_est_reaction. Original is
-% tallysetup.ref. NOTE: MAY WANT TO REPLACE pr_reaction_num+so_type,
-% etc. WITH A MACRO AS WE HAVE DONE FOR problem_sp. Allow an estimator
-% 'N' to denote no estimator for a particular  reaction.
-%
-% Revision 1.11  2000/04/01 17:35:13  dstotler
-% Merged with dps_2_6_changes branch; a few minor conflicts were
-% resolved.
-%
-% Revision 1.10  2000/03/27 21:15:35  dstotler
-% A little clean up following merger with Randy's branch.
-%
-% Revision 1.9.4.2  2000/03/27 15:23:03  dstotler
-% Relabel some of the pr_rc's to be consistent with their usage in the
-% examples. Replace code used to set up spectrum (including inclusion of
-% sources.hweb).
-%
-% Revision 1.9.4.1  2000/01/22 00:48:32  kanzlr
-% Addition of pr_rc_elastic.  BGK collisions belong to pr_rc_unknown.
-%
-% Revision 1.9.2.1  1999/12/16 18:06:44  dstotler
-% Add set_var_list. New version with input file. Changes to allow test
-% exchange tallies and PMI tallies as fn. of incident test: Change names
-% of conversions associated with back_mass to problem_sp mass. Replaced
-% back in tally_var_list with problem_sp, var_num, too.
-%
-% Revision 1.9  1999/04/20 20:21:51  dstotler
-% Replace "mass" and "energy" dep. vars. for sector tallies with
-% "mass_out" and "energy_out" to keep answers same. Add assert that
-% scoring_data_max > pr_var0_num (I believe we explicitly dimension
-% scoring_data to avoid allocating array space in the low level
-% routines). Make further modifications to permit purely diagnostic
-% sectors.
-%
-% Revision 1.8  1999/03/25 20:52:49  dstotler
-% Added check(s) on filenames_array.
-%
-% Revision 1.7  1998/09/04 17:25:14  dstotler
-% Add a tally for spectrum detail as in APS_1977_Hacks_Done.
-%
-% Revision 1.6  1998/06/01 15:56:37  karney
-% MPI enabled version.
-%
-% Revision 1.5  1998/05/08 14:15:40  dstotler
-% Set INT version of tally_dep_var by string_lookup in pr_var0_list. Set
-% tally_dep_var_dim. Set some unused  variables.
-%
-% Revision 1.4  1998/03/11 15:27:17  dstotler
-% Allow pr_reaction_num=0. Add an "OPTIMIZE" flag which turns off a few
-% scores.
-%
-% Revision 1.3  1998/01/14 21:09:00  dstotler
-% Implemented conversions.
-%
-% Revision 1.2  1997/08/19 14:37:09  karney
-% Changes to support compilation under f90.  This involved extensive changes
-% in array.hweb and sysdep.web.  Nearly all other files needed some
-% modifications.
-%
-% Revision 1.1  1997/08/07 20:33:41  dstotler
-% This initial set of tallies is a good start. It currently works with
-% both boxgen and readgeometry.
-%
-
 @* Define tallies to be used in the run. 
 
 \ID{$Id$}
@@ -1062,7 +986,7 @@ merge these data into the problemfile, written by |nc_write_problem|.
       character*FILELEN tempfile
 
       program_version=
-     $     '$Id$'
+     $     'DEGAS 2 Git commit: $Format:%H$, ref names: $Format:%d$'
 
       tempfile=filenames_array[tallyfile]
       assert(tempfile != char_undef)
