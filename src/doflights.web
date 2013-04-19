@@ -1,54 +1,6 @@
 % $Id$
 \Title{doflights}
 
-% $Log$
-% Revision 1.8  2012/08/24 15:28:30  dstotler
-% Fixed a problem with allocation of snapshot particle arrays on slaves.
-% Increased size of sig_det from 20 to 30.  Add a temporary diagnostic
-% output prior to call to stat_acc (problem encounted with XGC0-DEGAS2).
-%
-% Revision 1.7  2011/03/04 17:59:51  dstotler
-% Replace mpi_root with mpi_degas2_root to avoid name collision on
-% Jaguar.  Add overall scaling factor of 1/time intervalfor time
-% dependent runs.  Incorporate changes for dealing with snapshot particles.
-% Replace so_seed_string with so_seed_decimal.
-%
-% Revision 1.6  2009/11/25 18:43:27  dstotler
-% Add NC_LARGE_FILE macro to invoke the 64 bit offset option for
-% the output netCDF file.  Add a check in fill_coupling_arrays to skip
-% sources.out if there is no electron background.  Free test_data in
-% fill_coupling_arrays.  Free output_weight_grp, output_num_flights,
-% output_random_seed in clear_output.
-%
-% Revision 1.5  2007/06/19 17:35:01  dstotler
-% Fixed array dimensions in argument list of write_sources.
-%
-% Revision 1.4  2006/01/19 19:18:52  dstotler
-% Allow for 3-D symmetry in fill_coupling_arrays by dumping out only
-% zones for which zone_index[zone][zi_ptr]=zone.  Add output from
-% do_flights_slave.  Incorporate nslaves into denominator of nfrag
-% evaluation to limit slave idle time in limit of large nslaves. Improve
-% master reports of number of flights sent.
-%
-% Revision 1.3  2002/01/28 16:54:50  dstotler
-% Skip setting of zone_map for zones with zone_index outside of computed
-% bounds (i.e., added plasma zones).
-%
-% Revision 1.2  2001/11/16 15:47:24  dstotler
-% Set lower bound for ix,iy to 1 in fill_coupling_arrays so as to
-% eliminate plasma zones added for BGK, etc. Pass stat_flt to
-% post_process_test_scores by common rather than argument list.
-%
-% Revision 1.1  2001/07/16 20:50:38  dstotler
-% Designed to permit external control of BGK iterations by
-% flighttest. This file is roughly the same as the pre-BGK
-% flighttest.web. Contains primary subroutines split off from
-% flighttest.web. Changed "post_process_back_scores" to
-% "post_process_source_scores" and removed stat_flt from  argument
-% list. Removed check on so_type and checked sources in setting
-% need_scores.
-%
-
 @* Subroutines for control of main program.
 
 \ID{$Id$}
