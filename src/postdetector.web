@@ -146,14 +146,19 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
 @m CMOD_XPT  1   // |nx| and |ny| here if needed.
 @m CMOD_MID  2
 @m NSTX_2010 3
+@m NSTX_ENDD 4
 
-@m APP NSTX
+@m APP NSTX_ENDD
 
-@#if 0
+@#if 1
 @#if (APP == NSTX_2010)
 @m nx 64
 @m ny 80
-@#else
+@#elseif (APP == NSTX_ENDD)
+@m nx 123   // Note that the actual camera pixel indices
+@m ny 56    // do not begin at 1.
+@m o_grp 1  // Output group to use 
+@#else   // C-Mod or old NSTX
 @m nx 64
 @m ny 64
 @#endif
@@ -267,18 +272,31 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
       do zone=1,zn_num
          if (zn_type(zone) == zn_plasma) then
             index_parameters[tl_index_zone]=zone
+@#if (APP == NSTX_ENDD)
+            em_rate=extract_output_datum(index_parameters,1,
+     $           out_post_grp[o_grp][0][o_mean],o_mean,tally_name[total_tally])
+@#else
             em_rate=extract_output_datum(index_parameters,1,
      $           out_post_all,o_mean,tally_name[total_tally])
+@#endif
             em_data[zone]=em_rate
             em_temp+=em_rate*zn_volume(zone)
             do test=2,pr_test_num    // Skip the ``geometry'' test species
                index_parameters[tl_index_test]=test
                is=test-1
+@#if (APP == NSTX_ENDD)
+               test_density[zone][is]=extract_output_datum(index_parameters,1,
+     $              out_post_grp[o_grp][0][o_mean],o_mean,'neutral density')
+               if (tl_check(species_tally)) then
+                  em_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_grp[o_grp][0][o_mean],o_mean,tally_name[species_tally])
+@#else
                test_density[zone][is]=extract_output_datum(index_parameters,1,
      $              out_post_all,o_mean,'neutral density')
                if (tl_check(species_tally)) then
                   em_rate=extract_output_datum(index_parameters,1,
      $                 out_post_all,o_mean,tally_name[species_tally])
+@#endif
                   em_sp_data[zone][is]=em_rate
                end if
             end do
@@ -599,6 +617,14 @@ routines.
       phi=const(6.146,1)*PI/const(1.8,2)  // Toroidal shift to my system
       d_l0=const(5.,-2)     // Range for averaging about target plane
       d_opt=const(2.5,-1)   // Range for searching for a close zone
+@#elif (APP == NSTX_ENDD)
+      a0=-sin(const(155.0)*PI/const(1.8,2))  // Again, a vertical plane
+      a1=cos(const(155.0)*PI/const(1.8,2))  
+      a2=zero
+      a3=zero
+      phi=zero      
+      d_l0=const(5.,-2) 
+      d_opt=const(3.0,-1)
 @#else
       assert('Target plane parameters not specified' == ' ')
 @#endif
@@ -672,7 +698,7 @@ routines.
                end do
             end if
          end do
-@#if (APP == NSTX_2010)
+@#if (APP == NSTX_2010 || APP == NSTX_ENDD)
          inverted_iy=iy
 @#else
          inverted_iy=ny-iy+1
