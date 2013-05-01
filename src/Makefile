@@ -443,7 +443,7 @@ triangle.%: $(TRIDIR)/triangle.%
 endif
 
 triangle.o: triangle.c triangle.h
-	cc -DTRILIBRARY -O -c $<
+	$(CC) -DTRILIBRARY -O -c $<
 
 ifeq ($(STANDALONE),yes)
 # include files
