@@ -511,6 +511,9 @@ using routines specific for the type of that source.
       else if (so_type(isource) == so_snapshot) then
          call set_snapshot_source_v(so_args(isource),xseg,kseg,lc_args(x),
      $        rn_args(r),vc_args(vsrc))
+      else if (so_type(isource) == so_plt_e_bins) then 
+         call set_plt_e_bins_source_v(so_args(isource),xseg,kseg,lc_args(x),
+     $        rn_args(r),vc_args(vsrc))
       else
          assert("Unsupported source type" == " ")
       end if
@@ -525,6 +528,7 @@ using routines specific for the type of that source.
      $   rn_dummy(r),vc_dummy(vsrc))
       implicit_none_f77
       sc_common
+      so_common
       implicit_none_f90
 
       so_decl(isource)           // Input
@@ -533,13 +537,25 @@ using routines specific for the type of that source.
       rn_decl(r)                 // Input/output
       vc_decl(vsrc)              // Output
 
-      integer j                  // Local
+      integer j,seg_tot,iparam   // Local
       real wa,ion_energy
       real vgauss[1]
       sc_plasma_decl(plasma_sc_ptr)
 
       plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
       assert(sc_plasma_check(plasma_sc_ptr))
+/*
+   For testing of miscellaneous source parameter implementation
+   of sheath parameters.
+*/
+      assert(source_num_parameters[isource] > 0)
+      seg_tot=so_base(isource)+kseg
+      do iparam=1,source_num_parameters[isource]
+         if (so_params_list(iparam,isource) == so_param_e_ion_mult) then
+            assert(so_params_data(iparam,seg_tot,isource) 
+     $           == plasma_e_ion_mult[plasma_sc_ptr])
+         end if
+      end do
       wa=zero
       if (plasma_e_ion_mult[plasma_sc_ptr] > zero) then
 /* Sample a Gaussian energy at background temperature */
@@ -580,18 +596,15 @@ the average value is used.
       so_decl(isource)           // Input
       integer xseg,kseg
       real wa
-      lc_decl(x)                
+      lc_decl(x) 
+               
       vc_decl(vsrc)              // Output
       real ion_energy
 
-      real ion_velocity          // Local
+      integer seg_tot,iparam     // Local
       sp_decl(spion)  
-      vc_decl(vzero)
-      vc_decl(vone)
       sc_plasma_decl(plasma_sc_ptr)
       pr_background_decl(back)
-
-      sources_localcommon
 
       assert(so_geom(isource) == so_surface)
       spion=so_root_sp(isource)
@@ -600,6 +613,21 @@ the average value is used.
       back=pr_background_lookup(spion)
       assert(pr_background_check(back))
       wa=half*wa*bk_temp(back,lc_zone(x))
+/*
+   For testing of miscellaneous source parameter implementation
+   of sheath parameters.
+*/
+      assert(source_num_parameters[isource] > 0)
+      seg_tot=so_base(isource)+kseg
+      do iparam=1,source_num_parameters[isource]
+         if (so_params_list(iparam,isource) == so_param_e_ion_delta) then
+            assert(so_params_data(iparam,seg_tot,isource) 
+     $           == plasma_e_ion_delta[plasma_sc_ptr])
+         else if (so_params_list(iparam,isource) == so_param_e_ion_sheath) then
+            assert(so_params_data(iparam,seg_tot,isource) 
+     $           == plasma_e_ion_sheath[plasma_sc_ptr])
+         end if
+      end do
 /*
    First attempt at a flexible sheath physics model. These parameters
    are now set in |readbackground.web|.
@@ -611,18 +639,47 @@ the average value is used.
       ion_energy=plasma_e_ion_delta[plasma_sc_ptr]
      $     + plasma_e_ion_mult[plasma_sc_ptr]*wa
      $     + plasma_e_ion_sheath[plasma_sc_ptr]*sp_z(spion)
-      
       assert(ion_energy >= zero)
-      ion_velocity=sqrt(two*ion_energy/sp_m(spion))
 
-/* This should work if the analogous code for sampling surface x works 
+      call plate_v_vector(ion_energy,sp_args(spion),xseg,vc_args(vsrc))
+
+      return
+      end
+
+@ Determine incident ion velocity vector from input energy.
+
+@<Functions...@>=
+      subroutine plate_v_vector(ion_energy,sp_dummy(spion),xseg,vc_dummy(vsrc))
+
+      implicit_none_f77
+      sp_common                // Common
+      sc_common
+      implicit_none_f90
+
+      real ion_energy          // Input
+      integer xseg
+      sp_decl(spion)
+
+      vc_decl(vsrc)             // Output
+
+      real ion_velocity         // Local
+      vc_decl(vzero)
+      vc_decl(vone)
+
+      sources_localcommon
+
+      ion_velocity=sqrt(two*ion_energy/sp_m(spion))
+/*
+   This should work if the analogous code for sampling surface $x$ works 
    |lc_x(x)| should be slightly off of the plate. This generates a
    velocity which heads directly back to it, where |process_sector|
    is called to do the rest of the job.
  */
       vc_set(vzero,zero,zero,zero)
       vc_set(vone,zero,zero,-one)  
-// Use normal at point {\em on surface}, obtained by common from |surface_source_x|
+/*
+   Use normal at point {\em on surface}, obtained by common from |surface_source_x|
+*/
       call surface_reflect(sector_surface[xseg],vc_args(x_surface),
      $     vc_args(vzero),vc_args(vone),vc_args(vsrc))
       vc_scale(ion_velocity,vsrc,vsrc)
@@ -657,7 +714,6 @@ with an isotropic distribution; we would need another routine for that.
 @#if COUETTE 
       real xi,cos_theta,sin_theta,phi,cos_phi,sin_phi,
      $     ran,log_ran
-      rn_decls
 
       call random_gauss(vcos,2,rn_args(r))   // Maxwell flux for Couette flow
 
@@ -743,17 +799,13 @@ with an isotropic distribution; we would need another routine for that.
 */
       call surface_reflect(sector_surface[xseg],vc_args(x_surface),
      $     vc_args(vzero),vc_args(vcos),vc_args(vsrc))
-@#if 0
-      temp=so_params(isource,so_param_puff_temp)
-      assert(temp > zero)
-@#else
+
       assert(source_num_gparameters[isource] > 0)
       do iparam=1,source_num_gparameters[isource]
          if (so_gparams_list(iparam,isource) == so_gparam_puff_temp) 
      $        temp=so_gparams_data(iparam,isource)
       end do
       assert(temp > zero)
-@#endif
       energy=half*vpuff*temp
 @#if COUETTE
       vpuff=sqrt(temp/sp_m(spsrc)) // Maxwell flux for Couette flow
@@ -793,7 +845,6 @@ with an isotropic distribution; we would need another routine for that.
       sp_decl(spsrc)
       vc_decl(vb_flow)
       pr_background_decl(spback)
-
 
       assert(so_geom(isource) == so_volume)
       spsrc=so_species(isource)
@@ -946,6 +997,142 @@ used and are retained only for uniformity.
          end if
       end do
       vc_set(vsrc,v1,v2,v3)
+
+      return
+      end
+
+@ Velocity for plate source specified with binned energy distribution.  
+      
+@<Functions...@>=
+      subroutine set_plt_e_bins_source_v(so_dummy(isource),xseg,kseg,lc_dummy(x),
+     $   rn_dummy(r),vc_dummy(vsrc))
+      implicit_none_f77
+      implicit_none_f90
+
+      so_decl(isource)           // Input
+      integer xseg,kseg
+      lc_decl(x)                
+      rn_decl(r)                 // Input/output
+      vc_decl(vsrc)              // Output
+
+      real urd,ion_energy        // Local
+      rn_decls
+
+      rn_next(urd,r)
+      call plt_e_bins_v_details(so_args(isource),xseg,kseg,lc_args(x),urd,
+     $     vc_args(vsrc),ion_energy)
+
+      return
+      end
+
+@ Details for computing velocity for plate source with binned energy distribution. 
+This interface accommodates both runtime and post processing calls.  The |urd|
+argument is a uniform random deviate in the former case; in the latter, the average
+values of $1/2$ should be used.
+      
+@<Functions...@>=
+      subroutine plt_e_bins_v_details(so_dummy(isource),xseg,kseg,lc_dummy(x),
+     $   urd,vc_dummy(vsrc),ion_energy)
+
+      implicit_none_f77
+      so_common                                         // Common
+      sp_common
+      implicit_none_f90
+
+      so_decl(isource)                                  // Input
+      integer xseg,kseg
+      real urd
+      lc_decl(x) 
+               
+      vc_decl(vsrc)                                     // Output
+      real ion_energy
+
+      integer iparam,num_bins,e_spacing,i_bin,seg_tot   // Local
+      real e_min,e_delta,ran,x_bin,e_i,e_im1,pdf_i
+      real e_prob[so_e_bins_num_max]
+      sp_decl(spion)  
+
+      external find_index                               // External
+      real find_index
+
+      assert(source_num_giparameters[isource] > 0)
+      do iparam=1,source_num_giparameters[isource]
+         if (so_giparams_list(iparam,isource) == so_giparam_e_bins_num) then
+            num_bins=so_giparams_data(iparam,isource)
+         else if (so_giparams_list(iparam,isource) == so_giparam_e_bins_spacing) then
+            e_spacing=so_giparams_data(iparam,isource)
+         end if
+      end do
+      assert((num_bins > 0) && (num_bins <= so_e_bins_num_max))
+      assert(e_spacing > 0)
+
+      assert(source_num_gparameters[isource] > 0)
+      do iparam=1,source_num_gparameters[isource]
+         if (so_gparams_list(iparam,isource) == so_gparam_e_bins_min) then
+            e_min=so_gparams_data(iparam,isource)
+         else if (so_gparams_list(iparam,isource) 
+     $           == so_gparam_e_bins_delta) then
+            e_delta=so_gparams_data(iparam,isource)
+         end if
+      end do
+      if (e_spacing == so_e_bins_spacing_linear) then
+         assert(e_min > zero)
+      end if
+      assert(e_delta > zero)
+      
+      assert(source_num_parameters[isource] > 0)
+      seg_tot=so_base(isource)+kseg
+      i_bin=0
+      do iparam=1,source_num_parameters[isource]
+         if (so_params_list(iparam,isource) == so_param_e_bin_prob) then
+            i_bin++
+            e_prob[i_bin]=so_params_data(iparam,seg_tot,isource)
+         end if
+      end do
+      assert(i_bin == num_bins)
+
+      if (urd != real_unused) then
+/*
+   Add 1 here since |find_index| is used with arrays
+   having an index starting at 0.
+*/
+         x_bin=find_index(urd,e_prob,num_bins)+one
+         ion_energy=e_min+x_bin*e_delta
+         if (e_spacing == so_e_bins_spacing_log) then
+            ion_energy=exp(ion_energy)
+         else
+            assert(e_spacing == so_e_bins_spacing_linear)
+         end if
+         assert(ion_energy > zero)
+      else
+/*
+  Compute the average energy from the distribution.
+  I.e., routine is being called during post-processing.
+*/
+         ion_energy=zero
+         do i_bin=1,num_bins
+            e_i=e_min+areal(i_bin)*e_delta
+            e_im1=e_min+areal(i_bin-1)*e_delta
+            if (i_bin > 1) then
+               pdf_i=e_prob[i_bin]-e_prob[i_bin-1]
+            else
+               pdf_i=e_prob[1]
+            end if
+            if (e_spacing == so_e_bins_spacing_linear) then
+               ion_energy+=pdf_i*half*(e_i+e_im1)
+            else if (e_spacing == so_e_bins_spacing_log) then
+               e_i=exp(e_i)
+               e_im1=exp(e_im1)
+               ion_energy+=pdf_i*(e_i-e_im1)/e_delta
+            else
+               assert('Unexpected energy bin spacing' == ' ')
+            end if
+         end do
+      end if
+
+      assert(so_geom(isource) == so_surface)
+      spion=so_root_sp(isource)
+      call plate_v_vector(ion_energy,sp_args(spion),xseg,vc_args(vsrc))
 
       return
       end
