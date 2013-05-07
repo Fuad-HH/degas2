@@ -443,7 +443,8 @@ collision routines.
       return
       end
 
-@ Scoring data for plate source.
+@ Scoring data for plate source.  This also handles the plate source
+with binned energy distribution.
 
 @<Functions...@>=
       subroutine plate_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
@@ -453,7 +454,6 @@ collision routines.
       sp_common
       pr_common
       so_common
-      sc_common
       implicit_none_f90
 
       integer est,xseg,kseg                        // Input
@@ -469,15 +469,23 @@ collision routines.
 
       spion=so_root_sp(isource)
       if (est == tl_est_post_process) then
-         wa=const(3.)
 /*
    The current assumption is that the ion velocity is directed
    normally at the plate. Hence, need do nothing special here with
    |vsrc|. However, if a more detailed model is invoked, an appropriate
    average velocity expression needs to be used here.
 */
-         call plate_v_details(so_args(isource),xseg,lc_args(pt_loc(p)),wa,
-     $        vc_args(vsrc),energy)
+         if (so_type(isource) == so_plate) then
+            wa=const(3.)
+            call plate_v_details(so_args(isource),xseg,kseg,lc_args(pt_loc(p)),wa,
+     $           vc_args(vsrc),energy)
+         else if (so_type(isource) == so_plt_e_bins) then
+            wa=real_unused // Tells it to compute |energy| from distribution.
+            call plt_e_bins_v_details(so_args(isource),xseg,kseg,
+     $           lc_args(pt_loc(p)),wa,vc_args(vsrc),energy)
+         else
+            assert('Unexpected value of isource' == ' ')
+         end if
       else if (est == tl_est_collision) then
          vc_copy(pt_v(p),vsrc)
          energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
@@ -570,7 +578,6 @@ remains to be established.
       implicit_none_f77
       sp_common
       pr_common
-      sc_common
       implicit_none_f90
 
       integer est,xseg,kseg                        // Input
@@ -1469,7 +1476,8 @@ situation.
          if (so_type(is) == so_recomb) then
             call recombination_data(est,so_args(is),xseg,pt_args(p),
      $           scoring_data,rn_args(x))
-         else if (so_type(is) == so_plate) then
+         else if ((so_type(is) == so_plate) 
+     $           || (so_type(is) == so_plt_e_bins)) then
             call plate_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
          else if (so_type(is) == so_puff) then
             call puff_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
