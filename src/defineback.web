@@ -379,13 +379,25 @@ to real (i.e., floating point) arguments. All other arguments are strings.
 \begin{description}
   \item[|source_type|] {\tt typ} gives the type of the source. The only
 types currently treated in {\tt DEGAS 2} are {\tt typ} = {\tt plate}, 
-{\tt puff}, {\tt vol\_source}, {\tt snapshot} and
+{\tt puff}, {\tt vol\_source}, {\tt plt\_e\_bins}, {\tt snapshot} and
 {\tt recomb}. The last two are not needed in a {\tt defineback}
 input file since a recombination source is established automatically by the
 inclusion of the appropriate reaction in the {\tt problemsetup} input
 file. A snapshot source is set up automatically in a time dependent
 run if a |snapshotfile|, generated at the end of the previous
-step, is present.
+step, is present.  
+
+The {\tt plt\_e\_bins} source type allows the user to specify the
+energy distribution for the recycling ions via the additional
+parameters |source_e_bin_num|,  |source_e_bin_min|, 
+|source_e_bin_max|,  and |source_e_bin_spacing|.  The four 
+parameters only describe the grid on which this distribution is 
+specified.  Since this energy distribution can vary from one segment to the
+next within this source group, the total number of parameters 
+required to specify all of these distributions can be quite large.
+As such, 
+they can only be input via the {\tt row} option of |source_file| 
+(\verb+E_bin_prob+ and variants).
   \item[|source_geom|] {\tt geom} specifies the geometry of the source.
 The most frequently used value is {\tt geom} =
 {\tt surface} (e.g., a line in a poloidal plane of an axisymmetric torus).
@@ -421,6 +433,29 @@ surface normal, distributed according to $\cos^{\alpha}(\theta)$.
 The default value is 1, although values as large as 2.5 are
 reasonable [e.g., see B.\ Farizon et al., {\em Nucl. Instrum. Meth.
 Phys. Res. B} {\bf 101} (1995) 287].
+  \item[|source_e_bin_num|] $n_{\rm bins}$ is the 
+number of bins used
+to specify the energy distribution at each source group segment  
+in the {\tt plt\_e\_bins} source type.
+The default is 4; the maximum value is |so_e_bins_num_max|.
+  \item[|source_e_bin_min|] $E_{\rm min}$ is the 
+minimum energy in eV of the energy distribution
+to be specified with the {\tt plt\_e\_bins} source type.  This value represents
+the ``left edge'' of the first bin.  The default value is 
+$E_{\rm min} = 1$ eV.
+  \item[|source_e_bin_max|] $E_{\rm max}$ is the 
+maximum energy in eV of the energy distribution
+to be specified with the {\tt plt\_e\_bins} source type.  This value represents
+the ``right edge'' of the $n_{\rm bins}$-th bin.  The default value is 
+$E_{\rm min} = 10^{4}$ eV.
+  \item[|source_e_bin_spacing|] {\tt spacing} specifies the
+spacing of the energy distribution used with the {\tt plt\_e\_bins} 
+source type.  The only supported values are: {\tt spacing} = {\tt linear},
+which results in an energy distribution evenly spaced over $n_{\rm bins}$
+between $E_{\rm min}$ and $E_{\rm max}$, and {\tt spacing} = {\tt log},
+which results in an energy distribution evenly spaced over $n_{\rm bins}$
+between $\ln(E_{\rm min})$ and $\ln(E_{\rm max})$.  The default value
+is {\tt spacing} = {\tt log}.
   \item[|source_time_variation|] {\tt varn} specifies the time dependence of the
 source in time dependent runs.  The only supported values are: {\tt varn}
 = {\tt delta} causes all source particles to be launched at time 
@@ -489,13 +524,15 @@ the |source_strength| keyword).
 source strength (with units determined by the appearance of either
 the |specify_flux| or |specify_current| keywords) to be used in conjunction
 with |source_stratum| and |source_segment|.
-  \item[|source_file|] {\tt filename} is an alternative method of
+  \item[|source_file|] {\tt filename} {\tt format} is an alternative method of
 specifying the location and strength of the source (i.e., in lieu of
 using |source_stratum|, |source_segment|, and |source_strength|). 
 The file {\tt filename} is a text file of the usual type in which
 blank lines and comment lines beginning with \verb+#+ are ignored.
 The tabular and row-oriented formats available for these files are
-described below.
+described below.  The optional |format| argument should be set
+to {\tt tabular} or {\tt row}, respectively; the default is 
+{\tt tabular}.
 \end{description}
 
 \subsection{Tabular Format}
@@ -627,6 +664,28 @@ to prevent the perpendicular area from being factored in when the internal
 source arrays are loaded.As noted above, 
 if the electron temperature is also provided, the code
 will evaluate the incident ion energy using Eqs.~(\ref{ei}) and (\ref{phi}).
+
+\subsection{Binned Energy Distribution}
+
+Note first that this energy distribution characterizes the particles as
+they strike a material surface, not at the sheath entrance.  I.e., the 
+particles will not be accelerated through the sheath, and there is no
+need to specfiy parameters for the sheath.
+
+The only quantity specified in the |source_file| is the relative probability
+of the distribution over the $n_{\rm bin}$ (|source_e_bin_num|) bins,
+labeled with \verb+E_bin_prob+ (or \verb+E_BIN_PROB+, \verb+e_bin_prob+).
+From this distribution, |defineback| will compute a normalized,
+cumulative distribution suitable for sampling during the run of the
+main code.
+
+The primary difference between this and other quantities in the |source_file|
+is that there are $n_{\rm bins}$ parameters for each source segment.  These
+will be read in from the file with the first $n_{\rm bins}$ numbers assigned to
+the first segment, the second $n_{\rm bins}$ to the second segment, etc.  As 
+with the other quantities, the data are read in one row at a time.  The user is
+otherwise free to arrange these data in whatever manner is convenient
+or most readable.
 
 \subsection{Additional Comments on Source Locations}
 
@@ -906,7 +965,8 @@ used should be as well.
 @m code_e_delta 21
 @m code_e_mult 22
 @m code_e_sheath 23
-@m code_real_max 23
+@m code_e_bin_min 24   // Needs to be the last code since |so_e_bins_num_max| come after it.
+@m code_real_max code_e_bin_min+so_e_bins_num_max-1
 
 @m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
          assert(open_stat == 0) @;
@@ -938,6 +998,20 @@ used should be as well.
             source_real_params[iseg][i]=real_uninit;
          end do;
       end if @;
+
+@m increment_gparams(num_params) so_gparams_list_size+=num_params;
+         if (so_gparams_list_size > so_gparams_list_dim) then;
+            var_realloc(source_gparameters_list,so_gparams_list_dim,so_gparams_list_size);
+            var_realloc(source_gparameters_data,so_gparams_list_dim,so_gparams_list_size);
+            so_gparams_list_dim=so_gparams_list_size;
+         end if @;
+
+@m increment_giparams(num_params) so_giparams_list_size+=num_params;
+         if (so_giparams_list_size > so_giparams_list_dim) then;
+            var_realloc(source_giparameters_list,so_giparams_list_dim,so_giparams_list_size);
+            var_realloc(source_giparameters_data,so_giparams_list_dim,so_giparams_list_size);
+            so_giparams_list_dim=so_giparams_list_size;
+         end if @;
 
 @m increment_params(num_params) so_params_list_size+=num_params;
          if (so_params_list_size > so_params_list_dim) then;
@@ -982,12 +1056,13 @@ used should be as well.
       character*FILELEN inputfile                               // Input
 
       real density,temperature,dummy,circum,area,               // Local
-     $     rtest,real_mult,mult,puff_temp,puff_exponent
+     $     rtest,real_mult,mult,puff_temp,puff_exponent,
+     $     e_bin_min,e_bin_max,e_bin_spacing,total,cumul
       integer type,geom,nflights,length,p,b,e,nunit_n,specify_flux,
      $        nunit_t,num_segments,iseg,i,open_stat,targ,diskin2,
      $        dim_segments,itest,data_type,data_code,update,old_grps,
      $        old_seg_tot,grp,iterative,jr,iparam,time_varn,
-     $        standalone
+     $        standalone,e_bin_num,i_bin,i_code,e_bin_entry
 
       character*1 back_label
       character*LINELEN line,type_string,nt_string,file_format
@@ -1152,6 +1227,10 @@ next_line: continue
             root_sp=int_undef
             puff_temp=const(3.,2)*boltzmanns_const
 	    puff_exponent=one
+            e_bin_num=4
+            e_bin_min=one*electron_charge
+            e_bin_max=const(1.,4)*electron_charge
+            e_bin_spacing=so_e_bins_spacing_log
             nflights=100
             specify_flux=TRUE
             num_segments=int_uninit
@@ -1226,9 +1305,34 @@ next_line: continue
          else if (line(b:e) == 'source_puff_exponent') then
             assert(next_token(line,b,e,p))
             puff_exponent=read_real(line(b:e))
-            assert(puff_exponent > const(-1.0))  
+            assert(puff_exponent > const(-1.0)) 
 
-         else if (line(b:e) == 'specify_flux') then
+         else if (line(b:e) == 'source_e_bin_num') then
+            assert(next_token(line,b,e,p))
+            e_bin_num=read_integer(line(b:e))
+            assert((e_bin_num > 0) && (e_bin_num <= so_e_bins_num_max))
+
+         else if (line(b:e) == 'source_e_bin_min') then
+            assert(next_token(line,b,e,p))
+            e_bin_min=read_real(line(b:e))*electron_charge
+            assert(e_bin_min > zero)
+
+         else if (line(b:e) == 'source_e_bin_max') then
+            assert(next_token(line,b,e,p))
+            e_bin_max=read_real(line(b:e))*electron_charge
+            assert(e_bin_max > zero)
+
+         else if (line(b:e) == 'source_e_bin_spacing') then
+            assert(next_token(line,b,e,p))
+            if (line(b:e) == 'linear') then
+               e_bin_spacing=so_e_bins_spacing_linear
+            else if (line(b:e) == 'log') then
+               e_bin_spacing=so_e_bins_spacing_log
+            else
+               assert(' Unexpected e_bin_spacing option ' == ' ')
+            end if
+
+        else if (line(b:e) == 'specify_flux') then
             specify_flux=TRUE
 
          else if (line(b:e) == 'specify_current') then
@@ -1527,6 +1631,7 @@ next_rowline: continue
             call parse_label(line,data_code,back)
             assert(data_code != code_undefined) 
             iseg=0
+            e_bin_entry=FALSE
 /*
    Two special cases, both dealing with temperature. Note that this is
    the only usage of the |back| index, i.e., to identify the electron
@@ -1555,11 +1660,50 @@ next_rowline: continue
 */
             assert(data_code != code_undefined)
 next_datum: continue
-            increment_iseg
+
+            if (e_bin_entry == FALSE) then
+               increment_iseg
+            end if
+
             if (data_type == code_int) then
                source_int_params[iseg][data_code]=read_integer(line(b:e))
             else if (data_type == code_real) then
                source_real_params[iseg][data_code]=read_real(line(b:e))*real_mult
+/*
+   There are |e_bin_num| probabilities for each segment
+   with the binned energy distribution.  The first entry
+   is handled in the usual manner as indicated above.
+   We suppress incrementing of |iseg| until all of the
+   bins have been read in.  The resetting of |data_code|
+   to |code_e_bin_min| restarts the process.  At that same point,
+   the input distribution is converted into the normalized, cumulative
+   distribution needed for sampling.
+*/
+               if (data_code >= code_e_bin_min) then
+                  e_bin_entry=TRUE
+                  if (data_code < code_e_bin_min+e_bin_num-1) then
+                     data_code++
+                  else
+                     e_bin_entry=FALSE
+/*
+   Compute normalized cumulative energy distribution.
+*/
+                     total=zero
+                     do i_bin=1,e_bin_num
+                        i_code=code_e_bin_min+i_bin-1
+                        total+=source_real_params[iseg][i_code]
+                     end do
+                     assert(total > zero)
+                     cumul=zero
+                     do i_bin=1,e_bin_num
+                        i_code=code_e_bin_min+i_bin-1
+                        cumul+=source_real_params[iseg][i_code]/total
+                        source_real_params[iseg][i_code]=cumul
+                     end do
+                     assert(source_real_params[iseg][data_code] == one)
+                     data_code=code_e_bin_min    // Reset to trigger increment of |iseg|
+                  end if
+               end if
             end if
             if (next_token(line,b,e,p)) then
                goto next_datum
@@ -1670,9 +1814,7 @@ next_datum: continue
          assert(sp_check(root_sp))
          so_root_sp(so_grps)=root_sp
          so_t_varn(so_grps)=time_varn
-@#if 0
-         so_params(so_grps,so_param_puff_temp)=puff_temp
-@#endif
+
 	 source_num_gparameters[so_grps]=0
 	 source_num_parameters[so_grps]=0
 	 source_gparameters_base[so_grps]=so_gparams_list_size
@@ -1704,12 +1846,7 @@ next_datum: continue
 */
       if (so_type(so_grps) == so_puff) then
          source_num_gparameters[so_grps]=2
-         so_gparams_list_size+=source_num_gparameters[so_grps]
-         if (so_gparams_list_size > so_gparams_list_dim) then
-            var_realloc(source_gparameters_list,so_gparams_list_dim,so_gparams_list_size)
-            var_realloc(source_gparameters_data,so_gparams_list_dim,so_gparams_list_size)
-            so_gparams_list_dim=so_gparams_list_size
-         end if
+         increment_gparams(source_num_gparameters[so_grps])
 	 so_gparams_list(1,so_grps)=so_gparam_puff_temp
 	 so_gparams_data(1,so_grps)=puff_temp
 	 so_gparams_list(2,so_grps)=so_gparam_puff_exponent
@@ -1733,6 +1870,34 @@ next_datum: continue
 	 so_params_list(2,so_grps)=so_param_v2
 	 so_params_list(3,so_grps)=so_param_v3
 	 so_params_list(4,so_grps)=so_param_temperature
+/*
+   Plate source with binned energy distribution.
+*/
+      else if (so_type(so_grps) == so_plt_e_bins) then
+         source_num_giparameters[so_grps]=2
+         increment_giparams(source_num_giparameters[so_grps])
+         so_giparams_list(1,so_grps)=so_giparam_e_bins_num
+         so_giparams_data(1,so_grps)=e_bin_num
+         so_giparams_list(2,so_grps)=so_giparam_e_bins_spacing
+         so_giparams_data(2,so_grps)=e_bin_spacing
+
+         source_num_gparameters[so_grps]=2
+         increment_gparams(source_num_gparameters[so_grps])
+         so_gparams_list(1,so_grps)=so_gparam_e_bins_min
+         so_gparams_list(2,so_grps)=so_gparam_e_bins_delta
+         if (e_bin_spacing == so_e_bins_spacing_linear) then
+            so_gparams_data(1,so_grps)=e_bin_min
+            so_gparams_data(2,so_grps)=(e_bin_max-e_bin_min)/areal(e_bin_num)
+         else if (e_bin_spacing == so_e_bins_spacing_log) then
+            so_gparams_data(1,so_grps)=log(e_bin_min)
+            so_gparams_data(2,so_grps)=(log(e_bin_max/e_bin_min))/areal(e_bin_num)
+         end if
+
+         source_num_parameters[so_grps]=e_bin_num
+         increment_params(source_num_parameters[so_grps])
+         do i_bin=1,e_bin_num
+            so_params_list(i_bin,so_grps)=so_param_e_bin_prob
+         end do
       end if
 
       write(stdout,*)
@@ -1834,6 +1999,18 @@ next_datum: continue
 */
                   if (so_type(so_grps) == so_plate) then
                      @<Assign Sheath Parameters@>
+                  else if (so_type(so_grps) == so_plt_e_bins) then
+                     assert(source_num_parameters[so_grps] > 0)
+                     i_bin=0
+                     do iparam=1,source_num_parameters[so_grps]
+                        if (so_params_list(iparam,so_grps) 
+     $                       == so_param_e_bin_prob) then  // Should be all of them!
+                           so_params_data(iparam,so_seg_tot,so_grps)
+     $                          =source_real_params[iseg][code_e_bin_min+i_bin]
+                           i_bin++
+                        end if
+                     end do
+                     assert(i_bin == e_bin_num)
                   end if
                end if
             end do
@@ -2050,11 +2227,11 @@ next_datum: continue
                            so_params_data(iparam,so_seg_tot,so_grps)
      $                          =source_real_params[iseg][code_e_delta]
                         else if (so_params_list(iparam,so_grps) 
-     $                          == so_param_e_ion_mult) then
+     $                          == so_param_e_ion_sheath) then
                            so_params_data(iparam,so_seg_tot,so_grps)
      $                          =source_real_params[iseg][code_e_sheath]
                         else if (so_params_list(iparam,so_grps) 
-     $                          == so_param_e_ion_sheath) then
+     $                          == so_param_e_ion_mult) then
                            so_params_data(iparam,so_seg_tot,so_grps)
      $                          =source_real_params[iseg][code_e_mult]
                         end if
@@ -2547,6 +2724,10 @@ index, if applicable.
       else if ((line(b:e) == 'area') || (line(b:e) == 'AREA')
      $        || (line(b:e) == 'Area')) then
          data_code=code_area
+         back=int_undef
+      else if ((line(b:e) == 'e_bin_prob') || (line(b:e) == 'E_BIN_PROB')
+     $        || (line(b:e) == 'E_bin_prob')) then
+         data_code=code_e_bin_min
          back=int_undef
       else if ((line(b:b) == 'n') || (line(b:b) == 'N')) then
          data_code=code_density
