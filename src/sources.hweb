@@ -37,47 +37,59 @@ sources are handled.
 @m so_scale(i)    source_scale_factor[i]
 @m so_name(i)     source_name[i]
 
-@m so_plate 1                // Source types
+@m so_plate 1                 // Source types
 @m so_puff 2
 @m so_recomb 3
 @m so_vol_source 4
 @m so_snapshot 5
-@m so_type_num 5
+@m so_plt_e_bins 6
+@m so_type_num 6
 @m so_name_len 10
 
-@m so_point 0                // Source geometries
+@m so_point 0                  // Source geometries
 @m so_line 1
 @m so_surface 2
 @m so_volume 3
 
-@m so_random 0               // Source sampling schemes
+@m so_random 0                 // Source sampling schemes
 @m so_direct 1
 
-@m so_delta_fn 0             // Source time variation
+@m so_delta_fn 0               // Source time variation
 @m so_time_uniform 1
+
+@m so_e_bins_spacing_unknown 0 // Spacing option for energy distributions
+@m so_e_bins_spacing_linear 1
+@m so_e_bins_spacing_log 2
+@m so_e_bins_num_max 15         // Maximum number of energy bins (for dimensions)
  
-@m so_gparam_unknown 0        // Labels for global source parameters
+@m so_gparam_unknown 0          // Labels for global source parameters
 @m so_gparam_puff_temp 1
 @m so_gparam_puff_exponent 2
+@m so_gparam_e_bins_min 3       // |e_bins|: source energy distribution in bins
+@m so_gparam_e_bins_delta 4
 
-@m so_param_unknown 0         // Labels for segment source parameters
-@m so_param_v1 1              // Volume source
+@m so_giparam_e_bins_num 1
+@m so_giparam_e_bins_spacing 2
+
+@m so_param_unknown 0           // Labels for segment source parameters
+@m so_param_v1 1                // Volume source
 @m so_param_v2 2
 @m so_param_v3 3
 @m so_param_temperature 4
-@m so_param_e_ion_delta 5     // Sheath (development purposes only for now)
+@m so_param_e_ion_delta 5       // Sheath (development purposes only for now)
 @m so_param_e_ion_mult 6
 @m so_param_e_ion_sheath 7
-@m so_param_pt_t 8            // For snapshot source
+@m so_param_pt_t 8              // For snapshot source
 @m so_param_pt_v1 9
 @m so_param_pt_v2 10
 @m so_param_pt_v3 11
 @m so_param_lc_x1 12
 @m so_param_lc_x2 13
 @m so_param_lc_x3 14
+@m so_param_e_bin_prob 15       // Source energy distribution probabilities
 
-@m so_iparam_pt_sp 1          // Other snapshot integer data
-@m so_iparam_pt_test 2        // meaningless for source particles.
+@m so_iparam_pt_sp 1            // Other snapshot integer data
+@m so_iparam_pt_test 2          // meaningless for source particles.
 @m so_iparam_lc_cell 3
 @m so_iparam_lc_zone 4
 @m so_iparam_pt_type 5
@@ -117,6 +129,7 @@ a ``run control'' dialog along with the number of flights, etc.
       so_name(so_recomb)='recomb';
       so_name(so_vol_source)='vol_source';
       so_name(so_snapshot)='snapshot';
+      so_name(so_plt_e_bins)='plt_e_bins';
       so_rel_wt_min=const(5.,-1);
       so_rel_wt_max=const(2.);
       so_wt_norm_min=const(5.,-1);
@@ -244,10 +257,15 @@ segments at which the segments of group |igroup| begin.
 
   \item[|so_type(igroup)|] Physical process associated with group |igroup|. 
 Presently treat plate (recycling), gas puff, recombination, volume
-(|vol_source|, a specified volumetric source distinct from recombination), and
-snapshot.  A recombination source will be set up automatically by
+(|vol_source|, a specified volumetric source distinct from recombination), 
+snapshot, and plate with binned energy distribution (|plt_e_bins|, another 
+approach to specifying a recycling source).  Additional 
+miscellaneous source parameters (with names containing |e_bins|)
+specify the energy distribution used in sampling the |plt_e_bins|
+source. A recombination source will be 
+set up automatically by
 the code when a recombining reaction is present in the problem
-specification.  Likewise, a snapshot source is set up automatically
+specification.    Likewise, a snapshot source is set up automatically
 in time dependent runs when a |snapshotfile| netCDF file is present
 from a previous time step.
 
@@ -343,7 +361,9 @@ be |int_unused|.
 a string for output purposes.
 \end{description}
 
-@ Run control parameters. The macro |so_set_run_flags| assigns all of these
+@ Run control parameters. 
+
+The macro |so_set_run_flags| assigns all of these
 at once to the values noted above. The macro is presently invoked in
 |boxgen.web| and |readbackground.web| (twice). Again, these parameters
 may eventually be relocated and / or reset elsewhere.
@@ -417,6 +437,58 @@ arrays to be updated.
 
 @ Parameters and arrays associated with miscellaneous source parameters.
 
+The need for these parameters arises from the fact that the set of
+parameters required to specify a source group varies considerably
+with the type of source.  In fact, even the number of parameters
+can vary dramatically, going from $\sim 2$ for a gas puff to 
+$> 10$ for a snapshot source.  The miscellaneous source parameters
+provide an extensible framework for specifying just about any
+conceivable source type.
+
+These parameters are broken down into four categories, each distinguished
+by a different ``root'' phrase that appears in each of the constituent
+variables used to specify and store the parameters.  Namely:
+\begin{description}
+  \item[|giparams| or |giparameters|] Global, integer parameters. These 
+are ``global'' in that they are same for all segments of a particular
+source group.  
+  \item[|gparams| or |gparameters|] Global, floating parameters. Again,
+these are the same for all segments of a particular source group.
+  \item[|iparams| or |iparameters|] Integer parameters that vary with
+each segment of a particular source group.
+  \item[|params| or |parameters|] Floating parameters that vary with
+each segment of a particular source group.
+\end{description}
+For each of these four there is an associated |num| variable that specifies
+the number of parameters of each source type that are needed for each
+source group; this may very well be zero.  Then, there is a 2-D |list| 
+variable that keeps track of what these parameters are.  
+The entries in these lists are integers that are associated
+with specific physical or computational quantities via the 
+macro values at the top of this file.  The range
+of the first index of the |list| 
+is governed by |num|; the second index is the source
+group.  As is the case with all of the multi-dimensional variables,
+the |list| is actually stored as a 1-D array and accessed with a 2-D
+macro (defined above).  The length being used for this array
+is specified by the |list_size| variable (a scalar).  There is an
+indepdendent dimension, |list_dim|, which is needed so that the
+arrays can be made non-trivial for output to the netCDF files even
+if the |list_size| is zero.  The initial entry in the 1-D list array for
+each source group is contained in the |base| array.
+
+The actual values of the parameters are similarly specified in 1-D
+arrays containing the word |data|.  These are accessed via 2-D (for
+``global'' parameters) or 3-D macros (for segment-varying parameters)
+in a similar manner.  In fact, the indexing required for the global
+parameters uses same |base| array since the parameter value, like 
+its identifier, is a scalar.  For the segment-varying parameters,
+the corresponding quantities are the |data_base| arrays.  Likewise, 
+the length of the data arrays being used is |data_size| and the
+actual dimension, |data_dim|.
+
+Here is the full list of the miscellaneous source parameter variables
+and applicable macro interfaces:
 \begin{description}
   \item[|so_gparams_list_size|] Number of entries in the list of global
 parameters.
