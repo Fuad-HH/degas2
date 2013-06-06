@@ -38,6 +38,8 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 @<Functions...@>=
       subroutine degas2_xgc_init(root,sml_totalpe,sml_mype,
      $                           num_xgc_segs,xgc_bdy_r,xgc_bdy_z,
+     $                           xgc_e_bin_num,xgc_e_bin_spacing,
+     $                           xgc_e_bin_min,xgc_e_bin_delta,
      $                           back_num,test_num,rn_dummy(x))
 
       implicit_none_f77
@@ -48,13 +50,15 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       pr_common
       implicit_none_f90
      
-      integer root,sml_totalpe,sml_mype,num_xgc_segs          // Input
+      integer root,sml_totalpe,sml_mype,num_xgc_segs,         // Input
+     $        xgc_e_bin_num,xgc_e_bin_spacing
+      real xgc_e_bin_min,xgc_e_bin_delta
       real xgc_bdy_r[num_xgc_segs],xgc_bdy_z[num_xgc_segs]
 
       integer back_num,test_num                               // Output
       rn_decl(x)
 
-      integer i,j,plasma_sc,igrp,iseg,standalone              // Local
+      integer i,j,plasma_sc,igrp,iseg,standalone,iparam       // Local
       real slop
       sc_decl(sector)
       sc_plasma_decl(plasma_sc_ptr)
@@ -150,7 +154,8 @@ there is a fair bit of hardwired code here, e.g., regarding species.
   The assertions double-check uniqueness; required because of the
   use of |sloppy_lookup_sector|.
 */
-            if ((so_type(igrp) == so_plate)
+            if (((so_type(igrp) == so_plate) 
+     $             || (so_type(igrp) == so_plt_e_bins))
      $          && (source_segment_ptr[iseg] == sector)) then
                dx_source_segments[i]=iseg
                assert(dx_xgc_segment[iseg] == int_uninit)
@@ -162,6 +167,43 @@ there is a fair bit of hardwired code here, e.g., regarding species.
                end if
             end if
          end do
+      end do
+/*
+   Set parameters for energy binned plate source.  This assumes
+   source description read in from the background netCDF file 
+   already contains an initial set of parameters for this source
+   group.  The only restriction is that the number of bins used
+   there be at least as many as are used here.  The ``minimum''
+   and ``delta'' values are assumed to be computed in the same
+   manner by both codes so that these can be copied over directly.
+*/
+      do igrp=1,so_grps
+         if (so_type(igrp) == so_plt_e_bins) then
+            assert(source_num_giparameters[igrp] > 0)
+            do iparam=1,source_num_giparameters[igrp]
+               if (so_giparams_list(iparam,igrp) == so_giparam_e_bins_num) then
+                  assert(so_giparams_data(iparam,igrp) >= xgc_e_bin_num)
+                  so_giparams_data(iparam,igrp)=xgc_e_bin_num
+                  dx_e_bin_num=xgc_e_bin_num
+               else if (so_giparams_list(iparam,igrp) == so_giparam_e_bins_spacing) then
+                  assert((xgc_e_bin_spacing == so_e_bins_spacing_linear)
+     $                 || (xgc_e_bin_spacing == so_e_bins_spacing_log))
+                  so_giparams_data(iparam,igrp)=xgc_e_bin_spacing
+               end if
+            end do
+            assert(source_num_gparameters[igrp] > 0)
+            do iparam=1,source_num_gparameters[igrp]
+               if (so_gparams_list(iparam,igrp) == so_gparam_e_bins_min) then
+                  if (xgc_e_bin_spacing == so_e_bins_spacing_linear) then
+                     assert(xgc_e_bin_min > zero)
+                  end if
+                  so_gparams_data(iparam,igrp)=xgc_e_bin_min
+               else if (so_gparams_list(iparam,igrp) == so_gparam_e_bins_delta) then
+                  assert(xgc_e_bin_delta > zero)
+                  so_gparams_data(iparam,igrp)=xgc_e_bin_delta
+               end if
+            end do
+         end if
       end do
 
       back_num=pr_background_num
@@ -190,7 +232,8 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       subroutine xgc_flighttest(ntriangle,get_source,num_source_sp,
      $                          test_num,min_xgc_sp,max_xgc_sp,
      $                          d2_bk_species,neu_np,neu_vp,neu_tp,
-     $                          neu_hload_weight,t_init,t_final,
+     $                          neu_hload_weight,neu_hload_en_bins,
+     $                          t_init,t_final,
      $                          neu_n0,neu_v0,neu_t0,neu_source,
      $                          neu_total_source)
 
@@ -214,7 +257,8 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       real neu_np[ntriangle][min_xgc_sp:max_xgc_sp],
      $     neu_vp[ntriangle][min_xgc_sp:max_xgc_sp][3],
      $     neu_tp[ntriangle][min_xgc_sp:max_xgc_sp],
-     $     neu_hload_weight[dx_num_src_segments]
+     $     neu_hload_weight[dx_num_src_segments],
+     $     neu_hload_en_bins[dx_num_src_segments][dx_e_bin_num]
 
       real t_init,t_final
 
@@ -225,7 +269,8 @@ there is a fair bit of hardwired code here, e.g., regarding species.
      $     neu_total_source[num_source_sp][max_change]
 
       integer zone,have_pressure,test,                    // Local
-     $        x_sp,iseg,iterative,igrp,prob_sp,standalone
+     $        x_sp,iseg,iterative,igrp,prob_sp,
+     $        ibin,iparam,standalone
       integer index_parameters[tl_index_max]
       real density,pressure,edrift,temperature,ei,
      $     sigma_v_ion,sigma_v_cx
@@ -265,15 +310,37 @@ there is a fair bit of hardwired code here, e.g., regarding species.
    Set source data based on the XGC0 losses to the walls.
 */
       igrp=1
-      so_tot_curr(1)=zero
+      so_tot_curr(igrp)=zero
+      assert(source_num_parameters[igrp] > 0)   // For binned energy distribution
       do iseg=1,so_seg_tot
          if (iseg >= so_base(igrp)+so_nseg(igrp)) then
             igrp++
             so_tot_curr(igrp)=zero
          end if
-         if (so_type(igrp) == so_plate) then
+         if ((so_type(igrp) == so_plate) 
+     $        || (so_type(igrp) == so_plt_e_bins)) then
             source_current[iseg]=neu_hload_weight[dx_xgc_segment[iseg]]
             so_tot_curr(igrp)+=source_current[iseg]
+/*
+   Set binned energy distribution at each segment.
+   Note that we are allowing the number of bins actually
+   used by XGC0 to be less than that specified in the
+   miscellaneous source parameters read in from the background
+   netCDF file, hence the additional if-then-else here.
+*/
+            ibin=0
+            do iparam=1,source_num_parameters[igrp]
+               if (so_params_list(iparam,igrp) 
+     $              == so_param_e_bin_prob) then 
+                  if (ibin < dx_e_bin_num) then
+                     so_params_data(iparam,iseg,igrp)
+     $                    =neu_hload_en_bins[dx_xgc_segment[iseg]][ibin]
+                  else
+                     so_params_data(iparam,iseg,igrp)=one
+                  end if
+                  ibin++
+               end if
+            end do
 /*
    And set sheath parameters.  It looks like the electron temperature is
    frequently zero, at least at the outset.  Use a default of 3 eV
