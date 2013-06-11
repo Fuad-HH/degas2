@@ -331,14 +331,14 @@ there is a fair bit of hardwired code here, e.g., regarding species.
             ibin=0
             do iparam=1,source_num_parameters[igrp]
                if (so_params_list(iparam,igrp) 
-     $              == so_param_e_bin_prob) then 
-                  if (ibin < dx_e_bin_num) then
+     $              == so_param_e_bin_prob) then
+                  ibin++
+                  if (ibin <= dx_e_bin_num) then
                      so_params_data(iparam,iseg,igrp)
      $                    =neu_hload_en_bins[dx_xgc_segment[iseg]][ibin]
                   else
                      so_params_data(iparam,iseg,igrp)=one
                   end if
-                  ibin++
                end if
             end do
             assert(ibin >= dx_e_bin_num)
