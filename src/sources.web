@@ -1049,7 +1049,7 @@ values of $1/2$ should be used.
 
       integer iparam,num_bins,e_spacing,i_bin,seg_tot   // Local
       real e_min,e_delta,ran,x_bin,e_i,e_im1,pdf_i
-      real e_prob[so_e_bins_num_max]
+      real e_prob[0:so_e_bins_num_max]
       sp_decl(spion)  
 
       external find_index                               // External
@@ -1083,6 +1083,7 @@ values of $1/2$ should be used.
       assert(source_num_parameters[isource] > 0)
       seg_tot=so_base(isource)+kseg
       i_bin=0
+      e_prob[i_bin]=zero   // Didn't include in the source parameters
       do iparam=1,source_num_parameters[isource]
          if (so_params_list(iparam,isource) == so_param_e_bin_prob) then
             i_bin++
@@ -1092,11 +1093,7 @@ values of $1/2$ should be used.
       assert(i_bin >= num_bins)  
 
       if (urd != real_unused) then
-/*
-   Add 1 here since |find_index| is used with arrays
-   having an index starting at 0.
-*/
-         x_bin=find_index(urd,e_prob,num_bins)+one
+         x_bin=find_index(urd,e_prob,num_bins)
          ion_energy=e_min+x_bin*e_delta
          if (e_spacing == so_e_bins_spacing_log) then
             ion_energy=exp(ion_energy)
