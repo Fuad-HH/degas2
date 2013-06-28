@@ -841,11 +841,10 @@ get this from a data file:
       rn_decl(x)                                               // Input / Output
 
       real test_mass,n_back,back_mass,T_back,v_thermal,        // Local
-     $     E_loss,E_2,tmp_data
+     $     tmp_data,E_th,E_max
       real independent_parameters[xs_max_indep_params],
      $     w_prod[rc_product_max]
-      integer i,px_sp,psp_ts,psp_bk,icv,i_first,i_second
-      logical first_electron
+      integer i,px_sp,psp_ts,psp_bk,icv
       pr_reaction_decl(pr_reac) 
       pr_test_decl(d2_ts_prod)
       pr_background_decl(d2_bk_prod)
@@ -913,9 +912,15 @@ get this from a data file:
      $           =scoring_data[pr_var_problem_sp_index(icv,psp_bk)]
             scoring_data[pr_var_problem_sp_index(icv,psp_bk)]=tmp_data
          end do
-
+/*
+   These are all electron impact reactions so that the background
+   temperature is actually that of the XGC0 species, i.e., the
+   electron.
+*/
       else if ((rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') 
-     $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress')) then
+     $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress')
+     $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc')
+     $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_rec')) then
          test_mass=sp_m(pr_background(i_d2_ts))
          back_mass=sp_m(pr_background(i_d2_bk))
          T_back=T_xgc0
@@ -925,70 +930,52 @@ get this from a data file:
          vc_add(v_test,vf_d2,v_test)
          call set_indep_params_xgc0(test_mass,v_test,back_mass,n_back,
      $        vf_back,T_back,independent_parameters)
-         call ionize(pr_test_args(i_d2_ts),pr_reaction_args(ts_reac),
-     $     rate,independent_parameters,
-     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
-     $     scoring_data,rn_args(x))
+         
+         if ((rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') 
+     $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress')) then
+            call ionize(pr_test_args(i_d2_ts),pr_reaction_args(ts_reac),
+     $           rate,independent_parameters,
+     $           nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $           scoring_data,rn_args(x))
+         else if ((rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc')
+     $           || (rc_reaction_type(pr_reaction(pr_reac)) == 'dissoc_rec')) then
+            call dissoc(pr_test_args(i_d2_ts),pr_reaction_args(ts_reac),
+     $           rate,independent_parameters,
+     $           nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $           scoring_data,rn_args(x))
+         end if
 /*
-   The |ionize| routine does not set velocities for the product
-   electrons.  Implement here a procedure patterned after the
-   one employed in the original XGC0 neutral model that has the
-   ionizing electron retain its pitch.  Its energy is rescaled to
-   account for the electron cooling and the energy of the new
-   electron.  All we do here is compute the required product energies;
-   the remaining manipulations are performed by the calling routine.
+   Could conceivably insert this information into the netCDF data file for 
+   each reaction.  But, as seen below, it is not always a single number.
 */
-         first_electron=.true.
-         do i=1,nprod
-            if (sp_sy(prod[i]) == 'e') then
-               if (first_electron) then
+         if (rc_sy(pr_reaction(pr_reac)) == 'hionize') then
+            E_th=const(1.3595,1)*electron_charge
+            E_max=E_th/const(4.)
+         else if (rc_sy(pr_reaction(pr_reac)) == 'h2ion') then
+            E_th=const(1.54,1)*electron_charge
+            E_max=E_th/const(4.)
+         else if (rc_sy(pr_reaction(pr_reac)) == 'h2pdision') then
+            E_th=const(1.47,1)*electron_charge
+            E_max=E_th/const(4.)
+         else if (rc_sy(pr_reaction(pr_reac)) == 'h2dision') then
 /*
-   Convert the electron energy loss rate into an energy.
-   Need the ratio of densities here since |scoring_data|
-   gets multiplied by the electron density, but |rate|
-   has the neutral density in it.
+   This reaction has two intermediate molecular states, each with 
+   a different threshold.
 */
-                  E_loss=-n_d2*scoring_data[pr_var_problem_sp_index(pr_var_energy_change,pr_problem_sp_back(i_d2_bk))]
-     $                    /(n_xgc0*rate)
-/*
-   The reduced energy of the reacting electron is determined from this
-   and the energy of the second electron, which is based on
-   the prescription spelled out in Janev, Langer, Evans, and
-   Post (2.1.5). 
-*/
-                  if (E_xgc0 < const(1.5)*E_ionize) then
-                     E_2=half*(E_xgc0-E_ionize)
-                  else
-                     E_2=const(0.25)*E_ionize
-                  end if
-/*
-   Since the reaction is not handled kinetically, the reacting
-   electron might actually have an energy less than |E_ionize|.
-   Set a minimum of 1 eV for the new electron and $1 \%$ for the
-   reacting electron.
-*/
-                  E_2=max(E_2,electron_charge)
-                  E_prod[i]=(E_xgc0-E_loss-E_2)
-                  E_prod[i]=max(E_prod[i],const(1.,-2)*E_xgc0)
-                  first_electron=.false.
-                  i_first=i
-               else
-                  E_prod[i]=E_2
-                  i_second=i
-               end if
+            E_th=const(2.6,1)*electron_charge
+            E_max=const(3.7)*electron_charge
+            if (E_xgc0 < E_th) then
+               E_th=const(1.8,1)*electron_charge
+               E_max=const(4.)*electron_charge
             end if
-         end do
-/*
-   Because of the enforced minima on the new electron
-   energies, the actual cooling rate may differ from
-   the one that's in |scoring_data|.  Recompute here
-   to ensure conservation.  Note that from this point on,
-   it's only used for diagnostic purposes, so we don't
-   worry about it being negative.
-*/
-         E_loss=E_xgc0-E_prod[i_first]-E_prod[i_second]
-         scoring_data[pr_var_problem_sp_index(pr_var_energy_change,pr_problem_sp_back(i_d2_bk))]
-     $        =-n_xgc0*rate*E_loss/n_d2
+         else if ((rc_sy(pr_reaction(pr_reac)) == 'h2dis')
+     $           || (rc_sy(pr_reaction(pr_reac)) == 'h2pdis')
+     $           ||  (rc_sy(pr_reaction(pr_reac)) == 'h2pdisrec')) then
+            E_th=zero   // Not used
+            E_max=zero  // Zero or one electron
+         end if
+         call set_electron_energies(nprod,sp_args(prod),scoring_data,rate,
+     $                              i_d2_bk,n_xgc0,E_xgc0,n_d2,E_th,E_max,E_prod)
       else
          assert('Unsupported reaction type' == ' ')
       end if
@@ -1005,6 +992,98 @@ get this from a data file:
             end if
          end do
       end do
+
+      return
+      end
+
+@* Routine for setting the energies of product electrons.
+
+@<Functions...@>=
+      subroutine set_electron_energies(nprod,sp_dummy(prod),scoring_data,rate,
+     $                                 i_d2_bk,n_xgc0,E_xgc0,n_d2,E_th,E_max,E_prod)
+     $    
+
+      implicit_none_f77
+      sp_common
+      pr_common
+      implicit_none_f90
+
+      integer nprod                                            // Input
+      real rate,n_xgc0,E_xgc0,n_d2,E_th,E_max  
+      real scoring_data[scoring_data_max]
+      pr_background_decl(i_d2_bk)
+      sp_decl(prod[rc_product_max])
+
+      real E_prod[rc_product_max]                              // Output
+
+      integer i,i_first,i_second                               // Local  
+      real E_loss,E_2,E_prod_tot
+      logical first_electron
+/*
+   The collision processing routines do not set velocities for the product
+   electrons.  Implement here a procedure patterned after the
+   one employed in the original XGC0 neutral model that has the
+   ionizing electron retain its pitch.  Its energy is rescaled to
+   account for the electron cooling and the energy of the new
+   electron.  All we do here is compute the required product energies;
+   the remaining manipulations are performed by the calling routine.
+
+   Convert the electron energy loss rate into an energy.
+   Need the ratio of densities here since |scoring_data|
+   gets multiplied by the electron density, but |rate|
+   has the neutral density in it.
+*/
+      E_loss=-n_d2*scoring_data[pr_var_problem_sp_index(pr_var_energy_change,pr_problem_sp_back(i_d2_bk))]
+     $  /(n_xgc0*rate)
+      E_prod_tot=zero
+
+      first_electron=.true.
+      do i=1,nprod
+         if (sp_sy(prod[i]) == 'e') then
+            if (first_electron) then
+/*
+   The reduced energy of the reacting electron is determined from this
+   and the energy of the second electron, which is based on
+   the prescription spelled out in Janev, Langer, Evans, and
+   Post (2.1.5).  That prescription specifies a maximum energy of
+   |E_th|/4.  However, one reaction deviates from this; we make
+   |E_max| an input to allow for it.
+
+   This procedure also works for cases with just one (or even zero)
+   electron if one sets |E_max| $= 0$.
+*/
+               E_2=min(half*(E_xgc0-E_th),E_max)
+/*
+   Since the reaction is not handled kinetically, the reacting
+   electron might actually have an energy less than |E_th|.
+   Set a minimum of 1 eV for the new electron and $1 \%$ for the
+   reacting electron.  Use an explicit if here since |E_2| $ = 0$
+   is legitimate for single electron reactions.
+*/
+               if (E_2 < zero) E_2=electron_charge
+               E_prod[i]=(E_xgc0-E_loss-E_2)
+               E_prod[i]=max(E_prod[i],const(1.,-2)*E_xgc0)
+               E_prod_tot=E_prod[i]
+               first_electron=.false.
+               i_first=i
+            else
+               E_prod[i]=E_2
+               E_prod_tot+=E_prod[i]
+               i_second=i
+            end if
+         end if
+      end do
+/*
+   Because of the enforced minima on the new electron
+   energies, the actual cooling rate may differ from
+   the one that's in |scoring_data|.  Recompute here
+   to ensure conservation.  Note that from this point on,
+   it's only used for diagnostic purposes, so we don't
+   worry about it being negative.
+*/
+      E_loss=E_xgc0-E_prod_tot
+      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,pr_problem_sp_back(i_d2_bk))]
+     $     =-n_xgc0*rate*E_loss/n_d2
 
       return
       end
