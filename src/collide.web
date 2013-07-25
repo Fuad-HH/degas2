@@ -240,22 +240,24 @@ loop: continue
 */
       vc_add(vb_therm,vb_flow,v_back)
 /*
-   Assume that the background particle becomes the test species and
-   vice-versa. Hence, the appearance of the former background velocity
-   in the first assignment below for the intended test particle.
+   Make use here of the assumptions regarding ordering of species that
+   are made in problemsetup's |check_problem| and in |set_prod_chargex|.
+   Namely, that the first (second) reagent is a background (test) species
+   and that an electron is transferred from the second to the first.
+   In this way, the velocity of the first (second) product is just that
+   of the background (test) reagent.
 */
       assert(pr_num_arrangements(test,ts_reac) == 1)
-      do i=1,nprod
+      assert(nprod == 2)   // Checked in |set_prod_chargex|
+      do i=1,2
          prod[i]=pr_ts_prod(test,ts_reac,1,i)
-         if (pr_test_lookup(prod[i]) != 0) then
-            w_prod[i]=one
+         w_prod[i]=one
+         if (i == 1) then
             vc_copy(v_back,v_prod[i])
          else
-            w_prod[i]=one                        // Was zero - check
             vc_copy(v_test,v_prod[i])
          end if
       end do
-
 /*
    Collision scoring 
 */
@@ -1969,20 +1971,32 @@ loop: continue
          scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
      $        -m_i*e_eff
       end do
-      do i=1,nprod
+/*
+   Make use here of the assumptions regarding ordering of species that
+   are made in problemsetup's |check_problem| and in |set_prod_chargex|.
+   Namely, that the first (second) reagent is a background (test) species
+   and that an electron is transferred from the second to the first.
+   In this way, the velocity of the first (second) product is just that
+   of the background (test) reagent.
+*/
+      assert(nprod == 2)   // Checked in |set_prod_chargex|
+      do i=1,2
+         if (i == 1) then
+            vc_copy(mom_src,vr_i)
+            e_eff=e_src
+         else
+            vc_scale(rate,u,vr_i)
+            e_eff=half*u_abs**2*rate
+         end if
          test_i=pr_test_lookup(pr_ts_prod(test,ts_reac,1,i))
          if (test_i != 0) then
             m_i=sp_m(pr_test(test_i))
             psp_i=pr_problem_sp_test(test_i)
-            vc_copy(mom_src,vr_i)
-            e_eff=e_src
          else
             back_i=pr_background_lookup(pr_ts_prod(test,ts_reac,1,i))
             assert(back_i != 0)
             m_i=sp_m(pr_background(back_i))
             psp_i=pr_problem_sp_back(back_i)
-            vc_scale(rate,u,vr_i)
-            e_eff=half*u_abs**2*rate
          end if
          scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
      $        m_i*rate
