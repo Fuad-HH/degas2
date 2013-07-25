@@ -840,7 +840,7 @@ get this from a data file:
   
       rn_decl(x)                                               // Input / Output
 
-      real test_mass,n_back,back_mass,T_back,v_thermal,        // Local
+      real test_mass,back_mass,T_back,v_thermal,               // Local
      $     tmp_data,E_th,E_max
       real independent_parameters[xs_max_indep_params],
      $     w_prod[rc_product_max]
@@ -848,15 +848,12 @@ get this from a data file:
       pr_reaction_decl(pr_reac) 
       pr_test_decl(d2_ts_prod)
       pr_background_decl(d2_bk_prod)
-      vc_decl(vf_back)
       vc_decl(v_test)
       vc_decl(vb_therm)
       sp_decl(prod[rc_product_max])
       sp_decl(tmp_sp)
       
       pr_reac=pr_ts_rc(i_d2_ts,ts_reac)
-      vc_copy(vf_d2,vf_back)
-      n_back=n_xgc0
       do i=1,rc_product_max
          E_prod[i]=zero
       end do
@@ -872,11 +869,17 @@ get this from a data file:
 */
       if (rc_reaction_type(pr_reaction(pr_reac)) == 'chargex') then
          test_mass=sp_m(pr_background(i_d2_bk))
-         back_mass=sp_m(pr_test(i_d2_ts))
+         back_mass=sp_m(pr_test(i_d2_ts))     // As in |degas2_reaction_data|
          T_back=T_d2
          vc_copy(v_xgc0,v_test)
-         call set_indep_params_xgc0(test_mass,v_test,back_mass,n_back,
-     $        vf_back,T_back,independent_parameters)
+/*
+   Expect these parameters to be used in subroutine |chargex|:
+   |v_test| $\rightarrow$ |xs_var_v_test|, |vf_d2| $\rightarrow$ |xs_var_v_flow|,
+   |T_back|, |back_mass| $\rightarrow$ |xs_var_sp_temperature|, 
+   |test_mass| $\rightarrow$ |xs_var_m_test|.
+*/
+         call set_indep_params_xgc0(test_mass,v_test,back_mass,n_xgc0,
+     $        vf_d2,T_back,independent_parameters)
          call chargex(pr_test_args(i_d2_ts),pr_reaction_args(ts_reac),
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
@@ -928,8 +931,12 @@ get this from a data file:
          call random_gauss(vb_therm,3,rn_args(x))
          vc_scale(v_thermal,vb_therm,v_test)
          vc_add(v_test,vf_d2,v_test)
-         call set_indep_params_xgc0(test_mass,v_test,back_mass,n_back,
-     $        vf_back,T_back,independent_parameters)
+/*
+   Expect these parameters to be used in subroutines |ionize| and |dissoc|:
+   |v_test| $\rightarrow$ |xs_var_v_test|, |n_xgc0| $\rightarrow$ |xs_var_density| 
+*/
+         call set_indep_params_xgc0(test_mass,v_test,back_mass,n_xgc0,
+     $        vf_d2,T_back,independent_parameters)
          
          if ((rc_reaction_type(pr_reaction(pr_reac)) == 'ionize') 
      $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress')) then
@@ -1029,9 +1036,12 @@ get this from a data file:
    the remaining manipulations are performed by the calling routine.
 
    Convert the electron energy loss rate into an energy.
-   Need the ratio of densities here since |scoring_data|
-   gets multiplied by the electron density, but |rate|
-   has the neutral density in it.
+   Note that in the call to |set_indep_params_xgc0| preceding
+   the computation of |scoring_data|, the ``background'' density
+   was set to be the XGC0 (electron) density to allow collisional
+   radiative rates to be evaulated correctly.  But, for this process
+   the DEGAS 2 species is actually the background.  Hence, the
+   density ratio factor here.
 */
       E_loss=-n_d2*scoring_data[pr_var_problem_sp_index(pr_var_energy_change,pr_problem_sp_back(i_d2_bk))]
      $  /(n_xgc0*rate)
