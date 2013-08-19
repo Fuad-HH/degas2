@@ -177,14 +177,16 @@ from the corresponding entry in the |DATA_HISTORY| log.
       vc_decl(vb)
       vc_decl(vrel)
       vc_decl(v_prod[rc_product_max])
-      sp_decl(test)
-      sp_decl(background)
+      sp_decl(test_sp)
+      sp_decl(background_sp)
       sp_decl(prod[rc_product_max])
       rc_decl(reaction)
       pr_reaction_decl(prob_react)
       pr_reaction_decl(ts_reac)
       pr_background_decl(back)
+      pr_background_decl(background)
       pr_test_decl(test_i)
+      pr_test_decl(test)
       rn_decl(tag)
 
       external eval_data                             // External
@@ -204,22 +206,24 @@ loop: continue
       length=parse_string(line(:length))
       p=0
       assert(next_token(line,b,e,p))
-      test=sp_lookup(line(b:e))
-      if (!sp_check(test)) then
+      test_sp=sp_lookup(line(b:e))
+      if (!sp_check(test_sp)) then
          write(stdout,*) line(b:e),' is not a valid species; try again.'
          go to loop
       end if
-      if (!pr_test_check(pr_test_lookup(test))) then
+      test=pr_test_lookup(test_sp)
+      if (!pr_test_check(test)) then
          write(stdout,*) line(b:e),' is not a valid test species; try again.'
          go to loop
       end if
       assert(next_token(line,b,e,p))
-      background=sp_lookup(line(b:e))
-      if (!sp_check(background)) then
+      background_sp=sp_lookup(line(b:e))
+      if (!sp_check(background_sp)) then
          write(stdout,*) line(b:e),' is not a valid species; try again.'
          go to loop
       end if
-      if (!pr_background_check(pr_background_lookup(background))) then
+      background=pr_background_lookup(background_sp)
+      if (!pr_background_check(background)) then
          write(stdout,*) line(b:e),' is not a valid background species; try again.'
          go to loop
       end if
@@ -234,21 +238,37 @@ loop: continue
          write(stdout,*)line(b:e), ' is not a valid reaction for this problem; try again.'
          go to loop
       end if
-      ts_reac=int_lookup(prob_react,pr_ts_rc(pr_test_lookup(test),1),pr_reaction_max)
-      
-      if (!(sp_generic(test) == sp_generic(rc_reagent(reaction,2)))) then
-         write(stdout,*) trim(sp_sy(test)),' is not a reagent for reaction ',
+/*
+   This loop replaces a simple |int_lookup| into |pr_ts_rc| that
+   only returns one possible reaction.
+*/
+      ts_reac=int_uninit
+      do i=1,pr_rc_num(test)
+         if ((pr_ts_rc(test,i) == prob_react) 
+     $        && (pr_ts_bk(test,i) == background)) ts_reac=i
+      end do
+      if (ts_reac == int_uninit) then
+         write(stdout,*) 'No reaction ', trim(rc_sy(reaction)),
+     $        ' found with background ',trim(sp_sy(background_sp)),
+     $        '; try again.'
+         go to loop
+      end if
+/*
+   With the above improvements, the following checks may be superfluous.
+*/      
+      if (!(sp_generic(test_sp) == sp_generic(rc_reagent(reaction,2)))) then
+         write(stdout,*) trim(sp_sy(test_sp)),' is not a reagent for reaction ',
      $        trim(rc_sy(reaction)),'; try again.'
          go to loop
       end if
-      if (!(sp_generic(background) == sp_generic(rc_reagent(reaction,1)))) then
-         write(stdout,*) trim(sp_sy(background)),' is not a reagent for reaction ',
+      if (!(sp_generic(background_sp) == sp_generic(rc_reagent(reaction,1)))) then
+         write(stdout,*) trim(sp_sy(background_sp)),' is not a reagent for reaction ',
      $        trim(rc_sy(reaction)),'; try again.'
          go to loop
       end if
       
-      write(stdout,*) '     Test species is:       ',trim(sp_name(test))
-      write(stdout,*) '     Background species is: ',trim(sp_name(background))
+      write(stdout,*) '     Test species is:       ',trim(sp_name(test_sp))
+      write(stdout,*) '     Background species is: ',trim(sp_name(background_sp))
       write(stdout,*) '     Reaction name is:      ',trim(rc_name(reaction))
 
 loop1: continue
@@ -270,7 +290,7 @@ loop1: continue
          go to loop1
       end if
       
-      vtest=sqrt(two*energy/sp_m(test))
+      vtest=sqrt(two*energy/sp_m(test_sp))
       vc_set(vt,vtest,zero,zero)
       vc_set(vb,zero,zero,zero)
       
@@ -282,10 +302,10 @@ loop1: continue
       end do
       independent_parameters[xs_var_density]=density
       vc_difference(vt,vb,vrel)
-      independent_parameters[xs_var_energy]=half*sp_m(test)*vc_abs2(vrel)
+      independent_parameters[xs_var_energy]=half*sp_m(test_sp)*vc_abs2(vrel)
       independent_parameters[xs_var_temperature]=temperature
       independent_parameters[xs_var_sp_energy]=half*vc_abs2(vrel)
-      independent_parameters[xs_var_sp_temperature]=temperature/sp_m(background)
+      independent_parameters[xs_var_sp_temperature]=temperature/sp_m(background_sp)
       independent_parameters[xs_var_zone]=0   // Not applicable!!!
       independent_parameters[xs_var_v_test_1]=vt[1]
       independent_parameters[xs_var_v_test_2]=vt[2]
@@ -293,8 +313,8 @@ loop1: continue
       independent_parameters[xs_var_v_flow_1]=vb[1]
       independent_parameters[xs_var_v_flow_2]=vb[2]
       independent_parameters[xs_var_v_flow_3]=vb[3]
-      independent_parameters[xs_var_m_test]=sp_m(test)
-      independent_parameters[xs_var_m_back]=sp_m(background)
+      independent_parameters[xs_var_m_test]=sp_m(test_sp)
+      independent_parameters[xs_var_m_back]=sp_m(background_sp)
       if (reaction_rate_num_rand[prob_react] > 0) then
          assert(reaction_rate_num_rand[prob_react] <= xs_max_random)
          do i=1,reaction_rate_num_rand[prob_react]
@@ -331,42 +351,42 @@ loop1: continue
 
 /* Determine reaction products */
       if (rc_reaction_type(reaction) == 'chargex') then
-         call chargex(pr_test_args(pr_test_lookup(test)),
+         call chargex(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'elastic') then
-         call elastic(pr_test_args(pr_test_lookup(test)),
+         call elastic(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'dissoc') then
-         call dissoc(pr_test_args(pr_test_lookup(test)),
+         call dissoc(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'dissoc_rec') then
-         call dissoc(pr_test_args(pr_test_lookup(test)),
+         call dissoc(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'ionize') then
-         call ionize(pr_test_args(pr_test_lookup(test)),
+         call ionize(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'ionize_suppress') then
-         call ionize(pr_test_args(pr_test_lookup(test)),
+         call ionize(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'excitation') then
-         call excite(pr_test_args(pr_test_lookup(test)),
+         call excite(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'deexcitation') then
-         call excite(pr_test_args(pr_test_lookup(test)),
+         call excite(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))
