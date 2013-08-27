@@ -116,7 +116,7 @@ The externally callable routines are:
 the point is outside the universal cell.  The zone number is returned in
 |zone|.
 
-|check_point(x)| checks the point.  This checks the point against
+|check_point_x(x)| checks the point.  This checks the point against
 all the cells.  In the event that the point lies in multiple cells, it
 checks that the cells are neighbors.  Returns |.true.| if the check
 succeeded.
@@ -1213,11 +1213,11 @@ point against all the cells.  In the event that the point lies in multiple
 cells, it checks that the cells are neighbors.
 
 @<Functions...@>=
-      function check_point(x)
+      function check_point_x(x)
       implicit_none_f77
       gi_common
       implicit_none_f90
-      logical check_point       // Function
+      logical check_point_x       // Function
       real x[3]                 // Input
       integer j,l               // Local
       logical interior,onface
@@ -1225,7 +1225,7 @@ cells, it checks that the cells are neighbors.
       logical sloppy_inside,inside_cell
       integer cell_compare
 
-      check_point=.false.
+      check_point_x=.false.
       interior=.false.
       onface=.false.
 
@@ -1233,7 +1233,7 @@ cells, it checks that the cells are neighbors.
          do j=1,ncells
             if (inside_cell(cell_info(j),x)) return
          end do
-         check_point=.true.
+         check_point_x=.true.
       else
          do j=1,ncells
             l=cell_compare(cell_info(j),x)
@@ -1247,7 +1247,7 @@ cells, it checks that the cells are neighbors.
                end if
             end if
          end do
-         check_point=onface || interior
+         check_point_x=onface || interior
       end if
 
       return
