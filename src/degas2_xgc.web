@@ -1325,6 +1325,47 @@ reaction rate.
       return
       end
 
+@* Initialization routine for access to atomic physics data only.
+
+@<Functions...@>=
+      subroutine bd_xgc_init(root,sml_totalpe,sml_mype)
+
+      implicit_none_f77
+      mp_common                                               // Common
+      implicit_none_f90
+
+      integer root,sml_totalpe,sml_mype                       // Input
+
+      mp_decls
+      @<Memory allocation interface@>
+
+@#if MPI
+      mpi_degas2_root=root       
+      mpi_size=sml_totalpe
+      mpi_rank=sml_mype
+@#else
+/* 
+   Want something stronger than the usual |assert| since the novice user
+   may type ``go'' anyway and since the assertions get skipped
+   if the code is compiled without debugging on.
+*/
+      if (sml_totalpe != 1) then
+         write(stderr,*) ' DEGAS 2 not compiled with MPI on'
+         stop
+      end if
+@#endif
+      if (mpi_master) call readfilenames
+
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_materials
+      call nc_read_pmi
+      call nc_read_reactions
+      call nc_read_problem
+
+      return
+      end 
+
 @* Function to return index into the |scoring_data| array for 
 particular problem species and physical quantity.  The input
 |ichange| is the index used by XGC0 and runs from 1 to 5.  To
