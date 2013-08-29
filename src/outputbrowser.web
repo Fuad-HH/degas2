@@ -473,7 +473,7 @@ next_tally: continue
             @<get datum@>
          end do
          do i=min_slice[1],max_slice[1]
-            write(nunit,'(5x,i5,5x,1pe13.5,2x,0pf7.4)') i,value[i],rsd[i]
+            write(nunit,'(5x,i6,4x,1pe13.5,2x,0pf7.4)') i,value[i],rsd[i]
          end do
 
 /* 
@@ -608,12 +608,12 @@ pick_group: continue
             write(stdout,*)
             write(stdout,*) '   Its independent variables are:'
             write(stdout,*)
-            write(stdout,*) '   rank  # values   name '
+            write(stdout,*) '   rank  # values    name '
          else
             write(stdout,*) '   Independent variables are:'
          end if
          do i=1,tally_rank[jscore]
-            write(stdout,'(3x,i4,5x,i5,4x,a)') i,
+            write(stdout,'(3x,i4,5x,i6,4x,a)') i,
      $           tally_tab_index[jscore][i],
      $           trim(tally_var_list[tally_indep_var[jscore][i]])
          end do
@@ -939,11 +939,11 @@ by higher ranks when they are included.
             if (j == min_slice[i2]) then
                write(nunit,'(12x,a,a3)') 
      $              trim(tally_var_list[tally_indep_var[jscore][i1]]),' ->'
-               write(nunit,'(8x,20(5x,i5,5x))') SP (ii, ii=min_slice[i1],max_slice[i1])
+               write(nunit,'(8x,20(5x,i6,4x))') SP (ii, ii=min_slice[i1],max_slice[i1])
                write(nunit,'(a)') 
      $              trim(tally_var_list[tally_indep_var[jscore][i2]])
             end if
-            write(nunit,'(i5,2x,1p,20(2x,e13.5))') j,(value[ii], ii=min_slice[i1],max_slice[i1])
+            write(nunit,'(i6,2x,1p,20(2x,e13.5))') j,(value[ii], ii=min_slice[i1],max_slice[i1])
          else
             if (first_pass == TRUE) then
                write(nunit,'(a10,2x,a10,5x,a,t39,a)') 
@@ -953,7 +953,7 @@ by higher ranks when they are included.
                first_pass=FALSE
             end if
             do i=min_slice[i1],max_slice[i1]
-               write(nunit,'(4x,i5,5x,i5,5x,1pe13.5,2x,0pf7.4)') i,j,value[i],rsd[i]
+               write(nunit,'(4x,i6,4x,i5,5x,1pe13.5,2x,0pf7.4)') i,j,value[i],rsd[i]
             end do
          end if
       end do
@@ -997,11 +997,11 @@ by higher ranks when they are included.
       else if (ivar == tl_index_zone) then
          write(nunit,*) '  ZONES:'
          write(nunit,*)
-         write(nunit,'(a,3x,a,9x,a,13x,a,11x,a)') ' zone ','center: x1','x2',
+         write(nunit,'(a,3x,a,9x,a,13x,a,11x,a)') ' zone  ','center: x1','x2',
      $        'x3','volume'
          do i=imin,imax
             assert(zn_check(i))
-            write(nunit,'(i5,2x,1p,4(e13.5,2x))') i,zone_center[i][1],
+            write(nunit,'(i6,2x,1p,4(e13.5,2x))') i,zone_center[i][1],
      $           zone_center[i][2],zone_center[i][3],zn_volume(i)
          end do
       else if (ivar == tl_index_plasma_zone) then
