@@ -1090,10 +1090,15 @@ get this from a data file:
    to ensure conservation.  Note that from this point on,
    it's only used for diagnostic purposes, so we don't
    worry about it being negative.
+
+   Note that we do not divide out the n_d2/n_xgc0 factor
+   divided out above so that the resulting scoring_data is
+   per electron rather than per neutral; the final scores
+   will include the statistical weight of the electron.
 */
       E_loss=E_xgc0-E_prod_tot
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,pr_problem_sp_back(i_d2_bk))]
-     $     =-n_xgc0*rate*E_loss/n_d2
+     $     =-rate*E_loss
 
       return
       end
