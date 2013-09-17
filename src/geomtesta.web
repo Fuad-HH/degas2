@@ -490,6 +490,16 @@ loop: continue
      $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       do i=1,zn_num
+         if (zn_type(i) == zn_plasma) then
+            zone_data[i]=bk_n(2,i)                  // BACKGROUND DENSITY
+         else
+            zone_data[i]=zero
+         end if
+      end do
+      call write_hdf('bk_n2.hdf',zone_data,'ion density','m**-3','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+
+      do i=1,zn_num
          if (zn_type(i) == zn_plasma) then         // BACKGROUND TEMPERATURE
             zone_data[i]=bk_temp(1,i)/electron_charge
          else
