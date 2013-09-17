@@ -910,9 +910,9 @@ get this from a data file:
    Ditto for the entries in |scoring_data|.
 */
          do icv=pr_var_mass_change,pr_var_energy_change
-            tmp_data=scoring_data[pr_var_problem_sp_index(icv,psp_ts)]
+            tmp_data=(test_mass/back_mass)*scoring_data[pr_var_problem_sp_index(icv,psp_ts)]
             scoring_data[pr_var_problem_sp_index(icv,psp_ts)]
-     $           =scoring_data[pr_var_problem_sp_index(icv,psp_bk)]
+     $           =(back_mass/test_mass)*scoring_data[pr_var_problem_sp_index(icv,psp_bk)]
             scoring_data[pr_var_problem_sp_index(icv,psp_bk)]=tmp_data
          end do
 /*
