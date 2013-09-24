@@ -1089,14 +1089,17 @@ get this from a data file:
    the one that's in |scoring_data|.  Recompute here
    to ensure conservation.  Note that from this point on,
    it's only used for diagnostic purposes, so we don't
-   worry about it being negative.
+   worry about it being negative.  The test on |E_prod_tot|
+   handles the case in which there are no product electrons
+   (dissociative recombination), so that the only effect
+   of this routine is to apply the density ratio factor.
 
    Note that we do not divide out the n_d2/n_xgc0 factor
    divided out above so that the resulting scoring_data is
    per electron rather than per neutral; the final scores
    will include the statistical weight of the electron.
 */
-      E_loss=E_xgc0-E_prod_tot
+      if (E_prod_tot != zero) E_loss=E_xgc0-E_prod_tot
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,pr_problem_sp_back(i_d2_bk))]
      $     =-rate*E_loss
 
