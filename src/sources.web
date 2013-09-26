@@ -1093,7 +1093,11 @@ values of $1/2$ should be used.
       assert(i_bin >= num_bins)  
 
       if (urd != real_unused) then
-         x_bin=find_index(urd,e_prob,num_bins)
+/*
+   The argument here needs to be the number of values, not
+   the number of bins.
+*/
+         x_bin=find_index(urd,e_prob,num_bins+1)
          ion_energy=e_min+x_bin*e_delta
          if (e_spacing == so_e_bins_spacing_log) then
             ion_energy=exp(ion_energy)
