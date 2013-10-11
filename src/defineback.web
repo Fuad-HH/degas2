@@ -2255,8 +2255,13 @@ next_datum: continue
                      do iparam=1,source_num_parameters[so_grps]
                         if (so_params_list(iparam,so_grps) 
      $                       == so_param_e_ion_delta) then
-                           so_params_data(iparam,so_seg_tot,so_grps)
-     $                          =const(3.)*bk_temp(1,zone)
+                           if (bk_temp(1,zone) > zero) then
+                              so_params_data(iparam,so_seg_tot,so_grps)
+     $                             =const(3.)*bk_temp(1,zone)
+                           else
+                              so_params_data(iparam,so_seg_tot,so_grps)
+     $                             =const(3.)*electron_charge
+                           end if
                         else if (so_params_list(iparam,so_grps) 
      $                          == so_param_e_ion_mult) then
                            so_params_data(iparam,so_seg_tot,so_grps)=one
