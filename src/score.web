@@ -1304,14 +1304,14 @@ bins. The treated variables thus far are energy and angle of incicidence.
                         vc_copy(zone_center[zone],lc_x(zone_loc))
 /*
   This can take up huge chunks of time in large geometries and
-  is really not needed.
+  is really not needed.  Added |lc_set_b| to set |lc_zone| to |zone|,
+  but make everything else trivial (i.e., 0).
 */
 @#if 0
                         lc_set_a(zone_loc)
                         assert(lc_zone(zone_loc) == zone)
 @#else
-                        lc_zone(zone_loc)=zone
-                        lc_sector(zone_loc)=0
+                        lc_set_b(zone_loc,zone)
 @#endif
                         particle_no=stat_flt[out_array_index(1,ind_val,jscore)][o_mean]
                         do ic=1,tally_dep_var_dim[jscore_v]
