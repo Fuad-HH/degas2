@@ -15,6 +15,14 @@ been generalized in that it handles both
 D$_{2}$ (with photons coming from D, D$_{2}$, and D$_{2}^{+}$) and
 He puffed gases and has been adapted to multiple GPI applications.
 
+By default, |postdetector| runs with output summed over source groups. 
+Output from an individual source group can be obtained by specifying
+its number on the command line:
+\begin{verbatim}
+
+postdetector 1
+\end{verbatim}
+
 The only problem specific information appearing in this file
 are
 the camera resolution and the target plane.  The
@@ -114,8 +122,14 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
 
       implicit_none_f77
       mp_common
+      so_common
       implicit_none_f90
+
+      integer nargs,o_grp
+      character*LINELEN arg
       mp_decls
+      sy_decls
+      st_decls
 
       mpi_init
 
@@ -128,7 +142,17 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
    data and broadcast it to the slaves.
 */
          call nc_read_output  // In |pmimatread.web|
-         call fill_views_master
+
+         nargs=arg_count()
+         if (nargs > 0) then
+            assert(nargs == 1)
+            call command_arg(nargs,arg)
+            o_grp=read_integer(arg)
+            assert(so_check(o_grp))
+         else
+            o_grp=0
+         end if
+         call fill_views_master(o_grp)
       else
          call fill_views_slave
       end if
@@ -146,14 +170,18 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
 @m CMOD_XPT  1   // |nx| and |ny| here if needed.
 @m CMOD_MID  2
 @m NSTX_2010 3
+@m NSTX_ENDD 4
 
-@m APP NSTX
+@m APP NSTX_ENDD
 
-@#if 0
+@#if 1
 @#if (APP == NSTX_2010)
 @m nx 64
 @m ny 80
-@#else
+@#elseif (APP == NSTX_ENDD)
+@m nx 123   // Note that the actual camera pixel indices
+@m ny 56    // do not begin at 1.
+@#else   // C-Mod or old NSTX
 @m nx 64
 @m ny 64
 @#endif
@@ -176,9 +204,8 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
       ind_tmp=index(sp,'+');
       if (ind_tmp > 0) sp(ind_tmp:ind_tmp)='p' @;
 
-
 @<Functions...@>=
-      subroutine fill_views_master
+      subroutine fill_views_master(o_grp)
 
       define_dimen(species_ind,nsd)
 
@@ -197,6 +224,8 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
       de_common
       mp_common
       implicit_none_f90
+
+      integer o_grp              // Input
 
       integer zone,test,ix,iy,inverted_iy,algorithm,nviews,nfrag,nparcel,
      $        nslaves,j,nstart,num,slave,send_data,iview,close_zone,
@@ -221,6 +250,8 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
      $     em_sp_avg[nsd]
       character*sp_sy_len clean_sy
       character*1 s
+      character*3 s_grp
+      character*10 name_grp
       vc_decl(points[de_view_start:de_view_end])
       external extract_output_datum,gpi_views
       real extract_output_datum
@@ -267,18 +298,37 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
       do zone=1,zn_num
          if (zn_type(zone) == zn_plasma) then
             index_parameters[tl_index_zone]=zone
-            em_rate=extract_output_datum(index_parameters,1,
-     $           out_post_all,o_mean,tally_name[total_tally])
+            if (o_grp == 0) then
+               em_rate=extract_output_datum(index_parameters,1,
+     $              out_post_all,o_mean,tally_name[total_tally])
+               s_grp='sg0'
+               name_grp='all groups'
+            else
+               em_rate=extract_output_datum(index_parameters,1,
+     $              out_post_grp[o_grp][0][o_mean],o_mean,tally_name[total_tally])
+               write(s_grp,'(a2,i1)') 'sg',o_grp
+               write(name_grp,'(a8,i1)') 'src grp ',o_grp
+            end if
             em_data[zone]=em_rate
             em_temp+=em_rate*zn_volume(zone)
             do test=2,pr_test_num    // Skip the ``geometry'' test species
                index_parameters[tl_index_test]=test
                is=test-1
-               test_density[zone][is]=extract_output_datum(index_parameters,1,
-     $              out_post_all,o_mean,'neutral density')
+               if (o_grp == 0) then
+                  test_density[zone][is]=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,'neutral density')
+               else
+                  test_density[zone][is]=extract_output_datum(index_parameters,1,
+     $                 out_post_grp[o_grp][0][o_mean],o_mean,'neutral density')
+               end if
                if (tl_check(species_tally)) then
-                  em_rate=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,tally_name[species_tally])
+                  if (o_grp == 0) then
+                     em_rate=extract_output_datum(index_parameters,1,
+     $                    out_post_all,o_mean,tally_name[species_tally])
+                  else
+                     em_rate=extract_output_datum(index_parameters,1,
+     $                    out_post_grp[o_grp][0][o_mean],o_mean,tally_name[species_tally])
+                  end if
                   em_sp_data[zone][is]=em_rate
                end if
             end do
@@ -389,7 +439,8 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
          end do
 
          call wrdatap(signal_array,x_array,y_array,1,nx,1,ny,
-     $        'total emission rate','W/(m^2 sr)','emtt',1,1,'E11.3')
+     $        'total emission rate '\/name_grp,'W/(m^2 sr)',
+     $        'emtt'\/s_grp,'E11.3')
 
          if (ns > 1) then
             do is=1,ns
@@ -402,7 +453,8 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
                assert(ns < 10)
                write(s,'(i1)') is
                call wrdatap(temp_array,x_array,y_array,1,nx,1,ny,
-     $              'emission rate by '\/trim(clean_sy),'W/(m^2 sr)','ems'\/s,1,1,'E11.3')
+     $              'emission rate by '\/trim(clean_sy)\/' '\/name_grp,
+     $              'W/(m^2 sr)','ems'\/s\/s_grp,'E11.3')
             end do
          end if
 
@@ -501,29 +553,35 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
       end if
 
       call wrdatap(target_r,x_array,y_array,1,nx,1,ny,
-     $     'target major radius','m','tarr',1,1,'E11.3')
+     $     'target major radius','m','tarr'\/s_grp,'E11.3')
       call wrdatap(target_z,x_array,y_array,1,nx,1,ny,
-     $     'target vertical coord','m','tarz',1,1,'E11.3')
+     $     'target vertical coord','m','tarz'\/s_grp,'E11.3')
       call wrdatap(target_te,x_array,y_array,1,nx,1,ny,
-     $     'target electron temperature','eV','tate',1,1,'E11.3')
+     $     'target electron temperature','eV','tate'\/s_grp,'E11.3')
       call wrdatap(target_ne,x_array,y_array,1,nx,1,ny,
-     $     'target electron density','m^-3','tane',1,1,'E11.3')
+     $     'target electron density','m^-3','tane'\/s_grp,'E11.3')
       call wrdatap(w_per_atom,x_array,y_array,1,nx,1,ny,
-     $     'emission rate per atom','W','fwpa',1,1,'E11.3')
+     $     'emission rate per atom '\/name_grp,'W','fwpa'\/s_grp,'E11.3')
       call wrdatap(n_eff1,x_array,y_array,1,nx,1,ny,
-     $     'effective test density 1','m^-2 sr^-1','nef1',1,1,'E11.3')
+     $     'effective test density 1 '\/name_grp,'m^-2 sr^-1',
+     $     'nef1'\/s_grp,'E11.3')
       call wrdatap(fwpa_avg,x_array,y_array,1,nx,1,ny,
-     $     'avg emission rate per atom','W','favg',1,1,'E11.3')
+     $     'avg emission rate per atom '\/name_grp,'W',
+     $     'favg'\/s_grp,'E11.3')
       call wrdatap(n_eff3,x_array,y_array,1,nx,1,ny,
-     $     'effective test density 3','m^-2 sr^-1','nef3',1,1,'E11.3')
+     $     'effective test density 3 '\/name_grp,'m^-2 sr^-1',
+     $     'nef3'\/s_grp,'E11.3')
 
       if (tl_check(species_tally)) then
          call wrdatap(w_sp_per_atom,x_array,y_array,1,nx,1,ny,
-     $        'specific emission rate per atom','W','fwps',1,1,'E11.3')
+     $        'specific emission rate per atom '\/name_grp,'W',
+     $        'fwps'\/s_grp,'E11.3')
          call wrdatap(n_sp_eff1,x_array,y_array,1,nx,1,ny,
-     $        'specific effective test density 1','m^-2 sr^-1','nsf1',1,1,'E11.3')
+     $        'specific effective test density 1 '\/name_grp,'m^-2 sr^-1',
+     $        'nsf1'\/s_grp,'E11.3')
          call wrdatap(n_sp_eff3,x_array,y_array,1,nx,1,ny,
-     $        'specific effective test density 3','m^-2 sr^-1','nsf3',1,1,'E11.3')
+     $        'specific effective test density 3 '\/name_grp,'m^-2 sr^-1',
+     $        'nsf3'\/s_grp,'E11.3')
       end if
 
       do is=1,ns
@@ -535,21 +593,24 @@ the entire viewing chord (i.e., computed just as is the total emission rate).
             end do
          end do
          call wrdatap(temp_array,x_array,y_array,1,nx,1,ny,
-     $        'target density of '\/trim(clean_sy),'m^-3','tns'\/s,1,1,'E11.3')
+     $        'target density of '\/trim(clean_sy)\/' '\/name_grp,'m^-3',
+     $        'tns'\/s\/s_grp,'E11.3')
          do iy=1,ny
             do ix=1,nx
                temp_array[ix][iy]=n_eff2[ix][iy][is]
             end do
          end do
          call wrdatap(temp_array,x_array,y_array,1,nx,1,ny,
-     $        'effective density 2 of '\/trim(clean_sy),'m^-2 sr^-1','n2s'\/s,1,1,'E11.3')
+     $        'effective density 2 of '\/trim(clean_sy)\/' '\/name_grp,
+     $        'm^-2 sr^-1','n2s'\/s\/s_grp,'E11.3')
          do iy=1,ny
             do ix=1,nx
                temp_array[ix][iy]=fwpa_sp_avg[ix][iy][is]
             end do
          end do
          call wrdatap(temp_array,x_array,y_array,1,nx,1,ny,
-     $        'avg specific emission rate per '\/trim(clean_sy),'W','fas'\/s,1,1,'E11.3')
+     $        'avg specific emission rate per '\/trim(clean_sy)\/' '\/name_grp,
+     $        'W','fas'\/s\/s_grp,'E11.3')
       end do
 
       var_free(em_data)
@@ -599,6 +660,14 @@ routines.
       phi=const(6.146,1)*PI/const(1.8,2)  // Toroidal shift to my system
       d_l0=const(5.,-2)     // Range for averaging about target plane
       d_opt=const(2.5,-1)   // Range for searching for a close zone
+@#elif (APP == NSTX_ENDD)
+      a0=-sin(const(155.0)*PI/const(1.8,2))  // Again, a vertical plane
+      a1=cos(const(155.0)*PI/const(1.8,2))  
+      a2=zero
+      a3=zero
+      phi=zero      
+      d_l0=const(5.,-2) 
+      d_opt=const(3.0,-1)
 @#else
       assert('Target plane parameters not specified' == ' ')
 @#endif
@@ -672,7 +741,7 @@ routines.
                end do
             end if
          end do
-@#if (APP == NSTX_2010)
+@#if (APP == NSTX_2010 || APP == NSTX_ENDD)
          inverted_iy=iy
 @#else
          inverted_iy=ny-iy+1
@@ -931,13 +1000,13 @@ to the 2004 NSTX Gas Puff Imaging experiments.
 
 @<Functions...@>=
       subroutine wrdatap(pb2dat,xdat,ydat,kxmin,kx,kymin,ky,clabel,cunits,
-     $                  cfilrt,kcount,kfilno,cformt)
+     $                  cfilrt,cformt)
       implicit_none_f77
       implicit_none_f90
 
-      integer kcount,kfilno,kxmin,kx,ky,kymin     // Input
-      character*(*) cunits,clabel
-      character*4 cfilrt,cformt
+      integer kxmin,kx,ky,kymin     // Input
+      character*(*) cunits,clabel,cfilrt
+      character*4 cformt
       real xdat[kx],ydat[ky],pb2dat[kx][ky]
 
       integer ix,iy,ixprime,iyprime                // Local
@@ -975,10 +1044,10 @@ to the 2004 NSTX Gas Puff Imaging experiments.
    Call |wrdata| with the revised arrays
 */
       call wrdata(pb2prime,xprime,yprime,kxmin,kx,kymin,ky,clabel,cunits,
-     $                  cfilrt,kcount,kfilno,cformt)
+     $                  cfilrt,cformt)
 @#else
       call wrdata(pb2dat,xdat,ydat,kxmin,kx,kymin,ky,clabel,cunits,
-     $                  cfilrt,kcount,kfilno,cformt)
+     $                  cfilrt,cformt)
 @#endif
 
       return
@@ -989,18 +1058,17 @@ radiative code, irls.
 
 @<Functions...@>=
       subroutine wrdata(pb2dat,xdat,ydat,kxmin,kx,kymin,ky,clabel,cunits,
-     $                  cfilrt,kcount,kfilno,cformt)
+     $                  cfilrt,cformt)
       implicit_none_f77
       implicit_none_f90
 
-      integer kcount,kfilno,kxmin,kx,ky,kymin     // Input
-      character*(*) cunits,clabel
-      character*4 cfilrt,cformt
+      integer kxmin,kx,ky,kymin     // Input
+      character*(*) cunits,clabel,cfilrt
+      character*4 cformt
       real xdat[kx],ydat[ky],pb2dat[kx][ky]
 
       integer icount,iret,ix,iy,irank              // Local
       integer*4 idim[2]
-      character*9 cfile
       single_precision zdatic,zmax,zmin
       single_precision zxdat[kx],zydat[ky],zdata[kx*ky]
 
@@ -1045,13 +1113,9 @@ radiative code, irls.
       iret=dssrang(zmax,zmin)
       assert(iret == 0)
 /*
-   Construct filename
-*/
-      write (cfile,'(a4,i2.2,i3.3)') cfilrt,kcount,kfilno
-/*
    Write 2-D data
 */
-      iret=dspdata(cfile\/'.hdf',2,idim,zdata)
+      iret=dspdata(cfilrt\/'.hdf',2,idim,zdata)
       assert(iret == 0)
 
       return
