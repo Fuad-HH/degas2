@@ -282,8 +282,9 @@ this ``equivalence'' is defined in the species input file.
 @m pr_rc_recombination 9
 @m pr_rc_vol_source 10
 @m pr_rc_snapshot 11
-@m pr_rc_unknown 12
-@m pr_rc_max 12
+@m pr_rc_plt_e_bins 12
+@m pr_rc_unknown 13
+@m pr_rc_max 13
 
 @ To simplify the specification of the conversions to be used to change
   tallies from their internal values to the external quantities of interest
@@ -479,6 +480,7 @@ this ``equivalence'' is defined in the species input file.
       pr_rc_type[pr_reaction_num+so_recomb]=pr_rc_recombination
       pr_rc_type[pr_reaction_num+so_vol_source]=pr_rc_vol_source
       pr_rc_type[pr_reaction_num+so_snapshot]=pr_rc_snapshot
+      pr_rc_type[pr_reaction_num+so_plt_e_bins]=pr_rc_plt_e_bins
 
       nconversions=0
       do icv=1,tl_cv_max_conversions
@@ -701,7 +703,8 @@ eof: continue
      $           || estimator[pr_rc_plate] == tl_est_track
      $           || estimator[pr_rc_puff] == tl_est_track
      $           || estimator[pr_rc_vol_source] == tl_est_track
-     $           || estimator[pr_rc_snapshot] == tl_est_track) then
+     $           || estimator[pr_rc_snapshot] == tl_est_track
+     $           || estimator[pr_rc_plt_e_bins] == tl_est_track) then
             assert(' Track length estimator not possible for sources' == ' ')
          else if (estimator[pr_rc_test_ion] != tl_est_collision) then
             assert(' Test ions must use collision estimator' == ' ')

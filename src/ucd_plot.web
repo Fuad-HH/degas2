@@ -485,6 +485,16 @@ loop: continue
 
       do i=1,g2_num_polygons
          zone=g2_polygon_zone[i]
+         if (zn_type(zone) == zn_plasma) then
+            polygon_data[i]=bk_n(2,zone)             // BACKGROUND DENSITY
+         else
+            polygon_data[i]=zero
+         end if
+      end do
+      call write_silo_data('ion_density',polygon_data,'m**-3','E11.3',dbfile,mesh_name)
+
+      do i=1,g2_num_polygons
+         zone=g2_polygon_zone[i]
          if (zn_type(zone) == zn_plasma) then         // BACKGROUND TEMPERATURE
             polygon_data[i]=bk_temp(1,zone)/electron_charge
          else
@@ -607,7 +617,7 @@ loop: continue
      $           'm/s','E11.3',dbfile,mesh_name)
          end do
 
-         if (string_lookup('neutral_pressure',tally_name,tl_num) > 0) then
+         if (string_lookup('neutral pressure',tally_name,tl_num) > 0) then
             do i=1,g2_num_polygons
                zone=g2_polygon_zone[i]
                if (zn_type(zone) == zn_plasma || zn_type(zone) == zn_vacuum) then

@@ -64,7 +64,7 @@ PDFLATEX=pdflatex
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000 -- it's a little stressed
 # Code has evolved enough that we are stressing some more
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
-TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn8000 -yb200000
+TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn8000 -yb200000 -ybs6000
 WEAVEFLAGS=-f -i! -W[ -ykw800 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
@@ -443,7 +443,7 @@ triangle.%: $(TRIDIR)/triangle.%
 endif
 
 triangle.o: triangle.c triangle.h
-	cc -DTRILIBRARY -O -c $<
+	$(CC) -DTRILIBRARY -O -c $<
 
 ifeq ($(STANDALONE),yes)
 # include files

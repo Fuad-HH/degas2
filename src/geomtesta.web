@@ -475,7 +475,7 @@ loop: continue
       do i=1,zn_num
          zone_data[i]=areal(zn_type(i))
       end do
-      call write_hdf('zone_type.hdf',zone_data,'zone number',' ','E11.3',
+      call write_hdf('zone_type.hdf',zone_data,'zone type',' ','E11.3',
      $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
 @#if 1
@@ -487,6 +487,16 @@ loop: continue
          end if
       end do
       call write_hdf('bk_n1.hdf',zone_data,'electron density','m**-3','E11.3',
+     $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+
+      do i=1,zn_num
+         if (zn_type(i) == zn_plasma) then
+            zone_data[i]=bk_n(2,i)                  // BACKGROUND DENSITY
+         else
+            zone_data[i]=zero
+         end if
+      end do
+      call write_hdf('bk_n2.hdf',zone_data,'ion density','m**-3','E11.3',
      $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       do i=1,zn_num
