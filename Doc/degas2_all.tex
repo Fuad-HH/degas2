@@ -3094,19 +3094,28 @@ PDF version of the manual, here's a
 
 \section{Compiling DEGAS 2}
 
-The Makefile has been written to compile on  a variety of architectures
-and operating systems. Those that have been used in thus far, 
-and their corresponding
-symbols (in brackets) are:
-\begin{enumerate}
-\item Linux 32-bit [{\tt LINUX}]
-\item Linux 64-bit [{\tt LINUX64}]
-\item Sun Solaris [{\tt SUN}],
-\item IBM AIX [{\tt IBM}],
-\item Digital OSF1 [{\tt ALPHA}],
-\item Silicon Graphics IRIX [{\tt SGI}],
-\item Others (e.g., [{\tt CRAY}]) are available for cross-compilation.
-\end{enumerate}
+The Makefile has been designed to compile on  a variety of architectures
+and operating systems. It uses the shell command {\tt uname} to
+determine the operating system upon which {\tt gmake} is being run.  The root
+name of the current directory (see Sec.~\ref{basics}) tells it the
+operating system for which the code is being compiled.  In most cases,
+these are the same; a mechanism for cross compiling (i.e., target is a
+different operating system) is provided (Sec.~\ref{cross}).
+The systems used thus far are: 
+
+\begin{center}
+\begin{tabular}{lp{10 em}l}
+Generic Name & {\tt uname} & Run Directory Root \\ \hline
+Linux 32-bit & {\tt Linux} & {\tt LINUX} \\
+Linux 64-bit & {\tt Linux}, {\tt uname -m} contains {\tt 64} & {\tt
+  LINUX64} \\
+Sun Solaris & {\tt SunOS} & {\tt SUN} \\
+IBM AIX & {\tt AIX} & {\tt IBM} \\
+Digital OSF1 & {\tt OSF1} & {\tt ALPHA} \\
+Silicon Graphics IRIX & {\tt IRIX} or {\tt IRIX64} & {\tt SGI} \\
+Mac OS X & {\tt Darwin} & {\tt MACOSX} \\
+\end{tabular}
+\end{center}
 
 Note that due to the proliferation of relatively cheap and fast
 Linux clusters, usage of DEGAS 2 on other systems has essentially
@@ -3134,10 +3143,12 @@ Blindly change directory names is not recommended.
 Some flexibility is again provided; see below for details.
 
 \subsection{Basics}
+\label{basics}
 
 Let's start by compiling the {\tt randomtest} utility (see 
 Sec.~\ref{testroutines}) on a Sun system. To use other systems,
-replace {\tt SUN} with the appropriate symbol from the above list.
+replace {\tt SUN} with the appropriate directory root name (more than
+one run directory can be used; see Sec.~\ref{adjustments}) from the above list.
 
 First, change to the main DEGAS 2 directory and create the SUN 
 subdirectory:
@@ -3240,6 +3251,7 @@ directories such as {\tt data}).
 \end{itemize}
 
 \subsection{Cross-Compiling}
+\label{cross}
 
 {\bf The mechanism for cross-compilation has been updated to use
 {\tt ssh} and {\tt scp} and no longer relies on the presence
@@ -3326,29 +3338,29 @@ explicitly stated in the Makefile and must be updated by hand.
 variables. This is useful for debugging Makefile problems.
 \end{itemize}
 
-\subsection{CVS Access to DEGAS 2}
+% \subsection{CVS Access to DEGAS 2}
 
-Properly privileged (in the UNIX sense) authors of DEGAS 2 will be given
-access to the
-CVS (see Sec.~\ref{cvs}) repository for the code. With this access,
-one can obtain the latest version of the source with:
+% Properly privileged (in the UNIX sense) authors of DEGAS 2 will be given
+% access to the
+% CVS (see Sec.~\ref{cvs}) repository for the code. With this access,
+% one can obtain the latest version of the source with:
 
-\begin{verbatim}
-setenv CVSROOT /afs/pppl.gov/common/cvs
-cd
-cvs co degas2
-\end{verbatim}
+% \begin{verbatim}
+% setenv CVSROOT /afs/pppl.gov/common/cvs
+% cd
+% cvs co degas2
+% \end{verbatim}
 
-(this will place the code in \verb+~/degas2+; see also Sec.~\ref{adjustments}).
-Of course, the command setting the {\tt CVSROOT} variable can be more
-conveniently executed from a login (e.g., \verb+~/.login+) or shell startup
-script (e.g., \verb+~/.cshrc+). The user will also have access to
-all older versions of the source and data files through the appropriate
-CVS commands. More importantly, the user will be able to {\em update}
-the CVS repository. For this reason, such access is controlled by 
-the primary authors of DEGAS 2. Contact them if you feel that you can
-contribute to the DEGAS 2 source code
-(see Sec.~\ref{help}).
+% (this will place the code in \verb+~/degas2+; see also Sec.~\ref{adjustments}).
+% Of course, the command setting the {\tt CVSROOT} variable can be more
+% conveniently executed from a login (e.g., \verb+~/.login+) or shell startup
+% script (e.g., \verb+~/.cshrc+). The user will also have access to
+% all older versions of the source and data files through the appropriate
+% CVS commands. More importantly, the user will be able to {\em update}
+% the CVS repository. For this reason, such access is controlled by 
+% the primary authors of DEGAS 2. Contact them if you feel that you can
+% contribute to the DEGAS 2 source code
+% (see Sec.~\ref{help}).
 
 \section{Examples}
 
@@ -6852,7 +6864,7 @@ the \href{http://ncsx.pppl.gov}{NCSX web site}.
   \item test species, \hyperpage{62}
   \item TeX, \hyperpage{51}
   \item Theory, transport, \hyperpage{1}
-  \item time dependence, \hyperpage{23}, \hyperpage{100}
+  \item time dependence, \hyperpage{23}, \hyperpage{99}
   \item Total cross section, \hyperpage{32}
   \item Tracking, \hyperpage{5}
   \item Transport codes, \hyperpage{1}
