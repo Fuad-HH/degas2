@@ -1005,6 +1005,8 @@ get this from a data file:
 
 @* Routine for setting the energies of product electrons.
 
+@m E_2min const(1.0)
+
 @<Functions...@>=
       subroutine set_electron_energies(nprod,sp_dummy(prod),scoring_data,rate,
      $                                 i_d2_bk,n_xgc0,E_xgc0,n_d2,E_th,E_max,E_prod)
@@ -1066,11 +1068,11 @@ get this from a data file:
 /*
    Since the reaction is not handled kinetically, the reacting
    electron might actually have an energy less than |E_th|.
-   Set a minimum of 1 eV for the new electron and $1 \%$ for the
+   Set a minimum of |E_2min| for the new electron and $1 \%$ for the
    reacting electron.  Use an explicit if here since |E_2| $ = 0$
    is legitimate for single electron reactions.
 */
-               if (E_2 < zero) E_2=electron_charge
+               if (E_2 < zero) E_2=E_2min*electron_charge
                E_prod[i]=(E_xgc0-E_loss-E_2)
                E_prod[i]=max(E_prod[i],const(1.,-2)*E_xgc0)
                E_prod_tot=E_prod[i]
