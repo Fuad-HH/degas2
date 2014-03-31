@@ -750,6 +750,85 @@ loop: continue
       end do
 
       do test=1,pr_test_num
+         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H BALMER BETA
+     $        || (sp_sy(pr_test(test)) == 'D')
+     $        || (sp_sy(pr_test(test)) == 'T'))
+     $        && string_lookup('D beta emission rate',tally_name,tl_num) > 0) then
+            ha_temp=zero
+            do i=1,g2_num_polygons
+               zone=g2_polygon_zone[i]
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'D beta emission rate')
+     $                 /(const(2.549)*electron_charge)
+                  polygon_data[i]+=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+@#if 0
+               else if (zn_type(zone) == zn_solid) then  // Can plot solid
+                  polygon_data[i]=-one                    // regions 
+@#endif
+               else
+                  polygon_data[i]=zero
+               end if
+            end do
+         end if
+      end do
+
+      halpha_tot=zero
+      do i=1,g2_num_polygons
+         zone=g2_polygon_zone[i]
+         halpha_tot+=polygon_data[i]*zn_volume(zone)
+      end do
+
+      if (halpha_tot > zero) then
+         call write_silo_data('Balmer_beta_rate',polygon_data,
+     $        'photons / (m**3 s)','E11.3',dbfile,mesh_name)
+      end if
+
+      do i=1,g2_num_polygons
+         polygon_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (string_lookup('D beta emission rate by species',tally_name,tl_num) > 0) then
+            name_clean(sp_sy(pr_test(test)),clean_sy)
+            ha_temp=zero
+            index_parameters[tl_index_test]=test
+            do i=1,g2_num_polygons
+               zone=g2_polygon_zone[i]
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'D beta emission rate by species')
+     $                 /(const(2.549)*electron_charge)
+                  polygon_data[i]=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+               else
+                  polygon_data[i]=zero
+               end if
+            end do
+         end if
+         halpha_tot=zero
+         do i=1,g2_num_polygons
+            zone=g2_polygon_zone[i]
+            halpha_tot+=polygon_data[i]*zn_volume(zone)
+         end do
+
+         if (halpha_tot > zero) then
+            call write_silo_data('Balmer_beta_rate_'\/trim(clean_sy),polygon_data,
+     $        'photons / (m**3 s)','E11.3',dbfile,mesh_name)
+         end if
+      end do
+@#endif
+@#if 1
+      do i=1,g2_num_polygons
+         polygon_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
          if (((sp_sy(pr_test(test)) == 'He')          // NEUTRAL He 5877 line
      $        && string_lookup('He 5877 emission rate',tally_name,tl_num) > 0)) then
             ha_temp=zero
