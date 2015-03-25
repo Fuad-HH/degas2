@@ -36,6 +36,12 @@ The principal routines in this file are those used to read and interpret
 
 @m OLD_UEDATA 0    //  Set to 1 if file does not contain ghost cell data
 
+@m increment_params(num_params) so_params_list_size+=num_params;
+         if (so_params_list_size > so_params_list_dim) then;
+            var_realloc(source_parameters_list,so_params_list_dim,so_params_list_size);
+            so_params_list_dim=so_params_list_size;
+         end if @;
+
 @ The unnamed module.
 
 @a
@@ -195,9 +201,7 @@ of the source definition.
                      so_chkpt(grp)=0
                      so_base(grp)=tot+1
                      tot+=ny
-
                      source_num_gparameters[grp]=0
-                     source_num_parameters[grp]=0
                      source_gparameters_base[grp]=so_gparams_list_size
                      source_parameters_base[grp]=so_params_list_size
                      source_parameters_data_base[grp]=so_params_data_size
@@ -206,6 +210,12 @@ of the source definition.
                      source_giparameters_base[grp]=so_giparams_list_size
                      source_iparameters_base[grp]=so_iparams_list_size
                      source_iparameters_data_base[grp]=so_iparams_data_size
+
+                     source_num_parameters[grp]=3       
+                     increment_params(source_num_parameters[grp])
+                     so_params_list(1,grp)=so_param_e_ion_delta
+                     so_params_list(2,grp)=so_param_e_ion_mult
+                     so_params_list(3,grp)=so_param_e_ion_sheath
                   end if
                end do
             end do
@@ -1035,7 +1045,7 @@ If not, add to the list.
      $     ti2[bk_my,bk_xpt],te2[bk_my,bk_xpt],flux2[bk_my,bk_ms,bk_xpt]
       character*sp_sy_len uedge_species[bk_ms]
 
-      integer i_seg,j1,j2,js,is_seg,isp,plasma_sc,ixpt    // Local   
+      integer i_seg,j1,j2,js,is_seg,isp,plasma_sc,ixpt,iparam    // Local   
       real ne
       so_decl(grp)
       sc_decl(sector)
@@ -1049,6 +1059,7 @@ If not, add to the list.
       integer lookup_sector
       real phi_sheath
 
+      @<Memory allocation interface@>
       st_decls
 /*
    This stuff needs to be in a separate routine so it can be
@@ -1143,6 +1154,30 @@ If not, add to the list.
      $                 =te1[j2,ixpt]*phi_sheath(vc_args(v_bdy),
      $                  ti1[j2,ixpt],te1[j2,ixpt])
                   plasma_e_ion_mult[plasma_sc_ptr]=zero
+
+                  assert(source_num_parameters[grp] > 0) // Should be 3 !
+                  so_params_data_size+=source_num_parameters[grp]
+                  if (so_params_data_size > so_params_data_dim) then
+                     var_realloc(source_parameters_data,so_params_data_dim,
+     $                    so_params_data_size)
+                     so_params_data_dim=so_params_data_size
+                  end if
+                  do iparam=1,source_num_parameters[grp]
+                     if (so_params_list(iparam,grp) 
+     $                    == so_param_e_ion_delta) then
+                        so_params_data(iparam,is_seg,grp)
+     $                       =const(3.0)*ti1[j2,ixpt]+half*te1[j2,ixpt]
+                     else if (so_params_list(iparam,grp) 
+     $                       == so_param_e_ion_sheath) then
+                        so_params_data(iparam,is_seg,grp)
+     $                       =te1[j2,ixpt]*phi_sheath(vc_args(v_bdy),
+     $                                                  ti1[j2,ixpt],te1[j2,ixpt])
+                     else if (so_params_list(iparam,grp) 
+     $                       == so_param_e_ion_mult) then
+                        so_params_data(iparam,is_seg,grp)=zero
+                     end if
+                  end do
+
                end if                           // else: using default values
 @#endif
             end do
@@ -1214,6 +1249,30 @@ If not, add to the list.
      $                 =te2[j2,ixpt]*phi_sheath(vc_args(v_bdy),
      $                  ti2[j2,ixpt],te2[j2,ixpt])
                   plasma_e_ion_mult[plasma_sc_ptr]=zero
+
+                  assert(source_num_parameters[grp] > 0) // Should be 3 !
+                  so_params_data_size+=source_num_parameters[grp]
+                  if (so_params_data_size > so_params_data_dim) then
+                     var_realloc(source_parameters_data,so_params_data_dim,
+     $                    so_params_data_size)
+                     so_params_data_dim=so_params_data_size
+                  end if
+                  do iparam=1,source_num_parameters[grp]
+                     if (so_params_list(iparam,grp) 
+     $                    == so_param_e_ion_delta) then
+                        so_params_data(iparam,is_seg,grp)
+     $                       =const(3.0)*ti2[j2,ixpt]+half*te2[j2,ixpt]
+                     else if (so_params_list(iparam,grp) 
+     $                       == so_param_e_ion_sheath) then
+                        so_params_data(iparam,is_seg,grp)
+     $                       =te2[j2,ixpt]*phi_sheath(vc_args(v_bdy),
+     $                  ti2[j2,ixpt],te2[j2,ixpt])
+                     else if (so_params_list(iparam,grp) 
+     $                       == so_param_e_ion_mult) then
+                        so_params_data(iparam,is_seg,grp)=zero
+                     end if
+                  end do
+
                end if                           // else: using default values
 @#endif
             end do
