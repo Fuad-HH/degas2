@@ -23,10 +23,10 @@ format with a complete specification of the reaction.
       program reactionwrite
       implicit_none_f77
       implicit_none_f90
-      call reaction_write('hionize','../data/ehr3.dat',
-     &     'V. 2.8, e ionization of H, CR data from ehr3.dat')
-      call reaction_write('hrecombine','../data/ehr3.dat',
-     &     'V. 2.8, e recombination of H+, CR data from ehr3.dat')
+      call reaction_write('hionize5','../data/ehr5.dat',
+     &     'e ionization of H, CR data from ehr5.dat')
+      call reaction_write('hrecombine5','../data/ehr5.dat',
+     &     'e recombination of H+, CR data from ehr5.dat')
       stop
       end
 
@@ -56,9 +56,9 @@ format with a complete specification of the reaction.
       
       xs_name=name
       xsection_version=version
-      if (name == 'hionize') then
+      if (index(name,'ionize') != 0) then
          xs_num_dep_var=6
-      else if (name == 'hrecombine') then
+      else if (index(name,'recombine') != 0) then
          xs_num_dep_var=7
       end if
 
@@ -106,7 +106,7 @@ format with a complete specification of the reaction.
       xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
       xs_mult[0,xs_num_dep_var]=const(1.0,-13)
 
-      if (name == 'hrecombine') then
+      if (index(name,'recombine') != 0) then
          xs_num_dep_var++
          xs_var[0,xs_num_dep_var]='background_energy_source_rate'
          xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
@@ -227,10 +227,10 @@ format with a complete specification of the reaction.
 
       xs_num_dep_var=0
       xs_num_dep_var++
-      if (name == 'hionize') then
+      if (index(name,'ionize') != 0) then
          call file_read(filein,xs_num_dep_var,'Ionization Rate')
          tag='Neutral'
-      else if (name == 'hrecombine') then
+      else if (index(name,'recombine') != 0) then
          call file_read(filein,xs_num_dep_var,'Recombination Rate')
          tag='Continuum'
       end if
@@ -250,7 +250,7 @@ format with a complete specification of the reaction.
    Ionization energy as in original DEGAS
 */
       eionize=const(1.3595,1)*electron_charge*const(1.,7)
-      if (name == 'hionize') then
+      if (index(name,'ionize') != 0) then
          do j=0,xs_tab_index[2,xs_num_dep_var]-1
             do i=0,xs_tab_index[1,xs_num_dep_var]-1
 /* 
@@ -259,7 +259,7 @@ format with a complete specification of the reaction.
                xs_data_table(i,j,0,xs_num_dep_var)+=eionize*xs_data_table(i,j,0,1)
             end do
          end do
-      else if (name == 'hrecombine') then
+      else if (index(name,'recombine') != 0) then
          xs_num_dep_var++
          do j=0,xs_tab_index[2,xs_num_dep_var]-1
             do i=0,xs_tab_index[1,xs_num_dep_var]-1
