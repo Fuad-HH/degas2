@@ -204,6 +204,9 @@ of the source definition.
                      source_num_gparameters[grp]=0
                      source_gparameters_base[grp]=so_gparams_list_size
                      source_parameters_base[grp]=so_params_list_size
+/*
+   Just an initialization; |so_params_data_size| is trivial here.
+*/      
                      source_parameters_data_base[grp]=so_params_data_size
                      source_num_giparameters[grp]=0
                      source_num_iparameters[grp]=0
@@ -1156,6 +1159,8 @@ If not, add to the list.
                   plasma_e_ion_mult[plasma_sc_ptr]=zero
 
                   assert(source_num_parameters[grp] > 0) // Should be 3 !
+                  if (i_seq == 1) 
+     $                 source_parameters_data_base[grp]=so_params_data_size
                   so_params_data_size+=source_num_parameters[grp]
                   if (so_params_data_size > so_params_data_dim) then
                      var_realloc(source_parameters_data,so_params_data_dim,
@@ -1251,6 +1256,8 @@ If not, add to the list.
                   plasma_e_ion_mult[plasma_sc_ptr]=zero
 
                   assert(source_num_parameters[grp] > 0) // Should be 3 !
+                  if (i_seq == 1) 
+     $                 source_parameters_data_base[grp]=so_params_data_size
                   so_params_data_size+=source_num_parameters[grp]
                   if (so_params_data_size > so_params_data_dim) then
                      var_realloc(source_parameters_data,so_params_data_dim,
