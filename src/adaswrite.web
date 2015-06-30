@@ -1,0 +1,209 @@
+% $Id$
+\Title{adaswrite}
+
+@* Introduction.
+
+\ID{$Id$}
+
+Reads in all ADAS files for an ion species and writes the data in
+them to the associated netCDF files.
+
+@m FILE 'adaswrite.web'
+
+@I macros.hweb
+@I readfilenames.hweb
+@I reaction.hweb
+@I species.hweb
+@I sysdep.hweb
+@I string.hweb
+@I xsection.hweb
+@I netcdf.hweb
+
+@ The unnamed module.
+
+@a
+      program adaswrite
+      implicit_none_f77
+      implicit_none_f90
+
+      integer nargs
+      character*FILELEN inputfile
+
+      sy_decls
+
+      nargs=arg_count()
+      if (nargs != 1) then
+         assert(' Command line must specify an input file' == ' ')
+      end if
+      call command_arg(1,inputfile)
+
+      call nc_read_elements
+      call nc_read_species
+      call nc_read_reactions
+
+      call adas_write(inputfile)
+
+      stop
+      end
+      
+      @<Functions and subroutines@>
+      
+@ Set up array sizes to read in data for a particular reaction.
+
+@m num_files 5 // Each ADAS data set currently consists of 5 files
+@m ecd_file 1  // Binding energy, aka ionization potential
+@m scd_file 2  // GCR ionization rate
+@m plt_file 3  // Line radiation associated with ionization
+@m acd_file 4  // GCR recombination rate
+@m prb_file 5  // Line radiation associated with recombination
+
+@m max_charge 93         // Main array maximum dimensions, values 
+@m max_densities 100     // cribbed from B2.5: |/src/utility/ratadas.F|.
+@m max_temperatures 100
+
+@m ndptnl 4              // Paramter values for ignored ADAS
+@m ndptn 128             // arrays.  Again, borrowed from B2.5.
+@m ndptnc 256
+@m ndcnct 100
+
+@m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
+         assert(open_stat == 0) @;
+
+@<Functions...@>=
+      subroutine adas_write(inputfile)
+      implicit_none_f77
+      xs_common                                         // Common
+      implicit_none_f90
+
+      character*FILELEN inputfile                               // Input
+
+      integer b,e,p,length,open_stat,ifile,ifile2,          // Local
+     $       ncnct,num_reactions             
+      integer num_densities[num_files],num_temperatures[num_files],
+     $        num_charge[num_files],file_check[num_files],adas_class[num_files]
+      real adas_densities[num_files][max_densities],
+     $     adas_temperatures[num_files][max_temperatures],
+     $     adas_rates[num_files][max_densities][max_temperatures][max_charge]
+      character*FILELEN adas_filenames[num_files]
+      character*LINELEN line
+      character*3 adas_fileroots[num_files]
+
+      integer nptnl,iblmx,ismax,iz1min,iz1max            // Ignored ADAS variables
+      integer nptn[ndptnl],nptnc[ndptn][ndptnl],iptnla[ndptnl],
+     $        iptna[ndptn][ndptnl],iptnca[ndptnc][ndptn][ndptnl],icnctv[ndcnct],
+     $        isppr[max_charge],ispbr[max_charge],isstgr[max_charge]
+      real dnr_ams
+      logical lres,lstan,lptn
+      character*12 dnr_ele
+
+      data adas_fileroots /'ECD','SCD','PLT','ACD','PRB'/
+      data adas_class /12,2,8,1,4/
+
+      nc_decls
+      xs_ncdecl
+      xs_decls
+      st_decls 
+      @<Memory allocation interface@>
+/*
+   Input file has two sections:
+   First section has the file names, each with a keyword: "acdfile",
+   etc. with "scdfile", "pltfile", "prbfile", and "ecdfile", each
+   with a full pathname.
+   Second section has the list of reactions.  Have to count these on
+   the fly and pass the whole thing down.
+*/
+      open_file(diskin,inputfile)
+
+      do ifile=1,num_files
+         adas_filenames[ifile]=char_undef
+         file_check[ifile]=FALSE
+      end do
+/*
+   The idea here is to insist that all |num_files| be listed here and
+   that they appear only once.  As such, can just do a simple loop
+   over the expected number of files and then test against the
+   keywords. 
+*/
+      do ifile=1,num_files
+
+         assert(read_string(diskin,line,length))
+
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,b,e,p))
+         
+         if (line(b:e) == 'ecd_file') then
+            assert(next_token(line,b,e,p))
+            adas_filenames[ecd_file]=line(b:e)
+            assert(file_check[ecd_file] == FALSE)
+            open_file(diskin+1,adas_filenames[ecd_file])
+            file_check[ecd_file]=TRUE
+         else if (line(b:e) == 'scd_file') then
+            assert(next_token(line,b,e,p))
+            adas_filenames[scd_file]=line(b:e)
+            assert(file_check[scd_file] == FALSE)
+            file_check[scd_file]=TRUE
+         else if (line(b:e) == 'plt_file') then
+            assert(next_token(line,b,e,p))
+            adas_filenames[plt_file]=line(b:e)
+            assert(file_check[plt_file] == FALSE)
+            file_check[plt_file]=TRUE
+         else if (line(b:e) == 'acd_file') then
+            assert(next_token(line,b,e,p))
+            adas_filenames[acd_file]=line(b:e)
+            assert(file_check[acd_file] == FALSE)
+            file_check[acd_file]=TRUE
+         else if (line(b:e) == 'prb_file') then
+            assert(next_token(line,b,e,p))
+            adas_filenames[prb_file]=line(b:e)
+            assert(file_check[prb_file] == FALSE)
+            file_check[prb_file]=TRUE
+         else
+            do ifile2=1,num_files
+               if (file_check[ifile2] == FALSE) then
+                  write(stderr,*) ' Missing file of type ',
+     $                 adas_fileroots[ifile2]
+               end if
+            end do
+            assert(' One or more ADAS files are missing' == ' ')
+         end if
+      end do
+/*
+   Initially thought of inserting these calls inside the if-then
+   above.  But figured that inserting in a second loop here would be
+   neater and less error prone.
+*/
+      do ifile=1,num_files
+
+         call xxdata_11(diskin+1,adas_filenames[ifile],
+     $        max_charge,max_densities,max_temperatures,
+     $        ndptnl,ndptn,ndptnc,ndcnct,
+     $        num_charge[ifile],iz1min,iz1max,
+     $        nptnl,nptn,nptnc,iptnla,iptna,iptnca,
+     $        ncnct,icnctv,iblmx,ismax,dnr_ele,dnr_ams,
+     $        isppr,ispbr,isstgr,
+     $        num_densities[ifile],num_temperatures[ifile],
+     $        adas_densities[ifile][1],adas_temperatures[ifile][1],
+     $        adas_rates[ifile][1][1][1],
+     $        lres,lstan,lptn)
+/*
+   This is true for unresolved files, which is what we are
+   assuming here.
+*/
+         assert(ncnct == num_charge[ifile])
+
+      end do
+      
+      num_reactions=0
+/*
+   Be sure to check: num_reactions = 2 * Z
+*/
+         
+
+
+
+ 
+      return
+      end
+      

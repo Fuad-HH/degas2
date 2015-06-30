@@ -1,3 +1,26 @@
+% $Id$
+\Title{adas_xxdata_11}
+
+@* ADAS routine to read adf11 format files.  Includes invoked
+utility routines.  Copied from PPPL installation
+/p/adas/fortran/adaslib/xxdata on 6/29/2015.
+
+\ID{$Id$}
+
+@m FILE 'adas_xxdata_11'
+
+@I macros.hweb
+@I sysdep.hweb
+@I string.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+@ Read the adf11 formatted file.
+
+@<Functions...@>=
       subroutine  xxdata_11( iunit  , iclass , 
      &                       isdimd , iddimd , itdimd , 
      &                       ndptnl , ndptn  , ndptnc , ndcnct ,
@@ -11,248 +34,251 @@
      &                       ddens  , dtev   , drcof  ,
      &                       lres   , lstan  , lptn  
      &                     )
-       implicit none
-c-----------------------------------------------------------------------
-c
-c  ****************** fortran77 subroutine: xxdata_11 ******************
-c
-c  purpose: to read a complete  adf11 file, check its class and 
-c           determine its standard, resolved and partition organisation.
-c
-c  calling program: various
-c
-c  notes:    (1) A `standard' adf11 file contains gcr data between one  
-c                whole ionisation stage and another whole ionisation 
-c                stage.  
-c                A `resolved' (or partial) adf11 file contains gcr data
-c                between a set of metastables of one ionisation stage
-c                and a set of metastables of another ionisation stage.
-c                A resolved file is distinguished from a standard file
-c                by the presence of a `connection vector' in the adf11
-c                data file header lines.
-c                The connection vector specifies the number of meta-
-c                stables in each ionisation stage which are coupled 
-c                together by gcr data.
-c            (2) A `partitioned' adf11 file contains gcr data between 
-c                clumps of ionisation stages or metastables or comb-
-c                inations of the two called `partitions'.  
-c                A `partition level' is a specification of the 
-c                partitions which span all the ionisation stages (and
-c                metastables) of an element.  Successive partition 
-c                levels give a heirarchy corresponding to larger 
-c                partitions and greater clumping. 
-c                A `superstage' is a set of partitions which are close-
-c                coupled.
-c                There are thus equivalences :
-c                        ionisation stage   -   superstage
-c                        metastable         -   partition
-c                        ion charge         -   superstage index
-c                A partitioned adf11 file may be standard (with each 
-c                superstage comprising only one partition) or resolved.
-c                A partitioned file is distinguished by the presence of 
-c                `partition specification block' in the adf11 data  
-c                file header lines.
-c            (3) When  a partition specification block is present, it 
-c                should be ordered from the highest partition level  
-c                index to lowest partition level index.  Thus the first 
-c                partition in the partition block has the least number 
-c                of partitions and the last has the greatest number.
-c            (4) Twelev classes of adf11 data file may be read by the
-c                subroutine as follow:
-c
-c            	 class index	type	  GCR data content
-c            	 -----------	----	  ----------------
-c            	     1  	acd	  recombination coeffts
-c            	     2  	scd	  ionisation coeffts
-c            	     3  	ccd	  CX recombination coeffts
-c            	     4  	prb	  recomb/brems power coeffts
-c            	     5  	prc	  CX power coeffts
-c            	     6  	qcd	  base meta. coupl. coeffts 
-c            	     7  	xcd	  parent meta. coupl. coeffts
-c            	     8  	plt	  low level line power coeffts
-c            	     9  	pls	  represent. line power coefft
-c            	    10  	zcd	  effective charge
-c            	    11  	ycd	  effective squared charge
-c            	    12  	ecd	  effective ionisation potential
-c
-c            (5) A resolved adf11 file, with a connection vector, has a set
-c                of names and pointers at precise positions in the data file
-c                which are recognised.
-c                The names are different for partitioned and unpartitioned
-c                data files as follow:
-c
-c                       file      unpartitioned         partitioned 
-c                       class        names                 names  
-c                       
-c                       (all)         z1                   s1
-c
-c                       	 (indices 1 and 2)     (indices 1 and 2)
-c                   	----	   ----     ----         ----	  ----
-c                   	acd        iprt     igrd         ispp	  ispb
-c                   	scd        iprt     igrd         ispp	  ispb
-c                   	ccd        iprt     igrd         ispp	  ispb
-c                   	prb        iprt                  ispp	      
-c                   	prc        iprt                  ispp	      
-c                   	qcd        igrd     jgrd         ispb	  jspb
-c                   	xcd        iprt     jprt         ispp	  jspp
-c                   	plt        igrd 	         ispb
-c                   	pls        igrd 	         ispb
-c                   	zcd        igrd 	         ispb
-c                   	ycd        igrd 	         ispb
-c                   	ecd        igrd 	         ispb
-c
-c             (6) In partitioned nomenclature: s=superstage; p=partition;
-c                 b=base (current superstage), p=parent (next up super-
-c                 stage), c=child (next down superstage). Thus arrays
-c                 `iprtr' and `igrd' in old notation are now substituted
-c                 by `isppr' and `ispbr' respectively internally and in
-c                 external naming. 
-c
-c
-c  subroutine:
-c
-c  input : (i*4)  iunit     = unit to which input file is allocated
-c  input : (i*4)  iclass    = class of data (1 - 12 ):
-c                               1-acd, 2-scd, 3-ccd, 4-prb, 5-prc
-c                               6-qcd, 7-xcd, 8-plt, 9-pls,10-zcd
-c                              11-ycd,12-ecd
-c
-c  input : (i*4)  isdimd    = maximum number of (sstage, parent, base)
-c                             blocks in isonuclear master files
-c  input : (i*4)  iddimd    = maximum number of dens values in
-c                             isonuclear master files
-c  input : (i*4)  itdimd    = maximum number of temp values in
-c                             isonuclear master files
-c  input : (i*4)  ndptnl    = maximum level of partitions
-c  input : (i*4)  ndptn     = maximum no. of partitions in one level
-c  input : (i*4)  ndptnc    = maximum no. of components in a partition
-c  input : (i*4)  ndcnct    = maximum number of elements in connection
-c                             vector  
-c
-c  output: (i*4)  iz0       = nuclear charge
-c  output: (i*4)  is1min    = minimum ion charge + 1 
-c                             (generalised to connection vector index)
-c  output: (i*4)  is1max    = maximum ion charge + 1 
-c                             (note excludes the bare nucleus)
-c                             (generalised to connection vector index 
-c                              and excludes last one which always remains
-c                              the bare nucleus)
-c  output: (i*4)  nptnl     = number of partition levels in block 
-c  output: (i*4)  nptn()    = number of partitions in partition level
-c                             1st dim: partition level 
-c  output: (i*4)  nptnc(,)  = number of components in partition
-c                             1st dim: partition level 
-c                             2nd dim: member partition in partition level 
-c  output: (i*4)  iptnla()  = partition level label (0=resolved root,1=
-c                                                      unresolved root)
-c                             1st dim: partition level index 
-c  output: (i*4)  iptna(,)  = partition member label (labelling starts at 0)
-c                             1st dim: partition level index 
-c                             2nd dim: member partition index in partition 
-c                             level 
-c  output: (i*4)  iptnca(,,)= component label (labelling starts at 0)
-c                             1st dim: partition level index 
-c                             2nd dim: member partition index in partition 
-c                             level
-c                             3rd dim: component index of member partition
-c  output: (i*4)  ncnct     = number of elements in connection vector 
-c  output: (i*4)  icnctv()  = connection vector of number of partitions 
-c                             of each superstage in resolved case
-c                             including the bare nucleus
-c                             1st dim: connection vector index
-c
-c  output: (i*4)  iblmx     = number of (sstage, parent, base)
-c                             blocks in isonuclear master file
-c  output: (i*4)  ismax     = number of charge states
-c                             in isonuclear master file
-c                             (generalises to number of elements in
-c                              connection vector)
-c  output: (c*12) dnr_ele   = CX donor element name for iclass = 3 or 5
-c                             (blank if unset)
-c  output: (r*8)  dnr_ams   = CX donor element mass for iclass = 3 or 5
-c                             (0.0d0 if unset)
-c  output: (i*4)  isppr()   = 1st (parent) index for each partition block 
-c                             1st dim: index of (sstage, parent, base)
-c                                      block in isonuclear master file
-c  output: (i*4)  ispbr()   = 2nd (base) index for each partition block 
-c                             1st dim: index of (sstage, parent, base)
-c                                      block in isonuclear master file
-c  output: (i*4)  isstgr()  = s1 for each resolved data block
-c                             (generalises to connection vector index)
-c                             1st dim: index of (sstage, parent, base)
-c                                      block in isonuclear master file
-c
-c  output: (i*4)  idmax     = number of dens values in
-c                             isonuclear master files
-c  output: (i*4)  itmax     = number of temp values in
-c                             isonuclear master files
-c  output: (r*8)  ddens()   = log10(electron density(cm-3)) from adf11 
-c  output: (r*8)  dtev()    = log10(electron temperature (eV) from adf11
-c  output: (r*8)  drcof(,,) = if(iclass <=9):
-c                                log10(coll.-rad. coefft.) from 
-c                                isonuclear master file
-c                             if(iclass >=10):
-c                                coll.-rad. coefft. from 
-c                                isonuclear master file
-c                             1st dim: index of (sstage, parent, base)
-c                                      block in isonuclear master file
-c                             2nd dim: electron temperature index
-c                             3rd dim: electron density index 
-c
-c  output: (l*4)  lres      = .true.  => partial file
-c                           = .false. => not partial file
-c  output: (l*4)  lstan     = .true.  => standard file
-c                           = .false. => not standard file
-c  output: (l*4)  lptn      = .true.  => partition block present
-c                           = .false. => partition block not present
-c
-c  routines:
-c          routine    source    brief description
-c          -------------------------------------------------------------
-c          i4unit     adas      fetch unit number for output of messages
-c          i4fctn     adas      convert string to integer form
-c          xfelem     adas      return element name given nuclear charge 
-c          xxword     adas      extract position of number in buffer
-c          xxslen     adas      find string less front and tail blanks
-c          xxcase     adas      convert a string to upper or lower case 
-c          xxrptn     adas      analyse an adf11 file partition block 
-c
-c author:  h. p. summers, university of strathclyde
-c          ja7.08
-c          tel. 0141-548-4196
-c
-c date:    04/10/06
-c
-c version: 1.1				date: 04/10/2006
-c modified: hugh summers
-c		- first edition.
-c
-c version: 1.2				date: 21/01/2007
-c modified: Allan Whiteford
-c		- Commented out warning about lack of iclass,
-c                 all of the present ADAS files do not contain
-c                 this information
-c                 (first commit to CVS)
-c
-c version: 1.3				date: 08/03/2007
-c modified: Hugh Summers
-c		- adjustments for revised ecd formats.
-c                 charge exchange donor/donor mass checks and
-c                 dnr_ele, dnr_ams added to parameter return.
-c
-c VERSION : 1.4				
-c DATE    : 28-09-2009
-c MODIFIED: Martin O'Mullane
-c		- Do not write out warning about missing class
-c                 name in file (too many complaints about it).
-c
-c VERSION : 1.5				
-c DATE    : 01-02-2010
-c MODIFIED: Martin O'Mullane
-c		- Incorrect warning message printed for a missing
-c                 or inconsistent element name in the adf11 file.
-c
-c-----------------------------------------------------------------------
+      implicit_none_f77
+      implicit_none_f90
+/*
+-----------------------------------------------------------------------
+
+  ****************** fortran77 subroutine: xxdata_11 ******************
+
+  purpose: to read a complete  adf11 file, check its class and 
+           determine its standard, resolved and partition organisation.
+
+  calling program: various
+
+  notes:    (1) A `standard' adf11 file contains gcr data between one  
+                whole ionisation stage and another whole ionisation 
+                stage.  
+                A `resolved' (or partial) adf11 file contains gcr data
+                between a set of metastables of one ionisation stage
+                and a set of metastables of another ionisation stage.
+                A resolved file is distinguished from a standard file
+                by the presence of a `connection vector' in the adf11
+                data file header lines.
+                The connection vector specifies the number of meta-
+                stables in each ionisation stage which are coupled 
+                together by gcr data.
+            (2) A `partitioned' adf11 file contains gcr data between 
+                clumps of ionisation stages or metastables or comb-
+                inations of the two called `partitions'.  
+                A `partition level' is a specification of the 
+                partitions which span all the ionisation stages (and
+                metastables) of an element.  Successive partition 
+                levels give a heirarchy corresponding to larger 
+                partitions and greater clumping. 
+                A `superstage' is a set of partitions which are close-
+                coupled.
+                There are thus equivalences :
+                        ionisation stage   -   superstage
+                        metastable         -   partition
+                        ion charge         -   superstage index
+                A partitioned adf11 file may be standard (with each 
+                superstage comprising only one partition) or resolved.
+                A partitioned file is distinguished by the presence of 
+                `partition specification block' in the adf11 data  
+                file header lines.
+            (3) When  a partition specification block is present, it 
+                should be ordered from the highest partition level  
+                index to lowest partition level index.  Thus the first 
+                partition in the partition block has the least number 
+                of partitions and the last has the greatest number.
+            (4) Twelev classes of adf11 data file may be read by the
+                subroutine as follow:
+
+            	 class index	type	  GCR data content
+            	 -----------	----	  ----------------
+            	     1  	acd	  recombination coeffts
+            	     2  	scd	  ionisation coeffts
+            	     3  	ccd	  CX recombination coeffts
+            	     4  	prb	  recomb/brems power coeffts
+            	     5  	prc	  CX power coeffts
+            	     6  	qcd	  base meta. coupl. coeffts 
+            	     7  	xcd	  parent meta. coupl. coeffts
+            	     8  	plt	  low level line power coeffts
+            	     9  	pls	  represent. line power coefft
+            	    10  	zcd	  effective charge
+            	    11  	ycd	  effective squared charge
+            	    12  	ecd	  effective ionisation potential
+
+            (5) A resolved adf11 file, with a connection vector, has a set
+                of names and pointers at precise positions in the data file
+                which are recognised.
+                The names are different for partitioned and unpartitioned
+                data files as follow:
+
+                       file      unpartitioned         partitioned 
+                       class        names                 names  
+                       
+                       (all)         z1                   s1
+
+                       	 (indices 1 and 2)     (indices 1 and 2)
+                   	----	   ----     ----         ----	  ----
+                   	acd        iprt     igrd         ispp	  ispb
+                   	scd        iprt     igrd         ispp	  ispb
+                   	ccd        iprt     igrd         ispp	  ispb
+                   	prb        iprt                  ispp	      
+                   	prc        iprt                  ispp	      
+                   	qcd        igrd     jgrd         ispb	  jspb
+                   	xcd        iprt     jprt         ispp	  jspp
+                   	plt        igrd 	         ispb
+                   	pls        igrd 	         ispb
+                   	zcd        igrd 	         ispb
+                   	ycd        igrd 	         ispb
+                   	ecd        igrd 	         ispb
+
+             (6) In partitioned nomenclature: s=superstage; p=partition;
+                 b=base (current superstage), p=parent (next up super-
+                 stage), c=child (next down superstage). Thus arrays
+                 `iprtr' and `igrd' in old notation are now substituted
+                 by `isppr' and `ispbr' respectively internally and in
+                 external naming. 
+
+
+  subroutine:
+
+  input : (i*4)  iunit     = unit to which input file is allocated
+  input : (i*4)  iclass    = class of data (1 - 12 ):
+                               1-acd, 2-scd, 3-ccd, 4-prb, 5-prc
+                               6-qcd, 7-xcd, 8-plt, 9-pls,10-zcd
+                              11-ycd,12-ecd
+
+  input : (i*4)  isdimd    = maximum number of (sstage, parent, base)
+                             blocks in isonuclear master files
+  input : (i*4)  iddimd    = maximum number of dens values in
+                             isonuclear master files
+  input : (i*4)  itdimd    = maximum number of temp values in
+                             isonuclear master files
+  input : (i*4)  ndptnl    = maximum level of partitions
+  input : (i*4)  ndptn     = maximum no. of partitions in one level
+  input : (i*4)  ndptnc    = maximum no. of components in a partition
+  input : (i*4)  ndcnct    = maximum number of elements in connection
+                             vector  
+
+  output: (i*4)  iz0       = nuclear charge
+  output: (i*4)  is1min    = minimum ion charge + 1 
+                             (generalised to connection vector index)
+  output: (i*4)  is1max    = maximum ion charge + 1 
+                             (note excludes the bare nucleus)
+                             (generalised to connection vector index 
+                              and excludes last one which always remains
+                              the bare nucleus)
+  output: (i*4)  nptnl     = number of partition levels in block 
+  output: (i*4)  nptn()    = number of partitions in partition level
+                             1st dim: partition level 
+  output: (i*4)  nptnc(,)  = number of components in partition
+                             1st dim: partition level 
+                             2nd dim: member partition in partition level 
+  output: (i*4)  iptnla()  = partition level label (0=resolved root,1=
+                                                      unresolved root)
+                             1st dim: partition level index 
+  output: (i*4)  iptna(,)  = partition member label (labelling starts at 0)
+                             1st dim: partition level index 
+                             2nd dim: member partition index in partition 
+                             level 
+  output: (i*4)  iptnca(,,)= component label (labelling starts at 0)
+                             1st dim: partition level index 
+                             2nd dim: member partition index in partition 
+                             level
+                             3rd dim: component index of member partition
+  output: (i*4)  ncnct     = number of elements in connection vector 
+  output: (i*4)  icnctv()  = connection vector of number of partitions 
+                             of each superstage in resolved case
+                             including the bare nucleus
+                             1st dim: connection vector index
+
+  output: (i*4)  iblmx     = number of (sstage, parent, base)
+                             blocks in isonuclear master file
+  output: (i*4)  ismax     = number of charge states
+                             in isonuclear master file
+                             (generalises to number of elements in
+                              connection vector)
+  output: (c*12) dnr_ele   = CX donor element name for iclass = 3 or 5
+                             (blank if unset)
+  output: (r*8)  dnr_ams   = CX donor element mass for iclass = 3 or 5
+                             (0.0d0 if unset)
+  output: (i*4)  isppr()   = 1st (parent) index for each partition block 
+                             1st dim: index of (sstage, parent, base)
+                                      block in isonuclear master file
+  output: (i*4)  ispbr()   = 2nd (base) index for each partition block 
+                             1st dim: index of (sstage, parent, base)
+                                      block in isonuclear master file
+  output: (i*4)  isstgr()  = s1 for each resolved data block
+                             (generalises to connection vector index)
+                             1st dim: index of (sstage, parent, base)
+                                      block in isonuclear master file
+
+  output: (i*4)  idmax     = number of dens values in
+                             isonuclear master files
+  output: (i*4)  itmax     = number of temp values in
+                             isonuclear master files
+  output: (r*8)  ddens()   = log10(electron density(cm-3)) from adf11 
+  output: (r*8)  dtev()    = log10(electron temperature (eV) from adf11
+  output: (r*8)  drcof(,,) = if(iclass <=9):
+                                log10(coll.-rad. coefft.) from 
+                                isonuclear master file
+                             if(iclass >=10):
+                                coll.-rad. coefft. from 
+                                isonuclear master file
+                             1st dim: index of (sstage, parent, base)
+                                      block in isonuclear master file
+                             2nd dim: electron temperature index
+                             3rd dim: electron density index 
+
+  output: (l*4)  lres      = .true.  => partial file
+                           = .false. => not partial file
+  output: (l*4)  lstan     = .true.  => standard file
+                           = .false. => not standard file
+  output: (l*4)  lptn      = .true.  => partition block present
+                           = .false. => partition block not present
+
+  routines:
+          routine    source    brief description
+          -------------------------------------------------------------
+          i4unit     adas      fetch unit number for output of messages
+          i4fctn     adas      convert string to integer form
+          xfelem     adas      return element name given nuclear charge 
+          xxword     adas      extract position of number in buffer
+          xxslen     adas      find string less front and tail blanks
+          xxcase     adas      convert a string to upper or lower case 
+          xxrptn     adas      analyse an adf11 file partition block 
+
+ author:  h. p. summers, university of strathclyde
+          ja7.08
+          tel. 0141-548-4196
+
+ date:    04/10/06
+
+ version: 1.1				date: 04/10/2006
+ modified: hugh summers
+		- first edition.
+
+ version: 1.2				date: 21/01/2007
+ modified: Allan Whiteford
+		- Commented out warning about lack of iclass,
+                 all of the present ADAS files do not contain
+                 this information
+                 (first commit to CVS)
+
+ version: 1.3				date: 08/03/2007
+ modified: Hugh Summers
+		- adjustments for revised ecd formats.
+                 charge exchange donor/donor mass checks and
+                 dnr_ele, dnr_ams added to parameter return.
+
+ VERSION : 1.4				
+ DATE    : 28-09-2009
+ MODIFIED: Martin O'Mullane
+		- Do not write out warning about missing class
+                 name in file (too many complaints about it).
+
+ VERSION : 1.5				
+ DATE    : 01-02-2010
+ MODIFIED: Martin O'Mullane
+		- Incorrect warning message printed for a missing
+                 or inconsistent element name in the adf11 file.
+
+-----------------------------------------------------------------------
+*/
       integer   nddash    , idword      , ndstack  , ndonors
 c-----------------------------------------------------------------------
       character csrch1*4   , csrch2*4     , csrch3*4     
@@ -278,7 +304,7 @@ c-----------------------------------------------------------------------
       integer   nptnl     , ncnct    , ncptn_stack        
       integer   nfirst    , iwords   , nwords   , ifirst     , ilast
 c-----------------------------------------------------------------------
-      real*8    dnr_ams   , dmass
+      real    dnr_ams   , dmass
 c-----------------------------------------------------------------------
       character cstrg*80  , cstrgl*80, cterm*80   ,  chindi*4
       character xfelem*12 , str12*12 , dnr_ele*12
@@ -295,8 +321,8 @@ c-----------------------------------------------------------------------
       integer   ifirsta(idword)       , ilasta(idword)
       integer   ispbr(isdimd)         , isppr(isdimd)
 c-----------------------------------------------------------------------
-      real*8    ddens(iddimd)         , dtev(itdimd)
-      real*8    drcof(isdimd,itdimd,iddimd)
+      real    ddens(iddimd)         , dtev(itdimd)
+      real    drcof(isdimd,itdimd,iddimd)
 c-----------------------------------------------------------------------
       character cclass(12)*4          , cpatrn(12)*4
       character cptrn1(12)*4          , cptrn2(12)*4
@@ -488,7 +514,7 @@ c-----------------------------------------------------------------------
        if((iclass_file.eq.3).or.(iclass_file.eq.5)) then
            do i=1,ndonors
 	     call xxslen(cdonors(i),ifirst,ilast)
-	     if(index(cstrgl,':'//cdonors(i)(ifirst:ilast)).gt.0) then
+	  if(index(cstrgl,':'\/cdonors(i)SP(ifirst:ilast)).gt.0) then
 	         ldonor=.true.
 		 dnr_ele=cdonors(i)
 	     endif
@@ -592,8 +618,8 @@ c-----------------------------------------------------------------------
           read(iunit,'(1a80)')cstrg
        enddo
 
-       read(iunit,1000) ( ddens(i) , i = 1 , idmax )
-       read(iunit,1000) ( dtev(i)  , i = 1 , itmax )
+       read(iunit,1000)SP ( ddens(i) , i = 1 , idmax )
+       read(iunit,1000)SP ( dtev(i)  , i = 1 , itmax )
        
 c------------------------------------------
 c  read parent and base metastable indices
@@ -687,9 +713,9 @@ c--------------------------
         
            do 25 it = 1 , itmax
 	     if(iclass.le.9) then
-                 read(iunit,1000) ( drcof(iblmx,it,id) , id = 1 , idmax)
+                 read(iunit,1000)SP ( drcof(iblmx,it,id) , id = 1 , idmax)
 	     else
-                 read(iunit,1004) ( drcof(iblmx,it,id) , id = 1 , idmax)
+                 read(iunit,1004)SP ( drcof(iblmx,it,id) , id = 1 , idmax)
 	     endif
    25      continue
            go to 20
@@ -814,6 +840,9 @@ c
       return
       end
 
+@* Start of the utility routines.
+
+@<Functions...@>=
       subroutine  xxrptn( iunit  , ndstack, 
      &                    ndptnl , ndptn  , ndptnc ,
      &                    nptnl  , nptn   , nptnc  ,
@@ -822,7 +851,8 @@ c
      &                    cstrg  , 
      &                    ncptn_stack     , cptn_stack       
      &                  )
-       implicit none
+      implicit_none_f77
+      implicit_none_f90
 c-----------------------------------------------------------------------
 c
 c  ****************** fortran77 subroutine: xxprtn *********************
@@ -975,20 +1005,20 @@ c
 	   
 	   ncptn_stack=ncptn_stack+1
 	   cptn_stack(ncptn_stack)=' '
-           cptn_stack(ncptn_stack)(1:ilast-ifirst+1)=cstrg(ifirst:ilast)
+           cptn_stack(ncptn_stack)SP(1:ilast-ifirst+1)=cstrg(ifirst:ilast)
 	   
 	   ncharf = nchari+ilast-ifirst+1
-	   cptna(nptnl)(nchari+1:ncharf) = cstrg(ifirst:ilast)
+	   cptna(nptnl)SP(nchari+1:ncharf) = cstrg(ifirst:ilast)
 	   nchari=ncharf
        elseif((cstrg(1:3).eq.'   ').and.lptn_in) then
            call xxslen(cstrg,ifirst,ilast)
 	   
 	   ncptn_stack=ncptn_stack+1
 	   cptn_stack(ncptn_stack)=' '
-	   cptn_stack(ncptn_stack)(1:ilast-ifirst+7)=
-     &          	   '      '//cstrg(ifirst:ilast)
+	   cptn_stack(ncptn_stack)SP(1:ilast-ifirst+7)=
+     &          	   '      '\/cstrg(ifirst:ilast)
 	   ncharf=nchari+ilast-ifirst+2	
-	   cptna(nptnl)(nchari+1: ncharf) = ' '//cstrg(ifirst:ilast)
+	   cptna(nptnl)SP(nchari+1: ncharf) = ' '\/cstrg(ifirst:ilast)
 
 	   nchari = ncharf
        elseif(cstrg(1:3).eq.'---') then
@@ -1009,7 +1039,7 @@ c-----------------------------------------------------------------------
 c
        if(lptn) then
            do i = 1,nptnl
-	     read(cptna(i)(4:5),'(i2)')iptnla(i)
+	     read(cptna(i)SP(4:5),'(i2)')iptnla(i)
 c             write(i4unit(-1),*)'xxrptn: i,iptnla=',i,iptnla(i)
 	   enddo
 	   if((iptnla(1).gt.2).and.(nptnl.eq.1).and.(.not.lresol)) then
@@ -1019,7 +1049,7 @@ c             write(i4unit(-1),*)'xxrptn: i,iptnla=',i,iptnla(i)
 	   endif
 	   do i = 1,nptnl
 	     call xxslen(cptna(i),ifirst,ilast)
-	     if(cptna(i)(ilast:ilast).ne.'/') then
+	     if(cptna(i)SP(ilast:ilast).ne.'/') then
                  write(i4unit(-1),1001) 'partition level',i,
      &                                  ' not terminated'
 	         write(i4unit(-1),1002)
@@ -1037,7 +1067,7 @@ c
            nfirst = 1
 	   iwords = idword
 	   call xxslen(cptna(i),ifirst,ilast)
-           call xxword( cptna(i)(ifirst+5:ilast) , '/'    , nfirst ,
+           call xxword( cptna(i)SP(ifirst+5:ilast) , '/'    , nfirst ,
      &                   iwords  ,
      &                   ifirsta , ilasta , nwords
      &                 )
@@ -1054,14 +1084,14 @@ c           write(i4unit(-1),*)'xxrptn: i,nwords,nptn(i)=',
 c     &                                 i,nwords,nptn(i)
 	   do j=1,nptn(i)
 	      strg=' '
-	      strg=cptna(i)(ifirsta(2*j-1)+5:ilasta(2*j-1)+5)
+	      strg=cptna(i)SP(ifirsta(2*j-1)+5:ilasta(2*j-1)+5)
 c              write(i4unit(-1),*)'xxrptn-xxslen:strg=',strg
 	      call xxslen(strg,ifirst,ilast)
 	      read(strg(ifirst+1:ilast),'(i2)')iptna(i,j)
 	      strg = ' '
 
 
-	      strg=cptna(i)(ifirsta(2*j)+5:ilasta(2*j)+5)
+	      strg=cptna(i)SP(ifirsta(2*j)+5:ilasta(2*j)+5)
 	      
 	      iwordsc = idword
 	      nfirstc = 1
@@ -1129,13 +1159,17 @@ c
  
       end
 
+@* Second utility routine.
+
+@<Functions...@>=
 CX UNIX PORT - SCCS Info : Module @(#)$Header: /home/adascvs/fortran/adaslib/utility/xxword.for,v 1.1 2004/07/06 15:40:43 whitefor Exp $ Date $Date: 2004/07/06 15:40:43 $
 CX
       SUBROUTINE XXWORD( CTEXT  , CDELIM , NFIRST ,
      &                   IWORDS ,
      &                   IFIRST , ILAST  , NWORDS
      &                 )
-      IMPLICIT NONE
+      implicit_none_f77
+      implicit_none_f90
 C-----------------------------------------------------------------------
 C
 C  ****************** FORTRAN77 SUBROUTINE: XXWORD *********************
@@ -1252,10 +1286,14 @@ C
       RETURN
       END
 
+@* Third utility routine.
+
+@<Functions...@>=
 CX ULTRIX PORT - SCCS info: Module @(#)$Header: /home/adascvs/fortran/adaslib/utility/i4fctn.for,v 1.4 2007/04/11 13:02:01 allan Exp $ Date $Date: 2007/04/11 13:02:01 $
 CX
       FUNCTION I4FCTN( STR , IABT )
-      IMPLICIT NONE
+      implicit_none_f77
+      implicit_none_f90
 C-----------------------------------------------------------------------
 C
 C  *************** FORTRAN77 INTEGER*4 FUNCTION: I4FCTN ****************
@@ -1460,10 +1498,14 @@ C
       RETURN
       END
 
+@* Fourth utility routine.
+
+@<Functions...@>=
 CX UNIX PORT - SCCS Info : Module @(#)$Header: /home/adascvs/fortran/adaslib/utility/xxslen.for,v 1.1 2004/07/06 15:39:12 whitefor Exp $ Date $Date: 2004/07/06 15:39:12 $
 CX      
       SUBROUTINE XXSLEN( CSTRNG , IFIRST , ILAST )
-      IMPLICIT NONE
+      implicit_none_f77
+      implicit_none_f90
 C-----------------------------------------------------------------------
 C
 C  ****************** FORTRAN77 SUBROUTINE: XXSLEN *********************
@@ -1528,9 +1570,13 @@ C
        RETURN
        END
 
+@* Fifth utility routine.
+
+@<Functions...@>=
       subroutine xxcase(input,output,type)
 
-      IMPLICIT NONE
+      implicit_none_f77
+      implicit_none_f90
 
 C-----------------------------------------------------------------------
 C
@@ -1600,11 +1646,15 @@ C----------------------------------------------------------------------
        endif
 
        end
-      
+
+@* Sixth utility routine.
+
+@<Functions...@>=
 CX UNIX PORT - SCCS info: Module @(#)$Header: /home/adascvs/fortran/adaslib/system/i4unit.for,v 1.1 2004/07/06 14:08:05 whitefor Exp $ Date $Date: 2004/07/06 14:08:05 $
 CX
       FUNCTION I4UNIT( IUNIT )
-      IMPLICIT NONE
+      implicit_none_f77
+      implicit_none_f90
 C-----------------------------------------------------------------------
 C
 C  ************** FORTRAN77 INTEGER*4 FUNCTION: I4UNIT *****************
@@ -1683,10 +1733,14 @@ C
       RETURN
       END
 
+@* Seventh utility routine.
+
+@<Functions...@>=
 CX UNIX PORT - SCCS Info : Module @(#)$Header: /home/adascvs/fortran/adaslib/atomic/xfelem.for,v 1.2 2004/07/06 15:30:02 whitefor Exp $ Date $Date: 2004/07/06 15:30:02 $
 CX
       FUNCTION XFELEM ( IZ0 )
-      IMPLICIT NONE
+      implicit_none_f77
+      implicit_none_f90
 C-----------------------------------------------------------------------
 C
 C ************* FORTRAN77 CHARACTER*12 FUNCTION: XFELEM ****************

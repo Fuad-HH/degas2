@@ -552,6 +552,10 @@ ucd_plot = ucd_plot.$O geometry.$O allocate.$O readfilenames.$O elementread.$O p
 ucd_plot_libs = $(NETCDF) $(GRAPH_LIB)
 ucd_plot: $(ucd_plot) $(foreach arg,$(subst .$O,_mods,$(ucd_plot)),$($(arg)))
 
+adaswrite = adaswrite.$O adas_xxdata_11.$O elementread.$O reaction.$O interpolate.$O readfilenames.$O random.$O
+adaswrite_libs = $(NETCDF) 
+adaswrite: $(adaswrite) $(foreach arg,$(subst .$O,_mods,$(adaswrite)),$($(arg)))
+
 geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O dediagsetup.$O
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
