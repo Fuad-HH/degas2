@@ -37,6 +37,7 @@ them to the associated netCDF files.
       end if
       call command_arg(1,inputfile)
 
+      call readfilenames
       call nc_read_elements
       call nc_read_species
       call nc_read_reactions
@@ -137,7 +138,6 @@ them to the associated netCDF files.
             assert(next_token(line,b,e,p))
             adas_filenames[ecd_file]=line(b:e)
             assert(file_check[ecd_file] == FALSE)
-            open_file(diskin+1,adas_filenames[ecd_file])
             file_check[ecd_file]=TRUE
          else if (line(b:e) == 'scd_file') then
             assert(next_token(line,b,e,p))
@@ -176,7 +176,8 @@ them to the associated netCDF files.
 */
       do ifile=1,num_files
 
-         call xxdata_11(diskin+1,adas_filenames[ifile],
+         open_file(diskin+1,adas_filenames[ifile])
+         call xxdata_11(diskin+1,adas_class[ifile],
      $        max_charge,max_densities,max_temperatures,
      $        ndptnl,ndptn,ndptnc,ndcnct,
      $        num_charge[ifile],iz1min,iz1max,
@@ -189,9 +190,9 @@ them to the associated netCDF files.
      $        lres,lstan,lptn)
 /*
    This is true for unresolved files, which is what we are
-   assuming here.
+   assuming here.  The $+1$ is the neutral state.
 */
-         assert(ncnct == num_charge[ifile])
+         assert(ncnct == num_charge[ifile]+1)
 
       end do
       
