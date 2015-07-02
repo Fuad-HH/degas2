@@ -313,4 +313,144 @@ subroutine to allow one routine to handle both rank 1 and 2 cases.
       return
       end
 
+@ Interpolates a 1-D array of values from one grid to another. The values
+may be interpolated linearly or logarithmically. The grid indices 
+|new_grid| have already been matched up to the old ones.
+
+@<Functions...@>=
+      subroutine interpolate_grid(new_values,old_values,value_spacing,
+     $     new_grid,n,nold)
+      implicit_none_f77
+      implicit_none_f90
+                                                        
+      real new_values[0:*],old_values[0:*],new_grid[0:*]  // Input
+      character*(*) value_spacing
+      integer n,nold
+
+      integer i                                           // Local
+
+      external interpolate1                               // External
+      real interpolate1
+
+      if (value_spacing == 'log') then
+         do i=0,nold-1
+            old_values[i]=log(old_values[i])
+         end do
+      else
+         assert(value_spacing == 'linear')
+      end if
+
+      do i=0,n-1
+         new_values[i]=interpolate1(new_grid[i],old_values,nold)
+         if (value_spacing == 'log') then
+            new_values[i]=exp(new_values[i])
+         end if
+      end do
+
+      return
+      end
+
+@ Interpolates a 2-D array of values from one grid to another. The values
+may be interpolated linearly or logarithmically. The grid indices 
+|new_grid| have already been matched up to the old ones.
+
+@<Functions...@>=
+      subroutine interpolate_grid2(new_values,old_values,value_spacing,
+     $     new_grid_m,new_grid_n,m,n,mold,nold)
+      implicit_none_f77
+      implicit_none_f90
+                                                        
+      integer m,n,mold,nold                                  // Input
+      real new_values[0:*][0:n-1],old_values[0:*][0:nold-1], 
+     $     new_grid_m[0:*],new_grid_n[0:*]
+      character*(*) value_spacing
+
+      integer i,j                                            // Local
+      integer dim[2]
+      real f[2]
+
+      external interpolate2                                  // External
+      real interpolate2
+
+      if (value_spacing == 'log') then
+         do i=0,mold-1
+            do j=0,nold-1
+               old_values[i][j]=log(old_values[i][j])
+            end do
+         end do
+      else
+         assert(value_spacing == 'linear')
+      end if
+
+      dim[1]=nold
+      dim[2]=mold
+      do i=0,m-1
+         f[2]=new_grid_m[i]
+         do j=0,n-1
+            f[1]=new_grid_n[j]
+            new_values[i][j]=interpolate2(f,old_values,dim)
+            if (value_spacing == 'log') then
+               new_values[i][j]=exp(new_values[i][j])
+            end if
+         end do
+      end do
+
+      return
+      end
+
+@ Interpolates a 3-D array of values from one grid to another. The values
+may be interpolated linearly or logarithmically. The grid indices 
+|new_grid| have already been matched up to the old ones.
+
+@<Functions...@>=
+      subroutine interpolate_grid3(new_values,old_values,value_spacing,
+     $     new_grid_l,new_grid_m,new_grid_n,l,m,n,lold,mold,nold)
+      implicit_none_f77
+      implicit_none_f90
+                                                        
+      integer l,m,n,lold,mold,nold                          // Input
+      real new_values[0:*][0:m-1][0:n-1],            
+     $     old_values[0:*][0:mold-1][0:nold-1],
+     $     new_grid_l[0:*],new_grid_m[0:*],new_grid_n[0:*]
+      character*(*) value_spacing
+
+      integer i,j,k                                          // Local
+      integer dim[3]
+      real f[3]
+
+      external interpolate3                                  // External
+      real interpolate3
+
+      if (value_spacing == 'log') then
+         do k=0,lold-1
+            do i=0,mold-1
+               do j=0,nold-1
+                  old_values[k][i][j]=log(old_values[k][i][j])
+               end do
+            end do
+         end do
+      else
+         assert(value_spacing == 'linear')
+      end if
+
+      dim[1]=nold
+      dim[2]=mold
+      dim[3]=lold
+      do k=0,l-1
+         f[3]=new_grid_l[k]
+         do i=0,m-1
+            f[2]=new_grid_m[i]
+            do j=0,n-1
+               f[1]=new_grid_n[j]
+               new_values[k][i][j]=interpolate3(f,old_values,dim)
+               if (value_spacing == 'log') then
+                  new_values[k][i][j]=exp(new_values[k][i][j])
+               end if
+            end do
+         end do
+      end do
+
+      return
+      end
+
 @* INDEX.
