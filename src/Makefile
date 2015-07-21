@@ -218,6 +218,8 @@ ALADIR=$(DEGASROOT)/degas2/Aladdin
 
 CRAMDIR=$(DEGASROOT)/degas2/CRAMD
 
+BSPLINEDIR=$(SOURCEDIR)/EFIT2dg2d
+
 DETECTORFILE=$(shell if ([ -s $(SOURCEDIR)/usr2ddetector.web ]) || ([ -s $(SOURCEDIR)/usr2ddetector.f ]); then echo usr2ddetector; else echo def2ddetector; fi)
 
 PLASMAFILE=$(shell if ([ -s $(SOURCEDIR)/usr2dplasma.web ]) || ([ -s $(SOURCEDIR)/usr2dplasma.f ]); then echo usr2dplasma; else echo def2dplasma; fi)
@@ -556,6 +558,11 @@ adaswrite = adaswrite.$O adas_xxdata_11.$O elementread.$O reaction.$O interpolat
 adaswrite_libs = $(NETCDF) 
 adaswrite: $(adaswrite) $(foreach arg,$(subst .$O,_mods,$(adaswrite)),$($(arg)))
 
+efit2dg2d.o: bspline.mod
+efit2dg2d = bspline.mod bspline90_22.o efit2dg2d.$O 
+efit2dg2d_libs =
+efit2dg2d: $(efit2dg2d) $(foreach arg,$(subst .$O,_mods,$(efit2dg2d)),$($(arg))) 
+
 geomtest = geomtest.$O geometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O composite.$O string.$O readfilenames.$O geomfront.$O dediagsetup.$O
 geomtest_libs = $(NETCDF)
 geomtest: $(geomtest) $(foreach arg,$(subst .$O,_mods,$(geomtest)),$($(arg)))
@@ -720,6 +727,14 @@ aladdin_subr.o: aladdin_subr.f ALPCOM.FOR ALCOM.FOR
 
 %.FOR: $(ALADIR)/%.FOR
 	cp $< $@
+
+bspline90_22.f90: $(BSPLINEDIR)/bspline90_22.f90
+	cp $< $@
+
+bspline90_22.o: bspline90_22.f90
+	$(FC) -c $(FFLAGS) bspline90_22.f90
+
+bspline.mod: bspline90_22.o
 
 TAGS:
 	etags --language=fortran --regex='/[ 	]*define_[a-z]+_pk([a-z]+,[A-Za-z0-9_]+,/' --regex='/[ 	]*@m [A-Za-z0-9_]+(?/' *.web *.hweb
