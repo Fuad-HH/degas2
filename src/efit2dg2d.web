@@ -1,0 +1,195 @@
+% $Id$
+\Title{efit2dg2d}
+
+@* Program for using EFIT equilibrium to set up |definegeometry2d| input
+file.
+
+\ID{$Id$}
+
+@m FILE 'efit2dg2d.web'
+
+@m open_file(aunit,aname) open(unit=aunit,file=aname,status='old',
+form='formatted',iostat=open_stat);
+   assert(open_stat == 0) @;
+
+@I macros.hweb
+@I string.hweb
+@I sysdep.hweb
+@I efititp.hweb
+
+
+@ The Main Program.
+
+@a
+      program efit2dg2d
+
+      define_dimen(r_ind,ef_nr)
+      define_dimen(z_ind,ef_nz)
+      define_varp(fg,FLOAT,r_ind)
+      define_varp(pg,FLOAT,r_ind)
+      define_varp(ffg,FLOAT,r_ind)
+      define_varp(ppg,FLOAT,r_ind)
+      define_varp(rr,FLOAT,r_ind)
+      define_varp(zz,FLOAT,z_ind)
+      define_varp(psis,FLOAT,r_ind)
+      define_varp(pfm,FLOAT,r_ind,z_ind)
+/*
+   Following definitions from XGC-0, subroutine |mem_allocation|:
+*/
+      use bspline
+      implicit_none_f77
+      ef_common                                         // Common
+      implicit_none_f90
+
+      integer nargs,open_stat,g_fit                     // Local
+      character*FILELEN g_file
+      character*40 g_title
+      character*8 g_date
+
+      declare_varp(fg)
+      declare_varp(pg)
+      declare_varp(ffg)
+      declare_varp(ppg)
+      declare_varp(rr)
+      declare_varp(zz)
+      declare_varp(psis)
+      declare_varp(pfm)
+
+      @<Memory allocation interface@>
+      sy_decls
+      st_decls
+
+      nargs=arg_count()
+      if (nargs != 1) then
+         assert('Command line must specify the name of the EFIT g-file' == ' ')
+      end if
+      call command_arg(1,g_file)
+      open_file(diskin,g_file)
+      read(diskin,'(a40,a8,3(i4))') g_title,g_date,g_fit,ef_nr,ef_nz
+/*
+   Allocate arrays read in from EFIT file.
+*/
+      var_alloc(fg)
+      var_alloc(pg)
+      var_alloc(ffg)
+      var_alloc(ppg)
+      var_alloc(rr)
+      var_alloc(zz)
+      var_alloc(psis)
+      var_alloc(pfm)
+
+      call read_efit(diskin,ef_nr,ef_nz,rr,zz,psis,fg,pg,ffg,ppg,pfm)
+/*
+   And arrays used in the spline fitting process.
+*/
+      var_alloc(ef_psi_knot)
+      var_alloc(ef_r_knot)
+      var_alloc(ef_z_knot)
+      var_alloc(ef_psi_bscoef)
+/*
+   Set up spline fit for |pfm|.
+*/
+      call dbsnak(ef_nr,psis,ef_korder,ef_psi_knot)
+
+
+      ef_min_r=rr(1) 
+      ef_max_r=rr(ef_nr)
+      ef_min_z=zz(1)
+      ef_max_z=zz(ef_nz) 
+
+      call dbsnak(ef_nr,rr,ef_korder_rz,ef_r_knot)
+      call dbsnak(ef_nz,zz,ef_korder_rz,ef_z_knot)
+
+
+
+// standard IMSL or portable bspline routine
+// also needed to test initialization of pspline interpolation
+      CALL dbs2IN (ef_nr, rr, ef_nz, zz, psis, ef_nr,
+     $ef_korder_rz, ef_korder_rz, ef_r_knot, ef_z_knot, ef_psi_bscoef)
+
+
+
+//      test spline interpolation
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@* Subroutine to read standard EFIT geqdsk files.      
+
+@<Functions...@>=
+      subroutine read_efit(nunit,nr,nz,rr,zz,psis,fg,pg,ffg,ppg,pfm)
+
+      implicit_none_f77
+      implicit_none_f90
+      
+      integer nunit,nr,nz                                // Input
+      real rr[nr],zz[nz],psis[nr],fg[nr],pg[nr],ffg[nr],
+     $     ppg[nr],pfm[nz][nr]
+
+      integer i,j,ir,iz                                  // Local
+      real rdim,zdim,rcntc,redge,zmsmid,rma,zma,psimin,
+     $     psilim,btorc,dummy
+
+      
+      read(nunit,'(5e16.9)') rdim, zdim, rcntc, redge, zmsmid
+      read(nunit,'(5e16.9)') rma, zma, psimin, psilim, btorc
+      read(nunit,'(5e16.9)') dummy, dummy, dummy, dummy, dummy
+      read(nunit,'(5e16.9)') dummy, dummy, dummy, dummy, dummy
+      read(nunit,'(5e16.9)') SP (fg(i),i=1,nr)
+      read(nunit,'(5e16.9)') SP (pg(i),i=1,nr)
+      read(nunit,'(5e16.9)') SP (ffg(i),i=1,nr)
+      read(nunit,'(5e16.9)') SP (ppg(i),i=1,nr)
+      read(nunit,'(5e16.9)') SP ((pfm[j][i],i=1,nr),j=1,nz)
+
+      close(unit=nunit)
+
+      do ir=1,nr
+         rr[ir]=(areal(ir-1)/(areal(nr-1)))*rdim+redge
+         psis[ir]=(areal(ir-1)/(areal(nr-1)))*(psilim-psimin)
+      end do
+
+      do iz=1,nz
+         zz[iz]=((areal(iz-1)-(areal(nz-1)/two))/(areal(nz-1)))*zdim+zmsmid
+      end do
+
+      return
+      end
+@#if 0
+!****************************************************************************
+! retrun psi and dpsi as a function of r, z
+!
+! first created : 2000/10/19
+! last modified : 2000/10/19
+!****************************************************************************
+
+real (kind=8) function psi_interpol(r_in,z_in,r_der,z_der)
+  use itp_module
+  use sml_module, only :  sml_norm_r
+  implicit none
+  real (kind=8), intent(in) :: r_in, z_in
+  integer , intent(in) :: r_der, z_der
+  real (kind=8) :: r,z
+  real (kind=8) ,external:: interpol_raw
+  real (kind=8) :: t0,t1
+
+! check r,z values
+  r=r_in
+  z=z_in
+  if( r < itp_min_r .OR. r > itp_max_r) then
+     print *, 'improper r in psi_interpol :' , r*sml_norm_r, itp_min_r*sml_norm_r, itp_max_r*sml_norm_r
+     r=max(itp_min_r,min(itp_max_r,r))
+  endif
+  if( z < itp_min_z .OR. z > itp_max_z) then
+     print *, 'improper z in psi_interpol :' , z*sml_norm_r, itp_min_z*sml_norm_r, itp_max_z*sml_norm_r
+     z=max(itp_min_z,min(itp_max_z,z))
+  endif
+
+
+  psi_interpol=dbs2dr(r_der, z_der,r,z,ITP_korder_rz,ITP_korder_rz,ITP_r_KNOT, &
+         ITP_z_KNOT, itp_mr, itp_mz, ITP_psi_BSCOEF)
+
+
+end function psi_interpol
+@#endif
