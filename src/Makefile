@@ -732,7 +732,7 @@ bspline90_22.f90: $(BSPLINEDIR)/bspline90_22.f90
 	cp $< $@
 
 bspline90_22.o: bspline90_22.f90
-	$(FC) -c $(FFLAGS) bspline90_22.f90
+	$(FC) -c $(FFLAGS) $(DEBUGFLAGS) bspline90_22.f90
 
 bspline.mod: bspline90_22.o
 

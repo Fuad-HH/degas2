@@ -17,7 +17,6 @@ form='formatted',iostat=open_stat);
 @I sysdep.hweb
 @I efititp.hweb
 
-
 @ The Main Program.
 
 @a
@@ -41,7 +40,9 @@ form='formatted',iostat=open_stat);
       ef_common                                         // Common
       implicit_none_f90
 
-      integer nargs,open_stat,g_fit                     // Local
+      integer nargs,open_stat,g_fit,ir,iz               // Local
+      real maxerr,toterr,ztest,rtest,psi_spline,
+     $     psi_value,error,avgerr
       character*FILELEN g_file
       character*40 g_title
       character*8 g_date
@@ -91,7 +92,6 @@ form='formatted',iostat=open_stat);
 */
       call dbsnak(ef_nr,psis,ef_korder,ef_psi_knot)
 
-
       ef_min_r=rr(1) 
       ef_max_r=rr(ef_nr)
       ef_min_z=zz(1)
@@ -99,17 +99,29 @@ form='formatted',iostat=open_stat);
 
       call dbsnak(ef_nr,rr,ef_korder_rz,ef_r_knot)
       call dbsnak(ef_nz,zz,ef_korder_rz,ef_z_knot)
-
-
-
-// standard IMSL or portable bspline routine
-// also needed to test initialization of pspline interpolation
+/*
+   This routine actually sets up the spline.
+*/
       CALL dbs2IN (ef_nr, rr, ef_nz, zz, psis, ef_nr,
      $ef_korder_rz, ef_korder_rz, ef_r_knot, ef_z_knot, ef_psi_bscoef)
-
-
-
-//      test spline interpolation
+/*
+   Test spline interpolation.
+*/
+      maxerr=zero
+      toterr=zero
+      do iz=1,ef_nz
+         ztest=zz[iz]
+         do ir=1,ef_nr
+            rtest=rr[iz]
+            psi_spline=dbs2dr(0,0,rtest,ztest,ef_korder_rz,ef_korder_rz,
+     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
+            psi_value=pfm[iz][ir]
+            error=abs(psi_spline-psi_value)/max(psi_value,const(1.,-10))
+            if (error > maxerr) maxerr=error
+            toterr+=error
+         end do
+      end do
+      avgerr=toterr/areal(ef_nr*ef_nz)
 
       stop
       end
@@ -131,7 +143,6 @@ form='formatted',iostat=open_stat);
       integer i,j,ir,iz                                  // Local
       real rdim,zdim,rcntc,redge,zmsmid,rma,zma,psimin,
      $     psilim,btorc,dummy
-
       
       read(nunit,'(5e16.9)') rdim, zdim, rcntc, redge, zmsmid
       read(nunit,'(5e16.9)') rma, zma, psimin, psilim, btorc
