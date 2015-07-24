@@ -102,7 +102,7 @@ form='formatted',iostat=open_stat);
 /*
    This routine actually sets up the spline.
 */
-      CALL dbs2IN (ef_nr, rr, ef_nz, zz, psis, ef_nr,
+      CALL dbs2IN (ef_nr, rr, ef_nz, zz, pfm, ef_nr,
      $ef_korder_rz, ef_korder_rz, ef_r_knot, ef_z_knot, ef_psi_bscoef)
 /*
    Test spline interpolation.
@@ -112,11 +112,24 @@ form='formatted',iostat=open_stat);
       do iz=1,ef_nz
          ztest=zz[iz]
          do ir=1,ef_nr
-            rtest=rr[iz]
+            rtest=rr[ir]
+/*
+   This is the more general call to evaluate the 0th derivative
+   of the spline in both directions.
+*/
+            
             psi_spline=dbs2dr(0,0,rtest,ztest,ef_korder_rz,ef_korder_rz,
      $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
+/*
+   This is the more specific, but equivalent, call that just
+   evaluates the spline.
+*/
+@#if 0
+            psi_spline=dbs2vl(rtest,ztest,ef_korder_rz,ef_korder_rz,
+     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
+@#endif
             psi_value=pfm[iz][ir]
-            error=abs(psi_spline-psi_value)/max(psi_value,const(1.,-10))
+            error=abs(psi_spline-psi_value)/max(abs(psi_value),const(1.,-10))
             if (error > maxerr) maxerr=error
             toterr+=error
          end do
