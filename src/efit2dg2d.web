@@ -22,6 +22,35 @@ form='formatted',iostat=open_stat);
 @a
       program efit2dg2d
 
+      implicit_none_f77
+      ef_common                                         // Common
+      implicit_none_f90
+
+      integer nargs                                     // Local
+      character*FILELEN g_file
+      
+      @<Memory allocation interface@>
+      sy_decls
+      st_decls
+
+      nargs=arg_count()
+      if (nargs != 1) then
+         assert('Command line must specify the name of the EFIT g-file' == ' ')
+      end if
+      call command_arg(1,g_file)
+
+      call init_psi_interp(g_file)
+
+      stop
+      end
+
+      @<Functions and Subroutines@>
+
+@ Initialize flux interpolation routine.
+
+@<Functions...@>=
+      subroutine init_psi_interp(g_file)
+
       define_dimen(r_ind,ef_nr)
       define_dimen(z_ind,ef_nz)
       define_varp(fg,FLOAT,r_ind)
@@ -32,20 +61,27 @@ form='formatted',iostat=open_stat);
       define_varp(zz,FLOAT,z_ind)
       define_varp(psis,FLOAT,r_ind)
       define_varp(pfm,FLOAT,r_ind,z_ind)
-/*
-   Following definitions from XGC-0, subroutine |mem_allocation|:
-*/
+
       use bspline
       implicit_none_f77
       ef_common                                         // Common
       implicit_none_f90
 
-      integer nargs,open_stat,g_fit,ir,iz               // Local
-      real maxerr,toterr,ztest,rtest,psi_spline,
-     $     psi_value,error,avgerr
-      character*FILELEN g_file
+      character*FILELEN g_file                          // Input
+
+      integer open_stat,g_fit                           // Local
       character*40 g_title
       character*8 g_date
+
+      integer ir,iz                                    // Testing only
+      real maxerr,toterr,ztest,rtest,psi_spline,
+     $     psi_value,error,avgerr
+      external psi_interp
+      real psi_interp
+
+      @<Memory allocation interface@>
+      sy_decls
+      st_decls
 
       declare_varp(fg)
       declare_varp(pg)
@@ -55,16 +91,7 @@ form='formatted',iostat=open_stat);
       declare_varp(zz)
       declare_varp(psis)
       declare_varp(pfm)
-
-      @<Memory allocation interface@>
-      sy_decls
-      st_decls
-
-      nargs=arg_count()
-      if (nargs != 1) then
-         assert('Command line must specify the name of the EFIT g-file' == ' ')
-      end if
-      call command_arg(1,g_file)
+      
       open_file(diskin,g_file)
       read(diskin,'(a40,a8,3(i4))') g_title,g_date,g_fit,ef_nr,ef_nz
 /*
@@ -88,7 +115,7 @@ form='formatted',iostat=open_stat);
       var_alloc(ef_z_knot)
       var_alloc(ef_psi_bscoef)
 /*
-   Set up spline fit for |pfm|.
+   Set up knots for the coordinates.
 */
       call dbsnak(ef_nr,psis,ef_korder,ef_psi_knot)
 
@@ -100,35 +127,21 @@ form='formatted',iostat=open_stat);
       call dbsnak(ef_nr,rr,ef_korder_rz,ef_r_knot)
       call dbsnak(ef_nz,zz,ef_korder_rz,ef_z_knot)
 /*
-   This routine actually sets up the spline.
+   This routine actually sets up the spline for the flux.
 */
       CALL dbs2IN (ef_nr, rr, ef_nz, zz, pfm, ef_nr,
-     $ef_korder_rz, ef_korder_rz, ef_r_knot, ef_z_knot, ef_psi_bscoef)
+     $  ef_korder_rz, ef_korder_rz, ef_r_knot, ef_z_knot, ef_psi_bscoef)
 /*
    Test spline interpolation.
 */
       maxerr=zero
       toterr=zero
       do iz=1,ef_nz
-         ztest=zz[iz]
+         ztest=ef_min_z+((ef_max_z-ef_min_z)/areal(ef_nz-1))*areal(iz-1)
          do ir=1,ef_nr
-            rtest=rr[ir]
-/*
-   This is the more general call to evaluate the 0th derivative
-   of the spline in both directions.
-*/
-            
-            psi_spline=dbs2dr(0,0,rtest,ztest,ef_korder_rz,ef_korder_rz,
-     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
-/*
-   This is the more specific, but equivalent, call that just
-   evaluates the spline.
-*/
-@#if 0
-            psi_spline=dbs2vl(rtest,ztest,ef_korder_rz,ef_korder_rz,
-     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
-@#endif
+            rtest=ef_min_r+((ef_max_r-ef_min_r)/areal(ef_nr-1))*areal(ir-1)
             psi_value=pfm[iz][ir]
+            psi_spline=psi_interp(rtest,ztest,0,0)
             error=abs(psi_spline-psi_value)/max(abs(psi_value),const(1.,-10))
             if (error > maxerr) maxerr=error
             toterr+=error
@@ -136,12 +149,10 @@ form='formatted',iostat=open_stat);
       end do
       avgerr=toterr/areal(ef_nr*ef_nz)
 
-      stop
+      return
       end
 
-      @<Functions and Subroutines@>
-
-@* Subroutine to read standard EFIT geqdsk files.      
+@ Subroutine to read standard EFIT geqdsk files.      
 
 @<Functions...@>=
       subroutine read_efit(nunit,nr,nz,rr,zz,psis,fg,pg,ffg,ppg,pfm)
@@ -180,40 +191,40 @@ form='formatted',iostat=open_stat);
 
       return
       end
+
+@ Evaluate spline interpolation to get flux or its derivatives at input
+coordinates.
+
+@<Functions...@>=
+      function psi_interp(r_in,z_in,r_der,z_der)
+
+      use bspline
+      implicit_none_f77
+      ef_common                                         // Common
+      implicit_none_f90
+
+      real psi_interp                                   // Function
+      integer r_der,z_der                               // Input
+      real r_in,z_in
+
+      assert((r_in >= ef_min_r) && (r_in <= ef_max_r))
+      assert((z_in >= ef_max_z) && (z_in <= ef_max_z))
+/*
+   This is the more general call to evaluate the derivative
+   of the spline in both directions.
+*/
+            
+      psi_interp=dbs2dr(r_der,z_der,r_in,z_in,ef_korder_rz,ef_korder_rz,
+     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
+/*
+   This is the more specific, but equivalent, call that just
+   evaluates the spline.
+*/
 @#if 0
-!****************************************************************************
-! retrun psi and dpsi as a function of r, z
-!
-! first created : 2000/10/19
-! last modified : 2000/10/19
-!****************************************************************************
-
-real (kind=8) function psi_interpol(r_in,z_in,r_der,z_der)
-  use itp_module
-  use sml_module, only :  sml_norm_r
-  implicit none
-  real (kind=8), intent(in) :: r_in, z_in
-  integer , intent(in) :: r_der, z_der
-  real (kind=8) :: r,z
-  real (kind=8) ,external:: interpol_raw
-  real (kind=8) :: t0,t1
-
-! check r,z values
-  r=r_in
-  z=z_in
-  if( r < itp_min_r .OR. r > itp_max_r) then
-     print *, 'improper r in psi_interpol :' , r*sml_norm_r, itp_min_r*sml_norm_r, itp_max_r*sml_norm_r
-     r=max(itp_min_r,min(itp_max_r,r))
-  endif
-  if( z < itp_min_z .OR. z > itp_max_z) then
-     print *, 'improper z in psi_interpol :' , z*sml_norm_r, itp_min_z*sml_norm_r, itp_max_z*sml_norm_r
-     z=max(itp_min_z,min(itp_max_z,z))
-  endif
-
-
-  psi_interpol=dbs2dr(r_der, z_der,r,z,ITP_korder_rz,ITP_korder_rz,ITP_r_KNOT, &
-         ITP_z_KNOT, itp_mr, itp_mz, ITP_psi_BSCOEF)
-
-
-end function psi_interpol
+      psi_interp=dbs2vl(r_in,z_in,ef_korder_rz,ef_korder_rz,
+     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
 @#endif
+
+      return
+      end
+
