@@ -247,7 +247,6 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       tl_common
       ou_common
       dx_common
-      sc_common
       implicit_none_f90
 
       integer ntriangle,get_source,num_source_sp,          // Input
@@ -276,8 +275,6 @@ there is a fair bit of hardwired code here, e.g., regarding species.
      $     sigma_v_ion,sigma_v_cx
       bk_decl(back_elec)
       bk_decl(back)
-      sc_decl(sector)
-      sc_plasma_decl(plasma_sc)
       rn_seed_decl(io_seed)
       vc_decl(vel_test)
 
@@ -317,8 +314,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
             igrp++
             so_tot_curr(igrp)=zero
          end if
-         if ((so_type(igrp) == so_plate) 
-     $        || (so_type(igrp) == so_plt_e_bins)) then
+         if (so_type(igrp) == so_plt_e_bins) then
             source_current[iseg]=neu_hload_weight[dx_xgc_segment[iseg]]
             so_tot_curr(igrp)+=source_current[iseg]
 /*
@@ -342,24 +338,6 @@ there is a fair bit of hardwired code here, e.g., regarding species.
                end if
             end do
             assert(ibin >= dx_e_bin_num)
-/*
-   And set sheath parameters.  It looks like the electron temperature is
-   frequently zero, at least at the outset.  Use a default of 3 eV
-   in this case.  The other two sheath parameters are fixed and do
-   not need to be updated.
-*/
-            sector=source_segment_ptr[iseg]
-            assert(sc_check(sector))
-            plasma_sc=sector_type_pointer[sector][sc_plasma]
-            assert(sc_plasma_check(plasma_sc))
-
-            zone=sector_zone[sector]
-            assert(zn_check(zone))
-            if (bk_temp(back_elec,zone) > zero) then
-               plasma_e_ion_delta[plasma_sc]=const(3.)*bk_temp(back_elec,zone)
-            else
-               plasma_e_ion_delta[plasma_sc]=const(3.)*electron_charge
-            end if
          else
 /*
    May eventually allow for other source types.  Would need to modify
@@ -723,7 +701,7 @@ an electron impact ionization rate (output).
       vc_decl(vf_d2)
 
       real rate                                      // Output
-      real product_rate[*]   
+      real product_rate[min_xgc0_sp_type:max_xgc0_sp_type]   
 
       integer i,px_sp                                 // Local 
       real test_mass,back_mass,T_back
