@@ -22,16 +22,29 @@ form='formatted',iostat=open_stat);
 @a
       program efit2dg2d
 
+      define_dimen(rb_ind,nrbox)
+      define_dimen(zb_ind,nzbox)
+      define_varp(rbox,FLOAT,rb_ind)
+      define_varp(zbox,FLOAT,zb_ind)
+
       implicit_none_f77
-      ef_common                                         // Common
+      ef_common                                           // Common
       implicit_none_f90
 
-      integer nargs                                     // Local
+      integer nargs,nrbox,nzbox,ir,iz,im,direction,is     // Local
+      real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
+     $     dzbox,dr,r,z,psi
       character*FILELEN g_file
+
+      external psi_interp                                 // External
+      real psi_interp
       
       @<Memory allocation interface@>
       sy_decls
       st_decls
+
+      declare_varp(rbox)
+      declare_varp(zbox)
 
       nargs=arg_count()
       if (nargs != 1) then
@@ -40,7 +53,79 @@ form='formatted',iostat=open_stat);
       call command_arg(1,g_file)
 
       call init_psi_interp(g_file)
+/*
+   This prototype attempts to replicate an ENDD case.
 
+   Now narrow the focus down to a rectangular box.  These values
+   are for the low-field side, midplane of NSTX. While the
+   specification of the corners of the box could be done interactively,
+   alot of the code that follows later makes specific assumptions about
+   the possible paths of the contours through the box.
+*/ 
+      rbox_min=const(1.2)
+      rbox_max = const(1.555)
+      zbox_min = const(-0.40)
+      zbox_max = const(0.54)
+      nrbox = 35
+      nzbox = 75
+      drbox = (rbox_max - rbox_min)/(areal(nrbox-1))
+      dzbox = (zbox_max - zbox_min)/(areal(nzbox-1))
+      var_alloc(rbox)
+      var_alloc(zbox)
+
+      do ir=1,nrbox
+         rbox[ir] = rbox_min + areal(ir-1)*drbox
+      end do
+
+      do iz=1,nzbox 
+         zbox[iz] = zbox_min + areal(iz-1)*dzbox
+      end do
+
+      ef_lim_msegments=2*(nrbox-1)+2*(nzbox-1)
+      var_alloc(ef_lim_r)
+      var_alloc(ef_lim_z)
+      im=0
+      iz=1
+      do ir=1,nrbox
+         im++
+         ef_lim_r[im]=rbox[ir]
+         ef_lim_z[im]=zbox[iz]
+      end do
+      ir=nrbox
+      do iz=2,nzbox
+         im++
+         ef_lim_r[im]=rbox[ir]
+         ef_lim_z[im]=zbox[iz]
+      end do
+      iz=nzbox
+      do ir=nrbox-1,1,-1
+         im++
+         ef_lim_r[im]=rbox[ir]
+         ef_lim_z[im]=zbox[iz]
+      end do
+      ir=1
+      do iz=nzbox-1,2,-1
+         im++
+         ef_lim_r[im]=rbox[ir]
+         ef_lim_z[im]=zbox[iz]
+      end do
+      assert(im == ef_lim_msegments)
+/*
+   Initial test is to just walk along the lower boundary and
+   follow contours up from there.
+*/
+      dr=drbox
+      direction=1 // ???
+      do is=1,nrbox
+         r=ef_lim_r[is]
+         z=ef_lim_z[is]
+         psi=psi_interp(r,z,0,0)
+         call get_node(r,z,dr,direction,psi)
+      end do
+
+      var_free(rbox)
+      var_free(zbox)
+      
       stop
       end
 
@@ -228,3 +313,117 @@ coordinates.
       return
       end
 
+@ Version of the XGC routine |wall_check| specific for the limiter
+structure used here.
+
+@<Functions...@>=
+      subroutine wall_check(itr,r,z)
+
+      implicit_none_f77
+      ef_common                                         // Common
+      implicit_none_f90
+
+      integer itr                                       // Input / output
+      real r, z
+
+      integer test_lim                                  // Local
+
+      external pointinpoly                              // External
+      integer pointinpoly
+
+      itr=1   // Inside the wall
+
+      test_lim=pointinpoly(r,z,ef_lim_r,ef_lim_z,ef_lim_msegments)
+
+      if (test_lim <= 0) then
+         itr=0       // Outside the wall
+      end if
+
+      return
+      end
+
+@ Version of the XGC routine |wall_cross| specific for the limiter
+structure used here. 
+This is a general routine for identifying
+the segment of a closed polygon intersected
+by the input segment.  If no intersection
+is found, the routine returns 0.
+
+The particular application in this code
+is to determine which segment of the
+boundary was crossed by a particle, with the
+crossing have been previously flagged by
+subroutine |wall_check|.  The first point of the
+segment is the previous location of the particle.
+The second is its current location, which
+should be outside the boundary.  Should this 
+segment not intersect the boundary for some
+reason, the routine will return 0.
+
+@<Functions...@>=
+      function wall_cross(r1,z1,r2,z2)
+
+      implicit_none_f77
+      ef_common                                 // Common
+      implicit_none_f90
+
+      integer wall_cross                        // Function
+      real r1, z1, r2, z2                       // Input                             
+
+      integer j, jp                             // Local
+      real q_ir, q_iz, delta_q_r, delta_q_z,    
+     $      delta_q_2, p_jr, p_jz, delta_p_r,
+     $      delta_p_z, delta_p_2, alpha, beta  
+
+      q_ir=r1
+      q_iz=z1
+      delta_q_r=r2-r1
+      delta_q_z=z2-z1
+      delta_q_2=delta_q_r**2 + delta_q_z**2
+      if ((abs(delta_q_r)+abs(delta_q_z)) == zero) then
+         assert('Particle takes null step but crossed boundary!' == ' ')
+      end if
+
+      wall_cross=0
+      do j=1,ef_lim_msegments
+         p_jr=ef_lim_r[j]
+         p_jz=ef_lim_z[j]
+/*
+   Easy enough to allow for polygon to close on itself or not.
+*/
+        jp=1+mod(j,ef_lim_msegments)
+        delta_p_r=ef_lim_r[jp]-p_jr
+        delta_p_z=ef_lim_z[jp]-p_jz
+        delta_p_2=delta_p_r**2 + delta_p_z**2
+/*
+   Skip any null segments
+*/
+        if ((abs(delta_p_r)+abs(delta_p_z)) > zero) then
+         alpha=((q_ir-p_jr)*delta_q_z - (q_iz-p_jz)*delta_q_r)  
+     $          / (delta_p_r*delta_q_z - delta_p_z*delta_q_r)
+         beta=((q_ir-p_jr)*delta_p_z - (q_iz-p_jz)*delta_p_r)    
+     $        / (delta_p_r*delta_q_z - delta_p_z*delta_q_r)
+         if ((alpha >= zero) .and. (beta >= zero) .and.        
+     $        (alpha <= one) .and. (beta <= one)) then
+/*
+   Put in this extra test for now.  Eventually remove and
+   just enable the ``exit''statement to get out of the do-loop.
+   Actually hit this in a run.  Added diagnostic information and
+   removed the ``stop''.
+*/
+         
+               if (wall_cross != 0) then
+                  write(stderr,*) 'Multiple wall crossings!'
+                  write(stderr,*) ' R1 = ',r1,' Z1 = ',z1
+                  write(stderr,*) ' R2 = ',r2,' Z2 = ',z2
+                  assert(.false.)
+               end if
+               wall_cross=j
+            end if
+         end if
+      end do
+
+      return
+      end
+
+     
