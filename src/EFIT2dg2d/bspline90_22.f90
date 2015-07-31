@@ -2284,83 +2284,7 @@ end module bspline
 ! efit2dg2d routine and adapted to use the bspline90_22.f90 spline
 ! fitting routines.
 !
-subroutine get_node(r_start,z_start,dr,direction,psi)
-
-  use ef_mod
-
-  implicit none
-  real (kind=8), intent(in) :: r_start, z_start, psi, dr 
-  integer, intent(inout) :: direction
-  real (kind=8) :: x_old(2),x_new(2), r_dtheta
-  real (kind=8), external :: psi_interp
-  integer, external :: wall_cross
-  integer, parameter :: n_opt=7
-  integer :: finished, success, convergence_error_count, itr, nseg,  &
-             nseg_m, nseg_p
-  real (kind=8) :: psi_err, max_err, dist
-  real (kind=8) :: psi_seg, psi_seg_p
-  
-
-
-
-
-
-  !target poloidal distance
-  r_dtheta=1.d-3
-
-  x_old(1)=r_start
-  x_old(2)=z_start
-
-
-   finished=0
-  max_err=0D0
-  convergence_error_count=0
-  do while(finished==0)
-
-
-    ! Walk along flux-surface to get next point
-    call get_next_point_tang(x_old,r_dtheta,direction,x_new,dist)
-    ! Refine psi value of new point
-    call fsrefine_xgca(x_new,psi,dr,n_opt,psi_err,success)
-    if (success .ne. 1) convergence_error_count=convergence_error_count+1
-    if (psi_err .gt. max_err) max_err=psi_err
-
-    ! check whether it hits wall
-    ! This routine is from XGC0's limiter routine
-    ! It checks whether a point is inside or outside a polygon
-    itr=-1
-    call wall_check(itr,x_new(1),x_new(2))
-    if (itr .lt. 1) then
-      ! The wall was crossed
-      ! A boundary node has to be added
-      finished=1
-      nseg=wall_cross(x_old(1),x_old(2),x_new(1),x_new(2))
-      ! Find the exact location of the wall node by interpolating on
-      ! the boundary segment that was crossed
-      nseg_p=mod(nseg,ef_lim_msegments)+1
-      if (nseg==1) then
-        nseg_m=ef_lim_msegments
-      else
-        nseg_m=nseg-1
-      endif
-      psi_seg=psi_interp(ef_lim_r(nseg),ef_lim_z(nseg),0,0)
-      psi_seg_p=psi_interp(ef_lim_r(nseg_p),ef_lim_z(nseg_p),0,0)
-      if ( (psi_seg .le. psi .and. psi .lt. psi_seg_p) .or. &
-           (psi_seg .ge. psi .and. psi .gt. psi_seg_p)) then
-         !
-         ! Do some stuff
-         !
-      else
-        print *,'Error: No wall strike point found!'
-        exit
-      endif
-   endif
-
-end do
-
-end subroutine get_node  
-
-  
+ 
 ! RK4 routine to follow the flux surface
 subroutine get_next_point_tang(x_in,dltheta,direction,x_out,dist)
   implicit none
@@ -2502,7 +2426,11 @@ subroutine fsrefine_xgca(x_in,psi_ref,dr,nlevels,maxe,success)
   real (kind=8) :: minerr, x_old(2), x_new(2)
   integer, parameter :: korder_rz=5
   real (kind=8), allocatable :: psi_line_knot(:), rline_coef(:), zline_coef(:)
-
+!
+! Set up a grid of nlevels points centered on the input point 
+! x_in.  Will then step dr in direction perpendicular to psi in
+! either direction.
+! 
   center=(nlevels-1)/2+1
   nlevels2=center-1
   success=0

@@ -10,12 +10,29 @@ file.
 
 @m open_file(aunit,aname) open(unit=aunit,file=aname,status='old',
 form='formatted',iostat=open_stat);
-   assert(open_stat == 0) @;
+      assert(open_stat == 0) @;
+
+@m increment_num_nodes      num_nodes++;
+      dim_nodes=max(dim_nodes,num_nodes);
+      var_realloca(nodes);
+      var_realloca(node_type);
+      var_realloca(node_element_count) @;
+
+
+@m increment_num_walls      num_walls++;
+      dim_walls=max(dim_walls,num_walls);
+      var_realloca(wall_nodes);
+      var_realloca(wall_elements);
+      var_realloca(wall_segment_count) @;
+
+@m n_opt 7      
+      
 
 @I macros.hweb
 @I string.hweb
 @I sysdep.hweb
 @I efititp.hweb
+@I geometry2d.hweb
 
 @ The Main Program.
 
@@ -26,17 +43,39 @@ form='formatted',iostat=open_stat);
       define_dimen(zb_ind,nzbox)
       define_varp(rbox,FLOAT,rb_ind)
       define_varp(zbox,FLOAT,zb_ind)
+      /*
+      The wall structures are patterned exactly after the ones in
+      |definegeometry2d|.
+      */
+      define_dimen(node_ind,dim_nodes)
+      define_dimen(wall2d_ind,dim_walls)
+      define_varp(nodes,FLOAT,g2_xz_ind,node_ind)
+      define_varp(node_type,INT,node_ind)
+      define_varp(node_element_count,INT,node_ind)
+      define_varp(wall_nodes,INT,g2_points_ind0,wall2d_ind)
+      define_varp(wall_elements,INT,g2_points_ind,wall2d_ind)
+      define_varp(wall_segment_count,INT,wall2d_ind)
+
 
       implicit_none_f77
       ef_common                                           // Common
       implicit_none_f90
 
-      integer nargs,nrbox,nzbox,ir,iz,im,direction,is     // Local
+      integer nargs,nrbox,nzbox,ir,iz,im,direction,is,    // Local
+     $        dim_nodes,num_nodes,dim_walls,num_walls
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
      $     dzbox,dr,r,z,psi
       character*FILELEN g_file
 
-      external psi_interp                                 // External
+      integer finished,success,convergence_error_count,    // Get Nodes
+     $     itr,nseg,nseg_p
+      real r_dtheta,psi_err,max_err,alpha_int,psi_int,
+     $     dist,dpsi_dr,dpsi_dz,dpsi_dalpha
+      real x_old[2],x_new[2],lines[2][2][2],x_int[2]
+
+
+      external psi_interp,wall_cross                       // External
+      integer wall_cross
       real psi_interp
       
       @<Memory allocation interface@>
@@ -45,6 +84,15 @@ form='formatted',iostat=open_stat);
 
       declare_varp(rbox)
       declare_varp(zbox)
+
+      declare_varp(nodes)
+      declare_varp(node_type)
+      declare_varp(node_element_count)
+
+      declare_varp(wall_nodes)
+      declare_varp(wall_elements)
+      declare_varp(wall_segment_count)
+
 
       nargs=arg_count()
       if (nargs != 1) then
@@ -80,7 +128,12 @@ form='formatted',iostat=open_stat);
       do iz=1,nzbox 
          zbox[iz] = zbox_min + areal(iz-1)*dzbox
       end do
-
+/*
+   Convention used here for the ``limiter'' is that
+   |ef_lim_msegments| is the number of segments.  The first point
+   in each segment has the same index as the segment.  There are
+   then |ef_lim_msegments|+1 total points.
+*/
       ef_lim_msegments=2*(nrbox-1)+2*(nzbox-1)
       var_alloc(ef_lim_r)
       var_alloc(ef_lim_z)
@@ -110,21 +163,58 @@ form='formatted',iostat=open_stat);
          ef_lim_z[im]=zbox[iz]
       end do
       assert(im == ef_lim_msegments)
+
+      dim_nodes=mem_inc
+      dim_walls=mem_inc
+
+      var_alloc(nodes)
+      var_alloc(node_type)
+      var_alloc(node_element_count)
+
+      var_alloc(wall_nodes)
+      var_alloc(wall_elements)
+      var_alloc(wall_segment_count)
+
 /*
    Initial test is to just walk along the lower boundary and
    follow contours up from there.
 */
       dr=drbox
-      direction=1 // ???
+      direction=-1 // ???
+      num_walls=0
       do is=1,nrbox
+/*         
+   For the walls, following the convention used in |definegeometry2d| in
+   case these codes are ever merged.  The nodes are numbered beginning
+   at 0.  Hence, the node |wall_nodes[iwall][iseg]| is the second node
+   on wall segment |iseg|.  There are |wall_segment_count[iwall]|+1
+   nodes in wall |iwall|.
+*/
+         increment_num_walls
+         wall_segment_count[num_walls]=0
          r=ef_lim_r[is]
          z=ef_lim_z[is]
          psi=psi_interp(r,z,0,0)
-         call get_node(r,z,dr,direction,psi)
+         increment_num_nodes
+         nodes[num_nodes][g2_x]=r
+         nodes[num_nodes][g2_z]=z
+         wall_nodes[num_walls][0]=num_nodes
+
+         @<Get Nodes@>
+         
       end do
 
       var_free(rbox)
       var_free(zbox)
+
+      var_free(nodes)
+      var_free(node_type)
+      var_free(node_element_count)
+
+      var_free(wall_nodes)
+      var_free(wall_elements)
+      var_free(wall_segment_count)
+
       
       stop
       end
@@ -313,8 +403,106 @@ coordinates.
       return
       end
 
+@* Get nodes from flux surface contours.  This routine and the ones
+invoked by it have been borrowed from Hager''s gengrid2 package, primarily from
+node3.F90.  These have been modified for the simpler box-like
+geometries anticipated for this code and to use the bspline90_22.f90 spline
+fitting routines.      
+
+@<Get Nodes@>=
+      r_dtheta=const(1.,-3)   // target poloidal distance
+      
+      x_old[1]=r
+      x_old[2]=z
+
+      finished=0
+      max_err=zero
+      convergence_error_count=0
+      do while(finished==0)
+/*
+   Walk along flux-surface to get next point
+*/
+         call get_next_point_tang(x_old,r_dtheta,direction,x_new,dist)
+/*
+   Refine psi value of new point
+*/
+         call fsrefine_xgca(x_new,psi,dr,n_opt,psi_err,success)
+         if (success != 1) convergence_error_count=convergence_error_count+1
+         if (psi_err > max_err) max_err=psi_err
+/*
+   Check whether the new point is inside (|itr|=1) or
+   outside (|itr| = 0) the boundary.
+*/
+         itr=-1
+         call wall_check(itr,x_new[1],x_new[2])
+         if (itr < 1) then
+/*
+   The wall was crossed;a  boundary node has to be added.
+*/
+            nseg=wall_cross(x_old[1],x_old[2],x_new[1],x_new[2])
+/*
+   NOTE: need to check the
+   indexing here and the use of ef_lim_msegments.
+*/
+            nseg_p=1+mod(nseg,ef_lim_msegments)
+/*
+   Find the point of intersection of the crossing segment with
+   the wall segment.  The parameter |alpha| represents the fractional
+   distance along the wall segment from point |nseg|.
+*/
+            lines[1][1][1]=x_old[1]
+            lines[1][1][2]=x_old[2]
+            lines[1][2][1]=x_new[1]
+            lines[1][2][2]=x_new[2]
+            lines[2][1][1]=ef_lim_r[nseg]
+            lines[2][1][2]=ef_lim_z[nseg]
+            lines[2][2][1]=ef_lim_r[nseg_p]
+            lines[2][2][2]=ef_lim_z[nseg_p]
+            call find_intersection(lines,x_int)
+            if (abs(ef_lim_r[nseg_p]-ef_lim_r[nseg]) > epsilon) then
+               alpha_int=(x_int[1]-ef_lim_r[nseg])
+     $              /(ef_lim_r[nseg_p]-ef_lim_r[nseg])
+            else
+               assert(abs(ef_lim_z[nseg_p]-ef_lim_z[nseg]) > epsilon)
+               alpha_int=(x_int[2]-ef_lim_z[nseg_p])
+     $              /(ef_lim_z[nseg_p]-ef_lim_z[nseg])
+            end if
+            psi_int=real_undef
+/*
+   Use the flux gradient from |psi_interp| in a Newton's method
+   to refine the location of the crossing point.
+*/
+            do while(abs(psi_int-psi) > epsilon)
+               psi_int=psi_interp(x_int[1],x_int[2],0,0)
+               dpsi_dr=psi_interp(x_int[1],x_int[2],1,0)
+               dpsi_dz=psi_interp(x_int[1],x_int[2],0,1)
+               dpsi_dalpha=dpsi_dr*(ef_lim_r[nseg_p]-ef_lim_r[nseg])
+     $              +dpsi_dz*(ef_lim_z[nseg_p]-ef_lim_z[nseg])
+               assert(abs(dpsi_dalpha) > epsilon)
+               alpha_int=alpha_int+(psi-psi_int)/dpsi_dalpha
+               x_int[1]=ef_lim_r[nseg]+alpha_int*(ef_lim_r[nseg_p]
+     $              -ef_lim_r[nseg])
+               x_int[2]=ef_lim_z[nseg]+alpha_int*(ef_lim_z[nseg_p]
+     $              -ef_lim_z[nseg])
+               psi_int=psi_interp(x_int[1],x_int[2],0,0)
+            end do
+            finished=1
+            x_new[1]=x_int[1]
+            x_new[2]=x_int[2]
+         end if
+         increment_num_nodes
+         nodes[num_nodes][g2_x]=x_new[1]
+         nodes[num_nodes][g2_z]=x_new[2]
+         wall_segment_count[num_walls]++
+         wall_nodes[num_walls][wall_segment_count[num_walls]]=num_nodes
+
+         x_old[1]=x_new[1]
+         x_old[2]=x_new[2]
+      end do
+
 @ Version of the XGC routine |wall_check| specific for the limiter
-structure used here.
+structure used here.  Determines whether the new point is inside (|itr|=1) or
+outside (|itr| = 0) the boundary.
 
 @<Functions...@>=
       subroutine wall_check(itr,r,z)
@@ -426,4 +614,48 @@ reason, the routine will return 0.
       return
       end
 
-     
+      @ Find point of intersection of two line segments.
+
+@<Functions...@>=
+      subroutine find_intersection(lines,x_int)
+
+      implicit_none_f77
+      implicit_none_f90
+
+      real lines[2][2][2]             // Input
+      real x_int[2]                   // Output
+      integer iline                   // Local
+      logical vertical[2]
+      real m[2],b[2]
+/*      
+      Neatest approach is to first put line segments
+      in slope-intercept form.
+*/      
+      do iline=1,2
+         vertical[iline]=.false.
+         if ((lines[iline][2][1]-lines[iline][1][1]) > epsilon) then
+            m[iline]=(lines[iline][2][2]-lines[iline][1][2])
+     $           /(lines[iline][2][1]-lines[iline][1][1])
+            b[iline]=(lines[iline][2][2]*lines[iline][1][1]
+     $           +lines[iline][1][2]*lines[iline][2][1])
+     $           /(lines[iline][2][1]-lines[iline][1][1])
+         else
+            vertical[iline]=.true.
+         end if
+      end do
+
+      if (!vertical[1] && !vertical[2]) then
+         x_int[1]=b[1]-b[2]
+         x_int[2]=(m[1]*b[2]-m[2]*b[1])/(m[1]-m[2])
+      else if (vertical[1] && !vertical[2]) then
+         x_int[1]=lines[1][1][1]
+         x_int[2]=m[2]*x_int[1]+b[2]
+      else if (!vertical[1] && vertical[2]) then
+         x_int[1]=lines[2][1][1]
+         x_int[2]=m[1]*x_int[1]+b[1]
+      else
+         assert(' Two vertical lines in find_intersection' == ' ')
+      end if
+
+      return
+      end
