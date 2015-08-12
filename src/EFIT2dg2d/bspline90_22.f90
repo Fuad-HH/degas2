@@ -165,7 +165,10 @@ contains
     endif
 
     do ix = nx+1, nx+kxord
-       xknot(ix) = xvec(nx) * (1.0_dbl + eps)
+!
+! Introduce the sign function here for negative xvec.
+!
+       xknot(ix) = xvec(nx) * (1.0_dbl + sign(eps,xvec(nx)))
     end do
 
   end subroutine dbsnak
