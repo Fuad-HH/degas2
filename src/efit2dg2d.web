@@ -18,7 +18,6 @@ form='formatted',iostat=open_stat);
       var_realloca(node_type);
       var_realloca(node_element_count) @;
 
-
 @m increment_num_walls      num_walls++;
       dim_walls=max(dim_walls,num_walls);
       var_realloca(wall_nodes);
@@ -26,7 +25,7 @@ form='formatted',iostat=open_stat);
       var_realloca(wall_segment_count) @;
 
 @m n_opt 7      
-      
+@m i_newt_max 50
 
 @I macros.hweb
 @I string.hweb
@@ -56,7 +55,6 @@ form='formatted',iostat=open_stat);
       define_varp(wall_elements,INT,g2_points_ind,wall2d_ind)
       define_varp(wall_segment_count,INT,wall2d_ind)
 
-
       implicit_none_f77
       ef_common                                           // Common
       implicit_none_f90
@@ -68,11 +66,10 @@ form='formatted',iostat=open_stat);
       character*FILELEN g_file
 
       integer finished,success,convergence_error_count,    // Get Nodes
-     $     itr,nseg,nseg_p
+     $     itr,nseg,nseg_p,i_newt
       real r_dtheta,psi_err,max_err,alpha_int,psi_int,
      $     dist,dpsi_dr,dpsi_dz,dpsi_dalpha
       real x_old[2],x_new[2],lines[2][2][2],x_int[2]
-
 
       external psi_interp,wall_cross                       // External
       integer wall_cross
@@ -92,7 +89,6 @@ form='formatted',iostat=open_stat);
       declare_varp(wall_nodes)
       declare_varp(wall_elements)
       declare_varp(wall_segment_count)
-
 
       nargs=arg_count()
       if (nargs != 1) then
@@ -174,7 +170,6 @@ form='formatted',iostat=open_stat);
       var_alloc(wall_nodes)
       var_alloc(wall_elements)
       var_alloc(wall_segment_count)
-
 /*
    Initial test is to just walk along the lower boundary and
    follow contours up from there.
@@ -182,7 +177,7 @@ form='formatted',iostat=open_stat);
       dr=drbox
       direction=-1 // ???
       num_walls=0
-      do is=1,nrbox
+      do is=1,nrbox-1
 /*         
    For the walls, following the convention used in |definegeometry2d| in
    case these codes are ever merged.  The nodes are numbered beginning
@@ -215,7 +210,6 @@ form='formatted',iostat=open_stat);
       var_free(wall_elements)
       var_free(wall_segment_count)
 
-      
       stop
       end
 
@@ -410,7 +404,7 @@ geometries anticipated for this code and to use the bspline90_22.f90 spline
 fitting routines.      
 
 @<Get Nodes@>=
-      r_dtheta=const(1.,-3)   // target poloidal distance
+      r_dtheta=const(5.,-3)   // target poloidal distance
       
       x_old[1]=r
       x_old[2]=z
@@ -464,16 +458,16 @@ fitting routines.
      $              /(ef_lim_r[nseg_p]-ef_lim_r[nseg])
             else
                assert(abs(ef_lim_z[nseg_p]-ef_lim_z[nseg]) > epsilon)
-               alpha_int=(x_int[2]-ef_lim_z[nseg_p])
+               alpha_int=(x_int[2]-ef_lim_z[nseg])
      $              /(ef_lim_z[nseg_p]-ef_lim_z[nseg])
             end if
-            psi_int=real_undef
+            psi_int=psi_interp(x_int[1],x_int[2],0,0)
+            i_newt=0
 /*
    Use the flux gradient from |psi_interp| in a Newton's method
    to refine the location of the crossing point.
 */
-            do while(abs(psi_int-psi) > epsilon)
-               psi_int=psi_interp(x_int[1],x_int[2],0,0)
+            do while((abs(psi_int-psi) > epsilon) && (i_newt <= i_newt_max))
                dpsi_dr=psi_interp(x_int[1],x_int[2],1,0)
                dpsi_dz=psi_interp(x_int[1],x_int[2],0,1)
                dpsi_dalpha=dpsi_dr*(ef_lim_r[nseg_p]-ef_lim_r[nseg])
@@ -485,6 +479,7 @@ fitting routines.
                x_int[2]=ef_lim_z[nseg]+alpha_int*(ef_lim_z[nseg_p]
      $              -ef_lim_z[nseg])
                psi_int=psi_interp(x_int[1],x_int[2],0,0)
+               i_newt++
             end do
             finished=1
             x_new[1]=x_int[1]
@@ -494,6 +489,7 @@ fitting routines.
          nodes[num_nodes][g2_x]=x_new[1]
          nodes[num_nodes][g2_z]=x_new[2]
          wall_segment_count[num_walls]++
+         assert(wall_segment_count[num_walls] <= g2_num_points-1)
          wall_nodes[num_walls][wall_segment_count[num_walls]]=num_nodes
 
          x_old[1]=x_new[1]
@@ -633,11 +629,11 @@ reason, the routine will return 0.
 */      
       do iline=1,2
          vertical[iline]=.false.
-         if ((lines[iline][2][1]-lines[iline][1][1]) > epsilon) then
+         if (abs(lines[iline][2][1]-lines[iline][1][1]) > epsilon) then
             m[iline]=(lines[iline][2][2]-lines[iline][1][2])
      $           /(lines[iline][2][1]-lines[iline][1][1])
-            b[iline]=(lines[iline][2][2]*lines[iline][1][1]
-     $           +lines[iline][1][2]*lines[iline][2][1])
+            b[iline]=(lines[iline][1][2]*lines[iline][2][1]
+     $           -lines[iline][2][2]*lines[iline][1][1])
      $           /(lines[iline][2][1]-lines[iline][1][1])
          else
             vertical[iline]=.true.
@@ -645,7 +641,7 @@ reason, the routine will return 0.
       end do
 
       if (!vertical[1] && !vertical[2]) then
-         x_int[1]=b[1]-b[2]
+         x_int[1]=(b[2]-b[1])/(m[1]-m[2])
          x_int[2]=(m[1]*b[2]-m[2]*b[1])/(m[1]-m[2])
       else if (vertical[1] && !vertical[2]) then
          x_int[1]=lines[1][1][1]
