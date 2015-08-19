@@ -22,6 +22,7 @@ form='formatted',iostat=open_stat);
       dim_walls=max(dim_walls,num_walls);
       var_realloca(wall_nodes);
       var_realloca(wall_elements);
+      var_realloca(wall_psi_contour);
       var_realloca(wall_segment_count) @;
 
 @m n_opt 7      
@@ -40,6 +41,7 @@ form='formatted',iostat=open_stat);
 
       define_dimen(rb_ind,nrbox)
       define_dimen(zb_ind,nzbox)
+      define_dimen(cont_ind,n_cont)
       define_varp(rbox,FLOAT,rb_ind)
       define_varp(zbox,FLOAT,zb_ind)
       /*
@@ -53,22 +55,27 @@ form='formatted',iostat=open_stat);
       define_varp(node_element_count,INT,node_ind)
       define_varp(wall_nodes,INT,g2_points_ind0,wall2d_ind)
       define_varp(wall_elements,INT,g2_points_ind,wall2d_ind)
+      define_varp(wall_psi_contour,INT,wall2d_ind)
       define_varp(wall_segment_count,INT,wall2d_ind)
+      define_varp(psi_contours,FLOAT,cont_ind)
 
       implicit_none_f77
       ef_common                                           // Common
       implicit_none_f90
 
       integer nargs,nrbox,nzbox,ir,iz,im,direction,is,    // Local
-     $        dim_nodes,num_nodes,dim_walls,num_walls
+     $     dim_nodes,num_nodes,dim_walls,num_walls,
+     $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
-     $     dzbox,dr,r,z,psi
+     $     dzbox,dr,r,z,psi,psi_min,psi_max,psi_value,
+     $     delta_psi
+      real segment[2][2],x_psi[2]
+      logical tracked
       character*FILELEN g_file
 
       integer finished,success,convergence_error_count,    // Get Nodes
-     $     itr,nseg,nseg_p,i_newt
-      real r_dtheta,psi_err,max_err,alpha_int,psi_int,
-     $     dist,dpsi_dr,dpsi_dz,dpsi_dalpha
+     $     itr,nseg,nseg_p
+      real r_dtheta,psi_err,max_err,dist
       real x_old[2],x_new[2],lines[2][2][2],x_int[2]
 
       external psi_interp,wall_cross                       // External
@@ -88,7 +95,10 @@ form='formatted',iostat=open_stat);
 
       declare_varp(wall_nodes)
       declare_varp(wall_elements)
+      declare_varp(wall_psi_contour)
       declare_varp(wall_segment_count)
+
+      declare_varp(psi_contours)
 
       nargs=arg_count()
       if (nargs != 1) then
@@ -121,42 +131,97 @@ form='formatted',iostat=open_stat);
          rbox[ir] = rbox_min + areal(ir-1)*drbox
       end do
 
+      psi_min=const(1.,16)
+      psi_max=const(-1.,16)
       do iz=1,nzbox 
          zbox[iz] = zbox_min + areal(iz-1)*dzbox
+         do ir=1,nrbox
+            psi_value=psi_interp(rbox[ir],zbox[iz],0,0)
+            if (psi_value < psi_min) psi_min=psi_value
+            if (psi_value > psi_max) psi_max=psi_value
+         end do
+      end do
+      assert(psi_min < psi_max)
+/*
+   Hard wire these for now, but expect that they will likely
+   be input somehow.  The extra ``1'' is for the separatrix.
+   Note that we are assuming that the separatrix is at |psi|=0.
+*/
+      n_cont_in=25
+      n_cont_out=25
+      n_cont=n_cont_in+n_cont_out+1
+      var_alloc(psi_contours)
+      delta_psi=-psi_min/areal(n_cont_in)
+      do ic=1,n_cont_in
+         psi_contours[ic]=psi_min+areal(ic-1)*delta_psi
+      end do
+      psi_contours[n_cont_in+1]=zero
+      delta_psi=psi_max/float(n_cont_out)
+      do ic=1,n_cont_out
+         psi_contours[ic+n_cont_in+1]=float(ic)*delta_psi
       end do
 /*
    Convention used here for the ``limiter'' is that
    |ef_lim_msegments| is the number of segments.  The first point
    in each segment has the same index as the segment.  There are
-   then |ef_lim_msegments|+1 total points.
+   then |ef_lim_msegments|+1 total points.  But, that last point
+   is the same as the first one and is not explicitly stored.
 */
       ef_lim_msegments=2*(nrbox-1)+2*(nzbox-1)
       var_alloc(ef_lim_r)
       var_alloc(ef_lim_z)
+      var_alloc(ef_lim_psi)
+      var_alloc(ef_lim_cross_times)
+      var_alloc(ef_lim_cross_node)
+      var_alloc(ef_lim_cross_wall)
       im=0
-      iz=1
-      do ir=1,nrbox
+      ir=1
+      do iz=1,nzbox
          im++
          ef_lim_r[im]=rbox[ir]
          ef_lim_z[im]=zbox[iz]
-      end do
-      ir=nrbox
-      do iz=2,nzbox
-         im++
-         ef_lim_r[im]=rbox[ir]
-         ef_lim_z[im]=zbox[iz]
+         ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         ef_lim_cross_times[im]=0
+         do ic=1,ef_cross_max
+            ef_lim_cross_node[im][ic]=int_undef
+            ef_lim_cross_wall[im][ic]=int_undef
+         end do
       end do
       iz=nzbox
-      do ir=nrbox-1,1,-1
+      do ir=2,nrbox
          im++
          ef_lim_r[im]=rbox[ir]
          ef_lim_z[im]=zbox[iz]
+         ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         ef_lim_cross_times[im]=0
+         do ic=1,ef_cross_max
+            ef_lim_cross_node[im][ic]=int_undef
+            ef_lim_cross_wall[im][ic]=int_undef
+         end do
       end do
-      ir=1
-      do iz=nzbox-1,2,-1
+      ir=nrbox
+      do iz=nzbox-1,1,-1
          im++
          ef_lim_r[im]=rbox[ir]
          ef_lim_z[im]=zbox[iz]
+         ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         ef_lim_cross_times[im]=0
+         do ic=1,ef_cross_max
+            ef_lim_cross_node[im][ic]=int_undef
+            ef_lim_cross_wall[im][ic]=int_undef
+         end do
+      end do
+      iz=1
+      do ir=nrbox-1,2,-1
+         im++
+         ef_lim_r[im]=rbox[ir]
+         ef_lim_z[im]=zbox[iz]
+         ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         ef_lim_cross_times[im]=0
+         do ic=1,ef_cross_max
+            ef_lim_cross_node[im][ic]=int_undef
+            ef_lim_cross_wall[im][ic]=int_undef
+         end do
       end do
       assert(im == ef_lim_msegments)
 
@@ -169,36 +234,114 @@ form='formatted',iostat=open_stat);
 
       var_alloc(wall_nodes)
       var_alloc(wall_elements)
+      var_alloc(wall_psi_contour)
       var_alloc(wall_segment_count)
-/*
-   Initial test is to just walk along the lower boundary and
-   follow contours up from there.
-*/
-      dr=drbox
-      direction=-1 // ???
       num_walls=0
-      do is=1,nrbox-1
-/*         
-   For the walls, following the convention used in |definegeometry2d| in
-   case these codes are ever merged.  The nodes are numbered beginning
-   at 0.  Hence, the node |wall_nodes[iwall][iseg]| is the second node
-   on wall segment |iseg|.  There are |wall_segment_count[iwall]|+1
-   nodes in wall |iwall|.
+/*
+   One step closer to the desired functionality:
+   Search the box boundary for the $\psi$ values
+   in |psi_contours|.  When one is found, track it
+   through the box to make the next wall.  Add the
+   crossing points to the boundary to facilitate
+   the subsequent construction of polygons.  
+   Note the separate equality test on the $\psi$ values:
+   to avoid a duplicate surface, associate with only the
+   the first point of a wall segment.
+
+   The cross references here may be confusing, so spell
+   them out explicitly:
+   \begin{description}
+      \item[|ef_lim_psi[im]|] Numerical value of $\psi$ at limiter
+point |im|, starting point of limiter segment |im|.
+
+      \item[|psi_contours[ic]|] Numerical value of $\psi$ for contour
+|ic|.  The objective of the tracking procedure is to make ``walls'' out
+of these contours.
+
+      \item[|wall_psi_contour[iwall]|] This index into the |psi_contour|
+array provides the $\psi$ value associated with wall |iwall|.
+
+      \item[ef_lim_cross_times[im]| Number of times limiter segment
+|im| has been intersected by a ``wall'' (equivalently, a |psi_contour|).
+
+      \item[|ef_lim_cross_wall[im][ic]|] Is the wall number associated
+with the |ic|-th crossing of limiter segment |im|.
+      
+      \item[|ef_lim_cross_node[im][ic]|] Is the node number associated
+with the |ic|-th crossing of limiter segment |im|.
+   \end{description}
 */
-         increment_num_walls
-         wall_segment_count[num_walls]=0
-         r=ef_lim_r[is]
-         z=ef_lim_z[is]
-         psi=psi_interp(r,z,0,0)
-         increment_num_nodes
-         nodes[num_nodes][g2_x]=r
-         nodes[num_nodes][g2_z]=z
-         wall_nodes[num_walls][0]=num_nodes
+      do ic=1,n_cont
+         do im=1,ef_lim_msegments
+            if (((ef_lim_psi[im]-psi_contours[ic])
+     $           *(ef_lim_psi[im+1]-psi_contours[ic]) < zero)
+     $           || (ef_lim_psi[im] == psi_contours[ic])) then
+/*
+   Then this |psi_contour| crosses the limiter here.  Need to then
+   see if it has been tracked and made into a contour yet.
+*/
+               tracked=.false.
+               if (ef_lim_cross_times[im] > 0) then
+                  do ir=1,ef_lim_cross_times[im]
+                     if (wall_psi_contour[ef_lim_cross_wall[im][ir]] == ic) tracked=.true.
+                  end do
+               end if
+               if (!tracked) then
+/*       
+   Has not been tracked yet.  Need to then do so
+   and follow it.
+*/
+                  increment_num_walls
+                  wall_segment_count[num_walls]=0
+                  wall_psi_contour[num_walls]=ic
+                  segment[1][1]=ef_lim_r[im]
+                  segment[1][2]=ef_lim_z[im]
+                  imp1=1+mod(im,ef_lim_msegments)
+                  segment[2][1]=ef_lim_r[imp1]
+                  segment[2][2]=ef_lim_z[imp1]
+                  closer=im
+                  if (abs(ef_lim_psi[imp1]-psi_contours[ic])
+     $                 < abs(ef_lim_psi[im]-psi_contours[ic])) closer=imp1
+                  x_psi[1]=ef_lim_r[closer]
+                  x_psi[2]=ef_lim_z[closer]
+                  call psi_solve(psi_contours[ic],segment,x_psi)
+                  r=x_psi[1]
+                  z=x_psi[2]
+                  increment_num_nodes
+                  nodes[num_nodes][g2_x]=r
+                  nodes[num_nodes][g2_z]=z
+                  wall_nodes[num_walls][0]=num_nodes
+/*
+   Record the limiter crossing at the starting point
+   of the wall / contour.  There is a corresponding 
+   record at the end of the wall / contour in |Get Nodes|.
+*/
+                  ef_lim_cross_times[im]++
+                  assert(ef_lim_cross_times[im] <= ef_cross_max)
+                  ef_lim_cross_wall[im][ef_lim_cross_times[im]]
+     $                 =num_walls
+                  ef_lim_cross_node[im][ef_lim_cross_times[im]]
+     $                 =num_nodes
+/*                  
+   Determine the |direction| parameter needed by Hager's
+   tracking algorithm.  The contours are tracked in the direction
+   of $\nable \psi \times \hat{\phi}$.  Assuming that the direction      
+   traced out by the limiter boundary, $\hat{\ell}$, is clockwise
+   (which is the sense we want for the polygons in the end), then
+   |direction| is given by the sign of $-\hat{\ell} \cdot \nable \psi$.
+*/
+                  direction=int(sign(one,
+     $                       -(psi_interp(r,z,1,0)*(segment[2][1]-segment[1][1])
+     $                         +psi_interp(r,z,0,1)*(segment[2][2]-segment[1][2]))))
+                  assert(direction != zero)
 
-         @<Get Nodes@>
-         
-      end do
+                  @<Get Nodes@>
 
+               end if
+            end if     // Check on $\psi$ being on this limiter segment
+         end do        // Loop over limiter segments
+      end do           // Loop over $\psi$ contours
+                  
       var_free(rbox)
       var_free(zbox)
 
@@ -208,6 +351,7 @@ form='formatted',iostat=open_stat);
 
       var_free(wall_nodes)
       var_free(wall_elements)
+      var_free(wall_psi_contour)
       var_free(wall_segment_count)
 
       stop
@@ -352,6 +496,12 @@ form='formatted',iostat=open_stat);
       do ir=1,nr
          rr[ir]=(areal(ir-1)/(areal(nr-1)))*rdim+redge
          psis[ir]=(areal(ir-1)/(areal(nr-1)))*(psilim-psimin)
+/*
+   Subtract |psilim| so we know the separatrix is at |pfm|=0.
+*/
+         do iz=1,nz
+            pfm[iz][ir]=pfm[iz][ir]-psilim
+         end do
       end do
 
       do iz=1,nz
@@ -404,6 +554,7 @@ geometries anticipated for this code and to use the bspline90_22.f90 spline
 fitting routines.      
 
 @<Get Nodes@>=
+      dr=drbox
       r_dtheta=const(5.,-3)   // target poloidal distance
       
       x_old[1]=r
@@ -453,34 +604,7 @@ fitting routines.
             lines[2][2][1]=ef_lim_r[nseg_p]
             lines[2][2][2]=ef_lim_z[nseg_p]
             call find_intersection(lines,x_int)
-            if (abs(ef_lim_r[nseg_p]-ef_lim_r[nseg]) > epsilon) then
-               alpha_int=(x_int[1]-ef_lim_r[nseg])
-     $              /(ef_lim_r[nseg_p]-ef_lim_r[nseg])
-            else
-               assert(abs(ef_lim_z[nseg_p]-ef_lim_z[nseg]) > epsilon)
-               alpha_int=(x_int[2]-ef_lim_z[nseg])
-     $              /(ef_lim_z[nseg_p]-ef_lim_z[nseg])
-            end if
-            psi_int=psi_interp(x_int[1],x_int[2],0,0)
-            i_newt=0
-/*
-   Use the flux gradient from |psi_interp| in a Newton's method
-   to refine the location of the crossing point.
-*/
-            do while((abs(psi_int-psi) > epsilon) && (i_newt <= i_newt_max))
-               dpsi_dr=psi_interp(x_int[1],x_int[2],1,0)
-               dpsi_dz=psi_interp(x_int[1],x_int[2],0,1)
-               dpsi_dalpha=dpsi_dr*(ef_lim_r[nseg_p]-ef_lim_r[nseg])
-     $              +dpsi_dz*(ef_lim_z[nseg_p]-ef_lim_z[nseg])
-               assert(abs(dpsi_dalpha) > epsilon)
-               alpha_int=alpha_int+(psi-psi_int)/dpsi_dalpha
-               x_int[1]=ef_lim_r[nseg]+alpha_int*(ef_lim_r[nseg_p]
-     $              -ef_lim_r[nseg])
-               x_int[2]=ef_lim_z[nseg]+alpha_int*(ef_lim_z[nseg_p]
-     $              -ef_lim_z[nseg])
-               psi_int=psi_interp(x_int[1],x_int[2],0,0)
-               i_newt++
-            end do
+            call psi_solve(psi,lines[2][1][1],x_int)
             finished=1
             x_new[1]=x_int[1]
             x_new[2]=x_int[2]
@@ -495,6 +619,10 @@ fitting routines.
          x_old[1]=x_new[1]
          x_old[2]=x_new[2]
       end do
+      ef_lim_cross_times[nseg]++
+      assert(ef_lim_cross_times[nseg] <= ef_cross_max)
+      ef_lim_cross_wall[nseg][ef_lim_cross_times[nseg]]=num_walls
+      ef_lim_cross_node[nseg][ef_lim_cross_times[nseg]]=num_nodes
 
 @ Version of the XGC routine |wall_check| specific for the limiter
 structure used here.  Determines whether the new point is inside (|itr|=1) or
@@ -610,7 +738,7 @@ reason, the routine will return 0.
       return
       end
 
-      @ Find point of intersection of two line segments.
+@ Find point of intersection of two line segments.
 
 @<Functions...@>=
       subroutine find_intersection(lines,x_int)
@@ -655,3 +783,53 @@ reason, the routine will return 0.
 
       return
       end
+
+@ Use a Newton method to solve for the exact point on a segment
+having the input flux value.
+
+@<Functions...@>=
+      subroutine psi_solve(psi,x_seg,x_psi)
+
+      implicit_none_f77
+      implicit_none_f90
+
+      real psi                                          // Input
+      real x_seg[2][2]
+      real x_psi[2]                                     // Input / Output
+      integer i_newt                                    // Local
+      real alpha_int,psi_int,dpsi_dr,dpsi_dz,dpsi_dalpha
+      external psi_interp                               // External
+      real psi_interp
+
+      if (abs(x_seg[2][1]-x_seg[1][1]) > epsilon) then
+         alpha_int=(x_psi[1]-x_seg[1][1])
+     $        /(x_seg[2][1]-x_seg[1][1])
+      else
+         assert(abs(x_seg[2][2]-x_seg[1][2]) > epsilon)
+         alpha_int=(x_psi[2]-x_seg[1][2])
+     $        /(x_seg[2][2]-x_seg[1][2])
+      end if
+      psi_int=psi_interp(x_psi[1],x_psi[2],0,0)
+      i_newt=0
+/*
+   Use the flux gradient from |psi_interp| in a Newton method
+   to refine the location of the crossing point.
+*/
+      do while((abs(psi_int-psi) > epsilon) && (i_newt <= i_newt_max))
+         dpsi_dr=psi_interp(x_psi[1],x_psi[2],1,0)
+         dpsi_dz=psi_interp(x_psi[1],x_psi[2],0,1)
+         dpsi_dalpha=dpsi_dr*(x_seg[2][1]-x_seg[1][1])
+     $        +dpsi_dz*(x_seg[2][2]-x_seg[1][2])
+         assert(abs(dpsi_dalpha) > epsilon)
+         alpha_int=alpha_int+(psi-psi_int)/dpsi_dalpha
+         x_psi[1]=x_seg[1][1]+alpha_int*(x_seg[2][1]
+     $        -x_seg[1][1])
+         x_psi[2]=x_seg[1][2]+alpha_int*(x_seg[2][2]
+     $        -x_seg[1][2])
+         psi_int=psi_interp(x_psi[1],x_psi[2],0,0)
+         i_newt++
+      end do
+
+      return
+      end
+
