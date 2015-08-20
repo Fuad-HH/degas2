@@ -16,14 +16,16 @@ form='formatted',iostat=open_stat);
       dim_nodes=max(dim_nodes,num_nodes);
       var_realloca(nodes);
       var_realloca(node_type);
-      var_realloca(node_element_count) @;
+      var_realloca(node_element_count);
+      dim_nodes=mem_size(dim_nodes) @;
 
 @m increment_num_walls      num_walls++;
       dim_walls=max(dim_walls,num_walls);
       var_realloca(wall_nodes);
       var_realloca(wall_elements);
       var_realloca(wall_psi_contour);
-      var_realloca(wall_segment_count) @;
+      var_realloca(wall_segment_count); 
+      dim_walls=mem_size(dim_walls) @;
 
 @m n_opt 7      
 @m i_newt_max 50
@@ -68,7 +70,7 @@ form='formatted',iostat=open_stat);
      $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
      $     dzbox,dr,r,z,psi,psi_min,psi_max,psi_value,
-     $     delta_psi
+     $     delta_psi,lim_psi_min,lim_psi_max
       real segment[2][2],x_psi[2]
       logical tracked
       character*FILELEN g_file
@@ -146,17 +148,24 @@ form='formatted',iostat=open_stat);
    Hard wire these for now, but expect that they will likely
    be input somehow.  The extra ``1'' is for the separatrix.
    Note that we are assuming that the separatrix is at |psi|=0.
+
+   We are proceeding under the assumption that there are no
+   X- or O-points inside the box.  In that case, the maximum
+   and minimum $\psi$ values will be on the boundary of the box.
+   For this reason, the contours at the maximum and minimum values
+   will be null.  To bypass them, add $1$ to the denominator 
+   when computing |delta_psi|.
 */
       n_cont_in=25
       n_cont_out=25
       n_cont=n_cont_in+n_cont_out+1
       var_alloc(psi_contours)
-      delta_psi=-psi_min/areal(n_cont_in)
+      delta_psi=-psi_min/areal(n_cont_in+1)
       do ic=1,n_cont_in
-         psi_contours[ic]=psi_min+areal(ic-1)*delta_psi
+         psi_contours[ic]=psi_min+areal(ic)*delta_psi
       end do
       psi_contours[n_cont_in+1]=zero
-      delta_psi=psi_max/float(n_cont_out)
+      delta_psi=psi_max/float(n_cont_out+1)
       do ic=1,n_cont_out
          psi_contours[ic+n_cont_in+1]=float(ic)*delta_psi
       end do
@@ -174,6 +183,8 @@ form='formatted',iostat=open_stat);
       var_alloc(ef_lim_cross_times)
       var_alloc(ef_lim_cross_node)
       var_alloc(ef_lim_cross_wall)
+      lim_psi_min=const(1.,16)
+      lim_psi_max=const(-1.,16)
       im=0
       ir=1
       do iz=1,nzbox
@@ -181,6 +192,8 @@ form='formatted',iostat=open_stat);
          ef_lim_r[im]=rbox[ir]
          ef_lim_z[im]=zbox[iz]
          ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         if (ef_lim_psi[im] < lim_psi_min) lim_psi_min=ef_lim_psi[im]
+         if (ef_lim_psi[im] > lim_psi_max) lim_psi_max=ef_lim_psi[im]
          ef_lim_cross_times[im]=0
          do ic=1,ef_cross_max
             ef_lim_cross_node[im][ic]=int_undef
@@ -193,6 +206,8 @@ form='formatted',iostat=open_stat);
          ef_lim_r[im]=rbox[ir]
          ef_lim_z[im]=zbox[iz]
          ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         if (ef_lim_psi[im] < lim_psi_min) lim_psi_min=ef_lim_psi[im]
+         if (ef_lim_psi[im] > lim_psi_max) lim_psi_max=ef_lim_psi[im]
          ef_lim_cross_times[im]=0
          do ic=1,ef_cross_max
             ef_lim_cross_node[im][ic]=int_undef
@@ -205,6 +220,8 @@ form='formatted',iostat=open_stat);
          ef_lim_r[im]=rbox[ir]
          ef_lim_z[im]=zbox[iz]
          ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         if (ef_lim_psi[im] < lim_psi_min) lim_psi_min=ef_lim_psi[im]
+         if (ef_lim_psi[im] > lim_psi_max) lim_psi_max=ef_lim_psi[im]
          ef_lim_cross_times[im]=0
          do ic=1,ef_cross_max
             ef_lim_cross_node[im][ic]=int_undef
@@ -217,6 +234,8 @@ form='formatted',iostat=open_stat);
          ef_lim_r[im]=rbox[ir]
          ef_lim_z[im]=zbox[iz]
          ef_lim_psi[im]=psi_interp(rbox[ir],zbox[iz],0,0)
+         if (ef_lim_psi[im] < lim_psi_min) lim_psi_min=ef_lim_psi[im]
+         if (ef_lim_psi[im] > lim_psi_max) lim_psi_max=ef_lim_psi[im]
          ef_lim_cross_times[im]=0
          do ic=1,ef_cross_max
             ef_lim_cross_node[im][ic]=int_undef
@@ -224,6 +243,13 @@ form='formatted',iostat=open_stat);
          end do
       end do
       assert(im == ef_lim_msegments)
+/*
+   Check $\psi$ values on boundary.  If these do not match,
+   suggests the presence of an X- or O-point in the volume.
+*/
+      assert(lim_psi_min < lim_psi_max)
+      assert(abs((lim_psi_min-psi_min)/max(lim_psi_min,psi_min)) < epsilon)
+      assert(abs((lim_psi_max-psi_max)/max(lim_psi_max,psi_max)) < epsilon)
 
       dim_nodes=mem_inc
       dim_walls=mem_inc
@@ -272,10 +298,12 @@ with the |ic|-th crossing of limiter segment |im|.
    \end{description}
 */
       do ic=1,n_cont
+         psi=psi_contours[ic]
          do im=1,ef_lim_msegments
-            if (((ef_lim_psi[im]-psi_contours[ic])
-     $           *(ef_lim_psi[im+1]-psi_contours[ic]) < zero)
-     $           || (ef_lim_psi[im] == psi_contours[ic])) then
+            imp1=1+mod(im,ef_lim_msegments)
+            if (((ef_lim_psi[im]-psi)
+     $           *(ef_lim_psi[imp1]-psi) < zero)
+     $           || (ef_lim_psi[im] == psi)) then
 /*
    Then this |psi_contour| crosses the limiter here.  Need to then
    see if it has been tracked and made into a contour yet.
@@ -296,15 +324,14 @@ with the |ic|-th crossing of limiter segment |im|.
                   wall_psi_contour[num_walls]=ic
                   segment[1][1]=ef_lim_r[im]
                   segment[1][2]=ef_lim_z[im]
-                  imp1=1+mod(im,ef_lim_msegments)
                   segment[2][1]=ef_lim_r[imp1]
                   segment[2][2]=ef_lim_z[imp1]
                   closer=im
-                  if (abs(ef_lim_psi[imp1]-psi_contours[ic])
-     $                 < abs(ef_lim_psi[im]-psi_contours[ic])) closer=imp1
+                  if (abs(ef_lim_psi[imp1]-psi)
+     $                 < abs(ef_lim_psi[im]-psi)) closer=imp1
                   x_psi[1]=ef_lim_r[closer]
                   x_psi[2]=ef_lim_z[closer]
-                  call psi_solve(psi_contours[ic],segment,x_psi)
+                  call psi_solve(psi,segment,x_psi)
                   r=x_psi[1]
                   z=x_psi[2]
                   increment_num_nodes
@@ -711,29 +738,30 @@ reason, the routine will return 0.
    Skip any null segments
 */
         if ((abs(delta_p_r)+abs(delta_p_z)) > zero) then
+/*
+   The parameter |alpha| is the distance of the point of 
+   intersection (of the two segments) along the limiter
+   segment.  |beta| is the same for the input segment.
+*/
          alpha=((q_ir-p_jr)*delta_q_z - (q_iz-p_jz)*delta_q_r)  
      $          / (delta_p_r*delta_q_z - delta_p_z*delta_q_r)
          beta=((q_ir-p_jr)*delta_p_z - (q_iz-p_jz)*delta_p_r)    
      $        / (delta_p_r*delta_q_z - delta_p_z*delta_q_r)
-         if ((alpha >= zero) .and. (beta >= zero) .and.        
-     $        (alpha <= one) .and. (beta <= one)) then
 /*
-   Put in this extra test for now.  Eventually remove and
-   just enable the ``exit''statement to get out of the do-loop.
-   Actually hit this in a run.  Added diagnostic information and
-   removed the ``stop''.
+   For this application, one of the input points may be 
+   {\em on} a limiter segment while the other end crosses some
+   other limiter segment.  We are only interested in determining
+   the latter since the former was arranged on purpose.  The
+   presence of the former is indicated by |beta| = 0 or 1.  
+   To exclude it, we have removed the equality tests on |beta|.
 */
-         
-               if (wall_cross != 0) then
-                  write(stderr,*) 'Multiple wall crossings!'
-                  write(stderr,*) ' R1 = ',r1,' Z1 = ',z1
-                  write(stderr,*) ' R2 = ',r2,' Z2 = ',z2
-                  assert(.false.)
-               end if
+         if ((alpha >= zero) .and. (beta > zero) .and.        
+     $        (alpha <= one) .and. (beta < one)) then
                wall_cross=j
             end if
          end if
       end do
+      assert(wall_cross > 0)
 
       return
       end
