@@ -27,6 +27,12 @@ form='formatted',iostat=open_stat);
       var_realloca(wall_segment_count); 
       dim_walls=mem_size(dim_walls) @;
 
+@m increment_ext_lim_m      ext_lim_m++;      
+      var_realloca(ext_lim_r);
+      var_realloca(ext_lim_z);
+      var_realloca(ext_lim_wall);
+      var_realloca(ext_lim_index) @;
+
 @m n_opt 7      
 @m i_newt_max 50
 
@@ -44,6 +50,7 @@ form='formatted',iostat=open_stat);
       define_dimen(rb_ind,nrbox)
       define_dimen(zb_ind,nzbox)
       define_dimen(cont_ind,n_cont)
+      define_dimen(ext_lim_ind,ext_lim_m)
       define_varp(rbox,FLOAT,rb_ind)
       define_varp(zbox,FLOAT,zb_ind)
       /*
@@ -60,6 +67,13 @@ form='formatted',iostat=open_stat);
       define_varp(wall_psi_contour,INT,wall2d_ind)
       define_varp(wall_segment_count,INT,wall2d_ind)
       define_varp(psi_contours,FLOAT,cont_ind)
+      define_varp(ext_lim_r,FLOAT,ext_lim_ind)
+      define_varp(ext_lim_z,FLOAT,ext_lim_ind)
+      define_varp(ext_lim_wall,INT,ext_lim_ind)
+      define_varp(ext_lim_index,FLOAT,ext_lim_ind)
+      define_varp(ext_lim_used,INT,ext_lim_ind)
+      define_varp(ext_lim_tempf,FLOAT,ext_lim_ind)
+      define_varp(ext_lim_tempi,INT,ext_lim_ind)
 
       implicit_none_f77
       ef_common                                           // Common
@@ -67,7 +81,8 @@ form='formatted',iostat=open_stat);
 
       integer nargs,nrbox,nzbox,ir,iz,im,direction,is,    // Local
      $     dim_nodes,num_nodes,dim_walls,num_walls,
-     $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer
+     $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer,
+     $     ext_lim_m
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
      $     dzbox,dr,r,z,psi,psi_min,psi_max,psi_value,
      $     delta_psi,lim_psi_min,lim_psi_max
@@ -101,6 +116,14 @@ form='formatted',iostat=open_stat);
       declare_varp(wall_segment_count)
 
       declare_varp(psi_contours)
+
+      declare_varp(ext_lim_r)
+      declare_varp(ext_lim_z)
+      declare_varp(ext_lim_wall)
+      declare_varp(ext_lim_index)
+      declare_varp(ext_lim_used)
+      declare_varp(ext_lim_tempf)
+      declare_varp(ext_lim_tempi)
 
       nargs=arg_count()
       if (nargs != 1) then
@@ -250,6 +273,23 @@ form='formatted',iostat=open_stat);
       assert(lim_psi_min < lim_psi_max)
       assert(abs((lim_psi_min-psi_min)/max(lim_psi_min,psi_min)) < epsilon)
       assert(abs((lim_psi_max-psi_max)/max(lim_psi_max,psi_max)) < epsilon)
+/*
+   Initialize the extended limiter arrays.
+   Am trying a simpler approach to alloction
+   since the one used for the walls and nodes 
+   had problems.
+*/
+      ext_lim_m=ef_lim_msegments
+      var_alloc(ext_lim_r)
+      var_alloc(ext_lim_z)
+      var_alloc(ext_lim_wall)
+      var_alloc(ext_lim_index)
+      do im=1,ext_lim_m
+         ext_lim_r[im]=ef_lim_r[im]
+         ext_lim_z[im]=ef_lim_z[im]
+         ext_lim_wall[im]=0
+         ext_lim_index[im]=areal(im)
+      end do
 
       dim_nodes=mem_inc
       dim_walls=mem_inc
@@ -338,6 +378,14 @@ with the |ic|-th crossing of limiter segment |im|.
                   nodes[num_nodes][g2_x]=r
                   nodes[num_nodes][g2_z]=z
                   wall_nodes[num_walls][0]=num_nodes
+                  increment_ext_lim_m
+                  ext_lim_r[ext_lim_m]=r
+                  ext_lim_z[ext_lim_m]=z
+                  ext_lim_wall[ext_lim_m]=num_walls  // Positive for wall start
+                  ext_lim_index[ext_lim_m]=areal(im)+sqrt((r-ef_lim_r[im])**2
+     $                 +(z-ef_lim_z[im])**2)
+     $                 /sqrt((ef_lim_r[imp1]-ef_lim_r[im])**2
+     $                 +(ef_lim_z[imp1]-ef_lim_z[im])**2)
 /*
    Record the limiter crossing at the starting point
    of the wall / contour.  There is a corresponding 
@@ -368,7 +416,44 @@ with the |ic|-th crossing of limiter segment |im|.
             end if     // Check on $\psi$ being on this limiter segment
          end do        // Loop over limiter segments
       end do           // Loop over $\psi$ contours
-                  
+/*
+   Finalize size of extended limiter arrays.                  
+*/
+      var_reallocb(ext_lim_r)
+      var_reallocb(ext_lim_z)
+      var_reallocb(ext_lim_wall)
+      var_reallocb(ext_lim_index)
+/*
+   Sort on |ext_lim_index|.  Use |ext_lim_used| to hold the
+   mapping for the process.  Also need temporary arrays to then
+   apply the mapping to the unsorted arrays.
+*/
+      var_alloc(ext_lim_used)
+      var_alloc(ext_lim_tempf)
+      var_alloc(ext_lim_tempi)
+      do im=1,ext_lim_m
+         ext_lim_used[im]=im
+      end do
+      call sort2(ext_lim_m,ext_lim_index,ext_lim_used)
+
+      do im=1,ext_lim_m
+         ext_lim_tempf[im]=ext_lim_r[im]
+         ext_lim_tempi[im]=ext_lim_wall[im]
+      end do
+      do im=1,ext_lim_m
+         ext_lim_r[im]=ext_lim_tempf[ext_lim_used[im]]
+         ext_lim_wall[im]=ext_lim_tempi[ext_lim_used[im]]
+      end do
+      do im=1,ext_lim_m
+         ext_lim_tempf[im]=ext_lim_z[im]
+      end do
+      do im=1,ext_lim_m
+         ext_lim_z[im]=ext_lim_tempf[ext_lim_used[im]]
+      end do
+      do im=1,ext_lim_m
+         ext_lim_used[im]=FALSE
+      end do
+
       var_free(rbox)
       var_free(zbox)
 
@@ -380,6 +465,14 @@ with the |ic|-th crossing of limiter segment |im|.
       var_free(wall_elements)
       var_free(wall_psi_contour)
       var_free(wall_segment_count)
+
+      var_free(ext_lim_r)
+      var_free(ext_lim_z)
+      var_free(ext_lim_wall)
+      var_free(ext_lim_index)
+      var_free(ext_lim_used)
+      var_free(ext_lim_tempf)
+      var_free(ext_lim_tempi)
 
       stop
       end
@@ -650,6 +743,15 @@ fitting routines.
       assert(ef_lim_cross_times[nseg] <= ef_cross_max)
       ef_lim_cross_wall[nseg][ef_lim_cross_times[nseg]]=num_walls
       ef_lim_cross_node[nseg][ef_lim_cross_times[nseg]]=num_nodes
+      increment_ext_lim_m
+      ext_lim_r[ext_lim_m]=x_new[1]
+      ext_lim_z[ext_lim_m]=x_new[2]
+      ext_lim_wall[ext_lim_m]=-num_walls  // Negative for wall end
+      ext_lim_index[ext_lim_m]=areal(im)+sqrt((x_new[1]-ef_lim_r[im])**2
+     $                 +(x_new[2]-ef_lim_z[im])**2)
+     $                 /sqrt((ef_lim_r[imp1]-ef_lim_r[im])**2
+     $                 +(ef_lim_z[imp1]-ef_lim_z[im])**2)
+      
 
 @ Version of the XGC routine |wall_check| specific for the limiter
 structure used here.  Determines whether the new point is inside (|itr|=1) or
