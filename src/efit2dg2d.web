@@ -28,10 +28,12 @@ form='formatted',iostat=open_stat);
       dim_walls=mem_size(dim_walls) @;
 
 @m increment_ext_lim_m      ext_lim_m++;      
+      dim_ext=max(dim_ext,ext_lim_m);
       var_realloca(ext_lim_r);
       var_realloca(ext_lim_z);
       var_realloca(ext_lim_wall);
-      var_realloca(ext_lim_index) @;
+      var_realloca(ext_lim_index); 
+      dim_ext=mem_size(dim_ext) @;
 
 @m n_opt 7      
 @m i_newt_max 50
@@ -50,7 +52,7 @@ form='formatted',iostat=open_stat);
       define_dimen(rb_ind,nrbox)
       define_dimen(zb_ind,nzbox)
       define_dimen(cont_ind,n_cont)
-      define_dimen(ext_lim_ind,ext_lim_m)
+      define_dimen(ext_lim_ind,dim_ext)
       define_varp(rbox,FLOAT,rb_ind)
       define_varp(zbox,FLOAT,zb_ind)
       /*
@@ -82,7 +84,7 @@ form='formatted',iostat=open_stat);
       integer nargs,nrbox,nzbox,ir,iz,im,direction,is,    // Local
      $     dim_nodes,num_nodes,dim_walls,num_walls,
      $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer,
-     $     ext_lim_m
+     $     ext_lim_m,dim_ext
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
      $     dzbox,dr,r,z,psi,psi_min,psi_max,psi_value,
      $     delta_psi,lim_psi_min,lim_psi_max
@@ -275,11 +277,9 @@ form='formatted',iostat=open_stat);
       assert(abs((lim_psi_max-psi_max)/max(lim_psi_max,psi_max)) < epsilon)
 /*
    Initialize the extended limiter arrays.
-   Am trying a simpler approach to alloction
-   since the one used for the walls and nodes 
-   had problems.
 */
       ext_lim_m=ef_lim_msegments
+      dim_ext=mem_size(ext_lim_m)
       var_alloc(ext_lim_r)
       var_alloc(ext_lim_z)
       var_alloc(ext_lim_wall)
@@ -416,13 +416,6 @@ with the |ic|-th crossing of limiter segment |im|.
             end if     // Check on $\psi$ being on this limiter segment
          end do        // Loop over limiter segments
       end do           // Loop over $\psi$ contours
-/*
-   Finalize size of extended limiter arrays.                  
-*/
-      var_reallocb(ext_lim_r)
-      var_reallocb(ext_lim_z)
-      var_reallocb(ext_lim_wall)
-      var_reallocb(ext_lim_index)
 /*
    Sort on |ext_lim_index|.  Use |ext_lim_used| to hold the
    mapping for the process.  Also need temporary arrays to then
@@ -747,10 +740,10 @@ fitting routines.
       ext_lim_r[ext_lim_m]=x_new[1]
       ext_lim_z[ext_lim_m]=x_new[2]
       ext_lim_wall[ext_lim_m]=-num_walls  // Negative for wall end
-      ext_lim_index[ext_lim_m]=areal(im)+sqrt((x_new[1]-ef_lim_r[im])**2
-     $                 +(x_new[2]-ef_lim_z[im])**2)
-     $                 /sqrt((ef_lim_r[imp1]-ef_lim_r[im])**2
-     $                 +(ef_lim_z[imp1]-ef_lim_z[im])**2)
+      ext_lim_index[ext_lim_m]=areal(nseg)+sqrt((x_new[1]-ef_lim_r[nseg])**2
+     $                 +(x_new[2]-ef_lim_z[nseg])**2)
+     $                 /sqrt((ef_lim_r[nseg_p]-ef_lim_r[nseg])**2
+     $                 +(ef_lim_z[nseg_p]-ef_lim_z[nseg])**2)
       
 
 @ Version of the XGC routine |wall_check| specific for the limiter
