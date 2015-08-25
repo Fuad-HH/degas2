@@ -446,6 +446,62 @@ with the |ic|-th crossing of limiter segment |im|.
       do im=1,ext_lim_m
          ext_lim_used[im]=FALSE
       end do
+/*
+   Make one last wall out of the extended limiter
+   surface.
+*/
+      increment_num_walls
+      wall_segment_count[num_walls]=ext_lim_m
+      wall_psi_contour[num_walls]=int_undef
+      do im=1,ext_lim_m
+         if (ext_lim_index[im] == int(ext_lim_index[im])) then
+/*
+   Need to make nodes out of the original 
+   limiter points.
+*/
+            increment_num_nodes
+            nodes[num_nodes][g2_x]=ext_lim_r[im]
+            nodes[num_nodes][g2_z]=ext_lim_z[im]
+            wall_nodes[num_walls][im-1]=num_nodes
+         else
+/*
+   Can get the node numbers of the extended limiter
+   points from the |wall_nodes| using the fact that these are
+   the first (zeroth) and last nodes on each wall.
+*/
+            if (ext_lim_wall[im] > 0) then
+               wall_nodes[num_walls][im-1]=wall_nodes[ext_lim_wall[im]][0]
+            else
+               wall_nodes[num_walls][im-1]
+     $        =wall_nodes[-ext_lim_wall[im]][wall_segment_count[-ext_lim_wall[im]]]
+            end if
+         end if
+      end do
+/*
+   Write out the wallfile.
+*/
+      open(unit=diskout,file='wallfile',status='unknown')
+      write(diskout,*) '# Total number of walls'
+      write(diskout,'(i5)') num_walls
+      write(diskout,*) '# Number of points in each wall'
+/*
+   Purposely not using a format here since this is the way this is read 
+   in by |definegeometry2d|.
+*/
+      write(diskout,*) SP (wall_segment_count[im],im=1,num_walls)
+      do im=1,num_walls
+         if (im < num_walls) then
+            write(diskout,'(a,i4,a,1pe14.6)') '# Wall ',im,', psi= ',
+     $           psi_contours[wall_psi_contour[im]]
+         else
+            write(diskout,'(a,i4)') '# Boundary wall, ',im
+         end if
+         do ir=1,wall_segment_count[im]
+            write(diskout,'(1p,2(2x,e14.6))') nodes[wall_nodes[im][ir]][g2_x],
+     $           nodes[wall_nodes[im][ir]][g2_z]
+         end do
+      end do
+      close(unit=diskout)
 
       var_free(rbox)
       var_free(zbox)
