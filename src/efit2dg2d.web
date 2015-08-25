@@ -84,12 +84,13 @@ form='formatted',iostat=open_stat);
       integer nargs,nrbox,nzbox,ir,iz,im,direction,is,    // Local
      $     dim_nodes,num_nodes,dim_walls,num_walls,
      $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer,
-     $     ext_lim_m,dim_ext
+     $     ext_lim_m,dim_ext,first_point,num_poly,
+     $     next_start,iwall
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
      $     dzbox,dr,r,z,psi,psi_min,psi_max,psi_value,
      $     delta_psi,lim_psi_min,lim_psi_max
       real segment[2][2],x_psi[2]
-      logical tracked
+      logical tracked,polygons_done
       character*FILELEN g_file
 
       integer finished,success,convergence_error_count,    // Get Nodes
@@ -517,6 +518,85 @@ with the |ic|-th crossing of limiter segment |im|.
          end do
       end do
       close(unit=diskout)
+/*
+   Write out polygons.
+*/
+      first_point=0
+      im=1
+      num_poly=0
+      polygons_done=.false.
+      do while(!polygons_done && (first_point != 0))
+         if (first_point == 0) then
+            first_point=im
+            assert(im <= ext_lim_m)
+            num_poly++
+            write(stdout,*) 'Polygon: ',num_poly
+         end if
+         if (ext_lim_wall[im] == 0) then
+/*
+   Add the next segment of the extended limiter.
+*/
+            assert(ext_lim_used[im] == FALSE)
+            write(stdout,*) ext_lim_r[im],ext_lim_z[im]
+            ext_lim_used[im]=TRUE
+            im++ // What about the last point?
+         else
+/*
+   Add a wall to the polygon. Before doing so,
+   search ahead in |ext_lim_used| for the next unused
+   extended limiter segment; this will be the starting
+   point for the next polygon.
+*/ 
+            next_start=0
+            do while (next_start == 0)
+               im++
+               if (ext_lim_used[im] == FALSE) then
+                  next_start=im
+               else
+                  if (im == ext_lim_m+1) then
+                     polygons_done=.true.
+                     first_point=0
+                     next_start=im
+                  end if
+               end if
+            end do
+            if (ext_lim_wall[im] > 0) then
+               iwall=ext_lim_wall[im]
+               do ir=0,wall_segment_count[iwall]
+                  write(stdout,*) nodes[wall_nodes[iwall][ir]][g2_x],
+     $                 nodes[wall_nodes[iwall][ir]][g2_z]
+               end do
+            else
+               iwall=-ext_lim_wall[im]
+               do ir=wall_segment_count[iwall],0,-1
+                  write(stdout,*) nodes[wall_nodes[iwall][ir]][g2_x],
+     $                 nodes[wall_nodes[iwall][ir]][g2_z]
+               end do
+            end if
+            im=int_lookup(ext_lim_m,ext_lim_wall,-iwall)
+            assert((im > 0) && (im <= ext_lim_m))
+            ext_lim_used[im]=TRUE
+            if (im == first_point) then
+               first_point=0
+               im=next_start
+            else
+               im++
+            end if
+         end if   // On |ext_lim_wall|
+      end do      // Outer do-while loop
+
+
+
+      open(unit=diskout,file='polygons_dg2d.in',status='unknown')
+      write(diskout,*) '# '
+      write(diskout,*) '# These are all flux contour polygons '
+      write(diskout,*) '# '
+      write(diskout,*) 'new_zone plasma'
+      write(diskout,*) '  new_polygon'
+      write(diskout,'(a,i4)') '    stratum ',is
+
+
+
 
       var_free(rbox)
       var_free(zbox)
