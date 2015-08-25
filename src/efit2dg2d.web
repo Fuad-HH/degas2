@@ -199,7 +199,16 @@ form='formatted',iostat=open_stat);
    |ef_lim_msegments| is the number of segments.  The first point
    in each segment has the same index as the segment.  There are
    then |ef_lim_msegments|+1 total points.  But, that last point
-   is the same as the first one and is not explicitly stored.
+   is the same as the first one and is not explicitly stored.  This
+   convention has been borrowed from the XGC-0 ``limiter'' routines
+   since this procedure makes use of other subroutines and techniques
+   from there.
+
+   In contrast, the indexing of the ``walls'' ($\psi$ contours) mirrors
+   that used in |definegeometry2d|: the points or nodes on a wall are instead
+   numbered beginning with 0. There are |wall_segment_count[iwall]| segments
+   in wall |iwall| and |wall_segment_count[iwall]|+1 nodes.  The last
+   node is |wall_nodes[iwall][wall_segment_count[iwall]]|.
 */
       ef_lim_msegments=2*(nrbox-1)+2*(nzbox-1)
       var_alloc(ef_lim_r)
@@ -478,6 +487,12 @@ with the |ic|-th crossing of limiter segment |im|.
          end if
       end do
 /*
+   Since the ``walls'' are not necessarily closed surfaces, need to
+   explicitly list the last point; same as the first one here.
+*/
+      wall_nodes[num_walls][wall_segment_count[num_walls]]
+     $        =wall_nodes[num_walls][0]
+/*
    Write out the wallfile.
 */
       open(unit=diskout,file='wallfile',status='unknown')
@@ -488,7 +503,7 @@ with the |ic|-th crossing of limiter segment |im|.
    Purposely not using a format here since this is the way this is read 
    in by |definegeometry2d|.
 */
-      write(diskout,*) SP (wall_segment_count[im],im=1,num_walls)
+      write(diskout,*) SP (wall_segment_count[im]+1,im=1,num_walls)
       do im=1,num_walls
          if (im < num_walls) then
             write(diskout,'(a,i4,a,1pe14.6)') '# Wall ',im,', psi= ',
@@ -496,7 +511,7 @@ with the |ic|-th crossing of limiter segment |im|.
          else
             write(diskout,'(a,i4)') '# Boundary wall, ',im
          end if
-         do ir=1,wall_segment_count[im]
+         do ir=0,wall_segment_count[im]
             write(diskout,'(1p,2(2x,e14.6))') nodes[wall_nodes[im][ir]][g2_x],
      $           nodes[wall_nodes[im][ir]][g2_z]
          end do
@@ -754,10 +769,6 @@ fitting routines.
    The wall was crossed;a  boundary node has to be added.
 */
             nseg=wall_cross(x_old[1],x_old[2],x_new[1],x_new[2])
-/*
-   NOTE: need to check the
-   indexing here and the use of ef_lim_msegments.
-*/
             nseg_p=1+mod(nseg,ef_lim_msegments)
 /*
    Find the point of intersection of the crossing segment with
