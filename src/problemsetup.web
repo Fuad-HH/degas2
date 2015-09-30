@@ -167,6 +167,10 @@ loop1: continue
          call read_materials(diskin,line)
       else if (line == 'PMI') then
          call read_pmi(diskin,line)
+      else if (line == 'EXTERNAL TEST') then
+         call read_ex_test(diskin,line)
+      else if (line == 'EXTERNAL REACTION') then
+         call read_ex_reaction(diskin,line)
       end if
       
       goto loop1
@@ -199,7 +203,9 @@ eof:  continue
 
       pr_test_num=0
       pr_background_num=0
+      pr_ex_test_num=0
       pr_reaction_num=0
+      pr_exrc_num=0
       pr_materials_num=0
       pr_pmi_num=0
 
@@ -236,7 +242,9 @@ arrays.
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' ||
+     $     line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' ||
+     $     line == 'EXTERNAL TEST' || LINE == 'EXTERNAL REACTION')
      $     goto eof
       assert(length<=len(line))
       length=parse_string(line(:length))
@@ -298,7 +306,9 @@ arrays.
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' ||
+     $     line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' ||
+     $     line == 'EXTERNAL TEST' || LINE == 'EXTERNAL REACTION')
      $     goto eof
       
       assert(length<=len(line))
@@ -328,7 +338,7 @@ loop2: continue
 eof:  return
       end
 
-@ Read in reaction particle labels.
+@ Read in reaction labels.
       
 @<Functions...@>=
       subroutine read_reaction(unit,line)
@@ -347,7 +357,9 @@ eof:  return
       assert(pr_reaction_num==0)
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' ||
+     $     line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' ||
+     $     line == 'EXTERNAL TEST' || LINE == 'EXTERNAL REACTION')
      $     goto eof
       
       assert(length<=len(line))
@@ -395,7 +407,9 @@ eof:  continue
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' ||
+     $     line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' ||
+     $     line == 'EXTERNAL TEST' || LINE == 'EXTERNAL REACTION')
      $     goto eof
       
       assert(length<=len(line))
@@ -437,7 +451,9 @@ eof:  return
 
 loop1: continue
       if ( ! read_string(unit,line,length) ) line='END'
-      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' || line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' || line == 'SCORES')
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' ||
+     $     line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' ||
+     $     line == 'EXTERNAL TEST' || LINE == 'EXTERNAL REACTION')
      $     goto eof
       
       assert(length<=len(line))
@@ -455,6 +471,90 @@ loop2: continue
       goto loop2
 
 eof:  return
+      end
+
+@ Read in external test particle labels.
+      
+@<Functions...@>=
+      subroutine read_ex_test(unit,line)
+      implicit_none_f77
+      pr_common                 // Common
+      sp_common
+      implicit_none_f90
+      integer unit              // Input
+      character*(*) line        // Output
+      integer length,p,b,e,i    // Local
+
+      @<Memory allocation interface@>
+      st_decls
+
+      loop1: continue
+      if ( ! read_string(unit,line,length) ) line='END'
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' ||
+     $     line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' ||
+     $     line == 'EXTERNAL TEST' || LINE == 'EXTERNAL REACTION')
+     $     goto eof
+      assert(length<=len(line))
+      length=parse_string(line(:length))
+      
+      p=0
+loop2: continue
+      if ( ! next_token(line(:length),b,e,p) ) goto loop1
+      pr_ex_test_dim++
+      var_realloca(problem_ex_test_sp)
+      pr_ex_test(pr_ex_test_dim) = sp_lookup(line(b:e))
+      assert(pr_ex_test(pr_ex_test_dim) > 0)
+
+      goto loop2
+
+eof:  continue
+
+      pr_ex_test_num=pr_ex_test_dim
+
+      return
+      end
+
+@ Read in external reaction labels.
+      
+@<Functions...@>=
+      subroutine read_ex_reaction(unit,line)
+      implicit_none_f77
+      pr_common                 // Common
+      rc_common
+      implicit_none_f90
+      integer unit              // Input
+      character*(*) line        // Output
+      integer length,p,b,e      // Local
+
+      @<Memory allocation interface@>
+      st_decls
+      
+      pr_exrc_dim=0
+      assert(pr_exrc_num==0)
+loop1: continue
+      if ( ! read_string(unit,line,length) ) line='END'
+      if ( line == 'END' || line == 'TEST' || line == 'BACKGROUND' ||
+     $     line == 'REACTION' || line == 'MATERIALS' || line == 'PMI' ||
+     $     line == 'EXTERNAL TEST' || LINE == 'EXTERNAL REACTION')
+     $     goto eof
+      
+      assert(length<=len(line))
+      length=parse_string(line)
+      
+      p=0
+loop2: continue
+      if ( ! next_token(line(:length),b,e,p) ) goto loop1
+      pr_exrc_dim++
+      var_realloca(problem_external_reaction)
+      pr_ex_rc(pr_exrc_dim) = rc_lookup(line(b:e))
+      assert(pr_ex_rc(pr_exrc_dim) > 0)
+      goto loop2
+
+eof:  continue
+
+      pr_exrc_num=pr_exrc_dim
+
+      return
       end
 
 @ Setup initial entries in list of dependent variables. This routine does
@@ -694,6 +794,18 @@ also allowing for the isotopically equivalent combinations.
       var_reallocb(problem_rc)
       var_reallocb(problem_materials_ref)
       var_reallocb(problem_pmi_ref)
+      if (pr_ex_test_num == 0) then
+         pr_ex_test_dim=1
+         var_alloc(problem_ex_test_sp)
+      else
+         assert(pr_exrc_num > 0)
+      end if
+      if (pr_exrc_num==0) then
+         pr_exrc_dim=1
+         var_alloc(problem_external_reaction)
+      else
+         assert(pr_ex_test_num > 0)
+      end if
 
       write(stdout,*) 'Number of:'
       write(stdout,*) '  test species = ',pr_test_num
@@ -701,6 +813,10 @@ also allowing for the isotopically equivalent combinations.
       write(stdout,*) '  materials = ',pr_materials_num
       write(stdout,*) '  reactions = ',pr_reaction_num
       write(stdout,*) '  plasma-material interactions = ',pr_pmi_num
+      if (pr_ex_test_num > 0) write(stdout,*)
+     $     '  external test species = ',pr_ex_test_num
+      if (pr_exrc_num > 0) write(stdout,*)
+     $     '  external reactions = ',pr_exrc_num
       write(stdout,*) 'Test species are:'
       do i=1,pr_test_num
          write(stdout,*) pr_test(i),', ',trim(sp_name(pr_test(i)))
@@ -723,6 +839,18 @@ also allowing for the isotopically equivalent combinations.
       do i=1,pr_pmi_num
          write(stdout,*) pr_pm_ref(i),', ',trim(pm_name(pr_pm_ref(i)))
       end do
+      if (pr_ex_test_num > 0) then
+         write(stdout,*) 'External test species are:'
+         do i=1,pr_ex_test_num
+            write(stdout,*) pr_ex_test(i),', ',trim(sp_name(pr_ex_test(i)))
+         end do
+      end if
+      if (pr_exrc_num > 0) then
+         write(stdout,*) 'External reactions are:'
+         do i=1,pr_exrc_num
+            write(stdout,*) pr_ex_rc(i),', ',trim(rc_name(pr_ex_rc(i)))
+         end do
+      end if
       
       var_alloc(problem_reaction_num)
       var_alloc(problem_test_reaction)
@@ -735,6 +863,9 @@ also allowing for the isotopically equivalent combinations.
       var_alloc(problem_num_arrangements)
       var_alloc(problem_prod_mult)
       var_alloc(problem_test_products)
+      var_alloc(problem_external_test_reaction_num)
+      var_alloc(problem_external_test_reaction)
+      var_alloc(problem_exrc_products)
 
       assert(pr_max_equiv >= max(pr_test_num,pr_background_num))
       var_alloc(num_equiv)
@@ -793,6 +924,12 @@ also allowing for the isotopically equivalent combinations.
          pr_rc_num(i)=0
       end do
       pr_bkrc_dim=0
+
+      if (pr_ex_test_num > 0) then
+         do i=1,pr_ex_test_num
+            pr_ex_ts_rc_num(i)=0
+         end do
+      end if
 
       if (pr_reaction_num > 0) then
          do j=1,pr_reaction_num
@@ -855,8 +992,30 @@ also allowing for the isotopically equivalent combinations.
                else
                   assert('Illegal value of rc_gen(j)' == ' ')
                end if
+            else if (int_lookup(pr_reaction(j),problem_external_reaction,pr_exrc_dim) > 0) then 
+/*
+   External reactions.  Note: presently know of no applications requiring
+   the use of generic species variations.  So, ignoring them here in the
+   interest of simplicity.  The test and background ordering is the same
+   as for ordinary reactions, hence the resetting of |ts_reagent| and 
+   |bk_reagent|.
+*/
+               ts_reagent=2
+               bk_reagent=1
+               test=pr_ex_test_lookup(rc_reagent(pr_reaction(j),ts_reagent))
+               background=pr_background_lookup(rc_reagent(pr_reaction(j),ts_reagent))
+               assert( pr_ex_test_check(test) && pr_background_check(background) )
+               pr_ex_ts_rc_num(test)++
+               assert(pr_ex_ts_rc_num(test) <= pr_reaction_max)
+               pr_ex_ts_rc(test,pr_ex_ts_rc_num(test))=j
+               pr_ex_ts_bk(test,pr_ex_ts_rc_num(test))=background
+               do k=1,rc_product_num(pr_reaction(j))
+                  pr_ex_rc_prod(test,pr_ex_ts_rc_num(test),k)
+     $                 =rc_product(pr_reaction(j),k)
+               end do
             else
-/* Reactions among background species...
+/*
+   Reactions among background species...
    We have not established a protocol yet for dealing with reactions involving
    two background species. The typical reactions involve a test species (given
    velocity and position) and a background species (described only by a 
@@ -869,7 +1028,7 @@ also allowing for the isotopically equivalent combinations.
    will not likely be interested in it as a test particle. Whereas, the other
    reagent (e.g., an ion about to be recombined) will be sampled in preparation
    for determining the velocity of the sourced test species.
- */
+*/
                if (rc_gen(pr_reaction(j)) == rc_generic_no) then
                   do k=1,pr_bkrc_reagent_max
                      back[k]=pr_background_lookup(rc_reagent(pr_reaction(j),k))
