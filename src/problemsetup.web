@@ -544,14 +544,18 @@ loop1: continue
       p=0
 loop2: continue
       if ( ! next_token(line(:length),b,e,p) ) goto loop1
+      pr_reaction_dim++
+      var_realloca(problem_rc)
+      pr_reaction(pr_reaction_dim) = rc_lookup(line(b:e))
+      assert(pr_reaction(pr_reaction_dim) > 0)
       pr_exrc_dim++
       var_realloca(problem_external_reaction)
-      pr_ex_rc(pr_exrc_dim) = rc_lookup(line(b:e))
-      assert(pr_ex_rc(pr_exrc_dim) > 0)
+      pr_ex_rc(pr_exrc_dim) = pr_reaction(pr_reaction_dim)
       goto loop2
 
 eof:  continue
 
+      pr_reaction_num=pr_reaction_dim
       pr_exrc_num=pr_exrc_dim
 
       return
@@ -797,12 +801,14 @@ also allowing for the isotopically equivalent combinations.
       if (pr_ex_test_num == 0) then
          pr_ex_test_dim=1
          var_alloc(problem_ex_test_sp)
+         pr_ex_test(pr_ex_test_dim)=int_unused
       else
          assert(pr_exrc_num > 0)
       end if
       if (pr_exrc_num==0) then
          pr_exrc_dim=1
          var_alloc(problem_external_reaction)
+         pr_ex_rc(pr_exrc_dim)=int_unused
       else
          assert(pr_ex_test_num > 0)
       end if
@@ -865,6 +871,7 @@ also allowing for the isotopically equivalent combinations.
       var_alloc(problem_test_products)
       var_alloc(problem_external_test_reaction_num)
       var_alloc(problem_external_test_reaction)
+      var_alloc(problem_external_test_background)
       var_alloc(problem_exrc_products)
 
       assert(pr_max_equiv >= max(pr_test_num,pr_background_num))
@@ -892,10 +899,22 @@ also allowing for the isotopically equivalent combinations.
          end do
       end do
 
-/* For each test species, first obtain the index of the corresponding
+      do i=1,pr_ex_test_dim
+         pr_ex_ts_rc_num(i)=int_unused
+         do j=1,pr_reaction_max
+            pr_ex_ts_rc(i,j)=int_unused
+            pr_ex_ts_bk(i,j)=int_unused
+            do k=1,rc_product_max
+               pr_ex_rc_prod(i,j,k)=int_unused
+            end do
+         end do
+      end do
+/* 
+   For each test species, first obtain the index of the corresponding
    generic archetype, |generic|, increment the number 
    of equivalents to this archetype, and store the {\em species} index 
-   of this test in the |equivalents| array. */
+   of this test in the |equivalents| array. 
+*/
       do i=1,pr_test_num
          generic=generics[pr_test(i)]
          num_equiv[generic]++
@@ -933,6 +952,7 @@ also allowing for the isotopically equivalent combinations.
 
       if (pr_reaction_num > 0) then
          do j=1,pr_reaction_num
+            if (int_lookup(pr_reaction(j),problem_external_reaction,pr_exrc_dim) == 0) then 
 
 /* The original version of this code permitted an arbitrary ordering of 
    |test| and |background| in reagent specification (restricted to binary
@@ -991,28 +1011,7 @@ also allowing for the isotopically equivalent combinations.
                   end do
                else
                   assert('Illegal value of rc_gen(j)' == ' ')
-               end if
-            else if (int_lookup(pr_reaction(j),problem_external_reaction,pr_exrc_dim) > 0) then 
-/*
-   External reactions.  Note: presently know of no applications requiring
-   the use of generic species variations.  So, ignoring them here in the
-   interest of simplicity.  The test and background ordering is the same
-   as for ordinary reactions, hence the resetting of |ts_reagent| and 
-   |bk_reagent|.
-*/
-               ts_reagent=2
-               bk_reagent=1
-               test=pr_ex_test_lookup(rc_reagent(pr_reaction(j),ts_reagent))
-               background=pr_background_lookup(rc_reagent(pr_reaction(j),ts_reagent))
-               assert( pr_ex_test_check(test) && pr_background_check(background) )
-               pr_ex_ts_rc_num(test)++
-               assert(pr_ex_ts_rc_num(test) <= pr_reaction_max)
-               pr_ex_ts_rc(test,pr_ex_ts_rc_num(test))=j
-               pr_ex_ts_bk(test,pr_ex_ts_rc_num(test))=background
-               do k=1,rc_product_num(pr_reaction(j))
-                  pr_ex_rc_prod(test,pr_ex_ts_rc_num(test),k)
-     $                 =rc_product(pr_reaction(j),k)
-               end do
+                  end if   // Handle test reaction generics
             else
 /*
    Reactions among background species...
@@ -1077,10 +1076,32 @@ also allowing for the isotopically equivalent combinations.
                   end do
                else
                   assert('Illegal value of rc_gen(j)' == ' ')
-               end if
-            end if
+                  end if    // Handle background generics
+               end if       // Test or background (normal reactions)
+            else 
+/*
+   External reactions.  Note: presently know of no applications requiring
+   the use of generic species variations.  So, ignoring them here in the
+   interest of simplicity.  The test and background ordering is the same
+   as for ordinary reactions, hence the resetting of |ts_reagent| and 
+   |bk_reagent|.
+*/
+               ts_reagent=2
+               bk_reagent=1
+               test=pr_ex_test_lookup(rc_reagent(pr_reaction(j),ts_reagent))
+               background=pr_background_lookup(rc_reagent(pr_reaction(j),bk_reagent))
+               assert( pr_ex_test_check(test) && pr_background_check(background) )
+               pr_ex_ts_rc_num(test)++
+               assert(pr_ex_ts_rc_num(test) <= pr_reaction_max)
+               pr_ex_ts_rc(test,pr_ex_ts_rc_num(test))=j
+               pr_ex_ts_bk(test,pr_ex_ts_rc_num(test))=background
+               do k=1,rc_product_num(pr_reaction(j))
+                  pr_ex_rc_prod(test,pr_ex_ts_rc_num(test),k)
+     $                 =rc_product(pr_reaction(j),k)
          end do
-      end if
+            end if       // Normal or external reactions
+         end do          // Over problem reactions
+      end if             // On |pr_reaction_num|
 /* Have to introduce |pr_bkrc_dim| because netCDF allocates space for these
    arrays even if |pr_bkrc_num|=0. The problem arises when the netCDF file
    containing these variables is read back in. The size is reported to be
