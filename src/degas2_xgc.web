@@ -541,7 +541,7 @@ passes back data on reaction reagents and products.
 
 /*
    The variation here is likely to be just the non-integral fraction of the atomic
-   weight. Picking something arbitary for now.
+      weight. Picking something arbitary for now.
 */ 
       mass_roundoff=const(1.,-1)*atomic_mass_unit
       charge_roundoff=epsilon
@@ -1201,7 +1201,6 @@ reaction rate.
       sp_decl(background)
       rc_decl(reaction)
       pr_reaction_decl(prob_react)
-      pr_reaction_decl(ts_reac)
       pr_background_decl(back)
       rn_decl(tag)
 
@@ -1218,7 +1217,8 @@ reaction rate.
 */
       test=sp_lookup(test_label)
       assert(sp_check(test))
-      assert(pr_test_check(pr_test_lookup(test)))
+      assert(pr_test_check(pr_test_lookup(test))
+     $      || pr_ex_test_check(pr_ex_test_lookup(test)))
       background=sp_lookup(back_label)
       assert(sp_check(background))
       assert(pr_background_check(pr_background_lookup(background)))
@@ -1226,7 +1226,6 @@ reaction rate.
       assert(rc_check(reaction))
       prob_react=pr_reaction_lookup(reaction)
       assert(pr_reaction_check(prob_react))
-      ts_reac=int_lookup(prob_react,pr_ts_rc(pr_test_lookup(test),1),pr_reaction_max)
       assert(sp_generic(test) == sp_generic(rc_reagent(reaction,2)))
       assert(sp_generic(background) == sp_generic(rc_reagent(reaction,1)))
 /*
@@ -1352,7 +1351,76 @@ reaction rate.
       call nc_read_problem
 
       return
-      end 
+      end
+
+@* Routine to look up labels for a species based on its mass
+and charge.  Also returns the name of the ionization rate
+for the species.
+
+@<Functions...@>=
+      subroutine species_lookup(mass,charge,species_label,ionize_label)
+
+      implicit_none_f77
+      sp_common
+      rc_common
+      implicit_none_f90
+      
+      real mass,charge              // Input
+      character*sp_sy_len species_label   // Output
+      character*rc_sy_len ionize_label
+      integer i_sp,i_rc,i_rg
+      sp_decl(species)
+      rc_decl(ionize)
+      real mass_roundoff,charge_roundoff
+/*
+   Using logic similar to that in |degas2_sp_reac_map|.       
+*/
+      mass_roundoff=const(1.,-1)*atomic_mass_unit
+      charge_roundoff=epsilon
+      assert(charge >= zero)    // no electrons here
+      species=int_uninit
+      do i_sp=1,sp_num
+         if ((abs(sp_m(i_sp)-mass) < mass_roundoff)
+     $        && (abs(sp_z(i_sp)-charge) < charge_roundoff)) then
+/*
+   This should be unique.
+*/
+            assert(species == int_uninit)  
+            species=i_sp
+         end if
+      end do
+      assert(species != int_uninit)
+      species_label=sp_sy(species)
+
+      ionize=int_uninit
+      do i_rc=1,rc_num
+         if ((rc_reaction_type(i_rc) == 'ionize')
+     $        || (rc_reaction_type(i_rc) == 'ionize_suppress')) then
+/*
+   Can probably use something simpler here, but this
+   is too easy.
+*/
+            do i_rg=1,rc_reagent_num(i_rc)
+               if (rc_reagent(i_rc,i_rg) == species) then
+/*                  
+   May have more than one ionization reaction.  Will
+   use the first one and flag the others.
+*/
+                  if (ionize != int_uninit) then
+                     write(stderr,*)
+     $                    ' Ionization reaction for species ',species,' not unique'
+                  else
+                     ionize=i_rc
+                  end if
+               end if
+            end do
+         end if
+      end do
+      assert(ionize != int_uninit)
+      ionize_label=rc_sy(ionize)
+
+      return
+      end
 
 @* Function to return index into the |scoring_data| array for 
 particular problem species and physical quantity.  The input
