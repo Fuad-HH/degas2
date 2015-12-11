@@ -1373,9 +1373,12 @@ for the species.
       rc_decl(ionize)
       real mass_roundoff,charge_roundoff
 /*
-   Using logic similar to that in |degas2_sp_reac_map|.       
+      Using logic similar to that in |degas2_sp_reac_map|.  The
+      hardwired value of |mass_roundoff| was chosen to distinguish between
+      D$^{+}$ and H$_{2}^{+}$.  The masses used in XGC-0 are not
+      sufficiently precise to allow a smaller value. 
 */
-      mass_roundoff=const(1.,-1)*atomic_mass_unit
+      mass_roundoff=const(1.,-30)
       charge_roundoff=epsilon
       assert(charge >= zero)    // no electrons here
       species=int_uninit
