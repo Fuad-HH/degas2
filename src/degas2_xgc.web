@@ -1363,12 +1363,13 @@ for the species.
       implicit_none_f77
       sp_common
       rc_common
+      pr_common
       implicit_none_f90
       
       real mass,charge              // Input
       character*sp_sy_len species_label   // Output
       character*rc_sy_len ionize_label
-      integer i_sp,i_rc,i_rg
+      integer i_sp,i_rc,i_rp,pr_reac
       sp_decl(species)
       rc_decl(ionize)
       real mass_roundoff,charge_roundoff
@@ -1396,15 +1397,16 @@ for the species.
       species_label=sp_sy(species)
 
       ionize=int_uninit
-      do i_rc=1,rc_num
-         if ((rc_reaction_type(i_rc) == 'ionize')
-     $        || (rc_reaction_type(i_rc) == 'ionize_suppress')) then
+      do pr_reac=1,pr_reaction_num
+         if ((rc_reaction_type(pr_reaction(pr_reac)) == 'ionize')
+     $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress')) then
 /*
    Can probably use something simpler here, but this
    is too easy.
 */
-            do i_rg=1,rc_reagent_num(i_rc)
-               if (rc_reagent(i_rc,i_rg) == species) then
+            i_rc=pr_reaction(pr_reac)
+            do i_rp=1,rc_product_num(i_rc)
+               if (rc_product(i_rc,i_rp) == sp_generic(species)) then
 /*                  
    May have more than one ionization reaction.  Will
    use the first one and flag the others.
