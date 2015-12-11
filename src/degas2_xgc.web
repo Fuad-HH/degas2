@@ -1365,14 +1365,22 @@ for the species.
       rc_common
       pr_common
       implicit_none_f90
-      
-      real mass,charge              // Input
+        
+      real mass,charge                    // Input
       character*sp_sy_len species_label   // Output
       character*rc_sy_len ionize_label
       integer i_sp,i_rc,i_rp,pr_reac
+      sp_decl(ion_sp)
       sp_decl(species)
+      sp_decl(electron_sp)
+      sp_decl(product[2])
       rc_decl(ionize)
       real mass_roundoff,charge_roundoff
+
+      external species_add_check           // External
+      logical species_add_check
+
+      st_decls
 /*
       Using logic similar to that in |degas2_sp_reac_map|.  The
       hardwired value of |mass_roundoff| was chosen to distinguish between
@@ -1389,24 +1397,42 @@ for the species.
 /*
    This should be unique.
 */
-            assert(species == int_uninit)  
-            species=i_sp
+            assert(ion_sp == int_uninit)  
+            ion_sp=i_sp
          end if
       end do
-      assert(species != int_uninit)
-      species_label=sp_sy(species)
-
+      assert(ion_sp != int_uninit)
+/*       
+   The above gives us the species number of the charged
+   species tracked by XGC0.  What we actually want
+   is the corresponding neutral species.  Need not bother
+   with generic species here since we are only adding an
+   electron.
+*/
+      electron_sp=sp_lookup('e')
+      product[1]=electron_sp
+      product[2]=ion_sp
+      species_label=char_uninit
+      do i_sp=1,sp_num
+         if (species_add_check(2,sp_args(product),1,sp_args(i_sp))) then
+            assert(species_label == char_uninit)
+            species=i_sp
+            species_label=sp_sy(i_sp)
+         end if
+      end do
+      assert(species_label != char_uninit)
+      
       ionize=int_uninit
       do pr_reac=1,pr_reaction_num
          if ((rc_reaction_type(pr_reaction(pr_reac)) == 'ionize')
      $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress')) then
 /*
-   Can probably use something simpler here, but this
-   is too easy.
+   Search for the product (ion) here to avoid having to look
+   through both the regular and external test species lists.
 */
             i_rc=pr_reaction(pr_reac)
             do i_rp=1,rc_product_num(i_rc)
-               if (rc_product(i_rc,i_rp) == sp_generic(species)) then
+               if (rc_product(i_rc,i_rp) == sp_generic(ion_sp)) then
 /*                  
    May have more than one ionization reaction.  Will
    use the first one and flag the others.
