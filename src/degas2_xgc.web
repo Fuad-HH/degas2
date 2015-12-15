@@ -1354,11 +1354,15 @@ reaction rate.
       end
 
 @* Routine to look up labels for a species based on its mass
-and charge.  Also returns the name of the ionization rate
-for the species.
+and charge.  Also returns the names of the processes for which
+it is a test (or external test) reagent.
+
+@m ionization 1       // Must match list in XGC0 |d2r_module|
+@m recombination 2
+@m charge_exchange 3
 
 @<Functions...@>=
-      subroutine species_lookup(mass,charge,species_label,ionize_label)
+      subroutine species_lookup(mass,charge,species_symbol,reaction_symbol,num_rc_types)
 
       implicit_none_f77
       sp_common
@@ -1366,89 +1370,75 @@ for the species.
       pr_common
       implicit_none_f90
         
-      real mass,charge                    // Input
-      character*sp_sy_len species_label   // Output
-      character*rc_sy_len ionize_label
-      integer i_sp,i_rc,i_rp,pr_reac
-      sp_decl(ion_sp)
+      integer charge,num_rc_types                         // Input
+      real mass                  
+      character*sp_sy_len species_symbol                  // Output
+      character*rc_sy_len reaction_symbol[num_rc_types]
+      integer test,irct,ts_reagent,pr_reac,reac           // Local
+      real mass_roundoff
+      logical reaction_check
+      sp_decl(this_species)
       sp_decl(species)
-      sp_decl(electron_sp)
-      sp_decl(product[2])
-      rc_decl(ionize)
-      real mass_roundoff,charge_roundoff
-
-      external species_add_check           // External
-      logical species_add_check
-
-      st_decls
 /*
-      Using logic similar to that in |degas2_sp_reac_map|.  The
-      hardwired value of |mass_roundoff| was chosen to distinguish between
-      D$^{+}$ and H$_{2}^{+}$.  The masses used in XGC-0 are not
-      sufficiently precise to allow a smaller value. 
+      Had originally planned to use logic similar to that in |degas2_sp_reac_map|,
+      but the masses in XGC0 are too imprecise to pick directly from the 
+      species list.  Using the list of test and external test species is a 
+      renders the connections nearly trivial.
 */
-      mass_roundoff=const(1.,-30)
-      charge_roundoff=epsilon
-      assert(charge >= zero)    // no electrons here
-      species=int_uninit
-      do i_sp=1,sp_num
-         if ((abs(sp_m(i_sp)-mass) < mass_roundoff)
-     $        && (abs(sp_z(i_sp)-charge) < charge_roundoff)) then
+      species_symbol=char_uninit(1:sp_sy_len)  // |char_uninit| longer than |sp_sy_len|
+      this_species=int_uninit
+      do test=1,pr_test_num+pr_ex_test_num
+         if (test <= pr_test_num) then
+            species=pr_test(test)
+         else
+            species=pr_ex_test(test-pr_test_num)
+         end if
+         mass_roundoff=const(1.,-28)
+         assert(charge >= 0)    // no electrons here
+         if ((abs(sp_m(species)-mass) < mass_roundoff)
+     $        && (sp_z(species) == charge)) then
 /*
    This should be unique.
 */
-            assert(ion_sp == int_uninit)  
-            ion_sp=i_sp
+            assert(species_symbol == char_uninit(1:sp_sy_len))
+            assert(this_species == int_uninit)
+            species_symbol=sp_sy(species)
+            this_species=species
          end if
       end do
-      assert(ion_sp != int_uninit)
-/*       
-   The above gives us the species number of the charged
-   species tracked by XGC0.  What we actually want
-   is the corresponding neutral species.  Need not bother
-   with generic species here since we are only adding an
-   electron.
-*/
-      electron_sp=sp_lookup('e')
-      product[1]=electron_sp
-      product[2]=ion_sp
-      species_label=char_uninit
-      do i_sp=1,sp_num
-         if (species_add_check(2,sp_args(product),1,sp_args(i_sp))) then
-            assert(species_label == char_uninit)
-            species=i_sp
-            species_label=sp_sy(i_sp)
-         end if
-      end do
-      assert(species_label != char_uninit)
+      assert(species_symbol != char_uninit(1:sp_sy_len))
+      assert(this_species != int_uninit)
       
-      ionize=int_uninit
+      do irct=1,num_rc_types
+         reaction_symbol[irct]=char_uninit
+      end do
+      ts_reagent=2   // Now a standard 
       do pr_reac=1,pr_reaction_num
-         if ((rc_reaction_type(pr_reaction(pr_reac)) == 'ionize')
-     $        || (rc_reaction_type(pr_reaction(pr_reac)) == 'ionize_suppress')) then
-/*
-   Search for the product (ion) here to avoid having to look
-   through both the regular and external test species lists.
-*/
-            i_rc=pr_reaction(pr_reac)
-            do i_rp=1,rc_product_num(i_rc)
-               if (rc_product(i_rc,i_rp) == sp_generic(ion_sp)) then
-/*                  
-   May have more than one ionization reaction.  Will
-   use the first one and flag the others.
-*/
-                  if (ionize != int_uninit) then
-                     write(stderr,*)
-     $                    ' Ionization reaction for species ',species,' not unique'
-                  else
-                     ionize=i_rc
-                  end if
-               end if
-            end do
+         reac=pr_reaction(pr_reac)
+         if (sp_generic(rc_reagent(reac,ts_reagent))
+     $        == sp_generic(this_species)) then
+            if ((rc_reaction_type(reac) == 'ionize')
+     $           || (rc_reaction_type(reac) == 'ionize_suppress')) then
+               assert(reaction_symbol[ionization] == char_uninit)
+               reaction_symbol[ionization]=rc_sy(reac)
+            else if (rc_reaction_type(reac) == 'recombination') then
+               assert(reaction_symbol[recombination] == char_uninit)
+               reaction_symbol[recombination]=rc_sy(reac)
+            else if (rc_reaction_type(reac) == 'chargex') then
+               assert(reaction_symbol[charge_exchange] == char_uninit)
+               reaction_symbol[charge_exchange]=rc_sy(reac)
+            end if
          end if
       end do
-      assert(ionize != int_uninit)
-      ionize_label=rc_sy(ionize)
+/*      
+   Not all species will have all 3 types.  Just check to
+   see that it has at least one.
+*/
+      reaction_check=.false.
+      do irct=1,num_rc_types
+         if (reaction_symbol[irct] != char_uninit) reaction_check=.true.
+      end do
+      assert(reaction_check)
 
       return
       end
