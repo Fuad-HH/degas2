@@ -275,7 +275,11 @@ information into reaction data and miscellaneous arrays.
       character*xs_eval_name_length eval_name
       @<Memory allocation interface@>
       
-      assert(xs_name==rc_sy(pr_reaction(num)))
+      if (xs_name != rc_sy(pr_reaction(num))) then
+         write(stdout,*) ' Warning: reaction ',rc_sy(pr_reaction(num)),
+     $        ' refers to a reaction data file containing a different name, ',
+     $        xs_name
+      end if
 
 /* Initialize */
       rh_ind=0
