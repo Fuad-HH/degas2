@@ -1011,7 +1011,7 @@ also allowing for the isotopically equivalent combinations.
                   end do
                else
                   assert('Illegal value of rc_gen(j)' == ' ')
-                  end if   // Handle test reaction generics
+               end if   // Handle test reaction generics
             else
 /*
    Reactions among background species...
@@ -1080,9 +1080,10 @@ also allowing for the isotopically equivalent combinations.
                end if       // Test or background (normal reactions)
             else 
 /*
-   External reactions.  Note: presently know of no applications requiring
-   the use of generic species variations.  So, ignoring them here in the
-   interest of simplicity.  The test and background ordering is the same
+   External reactions. Skipping the processing of generic species
+   variations in the interest of simplicity. Do have one potential
+   example (|hrecombine|), but implementing a work-around to handle
+   it for now.  The test and background ordering is the same
    as for ordinary reactions, hence the resetting of |ts_reagent| and 
    |bk_reagent|.
 */
@@ -1098,7 +1099,7 @@ also allowing for the isotopically equivalent combinations.
                do k=1,rc_product_num(pr_reaction(j))
                   pr_ex_rc_prod(test,pr_ex_ts_rc_num(test),k)
      $                 =rc_product(pr_reaction(j),k)
-         end do
+               end do
             end if       // Normal or external reactions
          end do          // Over problem reactions
       end if             // On |pr_reaction_num|
