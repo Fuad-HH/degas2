@@ -12,6 +12,7 @@ and background files are not needed.
 The user is asked to specify the symbols of the test and background 
 reagents for the reaction to be examined, as well as the symbol for the
 reaction itself. All three must appear in the current problem input file.
+External test species and reactions can be used.
 \begin{verbatim}
  Enter symbols for test particle, background particle, reaction
 \end{verbatim}
@@ -54,9 +55,13 @@ $n_{\rm back} \langle \sigma v \rangle$:
 \begin{verbatim}
       => Reaction rate =   1.8638898E+05 s**(-1)
 \end{verbatim}
+If the input test and reaction are in the ``external'' list
+in the problemsetup input file, the output ends here;
+no reaction processing information is provided.
 
-Secondly, the product species, velocities, and weights (assuming that the
-test reagent had unit weight) are printed:
+Otherwise, for standard test species, 
+the product species, velocities, and weights (assuming that the
+test reagent had unit weight) follow:
 \begin{verbatim}
   Number of products =   2
    Product #  1 is atomic deuterium                
@@ -187,6 +192,7 @@ from the corresponding entry in the |DATA_HISTORY| log.
       pr_background_decl(background)
       pr_test_decl(test_i)
       pr_test_decl(test)
+      pr_test_decl(test_ex)
       rn_decl(tag)
 
       external eval_data                             // External
@@ -212,7 +218,12 @@ loop: continue
          go to loop
       end if
       test=pr_test_lookup(test_sp)
-      if (!pr_test_check(test)) then
+      test_ex=pr_ex_test_lookup(test_sp)
+      if (pr_test_check(test)) then
+         write(stdout,*) line(b:e),' is a standard test species. Proceeding...'
+      else if (pr_ex_test_check(test_ex)) then
+         write(stdout,*) line(b:e),' is an external test species. Proceeding...'
+      else
          write(stdout,*) line(b:e),' is not a valid test species; try again.'
          go to loop
       end if
@@ -240,18 +251,20 @@ loop: continue
       end if
 /*
    This loop replaces a simple |int_lookup| into |pr_ts_rc| that
-   only returns one possible reaction.
+   only returns one possible reaction.  Skip this for external test and reaction.
 */
-      ts_reac=int_uninit
-      do i=1,pr_rc_num(test)
-         if ((pr_ts_rc(test,i) == prob_react) 
-     $        && (pr_ts_bk(test,i) == background)) ts_reac=i
-      end do
-      if (ts_reac == int_uninit) then
-         write(stdout,*) 'No reaction ', trim(rc_sy(reaction)),
-     $        ' found with background ',trim(sp_sy(background_sp)),
-     $        '; try again.'
-         go to loop
+      if (pr_test_check(test)) then
+         ts_reac=int_uninit
+         do i=1,pr_rc_num(test)
+            if ((pr_ts_rc(test,i) == prob_react) 
+     $           && (pr_ts_bk(test,i) == background)) ts_reac=i
+         end do
+         if (ts_reac == int_uninit) then
+            write(stdout,*) 'No reaction ', trim(rc_sy(reaction)),
+     $           ' found with background ',trim(sp_sy(background_sp)),
+     $           '; try again.'
+            go to loop
+         end if
       end if
 /*
    With the above improvements, the following checks may be superfluous.
@@ -336,6 +349,8 @@ loop1: continue
      $     temperature,' J'
       write(stdout,'(a,1pe15.7,a)') '      => Reaction rate = ',
      $     rate,' s**(-1)'
+
+      if (!pr_test_check(test)) go to loop1  // Skip processing for external tests
 
       if (reaction_handling_num_rand[prob_react] > 0) then
          assert(reaction_handling_num_rand[prob_react] <= xs_max_random)
