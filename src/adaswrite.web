@@ -474,19 +474,22 @@ reaction_loop: continue
      $        xs_spacing[0,xs_num_dep_var],new_densities,new_temperatures,
      $        new_num_dens,new_num_temp,old_num_dens,old_num_temp)
 /*
-   Add ionization energy contribution
+   Add ionization energy contribution.  Note that the potential needs to
+   be converted from eV to J.
 */
          if ((reaction_type[irc] == 'ionize')
      $        || (reaction_type[irc] == 'ionize_suppress')) then
             do j=0,xs_tab_index[2,xs_num_dep_var]-1
                do i=0,xs_tab_index[1,xs_num_dep_var]-1
                   xs_data_table(i,j,0,xs_num_dep_var)
-     $        +=adas_rates[ecd_file][0][0][icharge_pot]*xs_data_table(i,j,0,2)
+     $                 +=adas_rates[ecd_file][0][0][icharge_pot]*electron_charge
+     $                        *xs_data_table(i,j,0,2)
                end do
             end do
          else if (reaction_type[irc] == 'recombination') then
 /*
-  Set up positive energy source to electrons from recombination.
+   Set up positive energy source to electrons from recombination.
+   Again, need to convert potential to J.      
 */
             xs_num_dep_var++
             xs_var[0,xs_num_dep_var]='background_energy_source_rate'
@@ -495,7 +498,8 @@ reaction_loop: continue
             do j=0,xs_tab_index[2,xs_num_dep_var]-1
                do i=0,xs_tab_index[1,xs_num_dep_var]-1
                   xs_data_table(i,j,0,xs_num_dep_var)
-     $                 =adas_rates[ecd_file][0][0][icharge_pot]*xs_data_table(i,j,0,2)
+     $                 =adas_rates[ecd_file][0][0][icharge_pot]*electron_charge
+     $                       *xs_data_table(i,j,0,2)
                end do
             end do
          end if
