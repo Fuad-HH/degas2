@@ -37,6 +37,9 @@ form='formatted',iostat=open_stat);
 
 @m n_opt 7      
 @m i_newt_max 50
+@m wall_unused 0
+@m wall_used_once 1
+@m wall_used_twice 2
 
 @I macros.hweb
 @I string.hweb
@@ -61,6 +64,7 @@ form='formatted',iostat=open_stat);
       */
       define_dimen(node_ind,dim_nodes)
       define_dimen(wall2d_ind,dim_walls)
+      define_dimen(wall_used_ind,0,num_walls)
       define_varp(nodes,FLOAT,g2_xz_ind,node_ind)
       define_varp(node_type,INT,node_ind)
       define_varp(node_element_count,INT,node_ind)
@@ -68,6 +72,7 @@ form='formatted',iostat=open_stat);
       define_varp(wall_elements,INT,g2_points_ind,wall2d_ind)
       define_varp(wall_psi_contour,INT,wall2d_ind)
       define_varp(wall_segment_count,INT,wall2d_ind)
+      define_varp(wall_used,INT,wall_used_ind)
       define_varp(psi_contours,FLOAT,cont_ind)
       define_varp(ext_lim_r,FLOAT,ext_lim_ind)
       define_varp(ext_lim_z,FLOAT,ext_lim_ind)
@@ -85,10 +90,12 @@ form='formatted',iostat=open_stat);
      $     dim_nodes,num_nodes,dim_walls,num_walls,
      $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer,
      $     ext_lim_m,dim_ext,first_point,num_poly,
-     $     next_start,iwall
+     $     next_start,iwall,im_next,num_poly_wall
+      integer poly_wall[2]
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
      $     dzbox,dr,r,z,psi,psi_min,psi_max,psi_value,
-     $     delta_psi,lim_psi_min,lim_psi_max
+     $     delta_psi,lim_psi_min,lim_psi_max,poly_psi,
+     $     psilim
       real segment[2][2],x_psi[2]
       logical tracked,polygons_done
       character*FILELEN g_file
@@ -117,6 +124,7 @@ form='formatted',iostat=open_stat);
       declare_varp(wall_elements)
       declare_varp(wall_psi_contour)
       declare_varp(wall_segment_count)
+      declare_varp(wall_used)
 
       declare_varp(psi_contours)
 
@@ -134,7 +142,7 @@ form='formatted',iostat=open_stat);
       end if
       call command_arg(1,g_file)
 
-      call init_psi_interp(g_file)
+      call init_psi_interp(g_file,psilim)
 /*
    This prototype attempts to replicate an ENDD case.
 
@@ -307,6 +315,7 @@ form='formatted',iostat=open_stat);
       var_alloc(nodes)
       var_alloc(node_type)
       var_alloc(node_element_count)
+      num_nodes=0
 
       var_alloc(wall_nodes)
       var_alloc(wall_elements)
@@ -408,7 +417,7 @@ with the |ic|-th crossing of limiter segment |im|.
                   ef_lim_cross_node[im][ef_lim_cross_times[im]]
      $                 =num_nodes
 /*                  
-   Determine the |direction| parameter needed by Hager's
+   Determine the |direction| parameter needed by Hager''s
    tracking algorithm.  The contours are tracked in the direction
    of $\nable \psi \times \hat{\phi}$.  Assuming that the direction      
    traced out by the limiter boundary, $\hat{\ell}$, is clockwise
@@ -497,9 +506,9 @@ with the |ic|-th crossing of limiter segment |im|.
    Write out the wallfile.
 */
       open(unit=diskout,file='wallfile',status='unknown')
-      write(diskout,*) '# Total number of walls'
+      write(diskout,'(a)') '# Total number of walls'
       write(diskout,'(i5)') num_walls
-      write(diskout,*) '# Number of points in each wall'
+      write(diskout,'(a)') '# Number of points in each wall'
 /*
    Purposely not using a format here since this is the way this is read 
    in by |definegeometry2d|.
@@ -521,25 +530,52 @@ with the |ic|-th crossing of limiter segment |im|.
 /*
    Write out polygons.
 */
+      open(unit=diskout,file='polygons_dg2d.in',status='unknown')
+      write(diskout,*) '# '
+      write(diskout,*) '# These are all flux contour polygons '
+      write(diskout,*) '# '
+/*
+   And a file to connect them to the $\psi$ values.
+*/
+      open(unit=diskout+1,file='stratum_psi',status='unknown')
+      write(diskout+1,*) '  stratum    psi/psi_sep   '
+
+      var_alloc(wall_used)
+      do im=0,num_walls
+         wall_used[im]=wall_unused
+      end do
       first_point=0
       im=1
       num_poly=0
       polygons_done=.false.
-      do while(!polygons_done && (first_point != 0))
+      do while(!polygons_done || (first_point != 0))
          if (first_point == 0) then
             first_point=im
             assert(im <= ext_lim_m)
             num_poly++
             write(stdout,*) 'Polygon: ',num_poly
+            next_start=0
+            write(diskout,*) 'new_zone plasma'
+            write(diskout,*) '  new_polygon'
+            write(diskout,'(a,i4)') '    stratum ',num_poly
+            poly_wall[1]=0
+            poly_wall[2]=0
+            num_poly_wall=0
          end if
          if (ext_lim_wall[im] == 0) then
 /*
-   Add the next segment of the extended limiter.
+   Add the next segment of the extended limiter.  For the polygons,
+   could group consecutive points together if this approach proves
+   too messy in practice.  Note the use of |im-1| since the wall nodes
+   begin numbering at 0.  The outer wall (|num_walls|) is closed, so 
+   need not worry about distinguishing the first and last points.
 */
             assert(ext_lim_used[im] == FALSE)
             write(stdout,*) ext_lim_r[im],ext_lim_z[im]
+            write(diskout,'(a,3i4)') '    wall ',num_walls,im-1,im-1
             ext_lim_used[im]=TRUE
-            im++ // What about the last point?
+            im++ 
+            if (im == ext_lim_m+1) im=1
          else
 /*
    Add a wall to the polygon. Before doing so,
@@ -547,56 +583,89 @@ with the |ic|-th crossing of limiter segment |im|.
    extended limiter segment; this will be the starting
    point for the next polygon.
 */ 
-            next_start=0
+            if (next_start == 0) im_next=im
             do while (next_start == 0)
-               im++
-               if (ext_lim_used[im] == FALSE) then
-                  next_start=im
+               im_next=im_next+1
+               if (im_next == ext_lim_m+1) im_next=1
+               iwall=ext_lim_wall[im_next]
+               if ((ext_lim_used[im_next] == FALSE) 
+     $              && (wall_used[iwall] == wall_unused)) then
+                  next_start=im_next
                else
-                  if (im == ext_lim_m+1) then
+                  if (im_next == im) then  // Have gone all the way round
                      polygons_done=.true.
-                     first_point=0
-                     next_start=im
+                     next_start=im_next
                   end if
                end if
             end do
-            if (ext_lim_wall[im] > 0) then
+            if (ext_lim_wall[im] != 0) then
                iwall=ext_lim_wall[im]
+            if (ext_lim_wall[im] > 0) then
                do ir=0,wall_segment_count[iwall]
                   write(stdout,*) nodes[wall_nodes[iwall][ir]][g2_x],
      $                 nodes[wall_nodes[iwall][ir]][g2_z]
+                     if (ir==0) write(diskout,'(a,i4,a)') '    wall ',iwall,' *'
                end do
             else
-               iwall=-ext_lim_wall[im]
-               do ir=wall_segment_count[iwall],0,-1
-                  write(stdout,*) nodes[wall_nodes[iwall][ir]][g2_x],
-     $                 nodes[wall_nodes[iwall][ir]][g2_z]
+                  do ir=wall_segment_count[-iwall],0,-1
+                     write(stdout,*) nodes[wall_nodes[-iwall][ir]][g2_x],
+     $                    nodes[wall_nodes[-iwall][ir]][g2_z]
+                     if (ir==0) write(diskout,'(a,i4,a)') '    wall ',-iwall,' * reverse'
                end do
             end if
-            im=int_lookup(ext_lim_m,ext_lim_wall,-iwall)
+               wall_used[abs(iwall)]++
+               num_poly_wall++
+               if (num_poly_wall <= 2) then 
+                  poly_wall[num_poly_wall]=abs(iwall)
+               else if (num_poly_wall == 3) then
+/*
+   Can get 3 walls, but two will have the same $\psi$ value.  Verify and
+   throw out the duplicate.
+*/
+                  if (wall_psi_contour[poly_wall[1]] == wall_psi_contour[poly_wall[2]]) then
+                     assert(wall_psi_contour[abs(iwall)] != wall_psi_contour[poly_wall[2]])
+                     num_poly_wall=2
+                     poly_wall[num_poly_wall]=abs(iwall)
+                  else
+                     assert((wall_psi_contour[poly_wall[1]] == wall_psi_contour[abs(iwall)])
+     $                    || (wall_psi_contour[poly_wall[2]] == wall_psi_contour[abs(iwall)]))
+                  end if
+               else
+                  assert(' More than 3 walls! ' == ' ')
+               end if
+            end if
+            im=int_lookup(-iwall,ext_lim_wall,ext_lim_m)
             assert((im > 0) && (im <= ext_lim_m))
             ext_lim_used[im]=TRUE
+            im++
+            if (im == ext_lim_m+1) im=1
+         end if   // On |ext_lim_wall|
             if (im == first_point) then
+/*
+   Add this point to close polygon.
+*/
+            write(stdout,*) ext_lim_r[im],ext_lim_z[im]  
+            write(diskout,'(a,3i4)') '    wall ',num_walls,im-1,im-1
+            write(diskout,'(a)') '  triangulate_to_zones'
+            if (poly_wall[2] > 0) then
+               poly_psi=half*(psi_contours[wall_psi_contour[poly_wall[1]]]
+     $              + psi_contours[wall_psi_contour[poly_wall[2]]])
+            else
+               poly_psi=psi_contours[wall_psi_contour[poly_wall[1]]]
+            end if
+/*
+   For present purposes, actually want the poloidal flux normalized
+   to the limiter / separatrix value, not relative.
+*/
+            poly_psi=one+poly_psi/psilim 
+            write(diskout+1,'(2x,i4,2x,f10.7)') num_poly,poly_psi
                first_point=0
                im=next_start
-            else
-               im++
             end if
-         end if   // On |ext_lim_wall|
       end do      // Outer do-while loop
 
-
-
-      open(unit=diskout,file='polygons_dg2d.in',status='unknown')
-      write(diskout,*) '# '
-      write(diskout,*) '# These are all flux contour polygons '
-      write(diskout,*) '# '
-      write(diskout,*) 'new_zone plasma'
-      write(diskout,*) '  new_polygon'
-      write(diskout,'(a,i4)') '    stratum ',is
-
-
-
+      close(unit=diskout)
+      close(unit=diskout+1)
 
       var_free(rbox)
       var_free(zbox)
@@ -609,6 +678,7 @@ with the |ic|-th crossing of limiter segment |im|.
       var_free(wall_elements)
       var_free(wall_psi_contour)
       var_free(wall_segment_count)
+      var_free(wall_used)
 
       var_free(ext_lim_r)
       var_free(ext_lim_z)
@@ -623,10 +693,11 @@ with the |ic|-th crossing of limiter segment |im|.
 
       @<Functions and Subroutines@>
 
-@ Initialize flux interpolation routine.
+@ Initialize flux interpolation routine.  Returns the limiter / separatrix
+flux (absolute) for use in producing final output.
 
 @<Functions...@>=
-      subroutine init_psi_interp(g_file)
+      subroutine init_psi_interp(g_file,psilim)
 
       define_dimen(r_ind,ef_nr)
       define_dimen(z_ind,ef_nz)
@@ -645,6 +716,7 @@ with the |ic|-th crossing of limiter segment |im|.
       implicit_none_f90
 
       character*FILELEN g_file                          // Input
+      real psilim                                       // Output
 
       integer open_stat,g_fit                           // Local
       character*40 g_title
@@ -683,7 +755,7 @@ with the |ic|-th crossing of limiter segment |im|.
       var_alloc(psis)
       var_alloc(pfm)
 
-      call read_efit(diskin,ef_nr,ef_nz,rr,zz,psis,fg,pg,ffg,ppg,pfm)
+      call read_efit(diskin,ef_nr,ef_nz,rr,zz,psis,fg,pg,ffg,ppg,pfm,psilim)
 /*
    And arrays used in the spline fitting process.
 */
@@ -732,18 +804,19 @@ with the |ic|-th crossing of limiter segment |im|.
 @ Subroutine to read standard EFIT geqdsk files.      
 
 @<Functions...@>=
-      subroutine read_efit(nunit,nr,nz,rr,zz,psis,fg,pg,ffg,ppg,pfm)
+      subroutine read_efit(nunit,nr,nz,rr,zz,psis,fg,pg,ffg,ppg,pfm,psilim)
 
       implicit_none_f77
       implicit_none_f90
       
       integer nunit,nr,nz                                // Input
+      real psilim                                          // Output
       real rr[nr],zz[nz],psis[nr],fg[nr],pg[nr],ffg[nr],
      $     ppg[nr],pfm[nz][nr]
 
       integer i,j,ir,iz                                  // Local
       real rdim,zdim,rcntc,redge,zmsmid,rma,zma,psimin,
-     $     psilim,btorc,dummy
+     $     btorc,dummy
       
       read(nunit,'(5e16.9)') rdim, zdim, rcntc, redge, zmsmid
       read(nunit,'(5e16.9)') rma, zma, psimin, psilim, btorc
@@ -771,6 +844,11 @@ with the |ic|-th crossing of limiter segment |im|.
       do iz=1,nz
          zz[iz]=((areal(iz-1)-(areal(nz-1)/two))/(areal(nz-1)))*zdim+zmsmid
       end do
+/*
+   To match what XGC does, need to actually reference everything to 
+   the minimum |psi|.  The |pfm| ends up as above still.
+*/
+      psilim=psilim-psimin
 
       return
       end
@@ -868,6 +946,25 @@ fitting routines.
             finished=1
             x_new[1]=x_int[1]
             x_new[2]=x_int[2]
+/*
+   Double check the value of |nseg| since the final point
+   may not be on the originally identified segment.  This just
+   looks at the signs dot-products of the vectors formed by the
+   new point and the limiter points |nseg| and |nseg_p|.
+*/
+            if ((x_new[1]-ef_lim_r[nseg])*(x_new[1]-ef_lim_r[nseg_p])
+     $    +(x_new[2]-ef_lim_z[nseg])*(x_new[2]-ef_lim_z[nseg_p]) > zero) then
+               if ((x_new[1]-ef_lim_r[nseg])*(ef_lim_r[nseg_p]-ef_lim_r[nseg])
+     $    +(x_new[2]-ef_lim_z[nseg])*(ef_lim_z[nseg_p]-ef_lim_z[nseg]) > zero) then
+                  nseg=nseg_p
+                  nseg_p=1+mod(nseg,ef_lim_msegments)
+               else
+                  nseg_p=nseg
+                  nseg=nseg_p-1  // mod?
+               end if
+               assert((x_new[1]-ef_lim_r[nseg])*(x_new[1]-ef_lim_r[nseg_p])
+     $    +(x_new[2]-ef_lim_z[nseg])*(x_new[2]-ef_lim_z[nseg_p]) < zero)
+            end if 
          end if
          increment_num_nodes
          nodes[num_nodes][g2_x]=x_new[1]
