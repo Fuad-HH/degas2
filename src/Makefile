@@ -382,6 +382,12 @@ ifndef CROSSCOMPILE
 	ar r $@ $(filter %.$O,$^) $*.id.o
 	ranlib $@
 
+%.so: FFLAGS += -fpic
+%.so: %.o $(SYSDEPO) string.$O idtof 
+	./idtof $(patsubst %.$O,%.f,$^) > $*.id.f
+	$(FC) -c $(FFLAGS) $(COMPFLAGS) $*.id.f
+	$(FC) -shared -o $@ $(filter %.$O,$^) $*.id.o
+
 else # We're cross compiling
 # The approach here is to explicitly tranfer files to the
 # remote machine, but maintain locally a timestamp (.ts)
@@ -545,6 +551,7 @@ flighttest: $(flighttest) $(foreach arg,$(subst .$O,_mods,$(flighttest)),$($(arg
 degas2_xgc = degas2_xgc.$O doflights.$O elementread.$O pmimatread.$O geometry.$O random.$O stat.$O randother.$O reaction.$O interpolate.$O geomfront.$O flight.$O sources.$O collide.$O readfilenames.$O plate.$O degasinit.$O score.$O conversions.$O voigt.$O writeback.$O aux2dsetup.$O geomsetup.$O geomfaces.$O geomutils.$O allocate.$O composite.$O
 degas2_xgc_libs = $(NETCDF) $(MPILIBSA)
 degas2_xgc.a: $(degas2_xgc) $(foreach arg,$(subst .$O,_mods,$(degas2_xgc)),$($(arg)))
+degas2_xgc.so: $(degas2_xgc) $(foreach arg,$(subst .$O,_mods,$(degas2_xgc)),$($(arg)))
 
 poly_to_tri = poly_to_tri.$O geometry.$O allocate.$O readfilenames.$O 
 poly_to_tri_libs = $(NETCDF)
