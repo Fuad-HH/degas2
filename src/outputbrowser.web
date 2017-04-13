@@ -233,18 +233,18 @@ If the tally is a vector quantity (such as the average neutral velocity,
 the user will see:
 
 \begin{verbatim}
-This tally is not a scalar quantity. Enter the dimension to be printed, 1 to 3
+This tally is not a scalar quantity. Enter the component to be printed, 1 to 3
 \end{verbatim}
 
 The coordinate system for vector quantities will be that specified by
 the output conversions for the tally, if any, during |tallysetup|.
-For cartesian coordinates, the dimensions 1, 2, and 3 would correspond to
+For cartesian coordinates, the components 1, 2, and 3 would correspond to
 $x$, $y$, and $z$, respectively.
 
 The corresponding line in the script file is:
 
 \begin{verbatim}
-  Dimension 1
+  Component 1
 \end{verbatim}
 
 This line can be omitted for scalar or rank 1 data.
@@ -442,7 +442,7 @@ next_tally: continue
       write (nunit,*) '''',trim(tally_name[jscore]),
      $     ''':'
       if (tally_dep_var_dim[jscore] > 1) then
-         write (nunit,*) '  dimension #',dim
+         write (nunit,*) '  component #',dim
       end if
       write (nunit,*)
 
@@ -707,7 +707,7 @@ pick_dim: continue
       if (tally_dep_var_dim[jscore] == 1) then
          dim=1
       else
-         write (stdout,*) ' This tally is not a scalar quantity. Enter the dimension to be printed, 1 to ',tally_dep_var_dim[jscore]
+         write (stdout,*) ' This tally is not a scalar quantity. Enter the component to be printed, 1 to ',tally_dep_var_dim[jscore]
          if (! read_string(stdin,line,length)) goto eof
          get_next_token
          dim=read_int_soft_fail(line(b:e))
@@ -765,7 +765,7 @@ pick_output: continue
             write (diskout,'(a,i1,2x,i1,2x,i1)') '  Order ',i1,i2,i3
          end if
       end if
-      write (diskout,*) ' Dimension ',dim
+      write (diskout,*) ' Component ',dim
       if (screen == TRUE) then
          write (diskout,*) ' Screen'
       else
@@ -805,7 +805,7 @@ range_loop2: continue
             if (next_token(line,b,e,p)) go to range_loop2
             if (max_slice[i] == int_undef) max_slice[i]=min_slice[i]
 
-         else if (line(b:e) == 'Dimension') then
+         else if (line(b:e) == 'Component') then
             assert(next_token(line,b,e,p))
             dim=read_int_soft_fail(line(b:e))
          else if (line(b:e) == 'Order') then
@@ -883,7 +883,7 @@ test_tally: continue
             dim=1
          else
             write(stdout,*)
-            write(stdout,*) 'Invalid dimension: ',dim,' for tally ',jscore
+            write(stdout,*) 'Invalid component: ',dim,' for tally ',jscore
             go to next_line
          end if
       end if

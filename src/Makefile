@@ -730,7 +730,7 @@ aladdin_subr.f: $(ALADIR)/aladdin_subr.f
 	cp $< $@
 
 aladdin_subr.o: aladdin_subr.f ALPCOM.FOR ALCOM.FOR
-	$(FC) -c $(DEBUGFLAGS) aladdin_subr.f
+	$(FC) -c $(FFLAGS) $(DEBUGFLAGS) aladdin_subr.f
 
 %.FOR: $(ALADIR)/%.FOR
 	cp $< $@
