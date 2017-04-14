@@ -722,12 +722,6 @@ flux (absolute) for use in producing final output.
       character*40 g_title
       character*8 g_date
 
-      integer ir,iz                                    // Testing only
-      real maxerr,toterr,ztest,rtest,psi_spline,
-     $     psi_value,error,avgerr
-      external psi_interp
-      real psi_interp
-
       @<Memory allocation interface@>
       sy_decls
       st_decls
@@ -783,6 +777,29 @@ flux (absolute) for use in producing final output.
 /*
    Test spline interpolation.
 */
+      call test_interp(ef_nr,ef_nz,pfm)
+
+      return
+      end
+
+@ Test interpolation.
+
+@<Functions...@>=
+      subroutine test_interp(nr,nz,pfm)
+
+      implicit_none_f77
+      ef_common
+      implicit_none_f90
+      
+      integer nr,nz                                    // Input
+      real pfm[nz][nr]
+
+      integer ir,iz                                    // Testing only
+      real maxerr,toterr,ztest,rtest,psi_spline,
+     $     psi_value,error,avgerr
+      external psi_interp
+      real psi_interp
+
       maxerr=zero
       toterr=zero
       do iz=1,ef_nz
