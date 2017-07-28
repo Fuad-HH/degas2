@@ -56,8 +56,8 @@
 @f nc_decls integer
 @m nc_decls integer nc_dims(MAX_DIM),nc_corner(MAX_DIM),nc_edge(MAX_DIM),nc_stat,nc_size,nc_rank,nc_attr,nc_type;
       character*MAX_NC_NAME nc_dummy;
-      external ncopen,ncvarid,ncdimid,nccreate,ncvardef,ncdimdef;
-      integer ncopen,ncvarid,ncdimid,nccreate,ncvardef,ncdimdef @;
+      external ncopen,ncvarid,ncdimid,nccreate,ncvardef,ncdimdef,nf_get_vara_text;
+      integer ncopen,ncvarid,ncdimid,nccreate,ncvardef,ncdimdef,nf_get_vara_text @;
 
 @m dimid1(name) name##_id
 @m dimid(name) dimid1(name)
@@ -106,6 +106,7 @@
       assert( $IFCASE(type_##name,NC_CHAR,NC_INT,NC_REAL) == nc_type ) @;
 @#endif
 
+@#if 0
 @m var_read(fileid,name)
       $IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
       $IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
@@ -115,6 +116,17 @@
       $IF(type_##name == CHAR,
         call ncvargetc(fileid,dimid(name),nc_corner,nc_edge,name,array_size(name),nc_stat),
         call ncvarget(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
+@#else
+@m var_read(fileid,name)
+      $IF(rank_##name >= 1, nc_corner(1)=1; nc_edge(1)=range_size(ind_##name##_1);,)
+      $IF(rank_##name >= 2, nc_corner(2)=1; nc_edge(2)=range_size(ind_##name##_2);,)
+      $IF(rank_##name >= 3, nc_corner(3)=1; nc_edge(3)=range_size(ind_##name##_3);,)
+      $IF(rank_##name >= 4, nc_corner(4)=1; nc_edge(4)=range_size(ind_##name##_4);,)
+      $IF(rank_##name >= 5, nc_corner(5)=1; nc_edge(5)=range_size(ind_##name##_5);,)
+      $IF(type_##name == CHAR,
+        nc_stat=nf_get_vara_text(fileid,dimid(name),nc_corner,nc_edge,name),
+        call ncvarget(fileid,dimid(name),nc_corner,nc_edge,name,nc_stat)) @;
+@#endif
 
 @* Description of netCDF Macros.
 
@@ -211,4 +223,6 @@ code the length of every ``edge'' (one for each dimension) of the
 variable |varname|; this is done using the local arrays |nc_corner|
 and |nc_edge|. Then, either the netCDF routine |ncvargetc| (for character
 strings) or |ncvarget| is called to actually retrieve the data from the file.
+Note that |ncvargetc| has been replaced by the function |nf_get_vara_text|      
+due to an incompatibility with the library.
 \end{description}
