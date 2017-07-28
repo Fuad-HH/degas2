@@ -37,6 +37,7 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
       define_varp(boundary_nodes,INT,node_ind)
       define_varp(node_index,INT,zone_index_ind,node_ind)
       define_varp(triangles,INT,corner_ind,tri_ind)
+      define_varp(triangle_zone,INT,tri_ind)
 
       implicit_none_f77
       zn_common
@@ -59,6 +60,7 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
       declare_varp(boundary_nodes)
       declare_varp(node_index)
       declare_varp(triangles)
+      declare_varp(triangle_zone)
 
       @<Memory allocation interface@>
       sy_decls
@@ -73,6 +75,7 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
       var_alloc(boundary_nodes)
       var_alloc(node_index)
       var_alloc(triangles)
+      var_alloc(triangle_zone)
 
       call readfilenames
 /*
@@ -177,11 +180,13 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
             end do
             num_tri++
             var_realloca(triangles)
+            var_realloca(triangle_zone)
 /*
    The first bit here takes care of all triangles and the first
    triangle generated from rectangles.
 */
             triangles[num_tri][0]=this_polygon[0]
+            triangle_zone[num_tri]=zone
             if (mesh_sense == 1) then
 /*
    Want counter-clockwise triangles, so have to reverse these.
@@ -199,6 +204,7 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
                num_tri++
                var_realloca(triangles)
                triangles[num_tri][0]=this_polygon[0]
+               triangle_zone[num_tri]=zone
                if (mesh_sense == 1) then
                   triangles[num_tri][1]=this_polygon[3]
                   triangles[num_tri][2]=this_polygon[2]
@@ -211,8 +217,8 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
       end do
 
       node_unit=diskout
-      assert(index(polygon_nc_file,'.') > 0)
-      file_root=polygon_nc_file(:index(polygon_nc_file,'.')-1)
+      assert(index(polygon_nc_file,'.nc') > 0)
+      file_root=polygon_nc_file(:index(polygon_nc_file,'.nc')-1)
       open(unit=node_unit,file=trim(file_root)\/'.node')
       write(node_unit,*) num_nodes,' 2   0   1'
       do i=1,num_nodes
@@ -224,15 +230,23 @@ rectangles and triangles into Triangle's ``nodes'' and ``elements''.
 
       ele_unit=diskout
       open(unit=ele_unit,file=trim(file_root)\/'.ele')
-      write(ele_unit,*) num_tri,' 3    0'
+/*
+   The ``1'' here represents the number of triangle
+   attributes in the file, here, it is the zone number
+   from |g2_polygon_zone|.  Note that this must
+   be formatted as a floating point number in the file.
+*/
+      write(ele_unit,*) num_tri,' 3    1'
       do i=1,num_tri
-         write(ele_unit,*) i,triangles[i][0],triangles[i][1],triangles[i][2]
+         write(ele_unit,'(4(i6,2x),f8.1)') i,triangles[i][0],triangles[i][1],
+     $        triangles[i][2],areal(triangle_zone[i])
       end do
       close(unit=ele_unit)
 
       var_free(nodes)
       var_free(boundary_nodes)
       var_free(triangles)
+      var_free(triangle_zone)
 
       stop
       end
