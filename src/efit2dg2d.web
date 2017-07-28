@@ -49,6 +49,12 @@ form='formatted',iostat=open_stat);
 
 @ The Main Program.
 
+@m NSTX_ENDD 0
+@m NSTX_GPI  1
+@m CMOD_GPI  2
+
+@m APP CMOD_GPI
+
 @a
       program efit2dg2d
 
@@ -142,7 +148,7 @@ form='formatted',iostat=open_stat);
       end if
       call command_arg(1,g_file)
 
-      call init_psi_interp(g_file,psilim)
+      call init_psi_interp(g_file)
 /*
    This prototype attempts to replicate an ENDD case.
 
@@ -152,10 +158,17 @@ form='formatted',iostat=open_stat);
    alot of the code that follows later makes specific assumptions about
    the possible paths of the contours through the box.
 */ 
+@#if (APP == NSTX_ENDD)
       rbox_min=const(1.2)
       rbox_max = const(1.555)
       zbox_min = const(-0.40)
       zbox_max = const(0.54)
+@#elseif (APP == CMOD_GPI)
+      rbox_min=const(0.82)
+      rbox_max = const(0.926)
+      zbox_min = const(-0.12)
+      zbox_max = const(0.12)
+@#endif
       nrbox = 35
       nzbox = 75
       drbox = (rbox_max - rbox_min)/(areal(nrbox-1))
@@ -181,7 +194,8 @@ form='formatted',iostat=open_stat);
 /*
    Hard wire these for now, but expect that they will likely
    be input somehow.  The extra ``1'' is for the separatrix.
-   Note that we are assuming that the separatrix is at |psi|=0.
+   Note that we are assuming that the separatrix is at 
+   |psi|=|ef_psilim|.
 
    We are proceeding under the assumption that there are no
    X- or O-points inside the box.  In that case, the maximum
@@ -194,14 +208,14 @@ form='formatted',iostat=open_stat);
       n_cont_out=25
       n_cont=n_cont_in+n_cont_out+1
       var_alloc(psi_contours)
-      delta_psi=-psi_min/areal(n_cont_in+1)
+      delta_psi=(ef_psilim-psi_min)/areal(n_cont_in+1)
       do ic=1,n_cont_in
          psi_contours[ic]=psi_min+areal(ic)*delta_psi
       end do
-      psi_contours[n_cont_in+1]=zero
-      delta_psi=psi_max/float(n_cont_out+1)
+      psi_contours[n_cont_in+1]=ef_psilim
+      delta_psi=(psi_max-ef_psilim)/float(n_cont_out+1)
       do ic=1,n_cont_out
-         psi_contours[ic+n_cont_in+1]=float(ic)*delta_psi
+         psi_contours[ic+n_cont_in+1]=ef_psilim+float(ic)*delta_psi
       end do
 /*
    Convention used here for the ``limiter'' is that
@@ -516,8 +530,10 @@ with the |ic|-th crossing of limiter segment |im|.
       write(diskout,*) SP (wall_segment_count[im]+1,im=1,num_walls)
       do im=1,num_walls
          if (im < num_walls) then
-            write(diskout,'(a,i4,a,1pe14.6)') '# Wall ',im,', psi= ',
-     $           psi_contours[wall_psi_contour[im]]
+            write(diskout,'(a,i4,a,1pe14.6,a,0p,f9.6)') '# Wall ',im,', psi= ',
+     $           psi_contours[wall_psi_contour[im]],
+     $           ', psi/psi_sep = ',
+     $           psi_contours[wall_psi_contour[im]]/ef_psilim
          else
             write(diskout,'(a,i4)') '# Boundary wall, ',im
          end if
@@ -535,10 +551,15 @@ with the |ic|-th crossing of limiter segment |im|.
       write(diskout,*) '# These are all flux contour polygons '
       write(diskout,*) '# '
 /*
-   And a file to connect them to the $\psi$ values.
+   A file to connect them to the $\psi$ values.
 */
       open(unit=diskout+1,file='stratum_psi',status='unknown')
       write(diskout+1,*) '  stratum    psi/psi_sep   '
+/*
+   This one dumps out the polygons as $R, Z$ pairs that can
+   be plotted externally.
+*/
+      open(unit=diskout+2,file='polygons.txt',status='unknown')
 
       var_alloc(wall_used)
       do im=0,num_walls
@@ -553,7 +574,7 @@ with the |ic|-th crossing of limiter segment |im|.
             first_point=im
             assert(im <= ext_lim_m)
             num_poly++
-            write(stdout,*) 'Polygon: ',num_poly
+            write(diskout+2,*) 'Polygon: ',num_poly
             next_start=0
             write(diskout,*) 'new_zone plasma'
             write(diskout,*) '  new_polygon'
@@ -571,7 +592,7 @@ with the |ic|-th crossing of limiter segment |im|.
    need not worry about distinguishing the first and last points.
 */
             assert(ext_lim_used[im] == FALSE)
-            write(stdout,*) ext_lim_r[im],ext_lim_z[im]
+            write(diskout+2,*) ext_lim_r[im],ext_lim_z[im]
             write(diskout,'(a,3i4)') '    wall ',num_walls,im-1,im-1
             ext_lim_used[im]=TRUE
             im++ 
@@ -602,13 +623,13 @@ with the |ic|-th crossing of limiter segment |im|.
                iwall=ext_lim_wall[im]
             if (ext_lim_wall[im] > 0) then
                do ir=0,wall_segment_count[iwall]
-                  write(stdout,*) nodes[wall_nodes[iwall][ir]][g2_x],
+                  write(diskout+2,*) nodes[wall_nodes[iwall][ir]][g2_x],
      $                 nodes[wall_nodes[iwall][ir]][g2_z]
                      if (ir==0) write(diskout,'(a,i4,a)') '    wall ',iwall,' *'
                end do
             else
                   do ir=wall_segment_count[-iwall],0,-1
-                     write(stdout,*) nodes[wall_nodes[-iwall][ir]][g2_x],
+                     write(diskout+2,*) nodes[wall_nodes[-iwall][ir]][g2_x],
      $                    nodes[wall_nodes[-iwall][ir]][g2_z]
                      if (ir==0) write(diskout,'(a,i4,a)') '    wall ',-iwall,' * reverse'
                end do
@@ -644,7 +665,7 @@ with the |ic|-th crossing of limiter segment |im|.
 /*
    Add this point to close polygon.
 */
-            write(stdout,*) ext_lim_r[im],ext_lim_z[im]  
+            write(diskout+2,*) ext_lim_r[im],ext_lim_z[im]  
             write(diskout,'(a,3i4)') '    wall ',num_walls,im-1,im-1
             write(diskout,'(a)') '  triangulate_to_zones'
             if (poly_wall[2] > 0) then
@@ -655,9 +676,15 @@ with the |ic|-th crossing of limiter segment |im|.
             end if
 /*
    For present purposes, actually want the poloidal flux normalized
-   to the limiter / separatrix value, not relative.
+   to the limiter / separatrix value, not relative.  The second value
+   goes with the revised approach, tracking XGC, of referring all $\psi$
+   values to the magnetic axis.
 */
-            poly_psi=one+poly_psi/psilim 
+@#if 0
+            poly_psi=one+poly_psi/ef_psilim 
+@#else
+            poly_psi=poly_psi/ef_psilim
+@#endif
             write(diskout+1,'(2x,i4,2x,f10.7)') num_poly,poly_psi
                first_point=0
                im=next_start
@@ -666,6 +693,7 @@ with the |ic|-th crossing of limiter segment |im|.
 
       close(unit=diskout)
       close(unit=diskout+1)
+      close(unit=diskout+2)
 
       var_free(rbox)
       var_free(zbox)
@@ -693,228 +721,15 @@ with the |ic|-th crossing of limiter segment |im|.
 
       @<Functions and Subroutines@>
 
-@ Initialize flux interpolation routine.  Returns the limiter / separatrix
-flux (absolute) for use in producing final output.
-
-@<Functions...@>=
-      subroutine init_psi_interp(g_file,psilim)
-
-      define_dimen(r_ind,ef_nr)
-      define_dimen(z_ind,ef_nz)
-      define_varp(fg,FLOAT,r_ind)
-      define_varp(pg,FLOAT,r_ind)
-      define_varp(ffg,FLOAT,r_ind)
-      define_varp(ppg,FLOAT,r_ind)
-      define_varp(rr,FLOAT,r_ind)
-      define_varp(zz,FLOAT,z_ind)
-      define_varp(psis,FLOAT,r_ind)
-      define_varp(pfm,FLOAT,r_ind,z_ind)
-
-      use bspline
-      implicit_none_f77
-      ef_common                                         // Common
-      implicit_none_f90
-
-      character*FILELEN g_file                          // Input
-      real psilim                                       // Output
-
-      integer open_stat,g_fit                           // Local
-      character*40 g_title
-      character*8 g_date
-
-      @<Memory allocation interface@>
-      sy_decls
-      st_decls
-
-      declare_varp(fg)
-      declare_varp(pg)
-      declare_varp(ffg)
-      declare_varp(ppg)
-      declare_varp(rr)
-      declare_varp(zz)
-      declare_varp(psis)
-      declare_varp(pfm)
-      
-      open_file(diskin,g_file)
-      read(diskin,'(a40,a8,3(i4))') g_title,g_date,g_fit,ef_nr,ef_nz
-/*
-   Allocate arrays read in from EFIT file.
-*/
-      var_alloc(fg)
-      var_alloc(pg)
-      var_alloc(ffg)
-      var_alloc(ppg)
-      var_alloc(rr)
-      var_alloc(zz)
-      var_alloc(psis)
-      var_alloc(pfm)
-
-      call read_efit(diskin,ef_nr,ef_nz,rr,zz,psis,fg,pg,ffg,ppg,pfm,psilim)
-/*
-   And arrays used in the spline fitting process.
-*/
-      var_alloc(ef_psi_knot)
-      var_alloc(ef_r_knot)
-      var_alloc(ef_z_knot)
-      var_alloc(ef_psi_bscoef)
-/*
-   Set up knots for the coordinates.
-*/
-      call dbsnak(ef_nr,psis,ef_korder,ef_psi_knot)
-
-      ef_min_r=rr(1) 
-      ef_max_r=rr(ef_nr)
-      ef_min_z=zz(1)
-      ef_max_z=zz(ef_nz) 
-
-      call dbsnak(ef_nr,rr,ef_korder_rz,ef_r_knot)
-      call dbsnak(ef_nz,zz,ef_korder_rz,ef_z_knot)
-/*
-   This routine actually sets up the spline for the flux.
-*/
-      CALL dbs2IN (ef_nr, rr, ef_nz, zz, pfm, ef_nr,
-     $  ef_korder_rz, ef_korder_rz, ef_r_knot, ef_z_knot, ef_psi_bscoef)
-/*
-   Test spline interpolation.
-*/
-      call test_interp(ef_nr,ef_nz,pfm)
-
-      return
-      end
-
-@ Test interpolation.
-
-@<Functions...@>=
-      subroutine test_interp(nr,nz,pfm)
-
-      implicit_none_f77
-      ef_common
-      implicit_none_f90
-      
-      integer nr,nz                                    // Input
-      real pfm[nz][nr]
-
-      integer ir,iz                                    // Testing only
-      real maxerr,toterr,ztest,rtest,psi_spline,
-     $     psi_value,error,avgerr
-      external psi_interp
-      real psi_interp
-
-      maxerr=zero
-      toterr=zero
-      do iz=1,ef_nz
-         ztest=ef_min_z+((ef_max_z-ef_min_z)/areal(ef_nz-1))*areal(iz-1)
-         do ir=1,ef_nr
-            rtest=ef_min_r+((ef_max_r-ef_min_r)/areal(ef_nr-1))*areal(ir-1)
-            psi_value=pfm[iz][ir]
-            psi_spline=psi_interp(rtest,ztest,0,0)
-            error=abs(psi_spline-psi_value)/max(abs(psi_value),const(1.,-10))
-            if (error > maxerr) maxerr=error
-            toterr+=error
-         end do
-      end do
-      avgerr=toterr/areal(ef_nr*ef_nz)
-
-      return
-      end
-
-@ Subroutine to read standard EFIT geqdsk files.      
-
-@<Functions...@>=
-      subroutine read_efit(nunit,nr,nz,rr,zz,psis,fg,pg,ffg,ppg,pfm,psilim)
-
-      implicit_none_f77
-      implicit_none_f90
-      
-      integer nunit,nr,nz                                // Input
-      real psilim                                          // Output
-      real rr[nr],zz[nz],psis[nr],fg[nr],pg[nr],ffg[nr],
-     $     ppg[nr],pfm[nz][nr]
-
-      integer i,j,ir,iz                                  // Local
-      real rdim,zdim,rcntc,redge,zmsmid,rma,zma,psimin,
-     $     btorc,dummy
-      
-      read(nunit,'(5e16.9)') rdim, zdim, rcntc, redge, zmsmid
-      read(nunit,'(5e16.9)') rma, zma, psimin, psilim, btorc
-      read(nunit,'(5e16.9)') dummy, dummy, dummy, dummy, dummy
-      read(nunit,'(5e16.9)') dummy, dummy, dummy, dummy, dummy
-      read(nunit,'(5e16.9)') SP (fg(i),i=1,nr)
-      read(nunit,'(5e16.9)') SP (pg(i),i=1,nr)
-      read(nunit,'(5e16.9)') SP (ffg(i),i=1,nr)
-      read(nunit,'(5e16.9)') SP (ppg(i),i=1,nr)
-      read(nunit,'(5e16.9)') SP ((pfm[j][i],i=1,nr),j=1,nz)
-
-      close(unit=nunit)
-
-      do ir=1,nr
-         rr[ir]=(areal(ir-1)/(areal(nr-1)))*rdim+redge
-         psis[ir]=(areal(ir-1)/(areal(nr-1)))*(psilim-psimin)
-/*
-   Subtract |psilim| so we know the separatrix is at |pfm|=0.
-*/
-         do iz=1,nz
-            pfm[iz][ir]=pfm[iz][ir]-psilim
-         end do
-      end do
-
-      do iz=1,nz
-         zz[iz]=((areal(iz-1)-(areal(nz-1)/two))/(areal(nz-1)))*zdim+zmsmid
-      end do
-/*
-   To match what XGC does, need to actually reference everything to 
-   the minimum |psi|.  The |pfm| ends up as above still.
-*/
-      psilim=psilim-psimin
-
-      return
-      end
-
-@ Evaluate spline interpolation to get flux or its derivatives at input
-coordinates.
-
-@<Functions...@>=
-      function psi_interp(r_in,z_in,r_der,z_der)
-
-      use bspline
-      implicit_none_f77
-      ef_common                                         // Common
-      implicit_none_f90
-
-      real psi_interp                                   // Function
-      integer r_der,z_der                               // Input
-      real r_in,z_in
-
-      assert((r_in >= ef_min_r) && (r_in <= ef_max_r))
-      assert((z_in >= ef_min_z) && (z_in <= ef_max_z))
-/*
-   This is the more general call to evaluate the derivative
-   of the spline in both directions.
-*/
-            
-      psi_interp=dbs2dr(r_der,z_der,r_in,z_in,ef_korder_rz,ef_korder_rz,
-     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
-/*
-   This is the more specific, but equivalent, call that just
-   evaluates the spline.
-*/
-@#if 0
-      psi_interp=dbs2vl(r_in,z_in,ef_korder_rz,ef_korder_rz,
-     $           ef_r_knot,ef_z_knot,ef_nr,ef_nz,ef_psi_bscoef)
-@#endif
-
-      return
-      end
-
 @* Get nodes from flux surface contours.  This routine and the ones
 invoked by it have been borrowed from Hager''s gengrid2 package, primarily from
 node3.F90.  These have been modified for the simpler box-like
-geometries anticipated for this code and to use the bspline90_22.f90 spline
+geometries anticipated for this code and to use the |bspline90_22.f90| spline
 fitting routines.      
 
 @<Get Nodes@>=
       dr=drbox
-      r_dtheta=const(5.,-3)   // target poloidal distance
+      r_dtheta=const(3.,-3)   // target poloidal distance
       
       x_old[1]=r
       x_old[2]=z
