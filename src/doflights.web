@@ -69,7 +69,7 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
      $        jscore_total,icp,num_chkpts,group_tot_flights,
      $        nflights,nfrag,nparcel,num,nstart,nslaves,slave,
      $        send_data,post_arrays_allocd,isp,ip,
-     $        last_sn_num_particles
+     $        last_sn_num_particles,have_snapshot_file
       integer index_parameters[tl_index_max]
 
       real mult,tot_scale_curr,prob,signal,wavelength,avg_part_per_sec
@@ -139,6 +139,19 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       else if (so_restart == TRUE) then
          assert(output_old_file == TRUE) 
          post_arrays_allocd=TRUE
+/*         
+   The restart capability was never tested in time dependent mode. 
+   Inserted the call to |nc_read_snapshot| here as a placeholder.
+   We {\em do} need to allocate the snapshot arrays if there is
+   no snapshot file.
+*/
+         call nc_read_snapshot(have_snapshot_file)
+         if (have_snapshot_file == FALSE) then
+            sn_number_particles=0
+            sn_particles_dim=mem_inc
+            var_alloc(sn_particles_float)
+            var_alloc(sn_particles_int)
+         end if
       else
          assert('Illegal value of so_restart' == ' ')
       end if
@@ -200,6 +213,11 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
                   chkpt_nflights[num_chkpts]=so_nflights(is)-output_num_flights(is)-group_tot_flights
                end if
             end do
+         else
+/*
+   This is for restarts with the same number of flights.
+*/
+            tot_scale_curr+=so_scale(is)*so_tot_curr(is)
          end if
       end do
       var_reallocb(chkpt_grp)
