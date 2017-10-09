@@ -37,6 +37,8 @@ extraneous material should be stripped out.
       implicit_none_f77
       implicit_none_f90
 
+      integer geom_modified
+
       call readfilenames
       call nc_read_species
       call nc_read_reactions
@@ -52,8 +54,10 @@ extraneous material should be stripped out.
 /*
    Replace with this routine that knows about BGK background species.
    Will zero their parameters and relabel vacuum zones to plasma.
+   Do not need to check |geom_modified| since this is the first 
+   writing of the geometry.
 */
-      call setup_back_arrays
+      call setup_back_arrays(geom_modified)
 @#endif
       call setup_box_background
 
@@ -644,10 +648,6 @@ purposes of scoring.
 
       call check_geometry
 
-@#if 0
-// Move to after background setup
-      call write_geometry
-@#endif
 @#if 0
       call print_geometry(stdout)
 @#endif

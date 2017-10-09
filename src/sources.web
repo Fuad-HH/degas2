@@ -538,12 +538,8 @@ using routines specific for the type of that source.
       vc_decl(vsrc)              // Output
 
       integer j,seg_tot,iparam   // Local
-      real wa,ion_energy
+      real wa,ion_energy,e_ion_mult
       real vgauss[1]
-      sc_plasma_decl(plasma_sc_ptr)
-
-      plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
-      assert(sc_plasma_check(plasma_sc_ptr))
 /*
    For testing of miscellaneous source parameter implementation
    of sheath parameters.
@@ -552,19 +548,18 @@ using routines specific for the type of that source.
       seg_tot=so_base(isource)+kseg
       do iparam=1,source_num_parameters[isource]
          if (so_params_list(iparam,isource) == so_param_e_ion_mult) then
-            assert(so_params_data(iparam,seg_tot,isource) 
-     $           == plasma_e_ion_mult[plasma_sc_ptr])
+            e_ion_mult=so_params_data(iparam,seg_tot,isource)
          end if
       end do
       wa=zero
-      if (plasma_e_ion_mult[plasma_sc_ptr] > zero) then
+      if (e_ion_mult > zero) then
 /* Sample a Gaussian energy at background temperature */
          do j=1,3
             rn_gauss_next(vgauss,r)
             wa+=vgauss[1]**2
          end do
       else
-         assert(plasma_e_ion_mult[plasma_sc_ptr] == zero)
+         assert(e_ion_mult == zero)
       end if
 
       call plate_v_details(so_args(isource),xseg,kseg,lc_args(x),wa,
@@ -602,43 +597,37 @@ the average value is used.
       real ion_energy
 
       integer seg_tot,iparam     // Local
+      real e_ion_delta,e_ion_sheath,e_ion_mult
       sp_decl(spion)  
-      sc_plasma_decl(plasma_sc_ptr)
       pr_background_decl(back)
 
       assert(so_geom(isource) == so_surface)
       spion=so_root_sp(isource)
-      plasma_sc_ptr=sector_type_pointer[xseg][sc_plasma]
-      assert(sc_plasma_check(plasma_sc_ptr))
       back=pr_background_lookup(spion)
       assert(pr_background_check(back))
       wa=half*wa*bk_temp(back,lc_zone(x))
 /*
-   For testing of miscellaneous source parameter implementation
-   of sheath parameters.
+   Sheath parameters are now stored as miscellaneous source parameter.
 */
       assert(source_num_parameters[isource] > 0)
       seg_tot=so_base(isource)+kseg
       do iparam=1,source_num_parameters[isource]
          if (so_params_list(iparam,isource) == so_param_e_ion_delta) then
-            assert(so_params_data(iparam,seg_tot,isource) 
-     $           == plasma_e_ion_delta[plasma_sc_ptr])
+            e_ion_delta=so_params_data(iparam,seg_tot,isource)
          else if (so_params_list(iparam,isource) == so_param_e_ion_sheath) then
-            assert(so_params_data(iparam,seg_tot,isource) 
-     $           == plasma_e_ion_sheath[plasma_sc_ptr])
+            e_ion_sheath=so_params_data(iparam,seg_tot,isource)
+         else if (so_params_list(iparam,isource) == so_param_e_ion_mult) then
+            e_ion_mult=so_params_data(iparam,seg_tot,isource)
          end if
       end do
 /*
-   First attempt at a flexible sheath physics model. These parameters
-   are now set in |readbackground.web|.
+   This is the sheath model, for better or worse.
 */
 @#if 0
 // This has now been relaxed
       assert(sp_z(spion) == 1) // If $> 1$, should have term $\propto Z$
 @#endif
-      ion_energy=plasma_e_ion_delta[plasma_sc_ptr]
-     $     + plasma_e_ion_mult[plasma_sc_ptr]*wa
-     $     + plasma_e_ion_sheath[plasma_sc_ptr]*sp_z(spion)
+      ion_energy=e_ion_delta + e_ion_mult*wa + e_ion_sheath*sp_z(spion)
       assert(ion_energy >= zero)
 
       call plate_v_vector(ion_energy,sp_args(spion),xseg,vc_args(vsrc))

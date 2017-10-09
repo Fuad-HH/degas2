@@ -104,9 +104,6 @@ starting them at $0$, the dimensions have a length of at least $1$.
       define_var_pk(sc,sc_plasma_num,INT)
       define_dimen_pk(sc,plasma_ind,0,sc_plasma_num)
       define_varp_pk(sc,plasma_sector,INT,plasma_ind)
-      define_varp_pk(sc,plasma_e_ion_delta,FLOAT,plasma_ind)
-      define_varp_pk(sc,plasma_e_ion_mult,FLOAT,plasma_ind)
-      define_varp_pk(sc,plasma_e_ion_sheath,FLOAT,plasma_ind)
 
 /* |target| subclass */
       define_var_pk(sc,sc_target_num,INT)
@@ -173,14 +170,8 @@ starting them at $0$, the dimensions have a length of at least $1$.
 @m define_sector_plasma(sc)
       sc_plasma_num=sc_plasma_num+1;
       var_realloca(plasma_sector);
-      var_realloca(plasma_e_ion_delta);
-      var_realloca(plasma_e_ion_mult);
-      var_realloca(plasma_e_ion_sheath);
       plasma_sector[sc_plasma_num]=sc;
       sector_type_pointer[sc][sc_plasma]=sc_plasma_num; 
-      plasma_e_ion_delta[sc_plasma_num]=zero;
-      plasma_e_ion_mult[sc_plasma_num]=one; 
-      plasma_e_ion_sheath[sc_plasma_num]=zero @; 
 @m define_sector_target(sc,mat,temp,recyc)
       sc_target_num=sc_target_num+1;
       var_realloca(target_sector);
@@ -306,10 +297,8 @@ is that a separate default diagnostic group is defined for them.
 
 A |target| sector is assumed to exist at the interface between adjacent
 plasma and solid zones.  The properties |target_material|,
-|target_temperature|, and |target_recyc_coef| describe the solid.  The
-properties |plasma_e_ion_delta|, |plasma_e_ion_mult|,
-|plasma_e_ion_sheath| are used to specify the sheath potential needed to
-establish a plate source at these sectors. Obviously, the |plasma|
+|target_temperature|, and |target_recyc_coef| describe the solid.  
+Obviously, the |plasma|
 sector is defined using the plasma zone, and the |target| sector is
 defined using the target zone.  The sectors' surfaces are of opposite
 sign, chosen so that a particle leaving the plasma zone goes ``out'' (in
@@ -391,7 +380,11 @@ to index |vacuum_ind| in the vacuum subclass list.
   \item[|plasma_sector[plasma_ind]|] Returns the sector index corresponding
 to index |plasma_ind| in the plasma subclass list.
 
-  \item[|plasma_e_ion_delta[plasma_ind]|] Contains $\delta$ (eV), the constant
+  \item[|plasma_e_ion_delta[plasma_ind]|] (OBSOLETE.  This
+and the other two |plasma_e_ion| parameters have been replaced
+by similarly named miscellaneous source parameters.  Retaining
+only this documentation for archival reference.) 
+Contains $\delta$ (eV), the constant
 (i.e., not a function of the incident ion parameters) contribution
 to the incident ion energy following acceleration through the sheath:
 $E_{\rm ion} = \delta + \alpha E_{\rm i,0} + \phi_{\rm s} Z_{i}$.
@@ -557,9 +550,7 @@ subclass.
 
   \item[|define_sector_plasma(sector,temp)|] Adds |sector| to the plasma sector
 subclass. The |temp| property is no longer used, but retained in the
-macro for compatibility. Default values |plasma_e_ion_delta| = 0, 
-|plasma_e_ion_mult| = 1, and |plasma_e_ion_sheath| = 0 are
-assigned at this point; they may be explicitly changed.
+macro for compatibility. 
 
   \item[|define_sector_target(sector,material,temp,recyc)|] 
 Adds |sector| to the 

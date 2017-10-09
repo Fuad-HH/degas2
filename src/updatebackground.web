@@ -65,7 +65,7 @@ probabilities are recomputed.
       
       character*FILELEN datafilename                   // Input
 
-      integer update,uedge                             // Local
+      integer update,uedge,geom_modified               // Local
 
       @<Memory allocation interface@>
 /*
@@ -94,7 +94,8 @@ probabilities are recomputed.
       call nc_read_pmi
       call nc_read_problem
 
-      call setup_back_arrays
+      call setup_back_arrays(geom_modified)
+      assert(geom_modified == FALSE)  
 /*
    Try reading old sources file.  If present, assume that this run 
    is an update $\Rightarrow$ |update| = |TRUE|.
@@ -110,7 +111,6 @@ probabilities are recomputed.
       end if
 
       call write_background
-      call write_geometry     // Updated plasma sector properties
 
       return
       end

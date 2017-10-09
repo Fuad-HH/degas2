@@ -1151,13 +1151,6 @@ If not, add to the list.
                   vc_scale(one/ne,v_bdy,v_bdy)
                end if
                if (vc_abs(v_bdy) > zero || te1[j2,ixpt] > zero) then
-                  plasma_e_ion_delta[plasma_sc_ptr]
-     $                 =const(3.0)*ti1[j2,ixpt]+half*te1[j2,ixpt]
-                  plasma_e_ion_sheath[plasma_sc_ptr]
-     $                 =te1[j2,ixpt]*phi_sheath(vc_args(v_bdy),
-     $                  ti1[j2,ixpt],te1[j2,ixpt])
-                  plasma_e_ion_mult[plasma_sc_ptr]=zero
-
                   assert(source_num_parameters[grp] > 0) // Should be 3 !
                   if (i_seg == 1) 
      $                 source_parameters_data_base[grp]=so_params_data_size
@@ -1248,13 +1241,6 @@ If not, add to the list.
                   vc_scale(one/ne,v_bdy,v_bdy)
                end if
                if (vc_abs(v_bdy) > zero || te2[j2,ixpt] > zero) then
-                  plasma_e_ion_delta[plasma_sc_ptr]
-     $                 =const(3.0)*ti2[j2,ixpt]+half*te2[j2,ixpt]
-                  plasma_e_ion_sheath[plasma_sc_ptr]
-     $                 =te2[j2,ixpt]*phi_sheath(vc_args(v_bdy),
-     $                  ti2[j2,ixpt],te2[j2,ixpt])
-                  plasma_e_ion_mult[plasma_sc_ptr]=zero
-
                   assert(source_num_parameters[grp] > 0) // Should be 3 !
                   if (i_seg == 1) 
      $                 source_parameters_data_base[grp]=so_params_data_size
@@ -1610,7 +1596,7 @@ overlap between the test and background species (i.e., for BGK neutrals).
 If present, vacuum zones are relabeled as plasma zones to permit 
 collisions in them.
 @<Functions...@>=
-      subroutine setup_back_arrays
+      subroutine setup_back_arrays(geom_modified)
 
       implicit_none_f77
       rc_common
@@ -1619,7 +1605,7 @@ collisions in them.
       pr_common
       implicit_none_f90
 
-      integer i,bgk
+      integer i,bgk,geom_modified
       zn_decl(zone)
 
       @<Memory allocation interface@>
@@ -1635,10 +1621,12 @@ collisions in them.
          if (rc_reaction_type(pr_reaction(i)) == 'bgk_elastic') bgk=TRUE
       end do
 
+      geom_modified=FALSE
       if (bgk == TRUE && zone_type_num[zn_vacuum] > 0) then
          do zone=1,zn_num
             if (zn_type(zone) == zn_vacuum) then
                zn_type_set(zone,zn_plasma)
+               geom_modified=TRUE
             end if
          end do
          zone_type_num[zn_vacuum]=0

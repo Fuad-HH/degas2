@@ -181,7 +181,7 @@ in this file is needed to relate the stratum labels in the
       gi_common
       implicit_none_f90
       character*FILELEN datafilename,degasfilename,uedgefilename
-      integer uedge,degas,update
+      integer uedge,degas,update,geom_modified
 @#if 0
       integer i,ii
 @#endif
@@ -224,7 +224,7 @@ in this file is needed to relate the stratum labels in the
       call nc_read_pmi
       call nc_read_problem
 
-      call setup_back_arrays
+      call setup_back_arrays(geom_modified)
 
       so_grps=0
       so_seg_tot=0
@@ -300,9 +300,9 @@ in this file is needed to relate the stratum labels in the
 
       call write_background
 /*
-    Updated plasma sector properties and possibly relabeled vacuum zones.
+    Possibly relabeled vacuum zones.
 */
-      call write_geometry    
+      if (geom_modified == TRUE) call write_geometry    
 
       return
       end
@@ -333,14 +333,13 @@ in this file is needed to relate the stratum labels in the
       st_decls
       @<Memory allocation interface@>
 
-      integer zone,jh,jv,js,jsp,jwall,jseg,seg // Local
+      integer zone,jh,jv,js,jsp,jwall,jseg,seg,iparam // Local
       real xmin,xmax,zmin,zmax,curr_tot
       character*FILELEN file
       logical new_group
       sp_decl(sp_hyd[3])
       sp_decl(degas_species[9])
       sc_decl(sector)
-      sc_plasma_decl(plasma_sc_ptr)
       vc_decl(x1)
       vc_decl(x2)
 
@@ -543,22 +542,35 @@ in this file is needed to relate the stratum labels in the
                      seg++
                      source_current[seg]=abs(currxzt[jseg,1,jwall,js])
                      so_tot_curr(so_grps)+=source_current[seg]
+
                      vc_set(x1,xwall(jseg,jwall),zero,zwall(jseg,jwall))
                      vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
                      sector=lookup_sector(x2,x1)
                      assert(sc_check(sector))
-                     if (sc_plasma_check(sector_type_pointer[sector][sc_plasma])) then
-                        plasma_sc_ptr=sector_type_pointer[sector][sc_plasma]
+                     assert(source_num_parameters[so_grps] > 0) // Should be 3 !
+                     so_params_data_size+=source_num_parameters[so_grps]
+                     if (so_params_data_size > so_params_data_dim) then
+                        var_realloc(source_parameters_data,so_params_data_dim,
+     $                       so_params_data_size)
+                        so_params_data_dim=so_params_data_size
+                     end if
 /*
    Set incident ion description to be $3 T_{e}$ (sheath potential) plus
    $1 \times E_{\rm ion}$ with $E_{\rm ion}$ sampled from a Maxwellian.
 */
-                        plasma_e_ion_delta[plasma_sc_ptr]=const(3.)*bk_temp(1,sector_zone[sector])
-                        plasma_e_ion_mult[plasma_sc_ptr]=one
-                        plasma_e_ion_sheath[plasma_sc_ptr]=zero
-                     else if (sc_vacuum_check(sector_type_pointer[sector][sc_vacuum])) then
-                        assert(so_type(so_grps) == so_puff)
-                     end if
+                     do iparam=1,source_num_parameters[so_grps]
+                        if (so_params_list(iparam,so_grps) 
+     $                       == so_param_e_ion_delta) then
+                           so_params_data(iparam,seg,so_grps)
+     $                          =const(3.)*bk_temp(1,sector_zone[sector])
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_e_ion_sheath) then
+                           so_params_data(iparam,seg,so_grps)=zero
+                        else if (so_params_list(iparam,so_grps) 
+     $                          == so_param_e_ion_mult) then
+                           so_params_data(iparam,seg,so_grps)=one
+                        end if
+                     end do
                      source_segment_ptr[seg]=sector
                   else
                      so_nseg(so_grps)--

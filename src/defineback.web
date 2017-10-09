@@ -595,22 +595,18 @@ local sheath potential or even the plasma flux.
 
 \subsection{Sheath Model}
 
-The basic default parameters for the sheath model used when simulating
-a plate source are set when the sectors
-associated with a source are defined, e.g., during |definegeometry2d|: 
-$|plasma_e_ion_delta| = 0$ and $|plasma_e_ion_mult| = 1$.
-Since this step precedes the plasma specification, it necessarily is
-ignorant of the plasma parameters in the vicinity of that sector.
-
-When |defineback| sets up the segments of a plate source it will attempt
-to rectify this situation. If specific plasma data for the sector
+When |defineback| sets up the segments of a plate source it will 
+set the parameters for the sheath model; these are stored
+as miscellaneous source parameters, with the macro identifiers
+listed below.
+If specific plasma data for the sector
 are not specified (as described below), provided the electron
 temperature in the plasma zone adjacent to the source sector is 
-positive, it will set $|plasma_e_ion_delta| = 3 T_{e}$ (explicitly
+positive, it will set $|so_param_e_ion_delta| = 3 T_{e}$ (explicitly
 assuming that electrons are the first background species), leaving
-|plasma_e_ion_mult| set to 1. In this case, the $3 T_{e}$ represents
+|so_param_e_ion_mult| set to 1. In this case, the $3 T_{e}$ represents
 a simple value for the sheath potential.  If it so happens, e.g. in
-testing, $T_{e} \leq 0$, then |plasma_e_ion_delta| is set to 3 eV.
+testing, $T_{e} \leq 0$, then |so_param_e_ion_delta| is set to 3 eV.
 
 If specific plasma parameters are available for the source sector, such 
 as those computed by a fluid plasma code for the purposes of setting
@@ -637,8 +633,8 @@ E_{i} & = & 3 T_{i} + \left ( \frac{1}{2} + \phi \right) T_{e},
 Since the model depends on only the magnitude of the flow velocity,
 |defineback| will also proceed to evaluate these expressions if just
 the parallel velocity (labeled by \verb+v_par+) is provided. The result
-is placed into the appropriate element of |plasma_e_ion_delta| and the
-corresponding entry in |plasma_e_ion_mult| is set to zero.
+is placed into the |so_param_e_ion_delta| entry and the
+corresponding |so_param_e_ion_mult| entry is set to zero.
 
 \subsection{Plasma Flux Computation}
 
@@ -901,7 +897,7 @@ subsequent time steps.
       implicit_none_f77
       implicit_none_f90
 
-      integer nargs
+      integer nargs,geom_modified
       character*FILELEN inputfile
 
       sy_decls
@@ -923,9 +919,13 @@ subsequent time steps.
       call nc_read_pmi
       call nc_read_problem
 
-      call setup_back_arrays
+      call setup_back_arrays(geom_modified)
 
       call setup_background(inputfile)
+/*
+    May have relabeled vacuum zones (in BGK runs):
+*/
+      if (geom_modified == TRUE) call write_geometry
 
       call erase_geometry
 
@@ -1061,7 +1061,7 @@ subsequent time steps.
      $     rtest,real_mult,mult,puff_temp,puff_exponent,
      $     e_bin_min,e_bin_max,e_bin_spacing,total,cumul
       integer type,geom,nflights,length,p,b,e,nunit_n,specify_flux,
-     $        nunit_t,num_segments,iseg,i,open_stat,targ,diskin2,
+     $        nunit_t,num_segments,iseg,i,open_stat,diskin2,
      $        dim_segments,itest,data_type,data_code,update,old_grps,
      $        old_seg_tot,grp,iterative,jr,iparam,time_varn,
      $        standalone,e_bin_num,i_bin,i_code,e_bin_entry
@@ -1588,10 +1588,6 @@ input_done: continue
       end if
 
       call write_background
-/*
-    Updated plasma sector properties and possibly relabeled vacuum zones.
-*/
-      call write_geometry    
 
       var_free(source_int_params)
       var_free(source_real_params)
@@ -2208,19 +2204,11 @@ next_datum: continue
 @* Assign sheath parameters for a plate source.
 
 @<Assign Sheath Parameters@>=
-                  assert(sc_plasma_check(sector_type_pointer[sector][sc_plasma]))
-                  targ=sector_type_pointer[sector][sc_plasma]
                   if ((source_real_params[iseg][code_e_delta] != real_uninit)
      $          && (source_real_params[iseg][code_e_sheath] != real_uninit)
      $          && (source_real_params[iseg][code_e_mult] != real_uninit)) then
-                     plasma_e_ion_delta[targ]=
-     $                    source_real_params[iseg][code_e_delta]
-                     plasma_e_ion_sheath[targ]=
-     $                    source_real_params[iseg][code_e_sheath]
-                     plasma_e_ion_mult[targ]=
-     $                    source_real_params[iseg][code_e_mult]
 /*
-   For testing now; may eventually replace the above.
+   These are now the sheath parameters, replacing the original |plasma_e_ion_delta|, etc.
 */ 
                      assert(source_num_parameters[so_grps] > 0) // Should be 3!
                      do iparam=1,source_num_parameters[so_grps]
@@ -2244,15 +2232,8 @@ next_datum: continue
    In some problems, the electron temperature can be zero, e.g.,
    in low resolution tests.  Since that can lead to zero test
    velocity when the source is sampled, establish a minimum
-   |plasma_e_ion_delta| of 3 eV.
+   |e_ion_delta| of 3 eV.
 */
-                     if (bk_temp(1,zone) > zero) then
-                        plasma_e_ion_delta[targ]=const(3.)*bk_temp(1,zone)
-                     else
-                        plasma_e_ion_delta[targ]=const(3.)*electron_charge
-                     end if
-                     plasma_e_ion_mult[targ]=one
-                     plasma_e_ion_sheath[targ]=zero
                      assert(source_num_parameters[so_grps] > 0) // Should be 3!
                      do iparam=1,source_num_parameters[so_grps]
                         if (so_params_list(iparam,so_grps) 
