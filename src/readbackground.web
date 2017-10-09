@@ -258,6 +258,39 @@ in this file is needed to relate the stratum labels in the
          update=FALSE
          call read_uedge_background(uedgefilename,update)         
       endif
+/*
+   Mindlessly copied this section from |defineback| following
+   an allocation assertion in |set_background_sources|.
+
+   Note that we do |var_reallocb| here so that |set_background_sources|
+   can do an explicit |var_realloc| once the final |so_grps| is
+   known.  The other (segment-based) arrays, however, will still
+   be growing one segment at a time.
+*/
+      if (update == FALSE) then
+         var_reallocb(source_base_ptr)
+         var_reallocb(source_num_segments)
+         var_reallocb(source_type)
+         var_reallocb(source_geometry)
+         var_reallocb(source_num_flights)
+         var_reallocb(source_num_checkpoints)
+         var_reallocb(source_species)
+         var_reallocb(source_root_species)
+         var_reallocb(source_time_variation)
+         var_reallocb(source_num_gparameters)
+         var_reallocb(source_num_parameters)
+         var_reallocb(source_gparameters_base)
+         var_reallocb(source_parameters_base)
+         var_reallocb(source_parameters_data_base)
+         var_reallocb(source_num_giparameters)
+         var_reallocb(source_num_iparameters)
+         var_reallocb(source_giparameters_base)
+         var_reallocb(source_iparameters_base)
+         var_reallocb(source_iparameters_data_base)
+         var_reallocb(source_total_current)
+         var_reallocb(source_weight_norm)
+         var_reallocb(source_scale_factor)
+      end if
 
       call add_cramd_data         // So we'll have recomb. rates
 
