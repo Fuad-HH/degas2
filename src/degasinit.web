@@ -331,4 +331,25 @@ renamed to avoid confusion.
       return
       end
 
+@* Check tally number and type.  This used to be a simple macro, but
+transformed it into code to avoid possibly referencing |tally_type(0)|.
+Inserted into this file since the macro is only invoked by stand-alone
+post-processors.
+
+@<Functions...@>=
+      function check_tally(tl_dummy(x))
+      implicit_none_f77
+      tl_common
+      implicit_none_f90
+      logical check_tally    // Function
+      tl_decl(x)            // Input
+
+      check_tally=.false.
+      if (x <= 0 || x > tl_num) return
+      if (tally_type(x) <= 0 || tally_type(x) > tl_type_max) return
+      check_tally=.true.
+
+      return
+      end
+
 @* INDEX.
