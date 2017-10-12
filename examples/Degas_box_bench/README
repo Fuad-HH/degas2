@@ -1,5 +1,5 @@
 Note that ratecalc must be used to generate the hchex.nc file. The "0" value
-in line 2373 needs to be manually changed to 1.1e-07 to set the value of
+in line 2723 needs to be manually changed to 1.1e-07 to set the value of
 sgvmax, the maximum value of sigma-v.
 
 Then, datasetup must be run to incorporate this new data file into the 
@@ -16,10 +16,15 @@ Edit hchex.nc
 ./datasetup
 ./problemsetup
 
-./readgeometry ts0712bD2
-./readbackground $HOME/degas2/examples/Degas_box_bench/ts0712b.d
+./readgeometry ../examples/Degas_box_bench/ts0712bD2
+./readbackground ../examples/Degas_box_bench/ts0712b.d
 
 edit bk_ts0712b.nc to set source_flight_num.
+
+Note that because the lower end of the energy and temperature 
+ranges in hchex.input overlaps with the ~1 eV temperatures, the
+reaction tallies use the collision estimator for charge exchange.
+This is also what was used in the original DEGAS.
 
 ./tallysetup
 ./flighttest
