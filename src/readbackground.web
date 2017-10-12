@@ -252,10 +252,10 @@ in this file is needed to relate the stratum labels in the
       var_alloc(source_giparameters_data)
       var_alloc(source_iparameters_data)
 
+      update=FALSE
       if (degas == TRUE) then
          call read_degas_background(degasfilename)
       elseif (uedge == TRUE) then
-         update=FALSE
          call read_uedge_background(uedgefilename,update)         
       endif
 /*
@@ -547,30 +547,32 @@ in this file is needed to relate the stratum labels in the
                      vc_set(x2,xwall(jseg+1,jwall),zero,zwall(jseg+1,jwall))
                      sector=lookup_sector(x2,x1)
                      assert(sc_check(sector))
-                     assert(source_num_parameters[so_grps] > 0) // Should be 3 !
-                     so_params_data_size+=source_num_parameters[so_grps]
-                     if (so_params_data_size > so_params_data_dim) then
-                        var_realloc(source_parameters_data,so_params_data_dim,
-     $                       so_params_data_size)
-                        so_params_data_dim=so_params_data_size
-                     end if
+                     if (so_type(so_grps) == so_plate) then
+                        assert(source_num_parameters[so_grps] > 0) // Should be 3 !
+                        so_params_data_size+=source_num_parameters[so_grps]
+                        if (so_params_data_size > so_params_data_dim) then
+                           var_realloc(source_parameters_data,so_params_data_dim,
+     $                          so_params_data_size)
+                           so_params_data_dim=so_params_data_size
+                        end if
 /*
    Set incident ion description to be $3 T_{e}$ (sheath potential) plus
    $1 \times E_{\rm ion}$ with $E_{\rm ion}$ sampled from a Maxwellian.
 */
-                     do iparam=1,source_num_parameters[so_grps]
-                        if (so_params_list(iparam,so_grps) 
-     $                       == so_param_e_ion_delta) then
-                           so_params_data(iparam,seg,so_grps)
-     $                          =const(3.)*bk_temp(1,sector_zone[sector])
-                        else if (so_params_list(iparam,so_grps) 
-     $                          == so_param_e_ion_sheath) then
-                           so_params_data(iparam,seg,so_grps)=zero
-                        else if (so_params_list(iparam,so_grps) 
-     $                          == so_param_e_ion_mult) then
-                           so_params_data(iparam,seg,so_grps)=one
-                        end if
-                     end do
+                        do iparam=1,source_num_parameters[so_grps]
+                           if (so_params_list(iparam,so_grps) 
+     $                          == so_param_e_ion_delta) then
+                              so_params_data(iparam,seg,so_grps)
+     $                             =const(3.)*bk_temp(1,sector_zone[sector])
+                           else if (so_params_list(iparam,so_grps) 
+     $                             == so_param_e_ion_sheath) then
+                              so_params_data(iparam,seg,so_grps)=zero
+                           else if (so_params_list(iparam,so_grps) 
+     $                             == so_param_e_ion_mult) then
+                              so_params_data(iparam,seg,so_grps)=one
+                           end if
+                        end do
+                     end if
                      source_segment_ptr[seg]=sector
                   else
                      so_nseg(so_grps)--
