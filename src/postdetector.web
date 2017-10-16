@@ -100,6 +100,8 @@ the sum over all groups (default).
 @m FILE 'postdetector.web'
 
 @m MPI_messages 0
+@m CHORD_DATA 1
+@m chord_stride 5
 
 @I macros.hweb
 @I string.hweb
@@ -255,6 +257,11 @@ the sum over all groups (default).
       character*1 s
       character*3 s_grp
       character*10 name_grp
+@#if CHORD_DATA
+      real r_zone,phi_zone,chord_length
+      character*2 ixlab,iylab
+      vc_decl(chord_vec)
+@#endif
       vc_decl(points[de_view_start:de_view_end])
       external extract_output_datum,gpi_views
       real extract_output_datum
@@ -694,6 +701,14 @@ routines.
          call gpi_views(ix,nx,iy,ny,
      $        vc_args(points[de_view_start]),halfwidth,
      $        algorithm,zone_frags)
+@#if CHORD_DATA
+         if ((mod(ix,chord_stride) == 0) && (mod(iy,chord_stride) == 0)) then
+            write(ixlab,'(i2.2)') ix
+            write(iylab,'(i2.2)') iy
+            open(unit=diskout,file='gpi_chord_'\/ixlab\/'_'\/iylab,status='unknown')
+            write(diskout,*) '  zone  zone_frag   distance  R  phi  Z  em_data  densities'
+         end if
+@#endif
          signal=zero
          em_avg=zero
          do is=1,ns
@@ -706,6 +721,19 @@ routines.
          max_opt=const(1.,-16)
          close_zone=int_undef
          do zone=1,zn_num
+@#if CHORD_DATA
+            if ((zone_frags[zone] > zero) 
+     $         && (mod(ix,chord_stride) == 0) && (mod(iy,chord_stride) == 0))    then
+               r_zone=sqrt(zone_center[zone][1]**2+zone_center[zone][2]**2)
+               phi_zone=atan2(zone_center[zone][2],zone_center[zone][1])
+               vc_difference(zone_center[zone],points[de_view_start],chord_vec)
+               chord_length=vc_abs(chord_vec)
+               write(diskout,'(2x,i7,2x,1p,e16.8,0p,4(2x,f11.8),1p,4(2x,e16.8))') 
+     $              zone,zone_frags[zone]*zn_volume(zone),chord_length,
+     $              r_zone,phi_zone,zone_center[zone][3],
+     $              em_data[zone],(test_density[zone][is],is=1,ns)
+            end if
+@#endif
             signal+=em_data[zone]*zone_frags[zone]*zn_volume(zone)
             do is=1,ns
                n_eff2_sum[is]+=test_density[zone][is]*zone_frags[zone]*zn_volume(zone)
@@ -745,6 +773,10 @@ routines.
                end do
             end if
          end do
+@#if CHORD_DATA
+      if ((mod(ix,chord_stride) == 0) && (mod(iy,chord_stride) == 0))
+     $         close(unit=diskout)
+@#endif
 @#if (APP == NSTX_2010 || APP == NSTX_ENDD || CMOD_MID)
          inverted_iy=iy
 @#else
@@ -802,6 +834,11 @@ routines.
       real signal_array[nx][ny],n_eff2[nx][ny][nsd],fwpa_avg[nx][ny],
      $     signal_sp_array[nx][ny][nsd],fwpa_sp_avg[nx][ny][nsd],
      $     n_eff2_sum[nsd],signal_sp[nsd],n_avg[nsd],em_sp_avg[nsd]
+@#if CHORD_DATA
+      real r_zone,phi_zone,chord_length
+      character*2 ixlab,iylab
+      vc_decl(chord_vec)
+@#endif
       vc_decl(points[de_view_start:de_view_end])
 
       declare_varp(em_data)
