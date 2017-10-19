@@ -1150,33 +1150,42 @@ If not, add to the list.
                if (ne > zero) then
                   vc_scale(one/ne,v_bdy,v_bdy)
                end if
-               if (vc_abs(v_bdy) > zero || te1[j2,ixpt] > zero) then
-                  assert(source_num_parameters[grp] > 0) // Should be 3 !
-                  if (i_seg == 1) 
-     $                 source_parameters_data_base[grp]=so_params_data_size
-                  so_params_data_size+=source_num_parameters[grp]
-                  if (so_params_data_size > so_params_data_dim) then
-                     var_realloc(source_parameters_data,so_params_data_dim,
-     $                    so_params_data_size)
-                     so_params_data_dim=so_params_data_size
-                  end if
-                  do iparam=1,source_num_parameters[grp]
-                     if (so_params_list(iparam,grp) 
-     $                    == so_param_e_ion_delta) then
+               assert(source_num_parameters[grp] > 0) // Should be 3 !
+               if (i_seg == 1) 
+     $              source_parameters_data_base[grp]=so_params_data_size
+               so_params_data_size+=source_num_parameters[grp]
+               if (so_params_data_size > so_params_data_dim) then
+                  var_realloc(source_parameters_data,so_params_data_dim,
+     $                 so_params_data_size)
+                  so_params_data_dim=so_params_data_size
+               end if
+               do iparam=1,source_num_parameters[grp]
+                  if (so_params_list(iparam,grp) 
+     $                 == so_param_e_ion_delta) then
+                     if (vc_abs(v_bdy) > zero || te1[j2,ixpt] > zero) then
                         so_params_data(iparam,is_seg,grp)
-     $                       =const(3.0)*ti1[j2,ixpt]+half*te1[j2,ixpt]
-                     else if (so_params_list(iparam,grp) 
-     $                       == so_param_e_ion_sheath) then
+     $                          =const(3.0)*ti1[j2,ixpt]+half*te1[j2,ixpt]
+                     else
+                        so_params_data(iparam,is_seg,grp)=zero  // Default
+                     end if
+                  else if (so_params_list(iparam,grp) 
+     $                    == so_param_e_ion_sheath) then
+                     if (vc_abs(v_bdy) > zero || te1[j2,ixpt] > zero) then
                         so_params_data(iparam,is_seg,grp)
-     $                       =te1[j2,ixpt]*phi_sheath(vc_args(v_bdy),
-     $                                                  ti1[j2,ixpt],te1[j2,ixpt])
-                     else if (so_params_list(iparam,grp) 
-     $                       == so_param_e_ion_mult) then
+     $                        =te1[j2,ixpt]*phi_sheath(vc_args(v_bdy),
+     $                                               ti1[j2,ixpt],te1[j2,ixpt])
+                     else
                         so_params_data(iparam,is_seg,grp)=zero
                      end if
-                  end do
-
-               end if                           // else: using default values
+                  else if (so_params_list(iparam,grp) 
+     $                    == so_param_e_ion_mult) then
+                     if (vc_abs(v_bdy) > zero || te1[j2,ixpt] > zero) then
+                        so_params_data(iparam,is_seg,grp)=zero
+                     else
+                        so_params_data(iparam,is_seg,grp)=one
+                     end if
+                  end if
+               end do
 @#endif
             end do
          end if
@@ -1240,33 +1249,42 @@ If not, add to the list.
                if (ne > zero) then
                   vc_scale(one/ne,v_bdy,v_bdy)
                end if
-               if (vc_abs(v_bdy) > zero || te2[j2,ixpt] > zero) then
-                  assert(source_num_parameters[grp] > 0) // Should be 3 !
-                  if (i_seg == 1) 
-     $                 source_parameters_data_base[grp]=so_params_data_size
-                  so_params_data_size+=source_num_parameters[grp]
-                  if (so_params_data_size > so_params_data_dim) then
-                     var_realloc(source_parameters_data,so_params_data_dim,
-     $                    so_params_data_size)
-                     so_params_data_dim=so_params_data_size
-                  end if
-                  do iparam=1,source_num_parameters[grp]
-                     if (so_params_list(iparam,grp) 
-     $                    == so_param_e_ion_delta) then
+               assert(source_num_parameters[grp] > 0) // Should be 3 !
+               if (i_seg == 1) 
+     $              source_parameters_data_base[grp]=so_params_data_size
+               so_params_data_size+=source_num_parameters[grp]
+               if (so_params_data_size > so_params_data_dim) then
+                  var_realloc(source_parameters_data,so_params_data_dim,
+     $                 so_params_data_size)
+                  so_params_data_dim=so_params_data_size
+               end if
+               do iparam=1,source_num_parameters[grp]
+                  if (so_params_list(iparam,grp) 
+     $                 == so_param_e_ion_delta) then
+                     if (vc_abs(v_bdy) > zero || te2[j2,ixpt] > zero) then
                         so_params_data(iparam,is_seg,grp)
-     $                       =const(3.0)*ti2[j2,ixpt]+half*te2[j2,ixpt]
-                     else if (so_params_list(iparam,grp) 
-     $                       == so_param_e_ion_sheath) then
+     $                    =const(3.0)*ti2[j2,ixpt]+half*te2[j2,ixpt]
+                     else
+                        so_params_data(iparam,is_seg,grp)=zero
+                     end if
+                  else if (so_params_list(iparam,grp) 
+     $                    == so_param_e_ion_sheath) then
+                     if (vc_abs(v_bdy) > zero || te2[j2,ixpt] > zero) then
                         so_params_data(iparam,is_seg,grp)
      $                       =te2[j2,ixpt]*phi_sheath(vc_args(v_bdy),
      $                  ti2[j2,ixpt],te2[j2,ixpt])
-                     else if (so_params_list(iparam,grp) 
-     $                       == so_param_e_ion_mult) then
+                     else
                         so_params_data(iparam,is_seg,grp)=zero
                      end if
-                  end do
-
-               end if                           // else: using default values
+                  else if (so_params_list(iparam,grp) 
+     $                    == so_param_e_ion_mult) then
+                     if (vc_abs(v_bdy) > zero || te2[j2,ixpt] > zero) then
+                        so_params_data(iparam,is_seg,grp)=zero
+                     else
+                         so_params_data(iparam,is_seg,grp)=one
+                      end if
+                   end if
+                end do
 @#endif
             end do
          end if
