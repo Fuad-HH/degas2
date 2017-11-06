@@ -100,7 +100,7 @@ the sum over all groups (default).
 @m FILE 'postdetector.web'
 
 @m MPI_messages 0
-@m CHORD_DATA 1
+@m CHORD_DATA 0
 @m chord_stride 5
 
 @I macros.hweb
@@ -295,8 +295,12 @@ the sum over all groups (default).
       species_tally=int_undef
       do itally=1,tl_num
          len=string_length(tally_name[itally])
-         if (tally_name[itally]SP(len-12:) == 'emission rate') total_tally=itally
-         if (tally_name[itally]SP(len-23:) == 'emission rate by species') species_tally=itally
+         if (len > 12) then
+            if (tally_name[itally]SP(len-12:) == 'emission rate') total_tally=itally
+         end if
+         if (len > 23) then
+            if (tally_name[itally]SP(len-23:) == 'emission rate by species') species_tally=itally
+         end if
       end do
       assert(tl_check(total_tally))
       if (tl_check(species_tally)) then
