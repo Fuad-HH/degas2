@@ -39,11 +39,11 @@ ifeq ($(SYSTEM),Linux)
   IS64:=$(shell uname -m | grep 64)
   ifneq ($(strip $(IS64)),)
     MACHINE=LINUX64
-#    LIBS=-L/usr/lib64 -lXm -lXt -lX11 -lm -lpthread
-#    CFLAGS=-g 
+    LIBS=-L/usr/lib64 -lXm -lXt -lX11 -lm -lpthread
+    CFLAGS=-g 
 #    LIBS= -L/usr/lib -lXm -lXt -lX11 -lm -lpthread    
-    LIBS= -L/usr/lib -lXm -lm -lpthread    
-    CFLAGS=-g -m32
+#    LIBS= -L/usr/lib -lXm -lm -lpthread    
+#    CFLAGS=-g -m32
   else
     MACHINE=LINUX
     CFLAGS=-g
