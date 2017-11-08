@@ -14,7 +14,7 @@ MSCL=../mscl/$(MACHINE)
 EQUTRN=../DG/equtrn
 ifdef NCARG_ROOT
   VPATH	=	src/carre:src/cntour:src/graphe:src/trans:src/fcrr:$(EQUTRN)/src/shared
-  NCAR_LIBS =   -L$(NCARG_ROOT)/lib -lncarg -lncarg_gks -lncarg_c
+  NCAR_LIBS =   -L$(NCARG_ROOT)/lib -lncarg -lncarg_gks -lncarg_c -lcairo
 else
   VPATH	=	src/carre:src/trans:src/fcrr:$(EQUTRN)/src/shared:src/dummy
   NCAR_LIBS =   
