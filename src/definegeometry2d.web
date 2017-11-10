@@ -9,30 +9,53 @@ While the code can be run using just a human generated
 text input file, with
 perhaps some auxiliary data in other text files, truly complicated
 cases can be handled when the code is run in conjunction with
-other geometry packages. Currently, a nearly complete coupling
-to the 
-DG code, developed in Garching, gives the user what is effectively
-a graphical interface to the problem at hand. 
+other geometry packages.
+
+For coupling to codes using a structured, quadrilateral mesh, 
+one can take advantage of the interface to the 
+DG code, developed in Garching, that gives the user what is effectively
+a GUI for the problem at hand. 
 Alternatively, the 
 plasma mesh used by the UEDGE code can be read in via a single
 command; a plasma mesh in the Sonnet format 
 can be read in a similar manner (Sonnet format
 grids are also compatible with DG).
+Unstructured triangular meshes can transformed into
+the Sonnet format via the |tri_to_sonnet| routine;
+the input to {\tt definegeometry2d} can then 
+be constructed just as in the quadrilateral mesh
+case.  When the spatial extent of the problem can be 
+restricted to a rectangular region having no
+intervening material surfaces or X-points,
+one can use the {\tt efit2dg2d} pre-processor
+to generate the more tedious parts of the 
+{\tt definegeometry2d} input file.
+
 {\tt definegeometry2d} 
 can now handle nearly symmetric 3-D problems; the essential
 restriction is that all of the objects in the problem must be
 describeable as 2-D figures swept through a range of the 
 ignorable coordinate. 
+
 The intermediate 
 specification 
 of the geometry purely 
 in terms of polygons is written out to a netCDF file. 
-This file can then be exported to other applications, such as
-AVS/Express, providing a precise description of the geometry
-for use in plotting DEGAS 2 results (as opposed to the
-approximate approach used in {\tt geomtesta}).
+This file can be read in by the |ucd_plot| post-processor
+to generate (2-D only) graphics equivalent to those
+produced by {\tt geomtesta}, but at full resolution.
+The polygon netCDF file can also be transformed into
+the {\tt Triangle} format (see below) via the
+|poly_to_tri| routine, providing an additional means
+of coupling to other applications.
 
-A version of DG is now distributed as part of DEGAS 2.  See the
+A version of DG has been and is still included in the DEGAS 2
+distribution.  However, it has been used less frequently and,
+thus, has not been actively maintained.  Users requiring additional
+features may want to consider the version of DG included with the
+SOLPS-ITER distribution (called DivGeo there); the version of
+Carre in that package is also much more advanced than the one
+in DEGAS 2.  See the
 additional documentation in the DEGAS 2 User's Manual and in
 the manual provided with DG. 
 
