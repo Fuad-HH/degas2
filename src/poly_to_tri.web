@@ -4,6 +4,19 @@ $Id$
 @* Read in a polygon netCDF file (i.e., the g2 class) and transform
 rectangles and triangles into Triangle's ``nodes'' and ``elements''.
 
+The full name of the polygon netCDF file is specified on the command
+line; the resulting |.ele| and |.node| files will have the same root
+name.  The only manipulation of triangles is that a counter-clockwise
+orientation is ensured.  Each rectangle is split into two counter-clockwise
+triangles.
+
+Only plasma and vacuum zones are included, avoiding the more complex
+polygon structures typically used for specifying the material 
+boundaries.  The values of |zone_index| are included as the
+last two columns in the |.node|
+file, and the zone number appears in the last column of the
+|.ele| file.
+
 \ID{$Id$}
 
 @m FILE 'poly_to_tri.web'
