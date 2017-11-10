@@ -4,6 +4,65 @@
 @* Program for using EFIT equilibrium to set up |definegeometry2d| input
 file.
 
+This is a general purpose replacement for the IDL routine used to
+set up main chamber geometries for gas puff imaging studies.  In such cases,
+the region of interest is localized to near the tokamak midplane so that the
+complexity of the full magnetic geometry does not enter.  All that is needed
+instead is a rectangular area, extended over some range of toroidal angles,
+and a set of flux surface contours onto which the plasma parameters can
+be mapped.  The box is presently specified via the macros |rbox_min|,
+|rbox_max|, |zbox_min|, and |zbox_max|, although these could easily be
+made input parameters or read from a file.  The equilibrium data is
+read from an EQDSK ``g'' file, such as produced by the EFIT code,
+the name of which is specified as a command line argument.
+
+The resolution of the geometry is controlled by the hardwired
+parameters:
+\begin{description}
+  \item[|nrbox|] Number of points along the top and bottom of
+the rectangle.
+  \item[|nzbox|] Number of points along the sides of the rectangle.
+  \item[|n_cont_in|] Number of contours inside the separatrix.
+  \item[|n_cont_out|] Number of contours outside the separatrix.
+  \item[|r_dtheta|] Target angular distance between points along
+the flux surfaces.
+\end{description}
+The sizes of the triangles that are produced by |definegeometry2d|
+are determined by |nrbox|, |nzbox|, and |r_dtheta|.  The radial resolution
+is controlled by |n_cont_in| and |n_cont_out|; e.g., to resolve a
+steep pedestal, one might need a larger value of |n_cont_in|.
+
+The code produces output files:
+\begin{description}
+  \item[|wallfile|] List of ``walls'' generated from the box edges
+and the flux surface contours suitable for input to |definegeometry2d|.
+  \item[|polygons_dg2d.in|] Corresponding polygon
+specifications that can be pasted into the construction section 
+of a |definegeometry2d| input file.
+  \item[|polygons.txt|] Explicit $R$, $Z$ listing of these
+polygons suitable for external plotting with the 
+|read_poly.py| script.
+  \item[|stratum_psi|] Listing of the ``stratum'' values used
+for each of the polygons in |polygons_dg2d.in| together with
+the corresponding poloidal flux, normalized to the separatrix
+value.  These data can be read in by a user-defined |get_n_t|
+routine (via |usr2dplasma.web|) compiled into defineback and
+which can then map the plasma parameters onto the polygons.
+\end{description}
+
+Note that this routine does not provide a complete input      
+file for |definegeometry2d|.  At a minimum, the user needs to
+provide the preamble which specifies the geometry symmetry, 
+bounds (which should extend beyond the coordinates |rbox_min|,
+etc. used to specify the rectangle here), and the wallfile.
+The construction section also needs additional solid or exit
+polygons fill the gap between the rectangle used here and
+that represented by the bounds keyword.  In practice, one
+also needs to provide polygons representing the gas source,
+vessel walls, and the intervening vacuum and / or plasma
+regions.  Since these are machine and problem dependent,
+their implementation is left to the user.
+
 \ID{$Id$}
 
 @m FILE 'efit2dg2d.web'
@@ -360,7 +419,7 @@ of these contours.
       \item[|wall_psi_contour[iwall]|] This index into the |psi_contour|
 array provides the $\psi$ value associated with wall |iwall|.
 
-      \item[ef_lim_cross_times[im]| Number of times limiter segment
+      \item[|ef_lim_cross_times[im]|] Number of times limiter segment
 |im| has been intersected by a ``wall'' (equivalently, a |psi_contour|).
 
       \item[|ef_lim_cross_wall[im][ic]|] Is the wall number associated
@@ -433,10 +492,10 @@ with the |ic|-th crossing of limiter segment |im|.
 /*                  
    Determine the |direction| parameter needed by Hager''s
    tracking algorithm.  The contours are tracked in the direction
-   of $\nable \psi \times \hat{\phi}$.  Assuming that the direction      
+   of $\nabla \psi \times \hat{\phi}$.  Assuming that the direction      
    traced out by the limiter boundary, $\hat{\ell}$, is clockwise
    (which is the sense we want for the polygons in the end), then
-   |direction| is given by the sign of $-\hat{\ell} \cdot \nable \psi$.
+   |direction| is given by the sign of $-\hat{\ell} \cdot \nabla \psi$.
 */
                   direction=int(sign(one,
      $                       -(psi_interp(r,z,1,0)*(segment[2][1]-segment[1][1])
