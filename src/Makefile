@@ -65,7 +65,7 @@ PDFLATEX=pdflatex
 # Code has evolved enough that we are stressing some more
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
 TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn8000 -yb200000 -ybs15000
-WEAVEFLAGS=-f -i! -W[ -ykw800 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
+WEAVEFLAGS=-f -i! -W[ -ybs15000 -ykw800 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
 SYSDEPC=no
@@ -566,7 +566,7 @@ adaswrite_libs = $(NETCDF)
 adaswrite: $(adaswrite) $(foreach arg,$(subst .$O,_mods,$(adaswrite)),$($(arg)))
 
 efit2dg2d.o: bspline.mod
-efit2dg2d = bspline.mod bspline90_22.o efit2dg2d.$O aux2dsetup.$O
+efit2dg2d = bspline.mod bspline90_22.o efit2dg2d.$O aux2dsetup.$O psiinterp.$O
 efit2dg2d_libs =
 efit2dg2d: $(efit2dg2d) $(foreach arg,$(subst .$O,_mods,$(efit2dg2d)),$($(arg))) 
 
