@@ -1,0 +1,131 @@
+\documentclass[11pt]{article}
+\renewcommand{\thesection}{\Roman{section}}
+\setlength{\parindent}{0in}
+\usepackage{times}
+\topmargin -5pt
+\renewcommand{\leftmargini}{0pt}
+\oddsidemargin 0.3in \textwidth 6.2in
+\headheight 0pt
+\headsep 0pt
+\textheight 48\baselineskip
+% Note: to remove page number from first page, alter article.sty file
+%       to use \pagestyle{empty} in the section related to \maketitle
+% Date Convention: It looks like they arrange first by journal publication date,
+% except for conferences. These are arranged according to the meeting date. Note
+% that PSI (-> J. Nucl. Mater.) goes by the journal date.
+% 
+% Update 3/12/99. Have abandoned MS Word version.
+%\pagestyle{headings}
+\begin{document}
+
+\begin{centering}
+\Large
+Procedures Used in Coupling UEDGE \& DEGAS 2 \\
+And Possible Generalizations \\
+\end{centering}
+\ \\
+
+The existing iterative procedure for running UEDGE coupled to DEGAS 2 proceeds as follows:
+\begin{enumerate}
+  \item Run UEDGE 
+  \begin{itemize}
+    \item Initially with its built-in neutral transport model.
+  \end{itemize}
+  \item Call the UEDGE subroutine {\tt writemcnfile} to write the text file to be passed to DEGAS 2 $\rightarrow$ {\tt uedata},
+  \begin{itemize}
+    \item Roughly speaking, this file can be broken down into sections:
+    \item Indexing information: mesh size, number \& location of X-points.
+    \item Grid: $R$, $Z$ values of all 4 corners \& center of each cell.
+    \item Magnetic field vector at each of these points (not used in DEGAS 2).
+    \item Ion density at all mesh centers, looped over ion species.
+    \item Cylindrical $R$ velocity (equivalent to Cartesian $x$ at $\phi = 0$) at all mesh centers, looped over ion species.
+    \item Cylindrical $Z$ velocity at all mesh centers, looped over ion species.
+    \item Cylindrical $\phi$ velocity (equivalent to Cartesian $y$ at $\phi = 0$) at all mesh centers, looped over ion species.
+    \item Ion temperature (common to all ion species) at all mesh centers.
+    \item Electron temperature at all mesh centers.
+    \item For each X-point:
+    \begin{itemize}
+      \item Ion density along inner target, looped over ion species.
+      \begin{itemize}
+        \item This \& subsequent quantities are used to set sheath boundary conditions.
+      \end{itemize}
+      \item $R$ velocity along inner target, looped over ion species.
+      \item $Z$ velocity along inner target, looped over ion species.
+      \item $\phi$ velocity along inner target, looped over ion species.
+      \item Common ion temperature along inner target.
+      \item Electron temperature along inner target.
+      \item Ion current to inner target, looped over ion species.
+      \item Same list of quantities for outer target.
+    \end{itemize}
+  \end{itemize}
+  \item Prior to initial run, set up reference \& problem data for DEGAS 2.
+  \item Set up {\tt definegeometry2d} input file, using {\tt uedge\_mesh} keyword, to read in {\tt uedata} file.
+  \begin{itemize}
+    \item The subroutine \verb+read_uedge_mesh+ in {\tt definegeometry2d} is used to read the {\tt uedata} file,
+    \item Only the indexing \& grid information is read,
+    \item The grid is written out in Sonnet format to a file \verb+uedge_sonnet+ for the user's convenience, e.g., for loading into DG.
+    \item The mesh indices are retained within DEGAS 2 and are used in writing the output so that the two can be related.
+    \item The simplest possible input file would define additional solid polygons around the UEDGE mesh and use its boundaries as the ``walls''.
+    \item Alternatively, one can use the actual machine hardware to define the solid polygons \& set up intervening vacuum regions in between.
+    \item Either way, one can likely arrange it so that these input files are general \& need not be revised with every new run.
+    \item Moreover, in an iterative calculation, {\tt definegeomety2d} need only be run prior to the initial execution of DEGAS 2.
+  \end{itemize}
+  \item Run {\tt definegeometry2d}.
+  \item Set up input file for {\tt defineback} using the \verb+plasma_file+ keyword,
+  \begin{itemize}
+    \item For iterative calculations:
+    \begin{itemize}
+      \item The \verb+iterative_run+ keyword should be given.
+      \item The file name passed to \verb+plasma_file+ should end in ``.u'',
+      \begin{itemize}
+        \item This lets {\tt defineback} know that you wish (\& need) to set all plasma \& source data using the {\tt uedata} file.
+        \item The file is read \& processed by subroutine \verb+read_uedge_background+ \& callees in {\tt writeback.web}.
+      \end{itemize}
+      \item A valid path \& file name should be set for \verb+oldsourcefile+ in {\tt degas2.in},
+      \begin{itemize}
+        \item This causes the code to write out the current source specification to this file near the end of {\tt defineback} execution,
+        \item On subsequent iterations, the file is read back in \& used to enforce changes in the source currents via weighting factors (see the ``Iterative Problems'' section of the {\tt defineback} documentation).
+      \end{itemize}
+    \end{itemize}
+    \item When using DEGAS 2 as a post-processor for UEDGE: 
+    \begin{itemize}
+      \item One can follow the \verb+plasma_file+ keyword with additional sources (e.g., a gas puff).
+      \item If the file pointed to by \verb+plasma_file+ does not end in ``.u'', it is assumed to have the format described in the documentation for {\tt readbackground}, although the processing is actually done in subroutine \verb+init_uedge_background+ in {\tt writeback.web}.
+      \item This file must use the \verb+uedge_file+ keyword to point to the {\tt uedata} file.
+      \item The user can also include other keywords to specify plasma parameters in the ``vacuum'' regions between the UEDGE mesh and the walls.
+      \item Note that these capabilities would give rise to unbalanced sources \& sinks if the DEGAS 2 output were passed back to UEDGE.
+    \end{itemize}
+  \end{itemize}
+  \item Run {\tt defineback} with a suitable number of flights.
+  \begin{itemize}
+    \item The number of flights could be altered from the default 100 in an automated fashion via a script or by altering the code in the \verb+read_uedge_background+ subroutine.
+    \item For iterative calculations, the same input file can be used (assuming the name used for the ``uedata'' file is the same).
+  \end{itemize}
+  \item Run {\tt tallysetup} with a standard input file,
+  \begin{itemize}
+    \item The tallies used in assembling the data passed to UEDGE are as close to ``defaults'' as tallies get in DEGAS 2; they appear in all practical input files.
+  \end{itemize}
+  \item Run {\tt flighttest},
+  \begin{itemize}
+    \item Near the end of the run, this calls subroutine \verb+fill_coupling_arrays+ in {\tt doflights.web},
+    \item This writes out the tallies for test species density, temperature, and flux to the \verb+testdata.out+ file,
+    \begin{itemize}
+      \item There is an outer loop over test species,
+      \item And inner loops over the grid indices.
+      \item When UEDGE is run next, this file is read by subroutine \verb+readmcntest+.
+    \end{itemize}
+    \item And the tallies ``ion source rate'', ``ion momentum source vector'', and ``ion energy source'',
+    \begin{itemize}
+      \item The last is summed over all ion species.
+      \item There is an outer loop over source group, i.e., one source group for each divertor target.
+    \end{itemize}
+    \item When UEDGE is run next, this file is read by subroutine \verb+readmcnsor+.
+  \end{itemize}
+  \item When iterating, steps 1, 2, 7, and 9 are performed repeatedly until the UEDGE residuals reach the desired level.
+\end{enumerate}
+
+Of the capabilities built into DEGAS 2, the only one that is not readily generalized for use with other codes or geometries is the \verb+read_uedge_background+ routine.  Reading the plasma data and mapping it onto the primary grid is relatively general, but defining the recycling sources at the target plates and setting the sheath parameters there are not.  Certainly, one could use \verb+read_uedge_background+ as a template for writing a new routine, but it might also be possible to use a default or simple \verb+get_n_t+ routine to handle the plasma data and  then utilize {\tt defineback}'s existing formats to set the recycling source, etc.
+
+Although the UEDGE mesh is naturally two-dimensional, the tools used in DEGAS 2 for handling it can be (and have been already for XGC0) generalized for use with an unstructured mesh by making the second dimension trivial.  This is because DEGAS 2 makes no inferences about mesh connectivity from the indices; they are just labels.
+
+\end{document}
