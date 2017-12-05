@@ -672,238 +672,13 @@ loop: continue
 
 @#endif
 @#if 1
-      do i=1,zn_num
-         zone_data[i]=zero
-      end do
-
-      do test=1,pr_test_num
-         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H-ALPHA
-     $        || (sp_sy(pr_test(test)) == 'D')
-     $        || (sp_sy(pr_test(test)) == 'T'))
-     $        && string_lookup(trim(sp_sy(pr_test(test)))\/'alpha emission rate',tally_name,tl_num) > 0) then
-            ha_temp=zero
-            do zone=1,zn_num
-               if (zn_type(zone) == zn_plasma) then
-                  index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,
-     $                 trim(sp_sy(pr_test(test)))\/'alpha emission rate')
-     $                 /(const(1.8881944)*electron_charge)
-                  zone_data[zone]+=ha_rate
-                  ha_temp+=ha_rate*zn_volume(zone)
-@#if 0
-               else if (zn_type(zone) == zn_solid) then  // Can plot solid
-                  zone_data[zone]=-one                    // regions 
-@#endif
-               else
-                  zone_data[zone]=zero
-               end if
-            end do
-         end if
-      end do
-
-      halpha_tot=zero
-      do zone=1,zn_num
-         halpha_tot+=zone_data[zone]*zn_volume(zone)
-      end do
-
-      if (halpha_tot > zero) then
-         call write_hdf('halpha.hdf',zone_data,
-     $        'H_alpha_rate','photons / (m**3 s)','E11.3',
-     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
-      end if
-
-      do i=1,zn_num
-         zone_data[i]=zero
-      end do
-
-      do test=1,pr_test_num
-         if (string_lookup('Dalpha emission rate by species',tally_name,tl_num) > 0) then
-            name_clean(sp_sy(pr_test(test)),clean_sy)
-            ha_temp=zero
-            index_parameters[tl_index_test]=test
-            do zone=1,zn_num
-               if (zn_type(zone) == zn_plasma) then
-                  index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,
-     $                 'Dalpha emission rate by species')
-     $                 /(const(1.8881944)*electron_charge)
-                  zone_data[zone]=ha_rate
-                  ha_temp+=ha_rate*zn_volume(zone)
-               else
-                  zone_data[zone]=zero
-               end if
-            end do
-         end if
-         halpha_tot=zero
-         do zone=1,zn_num
-            halpha_tot+=zone_data[zone]*zn_volume(zone)
-         end do
-
-         if (halpha_tot > zero) then
-            call write_hdf('halpha'\/trim(clean_sy)\/'.hdf',zone_data,
-     $        'H_alpha_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
-     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
-         end if
-      end do
-
+      @<Neutral H-alpha@>
 @#endif
 @#if 1
-      do i=1,zn_num
-         zone_data[i]=zero
-      end do
-
-      do test=1,pr_test_num
-         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H LYMAN-ALPHA
-     $        || (sp_sy(pr_test(test)) == 'D')
-     $        || (sp_sy(pr_test(test)) == 'T'))
-     $        && string_lookup('Lyman-alpha emission rate',tally_name,tl_num) > 0) then
-            ha_temp=zero
-            do zone=1,zn_num
-               if (zn_type(zone) == zn_plasma) then
-                  index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,
-     $                 'Lyman-alpha emission rate')
-     $                 /(const(10.196)*electron_charge)
-                  zone_data[zone]+=ha_rate
-                  ha_temp+=ha_rate*zn_volume(zone)
-@#if 0
-               else if (zn_type(zone) == zn_solid) then  // Can plot solid
-                  zone_data[zone]=-one                    // regions 
-@#endif
-               else
-                  zone_data[zone]=zero
-               end if
-            end do
-         end if
-      end do
-
-      halpha_tot=zero
-      do zone=1,zn_num
-         halpha_tot+=zone_data[zone]*zn_volume(zone)
-      end do
-
-      if (halpha_tot > zero) then
-         call write_hdf('lyman_alpha.hdf',zone_data,
-     $        'Lyman_alpha_rate','photons / (m**3 s)','E11.3',
-     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
-      end if
-
-      do i=1,zn_num
-         zone_data[i]=zero
-      end do
-
-      do test=1,pr_test_num
-         if (string_lookup('Lyman-alpha emission rate by species',tally_name,tl_num) > 0) then
-            name_clean(sp_sy(pr_test(test)),clean_sy)
-            ha_temp=zero
-            index_parameters[tl_index_test]=test
-            do zone=1,zn_num
-               if (zn_type(zone) == zn_plasma) then
-                  index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,
-     $                 'Lyman-alpha emission rate by species')
-     $                 /(const(10.196)*electron_charge)
-                  zone_data[zone]=ha_rate
-                  ha_temp+=ha_rate*zn_volume(zone)
-               else
-                  zone_data[zone]=zero
-               end if
-            end do
-         end if
-         halpha_tot=zero
-         do zone=1,zn_num
-            halpha_tot+=zone_data[zone]*zn_volume(zone)
-         end do
-
-         if (halpha_tot > zero) then
-            call write_hdf('lyman_alpha'\/trim(clean_sy)\/'.hdf',zone_data,
-     $        'Lyman_alpha_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
-     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
-         end if
-      end do
-
+      @<Neutral Lyman-alpha@>
 @#endif
 @#if 1
-      do i=1,zn_num
-         zone_data[i]=zero
-      end do
-
-      do test=1,pr_test_num
-         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H BALMER BETA
-     $        || (sp_sy(pr_test(test)) == 'D')
-     $        || (sp_sy(pr_test(test)) == 'T'))
-     $        && string_lookup('D beta emission rate',tally_name,tl_num) > 0) then
-            ha_temp=zero
-            do zone=1,zn_num
-               if (zn_type(zone) == zn_plasma) then
-                  index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,
-     $                 'D beta emission rate')
-     $                 /(const(2.549)*electron_charge)
-                  zone_data[zone]+=ha_rate
-                  ha_temp+=ha_rate*zn_volume(zone)
-@#if 0
-               else if (zn_type(zone) == zn_solid) then  // Can plot solid
-                  zone_data[zone]=-one                    // regions 
-@#endif
-               else
-                  zone_data[zone]=zero
-               end if
-            end do
-         end if
-      end do
-
-      halpha_tot=zero
-      do zone=1,zn_num
-         halpha_tot+=zone_data[zone]*zn_volume(zone)
-      end do
-
-      if (halpha_tot > zero) then
-         call write_hdf('balmer_beta.hdf',zone_data,
-     $        'Balmer_beta_rate','photons / (m**3 s)','E11.3',
-     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
-      end if
-
-      do i=1,zn_num
-         zone_data[i]=zero
-      end do
-
-      do test=1,pr_test_num
-         if (string_lookup('D beta emission rate by species',tally_name,tl_num) > 0) then
-            name_clean(sp_sy(pr_test(test)),clean_sy)
-            ha_temp=zero
-            index_parameters[tl_index_test]=test
-            do zone=1,zn_num
-               if (zn_type(zone) == zn_plasma) then
-                  index_parameters[tl_index_zone]=zone
-                  ha_rate=extract_output_datum(index_parameters,1,
-     $                 out_post_all,o_mean,
-     $                 'D beta emission rate by species')
-     $                 /(const(2.549)*electron_charge)
-                  zone_data[zone]=ha_rate
-                  ha_temp+=ha_rate*zn_volume(zone)
-               else
-                  zone_data[zone]=zero
-               end if
-            end do
-         end if
-         halpha_tot=zero
-         do zone=1,zn_num
-            halpha_tot+=zone_data[zone]*zn_volume(zone)
-         end do
-
-         if (halpha_tot > zero) then
-            call write_hdf('balmer_beta'\/trim(clean_sy)\/'.hdf',zone_data,
-     $        'Balmer_beta_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
-     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
-         end if
-      end do
-
+      @<Neutral Balmer-beta@>
 @#endif
 @#if 1
       do i=1,zn_num
@@ -1174,6 +949,246 @@ loop2: continue
 @#endif
       return
       end
+
+@ Neutral H-alpha data.  |FWEAVE| began complaining about ``too many      
+texts'' (as had happened previously in |definegeometry2d.web|).  To
+that end, have split out some of the emission line plots into 
+separate sections, especially since more of these may be added.
+
+@<Neutral H-alpha@>=      
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H-ALPHA
+     $        || (sp_sy(pr_test(test)) == 'D')
+     $        || (sp_sy(pr_test(test)) == 'T'))
+     $        && string_lookup(trim(sp_sy(pr_test(test)))\/'alpha emission rate',tally_name,tl_num) > 0) then
+            ha_temp=zero
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 trim(sp_sy(pr_test(test)))\/'alpha emission rate')
+     $                 /(const(1.8881944)*electron_charge)
+                  zone_data[zone]+=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+@#if 0
+               else if (zn_type(zone) == zn_solid) then  // Can plot solid
+                  zone_data[zone]=-one                    // regions 
+@#endif
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+      end do
+
+      halpha_tot=zero
+      do zone=1,zn_num
+         halpha_tot+=zone_data[zone]*zn_volume(zone)
+      end do
+
+      if (halpha_tot > zero) then
+         call write_hdf('halpha.hdf',zone_data,
+     $        'H_alpha_rate','photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      end if
+
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (string_lookup('Dalpha emission rate by species',tally_name,tl_num) > 0) then
+            name_clean(sp_sy(pr_test(test)),clean_sy)
+            ha_temp=zero
+            index_parameters[tl_index_test]=test
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'Dalpha emission rate by species')
+     $                 /(const(1.8881944)*electron_charge)
+                  zone_data[zone]=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+         halpha_tot=zero
+         do zone=1,zn_num
+            halpha_tot+=zone_data[zone]*zn_volume(zone)
+         end do
+
+         if (halpha_tot > zero) then
+            call write_hdf('halpha'\/trim(clean_sy)\/'.hdf',zone_data,
+     $        'H_alpha_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         end if
+      end do
+
+@ Neutral H Lyman-alpha data.  See comments for ``Neutral H-alpha'' section.
+
+@<Neutral Lyman-alpha@>=
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H LYMAN-ALPHA
+     $        || (sp_sy(pr_test(test)) == 'D')
+     $        || (sp_sy(pr_test(test)) == 'T'))
+     $        && string_lookup('Lyman-alpha emission rate',tally_name,tl_num) > 0) then
+            ha_temp=zero
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'Lyman-alpha emission rate')
+     $                 /(const(10.196)*electron_charge)
+                  zone_data[zone]+=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+@#if 0
+               else if (zn_type(zone) == zn_solid) then  // Can plot solid
+                  zone_data[zone]=-one                    // regions 
+@#endif
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+      end do
+
+      halpha_tot=zero
+      do zone=1,zn_num
+         halpha_tot+=zone_data[zone]*zn_volume(zone)
+      end do
+
+      if (halpha_tot > zero) then
+         call write_hdf('lyman_alpha.hdf',zone_data,
+     $        'Lyman_alpha_rate','photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      end if
+
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (string_lookup('Lyman-alpha emission rate by species',tally_name,tl_num) > 0) then
+            name_clean(sp_sy(pr_test(test)),clean_sy)
+            ha_temp=zero
+            index_parameters[tl_index_test]=test
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'Lyman-alpha emission rate by species')
+     $                 /(const(10.196)*electron_charge)
+                  zone_data[zone]=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+         halpha_tot=zero
+         do zone=1,zn_num
+            halpha_tot+=zone_data[zone]*zn_volume(zone)
+         end do
+
+         if (halpha_tot > zero) then
+            call write_hdf('lyman_alpha'\/trim(clean_sy)\/'.hdf',zone_data,
+     $        'Lyman_alpha_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         end if
+      end do
+
+@ Neutral H Balmer-beta data.  See comments for ``Neutral H-alpha'' section.
+
+@<Neutral Balmer-beta@>=
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (((sp_sy(pr_test(test)) == 'H')                  // NEUTRAL H BALMER BETA
+     $        || (sp_sy(pr_test(test)) == 'D')
+     $        || (sp_sy(pr_test(test)) == 'T'))
+     $        && string_lookup('D beta emission rate',tally_name,tl_num) > 0) then
+            ha_temp=zero
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'D beta emission rate')
+     $                 /(const(2.549)*electron_charge)
+                  zone_data[zone]+=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+@#if 0
+               else if (zn_type(zone) == zn_solid) then  // Can plot solid
+                  zone_data[zone]=-one                    // regions 
+@#endif
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+      end do
+
+      halpha_tot=zero
+      do zone=1,zn_num
+         halpha_tot+=zone_data[zone]*zn_volume(zone)
+      end do
+
+      if (halpha_tot > zero) then
+         call write_hdf('balmer_beta.hdf',zone_data,
+     $        'Balmer_beta_rate','photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+      end if
+
+      do i=1,zn_num
+         zone_data[i]=zero
+      end do
+
+      do test=1,pr_test_num
+         if (string_lookup('D beta emission rate by species',tally_name,tl_num) > 0) then
+            name_clean(sp_sy(pr_test(test)),clean_sy)
+            ha_temp=zero
+            index_parameters[tl_index_test]=test
+            do zone=1,zn_num
+               if (zn_type(zone) == zn_plasma) then
+                  index_parameters[tl_index_zone]=zone
+                  ha_rate=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,
+     $                 'D beta emission rate by species')
+     $                 /(const(2.549)*electron_charge)
+                  zone_data[zone]=ha_rate
+                  ha_temp+=ha_rate*zn_volume(zone)
+               else
+                  zone_data[zone]=zero
+               end if
+            end do
+         end if
+         halpha_tot=zero
+         do zone=1,zn_num
+            halpha_tot+=zone_data[zone]*zn_volume(zone)
+         end do
+
+         if (halpha_tot > zero) then
+            call write_hdf('balmer_beta'\/trim(clean_sy)\/'.hdf',zone_data,
+     $        'Balmer_beta_rate_'\/trim(clean_sy),'photons / (m**3 s)','E11.3',
+     $        na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
+         end if
+      end do
 
 @ Read and plot EIRENE output files. To facilitate the benchmarking process,
 have set up this routine to read the |fort.32| and |fort.44| files output
