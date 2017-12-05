@@ -149,7 +149,7 @@ estimators can be used for each of several ``reaction groups''. These
 groups are largely analogous, but less formal, than the reaction
 type specified by |rc_reaction_type|. The ordered list definining
 these groups is given by macros below (see |pr_rc_ionize| and
-subsequent lines. The association with |rc_reaction_type| is made
+subsequent lines). The association with |rc_reaction_type| is made
 within an if-then-else clause in subroutine |init_tally|
 (the section begins with the comment
 ``Associate `reaction groups' with |rc_reaction_type| types.'').
@@ -170,7 +170,11 @@ a velocity of 0), a track-length estimator cannot be used. In fact,
 The estimators for reaction type tallies are specified on a single 
 line with spaces in between. In addition to \verb+T+ and \verb+C+,
 \verb+P+ is also valid. This last option refers to ``post processed
-tallies'' and is available for most cases. The order of the characters
+tallies'' and is available for most cases. The results will
+be equivalent to that obtained with the track length
+estimator, however, relative standard deviations are not
+computed with the post-processing estimator.
+The order of the characters
 corresponds to the order of the reaction types
 specified in the macro list below. For
 convenience, a comment and numbered separator line in the example
@@ -181,6 +185,9 @@ Other restrictions include:
 a collision estimator (because there are no collisions),
   \item recombination reactions and reactions involving test ions cannot be 
 used with a track-length estimator (there is no tracking),
+  \item On the other hand, recombination reactions can be scored
+with post-processing; this will typically yield better statistics
+than the collision estimator.
   \item a post-processing estimator is valid for spectrum tallies only
 for recombination (which uses an average ion velocity). For other 
 reactions, the instantaneous kinetic velocity is needed to compute
@@ -207,7 +214,7 @@ uses full lines,
 or
 
 \begin{verbatim}
-----1-----------2-------------3-------4---------5-------6----------7---------
+----1------2-------3-----4----5-------6-----7----8-----9-----10-11----12---
 \end{verbatim}
 with the numbers being used to count the reaction estimator specifications.
 Since this line tells the code that the specification of the current tally
