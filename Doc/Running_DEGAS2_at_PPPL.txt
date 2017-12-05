@@ -1,8 +1,8 @@
 1. Download the DEGAS 2 tarball and unpack in your home directory.
-   The most recent "stable" version is 4.7.  
+   The most recent "stable" version is 4.8.  
    One can access the code directly on
    the cluster at /u/ftp/pub/degas2 or via the URL
-   ftp://ftp.pppl.gov/pub/degas2/degas2-4.7.tar.gz
+   ftp://ftp.pppl.gov/pub/degas2/degas2-4.8.tar.gz
 
 2. Begin reading the User's Manual, degas2_all.pdf in the degas2/Doc
    subdirectory.  The most useful chapters are 2 and 3.  Note that
@@ -35,6 +35,17 @@
 # than the default rsh.
 #
    setenv TVDSVRLAUNCHCMD ssh
+
+   Note that there is an FWEB module on the cluster, which will likely
+   still work.  However, the patched version available in the DEGAS 2
+   FTP area (see Sec. 3.2.3 of the manual) is relatively easy to
+   compile.  Alternatively, one can use the ftangle fweave in
+   /u/dstotler/bin.
+
+   The Makefile.local indicated below automatically passes to the compiler
+   the include and library directories pointed to by the modules.  It
+   also references HDF5 and Silo libraries that I have compiled, although
+   there are also modules (untested) available for these libraries.
 
 4. Create a DEGAS 2 run directory as in section 3.6 of the manual.  On
    the PPPL cluster, this should be called LINUX64.
@@ -90,9 +101,10 @@
     To compile or debug serial code after this, you will need to reset MPI=no,
     do "gmake clean" and remake as needed.
 
-    For interactive batch jobs, you can use the "-I" option of qsub:
+    For interactive batch jobs, use the salloc command and select dawson as the
+    target:
 
-    qsub -I -lnodes=20,mem=1000mb -v DISPLAY -X -r n
+    salloc -n 20 -p dawson
 
     The user should assess the computational requirements for the run
     by timing a single processor run with about 1000 flights (via the
@@ -107,8 +119,8 @@
     mpirun -np 20 flighttest
 
     The OpenMPI implementation of mpirun will recognize that you are running
-    under the PBS system and access the list of assigned processors (in 
-    $PBS_NODEFILE) automatically.
+    under the Slurm system and access the list of assigned processors
+    automatically.
 
     A template for non-interactive batch jobs can be obtained upon request.
 
