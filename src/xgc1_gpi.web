@@ -90,6 +90,8 @@ name of the XGC1 data file.
       define_dimen(tri_ind,num_tri)
 
       define_varp(xgc_params,FLOAT,xi_file_ind,param_ind,tri_ind)
+      define_varp(triangles,INT,zone_ind)
+      define_varp(triangles_xgc,INT,zone_ind)
 
       implicit_none_f77
       zn_common                                                 // Common
@@ -101,15 +103,21 @@ name of the XGC1 data file.
       character*LINELEN nt_string                               // Input
 
       integer p,b,e,length,diskin3,open_stat,num_files,
-     $        ifile,num_tri
+     $        ifile,num_tri,max_tri,i,zone,last_xgc_zone,
+     $        num_iy,iy
+
+      real density
 
       character*LINELEN line
       character*FILELEN plasma_file_list,efit_file,xgc1int_nc_file
       character*FILELEN file_names[0:xi_max_files]
 
       declare_varp(xgc_params)
+      declare_varp(triangles)
+      declare_varp(triangles_xgc)
 
       st_decls
+      zn_decls
 
       p=0
       assert(next_token(nt_string,b,e,p))
@@ -168,11 +176,72 @@ name of the XGC1 data file.
          close(unit=diskin3)
       end if
 /*
-   Relying here on the fact that the Sonnet
-   format for triangles uses the first index
-   to enumerate them.
+   Previously used the zone indices to 
+   get the number of triangles, but the
+   more general approach does not go through
+   a Sonnet format file.  Instead, just read
+   all the way through the axisymmetric file
+   and count the number of lines.
+
+   The more general approach also loses track of the
+   connection between triangle and zone number.  To
+   compensate, the ``zone'' column of the plasma
+   files is now actually the zone number (of the
+   |iy| = 0 zone); the entry in the file is the
+   triangle number.  This relationship is now stored
+   in |triangles|.
+
+   We also need to distinguish between triangles
+   that are in the XGC1 mesh and those that are
+   not.  The former are identified by having non-zero
+   values in the second column of the file (should be
+   electron density) and are identified by non-zero
+   values of |triangles_xgc|.  Use the axisymmetric
+   data (last file) for this purpose since the 3-D
+   data files have non-zero minima.
 */
-      num_tri=zone_index_max[zi_ix]
+      num_tri=0
+      max_tri=1000000
+      last_xgc_zone=0
+      num_iy=zone_index_max[zi_iy]
+      open_file(diskin3,file_names[num_files])
+      var_alloc(triangles)
+      var_alloc(triangles_xgc)
+      do zone=1,zn_num
+         triangles[zone]=zero
+         triangles_xgc[zone]=zero
+      end do
+      do i=1,max_tri
+         if (! read_string(diskin3,line,length)) then
+            goto eof
+         else
+            assert(length<=len(line))
+            length=parse_string(line(:length))
+            p=0
+            assert(next_token(line,b,e,p))
+            zone=read_int_soft_fail(line(b:e))
+            if (zone != int_undef) then 
+               assert(zn_check(zone))
+               num_tri++
+               triangles[zone]=num_tri
+               assert(next_token(line,b,e,p))
+               density=read_real(line(b:e))
+               if (density > zero) then
+                  triangles_xgc[zone]=num_tri
+                  last_xgc_zone=zone
+                  assert(zn_index(zone,zi_iy) == 0)
+                  do iy=1,num_iy
+                     triangles_xgc[zone+iy]=num_tri
+                  end do
+               end if
+            end if
+         end if
+      end do
+eof:  continue
+      assert(num_tri > 0)
+      assert(num_tri < max_tri)
+      close(unit=diskin3)  // Do not think it needs to be rewound
+
       var_alloc(xgc_params)
 
       var_alloc(xi_r_interp)
@@ -183,9 +252,12 @@ name of the XGC1 data file.
       var_alloc(xi_tri_interp)
       
       call get_n_t_a(file_names,num_files,xgc_params,num_tri,
-     $               efit_file,xgc1int_nc_file)
+     $               efit_file,xgc1int_nc_file,triangles,
+     $               triangles_xgc,last_xgc_zone)
 
       var_free(xgc_params)
+      var_free(triangles)
+      var_free(triangles_xgc)
       var_free(xi_r_interp)
       var_free(xi_z_interp)
       var_free(xi_l_interp)
@@ -202,12 +274,8 @@ so their indices are handled correctlly.  After finding
 some pre-existing bugs in testing, not sure that this
 is completely necessary; retaining just in case.
 
-@m max_iy 100
+@m max_iy 100          // Could dynamically allocate
 @m lambda const(1.,-2)    // Fall-off length outside XGC1 mesh
-
-@m BFIELD_OUT 0
-@m BFIELD_LONG 0
-@m RZ_INTERP_OUT 0
 
 @m n_phi_steps 40
 @m rk_order 2
@@ -228,7 +296,8 @@ is completely necessary; retaining just in case.
 
 @<Functions...@>=
       subroutine get_n_t_a(file_names,num_files,xgc_params,num_tri,
-     $                     efit_file,xgc1int_nc_file)
+     $                     efit_file,xgc1int_nc_file,triangles,
+     $                     triangles_xgc,last_xgc_zone)
 
       implicit_none_f77
       zn_common                                                 // Common
@@ -237,7 +306,8 @@ is completely necessary; retaining just in case.
       xi_common
       implicit_none_f90
 
-      integer num_files,num_tri                                 // Input
+      integer num_files,num_tri,last_xgc_zone                   // Input
+      integer triangles[zn_num],triangles_xgc[zn_num]
 
       real xgc_params[num_tri][max_param][0:xi_max_files]
 
@@ -247,8 +317,8 @@ is completely necessary; retaining just in case.
       integer p,b,e,length,diskin3,open_stat,ifile,             // Local
      $        count,first_count,line_num,col_num,
      $        sub_count,zone,num_cols,ref_ptr,num_iy,tri,
-     $        iy,icol,back,file_tri,zone2,close_zone,
-     $        ifile2,close_tri,close_zone0,last_xgc_zone,
+     $        iy,icol,back,file_zone,zone2,close_zone,
+     $        ifile2,close_tri,close_zone0,
      $        ipm,iphi,this_tri,tri_org,tri_minus,
      $        tri_plus,file_minus,file_plus,
      $        fileid
@@ -256,9 +326,8 @@ is completely necessary; retaining just in case.
 
       real this_param,delta_min,delta,exp_factor,sum,psilim,
      $     r,z,phi_org,phi_dest,l_org,delta_phi,l_dest
-      real phi_iy[0:max_iy],file_index[0:max_iy]
 
-      logical all_iys
+      real phi_iy[0:max_iy],file_index[0:max_iy]
 
       character*LINELEN line,plasma_format
       character*FILELEN bfield_file
@@ -336,14 +405,13 @@ kolumn_loop: continue
             sub_count++
 /*
    This is the only entry processed at this point.  
-   Assume its purpose here is to just number the lines or
-   triangles.  It is {\em not} an actual zone number.
-   But, then mindlessly load into array with the others
-   for simplicity.
+   We have already used the zone number to relate it
+   to triangle number.  Just verify that connection here.
+   Note again that this is just the |iy| = 0 zone number.
 */
             if (format_code[sub_count] == form_zone) then
                zone=read_integer(line(b:e))
-               assert(zone == line_num)
+               assert(triangles[zone] == line_num)
             else
 /*
    This accounts for the species identifier in each of
@@ -374,14 +442,10 @@ eof: continue
    At this point, all of the data from all of the files have
    been read in.
 
-   Next need to determine the number of toroidal planes in the 
-   geometry.  In principle, could get this from |zn_index_max[zi_iy]|,
-   but it is not presently being set.  Instead, rely on the fact
-   that the first zone (index ``1'') is always of type |zn_plasma| and that
-   its toroidal brethren come immediately after it.   Since we have
-   hard wired the value of |max_iy|, need to check that it is indeed
-   larger than the number of toroidal planes; using |all_iys| to
-   do that.
+   Next need to set the toroidal angles
+   used in the geometry.  Infer these from the first
+   |num_iy| zone centers.  Have set up |zone_index_max[zi_iy]|
+   expressly for this purpose.
 */
       assert(zn_type(1) == zn_plasma)
       ref_ptr=zn_index(1,zi_ptr)
@@ -393,23 +457,15 @@ eof: continue
    toroidal angles and |zn_index| (|iy| = 0 corresponds to 
    zone between toroidal planes 0 and 1).
 */
-      num_iy=-1  // index has to begin at 0 for interpolation
-      all_iys=.false.
-      do zone=1,max_iy
-        if (zn_index(zone,zi_ptr) == ref_ptr) then
-           num_iy=max(num_iy,zn_index(zone,zi_iy))
-           phi_iy[num_iy]=atan2(zone_center[zone][2],zone_center[zone][1])
-           if (phi_iy[num_iy] > PI) phi_iy[num_iy]=phi_iy[num_iy]-two*PI // as above
-           if (num_files > 0) file_index[num_iy]
-     $                       =find_index(phi_iy[num_iy],xi_phis,num_files)  // real
-        else
-           all_iys=.true.
-        end if
+      num_iy=zone_index_max[zi_iy]
+      do zone=1,num_iy+1
+         iy=zone-1
+         assert(zn_index(zone,zi_ptr) == ref_ptr)
+         phi_iy[iy]=atan2(zone_center[zone][2],zone_center[zone][1])
+         if (phi_iy[iy] > PI) phi_iy[iy]=phi_iy[iy]-two*PI // as above
+         if (num_files > 0) file_index[iy]
+     $                     =find_index(phi_iy[iy],xi_phis,num_files)  // real
       end do
-      if (!all_iys) then
-         assert(' Appear to have more than max_iy toroidal planes' 
-     $            == ' ')
-      end if
 
       if (num_files > 0) then
          call ncpopt(0)   // Squelches error messages
@@ -430,10 +486,13 @@ eof: continue
    instead to provide additional situation-dependent control.  Only
    check made here is that the densities and temperatures are positive.
 */
-      last_xgc_zone=int_uninit
       do zone=1,zn_num
          if (zn_type(zone) == zn_plasma) then
+@#if 0
             tri=zn_index(zone,zi_ix)
+@#else
+            tri=triangles_xgc[zone]
+@#endif
             iy=zn_index(zone,zi_iy)
             sub_count=0
             do icol=1,num_cols
@@ -469,18 +528,19 @@ eof: continue
 */
                   if (icol == 1) then
                      if (zn_index(zone,zi_iy) == 0) then
-                        if (last_xgc_zone == int_uninit) last_xgc_zone=zone-1
                         delta_min=geom_infinity
                         close_zone=int_uninit
                         do zone2=1,last_xgc_zone,(num_iy+1)
                            assert(zn_type(zone2) == zn_plasma)
                            assert(zn_index(zone2,zi_iy) == 0)
-                           vc_difference(zone_center[zone],zone_center[zone2],
-     $                          vec_delta)
-                           delta=vc_abs(vec_delta)
-                           if (delta < delta_min) then
-                              delta_min=delta
-                              close_zone=zone2
+                           if (triangles_xgc[zone2] > 0) then
+                              vc_difference(zone_center[zone],zone_center[zone2],
+     $                             vec_delta)
+                              delta=vc_abs(vec_delta)
+                              if (delta < delta_min) then
+                                 delta_min=delta
+                                 close_zone=zone2
+                              end if
                            end if
                         end do
                         close_zone0=close_zone
@@ -489,7 +549,11 @@ eof: continue
                      end if
                      assert(delta_min > zero && delta_min < geom_infinity)
                      assert(zn_check(close_zone))
+@#if 0
                      close_tri=zn_index(close_zone,zi_ix)
+@#else
+                     close_tri=triangles_xgc[close_zone]
+@#endif
                      exp_factor=exp(-delta_min/lambda)
                   end if
                   this_param=xgc_params[close_tri][icol][num_files]  // Axisymmetric value
@@ -497,8 +561,8 @@ eof: continue
                end if
                sub_count++
                if ((format_code[sub_count] == form_zone) && (tri > 0))then
-                  file_tri=int(xgc_params[tri][icol][0])
-                  assert(file_tri == tri)
+                  file_zone=int(xgc_params[tri][icol][0])
+                  assert(file_zone == zn_index(zone,zi_ptr))
                else if (format_code[sub_count] == form_density) then
                   sub_count++
                   back=format_code[sub_count]
@@ -526,11 +590,6 @@ eof: continue
                   vc_scale(this_param,b_hat,v_ext)
                   v_ext_to_int(zone_center[zone],v_ext,bk_v(back,zone),
      $                 geometry_symmetry,background_coords)
-@#if BFIELD_OUT
-                  if ((iy == 0) && (tri > 0)) then
-                     write(diskout,'(i6,2x,1p,5(e13.6,2x))') tri,b_vec[1],b_vec[3],b_vec[2],r,z
-                  end if
-@#endif
                else if (format_code[sub_count] == form_velocity_2) then
                   assert(' These files should have only one v' == ' ')
                else if (format_code[sub_count] == form_velocity_3) then
@@ -541,10 +600,6 @@ eof: continue
          end if            // |zn_type|
       end do               // Over |zone|
 
-@#if BFIELD_OUT
-      close(unit=diskout)
-@#endif
-
       return
       end
 
@@ -552,52 +607,19 @@ eof: continue
 
 @<Interpolate Along Field@>=
 
-/*
-   Temporary: output magnetic field data to check against
-   values obtained from XGC1 output.
-*/
-@#if BFIELD_OUT
-      open(unit=diskout,file='bfield_check.txt',status='unknown',
-     $     form='formatted')
-      write(diskout,*) ' zone   BR    BZ   Bphi  R   Z'
-@#endif
-@#if BFIELD_LONG
-      open(unit=diskout,file='bfield_long_int.txt',status='unknown',
-     $     form='formatted')
-      write(diskout,*) '  phi   R   Z  L'
-      zone=258714   // Near middle of the box
-      assert((zn_type(zone) == zn_plasma) && (zn_index(zone,zi_ix) > 0))
-      iy=zn_index(zone,zi_iy)
-      phi_org=phi_iy[iy]
-/*
-   Set up an in integration interval of 10 degrees,
-   comparable to the largest one used in the actual
-   interpolation.
-*/
-      delta_phi=(const(1.,1)*PI/const(1.8,2))/areal(n_phi_steps)
-      vc_copy(zone_center[zone],x_org)
-      l_org=zero
-      write(diskout,'(4(f16.12,2x))') phi_org,sqrt(x_org[1]**2+x_org[2]**2),
-     $                                x_org[3],l_org
-      do iy=1,360
-         do iphi=1,n_phi_steps
-            call follow_field(rk_order,vc_args(x_org),l_org,delta_phi,
-     $                        vc_args(x_dest),l_dest)
-            l_org=l_dest
-            phi_org+=delta_phi
-            vc_copy(x_dest,x_org)
-         end do
-         write(diskout,'(4(f16.12,2x))') phi_org,sqrt(x_org[1]**2+x_org[2]**2),
-     $                                   x_org[3],l_org
-      end do
-      close(unit=diskout)
-@#endif
-
       do zone=1,zn_num
+@#if 0
          if ((zn_type(zone) == zn_plasma) && (zn_index(zone,zi_ix) > 0)) then
+@#else
+         if ((zn_type(zone) == zn_plasma) && (triangles_xgc[zone] > 0)) then
+@#endif
             iy=zn_index(zone,zi_iy)
             phi_org=phi_iy[iy]
+@#if 0
             tri_org=zn_index(zone,zi_ix)
+@#else
+            tri_org=triangles_xgc[zone]
+@#endif
 /*
    This loop follows the field line first towards
    smaller toroidal angle and then in the other direction.
@@ -647,7 +669,11 @@ eof: continue
                   vc_copy(x_dest,lc_x(xx))
                   lc_set(xx)
                   if (lc_cell(xx) > 0) then
+@#if 0
                      this_tri=zn_index(lc_zone(xx),zi_ix)
+@#else
+                     this_tri=triangles_xgc[lc_zone(xx)]
+@#endif
                      if ((this_tri > 0) && (this_tri <= num_tri)) then 
                         xi_tri_interp[zone][ipm]=this_tri
                      else
@@ -699,26 +725,6 @@ eof: continue
       write(stdout,*) 'XGC1 interpolation netCDF file ',trim(xgc1int_nc_file),
      $                ' written'
 
-@#if RZ_INTERP_OUT
-      write(rz_int_filename,'(a12,i1,a1,i3.3,a4)') 'rz_int_test_',rk_order,
-     $                                       '_',n_phi_steps,'.txt'
-      open(unit=diskout,file=rz_int_filename,status='unknown',
-     $     form='formatted')
-      write(diskout,'(a7,2x,a7,2x,a2,6(2x,a3,8x))') ' zone  ',' tri   ','iy',
-     $      ' R-',' R ',' R+',' Z-',' Z ',' Z+'
-      do zone=1,zn_num
-         if ((zn_type(zone) == zn_plasma) && (zn_index(zone,zi_ix) > 0)) then
-            write(diskout,'(i7,2x,i7,2x,i2,6(2x,f16.12))') zone,
-     $        zn_index(zone,zi_ix),zn_index(zone,zi_iy),
-     $        xi_r_interp[zone][xi_pm_minus],
-     $        sqrt(zone_center[zone][1]**2+zone_center[zone][2]**2),
-     $        xi_r_interp[zone][xi_pm_plus],
-     $        xi_z_interp[zone][xi_pm_minus],zone_center[zone][3],
-     $        xi_z_interp[zone][xi_pm_plus]
-         end if
-      end do
-      close(unit=diskout)
-@#endif
 
 @ Axisymmetric interpolation.  These are trivial settings of the
 arrays used for field line interpolation.
@@ -726,8 +732,8 @@ arrays used for field line interpolation.
 @<Axisymmetric Interpolation@>=
       
       do zone=1,zn_num
-         if ((zn_type(zone) == zn_plasma) && (zn_index(zone,zi_ix) > 0)) then
-            tri_org=zn_index(zone,zi_ix)
+         if ((zn_type(zone) == zn_plasma) && (triangles_xgc[zone] > 0)) then
+            tri_org=triangles_xgc[zone]
             do ipm=xi_pm_minus,xi_pm_plus
                xi_file_interp[zone][ipm]=0
                xi_tri_interp[zone][ipm]=tri_org
