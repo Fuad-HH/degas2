@@ -595,7 +595,46 @@ loop: continue
 
          call write_silo_data('sp'\/trim(clean_sy)\/'_density_rsd',polygon_data,
      $        ' ','E11.3',dbfile,mesh_name)
+/*
+   Add corresponding dump of snapshot estimator version of neutral density; if present
+   in time dependent case.
+*/
+         if (string_lookup('neutral density - snapshot',tally_name,tl_num) > 0) then
+            ha_temp=zero
+            do i=1,g2_num_polygons
+               zone=g2_polygon_zone[i]
+               if (zn_type(zone) == zn_plasma || zn_type(zone) == zn_vacuum) then
+                  index_parameters[tl_index_zone]=zone
+                  density=extract_output_datum(index_parameters,1,
+     $                 out_post_all,o_mean,'neutral density - snapshot')
+                  polygon_data[i]=density           // SNAPSHOT NEUTRAL DENSITY
+                  ha_temp+=density*zn_volume(zone)
+               else
+                  polygon_data[i]=zero
+               end if
+            end do
+            name_clean(sp_sy(pr_test(j)),clean_sy)
+            call write_silo_data('sp'\/trim(clean_sy)\/'_density_snap',polygon_data,
+     $           'm**-3','E11.3',dbfile,mesh_name)
 
+            do i=1,g2_num_polygons
+               zone=g2_polygon_zone[i]
+               if (zn_type(zone) == zn_plasma || zn_type(zone) == zn_vacuum) then
+                  index_parameters[tl_index_zone]=zone
+                  density=extract_output_datum(index_parameters,1,
+     $                 output_all,o_var,'neutral density - snapshot')
+                  polygon_data[i]=density           // SNAPSHOT NEUTRAL DENSITY REL. STD. DEV.
+               else
+                  polygon_data[i]=zero
+               end if
+            end do
+
+            call write_silo_data('sp'\/trim(clean_sy)\/'_density_snap_rsd',polygon_data,
+     $           ' ','E11.3',dbfile,mesh_name)
+         end if
+/*
+   End snapshot density.
+*/
          if (tl_check(string_lookup('neutral velocity vector',tally_name,tl_num))) then
             vname='neutral velocity vector'
             vtag='vel'
