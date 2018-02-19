@@ -27,6 +27,7 @@
 @I xsection.hweb
 @I output.hweb
 @I materials.hweb
+@I flight.hweb
 
 @ The main program.
 
@@ -2609,8 +2610,7 @@ loop: continue
 actually done at the source point or as a post-processor.
 
 @<Functions...@>=
-      subroutine recombination_data(est,so_dummy(is),xseg,pt_dummy(p),
-     $   scoring_data,rn_dummy(x))
+      subroutine recombination_data(est,fl_dummy(x),scoring_data)
 
       implicit_none_f77
       pr_common                             // Common
@@ -2620,29 +2620,27 @@ actually done at the source point or as a post-processor.
       sp_common
       rd_common
       zn_common
-      so_common
       implicit_none_f90
 
       rd_decls
       lc_decls
       st_decls
 
-      integer est,xseg                      // Input
-      so_decl(is)
-      pt_decl(p)
+      integer est                           // Input
+      fl_decl(x)
 
       real scoring_data[scoring_data_max]   // Output
-      rn_decl(x)                            // Input/output
 
       pr_background_decl(back_2)            // Local
       pr_background_decl(back_1)
       pr_reaction_decl(bk_rc_is)
       pr_reaction_decl(pr_reac)
+      sp_decl(sptest)
       rc_decl(reac)
       lc_decl(zone_loc)
       vc_decl(vb_flow)
       vc_decl(v_src)
-      integer i,i_e_loss,i_e_src,num_lines,i_e_rate,i_gen_rate,psp_1,psp_2
+      integer i,i_e_loss,i_e_src,num_lines,i_e_rate,i_gen_rate,psp_1,psp_2,xseg
       integer lines[pr_max_lines],e_rates[pr_max_lines]
       real rate,e_loss,e_e_loss,e_e_src
       real independent_parameters[xs_max_indep_params]
@@ -2684,11 +2682,12 @@ actually done at the source point or as a post-processor.
          init=.false.
       end if
 
+      sptest=pt_sp(fl_current(x))
       bk_rc_is=0
       do i=1,pr_bkrc_num
-         if (pr_bkrc_prod(i,1) == so_species(is)) then
+         if (pr_bkrc_prod(i,1) == sptest) then
             assert(bk_rc_is == 0)
-            assert(pr_background_lookup(so_root_sp(is)) == pr_bkrc_rg(i,2))
+            assert(pr_background_lookup(fl_source_root_sp(x)) == pr_bkrc_rg(i,2))
             bk_rc_is=i
          end if
       end do
@@ -2703,12 +2702,12 @@ actually done at the source point or as a post-processor.
       back_2=pr_bkrc_rg(bk_rc_is,2)
       pr_reac=pr_bk_rc(bk_rc_is)
       reac=pr_reaction(pr_reac)
-      rate=find_rate(pt_args(p),pr_background_args(back_1),
+      rate=find_rate(pt_args(fl_current(x)),pr_background_args(back_1),
      $     pr_reaction_args(pr_bk_rc(bk_rc_is)),rn_args(x))
       assert(rate > zero)
-      call set_indep_params(pt_args(p),pr_background_args(back_1),
+      call set_indep_params(pt_args(fl_current(x)),pr_background_args(back_1),
      $     reaction_rate_num_rand[pr_reac],
-     $     rn_args(x),independent_parameters)
+     $     rn_args(fl_rand(x)),independent_parameters)
 
 /*
    Set data for line emission. For post-processing, compute spectrum
@@ -2717,9 +2716,10 @@ actually done at the source point or as a post-processor.
    velocity. Set the background momentum and energy sinks in an
    analogous way.
 */
+      xseg=fl_source_xseg(x)
       if (rc_emitter(reac) != 0) then
          assert(rc_emitter(reac) == 1)
-         independent_parameters[xs_var_m_emitter]=sp_m(pt_sp(p))
+         independent_parameters[xs_var_m_emitter]=sp_m(sptest)
          if (est == tl_est_post_process) then
             assert(xseg == int(independent_parameters[xs_var_zone]))
             vc_copy(zone_center[xseg],lc_x(zone_loc))
@@ -2757,12 +2757,12 @@ actually done at the source point or as a post-processor.
      $        == i_e_loss) then
             e_e_loss=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
-     $           independent_parameters,rn_args(x))
+     $           independent_parameters,rn_args(fl_rand(x)))
          else if (reaction_handling_var0[pr_reac][i] 
      $           == i_e_src) then
             e_e_src=independent_parameters[xs_var_density]
      $           *eval_data(rd_data_args(reaction_handling,[pr_reac][i]),
-     $           independent_parameters,rn_args(x))
+     $           independent_parameters,rn_args(fl_rand(x)))
 
 /* 
    Evaluate everything else nontrivial
@@ -2770,7 +2770,7 @@ actually done at the source point or as a post-processor.
          else if (reaction_handling_var0[pr_reac][i] != pr_var_unknown) then
             scoring_data[reaction_handling_var0[pr_reac][i]]
      $           =eval_data(rd_data_args(reaction_handling,
-     $           [pr_reac][i]),independent_parameters,rn_args(x))
+     $           [pr_reac][i]),independent_parameters,rn_args(fl_rand(x)))
          end if
       end do
 
@@ -2810,37 +2810,6 @@ actually done at the source point or as a post-processor.
 */
       psp_1=pr_problem_sp_back(back_1)
       psp_2=pr_problem_sp_back(back_2)
-@#if 0
-      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_1)]+=
-     $  -sp_m(pr_background(back_1))*rate
-      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
-     $     -sp_m(pr_background(back_2))*rate
-      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_2)]+=
-     $     -sp_m(pr_background(back_2))*v_src[1]*rate 
-      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_2)]+=
-     $     -sp_m(pr_background(back_2))*v_src[2]*rate 
-      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_2)]+=
-     $     -sp_m(pr_background(back_2))*v_src[3]*rate 
-      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_1)]+=
-     $     e_e_src-e_e_loss
-      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
-     $     -e_loss*rate
-
-      psp_2=pr_problem_sp_test(test)
-      scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
-     $  sp_m(pr_test(test))*rate
-      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_2)]+=
-     $     sp_m(pr_test(test))*v_src[1]*rate 
-      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_2)]+=
-     $     sp_m(pr_test(test))*v_src[2]*rate 
-      scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_2)]+=
-     $     sp_m(pr_test(test))*v_src[3]*rate 
-      scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
-     $     e_loss*rate    // Assuming all goes from back to test.
-@#else
-/*
-   Remove |rate| factors
-*/
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_1)]+=
      $  -sp_m(pr_background(back_1))
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
@@ -2856,18 +2825,17 @@ actually done at the source point or as a post-processor.
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
      $     -e_loss
 
-      psp_2=pr_problem_sp_test(pt_test(p))
+      psp_2=pr_problem_sp_test(pt_test(fl_current(x)))
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
-     $  sp_m(pt_sp(p))
+     $  sp_m(sptest)
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_2)]+=
-     $     sp_m(pt_sp(p))*v_src[1] 
+     $     sp_m(sptest)*v_src[1] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_2)]+=
-     $     sp_m(pt_sp(p))*v_src[2] 
+     $     sp_m(sptest)*v_src[2] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_2)]+=
-     $     sp_m(pt_sp(p))*v_src[3] 
+     $     sp_m(sptest)*v_src[3] 
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
      $     e_loss    // Assuming all goes from back to test.
-@#endif
       
       return
       end

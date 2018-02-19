@@ -298,6 +298,7 @@ the variance).
 @<Functions...@>=
       subroutine do_src_tests
       define_varp(stat,FLOAT,source_seg_ind)
+      define_varp(num_seg_samp,INT,source_seg_ind)
       define_varp(prob_seg,FLOAT,source_seg_ind)
 
       implicit_none_f77
@@ -326,7 +327,8 @@ the variance).
       lc_decl(xsrc)
       so_decl(isource)
       sp_decl(spsrc)
-      fl_decl(x)
+      pt_decl(x)
+      rn_decl(x)
       vc_decl(vzero)
       vc_decl(vone)
       vc_decl(deltax)
@@ -349,14 +351,13 @@ the variance).
       vc_decls
 
       declare_varp(stat)
+      declare_varp(num_seg_samp)
       declare_varp(prob_seg)
 
       var_alloc(stat)
+      var_alloc(num_seg_samp)
       var_alloc(prob_seg)
 
-@#if 0
-      rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
-@#endif
       call decimal_to_seed(so_seed_decimal,rn_seed_args(seed))
       if (so_sampling == so_direct) then
          rn_seed_copy(seed,temp_seed)
@@ -403,6 +404,7 @@ loop1: continue
 
          do i=1,so_nseg(isource)
             stat[i]=zero
+            num_seg_samp[i]=0
          end do
 
          weight_tot=zero
@@ -411,14 +413,12 @@ loop1: continue
       do num=1,nsample
 @#endif
          do num=0,nsample-1
-            rn_init(seed,fl_rand(x))
-            fl_label(x,num,isource)
-            call sample_sources(tl_est_unknown,fl_args(x),
-     $           estimator_factors,rel_wt)
-@#if 0
-         call sample_sources(fl_args(x),rel_wt) 
-@#endif
-            stat[fl_source_seg(x)+1]+=rel_wt
+            rn_init(seed,x)
+            call sample_sources(tl_est_unknown,isource,num,pt_args(x),
+     $           rn_args(x),kseg)
+            rel_wt=pt_w(x)
+            stat[kseg+1]+=rel_wt
+            num_seg_samp[kseg+1]+=1
             weight_tot+=rel_wt
             call next_seed(1,seed)
          end do
@@ -434,10 +434,11 @@ loop1: continue
          write(diskout,*)
          write(diskout,*) '   For source group = ',isource
          write(diskout,*) 
-     $        '  Seg  Ptr    Weight      Rel.Wt.   Rel.Curr.' 
+     $        '  Seg  Ptr    Number      Weight      Rel.Wt.   Rel.Curr.' 
          do i=1,so_nseg(isource)
-            write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
+            write(diskout,'(i5,1x,i5,1x,1pe11.4,1x,1pe11.4,1x,e11.4,1x,e11.4)') 
      $           i,source_segment_ptr[so_base(isource)+i-1],
+     $           areal(num_seg_samp[i]),
      $           stat[i],stat[i]/weight_tot,prob_seg[i]
             do j=1,num_chis
                if (prob_seg[i] > min_prob*const(1.,1)**(j-1)) then
@@ -461,6 +462,7 @@ loop1: continue
 break:  continue
 
       var_free(stat)
+      var_free(num_seg_samp)
       var_free(prob_seg)
 
 loop2: continue
@@ -521,25 +523,21 @@ loop3: continue
 */
       call decimal_to_seed(so_seed_decimal,rn_seed_args(seed))
       
-@#if 0
-      do i=1,nsample
-@#else
       do i=0,nsample-1
-@#endif
-         rn_init(seed,fl_rand(x))
+         rn_init(seed,x)
          if (so_sampling == so_random) then
-            rn_next(dummy,fl_rand(x))     // Match one used for segment choice.
+            rn_next(dummy,x)     // Match one used for segment choice.
          end if
          call set_source_x(tl_est_unknown,so_args(isource),xseg,kseg,
-     $        rn_args(fl_rand(x)),lc_args(xsrc))
+     $        rn_args(x),lc_args(xsrc))
          call set_source_v(so_args(isource),xseg,kseg,lc_args(xsrc),
-     $        rn_args(fl_rand(x)),vc_args(vsrc))
+     $        rn_args(x),vc_args(vsrc))
          call next_seed(1,seed)
          if (so_type(isource) != so_snapshot) then
             spsrc=so_species(isource)
          else
-            call init_snapshot_fl(so_args(isource),xseg,kseg,fl_args(x))
-            spsrc=pt_sp(fl_origin(x))
+            call init_snapshot_pt(so_args(isource),xseg,kseg,pt_args(x))
+            spsrc=pt_sp(x)
          end if
          energy=half*sp_m(spsrc)*vc_abs2(vsrc)/electron_charge
 /* For surface sources, break |xsrc| and |vsrc| down into components

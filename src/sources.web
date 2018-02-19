@@ -35,11 +35,12 @@
 @a
       @<Functions and Subroutines@>
 
-@ Sampling Routine. This is the non-idiot version. Although still
-incomplete, it should be easy to add more functionality. Models are
-at this point faithful to the original DEGAS versions. This routine
-oversees the selection of the flight origin's position, velocity,
-species and ``relative weight''.
+@ Source Sampling Routine. This is now a particle-based version
+suitable for calling by the master in a parallel run. 
+The position, velocity, species, and relative weight are
+set.  These will be passed down the call chain (and to a slave
+process in the parallel case) where they will become a
+flight ``origin''
 
 @f sources_localcommon integer
 @m sources_localcommon save /sources_common/;
@@ -47,21 +48,21 @@ species and ``relative weight''.
       common /sources_common/ x_surface @;
 
 @<Functions...@>=
-      subroutine sample_sources(est,fl_dummy(x),estimator_factors,rel_wt)
+      subroutine sample_sources(est,is,number,pt_dummy(x),rn_dummy(x),kseg)
       implicit_none_f77
-      so_common           // Common
+      so_common                     // Common
       sp_common
       pr_common
       implicit_none_f90
       
-      integer est                   // Input
-      fl_decl(x)                    // Input/output
-      real estimator_factors[*]     // Scratch 
-      real rel_wt                   // Output
+      integer est,number            // Input
+      so_decl(is)
+      pt_decl(x)                    // Input/output
+      rn_decl(x)
+      integer kseg                  // Output
 
       real urd,vprob                // Local
-      integer kseg,xseg
-      so_decl(is)
+      integer xseg
 
       st_decls
       rn_decls
@@ -69,8 +70,6 @@ species and ``relative weight''.
 
       external find_index           // External
       real find_index
-
-      is=fl_source(x)
 /*
    Sample one segment from this source group.  Two different techniques are
    employed here.  The original (``alias'') follows the sampling algorithm 
@@ -83,9 +82,9 @@ species and ``relative weight''.
    the |source_segment_ptr_alias| array is trivial (i.e., set to |int_unused|).
 */
       if (so_sampling == so_random) then
-         rn_next(urd,fl_rand(x))
+         rn_next(urd,x)
       else if (so_sampling == so_direct) then
-         urd=mod(so_direct_delta+so_direct_mult*areal(fl_number(x)),one)
+         urd=mod(so_direct_delta+so_direct_mult*areal(number),one)
       else
          assert('Illegal value of so_sampling' == ' ')
       end if
@@ -104,50 +103,39 @@ species and ``relative weight''.
          xseg=source_segment_ptr[so_base(is)+kseg]
       end if
 
-      call set_source_x(est,so_args(is),xseg,kseg,rn_args(fl_rand(x)),
-     $     lc_args(pt_loc(fl_origin(x))))
+      call set_source_x(est,so_args(is),xseg,kseg,rn_args(x),
+     $     lc_args(pt_loc(x)))
 
-      call set_source_v(so_args(is),xseg,kseg,lc_args(pt_loc(fl_origin(x))),
-     $     rn_args(fl_rand(x)),vc_args(pt_v(fl_origin(x))))
+      call set_source_v(so_args(is),xseg,kseg,lc_args(pt_loc(x)),
+     $     rn_args(x),vc_args(pt_v(x)))
 /*
    Set initial time for the flight.  If we need more complicated
    time dependence, should put in a separate subroutine.
 */
       if (so_t_varn(is) == so_delta_fn) then   // Also time independent runs
-         pt_t(fl_origin(x))=so_time_initial
+         pt_t(x)=so_time_initial
+         assert(so_time_initialization == FALSE)
       else if (so_t_varn(is) == so_time_uniform) then
          assert((so_time_dependent == TRUE) && (so_time_final > so_time_initial))
-         rn_next(urd,fl_rand(x))
-         pt_t(fl_origin(x))=so_time_initial+urd*(so_time_final-so_time_initial)
+         rn_next(urd,x)
+         pt_t(x)=so_time_initial+urd*(so_time_final-so_time_initial)
       else
          assert('Unsupported source time variation' == ' ')
       end if
 
       if (so_type(is) != so_snapshot) then
-         fl_init(x,sp_sy(so_species(is)),kseg)
+         pt_init(x,sp_sy(so_species(is)),is)
       else
-         call init_snapshot_fl(so_args(is),xseg,kseg,fl_args(x))
+         call init_snapshot_pt(so_args(is),xseg,kseg,pt_args(x))
       end if
-@#if 0
-      assert(pr_test_check(pt_test(fl_current(x))))
-@#else
-      assert(fl_check(x))
-@#endif
-      rel_wt=source_segment_rel_wt[so_base(is)+kseg]
+/*
+   Storing the relative weight here temporarily.  This value will be passed
+   to the statistical accumulation routines; the actual flights will begin
+   tracking with a weight of unity.
+*/
+      pt_w(x)=source_segment_rel_wt[so_base(is)+kseg]
      $     *so_wt_norm(is)
-      if (rel_wt <= zero) then
-         write(stderr,*) ' Bad value of rel_wt in sample_sources'
-         write(stderr,*) ' is = ',is
-         write(stderr,*) ' kseg = ',kseg
-         write(stderr,*) ' rel_wt = ',rel_wt
-         call flush(stderr)
-         assert(rel_wt > zero)
-      end if
-
-      if (est != tl_est_unknown) then
-         call score_sources(est,so_args(is),xseg,kseg,pt_args(fl_current(x)),
-     $        estimator_factors,rn_args(fl_rand(x)))
-      end if
+      assert(pt_w(x) > zero)
 
       return
       end
@@ -840,7 +828,7 @@ with an isotropic distribution; we would need another routine for that.
 @#if 0
 /* Need also species of recombining ion. This should be stored in the
    source class, but this appears to be a sort of miscellaneous info.
-   for which we don't have a convenient slot (e.g., along with neutralized
+   for which we do not have a convenient slot (e.g., along with neutralized
    plate source species and gas puff energy).
  */
       spback=0
@@ -1127,50 +1115,43 @@ values of $1/2$ should be used.
       return
       end
 
-@ Initialize flight (and particle) parameters for a snapshot source.  These
+@ Initialize particle parameters for a snapshot source.  These
 may vary within the snapshot source group and cannot, thus, be set
 from the generic source group parameters.
 
 @<Functions...@>=
-      subroutine init_snapshot_fl(so_dummy(isource),xseg,kseg,fl_dummy(x))
+      subroutine init_snapshot_pt(so_dummy(isource),xseg,kseg,pt_dummy(x))
       implicit_none_f77
       so_common                   // Common
       implicit_none_f90
 
       so_decl(isource)            // Input
       integer xseg,kseg
-      fl_decl(x)                  // Output
+      pt_decl(x)                  // Output
 
       integer iparam,seg_tot      // Local
 /*
-   The idea here is to duplicate the functionality of |fl_init|, which
-   in turn invokes |pt_init|.
+   The idea here is to duplicate the functionality of |pt_init|.
 */
       assert(source_num_iparameters[isource] > 0)
       seg_tot=so_base(isource)+kseg
       do iparam=1,source_num_iparameters[isource]
          if (so_iparams_list(iparam,isource) == so_iparam_pt_sp) then
-            pt_sp(fl_origin(x))=so_iparams_data(iparam,seg_tot,isource)
+            pt_sp(x)=so_iparams_data(iparam,seg_tot,isource)
          else if (so_iparams_list(iparam,isource) == so_iparam_pt_test) then
-            pt_test(fl_origin(x))=so_iparams_data(iparam,seg_tot,isource)
+            pt_test(x)=so_iparams_data(iparam,seg_tot,isource)
          else if (so_iparams_list(iparam,isource) == so_iparam_pt_type) then
-            pt_type(fl_origin(x))=so_iparams_data(iparam,seg_tot,isource)
+            pt_type(x)=so_iparams_data(iparam,seg_tot,isource)
          else if (so_iparams_list(iparam,isource) == so_iparam_pt_author) then
 /*
    An alternative here would be to set it to point to snapshot source,
    but that's redundant since we will know by the source group that it
    came from there.
 */
-            pt_author(fl_origin(x))=so_iparams_data(iparam,seg_tot,isource)
+            pt_author(x)=so_iparams_data(iparam,seg_tot,isource)
          end if
       end do
 
-      pt_w(fl_origin(x))=one
-      fl_pointer(x)=1
-      fl_source_seg(x)=kseg
-
-      pt_copy(fl_origin(x),fl_current(x))
-      
       return
       end
 

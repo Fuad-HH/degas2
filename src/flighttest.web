@@ -107,9 +107,13 @@ its original purpose as a geometry test routine.
       @<Memory allocation interface@>
       mp_decls
       rn_decls
-
-
-      if (mpi_master && so_restart == TRUE) call nc_read_output
+/*
+   Need to separate these two since slaves
+   no longer have access to |so_common|.
+*/
+      if (mpi_master) then
+         if (so_restart == TRUE) call nc_read_output
+      end if
 
       if (mpi_master) then
          bgk=FALSE
@@ -207,7 +211,12 @@ bgk_loop: continue
       if (bgk_iteration == TRUE) then
          cm_mpibcastna
          bk_mpibcastna
+/*
+   Source data kept only on master now.
+*/
+@#if 0
          so_mpibcastna
+@#endif 
          go to bgk_loop
       end if
 

@@ -36,6 +36,7 @@
 @I stat.hweb
 @I materials.hweb
 @I snapshot_pdf.hweb
+@I flight_frag.hweb
 
 @ The main program.
 
@@ -45,27 +46,31 @@
 @ Follow a bunch of flights.
 
 @<Functions...@>=
-      subroutine do_flights(nstart,nflights,so_dummy(isource),seed0,estimator_factors)
+      subroutine do_flights(estimator_factors)
       implicit_none_f77
       zn_common
       pr_common
       tl_common
       sa_common
+      ff_common
       sn_common
+      sp_common
       implicit_none_f90
-      tl_decls
+
       integer nstart,nflights            // Input
       rn_seed_decl(seed0)
       so_decl(isource)
-      @<Memory allocation interface@>
       real estimator_factors[*]          // Scratch
-      integer i,j,new_dim           // Local 
+      integer i,j,new_dim                // Local 
       real mult
       rn_seed_decl(seed)
-      fl_decl(x)
-      real rel_wt
-      
-      rn_seed_copy(seed0,seed)
+      fl_decl(fx)
+
+      ff_decls
+      tl_decls
+      lc_decls
+      @<Memory allocation interface@>
+
 /*
    This used to be taken care of in |stat_wt_balance|. Added the check
    on weight to permit re-entry in the MPI case.
@@ -76,11 +81,17 @@
          end do
       end if
 
-      do j=nstart,nstart+nflights-1
-         fl_label(x,j,isource)
+      do j=1,ff_number_particles
+/*
+   Use macro to load particle number |j| into flight object
+   |x| from the |flight_frag| arrays, available here via
+   common block.  The flight''s relative weight is brought 
+   along and placed in |stat_wt_tot_flt|.
+*/
+         ff_label_init(j,fx,stat_wt_tot_flt)
+         assert(fl_check(fx))
 
-         call follow(fl_args(x),seed,rel_wt,estimator_factors)
-         stat_wt_tot_flt=rel_wt
+         call follow(fl_args(fx),estimator_factors)
 
          if (min(stat_size_frag+stat_size_flt,tally_size)>stat_dim_frag
      $        && stat_comp_frag == TRUE) then
@@ -98,8 +109,8 @@
 */
          if (!(stat_wt_tot_flt >= zero)) then
             write(stderr,*) ' Bad value of stat_wt_tot_flt = ',stat_wt_tot_flt
-            write(stderr,*) ' Source = ',fl_source(x)
-            write(stderr,*) ' Number = ',fl_number(x)
+            write(stderr,*) ' Source = ',fl_source(fx)
+            write(stderr,*) ' Number = ',fl_number(fx)
             write(stderr,*) ' Size = ',stat_size_flt
             call flush(stderr)
             assert(stat_wt_tot_flt >= zero)
@@ -124,7 +135,7 @@
 @ Follow a single particle.
 
 @<Functions...@>=
-      subroutine follow(fl_dummy(x),seed,rel_wt,estimator_factors)
+      subroutine follow(fl_dummy(x),estimator_factors)
       implicit_none_f77
       bk_common
       sp_common
@@ -136,9 +147,7 @@
       implicit_none_f90
       pt_decls
       fl_decl(x)
-      real rel_wt
       integer i,nprod,jtemp
-      rn_seed_decl(seed)
       real t,tmax,ionize_rate,rnd,other_rate,
      $     rate[pr_reaction_max],rate_all[pr_reaction_max],sum,t_fac
       real estimator_factors[*]         // Scratch
@@ -155,8 +164,6 @@
       external find_rate
       real find_rate
       
-      rn_init(seed,fl_rand(x))  // Initialize random numbers for flight
-
 @#if MPI_slave_messages
       write(diskout+3,*) ' Start of flight ',fl_number(x)
 @#endif
@@ -166,10 +173,8 @@
          open(unit=diskout,file='flights'\/grp_label,status='unknown')
       end if
 @#endif
-/*
-   This call now combines the source sampling and scoring.
-*/
-      call sample_sources(tl_est_collision,fl_args(x),estimator_factors,rel_wt)
+      call score_sources(tl_est_collision,fl_args(x),estimator_factors)
+
       if (!((zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
      $     || (zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_vacuum))) then
          write(stdout,*) fl_source(x),fl_number(x)
@@ -274,7 +279,12 @@ loop: continue                  // Still in same zone
 */
             t_fac=so_time_final-so_time_initial
             call score_test(tl_est_snapshot,t_fac,pt_args(fl_current(x)),estimator_factors)
-
+/*
+   In the time dependent initialization mode, we basically just reset
+   the flight time and let it keep going until it is ionized or leaves
+   the system.
+*/
+            if (so_time_initialization == TRUE) pt_t(fl_current(x))=so_time_initial
          else                                                           // Have a collision
             assert(zn_type(lc_zone(pt_loc(fl_current(x)))) == zn_plasma)
             rn_next(rnd,fl_rand(x))
@@ -334,7 +344,13 @@ break1:     continue
 break: continue     // End of flight!
 @#if DUMP_FLIGHTS
       write(diskout,*) '------------------------------------'   // Delimiter
+@#if !MPI
+/*
+   Slaves no longer have access to source group data.  Suspect
+   that |DUMP_FLIGHTS| unlikely to be used with MPI, anyway.
+*/
       if (fl_number(x) == so_nflights(fl_source(x))-1) close(unit=diskout)
+@#endif
 @#endif
 @#if MPI_slave_messages
       write(diskout+3,*) ' End of flight ',fl_number(x)

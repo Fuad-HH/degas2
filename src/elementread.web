@@ -161,7 +161,21 @@ Introduction\ldots
       
       cm_mpibcast
       bk_mpibcast
-      so_mpibcast
+/*
+   The source data are now primarily kept on the master.  Selected source
+   parameters are instead carried via the |flight| class (via |flight_frag|).  
+   The global parameters characterizing time variation are passed down
+   explicitly; these are needed only in subroutine |follow|.
+*/
+@#if 0
+      so_mpibcast                       
+@#endif
+@#if MPI
+      mpi_broadcast(so_time_dependent) 
+      mpi_broadcast(so_time_initial)
+      mpi_broadcast(so_time_final)
+      mpi_broadcast(so_time_initialization)
+@#endif
 
       return
       end

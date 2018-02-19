@@ -5,6 +5,7 @@ dx_MOD:=degas2_xgc_mod.$O
 de_MOD:=detector_mod.$O
 ef_MOD:=efititp_mod.$O
 el_MOD:=element_mod.$O
+ff_MOD:=flight_frag_mod.$O
 g2_MOD:=geometry2d_mod.$O
 gi_MOD:=geomint_mod.$O
 cm_MOD:=macros_mod.$O
@@ -39,7 +40,7 @@ boxgen_mods:= $(bk_MOD) $(de_MOD) $(gi_MOD) $(ma_MOD) $(sc_MOD) $(so_MOD) $(sp_M
 boxgen.o: $(boxgen_mods)
 btopdetector_mods:= $(de_MOD) $(zn_MOD)
 btopdetector.o: $(btopdetector_mods)
-collide_mods:= $(bk_MOD) $(gi_MOD) $(pr_MOD) $(rc_MOD) $(rd_MOD) $(so_MOD) $(sp_MOD) $(zn_MOD)
+collide_mods:= $(bk_MOD) $(gi_MOD) $(pr_MOD) $(rc_MOD) $(rd_MOD) $(sp_MOD) $(zn_MOD)
 collide.o: $(collide_mods)
 composite_mods:= $(gi_MOD) $(zn_MOD)
 composite.o: $(composite_mods)
@@ -65,7 +66,7 @@ degas2_xgc_mods:= $(bk_MOD) $(dx_MOD) $(mp_MOD) $(ou_MOD) $(pr_MOD) $(rc_MOD) $(
 degas2_xgc.o: $(degas2_xgc_mods)
 degasinit_mods:= $(mp_MOD) $(pr_MOD) $(tl_MOD)
 degasinit.o: $(degasinit_mods)
-doflights_mods:= $(bk_MOD) $(de_MOD) $(mp_MOD) $(ou_MOD) $(pr_MOD) $(rf_MOD) $(sa_MOD) $(sn_MOD) $(so_MOD) $(sp_MOD) $(tl_MOD) $(zn_MOD)
+doflights_mods:= $(bk_MOD) $(de_MOD) $(ff_MOD) $(mp_MOD) $(ou_MOD) $(pr_MOD) $(rf_MOD) $(sa_MOD) $(sn_MOD) $(so_MOD) $(sp_MOD) $(tl_MOD) $(zn_MOD)
 doflights.o: $(doflights_mods)
 efit2dg2d_mods:= $(ef_MOD)
 efit2dg2d.o: $(efit2dg2d_mods)
@@ -73,7 +74,7 @@ elementread_mods:= $(bk_MOD) $(el_MOD) $(mp_MOD) $(rc_MOD) $(rf_MOD) $(so_MOD) $
 elementread.o: $(elementread_mods)
 elementsetup_mods:= $(el_MOD) $(rf_MOD)
 elementsetup.o: $(elementsetup_mods)
-flight_mods:= $(bk_MOD) $(pm_MOD) $(pr_MOD) $(rc_MOD) $(sa_MOD) $(sc_MOD) $(sn_MOD) $(so_MOD) $(sp_MOD) $(tl_MOD) $(zn_MOD)
+flight_mods:= $(bk_MOD) $(ff_MOD) $(pm_MOD) $(pr_MOD) $(rc_MOD) $(sa_MOD) $(sc_MOD) $(sn_MOD) $(so_MOD) $(sp_MOD) $(tl_MOD) $(zn_MOD)
 flight.o: $(flight_mods)
 flighttest_mods:= $(bk_MOD) $(mp_MOD) $(ou_MOD) $(pr_MOD) $(rc_MOD) $(so_MOD) $(sp_MOD) $(tl_MOD) $(zn_MOD)
 flighttest.o: $(flighttest_mods)
@@ -174,7 +175,7 @@ aux2dsetup.f: array.hweb constants.hweb detector.hweb geometry2d.hweb geomint.hw
 boxgen.f: array.hweb background.hweb constants.hweb detector.hweb geomint.hweb location.hweb macros.hweb materials.hweb random.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb vector.hweb zone.hweb
 btopdetector.f: array.hweb constants.hweb detector.hweb geometry2d.hweb geomint.hweb macros.hweb string.hweb sysdep.hweb vector.hweb zone.hweb
 classes.f: array.hweb background.hweb classes.hweb detector.hweb element.hweb flight.hweb geometry2d.hweb location.hweb materials.hweb netcdf.hweb output.hweb particle.hweb pmi.hweb pmidata.hweb pmiformat.hweb problem.hweb random.hweb ratecalc.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sector.hweb snapshot_pdf.hweb sources.hweb species.hweb stat.hweb string.hweb tally.hweb vector.hweb xsection.hweb zone.hweb
-collide.f: array.hweb background.hweb constants.hweb geomint.hweb location.hweb macros.hweb materials.hweb output.hweb particle.hweb problem.hweb random.hweb reaction.hweb reactiondata.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb xsection.hweb zone.hweb
+collide.f: array.hweb background.hweb constants.hweb flight.hweb geomint.hweb location.hweb macros.hweb materials.hweb output.hweb particle.hweb problem.hweb random.hweb reaction.hweb reactiondata.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb xsection.hweb zone.hweb
 composite.f: array.hweb constants.hweb geomint.hweb location.hweb macros.hweb sysdep.hweb vector.hweb zone.hweb
 conversions.f: array.hweb background.hweb constants.hweb geomint.hweb location.hweb macros.hweb materials.hweb output.hweb particle.hweb problem.hweb random.hweb reaction.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
 cramdadd.f: array.hweb background.hweb constants.hweb macros.hweb materials.hweb problem.hweb reaction.hweb reactiondata.hweb readfilenames.hweb species.hweb string.hweb sysdep.hweb vector.hweb xsection.hweb zone.hweb
@@ -190,11 +191,11 @@ defineback.f: array.hweb background.hweb constants.hweb geometry2d.hweb geomint.
 definegeometry2d.f: array.hweb constants.hweb detector.hweb geometry2d.hweb geomint.hweb location.hweb macros.hweb materials.hweb netcdf.hweb sector.hweb string.hweb sysdep.hweb vector.hweb zone.hweb
 degas2_xgc.f: array.hweb background.hweb constants.hweb degas2_xgc.hweb macros.hweb materials.hweb mpi.hweb output.hweb problem.hweb random.hweb reaction.hweb reactiondata.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb xsection.hweb zone.hweb
 degasinit.f: array.hweb constants.hweb macros.hweb materials.hweb mpi.hweb netcdf.hweb output.hweb pmi.hweb pmidata.hweb pmiformat.hweb problem.hweb random.hweb reaction.hweb reactiondata.hweb readfilenames.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb xsection.hweb zone.hweb
-doflights.f: array.hweb background.hweb constants.hweb detector.hweb macros.hweb materials.hweb mpi.hweb netcdf.hweb output.hweb problem.hweb random.hweb reaction.hweb readfilenames.hweb sector.hweb snapshot_pdf.hweb sources.hweb species.hweb stat.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
+doflights.f: array.hweb background.hweb constants.hweb detector.hweb flight.hweb flight_frag.hweb location.hweb macros.hweb materials.hweb mpi.hweb netcdf.hweb output.hweb particle.hweb problem.hweb random.hweb reaction.hweb readfilenames.hweb sector.hweb snapshot_pdf.hweb sources.hweb species.hweb stat.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
 efit2dg2d.f: array.hweb constants.hweb efititp.hweb geometry2d.hweb macros.hweb string.hweb sysdep.hweb vector.hweb
 elementread.f: array.hweb background.hweb constants.hweb element.hweb macros.hweb mpi.hweb netcdf.hweb random.hweb reaction.hweb readfilenames.hweb sources.hweb species.hweb sysdep.hweb vector.hweb zone.hweb
 elementsetup.f: array.hweb constants.hweb element.hweb macros.hweb netcdf.hweb readfilenames.hweb string.hweb sysdep.hweb vector.hweb
-flight.f: array.hweb background.hweb constants.hweb flight.hweb location.hweb macros.hweb materials.hweb output.hweb particle.hweb pmi.hweb pmidata.hweb pmiformat.hweb problem.hweb random.hweb reaction.hweb sector.hweb snapshot_pdf.hweb sources.hweb species.hweb stat.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
+flight.f: array.hweb background.hweb constants.hweb flight.hweb flight_frag.hweb location.hweb macros.hweb materials.hweb output.hweb particle.hweb pmi.hweb pmidata.hweb pmiformat.hweb problem.hweb random.hweb reaction.hweb sector.hweb snapshot_pdf.hweb sources.hweb species.hweb stat.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
 flighttest.f: array.hweb background.hweb constants.hweb macros.hweb materials.hweb mpi.hweb output.hweb problem.hweb random.hweb reaction.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
 geometry.f: array.hweb constants.hweb detector.hweb geomint.hweb location.hweb macros.hweb materials.hweb mpi.hweb netcdf.hweb particle.hweb problem.hweb random.hweb reaction.hweb readfilenames.hweb sector.hweb sources.hweb species.hweb sysdep.hweb vector.hweb zone.hweb
 geomfaces.f: array.hweb constants.hweb geomint.hweb location.hweb macros.hweb sysdep.hweb vector.hweb
@@ -259,6 +260,7 @@ writeback.f: array.hweb background.hweb constants.hweb element.hweb geometry2d.h
 xgc1_gpi.f: array.hweb background.hweb constants.hweb geomint.hweb location.hweb macros.hweb netcdf.hweb species.hweb string.hweb sysdep.hweb vector.hweb xgc1interp.hweb zone.hweb
 background_mod.f: zone.hweb
 detector_mod.f: vector.hweb zone.hweb
+flight_frag_mod.f: flight.hweb location.hweb materials.hweb particle.hweb problem.hweb random.hweb reaction.hweb sources.hweb species.hweb vector.hweb
 macros_mod.f: array.hweb constants.hweb sysdep.hweb vector.hweb
 output_mod.f: materials.hweb problem.hweb random.hweb reaction.hweb sector.hweb sources.hweb species.hweb tally.hweb vector.hweb zone.hweb
 pmidata_mod.f: materials.hweb pmi.hweb pmiformat.hweb problem.hweb reaction.hweb species.hweb

@@ -397,8 +397,7 @@ instances of the particle class.
 collision routines. 
 
 @<Functions...@>=
-      subroutine puff_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
-     $                     scoring_data)
+      subroutine puff_data(est,fl_dummy(x),scoring_data)
 
       implicit_none_f77
       sp_common
@@ -406,37 +405,39 @@ collision routines.
       sc_common
       implicit_none_f90
 
-      integer est,xseg,kseg                        // Input
-      so_decl(isource)
-      pt_decl(p)
+      integer est                                // Input
+      fl_decl(x)
 
       real scoring_data[scoring_data_max]         // Output
 
       integer psp                                 // Local
       real vpuff,energy
+      sp_decl(sptest)
       vc_decl(vcos)
       vc_decl(vsrc)
 
+      sptest=pt_sp(fl_current(x))
       if (est == tl_est_post_process) then
          vpuff=const(3.)
          vc_set(vcos,zero,zero,const(8.)/(const(3.)*sqrt(const(6.)*PI)))
-         call puff_v_details(so_args(isource),xseg,lc_args(pt_loc(p)),vpuff,
-     $        vc_args(vcos),vc_args(vsrc),energy)
+         call puff_v_details(fl_source(x),fl_source_xseg(x),
+     $               fl_source_kseg(x),lc_args(pt_loc(fl_current(x))),
+     $               vpuff,vc_args(vcos),vc_args(vsrc),energy)
       else if (est == tl_est_collision) then
-         vc_copy(pt_v(p),vsrc)
-         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+         vc_copy(pt_v(fl_current(x)),vsrc)
+         energy=half*sp_m(sptest)*vc_abs2(vsrc)
       else 
          assert('Incorrect value of est' == ' ')
       end if
-      psp=pr_problem_sp_test(pt_test(p))
+      psp=pr_problem_sp_test(pt_test(fl_current(x)))
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp)]+=
-     $  sp_m(pt_sp(p))
+     $  sp_m(sptest)
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[1] 
+     $     sp_m(sptest)*vsrc[1] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[2] 
+     $     sp_m(sptest)*vsrc[2] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[3] 
+     $     sp_m(sptest)*vsrc[3] 
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp)]+=
      $     energy
       
@@ -447,27 +448,26 @@ collision routines.
 with binned energy distribution.
 
 @<Functions...@>=
-      subroutine plate_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
-     $                      scoring_data)
+      subroutine plate_data(est,fl_dummy(x),scoring_data)
 
       implicit_none_f77
       sp_common
       pr_common
-      so_common
       implicit_none_f90
 
-      integer est,xseg,kseg                        // Input
-      so_decl(isource)
-      pt_decl(p)
+      integer est                        // Input
+      fl_decl(x)
 
       real scoring_data[scoring_data_max]         // Output
 
-      integer psp_1,psp_2                         // Local
+      integer psp_1,psp_2,type                    // Local
       real wa,energy
       sp_decl(spion)
+      sp_decl(sptest)
       vc_decl(vsrc)
 
-      spion=so_root_sp(isource)
+      spion=fl_source_root_sp(x)
+      type=fl_source_type(x)
       if (est == tl_est_post_process) then
 /*
    The current assumption is that the ion velocity is directed
@@ -475,20 +475,22 @@ with binned energy distribution.
    |vsrc|. However, if a more detailed model is invoked, an appropriate
    average velocity expression needs to be used here.
 */
-         if (so_type(isource) == so_plate) then
+         if (type == so_plate) then
             wa=const(3.)
-            call plate_v_details(so_args(isource),xseg,kseg,lc_args(pt_loc(p)),wa,
-     $           vc_args(vsrc),energy)
-         else if (so_type(isource) == so_plt_e_bins) then
+            call plate_v_details(fl_source(x),fl_source_xseg(x),
+     $               fl_source_kseg(x),lc_args(pt_loc(fl_current(x))),
+     $               wa,vc_args(vsrc),energy)
+         else if (type == so_plt_e_bins) then
             wa=real_unused // Tells it to compute |energy| from distribution.
-            call plt_e_bins_v_details(so_args(isource),xseg,kseg,
-     $           lc_args(pt_loc(p)),wa,vc_args(vsrc),energy)
+            call plt_e_bins_v_details(fl_source(x),fl_source_xseg(x),
+     $               fl_source_kseg(x),lc_args(pt_loc(fl_current(x))),
+     $               wa,vc_args(vsrc),energy)
          else
             assert('Unexpected value of isource' == ' ')
          end if
       else if (est == tl_est_collision) then
-         vc_copy(pt_v(p),vsrc)
-         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+         vc_copy(pt_v(fl_current(x)),vsrc)
+         energy=half*sp_m(pt_sp(fl_current(x)))*vc_abs2(vsrc)
       else 
          assert('Incorrect value of est' == ' ')
       end if
@@ -504,15 +506,16 @@ with binned energy distribution.
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_1)]+=
      $     -energy
 
-      psp_2=pr_problem_sp_test(pt_test(p))
+      sptest=pt_sp(fl_current(x))
+      psp_2=pr_problem_sp_test(pt_test(fl_current(x)))
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_2)]+=
-     $  sp_m(pt_sp(p))
+     $  sp_m(sptest)
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_2)]+=
-     $     sp_m(pt_sp(p))*vsrc[1] 
+     $     sp_m(sptest)*vsrc[1] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_2)]+=
-     $     sp_m(pt_sp(p))*vsrc[2] 
+     $     sp_m(sptest)*vsrc[2] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_2)]+=
-     $     sp_m(pt_sp(p))*vsrc[3] 
+     $     sp_m(sptest)*vsrc[3] 
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_2)]+=
      $     energy
       
@@ -523,45 +526,46 @@ with binned energy distribution.
 collision routines. 
 
 @<Functions...@>=
-      subroutine vol_source_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
-     $                           scoring_data)
+      subroutine vol_source_data(est,fl_dummy(x),scoring_data)
 
       implicit_none_f77
       sp_common
       pr_common
       implicit_none_f90
 
-      integer est,xseg,kseg                        // Input
-      so_decl(isource)
-      pt_decl(p)
+      integer est                                // Input
+      fl_decl(x)
 
       real scoring_data[scoring_data_max]         // Output
 
       integer psp                                 // Local
       real temp,energy
+      sp_decl(sptest)
       vc_decl(v_gauss)
       vc_decl(vsrc)
 
+      sptest=pt_sp(fl_current(x))
       if (est == tl_est_post_process) then
          vc_set(v_gauss,zero,zero,zero)
-         call vol_source_v_details(so_args(isource),xseg,kseg,
-     $        lc_args(pt_loc(p)),vc_args(v_gauss),vc_args(vsrc),temp)
-         energy=const(1.5)*temp+half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+         call vol_source_v_details(fl_source(x),fl_source_xseg(x),
+     $        fl_source_kseg(x),lc_args(pt_loc(fl_current(x))),
+     $        vc_args(v_gauss),vc_args(vsrc),temp)
+         energy=const(1.5)*temp+half*sp_m(sptest)*vc_abs2(vsrc)
       else if (est == tl_est_collision) then
-         vc_copy(pt_v(p),vsrc)
-         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+         vc_copy(pt_v(fl_current(x)),vsrc)
+         energy=half*sp_m(sptest)*vc_abs2(vsrc)
       else 
          assert('Incorrect value of est' == ' ')
       end if
-      psp=pr_problem_sp_test(pt_test(p))
+      psp=pr_problem_sp_test(pt_test(fl_current(x)))
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp)]+=
-     $  sp_m(pt_sp(p))
+     $  sp_m(sptest)
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[1] 
+     $     sp_m(sptest)*vsrc[1] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[2] 
+     $     sp_m(sptest)*vsrc[2] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[3] 
+     $     sp_m(sptest)*vsrc[3] 
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp)]+=
      $     energy
       
@@ -572,41 +576,41 @@ collision routines.
 remains to be established.
 
 @<Functions...@>=
-      subroutine snapshot_data(est,so_dummy(isource),xseg,kseg,pt_dummy(p),
-     $                         scoring_data)
+      subroutine snapshot_data(est,fl_dummy(x),scoring_data)
 
       implicit_none_f77
       sp_common
       pr_common
       implicit_none_f90
 
-      integer est,xseg,kseg                        // Input
-      so_decl(isource)
-      pt_decl(p)
+      integer est                                // Input
+      fl_decl(x)
 
       real scoring_data[scoring_data_max]         // Output
 
       integer psp                                 // Local
       real energy
+      sp_decl(sptest)
       vc_decl(vsrc)
 
+      sptest=pt_sp(fl_current(x))
       if (est == tl_est_post_process) then
          assert('Snapshot source cannot be post-processed' == ' ')
       else if (est == tl_est_collision) then
-         vc_copy(pt_v(p),vsrc)
-         energy=half*sp_m(pt_sp(p))*vc_abs2(vsrc)
+         vc_copy(pt_v(fl_current(x)),vsrc)
+         energy=half*sp_m(sptest)*vc_abs2(vsrc)
       else 
          assert('Incorrect value of est' == ' ')
       end if
-      psp=pr_problem_sp_test(pt_test(p))
+      psp=pr_problem_sp_test(pt_test(fl_current(x)))
       scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp)]+=
-     $  sp_m(pt_sp(p))
+     $  sp_m(sptest)
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[1] 
+     $     sp_m(sptest)*vsrc[1] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[2] 
+     $     sp_m(sptest)*vsrc[2] 
       scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp)]+=
-     $     sp_m(pt_sp(p))*vsrc[3] 
+     $     sp_m(sptest)*vsrc[3] 
       scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp)]+=
      $     energy
       
@@ -1384,6 +1388,7 @@ situation.
       integer i,bk_rc_is,seg,seg_tot,kseg,xseg,est     // Local
       pt_decl(fake_pt)
       rn_decl(fake_rn)
+      fl_decl(fake_fl)
 
       @<Memory allocation interface@>
       lc_decls
@@ -1407,6 +1412,7 @@ situation.
 
          pt_init(fake_pt,sp_sy(so_species(is)),is)
          pt_w(fake_pt)=so_scale(is)*source_current[seg_tot]
+         pt_t(fake_pt)=zero  // Not used?
          call set_source_x(est,so_args(is),xseg,kseg,
      $        rn_args(fake_rn),lc_args(pt_loc(fake_pt)))
          if (so_type(is) == so_recomb) then
@@ -1424,30 +1430,36 @@ situation.
          else
             vc_set(pt_v(fake_pt),zero,zero,zero)  // Tentative
          end if
-
-         call score_sources(est,so_args(is),xseg,kseg,pt_args(fake_pt),
-     $        estimator_factors,rn_args(fake_rn))
+/*
+   What we need here is slightly different from |fl_init|;
+   copy explicitly instead.
+*/
+         fl_pointer(fake_fl)=1
+         pt_copy(fake_pt,fl_current(fake_fl))
+         fl_source(fake_fl)=is
+         fl_source_kseg(fake_fl)=kseg
+         fl_source_xseg(fake_fl)=xseg
+         fl_source_type(fake_fl)=so_type(is)
+         fl_source_root_sp(fake_fl)=so_root_sp(is)
+         call score_sources(est,fl_args(fake_fl),estimator_factors)
       end do      // |is|
 
       return
       end
 
-      subroutine score_sources(est,so_dummy(is),xseg,kseg,pt_dummy(p),
-     $     estimator_factors,rn_dummy(x))
+      subroutine score_sources(est,fl_dummy(x),estimator_factors)
 
       implicit_none_f77                          // Common
       pr_common
       tl_common
-      so_common
       implicit_none_f90
 
-      integer est,xseg,kseg                       // Input
-      so_decl(is)
-      pt_decl(p)
+      integer est                                // Input
+      fl_decl(x)
       real estimator_factors[*]                  // Scratch
-      rn_decl(x)                                 // Input/Output
       
-      integer i,jscore,prso_reac                 // Local
+      integer kseg,xseg,i,jscore,prso_reac,type       // Local
+      so_decl(is)
       real scoring_data[scoring_data_max]
       real est_fac
       logical need_scores
@@ -1455,14 +1467,19 @@ situation.
       rn_decls
       @<Memory allocation interface@>
 
-      prso_reac=pr_reaction_num+so_type(is)
+      is=fl_source(x)
+      kseg=fl_source_kseg(x)
+      xseg=fl_source_xseg(x)
+      type=fl_source_type(x)
+
+      prso_reac=pr_reaction_num+type
       est_fac=one
 
       need_scores=.false.
       do i=1,tally_type_num[tl_type_reaction]
          jscore=tally_type_base[tl_type_reaction]+i-1
          estimator_factors[jscore]=tally_est_reaction[jscore][est][prso_reac]
-     $        *pt_w(p)*est_fac
+     $        *pt_w(fl_current(x))*est_fac
          if (estimator_factors[jscore] > zero) then
             need_scores=.true.
          end if
@@ -1473,20 +1490,19 @@ situation.
             scoring_data[i]=zero
          end do
 
-         if (so_type(is) == so_recomb) then
-            call recombination_data(est,so_args(is),xseg,pt_args(p),
-     $           scoring_data,rn_args(x))
-         else if ((so_type(is) == so_plate) 
-     $           || (so_type(is) == so_plt_e_bins)) then
-            call plate_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
-         else if (so_type(is) == so_puff) then
-            call puff_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
-         else if (so_type(is) == so_vol_source) then
-            call vol_source_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
-         else if (so_type(is) == so_snapshot) then
-            call snapshot_data(est,so_args(is),xseg,kseg,pt_args(p),scoring_data)
+         if (type == so_recomb) then
+            call recombination_data(est,fl_args(x),scoring_data)
+         else if ((type == so_plate) 
+     $           || (type == so_plt_e_bins)) then
+            call plate_data(est,fl_args(x),scoring_data)
+         else if (type == so_puff) then
+            call puff_data(est,fl_args(x),scoring_data)
+         else if (type == so_vol_source) then
+            call vol_source_data(est,fl_args(x),scoring_data)
+         else if (type == so_snapshot) then
+            call snapshot_data(est,fl_args(x),scoring_data)
          end if
-         call add_scores(tl_type_reaction,pt_args(p),prso_reac,
+         call add_scores(tl_type_reaction,pt_args(fl_current(x)),prso_reac,
      $        scoring_data,estimator_factors)
 
       end if      // |need_scores|
