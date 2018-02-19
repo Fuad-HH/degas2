@@ -1227,6 +1227,9 @@ next_line: continue
               so_time_dependent=FALSE
            end if
 
+        else if (line(b:e) == 'time_initialization') then
+           so_time_initialization=TRUE
+
          else if (line(b:e) == 'new_source_group') then
             so_grps++
             type=int_undef
@@ -1468,6 +1471,7 @@ next_tabline: continue
             assert(next_token(line,b,e,p))
             if (line(b:e) == 'delta') then
                time_varn=so_delta_fn
+               assert(so_time_initialization == FALSE)
             else if (line(b:e) == 'uniform') then
                time_varn=so_time_uniform
             else
