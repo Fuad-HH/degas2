@@ -1,5 +1,5 @@
 % $Id$
-\Title{statisticw}
+\Title{statistics}
 
 
 @* Introduction.
@@ -18,11 +18,44 @@ Routines for accumulating statistics.
 @ The unnamed module.
 
 @a
-      @<Functions and Subroutines@>
+@<Functions and Subroutines@>
 
-@ Accumulate scores into a base.  A score is represented by a weight
-$w$, a mean $m$ and a variance $s$.  This routine combines scores $[w_0,
-m_0, s_0] += [w_1, m_1, s_1]$.  This is done for |n| variables.
+@ Accumulate scores into a base.
+
+The arguments to this routine consist of a set of ``increment''
+and ``base'' arrays, each having an associated mean, variance, and weight.
+The accumulation procedure is complicated by the need to compress
+the data arrays to avoid needless manipulation, storage, and
+transmission of zero entries.  The machinery for doing this
+is described in more detail in the documentation of the
+|sa| package.
+
+The expressions used for the mean is effectively:
+\begin{equation}
+S_{1}^{i}(z) = \sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right ) / \sum_{j = 1}^{N_{i}} \rho_{j},
+\label{mean1}
+\end{equation}
+where: $i$ is the source group index, the ``1'' refers to the
+first statistical moment, $j$ runs over all of the
+$N_{i}$ flights in group $i$, $\rho_{j}$ is the relative
+statistical weight of flight $j$, $k$ is the list of scores
+by flight $j$ in zone $z$, and $\xi_{j,k}$ is the estimator
+value 
+for this tally recorded by flight $j$ during event $k$.
+The statistical weight $\rho_{j} \equiv 1$ in most cases.
+
+The corresponding variance expression is:
+\begin{equation}
+S_{2}^{i}(z) = \sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right )^{2} / \sum_{j = 1}^{N_{i}} \rho_{j}
+- \left [ \sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right ) / \sum_{j = 1}^{N_{i}} \rho_{j} \right ]^{2}.
+\label{var1}
+\end{equation}
+
+The equivalence between these expressions and the ones actually used
+in this code is discussed in the Users Manual.  
 
 @<Functions...@>=
 

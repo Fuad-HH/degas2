@@ -413,8 +413,11 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
    currents are specified, making the total current derived. Hence, the 
    relative contribution to the sum over source groups can be more 
    efficiently altered via the scale factor. The expressions for 
-   the total sample mean (|stat_tot[1]|) and variance of the sample
-   mean (|stat_tot[2]|) are taken from Brandt.
+   the total sample mean (|o_mean|) and variance of the sample
+   mean (|o_var]|) are discussed in more detail in the Users Manual.
+
+   In this sets of loops and the ones below them, the variance is
+   effectively multiplied by $N/(N-1)$ to be consistent with textbook variance. 
 */
       do i=0,tally_size-1
          output_all[i][o_mean]=zero
@@ -439,6 +442,11 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
    For the time dependent case, the input ``currents'' represent particles.
    Divide by the time interval to give the total (scaled) current
    units of particles per second, the same as in the time independent case.
+
+   At this point, the |o_var| moments are converted to ``relative standard
+   deviations'', i.e., the estimated error in the mean, $\sigma/\sqrt{N}$,
+   normalized to the mean.  Note that the $1/N$ factor here cancels the
+   $N$ in the $N/(N-1)$ above and, thus, does not appear.
 */
       if (so_time_dependent == TRUE) then
          avg_part_per_sec=tot_scale_curr/(so_time_final-so_time_initial)
@@ -829,19 +837,20 @@ parallel and serial cases.
       @<Memory allocation interface@>
 
       if (init) then
-         ff_number_particles=nflights
+         ff_particles_dim=nflights
          var_alloc(ff_particles_int)
          var_alloc(ff_particles_float)
          var_alloc(ff_ran_index)
          var_alloc(ff_ran_array)
          init=.false.
-      else if (nflights > ff_number_particles) then
-         var_realloc(ff_particles_int,ff_number_particles,nflights)
-         var_realloc(ff_particles_float,ff_number_particles,nflights)
-         var_realloc(ff_ran_index,ff_number_particles,nflights)
-         var_realloc(ff_ran_array,ff_number_particles,nflights)
-         ff_number_particles=nflights
+      else if (nflights > ff_particles_dim) then
+         var_realloc(ff_particles_int,ff_particles_dim,nflights)
+         var_realloc(ff_particles_float,ff_particles_dim,nflights)
+         var_realloc(ff_ran_index,ff_particles_dim,nflights)
+         var_realloc(ff_ran_array,ff_particles_dim,nflights)
+         ff_particles_dim=nflights
       end if
+      ff_number_particles=nflights
 /*
    Use a local |seed| an advance one flight at a time,
    as was done previously in subroutine |do_flights|.
@@ -1080,10 +1089,11 @@ results back to the master.  It is only defined for MPI.
       mp_decls
       integer nstart,nflights,tag,done_flag,send_data,
      $        i,j,ilevel,min_level,islave,sending_slave,
-     $        new_dim,old_number_particles
+     $        new_dim
       real mult
-      save old_number_particles
-      data old_number_particles/0/   // To indicate the initial call
+      logical init
+      save init
+      data init/.true./
 
 @#if MPI_slave_messages
       character*6 cslave
@@ -1123,18 +1133,19 @@ loop: continue
      $              MPI_COMM_WORLD,mpi_status,mpi_err)
       if (ff_number_particles == 0) goto break
       tag++
-      if (old_number_particles == 0) then
+      if (init) then
+         ff_particles_dim=ff_number_particles
          var_alloc(ff_particles_int)
          var_alloc(ff_particles_float)
          var_alloc(ff_ran_index)
          var_alloc(ff_ran_array)
-         old_number_particles=ff_number_particles
-      else if (ff_number_particles > old_number_particles) then
-         var_realloc(ff_particles_int,old_number_particles,ff_number_particles)
-         var_realloc(ff_particles_float,old_number_particles,ff_number_particles)
-         var_realloc(ff_ran_index,old_number_particles,ff_number_particles)
-         var_realloc(ff_ran_array,old_number_particles,ff_number_particles)
-         old_number_particles=ff_number_particles
+         init=.false.
+      else if (ff_number_particles > ff_particles_dim) then
+         var_realloc(ff_particles_int,ff_particles_dim,ff_number_particles)
+         var_realloc(ff_particles_float,ff_particles_dim,ff_number_particles)
+         var_realloc(ff_ran_index,ff_particles_dim,ff_number_particles)
+         var_realloc(ff_ran_array,ff_particles_dim,ff_number_particles)
+         ff_particles_dim=ff_number_particles
       end if
       call MPI_recv(ff_particles_int,array_size(ff_particles_int),mpi_int,
      $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
