@@ -789,6 +789,11 @@ If not, add to the list.
 
 @ Write out background information.
 
+@m NC_CLASSIC 0
+@m NC_64_BIT 1
+@m NC_HDF5 2  // AKA netcdf4
+@m BACKGROUND_NC_FILE_TYPE NC_CLASSIC
+
 @<Functions...@>=
       subroutine write_background
       implicit_none_f77
@@ -806,6 +811,13 @@ If not, add to the list.
 
       tempfile = filenames_array[backgroundfile]
       assert(tempfile != char_undef)
+@#if (BACKGROUND_NC_FILE_TYPE == NC_CLASSIC)
+      fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
+@#elseif (BACKGROUND_NC_FILE_TYPE == NC_64_BIT)
+      fileid=nccreate(tempfile,or(NC_CLOBBER,NF_64BIT_OFFSET),nc_stat)
+@#else
+      fileid=nccreate(tempfile,or(NC_CLOBBER,NF_NETCDF4),nc_stat)
+@#endif
       fileid = nccreate(tempfile,NC_CLOBBER,nc_stat)
       cm_ncdef(fileid)
       bk_ncdef(fileid)

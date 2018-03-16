@@ -1560,7 +1560,11 @@ we don't set the dimensions until just before the call.
 files (``64 bit offset'').  This is only available for netCDF version 3.6
 or later
 
-@m NC_LARGE_FILE 1   
+@m NC_CLASSIC 0
+@m NC_64_BIT 1
+@m NC_HDF5 2  // AKA netcdf4
+@m OUTPUT_NC_FILE_TYPE NC_64_BIT
+@m SNAPSHOT_NC_FILE_TYPE NC_CLASSIC
 
 @<Functions...@>=
       subroutine nc_write_output
@@ -1587,10 +1591,12 @@ or later
       tempfile=filenames_array[outputfile]
       assert(tempfile != char_undef)
 
-@#if !NC_LARGE_FILE
+@#if (OUTPUT_NC_FILE_TYPE == NC_CLASSIC)
       fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
-@#else
+@#elseif (OUTPUT_NC_FILE_TYPE == NC_64_BIT)
       fileid=nccreate(tempfile,or(NC_CLOBBER,NF_64BIT_OFFSET),nc_stat)
+@#else
+      fileid=nccreate(tempfile,or(NC_CLOBBER,NF_NETCDF4),nc_stat)
 @#endif
 
       description = 'Output from DEGAS 2'
@@ -1612,10 +1618,12 @@ or later
       if (so_time_dependent == TRUE) then
          tempfile=filenames_array[snapshotfile]
          assert(tempfile != char_undef)
-@#if !NC_LARGE_FILE
+@#if (SNAPSHOT_NC_FILE_TYPE == NC_CLASSIC)
          fileid=nccreate(tempfile,NC_CLOBBER,nc_stat)
+@#elseif (SNAPSHOT_NC_FILE_TYPE == NC_64_BIT)
+      fileid=nccreate(tempfile,or(NC_CLOBBER,NF_64BIT_OFFSET),nc_stat)
 @#else
-         fileid=nccreate(tempfile,or(NC_CLOBBER,NF_64BIT_OFFSET),nc_stat)
+      fileid=nccreate(tempfile,or(NC_CLOBBER,NF_NETCDF4),nc_stat)
 @#endif
          sn_ncdef(fileid)
          call ncendef(fileid,nc_stat)
