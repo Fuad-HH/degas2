@@ -50,12 +50,15 @@ intended to be represented by the diagnostic sub-class of sectors.
 
       define_dimen_pk(de,de_symbol_string,de_sy_len)
       define_dimen_pk(de,de_name_string,de_name_len)
-      define_dimen_pk(de,de_zone_ind,zn_num)
 
       define_var_pk(de,de_grps,INT) 
       define_dimen_pk(de,de_grp_ind,0,de_grps)
 
       define_var_pk(de,de_max_bins,INT)
+
+      define_var_pk(de,de_zone_frags_dim,INT)
+      define_dimen_pk(de,de_zone_frags_ind,de_zone_frags_dim)
+      define_var_pk(de,de_zone_frags_size,INT)
 
       define_varp_pk(de,detector_name,CHAR,de_name_string,de_grp_ind)
       define_varp_pk(de,detector_num_views,INT,de_grp_ind)   
@@ -73,8 +76,14 @@ intended to be represented by the diagnostic sub-class of sectors.
       define_dimen_pk(de,de_start_end_ind,de_view_start,de_view_end)
       define_varp_pk(de,de_view_points,FLOAT,vector,de_start_end_ind,de_tot_view_ind)
       define_varp_pk(de,de_view_algorithm,INT,de_tot_view_ind)                       
-      define_varp_pk(de,de_view_halfwidth,FLOAT,de_tot_view_ind)                     
-      define_varp_pk(de,de_zone_frags,FLOAT,de_tot_view_ind,de_zone_ind)
+      define_varp_pk(de,de_view_halfwidth,FLOAT,de_tot_view_ind)
+      
+      define_varp_pk(de,de_zone_frags,FLOAT,de_zone_frags_ind)
+      define_varp_pk(de,de_zone_frags_start,INT,de_tot_view_ind)
+      define_varp_pk(de,de_zone_frags_num,INT,de_tot_view_ind)
+      define_varp_pk(de,de_zone_frags_zones,INT,de_zone_frags_ind)
+      define_varp_pk(de,de_zone_frags_min_zn,INT,de_tot_view_ind)
+      define_varp_pk(de,de_zone_frags_max_zn,INT,de_tot_view_ind)
 
       define_varp_pk(de,de_view_base,INT,de_grp_ind)         
       define_var_pk(de,de_view_size,INT)                     
@@ -103,7 +112,13 @@ the arrays below.
   \item[|de_grps|] Number of groups which have been defined.
 
   \item[|de_max_bins|] Used in conjunction with |sc_diag_max_bins| to check
-the dimension for the bins scoring array, |max_bins|.
+      the dimension for the bins scoring array, |max_bins|.
+
+  \item[|de_zone_frags_dim|] Dimension of the compressed |de_zone_frags|
+array.
+
+  \item[|de_zone_frags_size|] Actual size of the compressed |de_zone_frags|
+array.
 
   \item[|detector_name[group_ind]|] Descriptive name for each detector group.
 
@@ -143,11 +158,29 @@ details.
   \item[|de_view_halfwidth[view_ind]|] Angular half-width (in radians) 
 associated with the viewing chord |view_ind|.
 
-  \item[|de_zone_frags[view_ind,zone]|] The path length of chord |view_ind|
-through |zone| divided by the zone volume times $4 \pi$; an additional
-factor accounts for the averaging over a finite halfwidth. This is
+  \item[|de_zone_frags[zone_frags_ind]|] Compressed array containing
+the path lengths of chords through all of the zones in the
+problem divided by the zone volume times $4 \pi$; an additional
+factor accounts for the averaging over a finite halfwidth. Only
+nonzero values are retained in this array; the subsequent
+arrays map these data into the full set of zones.  This is
 defined before the run so the chord-integrated contributions can be
 made from volume scores (during or after the run).
+
+  \item[|de_zone_frags_start[view_ind]|] Pointer into the |de_zone_frags|
+array indicating the beginning of the list of entries for chord |view_ind|.
+
+  \item[|de_zone_frags_num[view_ind]|] Number of entries in the |de_zone_frags|
+array for chord |view_ind|.
+
+  \item[|de_zone_frags_zones[zone_frags_ind]|] Zone numbers corresponding to each of the
+entries in |de_zone_frags|.
+
+  \item[|de_zone_frags_min_zn[view_ind]|] Smallest zone number in |de_zone_frags_zone|
+for chord |view_ind|.
+
+  \item[|de_zone_frags_max_zn[view_ind]|] Largest zone number in |de_zone_frags_zone|
+for chord |view_ind|.
 
   \item[|de_view_base[group_ind]|] Index into |de_view_tab| for the
 first viewing chord of |group_ind|.

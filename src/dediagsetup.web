@@ -266,6 +266,82 @@ skip:       continue
       return
       end
 
+      @ Add detector data for a single view to the global array,
+      compressing the data in the process to remove zero entries.
+      
+@<Functions...@>=
+      subroutine add_zone_frags(view,zone_frags)
+
+      implicit_none_f77
+      de_common                                    // Common
+      zn_common
+      implicit_none_f90
+
+      integer view                                 // Input
+      real zone_frags[zn_num]
+
+      integer zone                                 // Local
+
+      @<Memory allocation interface@>
+
+      do zone=1,zn_num
+         if (zone_frags[zone] > zero) then
+            de_zone_frags_size++
+            de_zone_frags_dim=max(de_zone_frags_dim,de_zone_frags_size)
+            var_realloca(de_zone_frags)
+            var_realloca(de_zone_frags_zones)
+            if (de_zone_frags_num[view] == 0)
+     $           de_zone_frags_start[view]=de_zone_frags_size
+            de_zone_frags_num[view]++
+            if (zone < de_zone_frags_min_zn[view]) 
+     $           de_zone_frags_min_zn[view]=zone
+            if (zone > de_zone_frags_max_zn[view]) 
+     $           de_zone_frags_max_zn[view]=zone
+            de_zone_frags[de_zone_frags_size]=zone_frags[zone]
+            de_zone_frags_zones[de_zone_frags_size]=zone
+         end if
+      end do
+
+      assert(de_zone_frags_num[view] > 0)
+      assert(de_zone_frags_min_zn[view] != int_unused)
+      assert(de_zone_frags_max_zn[view] >= de_zone_frags_max_zn[view])
+
+      return
+      end
+
+@ Initialize arrays set up to hold the compressed
+global array of detector data.
+
+@<Functions...@>=
+      subroutine initialize_zone_frags
+
+      implicit_none_f77
+      de_common                                    // Common
+      implicit_none_f90
+
+      integer i                                    // Local
+      
+      @<Memory allocation interface@>
+
+      de_zone_frags_size=0
+      de_zone_frags_dim=1
+      var_alloc(de_zone_frags)
+      var_alloc(de_zone_frags_start)
+      var_alloc(de_zone_frags_num)
+      var_alloc(de_zone_frags_zones)
+      var_alloc(de_zone_frags_min_zn)
+      var_alloc(de_zone_frags_max_zn)
+
+      do i=1,detector_total_views
+         de_zone_frags_start[i]=0
+         de_zone_frags_num[i]=0
+         de_zone_frags_min_zn[i]=int_unused
+         de_zone_frags_max_zn[i]=-int_unused
+      end do
+
+      return
+      end
+
 @ Initialize a new detector group. This routine bears a strong, 
 not-coincidental similarity to |diag_grp_init|.
 
@@ -525,10 +601,11 @@ not-coincidental similarity to |diag_grp_init|.
       vc_set(de_view_points[0][de_view_end],real_unused,real_unused,real_unused)
       de_view_algorithm[0]=int_unused
       de_view_halfwidth[0]=real_unused
+@#if 0   // Do not need this now?
       do i=1,zn_num
          de_zone_frags[i][0]=real_unused
       end do
-
+@#endif
       var_reallocb(detector_name)
       var_reallocb(detector_num_views)
       var_reallocb(detector_var)
@@ -537,6 +614,8 @@ not-coincidental similarity to |diag_grp_init|.
       var_reallocb(detector_delta)
       var_reallocb(detector_spacing)
       var_reallocb(de_view_base)
+      var_reallocb(de_zone_frags)
+      var_reallocb(de_zone_frags_zones)
 
       if (detector_total_views == 0) then
          assert(de_view_size == 1)

@@ -893,10 +893,10 @@ wavelength of emissions.
       real geom_mult[max_segments][max_bins]
 
       integer de_group,iview,i,ibin,num_lines,i_e_rate,       // Local
-     $        i_line
+     $        i_line,zone
       integer lines[pr_max_lines],e_rates[pr_max_lines]
       real lambda0,lambda,lambda_f,dl,vth,delta_l_th,f,density,delta_l_st,
-     $     x_voigt,y_voigt
+     $     x_voigt,y_voigt,zone_frag
       character*tl_tag_length line
       vc_decl(v)
       logical init
@@ -973,7 +973,25 @@ wavelength of emissions.
       delta_l_st*=const(1.,-10)    // from Angstroms to meters
       do i=1,detector_num_views[de_group]
          iview=de_view_pointer(i,de_group)
-         if (de_zone_frags[lc_zone(pt_loc(p))][iview] != zero) then
+/*
+   Check |de_zone_frags|
+*/
+         zone=lc_zone(pt_loc(p))
+         zone_frag=zero
+         if ((zone >= de_zone_frags_min_zn[iview])
+     $        && (zone <= de_zone_frags_min_zn[iview])) then
+            assert(de_zone_frags_num[iview] > 0)
+            do i=1,de_zone_frags_num[iview]
+               ifrag=de_zone_frags_start[iview] + (i-1)
+               if (zone == de_zone_frags_zones[ifrag]) then
+                  zone_frag=de_zone_frags[ifrag]
+                  go to break
+               end if
+            end do
+break:      continue            
+            assert(zone_frag > zero)
+         end if
+         if (zone_frag != zero) then
             number_segments++
             assert(number_segments <= max_segments)
             segments[number_segments]=i
@@ -1002,7 +1020,7 @@ wavelength of emissions.
                   if (bins[number_segments][1] > 0 
      $                 && bins[number_segments][1] 
      $                     <= detector_tab_index[de_group]) then
-                     geom_mult[number_segments][1]=de_zone_frags[lc_zone(pt_loc(p))][iview]
+                     geom_mult[number_segments][1]=zone_frag
                   else
                      bins[number_segments][1]=1            
                      geom_mult[number_segments][1]=zero  // Outside bin range: throw out
@@ -1019,7 +1037,7 @@ wavelength of emissions.
                      dl=detector_delta[de_group]
                      f=(delta_l_st/PI)/((lambda_f-lambda)**2+delta_l_st**2)
                      geom_mult[number_segments][ibin]=f*dl
-     $                    *de_zone_frags[lc_zone(pt_loc(p))][iview]
+     $                    *zone_frag
                   end do
 @#endif
 /*
@@ -1052,7 +1070,7 @@ wavelength of emissions.
 @#endif
                      f/=(delta_l_th*sqrt(two*PI))
                      geom_mult[number_segments][ibin]=f*dl
-     $                    *de_zone_frags[lc_zone(pt_loc(p))][iview]
+     $                    *zone_frag
                   end do
                else
                   assert('Incomplete emitter velocity specification' == ' ')
@@ -1060,7 +1078,7 @@ wavelength of emissions.
             else
                number_bins[number_segments]=1
                bins[number_segments][1]=0
-               geom_mult[number_segments][1]=de_zone_frags[lc_zone(pt_loc(p))][iview]
+               geom_mult[number_segments][1]=zone_frag
             end if
          end if
       end do

@@ -120,6 +120,7 @@ equation for the target plane.
 @I macros.hweb
 @I sysdep.hweb
 @I detector.hweb
+@I zone.hweb
 
 @ The unnamed module.
 
@@ -134,7 +135,7 @@ equation for the target plane.
 @m cx_max const(6.3,1)  // Number of radial pixels in real camera.
 @m cy_min zero
 @m cy_max const(6.3,1) // Number of poloidal pixels in real camera.
-@m a0 const(-3.60752)  // Coefficients of the camera's ``target plane''
+@m a0 const(-3.60752)  // Coefficients of the camera''s ``target plane''
 @m a1 const(2.11865)
 @m a2 const(3.17544)
 @m phi const(6.146,1)*PI/const(1.8,2)  // Toroidal shift to my system
@@ -156,7 +157,8 @@ equation for the target plane.
       var_alloc(de_view_points)
       var_alloc(de_view_algorithm)
       var_alloc(de_view_halfwidth)
-      var_alloc(de_zone_frags)
+
+      call initialize_zone_frags
       
       de_grps=0
       de_view_size=0
@@ -175,7 +177,7 @@ so that their array indexing gets handled correctly.
 @<Functions...@>=
       subroutine detector_setup_a
 
-      define_varp(zone_frags,FLOAT,de_zone_ind)
+      define_varp(zone_frags,FLOAT,zone_ind)
 
       implicit_none_f77
       de_common
@@ -206,15 +208,11 @@ so that their array indexing gets handled correctly.
      $           vc_args(de_view_points[view][de_view_start]),
      $           de_view_halfwidth[view],de_view_algorithm[view],
      $           zone_frags)
-
 /*
-   The order of the indices in |de_zone_frags| has the views listed
-   consecutively, not the zones.  Hence, cannot use it directly as
-   the argument for this call.
+   This routine inserts |zone_frags| into the common array
+   |de_zone_frags|, compressing the data in the porcess.
 */
-            do zone=1,zn_num
-               de_zone_frags[zone][view]=zone_frags[zone]
-            end do
+            call add_zone_frags(view,zone_frags)
 
          end do
       end do
@@ -263,7 +261,7 @@ detector class arrays.
       delta_cx=(cx_max-cx_min)/areal(ix_max-1)
       delta_cy=(cy_max-cy_min)/areal(iy_max-1)
 /*
-   Rotate Ricky's ``target plane'' to my coordinate system.  The ``p''
+   Rotate Ricky''s ``target plane'' to my coordinate system.  The ``p''
    denotes ``prime''.
 */
       a0_p=a0*cos(phi)+a1*sin(phi)
