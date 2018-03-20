@@ -244,12 +244,14 @@ eof:  continue
 
       var_alloc(xgc_params)
 
+@#if 0 // Moved into macros
       var_alloc(xi_r_interp)
       var_alloc(xi_z_interp)
       var_alloc(xi_l_interp)
       var_alloc(xi_weight_interp)
       var_alloc(xi_file_interp)
       var_alloc(xi_tri_interp)
+@#endif
       
       call get_n_t_a(file_names,num_files,xgc_params,num_tri,
      $               efit_file,xgc1int_nc_file,triangles,
@@ -607,6 +609,13 @@ eof: continue
 
 @<Interpolate Along Field@>=
 
+      var_alloc(xi_r_interp)
+      var_alloc(xi_z_interp)
+      var_alloc(xi_l_interp)
+      var_alloc(xi_weight_interp)
+      var_alloc(xi_file_interp)
+      var_alloc(xi_tri_interp)
+
       do zone=1,zn_num
 @#if 0
          if ((zn_type(zone) == zn_plasma) && (zn_index(zone,zi_ix) > 0)) then
@@ -731,6 +740,13 @@ arrays used for field line interpolation.
 
 @<Axisymmetric Interpolation@>=
       
+      var_alloc(xi_r_interp)
+      var_alloc(xi_z_interp)
+      var_alloc(xi_l_interp)
+      var_alloc(xi_weight_interp)
+      var_alloc(xi_file_interp)
+      var_alloc(xi_tri_interp)
+
       do zone=1,zn_num
          if ((zn_type(zone) == zn_plasma) && (triangles_xgc[zone] > 0)) then
             tri_org=triangles_xgc[zone]
