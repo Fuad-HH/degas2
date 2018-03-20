@@ -893,7 +893,7 @@ wavelength of emissions.
       real geom_mult[max_segments][max_bins]
 
       integer de_group,iview,i,ibin,num_lines,i_e_rate,       // Local
-     $        i_line,zone
+     $        i_line,zone,ifrag,inum
       integer lines[pr_max_lines],e_rates[pr_max_lines]
       real lambda0,lambda,lambda_f,dl,vth,delta_l_th,f,density,delta_l_st,
      $     x_voigt,y_voigt,zone_frag
@@ -971,25 +971,24 @@ wavelength of emissions.
          delta_l_st=const(2.4)
       end if
       delta_l_st*=const(1.,-10)    // from Angstroms to meters
+      zone=lc_zone(pt_loc(p))
       do i=1,detector_num_views[de_group]
          iview=de_view_pointer(i,de_group)
 /*
    Check |de_zone_frags|
 */
-         zone=lc_zone(pt_loc(p))
          zone_frag=zero
          if ((zone >= de_zone_frags_min_zn[iview])
-     $        && (zone <= de_zone_frags_min_zn[iview])) then
+     $        && (zone <= de_zone_frags_max_zn[iview])) then
             assert(de_zone_frags_num[iview] > 0)
-            do i=1,de_zone_frags_num[iview]
-               ifrag=de_zone_frags_start[iview] + (i-1)
+            do inum=1,de_zone_frags_num[iview]
+               ifrag=de_zone_frags_start[iview] + (inum-1)
                if (zone == de_zone_frags_zones[ifrag]) then
                   zone_frag=de_zone_frags[ifrag]
                   go to break
                end if
             end do
 break:      continue            
-            assert(zone_frag > zero)
          end if
          if (zone_frag != zero) then
             number_segments++
