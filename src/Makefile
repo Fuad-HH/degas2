@@ -304,10 +304,12 @@ endif
 ifeq ($(GRAPH_FILE),HDF4)
   TANGLEFLAGS+=-mHDF4
   GRAPH_LIB=$(HDF)
+  POST_LIB=$(HDF)
 endif
 ifeq ($(GRAPH_FILE),SILO)
   TANGLEFLAGS+=-mSILO
   GRAPH_LIB=-lsilo -lm
+  POST_LIB=
 endif
 #
 # Note that SILO has multiple options for writing HDF5 formatted
@@ -692,7 +694,7 @@ outputbrowser_libs = $(NETCDF)
 outputbrowser: $(outputbrowser) $(foreach arg,$(subst .$O,_mods,$(outputbrowser)),$($(arg)))
 
 postdetector = postdetector.$O readfilenames.$O degasinit.$O pmimatread.$O elementread.$O geometry.$O dediagsetup.$O $(DETECTORFILE).$O
-postdetector_libs = $(NETCDF) $(HDF)
+postdetector_libs = $(NETCDF) $(POST_LIB)
 postdetector: $(postdetector) $(foreach arg,$(subst .$O,_mods,$(postdetector)),$($(arg)))
 
 datamatch = datamatch.$O 

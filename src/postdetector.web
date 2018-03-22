@@ -119,6 +119,7 @@ the sum over all groups (default).
 @I reaction.hweb
 @I materials.hweb
 @I mpi.hweb
+@I postdetector.hweb
 
 @ The main program.
 
@@ -228,6 +229,10 @@ the sum over all groups (default).
       zn_common
       de_common
       mp_common
+@#if !HDF4
+      po_common
+      rf_common
+@#endif
       implicit_none_f90
 
       integer o_grp              // Input
@@ -235,7 +240,7 @@ the sum over all groups (default).
       integer zone,test,ix,iy,inverted_iy,algorithm,nviews,nfrag,nparcel,
      $        nslaves,j,nstart,num,slave,send_data,iview,close_zone,
      $        nx_peak,iy_peak,is,total_tally,species_tally,itally,len,
-     $        ns,ind_tmp
+     $        ns,ind_tmp,igrp,inum,ifrag
       integer index_parameters[tl_index_max],target_map[nx][ny],
      $        target_map_slave[nx][ny]
       real em_temp,em_rate,halfwidth,signal,a0_p,a1_p,a2_p,dist,min_dist,
@@ -257,10 +262,17 @@ the sum over all groups (default).
       character*1 s
       character*3 s_grp
       character*10 name_grp
+      logical have_zone_frags
 @#if CHORD_DATA
       real r_zone,phi_zone,chord_length
       character*2 ixlab,iylab
       vc_decl(chord_vec)
+@#endif
+@#if !HDF4
+      integer e,fileid     
+      character*FILELEN postdet_file
+      po_ncdecl
+      nc_decls
 @#endif
       vc_decl(points[de_view_start:de_view_end])
       external extract_output_datum,gpi_views
@@ -290,7 +302,17 @@ the sum over all groups (default).
             test_density[zone][is]=zero
          end do
       end do
-
+@#if !HDF4          // Use netCDF format      
+      po_nx=nx
+      po_ny=ny
+      po_num_dep_vars=0
+      var_realloca(po_xscale)
+      var_realloca(po_yscale)
+      var_realloca(po_image_data)
+      var_realloca(po_image_labels)
+      var_realloca(po_image_units)
+      var_realloca(po_image_formats)
+@#endif      
       total_tally=int_undef
       species_tally=int_undef
       do itally=1,tl_num
@@ -334,7 +356,8 @@ the sum over all groups (default).
      $                 out_post_all,o_mean,'neutral density')
                else
                   test_density[zone][is]=extract_output_datum(index_parameters,1,
-     $                 out_post_grp[o_grp][0][o_mean],o_mean,'neutral density')
+     $                 out_post_grp[o_grp][0][o_mean],o_mean,
+     $                 'neutral density')
                end if
                if (tl_check(species_tally)) then
                   if (o_grp == 0) then
@@ -349,17 +372,24 @@ the sum over all groups (default).
             end do
          end if
       end do
-
-
 @#if MPI
       call MPI_bcast(em_data,zn_num,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
       call MPI_bcast(em_sp_data,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
       call MPI_bcast(test_density,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
       call MPI_bcast(ns,1,mpi_int,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
 @#endif
-
       if (em_temp > zero) then
          nviews=nx*ny
+         have_zone_frags=.false.
+         if (de_grps > 0) then
+            do igrp=1,de_grps
+               if (detector_num_views[igrp] == nviews) then
+                  write(stdout,*) ' Using precomputed chord data for ',
+     $                 detector_name[igrp]
+                  have_zone_frags=.true.
+               end if
+            end do
+         end if
 /*
    Copied this logic directly from |do_flights_master|.
 */
@@ -632,6 +662,29 @@ the sum over all groups (default).
       var_free(em_sp_data)
       var_free(test_density)
       var_free(zone_frags)
+@#if !HDF4
+      var_reallocb(po_xscale)
+      var_reallocb(po_yscale)
+      var_reallocb(po_image_data)
+      var_reallocb(po_image_labels)
+      var_reallocb(po_image_units)
+      var_reallocb(po_image_formats)
+      e=index(filenames_array[outputfile],'.nc')-1
+      assert(e > 0)
+      postdet_file=filenames_array[outputfile]SP(:e)\/'_post.nc'
+      
+      fileid = nccreate(postdet_file,NC_CLOBBER,nc_stat)
+      po_ncdef(fileid)
+      call ncendef(fileid,nc_stat)
+      po_ncwrite(fileid)
+      call ncclose(fileid,nc_stat)
+      var_free(po_xscale)
+      var_free(po_yscale)
+      var_free(po_image_data)
+      var_free(po_image_labels)
+      var_free(po_image_units)
+      var_free(po_image_formats)
+@#endif
 
       return
       end
@@ -702,9 +755,19 @@ routines.
             iy=(iview+1)/nx
             ix=nx
          end if
-         call gpi_views(ix,nx,iy,ny,
-     $        vc_args(points[de_view_start]),halfwidth,
-     $        algorithm,zone_frags)
+         if (have_zone_frags) then
+            do zone=1,zn_num
+               zone_frags[zone]=zero
+            end do
+            do inum=1,de_zone_frags_num[iview]
+               ifrag=de_zone_frags_start[iview] + (inum-1)
+               zone_frags[zone]=de_zone_frags[ifrag]
+            end do
+         else
+            call gpi_views(ix,nx,iy,ny,
+     $           vc_args(points[de_view_start]),halfwidth,
+     $           algorithm,zone_frags)
+         end if
 @#if CHORD_DATA
          if ((mod(ix,chord_stride) == 0) && (mod(iy,chord_stride) == 0)) then
             write(ixlab,'(i2.2)') ix
@@ -732,7 +795,8 @@ routines.
                phi_zone=atan2(zone_center[zone][2],zone_center[zone][1])
                vc_difference(zone_center[zone],points[de_view_start],chord_vec)
                chord_length=vc_abs(chord_vec)
-               write(diskout,'(2x,i7,2x,1p,e16.8,0p,4(2x,f11.8),1p,4(2x,e16.8))') 
+               write(diskout,
+     $              '(2x,i7,2x,1p,e16.8,0p,4(2x,f11.8),1p,4(2x,e16.8))') 
      $              zone,zone_frags[zone]*zn_volume(zone),chord_length,
      $              r_zone,phi_zone,zone_center[zone][3],
      $              em_data[zone],(test_density[zone][is],is=1,ns)
@@ -965,7 +1029,7 @@ break: continue
       end
 @#endif
 
-@ Receive notice from a slave indicating that it's done with current batch.
+@ Receive notice from a slave indicating that it is done with current batch.
 
 @<Functions...@>=
 @#if MPI
@@ -1056,8 +1120,7 @@ to the 2004 NSTX Gas Puff Imaging experiments.
       implicit_none_f90
 
       integer kxmin,kx,ky,kymin     // Input
-      character*(*) cunits,clabel,cfilrt
-      character*4 cformt
+      character*(*) cunits,clabel,cfilrt,cformt
       real xdat[kx],ydat[ky],pb2dat[kx][ky]
 
       integer ix,iy,ixprime,iyprime                // Local
@@ -1111,13 +1174,15 @@ radiative code, irls.
       subroutine wrdata(pb2dat,xdat,ydat,kxmin,kx,kymin,ky,clabel,cunits,
      $                  cfilrt,cformt)
       implicit_none_f77
+@#if !HDF4
+      po_common
+@#endif
       implicit_none_f90
 
       integer kxmin,kx,ky,kymin     // Input
-      character*(*) cunits,clabel,cfilrt
-      character*4 cformt
+      character*(*) cunits,clabel,cfilrt,cformt
       real xdat[kx],ydat[ky],pb2dat[kx][ky]
-
+@#if HDF4
       integer icount,iret,ix,iy,irank              // Local
       integer*4 idim[2]
       single_precision zdatic,zmax,zmin
@@ -1168,7 +1233,37 @@ radiative code, irls.
 */
       iret=dspdata(cfilrt\/'.hdf',2,idim,zdata)
       assert(iret == 0)
+@#else                               // !HDF
+      integer ix,iy,jx,jy            // Local
+      
+      @<Memory allocation interface@>
 
+      assert(po_nx == kx-kxmin+1)
+      assert(po_ny == ky-kymin+1)
+      po_num_dep_vars++
+      var_realloca(po_xscale)
+      var_realloca(po_yscale)
+      var_realloca(po_image_data)
+      var_realloca(po_image_labels)
+      var_realloca(po_image_units)
+      var_realloca(po_image_formats)
+/*
+   Define associated scales starting at |kymin|?
+      (set auxiliary info: units, format, etc.)
+*/
+      po_image_labels[po_num_dep_vars]=clabel
+      po_image_units[po_num_dep_vars]=cunits
+      po_image_formats[po_num_dep_vars]=cformt
+      do iy=kymin,ky
+         jy=iy-kymin+1
+         po_yscale[po_num_dep_vars][jy]=areal(iy)
+         do ix=kxmin,kx
+            jx=ix-kxmin+1
+            po_xscale[po_num_dep_vars][jx]=areal(jx)
+            po_image_data[po_num_dep_vars][jy][jx]=pb2dat[ix][iy]
+         end do
+      end do
+@#endif      
       return
       end
 
