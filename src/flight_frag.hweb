@@ -88,13 +88,21 @@ the slaves.
       fl_source_root_sp(fx)=ff_particles_int[j][ff_int_source_root_sp];
       pt_sp(fl_origin(fx))=ff_particles_int[j][ff_int_pt_sp];
       pt_test(fl_origin(fx))=ff_particles_int[j][ff_int_pt_test];
+      vc_set(lc_x(pt_loc(fl_origin(fx))),ff_particles_float[j][ff_float_lc_x1],
+             ff_particles_float[j][ff_float_lc_x2],ff_particles_float[j][ff_float_lc_x3]);
       lc_cell(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_cell];
-      lc_zone(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_zone];
-      lc_face(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_face];
-      lc_cell_next(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_cell_next];
-      lc_zone_next(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_zone_next];
-      lc_sector(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_sector];
-      lc_sector_next(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_sector_next];
+      if (lc_cell(pt_loc(fl_origin(fx))) == int_uninit) then;
+         lc_set_a(pt_loc(fl_origin(fx)));
+         assert((zn_type(lc_zone(pt_loc(fl_origin(fx)))) == zn_vacuum)
+              || (zn_type(lc_zone(pt_loc(fl_origin(fx)))) == zn_plasma));
+      else;
+         lc_zone(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_zone];
+         lc_face(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_face];
+         lc_cell_next(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_cell_next];
+         lc_zone_next(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_zone_next];
+         lc_sector(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_sector];
+         lc_sector_next(pt_loc(fl_origin(fx)))=ff_particles_int[j][ff_int_lc_sector_next];
+      end if;
       pt_type(fl_origin(fx))=ff_particles_int[j][ff_int_pt_type];
       pt_author(fl_origin(fx))=ff_particles_int[j][ff_int_pt_author];
       pt_t(fl_origin(fx))=ff_particles_float[j][ff_float_pt_t];
@@ -102,8 +110,6 @@ the slaves.
       pt_w(fl_origin(fx))=one;
       vc_set(pt_v(fl_origin(fx)),ff_particles_float[j][ff_float_pt_v1],
              ff_particles_float[j][ff_float_pt_v2],ff_particles_float[j][ff_float_pt_v3]);
-      vc_set(lc_x(pt_loc(fl_origin(fx))),ff_particles_float[j][ff_float_lc_x1],
-             ff_particles_float[j][ff_float_lc_x2],ff_particles_float[j][ff_float_lc_x3]);
       rn_index(fl_rand(fx))=ff_ran_index[j];
       do ff_temp=0,ran_k-1;
          rn_array(fl_rand(fx))[ff_temp]=ff_ran_array[j][ff_temp];

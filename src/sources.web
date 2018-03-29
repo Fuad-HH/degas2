@@ -282,7 +282,7 @@ If present, the third dimension is sampled uniformly.
      $     vc_args(vone),vc_args(vnorm))
       vc_copy(xsrc,x_surface)    // For use in |set_plate_source_v|
 /* 
-   Then take a small step along the normal to be sure we're in the cell.
+   Then take a small step along the normal to be sure we are in the cell.
    In some (unusual) cases, this step can actually be big enough to enter
    an adjacent cell.  Added the loop shrink the size of the step until
    the resulting zone matches the sector |zone|.
@@ -291,33 +291,35 @@ If present, the third dimension is sampled uniformly.
 loop: continue
       fr=delta/vc_abs(vnorm)
       vc_xvt(xsrc,vnorm,fr,lc_x(x))
+/*
+   The move of the source sampling to the master means
+   that the entire process is now serial and can 
+   actually become the principal bottleneck in large
+   runs.  The single most time consuming component
+   of the source sampling is locating the point in the
+   geometry, essentially a call to |locate_point|.
+   The remainder of the sampling process only needs
+   the zone number.  We set that here and also set 
+   the cell number to |int_uninit| to act as a flag
+   to the tracking routine so that it can then set
+   the location.
 
+   Note that at that point we need not be concerned about
+   whether or not the above |geom_epsilon| step moved
+   the flight into an adjacent cell or zone, as long as
+   that location is itself consistent; the tracking routine
+   will be able to follow it from there.
+*/
+@#if 0
       lc_set_a(x)
       if (lc_zone(x) != zone) then
          delta*=half
          assert(delta > epsilon)  // Give up at some point
          go to loop
       end if
-/* 
-   Add this to double-check 3-D cases.
-*/
-@#if 0
-      assert((lc_cell(x) > 0) && (lc_zone(x) == zone))
 @#else
-      if (!((lc_cell(x) > 0) && (lc_zone(x) == zone))) then
-         write(stderr,*) ' Inconsistent source zone in set_surface_source_x'
-         write(stderr,*) ' zone = ',zone
-         write(stderr,*) ' lc_zone(x) = ',lc_zone(x)
-         write(stderr,*) ' lc_cell(x) = ',lc_cell(x)
-         write(stderr,*) ' lc_x(x) = ',lc_x(x)
-         write(stderr,*) ' xsrc = ',xsrc
-         write(stderr,*) ' surface = ',sector_surface[xseg]
-         write(stderr,*) ' surface point 0 = ',
-     $        vc_expand(surface_points[0,sector_surface[xseg]])
-         write(stderr,*) ' surface point 1 = ',
-     $        vc_expand(surface_points[1,sector_surface[xseg]])
-         assert((lc_cell(x) > 0) && (lc_zone(x) == zone))
-      end if
+      lc_zone(x)=zone
+      lc_cell(x)=int_uninit
 @#endif
       return
       end
