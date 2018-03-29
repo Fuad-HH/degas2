@@ -71,11 +71,12 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
      $        nflights,nfrag,nparcel,num,nstart,nslaves,slave,
      $        send_data,post_arrays_allocd,isp,ip,
      $        last_sn_num_particles,have_snapshot_file
-      integer index_parameters[tl_index_max]
+      integer index_parameters[tl_index_max],time[8]
 
       real mult,tot_scale_curr,prob,signal,wavelength,avg_part_per_sec
       real sig_det[30]
       logical need_scores
+      character*30 date_str
       rn_seed_decl(seed)
       rn_seed_decl(temp_seed)
       rn_decl(temp_rand)
@@ -253,6 +254,9 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
             slave=j+1
 @#if MPI_messages
             write(stderr,*) 'Send initial batch of ', num, ' to slave ',slave
+            call date_time(time)
+            call date_string(time,date_str)
+            write(stderr,*) 'Time = ',date_str
 @#endif
             call slave_send_flights(slave,output_num_flights[is]+nstart,num,so_args(is),seed)
             call next_seed(num,seed) // Advance random number seed
@@ -270,6 +274,9 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
 @#if MPI_messages
                write(stderr,*) 'Slave ',slave,' is done with a batch'
                write(stderr,*) 'Sending ',num,' more to slave ',slave
+               call date_time(time)
+               call date_string(time,date_str)
+               write(stderr,*) 'Time = ',date_str
 @#endif
                send_data=send_data_no
                call slave_send_flag(slave,send_data)
@@ -313,6 +320,9 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
                call slave_receive_flights(slave)
 @#if MPI_messages
                write(stderr,*) 'Received batch back from slave ',slave
+               call date_time(time)
+               call date_string(time,date_str)
+               write(stderr,*) 'Time = ',date_str
                call flush(stderr)
 @#endif
                @<Merge results@>
@@ -892,6 +902,8 @@ parallel and serial cases.
       rn_seed_decl(seed)
 
       integer tag                        // Local
+      integer time[8]
+      character*30 date_str
 
       mp_decls
       @<Memory allocation interface@>
@@ -906,6 +918,12 @@ parallel and serial cases.
    |flight_frag| object, conveyed here by |ff_common|.
 */
       call setup_flight_frag(nstart,nflights,so_args(isource),seed)
+@#if MPI_messages
+      write(stderr,*) 'After setup_flight_frag for slave ',slave
+      call date_time(time)
+      call date_string(time,date_str)
+      write(stderr,*) 'Time = ',date_str
+@#endif
 /*
   MPI_send ff objects to slave.
 */
@@ -1090,7 +1108,9 @@ results back to the master.  It is only defined for MPI.
       integer nstart,nflights,tag,done_flag,send_data,
      $        i,j,ilevel,min_level,islave,sending_slave,
      $        new_dim
+      integer time[8]
       real mult
+      character*30 date_str
       logical init
       save init
       data init/.true./
@@ -1128,6 +1148,9 @@ loop: continue
       tag=100
 @#if MPI_slave_messages
       write(diskout+3,*) ' Beginning receive calls; tag = ',tag
+      call date_time(time)
+      call date_string(time,date_str)
+      write(diskout+3,*) 'Time = ',date_str
 @#endif
       call MPI_recv(ff_number_particles,1,mpi_int,mpi_degas2_root,tag,
      $              MPI_COMM_WORLD,mpi_status,mpi_err)
@@ -1160,6 +1183,9 @@ loop: continue
      $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' End of receive calls; tag = ',tag
+      call date_time(time)
+      call date_string(time,date_str)
+      write(diskout+3,*) 'Time = ',date_str
       call flush(diskout+3)
 @#endif
       call do_flights(estimator_factors)
@@ -1167,22 +1193,34 @@ loop: continue
       tag=200
 @#if MPI_slave_messages
       write(diskout+3,*) ' End of receive calls; tag = ',tag
+      call date_time(time)
+      call date_string(time,date_str)
+      write(diskout+3,*) 'Time = ',date_str
       call flush(diskout+3)
 @#endif
       call MPI_send(done_flag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' Sent done_flag; tag = ',tag
+      call date_time(time)
+      call date_string(time,date_str)
+      write(diskout+3,*) 'Time = ',date_str
       call flush(diskout+3)
 @#endif
 
       tag=300
 @#if MPI_slave_messages
       write(diskout+3,*) ' Before receipt of send_data; tag = ',tag
+      call date_time(time)
+      call date_string(time,date_str)
+      write(diskout+3,*) 'Time = ',date_str
       call flush(diskout+3)
 @#endif
       call MPI_recv(send_data,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' After receipt of send_data; tag = ',tag
+      call date_time(time)
+      call date_string(time,date_str)
+      write(diskout+3,*) 'Time = ',date_str
       call flush(diskout+3)
 @#endif
       if (send_data == send_data_no) then
