@@ -729,7 +729,7 @@ case, though.
 
 @ Allocate background arrays. This needs to be done in a separate routine
 prior to calling |setup_box_background|, otherwise the dynamic memory
-allocation doesn't work properly.
+allocation does not work properly.
 
 @<Functions...@>=
       subroutine init_background
@@ -1045,7 +1045,8 @@ geometry-specific!}
       var_alloc(de_view_points)
       var_alloc(de_view_algorithm)
       var_alloc(de_view_halfwidth)
-      var_alloc(de_zone_frags)
+
+      call initialize_zone_frags
       
       de_grps=0
       de_view_size=0
@@ -1064,7 +1065,7 @@ so that their array indexing gets handled correctly.
 @<Functions...@>=
       subroutine detector_setup_a
 
-      define_varp(zone_frags,FLOAT,de_zone_ind)
+      define_varp(zone_frags,FLOAT,zone_ind)
 
       implicit_none_f77
       de_common
@@ -1095,9 +1096,7 @@ so that their array indexing gets handled correctly.
 
       do view=1,detector_total_views
          call detector_view_setup(vc_args(de_view_points[view][de_view_start]),de_view_halfwidth[view],de_view_algorithm[view],zone_frags)
-         do zone=1,zn_num
-            de_zone_frags[zone][view]=zone_frags[zone]
-         end do
+         call add_zone_frags(view,zone_frags)
       end do
       
       var_free(zone_frags)

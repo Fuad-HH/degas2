@@ -240,7 +240,7 @@ the sum over all groups (default).
       integer zone,test,ix,iy,inverted_iy,algorithm,nviews,nfrag,nparcel,
      $        nslaves,j,nstart,num,slave,send_data,iview,close_zone,
      $        nx_peak,iy_peak,is,total_tally,species_tally,itally,len,
-     $        ns,ind_tmp,igrp,inum,ifrag
+     $        ns,ind_tmp,igrp,inum,ifrag,this_grp,view_ptr
       integer index_parameters[tl_index_max],target_map[nx][ny],
      $        target_map_slave[nx][ny]
       real em_temp,em_rate,halfwidth,signal,a0_p,a1_p,a2_p,dist,min_dist,
@@ -381,12 +381,14 @@ the sum over all groups (default).
       if (em_temp > zero) then
          nviews=nx*ny
          have_zone_frags=.false.
+         igrp=int_unused
          if (de_grps > 0) then
             do igrp=1,de_grps
                if (detector_num_views[igrp] == nviews) then
                   write(stdout,*) ' Using precomputed chord data for ',
      $                 detector_name[igrp]
                   have_zone_frags=.true.
+                  this_grp=igrp
                end if
             end do
          end if
@@ -395,6 +397,14 @@ the sum over all groups (default).
 */
 @#if MPI
          nslaves=mpi_size-1
+/*
+   With precomputed |zone_frags|, should just be running in serial mode.  
+   However, extending the code would only entail broadcasting the flag
+   and the |de| class.
+*/
+         if (have_zone_frags) then
+            assert(' Not set up for MPI with precomputed zone_frags' == ' ')
+         end if
 @#else
          nslaves=0
 @#endif
@@ -756,11 +766,15 @@ routines.
             ix=nx
          end if
          if (have_zone_frags) then
+            assert((this_grp >= 1) && (this_grp <= de_grps))
             do zone=1,zn_num
                zone_frags[zone]=zero
             end do
-            do inum=1,de_zone_frags_num[iview]
-               ifrag=de_zone_frags_start[iview] + (inum-1)
+            view_ptr=de_view_pointer(iview+1,this_grp)
+            do inum=1,de_zone_frags_num[view_ptr]
+               ifrag=de_zone_frags_start[view_ptr] + (inum-1)
+               zone=de_zone_frags_zones[ifrag]
+               assert(zn_check(zone))
                zone_frags[zone]=de_zone_frags[ifrag]
             end do
          else
@@ -892,16 +906,18 @@ routines.
       implicit_none_f77
       mp_common
       zn_common
+      de_common
       implicit_none_f90
 
       integer iy,ix,tag,num,nstart,iview,is,ns,algorithm,close_zone,zone,
-     $        inverted_iy,done_flag,send_data
+     $        inverted_iy,done_flag,send_data,inum,ifrag
       integer target_map[nx][ny]
       real halfwidth,signal,a0_p,a1_p,a2_p,dist,min_dist,a0,a1,
      $     a2,a3,phi,d_l0,d_opt,a3_p,em_avg,opt,max_opt
       real signal_array[nx][ny],n_eff2[nx][ny][nsd],fwpa_avg[nx][ny],
      $     signal_sp_array[nx][ny][nsd],fwpa_sp_avg[nx][ny][nsd],
      $     n_eff2_sum[nsd],signal_sp[nsd],n_avg[nsd],em_sp_avg[nsd]
+      logical have_zone_frags
 @#if CHORD_DATA
       real r_zone,phi_zone,chord_length
       character*2 ixlab,iylab
@@ -917,6 +933,7 @@ routines.
       @<Memory allocation interface@>
       vc_decls
       mp_decls
+      zn_decls
 
       var_alloc(em_data)
       var_alloc(em_sp_data)
@@ -947,6 +964,10 @@ loop: continue
       if (num == 0) goto break
       tag++
       call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+/*
+   See comment in master routine.
+*/
+      have_zone_frags=.false.
       @<Compute Signal@>
 
       done_flag=TRUE

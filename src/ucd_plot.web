@@ -145,7 +145,8 @@ following integer in naming the SILO file.
       if (nargs == 2) then
          call command_arg(2,ext_file_list)
          ext_file_unit=diskin
-         open(unit=ext_file_unit,file=ext_file_list,status='old',form='formatted')
+         open(unit=ext_file_unit,file=ext_file_list,
+     $        status='old',form='formatted')
       else
          ext_file_unit=int_unused
       end if
@@ -205,11 +206,11 @@ following integer in naming the SILO file.
      $        i,j,this_node,sector,num_poly_points,i_this,dbfile,ret,ret2,
      $        nshapetypes,ndims,n_ext_file,ext_file_unit,length,beg,e,p,iview,
      $        test,back,ifile,itxt,open_stat,ind_tmp,iv,last_plasma_polygon,
-     $        dbfile_td
+     $        dbfile_td,inum,ifrag
       integer shapesize[1],shapecounts[1],shapetype[1],this_polygon[0:g2_num_points-1],
      $        index_parameters[tl_index_max]
       logical dbfile_td_open
-      real max_v,ha_temp,density,ha_rate,pressure,halpha_tot
+      real max_v,ha_temp,density,ha_rate,pressure,halpha_tot,zone_frag
       character*FILELEN polygon_nc_file,silo_file,zonelist,mesh_name,ext_silo_file
       character*4 ivlab
       character*1 ind_sy[3]
@@ -550,8 +551,20 @@ loop: continue
          end if
          do i=1,g2_num_polygons
             zone=g2_polygon_zone[i]
-            if (zn_type(zone) == zn_plasma || zn_type(zone) == zn_vacuum) then
-               polygon_data[i]=de_zone_frags[zone][iview]
+            if ((zn_type(zone) == zn_plasma || zn_type(zone) == zn_vacuum)
+     $           && ((zone >= de_zone_frags_min_zn[iview])
+     $           && (zone <= de_zone_frags_max_zn[iview]))) then
+               assert(de_zone_frags_num[iview] > 0)
+               zone_frag=zero
+               do inum=1,de_zone_frags_num[iview]
+                  ifrag=de_zone_frags_start[iview] + (inum-1)
+                  if (zone == de_zone_frags_zones[ifrag]) then
+                     zone_frag=de_zone_frags[ifrag]
+                     go to break
+                  end if
+               end do
+break:         continue  
+               polygon_data[i]=zone_frag
             else
                polygon_data[i]=zero
             end if

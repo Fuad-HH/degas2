@@ -105,7 +105,7 @@ the \$ sign as indicating time dependent data and use the
 following integer in naming the SILO file.  In HDF4 mode, all
 variables are already in separate files, and the \$ is just
 stripped out and used as the file name.  I.e., in this case
-the \$ sign isn't actually needed.
+the \$ sign is not actually needed.
 
 By the definition of the mesh, mesh point $(i, j, k)$ corresponds to
 the physical point $x$ according to:
@@ -229,9 +229,11 @@ this mapping simplifies to the obvious form:
       implicit_none_f90
       real x[3],a[3],b[3],c[3],xp[3],vz[3],               // Local
      $     alen,blen,clen,ha_rate,halpha_tot,ha_temp,
-     $     density,pressure,max_v,clenp,dx,dz,z_scale,main_z_scale
+     $     density,pressure,max_v,clenp,dx,dz,z_scale,
+     $     main_z_scale,zone_frag
       integer i,j,k,zone,test,back,iview,length,p,beg,e,ind_tmp,
-     $        na,nb,nc,pixsize,main_pixsize,ifile,n_ext_file,open_stat
+     $        na,nb,nc,pixsize,main_pixsize,ifile,n_ext_file,
+     $        open_stat,inum,ifrag
       integer index_parameters[tl_index_max]
       external extract_output_datum
       real extract_output_datum
@@ -423,7 +425,7 @@ loop: continue
       mesh_name='HighRes2d'
 @#endif
 /*
-   This is just Charles' original ``zone function''.  I believe the
+   This is just Charles'' original ``zone function''.  I believe the
    purpose was to use (most of) an 8-bit palette to color the
    zones with a minimum chance of color matching between adjacent
    zones (i.e., suspect that $97 / 252$ is related to the golden
@@ -432,7 +434,8 @@ loop: continue
       do i=1,zn_num
          zone_data[i]=areal(3+mod(97*i,255-3))
       end do
-      call write_hdf('geomtesta.hdf',zone_data,'zone function',' ','E11.3',
+      call write_hdf('geomtesta.hdf',zone_data,
+     $     'zone function',' ','E11.3',
      $     na,nb,nc,xa,xb,xc,pixel_zones,pixel_data)
 
       var_free(xa)
@@ -551,8 +554,20 @@ loop: continue
             ivlab='9'
          end if
          do i=1,zn_num
-            if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum) then
-               zone_data[i]=de_zone_frags[i][iview]
+            if (zn_type(i) == zn_plasma || zn_type(i) == zn_vacuum
+     $           && ((i >= de_zone_frags_min_zn[iview])
+     $           && (i <= de_zone_frags_max_zn[iview]))) then
+               assert(de_zone_frags_num[iview] > 0)
+               zone_frag=zero
+               do inum=1,de_zone_frags_num[iview]
+                  ifrag=de_zone_frags_start[iview] + (inum-1)
+                  if (i == de_zone_frags_zones[ifrag]) then
+                     zone_frag=de_zone_frags[ifrag]
+                     go to break
+                  end if
+               end do
+break:        continue  
+              zone_data[i]=zone_frag
             else
                zone_data[i]=zero
             end if
