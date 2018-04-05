@@ -588,6 +588,10 @@ matcheir = matcheir.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O
 matcheir_libs = $(NETCDF)
 matcheir: $(matcheir) $(foreach arg,$(subst .$O,_mods,$(matcheir)),$($(arg)))
 
+acc_output = acc_output.$O pmimatread.$O elementread.$O geometry.$O readfilenames.$O degasinit.$O conversions.$O
+acc_output_libs = $(NETCDF)
+acc_output: $(acc_output) $(foreach arg,$(subst .$O,_mods,$(acc_output)),$($(arg)))
+
 reactionwrite = reactionwrite.$O
 reactionwrite_libs = $(NETCDF)
 reactionwrite: $(reactionwrite) $(foreach arg,$(subst .$O,_mods,$(reactionwrite)),$($(arg)))

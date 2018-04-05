@@ -31,6 +31,8 @@ tl_MOD:=tally_mod.$O
 xi_MOD:=xgc1interp_mod.$O
 xs_MOD:=xsection_mod.$O
 zn_MOD:=zone_mod.$O
+acc_output_mods:= $(ou_MOD) $(pr_MOD) $(rf_MOD) $(so_MOD) $(tl_MOD)
+acc_output.o: $(acc_output_mods)
 adaswrite_mods:= $(rc_MOD) $(sp_MOD) $(xs_MOD)
 adaswrite.o: $(adaswrite_mods)
 allocate_mods:= $(al_MOD)
@@ -173,6 +175,7 @@ xgc1_gpi_mods:= $(bk_MOD) $(gi_MOD) $(xi_MOD) $(zn_MOD)
 xgc1_gpi.o: $(xgc1_gpi_mods)
 endif
 ifeq ($(STANDALONE),yes)
+acc_output.f: array.hweb constants.hweb macros.hweb materials.hweb netcdf.hweb output.hweb problem.hweb random.hweb reaction.hweb readfilenames.hweb sector.hweb sources.hweb species.hweb string.hweb sysdep.hweb tally.hweb vector.hweb zone.hweb
 adas_xxdata_11.f: array.hweb constants.hweb macros.hweb string.hweb sysdep.hweb vector.hweb
 adaswrite.f: array.hweb constants.hweb macros.hweb netcdf.hweb reaction.hweb readfilenames.hweb species.hweb string.hweb sysdep.hweb vector.hweb xsection.hweb
 allocate.f: allocate.hweb array.hweb constants.hweb macros.hweb sysdep.hweb vector.hweb
