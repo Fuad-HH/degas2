@@ -244,15 +244,6 @@ eof:  continue
 
       var_alloc(xgc_params)
 
-@#if 0 // Moved into macros
-      var_alloc(xi_r_interp)
-      var_alloc(xi_z_interp)
-      var_alloc(xi_l_interp)
-      var_alloc(xi_weight_interp)
-      var_alloc(xi_file_interp)
-      var_alloc(xi_tri_interp)
-@#endif
-      
       call get_n_t_a(file_names,num_files,xgc_params,num_tri,
      $               efit_file,xgc1int_nc_file,triangles,
      $               triangles_xgc,last_xgc_zone)
@@ -490,11 +481,7 @@ eof: continue
 */
       do zone=1,zn_num
          if (zn_type(zone) == zn_plasma) then
-@#if 0
-            tri=zn_index(zone,zi_ix)
-@#else
             tri=triangles_xgc[zone]
-@#endif
             iy=zn_index(zone,zi_iy)
             sub_count=0
             do icol=1,num_cols
@@ -508,11 +495,30 @@ eof: continue
                   assert((file_minus >= 0) && (file_minus <= num_files))
                   file_plus=xi_file_interp[zone][xi_pm_plus]
                   assert((file_plus >= 0) && (file_plus <= num_files))
-
+/*
+   For the NSTX case, have greater variation along a flux surface than
+   toroidally.  To preserve the former during the interpolation process,
+   need to interpolate the difference between the local and axisymmetric
+   (i.e., the |num_files| entry) values, then add the axisymmetric
+   value back in.
+*/
+@#if 0
                   this_param=xi_weight_interp[zone][xi_pm_minus]
      $                 *xgc_params[tri_minus][icol][file_minus]
      $                 +xi_weight_interp[zone][xi_pm_plus]
      $                 *xgc_params[tri_plus][icol][file_plus]
+@#else
+                  this_param=xgc_params[tri][icol][num_files]
+     $                          + xi_weight_interp[zone][xi_pm_minus]
+     $                             *(xgc_params[tri_minus][icol][file_minus]
+     $                                - xgc_params[tri_minus][icol][num_files])
+     $                          + xi_weight_interp[zone][xi_pm_plus]
+     $                             *(xgc_params[tri_plus][icol][file_plus]
+     $                                - xgc_params[tri_plus][icol][num_files])
+@#endif
+
+
+
                else
 /*
    For zones outside the XGC1 triangle mesh, use an exponential
@@ -551,11 +557,7 @@ eof: continue
                      end if
                      assert(delta_min > zero && delta_min < geom_infinity)
                      assert(zn_check(close_zone))
-@#if 0
-                     close_tri=zn_index(close_zone,zi_ix)
-@#else
                      close_tri=triangles_xgc[close_zone]
-@#endif
                      exp_factor=exp(-delta_min/lambda)
                   end if
                   this_param=xgc_params[close_tri][icol][num_files]  // Axisymmetric value
@@ -617,18 +619,10 @@ eof: continue
       var_alloc(xi_tri_interp)
 
       do zone=1,zn_num
-@#if 0
-         if ((zn_type(zone) == zn_plasma) && (zn_index(zone,zi_ix) > 0)) then
-@#else
          if ((zn_type(zone) == zn_plasma) && (triangles_xgc[zone] > 0)) then
-@#endif
             iy=zn_index(zone,zi_iy)
             phi_org=phi_iy[iy]
-@#if 0
-            tri_org=zn_index(zone,zi_ix)
-@#else
             tri_org=triangles_xgc[zone]
-@#endif
 /*
    This loop follows the field line first towards
    smaller toroidal angle and then in the other direction.
@@ -678,11 +672,7 @@ eof: continue
                   vc_copy(x_dest,lc_x(xx))
                   lc_set(xx)
                   if (lc_cell(xx) > 0) then
-@#if 0
-                     this_tri=zn_index(lc_zone(xx),zi_ix)
-@#else
                      this_tri=triangles_xgc[lc_zone(xx)]
-@#endif
                      if ((this_tri > 0) && (this_tri <= num_tri)) then 
                         xi_tri_interp[zone][ipm]=this_tri
                      else
