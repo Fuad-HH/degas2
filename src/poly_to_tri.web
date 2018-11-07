@@ -235,7 +235,7 @@ file, and the zone number appears in the last column of the
       open(unit=node_unit,file=trim(file_root)\/'.node')
       write(node_unit,*) num_nodes,' 2   0   1'
       do i=1,num_nodes
-         write(node_unit,'(i6,2x,f18.15,2x,f18.15,2x,i3,2x,i4,2x,i4)') i,
+         write(node_unit,'(i6,2x,f18.15,2x,f18.15,2x,i3,2x,i5,2x,i5)') i,
      $        nodes[i][g2_x],nodes[i][g2_z],boundary_nodes[i],
      $        node_index[i][zi_ix],node_index[i][zi_iz]
       end do
@@ -255,6 +255,13 @@ file, and the zone number appears in the last column of the
      $        triangles[i][2],areal(triangle_zone[i])
       end do
       close(unit=ele_unit)
+/*
+   Just to prevent complaints from |var_free|.
+*/
+      var_reallocb(nodes)
+      var_reallocb(boundary_nodes)
+      var_reallocb(triangles)
+      var_reallocb(triangle_zone)
 
       var_free(nodes)
       var_free(boundary_nodes)
