@@ -1534,6 +1534,7 @@ situation.
 
       implicit_none_f77
       sn_common                                  // Common
+      sa_common
       zn_common
       implicit_none_f90
 
@@ -1566,7 +1567,11 @@ situation.
       sn_particles_int[sn_number_particles][sn_int_pt_sp]=pt_sp(p)
       sn_particles_int[sn_number_particles][sn_int_pt_test]=pt_test(p)
       sn_particles_float[sn_number_particles][sn_float_pt_t]=pt_t(p)
-      sn_particles_float[sn_number_particles][sn_float_pt_w]=pt_w(p)
+/*
+   Recall that |stat_wt_tot_flt| comes via |sa_common| from 
+   subroutine |do_flights|.
+*/
+      sn_particles_float[sn_number_particles][sn_float_pt_w]=pt_w(p)*stat_wt_tot_flt
       sn_particles_float[sn_number_particles][sn_float_pt_v1]=pt_v(p)[1]
       sn_particles_float[sn_number_particles][sn_float_pt_v2]=pt_v(p)[2]
       sn_particles_float[sn_number_particles][sn_float_pt_v3]=pt_v(p)[3]
