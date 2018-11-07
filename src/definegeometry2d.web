@@ -1678,7 +1678,9 @@ be other requirements as well.
      $     num_mesh_elems,mesh_elem,exp_inc
       real temp_x,temp_z,mult
 
-      integer mesh_sense,ix,iz,n                            // Mesh Polygons
+      integer mesh_sense,ix,iz,n,mesh_pt,                   // Mesh Polygons
+     $     poly_pt,start_pt,end_pt,inc_pt
+      logical new_pt
       vc_decl(yhat)
       vc_decl(test_vec_1)
       vc_decl(test_vec_2)
@@ -2997,38 +2999,50 @@ wall_break: continue
                  g2_polygon_xz[g2_num_polygons][n][g2_x]
      $                = mesh_xzm(g2_x,1,ix,iz)
                  g2_polygon_xz[g2_num_polygons][n][g2_z]
-     $                = mesh_xzm(g2_z,1,ix,iz);         n++
-
+     $              = mesh_xzm(g2_z,1,ix,iz)
+/*
+   Regardless of the sense of the mesh, the points are
+   numbered consecutively, so just need to alter the
+   loop indices in transferring the points to |g2_polygon_xz|.
+*/
                  if (mesh_sense == 1) then
-                    g2_polygon_xz[g2_num_polygons][n][g2_x]
-     $                   = mesh_xzm(g2_x,2,ix,iz)
-                    g2_polygon_xz[g2_num_polygons][n][g2_z]
-     $                   = mesh_xzm(g2_z,2,ix,iz);         n++
-                    g2_polygon_xz[g2_num_polygons][n][g2_x]
-     $                   = mesh_xzm(g2_x,3,ix,iz)
-                    g2_polygon_xz[g2_num_polygons][n][g2_z]
-     $                   = mesh_xzm(g2_z,3,ix,iz);         n++
-                    g2_polygon_xz[g2_num_polygons][n][g2_x]
-     $                   = mesh_xzm(g2_x,4,ix,iz)
-                    g2_polygon_xz[g2_num_polygons][n][g2_z]
-     $                   = mesh_xzm(g2_z,4,ix,iz);         n++
-
+                  start_pt=2
+                  end_pt=4
+                  inc_pt=1
                  else if (mesh_sense == 2) then
-                    g2_polygon_xz[g2_num_polygons][n][g2_x]
-     $                   = mesh_xzm(g2_x,4,ix,iz)
-                    g2_polygon_xz[g2_num_polygons][n][g2_z]
-     $                   = mesh_xzm(g2_z,4,ix,iz);         n++
-                    g2_polygon_xz[g2_num_polygons][n][g2_x]
-     $                   = mesh_xzm(g2_x,3,ix,iz)
-                    g2_polygon_xz[g2_num_polygons][n][g2_z]
-     $                   = mesh_xzm(g2_z,3,ix,iz);         n++
-                    g2_polygon_xz[g2_num_polygons][n][g2_x]
-     $                   = mesh_xzm(g2_x,2,ix,iz)
-                    g2_polygon_xz[g2_num_polygons][n][g2_z]
-     $                   = mesh_xzm(g2_z,2,ix,iz);         n++
+                  start_pt=4
+                  end_pt=2
+                  inc_pt=-1
                else
                   assert('mesh_sense improperly set' == ' ')
                end if
+/*
+   Since we also use the Sonnet mesh format for triangular
+   meshes, identifying and removing duplicate points turns
+   out to be useful.  Although there is a specific convention
+   used in assigning the duplicate point in the Sonnet file, 
+   explicitly checking all points, as we do here, is not too
+   cumbersome.
+*/
+               do mesh_pt=start_pt,end_pt,inc_pt
+                  new_pt=.true.
+                  do poly_pt=0,n
+                     if ((mesh_xzm(g2_x,mesh_pt,ix,iz) 
+     $                    == g2_polygon_xz[g2_num_polygons][poly_pt][g2_x])
+     $                    && (mesh_xzm(g2_z,mesh_pt,ix,iz) 
+     $                    == g2_polygon_xz[g2_num_polygons][poly_pt][g2_z])) then
+                        new_pt=.false.
+                     end if
+                  end do
+                  if (new_pt) then
+                     n++
+                     g2_polygon_xz[g2_num_polygons][n][g2_x]
+     $                    = mesh_xzm(g2_x,mesh_pt,ix,iz)
+                     g2_polygon_xz[g2_num_polygons][n][g2_z]
+     $                    = mesh_xzm(g2_z,mesh_pt,ix,iz)
+                  end if
+               end do
+               n++  
                g2_polygon_xz[g2_num_polygons][n][g2_x]
      $              = g2_polygon_xz[g2_num_polygons][0][g2_x]
                g2_polygon_xz[g2_num_polygons][n][g2_z]
