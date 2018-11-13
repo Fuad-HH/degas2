@@ -94,6 +94,12 @@ form='formatted',iostat=open_stat);
       var_realloca(ext_lim_index); 
       dim_ext=mem_size(dim_ext) @;
 
+@m increment_num_poly       num_poly++;
+      dim_poly=max(dim_poly,num_poly);
+      var_realloca(poly_psi);
+      var_realloca(poly_rho);
+      var_realloca(poly_r) @;
+
 @m n_opt 7      
 @m i_newt_max 50
 @m wall_unused 0
@@ -114,6 +120,10 @@ form='formatted',iostat=open_stat);
 
 @m APP CMOD_GPI
 
+@m num_z_special 2  // Output $R$ at these special $Z$ values 
+@m iz_ma 1          // Magnetic axis
+@m iz_probe 2       // Physical location of a probe (or Thomson scattering)
+
 @a
       program efit2dg2d
 
@@ -121,6 +131,9 @@ form='formatted',iostat=open_stat);
       define_dimen(zb_ind,nzbox)
       define_dimen(cont_ind,n_cont)
       define_dimen(ext_lim_ind,dim_ext)
+      define_dimen(z_special_ind,num_z_special)
+      define_dimen(eq_r_ind,0,ef_nr-1)
+      define_dimen(poly_ind,dim_poly)
       define_varp(rbox,FLOAT,rb_ind)
       define_varp(zbox,FLOAT,zb_ind)
       /*
@@ -146,6 +159,13 @@ form='formatted',iostat=open_stat);
       define_varp(ext_lim_used,INT,ext_lim_ind)
       define_varp(ext_lim_tempf,FLOAT,ext_lim_ind)
       define_varp(ext_lim_tempi,INT,ext_lim_ind)
+      define_varp(z_special,FLOAT,z_special_ind)
+      define_varp(psi_special,FLOAT,eq_r_ind,z_special_ind)
+      define_varp(eq_rr_out,FLOAT,eq_r_ind)
+      define_varp(poly_psi,FLOAT,poly_ind)
+      define_varp(poly_rho,FLOAT,poly_ind)
+      define_varp(poly_r,FLOAT,poly_ind)
+      define_varp(poly_index,INT,poly_ind)
 
       implicit_none_f77
       ef_common                                           // Common
@@ -155,12 +175,13 @@ form='formatted',iostat=open_stat);
      $     dim_nodes,num_nodes,dim_walls,num_walls,
      $     n_cont_in,n_cont_out,n_cont,ic,imp1,closer,
      $     ext_lim_m,dim_ext,first_point,num_poly,
-     $     next_start,iwall,im_next,num_poly_wall
+     $     next_start,iwall,im_next,num_poly_wall,
+     $     ir_ma,ir_out,nr_out,dim_poly,i
       integer poly_wall[2]
       real rbox_min,rbox_max,zbox_min,zbox_max,drbox,
      $     dzbox,dr,r,z,psi,psi_min,psi_max,psi_value,
-     $     delta_psi,lim_psi_min,lim_psi_max,poly_psi,
-     $     psilim
+     $     delta_psi,lim_psi_min,lim_psi_max,
+     $     psilim,ipsi,r_sep_ma
       real segment[2][2],x_psi[2]
       logical tracked,polygons_done
       character*FILELEN g_file
@@ -170,9 +191,10 @@ form='formatted',iostat=open_stat);
       real r_dtheta,psi_err,max_err,dist
       real x_old[2],x_new[2],lines[2][2][2],x_int[2]
 
-      external psi_interp,wall_cross                       // External
+      external psi_interp,wall_cross,find_index,           // External
+     $         interpolate1           
       integer wall_cross
-      real psi_interp
+      real psi_interp,find_index,interpolate1
       
       @<Memory allocation interface@>
       sy_decls
@@ -201,6 +223,15 @@ form='formatted',iostat=open_stat);
       declare_varp(ext_lim_tempf)
       declare_varp(ext_lim_tempi)
 
+      declare_varp(z_special)
+      declare_varp(psi_special)
+      declare_varp(eq_rr_out)
+
+      declare_varp(poly_psi)
+      declare_varp(poly_rho)
+      declare_varp(poly_r)
+      declare_varp(poly_index)
+
       nargs=arg_count()
       if (nargs != 1) then
          assert('Command line must specify the name of the EFIT g-file' == ' ')
@@ -219,7 +250,11 @@ form='formatted',iostat=open_stat);
 */ 
 @#if (APP == NSTX_ENDD)
       rbox_min=const(1.2)
+@#if 0
       rbox_max = const(1.555)
+@#else
+      rbox_max = const(1.590)  // For 2011 and later
+@#endif
       zbox_min = const(-0.40)
       zbox_max = const(0.54)
 @#elseif (APP == CMOD_GPI)
@@ -255,6 +290,40 @@ form='formatted',iostat=open_stat);
          end do
       end do
       assert(psi_min < psi_max)
+/*
+   Set the special $Z$ values.  The magnetic axis comes from
+   the EFIT file.  Hard wiring the ``probe'' value to zero here,
+   consistent with NSTX Thompson scattering; would be above
+   midplane for C-Mod.  I.e., will eventually make these
+   application specific.
+*/
+      var_alloc(z_special)
+      var_alloc(psi_special)
+      z_special[iz_ma] = ef_zma
+      z_special[iz_probe] = zero
+/*
+   The IDL version of this code used direct
+   one-dimensional interpolation to find the
+   $R$ values associated with the special $Z$.
+   Here, we can instead use the spline-fit interpolation.
+   In this case, we only need the $R$ values on the
+   outer half of the equilibrium grid.
+*/
+      var_alloc(eq_rr_out)
+      ir_ma=int(((ef_rma - ef_min_r)/(ef_max_r-ef_min_r))
+     $            *areal(ef_nr-1))
+      nr_out=ef_nr-ir_ma
+      do ir=ir_ma,ef_nr-1
+         ir_out=ir-ir_ma
+         eq_rr_out[ir_out]=(areal(ir)/areal(ef_nr-1))*(ef_max_r-ef_min_r)
+     $             + ef_min_r
+         do iz=1,num_z_special
+            psi_special[iz][ir_out]=psi_interp(eq_rr_out[ir_out],
+     $           z_special[iz],0,0)
+         end do
+      end do
+      ipsi=find_index(ef_psilim,psi_special[iz_ma][0],nr_out)
+      r_sep_ma=interpolate1(ipsi,eq_rr_out,nr_out)
 /*
    Hard wire these for now, but expect that they will likely
    be input somehow.  The extra ``1'' is for the separatrix.
@@ -594,7 +663,8 @@ with the |ic|-th crossing of limiter segment |im|.
       write(diskout,*) SP (wall_segment_count[im]+1,im=1,num_walls)
       do im=1,num_walls
          if (im < num_walls) then
-            write(diskout,'(a,i4,a,1pe14.6,a,0p,f9.6)') '# Wall ',im,', psi= ',
+            write(diskout,'(a,i4,a,1pe14.6,a,0p,f9.6)') 
+     $           '# Wall ',im,', psi= ',
      $           psi_contours[wall_psi_contour[im]],
      $           ', psi/psi_sep = ',
      $           psi_contours[wall_psi_contour[im]]/ef_psilim
@@ -615,11 +685,6 @@ with the |ic|-th crossing of limiter segment |im|.
       write(diskout,*) '# These are all flux contour polygons '
       write(diskout,*) '# '
 /*
-   A file to connect them to the $\psi$ values.
-*/
-      open(unit=diskout+1,file='stratum_psi',status='unknown')
-      write(diskout+1,*) '  stratum    psi/psi_sep   '
-/*
    This one dumps out the polygons as $R, Z$ pairs that can
    be plotted externally.
 */
@@ -632,12 +697,17 @@ with the |ic|-th crossing of limiter segment |im|.
       first_point=0
       im=1
       num_poly=0
+      dim_poly=mem_inc
+      var_alloc(poly_psi)
+      var_alloc(poly_r)
+      var_alloc(poly_rho)
+      var_alloc(poly_index)
       polygons_done=.false.
       do while(!polygons_done || (first_point != 0))
          if (first_point == 0) then
             first_point=im
             assert(im <= ext_lim_m)
-            num_poly++
+            increment_num_poly
             write(diskout+2,*) 'Polygon: ',num_poly
             next_start=0
             write(diskout,*) 'new_zone plasma'
@@ -733,11 +803,22 @@ with the |ic|-th crossing of limiter segment |im|.
             write(diskout,'(a,3i4)') '    wall ',num_walls,im-1,im-1
             write(diskout,'(a)') '  triangulate_to_zones'
             if (poly_wall[2] > 0) then
-               poly_psi=half*(psi_contours[wall_psi_contour[poly_wall[1]]]
+               poly_psi[num_poly]=half*(psi_contours[wall_psi_contour[poly_wall[1]]]
      $              + psi_contours[wall_psi_contour[poly_wall[2]]])
             else
-               poly_psi=psi_contours[wall_psi_contour[poly_wall[1]]]
+               poly_psi[num_poly]=psi_contours[wall_psi_contour[poly_wall[1]]]
             end if
+/*
+   Use this value to interpolate the $R$ values at the special $Z$ locations.
+   Note that the $\psi$ used here is the unnormalized one.  Do first at
+   the magnetic axis and subtract $R_{sep}$ there to get $\rho$.  Repeat
+   to get $R$ at the ``probe'' $Z$.
+*/
+            ipsi=find_index(poly_psi[num_poly],psi_special[iz_ma][0],nr_out)
+            poly_rho[num_poly]=interpolate1(ipsi,eq_rr_out,nr_out)-r_sep_ma
+            ipsi=find_index(poly_psi[num_poly],psi_special[iz_probe][0],nr_out)
+            poly_r[num_poly]=interpolate1(ipsi,eq_rr_out,nr_out)
+            poly_index[num_poly]=num_poly  // For sorting
 /*
    For present purposes, actually want the poloidal flux normalized
    to the limiter / separatrix value, not relative.  The second value
@@ -745,15 +826,33 @@ with the |ic|-th crossing of limiter segment |im|.
    values to the magnetic axis.
 */
 @#if 0
-            poly_psi=one+poly_psi/ef_psilim 
+            poly_psi[num_poly]=one+poly_psi/ef_psilim 
 @#else
-            poly_psi=poly_psi/ef_psilim
+            poly_psi[num_poly]=poly_psi[num_poly]/ef_psilim
 @#endif
-            write(diskout+1,'(2x,i4,2x,f10.7)') num_poly,poly_psi
                first_point=0
                im=next_start
             end if
       end do      // Outer do-while loop
+/*
+   A file to connect the polygons to the $\psi$, etc. values.
+*/
+      open(unit=diskout+1,file='stratum_psi',status='unknown')
+      write(diskout+1,*) 
+     $     'stratum    psi/psi_sep    rho       R(Z_probe)   '
+/*
+   Because the polygons are constructed in an arbitrary manner and
+   order, their $\psi$ values, etc. will likely not be varying uniformly.
+   Since this will cause problems when interpolating plasma parameters
+   in defineback, we rearrange these arrays in order of increasing 
+   $\psi$, using |poly_index| to keep track of the sorting.
+*/
+      call sort2(num_poly,poly_psi,poly_index)
+      do i=1,num_poly
+         write(diskout+1,'(2x,i8,3(2x,f10.7))') poly_index[i],
+     $        poly_psi[i],poly_rho[poly_index[i]],
+     $        poly_r[poly_index[i]]
+      end do
 
       close(unit=diskout)
       close(unit=diskout+1)
@@ -779,6 +878,15 @@ with the |ic|-th crossing of limiter segment |im|.
       var_free(ext_lim_used)
       var_free(ext_lim_tempf)
       var_free(ext_lim_tempi)
+
+      var_free(z_special)
+      var_free(psi_special)
+      var_free(eq_rr_out)
+
+      var_free(poly_psi)
+      var_free(poly_rho)
+      var_free(poly_r)
+      var_free(poly_index)
 
       stop
       end
