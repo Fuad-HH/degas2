@@ -69,6 +69,7 @@
 %
 %  acroread -toPostScript degas2_all.pdf
 %  (pdf2ps DOES NOT appear to work well)
+%  In Acrobat, was able to do Save As... / PostScript.
 %
 %
 \documentclass[12pt]{report}
@@ -101,7 +102,7 @@
 % for the code.
 \title{\includegraphics{degas2d}
 User's Guide for DEGAS 2 \\
-Release V.\ 4.8\thanks{This file is written in \TeX. 
+Release V.\ 4.9\thanks{This file is written in \TeX. 
 A hyper-linked PDF
 file is generated from that source using {\tt pdflatex}. This document
 is distributed as part of the DEGAS 2 code. The user can be best assured
@@ -155,23 +156,20 @@ the magnetic field that confines the charged particles. In addition, hot
 neutrals which leave the plasma volume can interact with the wall of the
 plasma chamber, sputtering impurities into the plasma and (in reactors)
 possibly damaging the wall. Finally, these hot neutrals can also be used
-for plasma diagnostics. Therefore, it is worth developing an accurate
-description of the neutral behaviour.
+for plasma diagnostics. An accurate
+description of the neutral behaviour would, thus, have be useful
+in all of these areas.
 
 The theory of neutral particle kinetics\cite{Tend87}
 treats the transport of mass, momentum, and energy in a plasma due to
 neutral particles that are themselves unaffected by magnetic
-fields. This transport affects the global power and particle balances in
-fusion devices, as well as profile control and plasma confinement
-quality, particle and energy fluxes onto device components, performance
-of pumping systems, and the design of diagnostics and the interpretation
-of their measurements.  Though analytic models (solving the
+fields.  Though analytic models (solving the
 Boltzmann equation for the neutrals or using the diffusion approximation),
 both single- and multi-species, have been used to study neutral transport,
 a variety of approximations must be made. Some numerical methods for solving
-the Boltzmann equation use simplified geometries and atomic physics. On
+the Boltzmann equation employ simplified geometries and atomic physics. On
 the other hand, the Monte Carlo approach to integrating the Boltzmann
-equation can treat in great detail asymmetric geometries and complex
+equation can treat in great detail three-dimensional geometries, as well as complex
 atomic physics and wall interactions. Because of the similarity in the
 problems, Monte Carlo neutral transport codes can build on the techniques
 developed for neutron transport in reactor design\cite{Span69}.
@@ -890,7 +888,9 @@ where  $t_{V}$ is the time the particle track spent in volume V,
 $w =$ weight at start of the time step. Compare this with Eq.~(\ref{tle}).
 The function $g$ can be a test particle attribute, such as
 mass, momentum, energy, or reaction-related, e.g., ion 
-momentum source due to charge exchange. The latter $g$ quantity
+momentum source due to charge exchange. 
+Volumetric
+plasma sources, such as the latter, 
 enter the track-length estimator as averages over the background 
 distribution\cite{Reit93}.
 
@@ -968,6 +968,284 @@ mass or volume. An important example is
 converting $\vec{v}$ from Cartesian
 to cylindrical coordinates when scoring.
 \end{enumerate}
+
+\section{Accumulation of Tallied Data}
+\label{Accumulation}
+
+The estimators described in Sec.~\ref{tallies} are calculated by
+the routines in {\tt score.web}, which are invoked during tracking.
+At the end of each flight, the resulting data are accumulated into the
+global arrays described in the \href{classes.pdf#65}{statistics class} 
+(package abbreviation {\tt sa}) via the subroutines in {\tt stat.web}.
+
+The data accumulation process takes place over a range of scales
+to optimize performance on massively parallel platforms.  The basic
+breakdown is:
+\begin{description}
+  \item[flt] for ``flight''.  This always refers to a single flight.
+  \item[frag] for ``fragment''.  To facilitate load balancing, 
+only a fraction (or ``fragment'') 
+of the total number of flights per processor
+are sent at a time to each process.  
+As each process completes, an additional fragment
+is sent until all have been completed.
+  \item[fin] for ``final''.  In the simplest case, this refers to
+the global accumulation of data from all processes.  Again,
+in the simplest case, the data are actually accumulated
+directly in an array from the 
+\href{classes.pdf#61}{output class} (see also
+Sec.~\ref{outputformat}).
+\end{description}
+
+This process is complicated by two additional optimizations.
+First, as is documented in the \href{classes.pdf#65}{statistics class},
+these arrays may be compressed, especially at the {\tt flt} level,
+to reduce the amount of data transmitted.  Second, in runs on
+larger machines
+(say, $> 100$ cores or processes) fragments are 
+accumulated into intermediate ``final'' arrays over groups of
+processors to reduce the number of accumulations that must
+be performed by the master process, avoiding network 
+transmission collisions. The machinery facilitating this is
+contained in {\tt degasinit.web}.  
+
+The sources of neutral particles to be simulated in a given
+DEGAS 2 run are broken up into ``groups'' according to their
+physical nature, e.g., ``plate recycling'', ``gas puff'', etc., 
+as described in the \href{classes.pdf#26}{sources class}.  
+Because the number of flights and total particle current
+associated with each source group are specified independently
+by the user, the data for each group are accumulated 
+separately and are available by themselves within the
+\href{classes.pdf#61}{output arrays}.
+
+The fundamental expressions used in the data accumulation
+process are, thus, for a specific source group $i$.  The 
+other principal indexing parameters for the output arrays
+are the geometric zones, $z$, and the tallies, Sec.~\ref{tallies}.
+To minimize confusion, we do not introduce any explicit
+index for the latter; the following expressions apply
+independently for each tally.  The first accumulated moment,
+to be associated with the mean in the end is:
+\begin{equation}
+S_{1}^{i}(z) = \sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right ) / \sum_{j = 1}^{N_{i}} \rho_{j},
+\label{mean1}
+\end{equation}
+where: $i$ is the source group index, the ``1'' refers to the
+first statistical moment, $j$ runs over all of the
+$N_{i}$ flights in group $i$, $\rho_{j}$ is the relative
+statistical weight of flight $j$, $k$ is the list of events 
+scored
+by flight $j$ (e.g., collisions)
+in zone $z$, and $\xi_{j,k}$ is the estimator
+value (as in Sec.~\ref{tallies}) 
+for this tally recorded by flight $j$ during event $k$.
+The statistical weight $\rho_{j} \equiv 1$ in most cases,
+but can be set otherwise by the user to effect importance
+sampling via the input arrays {\tt source\_segment\_rel\_wt}.
+Note that this quantity is {\em fixed} for a given flight
+(indeed, is the same for all flights launched from that
+source segment) and is distinct from the statistical
+weight, designated by $w$ in Secs.~\ref{SimpleEstimators},
+\ref{generalest}, and \ref{tallies}, which may
+vary during flight tracking, but {\em always} has 
+an initial value of $w = 1$.
+
+The equivalent expression for the second moment is:
+
+\begin{equation}
+S_{2}^{i}(z) = \sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right )^{2} / \sum_{j = 1}^{N_{i}} \rho_{j}
+- \left [ \sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right ) / \sum_{j = 1}^{N_{i}} \rho_{j} \right ]^{2}.
+\label{var1}
+\end{equation}
+While this expression is very close to that for the
+variance appearing in statistics textbooks \cite{Bran2014}, it is not
+suitable for the multi-level data accumulation used by
+DEGAS 2.  
+How one would break up the sum in the
+numerator of Eq.~(\ref{mean1}) into smaller
+sets (fragments) of
+flights $j$ is clear.
+To do likewise for the second moment, we need to instead
+work with:
+\begin{equation}
+\sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right )^{2} / \sum_{j = 1}^{N_{i}} \rho_{j} 
+= S_{2}^{i}(z) + 
+\left [ \sum_{j = 1}^{N_{i}} \rho_{j} \left (
+\sum_{k \in z} \xi_{j,k} \right ) / \sum_{j = 1}^{N_{i}} \rho_{j} \right ]^{2}.
+\label{var2}
+\end{equation}
+
+We now motivate the specific expressions used to accumulate
+data from an individual flight into a fragment, and a fragment
+into a final total.
+In the interest of clarity, 
+we introduce some simplified notation:
+$\sum_{j = 1}^{N_{i}} \rho_{j} \rightarrow w$,
+$S_{1}^{i}(z) \rightarrow S_{1}$, and $S_{2}^{i}(z) \rightarrow S_{2}$.
+The subscript $i$ in the following represents ``incremental'' data
+(e.g., an individual flight), $b$ represents the ``base'' data
+(e.g., the fragment containing data from earlier flights);
+the result of the accumulation will be new base data, indicated
+with a prime.
+The familiar form for the first moment is:
+\begin{equation}
+S_{1b}^{\prime} = (w_{i} S_{1i} + w_{b} S_{1b}) / (w_{i} + w_{b}),
+\label{mean2}
+\end{equation}
+with the new base weight being:
+\begin{equation}
+w_{b}^{\prime} = w_{i} + w_{b}.
+\label{weight}
+\end{equation}
+But, the code actually uses an equivalent form to maximize
+numerical accuracy:
+\begin{equation}
+S_{1b}^{\prime} = S_{1b} + (S_{1i} - S_{1b})\frac{w_{i}}{w_{i} + w_{b}}.
+\end{equation}
+
+The analogous expression following from Eq.~(\ref{var2}) is:
+\begin{equation}
+(S_{2b}^{\prime} + S_{1b}^{\prime 2} ) w_{b}^{\prime}
+= (S_{2b} + S_{1b}^{2}) w_{b} 
++ (S_{2i} + S_{1i}^{2}) w_{i}.
+\label{var3}
+\end{equation}
+Thus,
+\begin{equation}
+S_{2b}^{\prime} = [(S_{2b} + S_{1b}^{2}) w_{b} 
++ (S_{2i} + S_{1i}^{2}) w_{i} - S_{1b}^{\prime 2} w_{b}^{\prime} ] / w_{b}^{\prime}.
+\label{var4}
+\end{equation}
+The equivalent form that is coded up in {\tt stat.web} is:
+\begin{equation}
+S_{2b}^{\prime} = [S_{2b} w_{b} + S_{2i} w_{i} 
++ (S_{1i} - S_{1b})(S_{1i} - S_{1b}^{\prime}) w_{i} ] / w_{b}^{\prime}.
+\label{var5}
+\end{equation}
+The equivalence of Eqs.~(\ref{var4}) and (\ref{var5}) can be
+demonstrated most readily by adding and subtracting 
+$S_{1b}(S_{1i} - S_{1b}^{\prime}) w_{i}$ inside the square brackets of
+Eq.~(\ref{var4}) and substituting in Eq.~(\ref{mean2}).  Again,
+this form improves numerical accuracy, e.g., in the case
+where $S_{1i} \simeq S_{1b}$.
+
+The mean tally values for each source group are scaled by the
+total current in that group, which is obtained by summing
+over the group's $N_{{\rm seg},i}$ segments:
+\begin{equation}
+\Gamma_{i} = \sum_{\ell = 1}^{N_{\rm seg},i} \Gamma_{i,\ell}.
+\end{equation}
+In the steady state 
+mode of operation, $\Gamma_{i}$ represents a number of 
+particles per second; in the time dependent mode,
+$\Gamma_{i}$ is a number of particles.  Obviously, these
+quantities are used in combining the $S_{1}^{i}(z)$ and
+$S_{2}^{i}(z)$ over source groups.  But, they are also
+used to scale the user-specified relative statistical
+weights to get the $\rho_{j}$ appearing in 
+Eq.~(\ref{mean1}), etc. above and in setting the
+probabilities for sampling flights from the source
+segments. 
+
+Namely, the user can specify
+an arbitrary 
+set of relative weights, $r_{i,\ell}$, for segments $\ell =
+1 \rightarrow N_{{\rm seg}, i}$ in group $i$.  
+A normalization factor is computed for each source group:
+\begin{equation}
+r_{{\rm norm}, i} = \left ( \sum_{\ell = 1}^{N_{{\rm seg}, i}} 
+\Gamma_{i,\ell} / r_{i,\ell} \right ) / 
+\left ( \sum_{\ell = 1}^{N_{{\rm seg}, i}} 
+\Gamma_{i,\ell} \right ).
+\label{wtnorm}
+\end{equation}
+The cumulative probability distribution used in sampling flights
+in group $i$ is, e.g., for segment $\ell$:
+\begin{equation}
+p_{i, \ell} = \left ( \sum_{m=1}^{\ell -1} \Gamma_{i,m} / r_{i, \ell} \right )
+/  \left ( \sum_{m=1}^{N_{{\rm seg},i}} \Gamma_{i,m} / r_{i, \ell} \right ).
+\end{equation}
+These probabilities are computed without the weight
+normalization factor Eq.~(\ref{wtnorm}) since it
+would appear in both numerator and denominator.
+The actual sampling procedure is more complex
+and offers additional flexibility; see
+the \href{classes.pdf#26}{sources class} and
+\href{sourcetest.pdf}{sourcetest}.
+
+If flight $j$ in group $i$ is sampled from 
+segment $i$, the relative weight
+is set to:
+\begin{equation}
+\rho_{j} = r_{i, \ell} \times r_{{\rm norm}, i}.
+\end{equation}
+
+The final estimated value for a given tally in 
+zone $z$ is, for each individual group:
+\begin{equation}
+E^{i}(z) = \Gamma_{i} S_{1}^{i}(z)
+\end{equation}
+In a time dependent run, this is divided by
+the simulated time interval $\Delta t = t_{f} - t_{i}$
+so that the dimensions are the same as in a steady
+state run.  This is then summed over all 
+groups to get the total:
+\begin{equation}
+E(z) = \sum_{i=1}^{N_{\rm groups}} E^{i}(z).
+\end{equation}
+
+The output quantity derived from the second
+moment $S_{2}$ is actually the
+relative standard deviation (see also
+Sec.~\ref{statcompare}).  Namely, the expected
+error in a statistical estimate of the mean $\mu$
+via $N$ samples is $\sigma / \sqrt{N}$, where
+$\sigma$ is the standard deviation and $\sigma^{2}$ 
+is the variance.  
+The relative standard deviation ``rsd'' is then
+\begin{equation}
+{\rm rsd} = \frac{\sigma}{\mu \sqrt{N}}.
+\end{equation}
+
+Note that Eq.~(\ref{var1}) and so on have 
+$N \leftrightarrow \sum \rho_{j}$ in the denominator
+of the variance even though $N-1$
+appears in most textbook expressions (e.g., \cite{Bran2014}).
+The ``-1'' accounts for the fact that the 
+same sample is used to estimate the mean $\mu$ and the variance.
+While $N \gg 1$ in most DEGAS 2 runs, rendering the difference
+between $N$ and $N-1$ negligible, retaining $N-1$
+yields a maximum relative standard deviation of exactly
+unity when $\rho_{j} \equiv 1$ (a single score), facilitating interpretation of 
+results.  In the process of computing the relative
+standard deviation, we multiply the 
+$S_{2}$ by $N/(N-1)$, and let the $N$ in this numerator
+be cancelled the $N$ in the expression for the ``rsd''.
+
+The ``rsd'' values required depend on the problem at hand
+and on location within the problem space.  Some rough guidelines adapted
+from the manual for the MCNP \cite{MCNP}  code can serve as a 
+useful starting point:
+
+\begin{center}
+\begin{tabular}{cl}
+rsd Range  &  Tally Quality  \\ \hline
+$0.5 \rightarrow 1$ & Garbage  \\
+$0.2 \rightarrow 0.5$ & Factor of a few  \\
+$0.1 \rightarrow 0.2$ & Questionable \\
+$< 0.1$ & generally reliable \\ 
+\end{tabular}
+\end{center}
+
+Iterative problems, such as with neutral-neutral scattering
+or coupling to a plasma code, demand 
+precision, at least in high interaction regions,
+greater than that desired in the overall solution.
 
 \section{Tracking Procedure}
 \label{TrackingProcedure}
@@ -6900,6 +7178,14 @@ A Wall'', \href{http://w3.pppl.gov/degas2/Bateman_distribution.pdf}{PPPL Applied
 \bibitem{Macm67} D. B. Macmillan, {\em SIAM J. Appl. Math.} {\bf 15}, 264 
 (1967).
 \bibitem{Span66} J. Spanier, {\em SIAM J. Appl. Math.} {\bf 14}, 702 (1966).
+\bibitem{Bran2014} S. Brandt, {\em Data Analysis: Statistical and
+Computational Methods for Scientists and Engineers} (Springer International
+Publishing, Switzerland, 2014), 
+\href{https://link.springer.com/book/10.1007%2F978-3-319-03762-2}{online}.
+\bibitem{MCNP} X-5 Monte Carlo Team, ``MCNP - A General Monte Carlo N-Particle Transport
+Code, Version 5, Volume I: Overview and Theory'', Los Alamos National
+Laboratory Report \href{https://laws.lanl.gov/vhosts/mcnp.lanl.gov/pdf_files/la-ur-03-1987.pdf}{LA-UR-03-1987} 
+(2008).
 \bibitem{Knuth97} D. E. Knuth, {\em The Art of Computer Programming} 
 (Addison-Wesley, Reading, MA, 1997).
 \bibitem{Pitc00} C. S. Pitcher, C. J. Boswell, J. A. Goetz et al., {\em Phys.
@@ -6922,193 +7208,193 @@ and S. J. Zweben, {\em Contrib. Plasma Phys.} {\bf 44}, 294 (2004).
 
 \begin{theindex}
 
-  \item adaswrite, \hyperpage{62}
-  \item adsorption, \hyperpage{68}
+  \item adaswrite, \hyperpage{66}
+  \item adsorption, \hyperpage{72}
   \item Allocation, memory, \hyperpage{3}
-  \item Atomic physics, \hyperpage{24}
+  \item Atomic physics, \hyperpage{29}
 
   \indexspace
 
-  \item background species, \hyperpage{68}
-  \item BGK, \hyperpage{44}
+  \item background species, \hyperpage{72}
+  \item BGK, \hyperpage{48}
   \item Boltzmann equation, \hyperpage{1}
-  \item boxgen, \hyperpage{62}
+  \item boxgen, \hyperpage{66}
 
   \indexspace
 
-  \item Carre, \hyperpage{65}, \hyperpage{95}
-  \item Charge exchange, \hyperpage{34}
-  \item chargex, \hyperpage{67}
-  \item checkpoints, \hyperpage{105}
-  \item collisional-radiative, \hyperpage{24}
-  \item CVS, \hyperpage{4}
+  \item Carre, \hyperpage{69}, \hyperpage{99}
+  \item Charge exchange, \hyperpage{38}
+  \item chargex, \hyperpage{71}
+  \item checkpoints, \hyperpage{109}
+  \item collisional-radiative, \hyperpage{29}
+  \item CVS, \hyperpage{3}
 
   \indexspace
 
-  \item dataexam, \hyperpage{63}
-  \item datamatch, \hyperpage{64}
-  \item datasetup, \hyperpage{62}
-  \item defineback, \hyperpage{23}, \hyperpage{59}, \hyperpage{95}
-  \item defineback input, \hyperpage{69}
-  \item definegeometry2d, \hyperpage{57}, \hyperpage{59}, 
-		\hyperpage{95}
-  \item definegeometry2d input, \hyperpage{69}
+  \item dataexam, \hyperpage{67}
+  \item datamatch, \hyperpage{68}
+  \item datasetup, \hyperpage{66}
+  \item defineback, \hyperpage{28}, \hyperpage{63}, \hyperpage{99}
+  \item defineback input, \hyperpage{73}
+  \item definegeometry2d, \hyperpage{61}, \hyperpage{63}, 
+		\hyperpage{99}
+  \item definegeometry2d input, \hyperpage{73}
   \item DEGAS, \hyperpage{2}
-  \item desorption, \hyperpage{68}
-  \item DG, \hyperpage{65}, \hyperpage{95}
-  \item Differential cross section, \hyperpage{34}
-  \item Diffusion, \hyperpage{44}
-  \item Diffusion cross section, \hyperpage{34}
-  \item directories, \hyperpage{58}
-  \item dissoc, \hyperpage{67}
-  \item dissoc\_rec, \hyperpage{67}
+  \item desorption, \hyperpage{72}
+  \item DG, \hyperpage{69}, \hyperpage{99}
+  \item Differential cross section, \hyperpage{38}
+  \item Diffusion, \hyperpage{48}
+  \item Diffusion cross section, \hyperpage{38}
+  \item directories, \hyperpage{62}
+  \item dissoc, \hyperpage{71}
+  \item dissoc\_rec, \hyperpage{71}
   \item Distribution, probability, \hyperpage{5}
 
   \indexspace
 
-  \item efit2dg2d, \hyperpage{62}
-  \item elastic, \hyperpage{67}
-  \item Elastic scattering, \hyperpage{34}
-  \item elements\_infile, \hyperpage{67}
-  \item elementsfile, \hyperpage{67}
-  \item Emacs, \hyperpage{55}
-  \item emacs, \hyperpage{55}
+  \item efit2dg2d, \hyperpage{66}
+  \item elastic, \hyperpage{71}
+  \item Elastic scattering, \hyperpage{38}
+  \item elements\_infile, \hyperpage{71}
+  \item elementsfile, \hyperpage{71}
+  \item Emacs, \hyperpage{59}
+  \item emacs, \hyperpage{59}
 
   \indexspace
 
-  \item flighttest, \hyperpage{59}
-  \item ftangle, \hyperpage{56}
-  \item fweave, \hyperpage{56}
-  \item FWEB, \hyperpage{3}, \hyperpage{56}
+  \item flighttest, \hyperpage{63}
+  \item ftangle, \hyperpage{60}
+  \item fweave, \hyperpage{60}
+  \item FWEB, \hyperpage{3}, \hyperpage{60}
 
   \indexspace
 
   \item Generators, random number, \hyperpage{5}
-  \item generic, \hyperpage{67}
-  \item generic PMI, \hyperpage{68}
-  \item generic reactions, \hyperpage{67}
-  \item geometry.inp, \hyperpage{70}
-  \item geomtesta, \hyperpage{59}
-  \item gmake, \hyperpage{55}
+  \item generic, \hyperpage{71}
+  \item generic PMI, \hyperpage{72}
+  \item generic reactions, \hyperpage{71}
+  \item geometry.inp, \hyperpage{74}
+  \item geomtesta, \hyperpage{63}
+  \item gmake, \hyperpage{59}
 
   \indexspace
 
-  \item HDF, \hyperpage{4}, \hyperpage{58}
-  \item HDF5, \hyperpage{58}
-  \item HOME, \hyperpage{58}
+  \item HDF, \hyperpage{3}, \hyperpage{62}
+  \item HDF5, \hyperpage{62}
+  \item HOME, \hyperpage{62}
 
   \indexspace
 
-  \item ionization, \hyperpage{24}
-  \item ionize, \hyperpage{67}
-  \item ionize\_suppress, \hyperpage{67}
+  \item ionization, \hyperpage{29}
+  \item ionize, \hyperpage{71}
+  \item ionize\_suppress, \hyperpage{71}
 
   \indexspace
 
-  \item LaTeX, \hyperpage{56}
+  \item LaTeX, \hyperpage{60}
 
   \indexspace
 
   \item Macros, \hyperpage{3}
-  \item make, \hyperpage{55}
-  \item Makefile, \hyperpage{55}
-  \item Makefile.local, \hyperpage{58}
-  \item matcheir, \hyperpage{64}
-  \item matchout, \hyperpage{64}
-  \item materials\_infile, \hyperpage{68}
-  \item materialsfile, \hyperpage{68}
-  \item Maxwell molecules, \hyperpage{44}
+  \item make, \hyperpage{59}
+  \item Makefile, \hyperpage{59}
+  \item Makefile.local, \hyperpage{62}
+  \item matcheir, \hyperpage{68}
+  \item matchout, \hyperpage{68}
+  \item materials\_infile, \hyperpage{72}
+  \item materialsfile, \hyperpage{72}
+  \item Maxwell molecules, \hyperpage{48}
   \item Monte Carlo, \hyperpage{5}
 
   \indexspace
 
-  \item ncdum, \hyperpage{55}
-  \item ncdump-filter, \hyperpage{55}
-  \item ncgen, \hyperpage{55}
-  \item ncgen-filter, \hyperpage{55}
-  \item NetCDF, \hyperpage{4}
-  \item netCDF, \hyperpage{55}
+  \item ncdum, \hyperpage{59}
+  \item ncdump-filter, \hyperpage{59}
+  \item ncgen, \hyperpage{59}
+  \item ncgen-filter, \hyperpage{59}
+  \item NetCDF, \hyperpage{3}
+  \item netCDF, \hyperpage{59}
   \item Neutral Transport, \hyperpage{1}
-  \item Neutral-ion scattering, \hyperpage{34}
-  \item Neutral-neutral scattering, \hyperpage{44}
-  \item non-generic PMI, \hyperpage{68}
-  \item non-generic reactions, \hyperpage{67}
+  \item Neutral-ion scattering, \hyperpage{38}
+  \item Neutral-neutral scattering, \hyperpage{48}
+  \item non-generic PMI, \hyperpage{72}
+  \item non-generic reactions, \hyperpage{71}
 
   \indexspace
 
   \item Object oriented programming, \hyperpage{3}
-  \item outputscript, \hyperpage{70}
+  \item outputscript, \hyperpage{74}
 
   \indexspace
 
-  \item PMI, \hyperpage{68}
-  \item pmi\_infile, \hyperpage{68}
-  \item pmitest, \hyperpage{63}
-  \item pmiwrite, \hyperpage{62}
-  \item problem\_infile, \hyperpage{68}
-  \item problemfile, \hyperpage{68}
-  \item problemsetup, \hyperpage{59}
-  \item Processing, parallel, \hyperpage{4}
+  \item PMI, \hyperpage{72}
+  \item pmi\_infile, \hyperpage{72}
+  \item pmitest, \hyperpage{67}
+  \item pmiwrite, \hyperpage{66}
+  \item problem\_infile, \hyperpage{72}
+  \item problemfile, \hyperpage{72}
+  \item problemsetup, \hyperpage{63}
+  \item Processing, parallel, \hyperpage{3}
 
   \indexspace
 
   \item Random, \hyperpage{5}
-  \item randomtest, \hyperpage{63}
-  \item ratecalc, \hyperpage{62}
-  \item rates, atomic physics, \hyperpage{24}
-  \item reaction type, \hyperpage{67}
-  \item reaction\_infile, \hyperpage{67}
-  \item reactionfile, \hyperpage{67}
-  \item reactiontest, \hyperpage{63}
-  \item reactionwrite, \hyperpage{62}
-  \item readbackground, \hyperpage{59}
-  \item readbackground input, \hyperpage{69}
-  \item readgeometry, \hyperpage{59}
-  \item readgeometry input, \hyperpage{69}
-  \item recombination, \hyperpage{24}, \hyperpage{67}
-  \item reference level, \hyperpage{68}
-  \item reflection, \hyperpage{68}
-  \item restarting, \hyperpage{106}
+  \item randomtest, \hyperpage{67}
+  \item ratecalc, \hyperpage{66}
+  \item rates, atomic physics, \hyperpage{29}
+  \item reaction type, \hyperpage{71}
+  \item reaction\_infile, \hyperpage{71}
+  \item reactionfile, \hyperpage{71}
+  \item reactiontest, \hyperpage{67}
+  \item reactionwrite, \hyperpage{66}
+  \item readbackground, \hyperpage{63}
+  \item readbackground input, \hyperpage{73}
+  \item readgeometry, \hyperpage{63}
+  \item readgeometry input, \hyperpage{73}
+  \item recombination, \hyperpage{29}, \hyperpage{71}
+  \item reference level, \hyperpage{72}
+  \item reflection, \hyperpage{72}
+  \item restarting, \hyperpage{110}
 
   \indexspace
 
-  \item Scattering angle, \hyperpage{34}
+  \item Scattering angle, \hyperpage{38}
   \item Scoring, \hyperpage{5}
-  \item Silo, \hyperpage{58}
-  \item snapshot, \hyperpage{23}
-  \item sourcetest, \hyperpage{63}
-  \item species, \hyperpage{67}
-  \item species\_infile, \hyperpage{67}
-  \item speciesfile, \hyperpage{67}
-  \item Spin exchange, \hyperpage{34}
-  \item subset data, \hyperpage{68}
-  \item symbolic name, \hyperpage{66}
-  \item sysdeptest, \hyperpage{63}
+  \item Silo, \hyperpage{62}
+  \item snapshot, \hyperpage{28}
+  \item sourcetest, \hyperpage{67}
+  \item species, \hyperpage{71}
+  \item species\_infile, \hyperpage{71}
+  \item speciesfile, \hyperpage{71}
+  \item Spin exchange, \hyperpage{38}
+  \item subset data, \hyperpage{72}
+  \item symbolic name, \hyperpage{70}
+  \item sysdeptest, \hyperpage{67}
 
   \indexspace
 
-  \item Tags, \hyperpage{55}
-  \item tally, \hyperpage{70}
-  \item tally\_infile, \hyperpage{70}
-  \item tallyfile, \hyperpage{70}
-  \item tallysetup, \hyperpage{59}, \hyperpage{70}
-  \item test species, \hyperpage{68}
-  \item TeX, \hyperpage{56}
+  \item Tags, \hyperpage{59}
+  \item tally, \hyperpage{74}
+  \item tally\_infile, \hyperpage{74}
+  \item tallyfile, \hyperpage{74}
+  \item tallysetup, \hyperpage{63}, \hyperpage{74}
+  \item test species, \hyperpage{72}
+  \item TeX, \hyperpage{60}
   \item Theory, transport, \hyperpage{1}
-  \item time dependence, \hyperpage{23}, \hyperpage{105}
-  \item Total cross section, \hyperpage{34}
+  \item time dependence, \hyperpage{28}, \hyperpage{109}
+  \item Total cross section, \hyperpage{38}
   \item Tracking, \hyperpage{5}
   \item Transport codes, \hyperpage{1}
-  \item Triangle, \hyperpage{57}
+  \item Triangle, \hyperpage{61}
 
   \indexspace
 
-  \item ucd\_plot, \hyperpage{59}
+  \item ucd\_plot, \hyperpage{63}
 
   \indexspace
 
-  \item Viscosity, \hyperpage{44}
-  \item Viscosity cross section, \hyperpage{34}
+  \item Viscosity, \hyperpage{48}
+  \item Viscosity cross section, \hyperpage{38}
 
 \end{theindex}
 

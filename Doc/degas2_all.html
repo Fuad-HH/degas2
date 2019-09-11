@@ -26,13 +26,11 @@
  
 
   
-<title> \includegraphics{degas2d}
-User's Guide for DEGAS 2 \
-Release V. 4.8</title>
+<title> User's Guide for DEGAS 2 </title>
  
 <h1 align="center"><a href="degas2d.jpg">Figure</a>
 User's Guide for DEGAS 2 <br />
-Release V.&nbsp;4.8<a href="#tthFtNtAAB" id="tthFrefAAB"><sup>1</sup></a> </h1>
+Release V.&nbsp;4.9<a href="#tthFtNtAAB" id="tthFrefAAB"><sup>1</sup></a> </h1>
 
 <h3 align="center"> <br />Daren Stotler and Charles Karney <br /><em>Princeton Plasma Physics 
 Laboratory</em> <br />Randall Kanzleiter <br /><em>Rensselaer Polytechnic Institute</em> <br />
@@ -79,24 +77,21 @@ the magnetic field that confines the charged particles. In addition, hot
 neutrals which leave the plasma volume can interact with the wall of the
 plasma chamber, sputtering impurities into the plasma and (in reactors)
 possibly damaging the wall. Finally, these hot neutrals can also be used
-for plasma diagnostics. Therefore, it is worth developing an accurate
-description of the neutral behaviour.
+for plasma diagnostics. An accurate
+description of the neutral behaviour would, thus, have be useful
+in all of these areas.
 
 <div class="p"><!----></div>
 The theory of neutral particle kinetics[<a href="#Tend87" id="CITETend87" class="tth_citation">1</a>]
 treats the transport of mass, momentum, and energy in a plasma due to
 neutral particles that are themselves unaffected by magnetic
-fields. This transport affects the global power and particle balances in
-fusion devices, as well as profile control and plasma confinement
-quality, particle and energy fluxes onto device components, performance
-of pumping systems, and the design of diagnostics and the interpretation
-of their measurements.  Though analytic models (solving the
+fields.  Though analytic models (solving the
 Boltzmann equation for the neutrals or using the diffusion approximation),
 both single- and multi-species, have been used to study neutral transport,
 a variety of approximations must be made. Some numerical methods for solving
-the Boltzmann equation use simplified geometries and atomic physics. On
+the Boltzmann equation employ simplified geometries and atomic physics. On
 the other hand, the Monte Carlo approach to integrating the Boltzmann
-equation can treat in great detail asymmetric geometries and complex
+equation can treat in great detail three-dimensional geometries, as well as complex
 atomic physics and wall interactions. Because of the similarity in the
 problems, Monte Carlo neutral transport codes can build on the techniques
 developed for neutron transport in reactor design[<a href="#Span69" id="CITESpan69" class="tth_citation">2</a>].
@@ -1653,7 +1648,9 @@ where  t<sub>V</sub> is the time the particle track spent in volume V,
 w =  weight at start of the time step. Compare this with Eq.&nbsp;(<a href="#tle">2.33</a>).
 The function g can be a test particle attribute, such as
 mass, momentum, energy, or reaction-related, e.g., ion 
-momentum source due to charge exchange. The latter g quantity
+momentum source due to charge exchange. 
+Volumetric
+plasma sources, such as the latter, 
 enter the track-length estimator as averages over the background 
 distribution[<a href="#Reit93" id="CITEReit93" class="tth_citation">17</a>].
 
@@ -1819,7 +1816,489 @@ to cylindrical coordinates when scoring.
 
 <div class="p"><!----></div>
  <a id="tth_sEc2.4"></a><h2>
-2.4&nbsp;&nbsp;Tracking Procedure</h2>
+2.4&nbsp;&nbsp;Accumulation of Tallied Data</h2>
+<a id="Accumulation">
+</a>
+
+<div class="p"><!----></div>
+The estimators described in Sec.&nbsp;<a href="#tallies">2.3.3</a> are calculated by
+the routines in <tt>score.web</tt>, which are invoked during tracking.
+At the end of each flight, the resulting data are accumulated into the
+global arrays described in the <a href="classes.pdf#65">statistics class</a> 
+(package abbreviation <tt>sa</tt>) via the subroutines in <tt>stat.web</tt>.
+
+<div class="p"><!----></div>
+The data accumulation process takes place over a range of scales
+to optimize performance on massively parallel platforms.  The basic
+breakdown is:
+
+<dl>
+ <dt><b>flt</b></dt>
+	<dd> for "flight".  This always refers to a single flight.</dd>
+ <dt><b>frag</b></dt>
+	<dd> for "fragment".  To facilitate load balancing, 
+only a fraction (or "fragment") 
+of the total number of flights per processor
+are sent at a time to each process.  
+As each process completes, an additional fragment
+is sent until all have been completed.</dd>
+ <dt><b>fin</b></dt>
+	<dd> for "final".  In the simplest case, this refers to
+the global accumulation of data from all processes.  Again,
+in the simplest case, the data are actually accumulated
+directly in an array from the 
+<a href="classes.pdf#61">output class</a> (see also
+Sec.&nbsp;<a href="#outputformat">3.12</a>).</dd>
+</dl>
+
+<div class="p"><!----></div>
+This process is complicated by two additional optimizations.
+First, as is documented in the <a href="classes.pdf#65">statistics class</a>,
+these arrays may be compressed, especially at the <tt>flt</tt> level,
+to reduce the amount of data transmitted.  Second, in runs on
+larger machines
+(say,  &gt;  100 cores or processes) fragments are 
+accumulated into intermediate "final" arrays over groups of
+processors to reduce the number of accumulations that must
+be performed by the master process, avoiding network 
+transmission collisions. The machinery facilitating this is
+contained in <tt>degasinit.web</tt>.  
+
+<div class="p"><!----></div>
+The sources of neutral particles to be simulated in a given
+DEGAS 2 run are broken up into "groups" according to their
+physical nature, e.g., "plate recycling", "gas puff", etc., 
+as described in the <a href="classes.pdf#26">sources class</a>.  
+Because the number of flights and total particle current
+associated with each source group are specified independently
+by the user, the data for each group are accumulated 
+separately and are available by themselves within the
+<a href="classes.pdf#61">output arrays</a>.
+
+<div class="p"><!----></div>
+The fundamental expressions used in the data accumulation
+process are, thus, for a specific source group i.  The 
+other principal indexing parameters for the output arrays
+are the geometric zones, z, and the tallies, Sec.&nbsp;<a href="#tallies">2.3.3</a>.
+To minimize confusion, we do not introduce any explicit
+index for the latter; the following expressions apply
+independently for each tally.  The first accumulated moment,
+to be associated with the mean in the end is:
+<a id="mean1">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+S<sub>1</sub><sup>i</sup>(z) = </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+</td><td nowrap="nowrap" align="center">
+<small></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>k  &#8712; z</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#958;<sub>j,k</sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+/ </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub>,</td></tr></table>
+</td><td width="1%">(2.40)</td></tr></table>
+
+
+where: i is the source group index, the "1" refers to the
+first statistical moment, j runs over all of the
+N<sub>i</sub> flights in group i, &#961;<sub>j</sub> is the relative
+statistical weight of flight j, k is the list of events 
+scored
+by flight j (e.g., collisions)
+in zone z, and &#958;<sub>j,k</sub> is the estimator
+value (as in Sec.&nbsp;<a href="#tallies">2.3.3</a>) 
+for this tally recorded by flight j during event k.
+The statistical weight &#961;<sub>j</sub>  &#8801; 1 in most cases,
+but can be set otherwise by the user to effect importance
+sampling via the input arrays <tt>source_segment_rel_wt</tt>.
+Note that this quantity is <em>fixed</em> for a given flight
+(indeed, is the same for all flights launched from that
+source segment) and is distinct from the statistical
+weight, designated by w in Secs.&nbsp;<a href="#SimpleEstimators">2.3.1</a>,
+<a href="#generalest">2.3.2</a>, and <a href="#tallies">2.3.3</a>, which may
+vary during flight tracking, but <em>always</em> has 
+an initial value of w = 1.
+
+<div class="p"><!----></div>
+The equivalent expression for the second moment is:
+
+<div class="p"><!----></div>
+<a id="var1">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+S<sub>2</sub><sup>i</sup>(z) = </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+</td><td nowrap="nowrap" align="center">
+<small></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>k  &#8712; z</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#958;<sub>j,k</sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+<small>2</small><!--sup
+--><br /><small></small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+/ </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub>&#8722; </td><td align="left" class="cl">&#x23A1;<br />&#x23A3;
+ </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+</td><td nowrap="nowrap" align="center">
+<small></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>k  &#8712; z</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#958;<sub>j,k</sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+/ </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> </td><td align="left" class="cl">&#x23A4;<br />&#x23A6;
+</td><td nowrap="nowrap" align="center">
+<small>2</small><!--sup
+--><br /><small></small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+.</td></tr></table>
+</td><td width="1%">(2.41)</td></tr></table>
+
+
+While this expression is very close to that for the
+variance appearing in statistics textbooks [<a href="#Bran2014" id="CITEBran2014" class="tth_citation">56</a>], it is not
+suitable for the multi-level data accumulation used by
+DEGAS 2.  
+How one would break up the sum in the
+numerator of Eq.&nbsp;(<a href="#mean1">2.40</a>) into smaller
+sets (fragments) of
+flights j is clear.
+To do likewise for the second moment, we need to instead
+work with:
+<a id="var2">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+</td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+</td><td nowrap="nowrap" align="center">
+<small></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>k  &#8712; z</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#958;<sub>j,k</sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+<small>2</small><!--sup
+--><br /><small></small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+/ </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> = S<sub>2</sub><sup>i</sup>(z) + </td><td align="left" class="cl">&#x23A1;<br />&#x23A3;
+ </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+</td><td nowrap="nowrap" align="center">
+<small></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>k  &#8712; z</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#958;<sub>j,k</sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+/ </td><td nowrap="nowrap" align="center">
+<small>N<sub>i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>j = 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> </td><td align="left" class="cl">&#x23A4;<br />&#x23A6;
+</td><td nowrap="nowrap" align="center">
+<small>2</small><!--sup
+--><br /><small></small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+.</td></tr></table>
+</td><td width="1%">(2.42)</td></tr></table>
+
+
+
+<div class="p"><!----></div>
+We now motivate the specific expressions used to accumulate
+data from an individual flight into a fragment, and a fragment
+into a final total.
+In the interest of clarity, 
+we introduce some simplified notation:
+&#8721;<sub>j = 1</sub><sup>N<sub>i</sub></sup> &#961;<sub>j</sub> &#8594; w,
+S<sub>1</sub><sup>i</sup>(z) &#8594; S<sub>1</sub>, and S<sub>2</sub><sup>i</sup>(z) &#8594; S<sub>2</sub>.
+The subscript i in the following represents "incremental" data
+(e.g., an individual flight), b represents the "base" data
+(e.g., the fragment containing data from earlier flights);
+the result of the accumulation will be new base data, indicated
+with a prime.
+The familiar form for the first moment is:
+<a id="mean2">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+S<sub>1b</sub><sup>&#8242;</sup> = (w<sub>i</sub> S<sub>1i</sub> + w<sub>b</sub> S<sub>1b</sub>) / (w<sub>i</sub> + w<sub>b</sub>),</td></tr></table>
+</td><td width="1%">(2.43)</td></tr></table>
+
+
+with the new base weight being:
+<a id="weight">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+w<sub>b</sub><sup>&#8242;</sup> = w<sub>i</sub> + w<sub>b</sub>.</td></tr></table>
+</td><td width="1%">(2.44)</td></tr></table>
+
+
+But, the code actually uses an equivalent form to maximize
+numerical accuracy:
+
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+S<sub>1b</sub><sup>&#8242;</sup> = S<sub>1b</sub> + (S<sub>1i</sub> &#8722; S<sub>1b</sub>)</td><td nowrap="nowrap" align="center">
+w<sub>i</sub>
+<div class="hrcomp"><hr noshade="noshade" size="1"/></div>w<sub>i</sub> + w<sub>b</sub><br /></td><td nowrap="nowrap" align="center">
+.</td></tr></table>
+</td><td width="1%">(2.45)</td></tr></table>
+
+
+
+<div class="p"><!----></div>
+The analogous expression following from Eq.&nbsp;(<a href="#var2">2.42</a>) is:
+<a id="var3">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+(S<sub>2b</sub><sup>&#8242;</sup> + S<sub>1b</sub><sup>&#8242;2</sup> ) w<sub>b</sub><sup>&#8242;</sup> = (S<sub>2b</sub> + S<sub>1b</sub><sup>2</sup>) w<sub>b</sub> + (S<sub>2i</sub> + S<sub>1i</sub><sup>2</sup>) w<sub>i</sub>.</td></tr></table>
+</td><td width="1%">(2.46)</td></tr></table>
+
+
+Thus,
+<a id="var4">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+S<sub>2b</sub><sup>&#8242;</sup> = [(S<sub>2b</sub> + S<sub>1b</sub><sup>2</sup>) w<sub>b</sub> + (S<sub>2i</sub> + S<sub>1i</sub><sup>2</sup>) w<sub>i</sub> &#8722; S<sub>1b</sub><sup>&#8242;2</sup> w<sub>b</sub><sup>&#8242;</sup> ] / w<sub>b</sub><sup>&#8242;</sup>.</td></tr></table>
+</td><td width="1%">(2.47)</td></tr></table>
+
+
+The equivalent form that is coded up in <tt>stat.web</tt> is:
+<a id="var5">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+S<sub>2b</sub><sup>&#8242;</sup> = [S<sub>2b</sub> w<sub>b</sub> + S<sub>2i</sub> w<sub>i</sub> + (S<sub>1i</sub> &#8722; S<sub>1b</sub>)(S<sub>1i</sub> &#8722; S<sub>1b</sub><sup>&#8242;</sup>) w<sub>i</sub> ] / w<sub>b</sub><sup>&#8242;</sup>.</td></tr></table>
+</td><td width="1%">(2.48)</td></tr></table>
+
+
+The equivalence of Eqs.&nbsp;(<a href="#var4">2.47</a>) and (<a href="#var5">2.48</a>) can be
+demonstrated most readily by adding and subtracting 
+S<sub>1b</sub>(S<sub>1i</sub> &#8722; S<sub>1b</sub><sup>&#8242;</sup>) w<sub>i</sub> inside the square brackets of
+Eq.&nbsp;(<a href="#var4">2.47</a>) and substituting in Eq.&nbsp;(<a href="#mean2">2.43</a>).  Again,
+this form improves numerical accuracy, e.g., in the case
+where S<sub>1i</sub>  &#8773; S<sub>1b</sub>.
+
+<div class="p"><!----></div>
+The mean tally values for each source group are scaled by the
+total current in that group, which is obtained by summing
+over the group's N<sub><span class="roman">seg</span>,i</sub> segments:
+
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+&#915;<sub>i</sub> = </td><td nowrap="nowrap" align="center">
+<small>N<sub><span class="roman">seg</span></sub>,i</small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small><i>l</i> =  1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#915;<sub>i,<i>l</i></sub>.</td></tr></table>
+</td><td width="1%">(2.49)</td></tr></table>
+
+
+In the steady state 
+mode of operation, &#915;<sub>i</sub> represents a number of 
+particles per second; in the time dependent mode,
+&#915;<sub>i</sub> is a number of particles.  Obviously, these
+quantities are used in combining the S<sub>1</sub><sup>i</sup>(z) and
+S<sub>2</sub><sup>i</sup>(z) over source groups.  But, they are also
+used to scale the user-specified relative statistical
+weights to get the &#961;<sub>j</sub> appearing in 
+Eq.&nbsp;(<a href="#mean1">2.40</a>), etc. above and in setting the
+probabilities for sampling flights from the source
+segments. 
+
+<div class="p"><!----></div>
+Namely, the user can specify
+an arbitrary 
+set of relative weights, r<sub>i,<i>l</i></sub>, for segments <i>l</i> = 1 &#8594; N<sub><span class="roman">seg</span>, i</sub> in group i.  
+A normalization factor is computed for each source group:
+<a id="wtnorm">
+</a>
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+r<sub><span class="roman">norm</span>, i</sub> = </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+ </td><td nowrap="nowrap" align="center">
+<small>N<sub><span class="roman">seg</span>, i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small><i>l</i> =  1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#915;<sub>i,<i>l</i></sub> / r<sub>i,<i>l</i></sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+/ </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+ </td><td nowrap="nowrap" align="center">
+<small>N<sub><span class="roman">seg</span>, i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small><i>l</i> =  1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#915;<sub>i,<i>l</i></sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+.</td></tr></table>
+</td><td width="1%">(2.50)</td></tr></table>
+
+
+The cumulative probability distribution used in sampling flights
+in group i is, e.g., for segment <i>l</i>:
+
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+p<sub>i, <i>l</i></sub> = </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+ </td><td nowrap="nowrap" align="center">
+<small><i>l</i>&#8722;1</small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>m=1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#915;<sub>i,m</sub> / r<sub>i, <i>l</i></sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+/ </td><td align="left" class="cl">&#x239B;<br />&#x239D;
+ </td><td nowrap="nowrap" align="center">
+<small>N<sub><span class="roman">seg</span>,i</sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>m=1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+&#915;<sub>i,m</sub> / r<sub>i, <i>l</i></sub> </td><td align="left" class="cl">&#x239E;<br />&#x23A0;
+</td><td nowrap="nowrap" align="center">
+.</td></tr></table>
+</td><td width="1%">(2.51)</td></tr></table>
+
+
+These probabilities are computed without the weight
+normalization factor Eq.&nbsp;(<a href="#wtnorm">2.50</a>) since it
+would appear in both numerator and denominator.
+The actual sampling procedure is more complex
+and offers additional flexibility; see
+the <a href="classes.pdf#26">sources class</a> and
+<a href="sourcetest.pdf">sourcetest</a>.
+
+<div class="p"><!----></div>
+If flight j in group i is sampled from 
+segment i, the relative weight
+is set to:
+
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+&#961;<sub>j</sub> = r<sub>i, <i>l</i></sub> &times;r<sub><span class="roman">norm</span>, i</sub>.</td></tr></table>
+</td><td width="1%">(2.52)</td></tr></table>
+
+
+
+<div class="p"><!----></div>
+The final estimated value for a given tally in 
+zone z is, for each individual group:
+
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+E<sup>i</sup>(z) = &#915;<sub>i</sub> S<sub>1</sub><sup>i</sup>(z)</td></tr></table>
+</td><td width="1%">(2.53)</td></tr></table>
+
+
+In a time dependent run, this is divided by
+the simulated time interval &#8710;t = t<sub>f</sub> &#8722; t<sub>i</sub>
+so that the dimensions are the same as in a steady
+state run.  This is then summed over all 
+groups to get the total:
+
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+E(z) = </td><td nowrap="nowrap" align="center">
+<small>N<sub><span class="roman">groups</span></sub></small><!--sup
+--><br /><span class="largerstill">&#8721;<br />
+</span><small>i=1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
+E<sup>i</sup>(z).</td></tr></table>
+</td><td width="1%">(2.54)</td></tr></table>
+
+
+
+<div class="p"><!----></div>
+The output quantity derived from the second
+moment S<sub>2</sub> is actually the
+relative standard deviation (see also
+Sec.&nbsp;<a href="#statcompare">4.4</a>).  Namely, the expected
+error in a statistical estimate of the mean &#956;
+via N samples is &#963;/ &#8730;N, where
+&#963; is the standard deviation and &#963;<sup>2</sup> 
+is the variance.  
+The relative standard deviation "rsd" is then
+
+<br clear="all" /><table border="0" width="100%"><tr><td>
+<table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
+<span class="roman">rsd</span> = </td><td nowrap="nowrap" align="center">
+&#963;
+<div class="hrcomp"><hr noshade="noshade" size="1"/></div>&#956;&#8730;N<br /></td><td nowrap="nowrap" align="center">
+.</td></tr></table>
+</td><td width="1%">(2.55)</td></tr></table>
+
+
+
+<div class="p"><!----></div>
+Note that Eq.&nbsp;(<a href="#var1">2.41</a>) and so on have 
+N &#8596; &#8721;&#961;<sub>j</sub> in the denominator
+of the variance even though N&#8722;1
+appears in most textbook expressions (e.g., [<a href="#Bran2014" class="tth_citeref">56</a>]).
+The "-1" accounts for the fact that the 
+same sample is used to estimate the mean &#956; and the variance.
+While N  &gt;&gt; 1 in most DEGAS 2 runs, rendering the difference
+between N and N&#8722;1 negligible, retaining N&#8722;1
+yields a maximum relative standard deviation of exactly
+unity when &#961;<sub>j</sub>  &#8801; 1 (a single score), facilitating interpretation of 
+results.  In the process of computing the relative
+standard deviation, we multiply the 
+S<sub>2</sub> by N/(N&#8722;1), and let the N in this numerator
+be cancelled the N in the expression for the "rsd".
+
+<div class="p"><!----></div>
+The "rsd" values required depend on the problem at hand
+and on location within the problem space.  Some rough guidelines adapted
+from the manual for the MCNP [<a href="#MCNP" id="CITEMCNP" class="tth_citation">57</a>]  code can serve as a 
+useful starting point:
+
+<div class="p"><!----></div>
+
+<div style="text-align:center">
+<table class="tabular">
+<tr><td align="center">rsd Range  </td><td align="left">Tally Quality  </td></tr>
+<tr><td align="center">0.5 &#8594; 1 </td><td align="left">Garbage  </td></tr>
+<tr><td align="center">0.2 &#8594; 0.5 </td><td align="left">Factor of a few  </td></tr>
+<tr><td align="center">0.1 &#8594; 0.2 </td><td align="left">Questionable </td></tr>
+<tr><td align="center"> &lt;  0.1 </td><td align="left">generally reliable </td></tr></table>
+
+</div>
+
+<div class="p"><!----></div>
+Iterative problems, such as with neutral-neutral scattering
+or coupling to a plasma code, demand 
+precision, at least in high interaction regions,
+greater than that desired in the overall solution.
+
+<div class="p"><!----></div>
+ <a id="tth_sEc2.5"></a><h2>
+2.5&nbsp;&nbsp;Tracking Procedure</h2>
 <a id="TrackingProcedure">
 </a>
 
@@ -1884,7 +2363,7 @@ to pre-collision density &#968;, Eq.&nbsp;(<a href="#post2pre">2.8</a>). The tra
 algorithm stops when t = t<sub><span class="roman">max</span></sub>, the flight
 crosses a zone boundary (denoting a change in plasma parameters), or
 a "sector" (a material or diagnostic surface; these will be
-discussed in Sec.&nbsp;<a href="#Geometry">2.6</a>) is reached. If a zone boundary
+discussed in Sec.&nbsp;<a href="#Geometry">2.7</a>) is reached. If a zone boundary
 is crossed, the flight continues as is, although the rates must
 be recomputed. Processing a sector may result in the continuation or the
 termination of the flight, depending on the type of sector. Again,
@@ -1904,8 +2383,8 @@ Test particles resulting from the collision are tracked in the same
 manner, starting with the computation of the reaction rates.
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.5"></a><h2>
-2.5&nbsp;&nbsp;Random Numbers</h2>
+ <a id="tth_sEc2.6"></a><h2>
+2.6&nbsp;&nbsp;Random Numbers</h2>
 <a id="Randomnumbers">
 </a>
 
@@ -1916,8 +2395,8 @@ described in the file <tt>random.web</tt>. The
 provides a nice introduction.
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.6"></a><h2>
-2.6&nbsp;&nbsp;Geometry</h2>
+ <a id="tth_sEc2.7"></a><h2>
+2.7&nbsp;&nbsp;Geometry</h2>
 <a id="Geometry">
 </a>
 
@@ -1988,8 +2467,8 @@ by all DEGAS 2 geometry setup programs are discussed in
 Sec.&nbsp;<a href="#Diagnostic">3.11</a>.
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.7"></a><h2>
-2.7&nbsp;&nbsp;Symmetry and Coordinate Systems</h2>
+ <a id="tth_sEc2.8"></a><h2>
+2.8&nbsp;&nbsp;Symmetry and Coordinate Systems</h2>
 <a id="Symmetry">
 </a>
 
@@ -2084,16 +2563,16 @@ some number of slices, but less than the whole pie!</dd>
 </dl>
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.8"></a><h2>
-2.8&nbsp;&nbsp;Time Dependence</h2>
+ <a id="tth_sEc2.9"></a><h2>
+2.9&nbsp;&nbsp;Time Dependence</h2>
 <a id="TimeDep">
 </a>
 <a 
-id="time_dependence2821"></a>
+id="time_dependence2921"></a>
 <a 
-id="snapshot2822"></a>
+id="snapshot2922"></a>
 <a 
-id="defineback2823"></a>
+id="defineback2923"></a>
 
 <div class="p"><!----></div>
 The default and most frequently used mode of running DEGAS 2 simulates a
@@ -2142,20 +2621,20 @@ approach, the amount of kinetic detail in the PDF is
 maximized.
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.9"></a><h2>
-2.9&nbsp;&nbsp;Atomic Physics</h2>
+ <a id="tth_sEc2.10"></a><h2>
+2.10&nbsp;&nbsp;Atomic Physics</h2>
 <a id="AtomicPhysics">
 </a>
 <a 
-id="Atomic_physics2924"></a>
+id="Atomic_physics21024"></a>
 <a 
-id="collisional-radiative2925"></a>
+id="collisional-radiative21025"></a>
 <a 
-id="ionization2926"></a>
+id="ionization21026"></a>
 <a 
-id="recombination2927"></a>
+id="recombination21027"></a>
 <a 
-id="rates__atomic_physics2928"></a>
+id="rates__atomic_physics21028"></a>
 
 <div class="p"><!----></div>
 The interaction of electrons with atoms and ions in a divertor
@@ -2264,7 +2743,7 @@ N<sub>n</sub> K<sub>e,mn</sub> </td><td align="left" class="cl">&#x239E;<br />&#
 <small></small><!--sup
 --><br /><span class="largerstill">&#8721;<br />
 </span><small>n  &gt;  m</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
-N<sub>n</sub> A<sub>mn</sub> + n<sub>e</sub> n<sub>i</sub> ( &#946;<sub>rad,m</sub> + &#946;<sub>dia,m</sub> + n<sub>e</sub>K<sub>r,m</sub> ),</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.40)</td></tr></table>
+N<sub>n</sub> A<sub>mn</sub> + n<sub>e</sub> n<sub>i</sub> ( &#946;<sub>rad,m</sub> + &#946;<sub>dia,m</sub> + n<sub>e</sub>K<sub>r,m</sub> ),</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.56)</td></tr></table>
 </td></tr></table>
 
 
@@ -2299,7 +2778,7 @@ N<sup>(ii)</sup><sub>m</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>n<sub>i</sub><br /></td><td align="left" class="cl">&#x239E;<br />&#x23A0;
 </td><td nowrap="nowrap" align="center">
 n<sub>i</sub>.</td></tr></table>
-</td><td width="1%">(2.41)</td></tr></table>
+</td><td width="1%">(2.57)</td></tr></table>
 
 
 In practice, the solution of these equations involves:
@@ -2327,7 +2806,7 @@ N<sup>(ii)</sup><sub>m</sub>/n<sub>i</sub> are thus obtained as a function of n<
 T<sub>e</sub>.
 
 <div class="p"><!----></div>
-With Eq.&nbsp;(<a href="#crnm">2.41</a>), the m = 1 equation can becomes
+With Eq.&nbsp;(<a href="#crnm">2.57</a>), the m = 1 equation can becomes
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
@@ -2335,7 +2814,7 @@ With Eq.&nbsp;(<a href="#crnm">2.41</a>), the m = 1 equation can becomes
 d N<sub>1</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>d t<br /></td><td nowrap="nowrap" align="center">
  = &#8722; N<sub>1</sub> n<sub>e</sub> S<sub>eff</sub> + n<sub>e</sub> n<sub>i</sub> R<sub>eff</sub> + <span class="roman">transport</span><span class="roman">,</span> <span class="roman">etc</span><span class="roman">.</span>,</td></tr></table>
-</td><td width="1%">(2.42)</td></tr></table>
+</td><td width="1%">(2.58)</td></tr></table>
 
 
 with
@@ -2352,7 +2831,7 @@ N<sup>(i)</sup><sub>m</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>N<sub>1</sub><br /></td><td align="left" class="cl">&#x239E;<br />&#x23A0;
 </td><td nowrap="nowrap" align="center">
 K<sub>i,m</sub>,</td></tr></table>
-</td><td width="1%">(2.43)</td></tr></table>
+</td><td width="1%">(2.59)</td></tr></table>
 
 
 and
@@ -2373,7 +2852,7 @@ K<sub>i,m</sub>+ </td><td nowrap="nowrap" align="center">
 --><br /><span class="largerstill">&#8721;<br />
 </span><small>m  &#8805; 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
 ( &#946;<sub>rad,m</sub> + &#946;<sub>dia,m</sub> + n<sub>e</sub> K<sub>r,m</sub> ).</td></tr></table>
-</td><td width="1%">(2.44)</td></tr></table>
+</td><td width="1%">(2.60)</td></tr></table>
 
 
 S<sub>eff</sub> is thus the effective ionization rate of the ground state
@@ -2398,8 +2877,8 @@ helium for some additional references.
 
 <div class="p"><!----></div>
 Computing the electron energy sources and sinks associated with 
-Eq.&nbsp;(<a href="#crmodel">2.40</a>) involves accounting for the energy exchanges
-in each of the processes appearing in Eq.&nbsp;(<a href="#crmodel">2.40</a>):
+Eq.&nbsp;(<a href="#crmodel">2.56</a>) involves accounting for the energy exchanges
+in each of the processes appearing in Eq.&nbsp;(<a href="#crmodel">2.56</a>):
 <a id="creloss">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -2441,7 +2920,7 @@ N<sub>m</sub> A<sub>nm</sub>( E<sub>n</sub> &#8722; E<sub>m</sub> )  </td></tr><
 <small></small><!--sup
 --><br /><span class="largerstill">&#8721;<br />
 </span><small>m  &#8805; 1</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
-&#946;<sub>dia,m</sub> ( &#9001;E<sub>dia,m</sub> &#9002;+ E<sub>m</sub>),</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.45)</td></tr></table>
+&#946;<sub>dia,m</sub> ( &#9001;E<sub>dia,m</sub> &#9002;+ E<sub>m</sub>),</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.61)</td></tr></table>
 </td></tr></table>
 
 
@@ -2488,13 +2967,13 @@ T<sub>e</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>d T<sub>e</sub><br /></td><td align="left" class="cl">&#x23A4;<br />&#x23A6;
 </td><td nowrap="nowrap" align="center">
 ,</td></tr></table>
-</td><td width="1%">(2.46)</td></tr></table>
+</td><td width="1%">(2.62)</td></tr></table>
 
 
 where x denotes either rad or dia.
 
 <div class="p"><!----></div>
-Using Eq.&nbsp;(<a href="#crnm">2.41</a>), Eq.&nbsp;(<a href="#creloss">2.45</a>) becomes
+Using Eq.&nbsp;(<a href="#crnm">2.57</a>), Eq.&nbsp;(<a href="#creloss">2.61</a>) becomes
 <a id="eloss">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -2503,7 +2982,7 @@ Using Eq.&nbsp;(<a href="#crnm">2.41</a>), Eq.&nbsp;(<a href="#creloss">2.45</a>
 d E<sub>e</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>d t<br /></td><td nowrap="nowrap" align="center">
  = &#8722; E<sub>1</sub> ( N<sub>1</sub> n<sub>e</sub> S<sub>eff</sub> &#8722; n<sub>e</sub> n<sub>i</sub> R<sub>eff</sub> ) &#8722; N<sub>1</sub> E<sub><span class="roman">loss</span></sub><sup>(i)</sup> &#8722; n<sub>i</sub> E<sub><span class="roman">loss</span></sub><sup>(ii)</sup>,</td></tr></table>
-</td><td width="1%">(2.47)</td></tr></table>
+</td><td width="1%">(2.63)</td></tr></table>
 
 
 where the terms E<sub><span class="roman">loss</span></sub><sup>(i)</sup>, E<sub><span class="roman">loss</span></sub><sup>(ii)</sup> represent the loss
@@ -2519,7 +2998,7 @@ states" has also been used:
 d E<sub>e</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>d t<br /></td><td nowrap="nowrap" align="center">
  = &#8722; N<sub>1</sub> n<sub>e</sub> E<sub><span class="roman">loss</span></sub><sup>(i)&#8242;</sup> +n<sub>i</sub> n<sub>e</sub> E<sub><span class="roman">source</span></sub><sup>(ii)&#8242;</sup> &#8722; n<sub>i</sub> n<sub>e</sub> E<sub><span class="roman">loss</span></sub><sup>(ii)&#8242;</sup>.</td></tr></table>
-</td><td width="1%">(2.48)</td></tr></table>
+</td><td width="1%">(2.64)</td></tr></table>
 
 
 The relationships between the terms are nearly obvious, but 
@@ -2532,18 +3011,18 @@ E<sub><span class="roman">loss</span></sub><sup>(i)&#8242;</sup> </td></tr></tab
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
  = </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
-E<sub>1</sub> S<sub>eff</sub> + E<sub><span class="roman">loss</span></sub><sup>(i)</sup>/ n<sub>e</sub>, </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.49)</td></tr>
+E<sub>1</sub> S<sub>eff</sub> + E<sub><span class="roman">loss</span></sub><sup>(i)</sup>/ n<sub>e</sub>, </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.65)</td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 E<sub><span class="roman">source</span></sub><sup>(ii)&#8242;</sup> </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
  = </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
-E<sub>1</sub> R<sub>eff</sub>, </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.50)</td></tr>
+E<sub>1</sub> R<sub>eff</sub>, </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.66)</td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 E<sub><span class="roman">loss</span></sub><sup>(ii)&#8242;</sup> </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
  = </td></tr></table></td><td nowrap="nowrap" align="left">
-<table><tr><td nowrap="nowrap" align="right" colspan="1">E<sub><span class="roman">loss</span></sub><sup>(ii)</sup> / n<sub>e</sub>.</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.51)</td></tr></table>
+<table><tr><td nowrap="nowrap" align="right" colspan="1">E<sub><span class="roman">loss</span></sub><sup>(ii)</sup> / n<sub>e</sub>.</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.67)</td></tr></table>
 </td></tr></table>
 
 
@@ -2554,8 +3033,8 @@ as functions of n<sub>e</sub> and T<sub>e</sub> for
 use in DEGAS 2.
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.9.1"></a><h3>
-2.9.1&nbsp;&nbsp;Hydrogen Collisional Radiative Model</h3>
+     <a id="tth_sEc2.10.1"></a><h3>
+2.10.1&nbsp;&nbsp;Hydrogen Collisional Radiative Model</h3>
 <a id="HCR">
 </a>
 
@@ -2569,7 +3048,7 @@ so that the neutral density could be expressed
 in terms of the ion density.  While this might be valid in
 an astrophysical context, it is horribly wrong in fusion devices.
 The first major change to the code is to have
-it use Eq.&nbsp;(<a href="#crnm">2.41</a>) instead. The other
+it use Eq.&nbsp;(<a href="#crnm">2.57</a>) instead. The other
 change is to replace the cross sections
 with those provided in the Janev-Smith database[<a href="#Jane93" id="CITEJane93" class="tth_citation">18</a>].
 The resulting collisional-radiative data are believed to be
@@ -2593,7 +3072,7 @@ the recombination files are numbered in the same way.
 	<dd> The file generated by Weisheit's original code.</dd>
  <dt><b><tt>ehr1.dat</tt></b></dt>
 	<dd> The result of modifying Weisheit's code to use
-Eq.&nbsp;(<a href="#crnm">2.41</a>) (<tt>hionize1.nc</tt>).</dd>
+Eq.&nbsp;(<a href="#crnm">2.57</a>) (<tt>hionize1.nc</tt>).</dd>
  <dt><b><tt>ehr2.dat</tt></b></dt>
 	<dd> Comprehensive update of the <tt>collrad</tt>
 code, primarily the switch to the Janev-Smith database[<a href="#Jane93" class="tth_citeref">18</a>]
@@ -2615,7 +3094,7 @@ to modify <tt>hionize.nc</tt>).</dd>
 and 5 excitation rates; the fits to these cross sections were provided
 by Janev and Reiter (<tt>hionize5.nc</tt>).</dd>
 </dl>
-See also Sec.&nbsp;<a href="#bestpractices">2.11</a>.
+See also Sec.&nbsp;<a href="#bestpractices">2.12</a>.
 
 <div class="p"><!----></div>
 The <tt>ehr5.dat</tt> file contains
@@ -2728,7 +3207,7 @@ The portion of the file for each quantity consists of 15 separate sections
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 n<sub>e</sub>(<tt>jn</tt>) = 10<sup>10 + (<tt>jn</tt> &#8722; 1)/2</sup> &nbsp;<span class="roman">cm</span><sup>&#8722;3</sup>.</td></tr></table>
-</td><td width="1%">(2.52)</td></tr></table>
+</td><td width="1%">(2.68)</td></tr></table>
 
 
 Each section consists of 60 data values, one for each T<sub>e</sub> (<tt>jt</tt>),
@@ -2736,7 +3215,7 @@ Each section consists of 60 data values, one for each T<sub>e</sub> (<tt>jt</tt>
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 T<sub>e</sub>(<tt>jt</tt>) = 10<sup>&#8722;1.2 + (<tt>jt</tt> &#8722; 1)/10</sup> &nbsp;<span class="roman">eV</span>.</td></tr></table>
-</td><td width="1%">(2.53)</td></tr></table>
+</td><td width="1%">(2.69)</td></tr></table>
 
 
 The index <tt>jt</tt> starts at 1 in the first column and row and proceeds 
@@ -2758,7 +3237,7 @@ N<sup>(ii)</sup><sub>3</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>n<sub>i</sub><br /></td><td align="left" class="cl">&#x239E;<br />&#x23A0;
 </td><td nowrap="nowrap" align="center">
 n<sub>i</sub>.</td></tr></table>
-</td><td width="1%">(2.54)</td></tr></table>
+</td><td width="1%">(2.70)</td></tr></table>
 
 
 The corresponding emission rate for 
@@ -2797,7 +3276,7 @@ E<sub>23</sub> A<sub>23</sub> </td><td align="left" class="cl">&#x239B;<br />&#x
 N<sub>3</sub><sup>(i)</sup>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>N<sub>1</sub><br /></td><td align="left" class="cl">&#x239E;<br />&#x23A0;
 </td><td nowrap="nowrap" align="center">
-/ n<sub>e</sub>,  </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.55)</td></tr>
+/ n<sub>e</sub>,  </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.71)</td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 P<sub>&#945;</sub><sup>(ii)</sup> </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
@@ -2807,7 +3286,7 @@ P<sub>&#945;</sub><sup>(ii)</sup> </td></tr></table></td><td nowrap="nowrap" ali
 N<sub>3</sub><sup>(ii)</sup>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>n<sub>i</sub><br /></td><td align="left" class="cl">&#x239E;<br />&#x23A0;
 </td><td nowrap="nowrap" align="center">
-/ n<sub>e</sub>. </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.56)</td></tr></table>
+/ n<sub>e</sub>. </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.72)</td></tr></table>
 </td></tr></table>
 
 
@@ -2817,12 +3296,12 @@ hydrogen isotopes are also inserted into the
 file, &#955;<sub>H<sub>&#945;</sub></sub> = 6562.80  &#197;, 
 &#955;<sub>D<sub>&#945;</sub></sub> = 6561.04  &#197;, and &#955;<sub>T<sub>&#945;</sub></sub> = 6560.45  &#197;.
 The electron energy exchange terms in <tt>ehr5.dat</tt> correspond
-to those in Eq.&nbsp;(<a href="#eloss">2.47</a>); <tt>reactionwrite</tt> transforms
-them into those of Eq.&nbsp;(<a href="#elossprime">2.48</a>).
+to those in Eq.&nbsp;(<a href="#eloss">2.63</a>); <tt>reactionwrite</tt> transforms
+them into those of Eq.&nbsp;(<a href="#elossprime">2.64</a>).
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.9.2"></a><h3>
-2.9.2&nbsp;&nbsp;Helium Collisional Radiative Model</h3>
+     <a id="tth_sEc2.10.2"></a><h3>
+2.10.2&nbsp;&nbsp;Helium Collisional Radiative Model</h3>
 <a id="HeCR">
 </a>
 
@@ -2842,7 +3321,7 @@ data needed to do simulations based on this model have been
 incorporated into DEGAS 2.  However, investigations using it
 have not demonstrated that the added detail yields any significant
 differences in the final results.  Moreover, a separate analysis
-of the helium collisional radiative equations [Eq.&nbsp;(<a href="#crmodel">2.40</a>)]
+of the helium collisional radiative equations [Eq.&nbsp;(<a href="#crmodel">2.56</a>)]
 suggests that this particular
 model may not even be valid for typical fusion edge conditions.
 For these reasons, we will not discuss this model any further and
@@ -2852,7 +3331,7 @@ will focus only on the simpler "one state" model.
 The primary modification made to Goto's code in preparation
 for using its output with DEGAS 2 were to add the 
 computation of the electron energy exchange terms in
-Eq.&nbsp;(<a href="#elossprime">2.48</a>). 
+Eq.&nbsp;(<a href="#elossprime">2.64</a>). 
 The resulting formulation II model and data are, not surprisingly, very
 similar in structure to those of the hydrogen collisional 
 radiative model.  
@@ -2920,7 +3399,7 @@ The portion of the file for each quantity consists of 30 separate sections
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 n<sub>e</sub>(<tt>jn</tt>) = 10<sup>8 + 8*(<tt>jn</tt> &#8722; 1)/29</sup> &nbsp;<span class="roman">cm</span><sup>&#8722;3</sup>.</td></tr></table>
-</td><td width="1%">(2.57)</td></tr></table>
+</td><td width="1%">(2.73)</td></tr></table>
 
 
 Each section consists of 65 data values, one for each T<sub>e</sub> (<tt>jt</tt>),
@@ -2928,7 +3407,7 @@ Each section consists of 65 data values, one for each T<sub>e</sub> (<tt>jt</tt>
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 T<sub>e</sub>(<tt>jt</tt>) = 10<sup>(<tt>jt</tt> &#8722; 1)/16</sup> &nbsp;<span class="roman">eV</span>.</td></tr></table>
-</td><td width="1%">(2.58)</td></tr></table>
+</td><td width="1%">(2.74)</td></tr></table>
 
 
 The index <tt>jt</tt> starts at 1 in the first column and row and proceeds 
@@ -2937,14 +3416,14 @@ row of 5 entries.
 
 <div class="p"><!----></div>
 The "emission rates" here correspond to the power in those lines 
-and are analogous to Eqs.&nbsp;(<a href="#pemiti">2.55</a>) and (<a href="#pemitii">2.56</a>) above.
+and are analogous to Eqs.&nbsp;(<a href="#pemiti">2.71</a>) and (<a href="#pemitii">2.72</a>) above.
 The total emitted power (per unit volume) is obtained at run
 time by combining them with the ground state and ion densities:
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 P<sub>5877</sub> = P<sub>5877</sub><sup>(i)</sup> N<sub>1<sup>1</sup>S</sub> n<sub>e</sub> + P<sub>5877</sub><sup>(ii)</sup> n<sub>i</sub> n<sub>e</sub>.</td></tr></table>
-</td><td width="1%">(2.59)</td></tr></table>
+</td><td width="1%">(2.75)</td></tr></table>
 
 
 Note that E<sub>3<sup>3</sup>D &#8594; 2<sup>3</sup>P</sub> = 2.10955 eV,
@@ -2957,7 +3436,7 @@ ionization energy for helium is E<sub>1</sub> = 24.587 eV.
 
 <div class="p"><!----></div>
 The electron energy losses and sources can be used directly
-in Eq.&nbsp;(<a href="#elossprime">2.48</a>).
+in Eq.&nbsp;(<a href="#elossprime">2.64</a>).
 
 <div class="p"><!----></div>
 The data in <tt>he_crII_alad.dat</tt> are transformed into netCDF files
@@ -2975,34 +3454,34 @@ sensitive applications should contact the code authors
 (see Sec.&nbsp;<a href="#help">5.1</a>) regarding the status of this work.
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.10"></a><h2>
-2.10&nbsp;&nbsp;Elastic Scattering</h2>
+ <a id="tth_sEc2.11"></a><h2>
+2.11&nbsp;&nbsp;Elastic Scattering</h2>
 <a id="ElasticScattering">
 </a>
 <a 
-id="Elastic_scattering21029"></a>
+id="Elastic_scattering21129"></a>
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.10.1"></a><h3>
-2.10.1&nbsp;&nbsp;Neutral-Ion Elastic Scattering</h3>
+     <a id="tth_sEc2.11.1"></a><h3>
+2.11.1&nbsp;&nbsp;Neutral-Ion Elastic Scattering</h3>
 <a id="NeutralIon">
 </a>
 <a 
-id="Neutral-ion_scattering21030"></a>
+id="Neutral-ion_scattering21130"></a>
 <a 
-id="Charge_exchange21031"></a>
+id="Charge_exchange21131"></a>
 <a 
-id="Spin_exchange21032"></a>
+id="Spin_exchange21132"></a>
 <a 
-id="Diffusion_cross_section21033"></a>
+id="Diffusion_cross_section21133"></a>
 <a 
-id="Total_cross_section21034"></a>
+id="Total_cross_section21134"></a>
 <a 
-id="Viscosity_cross_section21035"></a>
+id="Viscosity_cross_section21135"></a>
 <a 
-id="Scattering_angle21036"></a>
+id="Scattering_angle21136"></a>
 <a 
-id="Differential_cross_section21037"></a>
+id="Differential_cross_section21137"></a>
 
 <div class="p"><!----></div>
 <em>Note: this subsection was extracted from Ref.&nbsp;[<a href="#Kanz00" id="CITEKanz00" class="tth_citation">23</a>]. 
@@ -3050,7 +3529,7 @@ expression for the integral cross sections is[<a href="#Bach95" class="tth_citer
 --><br /><br />
 <small>0</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
 ( 1 &#8722; cos&#952;)<sup>l</sup>&#963;(&#952;, E<sub>r</sub>) sin&#952;&nbsp;d &#952;,</td></tr></table>
-</td><td width="1%">(2.60)</td></tr></table>
+</td><td width="1%">(2.76)</td></tr></table>
 
 
 where l=0
@@ -3069,7 +3548,7 @@ simulations.
 A simulation technique that reduces the total
 collision cross section while keeping the momentum transfer cross
 section invariant can be developed.  Using the expression for &#963;<sub>d</sub> and
-dividing Eq.&nbsp;(<a href="#sigmal">2.60</a>) into small and large angle components,
+dividing Eq.&nbsp;(<a href="#sigmal">2.76</a>) into small and large angle components,
 <a id="sigmad">
 </a>
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -3085,12 +3564,12 @@ C(E<sub>r</sub>)( 1 &#8722; cos&#952;) &#948;(&#952;&#8722; &#952;<sub><span cla
 --><br /><br />
 <small>&#952;<sub><span class="roman">min</span></sub></small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
 ( 1 &#8722; cos&#952;) &#963;(&#952;, E<sub>r</sub>) &nbsp;d &#952;.</td></tr></table>
-</td><td width="1%">(2.61)</td></tr></table>
+</td><td width="1%">(2.77)</td></tr></table>
 
 
 Substituting &#963;(&#952;,E<sub>r</sub>) from the ORNL data set here and directly
-computing &#963;<sub>d</sub>(E<sub>r</sub>)  [via Eq.&nbsp;(<a href="#sigmal">2.60</a>)], 
-allows Eq.&nbsp;(<a href="#sigmad">2.61</a>) to be solved for
+computing &#963;<sub>d</sub>(E<sub>r</sub>)  [via Eq.&nbsp;(<a href="#sigmal">2.76</a>)], 
+allows Eq.&nbsp;(<a href="#sigmad">2.77</a>) to be solved for
 C(E<sub>r</sub>) given a particular value of &#952;<sub><span class="roman">min</span></sub>.  
 The resulting value of C(E<sub>r</sub>)
 is then used in a similar expression for the viscosity cross section.
@@ -3159,10 +3638,10 @@ P<sub>i</sub> = 2 &#960;</td><td align="left" class="cl">&#8992;<br />&#8993;
 &#963;(&#952;, E<sub>r</sub>)
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>&#963;<sub>t</sub>(E<sub>r</sub>)<br /></td><td nowrap="nowrap" align="center">
 &nbsp;d( cos&#952;),&nbsp;i = 0, 1, &#8230;n.</td></tr></table>
-</td><td width="1%">(2.62)</td></tr></table>
+</td><td width="1%">(2.78)</td></tr></table>
 
  
-Equation&nbsp;<a href="#scatprob">2.62</a>
+Equation&nbsp;<a href="#scatprob">2.78</a>
 is inverted to obtain the scattering angle as a function of relative
 energy and n equally spaced values of the cumulative probability
 spacing, &#920;<sub>i</sub>(P<sub>i</sub>,E<sub>r</sub>), where &#920;<sub>i</sub> 
@@ -3294,8 +3773,8 @@ labeled here by "Krstic" (one curve for H, one for D).</div>
 </div>
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.10.2"></a><h3>
-2.10.2&nbsp;&nbsp;Neutral-Neutral Elastic Scattering</h3>
+     <a id="tth_sEc2.11.2"></a><h3>
+2.11.2&nbsp;&nbsp;Neutral-Neutral Elastic Scattering</h3>
 <a id="NeutralNeutral">
 </a>
 
@@ -3348,7 +3827,7 @@ is ensured by determining the parameters of the Maxwellian distribution so as
 to enforce conservation of mass, momentum, and energy in the collisions.
 The collision time remains arbitrary and is chosen so as to reproduce
 measured viscosity and diffusion rates; this procedure is discussed in
-greater detail in Sec.&nbsp;<a href="#BGKRates">2.10.3</a>.
+greater detail in Sec.&nbsp;<a href="#BGKRates">2.11.3</a>.
 
 <div class="p"><!----></div>
 Neutral-neutral collisions are included in DEGAS 2 in exactly the same
@@ -3374,7 +3853,7 @@ M<sub>i</sub> &#8722; f<sub>i</sub>
 M<sub>ij</sub> &#8722; f<sub>i</sub>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>&#964;<sub>ij</sub><br /></td><td nowrap="nowrap" align="center">
 ,</td></tr></table>
-</td><td width="1%">(2.63)</td></tr></table>
+</td><td width="1%">(2.79)</td></tr></table>
 
 
 where the M represent Maxwellian distributions,
@@ -3414,13 +3893,13 @@ m<sub>&#945;</sub> (</td><td nowrap="nowrap" align="center">
 &#x23A6;
 </td><td nowrap="nowrap" align="center">
 .</td></tr></table>
-</td><td width="1%">(2.64)</td></tr></table>
+</td><td width="1%">(2.80)</td></tr></table>
 
 
 Here, the individual particle velocity is <span class="overacc2">&#8594;</span>v<sub>&#945;</sub>; the mass
 m<sub>&#945;</sub> is always that of the species represented on the
-left-hand side of Eq.&nbsp;(<a href="#bgk">2.63</a>).
-In Eq.&nbsp;(<a href="#bgk">2.63</a>), a single subscript refers to a physical species. 
+left-hand side of Eq.&nbsp;(<a href="#bgk">2.79</a>).
+In Eq.&nbsp;(<a href="#bgk">2.79</a>), a single subscript refers to a physical species. 
 Dual subscripts below refer to fictitious, "mixed" species introduced
 for the purpose of handling binary collisions between unlike neutral
 species. 
@@ -3449,7 +3928,7 @@ d<sup>3</sup>v f<sub>i</sub>(</td><td nowrap="nowrap" align="center">
 <div class="norm">v<br /></div>
 <div class="comb">&nbsp;</div>
 </td><td nowrap="nowrap" align="center">
-), </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.65)</td></tr>
+), </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.81)</td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 n<sub>i</sub> m<sub>i</sub> </td><td nowrap="nowrap" align="center">
 <div class="comp">&#8594;<br /></div>
@@ -3477,7 +3956,7 @@ f<sub>i</sub>(</td><td nowrap="nowrap" align="center">
 <div class="norm">v<br /></div>
 <div class="comb">&nbsp;</div>
 </td><td nowrap="nowrap" align="center">
-), </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.66)</td></tr>
+), </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.82)</td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 </td><td nowrap="nowrap" align="center">
 3
@@ -3498,7 +3977,7 @@ m<sub>i</sub> v<sup>2</sup> f<sub>i</sub>(</td><td nowrap="nowrap" align="center
 <div class="norm">v<br /></div>
 <div class="comb">&nbsp;</div>
 </td><td nowrap="nowrap" align="center">
-).</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.67)</td></tr></table>
+).</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.83)</td></tr></table>
 </td></tr></table>
 
 
@@ -3548,7 +4027,7 @@ m<sub>i</sub> </td><td nowrap="nowrap" align="center">
 <small></small><!--sup
 --><br /><small>j</small>&nbsp;<br /></td></tr></table>
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>m<sub>i</sub> + m<sub>j</sub><br /></td><td nowrap="nowrap" align="center">
-, </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.68)</td></tr>
+, </td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.84)</td></tr>
  <tr><td width="50%"></td><td nowrap="nowrap" align="right" colspan="1"><table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
 k T<sub>ij</sub> </td></tr></table></td><td nowrap="nowrap" align="left">
 <table border="0" cellspacing="0" cellpadding="2"><tr><td nowrap="nowrap" align="left">
@@ -3577,7 +4056,7 @@ m<sub>i</sub>
 --><br /><small>j</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
 )<sup>2</sup></td><td align="left" class="cl">&#x23A4;<br />&#x23A6;
 </td><td nowrap="nowrap" align="center">
-.</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.69)</td></tr></table>
+.</td></tr></table></td><td width="50%"></td><td width="1" align="right">(2.85)</td></tr></table>
 </td></tr></table>
 
 
@@ -3586,7 +4065,7 @@ One additional important constraint on the collision times is obtained,
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 n<sub>j</sub> &#964;<sub>ij</sub> = n<sub>i</sub> &#964;<sub>ji</sub>.</td></tr></table>
-</td><td width="1%">(2.70)</td></tr></table>
+</td><td width="1%">(2.86)</td></tr></table>
 
 
 With &#964;<sub>ij</sub>  &#8801; (n<sub>j</sub> &#9001;&#963;v &#9002;<sub>ij</sub>)<sup>&#8722;1</sup>
@@ -3598,7 +4077,7 @@ this becomes just
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 &#9001;&#963;v &#9002;<sub>ij</sub> = &#9001;&#963;v &#9002;<sub>ji</sub>.</td></tr></table>
-</td><td width="1%">(2.71)</td></tr></table>
+</td><td width="1%">(2.87)</td></tr></table>
 
 
 May[<a href="#Mayxx" class="tth_citeref">37</a>,<a href="#Reit97" class="tth_citeref">38</a>] sets the values of the reaction rates for
@@ -3615,7 +4094,7 @@ initial iteration of the code proceeds without neutral-neutral collisions.
 The reason for this is that the neutral "background" with which the 
 test species collide initially has zero density. A nonzero density
 could be specified during the setup of the background, if desired.
-The fluid moments of Eqs.&nbsp;(<a href="#nmoment">2.66</a>), (<a href="#vmoment">2.67</a>), and (<a href="#tmoment">2.67</a>)
+The fluid moments of Eqs.&nbsp;(<a href="#nmoment">2.82</a>), (<a href="#vmoment">2.83</a>), and (<a href="#tmoment">2.83</a>)
 are computed at the end of the iteration and inserted into the background
 density, velocity, and temperature arrays for the neutral background 
 species. The calculation is then restarted; this time the test neutral
@@ -3642,20 +4121,20 @@ effectively reduced by increasing the number of flights than by
 carrying out more iterations.
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.10.3"></a><h3>
-2.10.3&nbsp;&nbsp;Verification of BGK Model and Rates</h3>
+     <a id="tth_sEc2.11.3"></a><h3>
+2.11.3&nbsp;&nbsp;Verification of BGK Model and Rates</h3>
 <a id="BGKRates">
 </a>
 <a 
-id="BGK21038"></a>
+id="BGK21138"></a>
 <a 
-id="Viscosity21039"></a>
+id="Viscosity21139"></a>
 <a 
-id="Diffusion21040"></a>
+id="Diffusion21140"></a>
 <a 
-id="Neutral-neutral_scattering21041"></a>
+id="Neutral-neutral_scattering21141"></a>
 <a 
-id="Maxwell_molecules21042"></a>
+id="Maxwell_molecules21142"></a>
 
 <div class="p"><!----></div>
 As described by May[<a href="#Mayxx" class="tth_citeref">37</a>], the reaction rates for the BGK algorithm
@@ -3665,7 +4144,7 @@ work and the publication of Reiter[<a href="#Reit97" class="tth_citeref">38</a>]
 CFADC has
 computed differential scattering cross sections [<a href="#Krst98" class="tth_citeref">24</a>], 
 analogous to those
-described in Sec.&nbsp;<a href="#NeutralIon">2.10.1</a>, for these neutral-neutral systems.
+described in Sec.&nbsp;<a href="#NeutralIon">2.11.1</a>, for these neutral-neutral systems.
 In this subsection we will show that the two approaches are largely
 consistent, at least near room temperature.
 
@@ -3674,7 +4153,7 @@ We proceed in a manner analogous to May. Namely, we will obtain from the
 CFADC differential cross sections values for the viscosity and diffusion
 coefficients. These will be transformed
 into reaction rates that can be compared with those described in 
-Sec.&nbsp;<a href="#NeutralNeutral">2.10.2</a>.
+Sec.&nbsp;<a href="#NeutralNeutral">2.11.2</a>.
 
 <div class="p"><!----></div>
 For self-collisions, consider the viscosity. The general expression 
@@ -3690,7 +4169,7 @@ derived in Chapman and Cowling[<a href="#Chap70" id="CITEChap70" class="tth_cita
 k T
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>&#8486;<sub>1</sub><sup>(2)</sup>(2)<br /></td><td nowrap="nowrap" align="center">
 ,</td></tr></table>
-</td><td width="1%">(2.72)</td></tr></table>
+</td><td width="1%">(2.88)</td></tr></table>
 
 
 where &#8486;<sub>1</sub><sup>(l)</sup>(n) corresponds directly to the &#8486;<sup>l,n</sup>
@@ -3713,7 +4192,7 @@ D<sub>12</sub> = </td><td nowrap="nowrap" align="center">
 k T
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>(n<sub>1</sub> + n<sub>2</sub>)m<sub>r</sub> &#8486;<sub>12</sub><sup>(1)</sup>(1)<br /></td><td nowrap="nowrap" align="center">
 ,</td></tr></table>
-</td><td width="1%">(2.73)</td></tr></table>
+</td><td width="1%">(2.89)</td></tr></table>
 
 
 where n<sub>1</sub> and n<sub>2</sub> are the species densities and m<sub>r</sub> is the
@@ -3737,7 +4216,7 @@ the single integral:
 --><br />lim<br />
 <small>u<sup>&#8242;</sup> &#8594; 0</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
 I<sub>l,n</sub>(u<sub>p</sub><sup>&#8242;</sup>,u<sup>&#8242;</sup>),</td></tr></table>
-</td><td width="1%">(2.74)</td></tr></table>
+</td><td width="1%">(2.90)</td></tr></table>
 
 
 where u<sub>p</sub><sup>&#8242;2</sup>  &#8801; u<sub>p</sub><sup>2</sup> + u<sub>n</sub><sup>2</sup>, and 
@@ -3759,7 +4238,7 @@ u<sub>p</sub><sup>&#8242;</sup>
 --><br /><br />
 <small></small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
 &#8486;<sup>(l)</sup>(n/2).</td></tr></table>
-</td><td width="1%">(2.75)</td></tr></table>
+</td><td width="1%">(2.91)</td></tr></table>
 
 
 The same result is quoted in Ref.&nbsp;[<a href="#Bach95" class="tth_citeref">25</a>] and in [<a href="#Reit93" class="tth_citeref">17</a>],
@@ -3789,7 +4268,7 @@ k T
 <div class="comb">&nbsp;</div>
 </td><td nowrap="nowrap" align="center">
 ,</td></tr></table>
-</td><td width="1%">(2.76)</td></tr></table>
+</td><td width="1%">(2.92)</td></tr></table>
 
 
 where A<sub>2</sub>(5) = 0.436 is the result of a dimensionless integral.
@@ -3809,7 +4288,7 @@ n </td><td align="left" class="cl"><br /><span class="larger">&#8730;</span><br 
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>
 <div class="norm">&#954;<sub>12</sub> m<sub>r</sub><br /></div>                                </td></tr></table></td><td nowrap="nowrap" align="center">
 ,</td></tr></table>
-</td><td width="1%">(2.77)</td></tr></table>
+</td><td width="1%">(2.93)</td></tr></table>
 
 
 where A<sub>1</sub>(5) = 0.422 is the result of another dimensionless integration.
@@ -3831,7 +4310,7 @@ in the Maxwell molecule force law by (see Ref.&nbsp;[<a href="#Mors63" id="CITEM
 <div class="comb">&nbsp;</div>
 </td><td nowrap="nowrap" align="center">
 ,</td></tr></table>
-</td><td width="1%">(2.78)</td></tr></table>
+</td><td width="1%">(2.94)</td></tr></table>
 
 
 and 
@@ -3849,21 +4328,21 @@ and
 <div class="comb">&nbsp;</div>
 </td><td nowrap="nowrap" align="center">
 .</td></tr></table>
-</td><td width="1%">(2.79)</td></tr></table>
+</td><td width="1%">(2.95)</td></tr></table>
 
 
 
 <div class="p"><!----></div>
-Now, we can use Eq.&nbsp;(<a href="#visc2">2.76</a>) to eliminate &#954; in Eq.&nbsp;(<a href="#sv11">2.78</a>)
+Now, we can use Eq.&nbsp;(<a href="#visc2">2.92</a>) to eliminate &#954; in Eq.&nbsp;(<a href="#sv11">2.94</a>)
 in favor of &#956;<sub>1</sub>. Then, we can insert  &#956;<sub>1</sub> as given by
-Eq.&nbsp;(<a href="#visc1">2.72</a>) to obtain an effective BGK reaction rate that has the
+Eq.&nbsp;(<a href="#visc1">2.88</a>) to obtain an effective BGK reaction rate that has the
 same viscosity as that computed directly from the CFADC differential
 cross sections:
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
 &#9001;&#963;v &#9002;<sub>11</sub> = 2.065 &#8486;<sub>1</sub><sup>(2)</sup>(2).</td></tr></table>
-</td><td width="1%">(2.80)</td></tr></table>
+</td><td width="1%">(2.96)</td></tr></table>
 
 
 The analogous procedure for the diffusion coefficient yields
@@ -3874,12 +4353,12 @@ The analogous procedure for the diffusion coefficient yields
 16
 <div class="hrcomp"><hr noshade="noshade" size="1"/></div>3<br /></td><td nowrap="nowrap" align="center">
 &#8486;<sub>12</sub><sup>(1)</sup>(1).</td></tr></table>
-</td><td width="1%">(2.81)</td></tr></table>
+</td><td width="1%">(2.97)</td></tr></table>
 
 
 
 <div class="p"><!----></div>
-Finally, we can use Eqs.&nbsp;(<a href="#Iln1">2.74</a>) and (<a href="#Iln2">2.75</a>) to
+Finally, we can use Eqs.&nbsp;(<a href="#Iln1">2.90</a>) and (<a href="#Iln2">2.91</a>) to
 replace the &#8486; integrals with the equivalent integrals obtainable
 from <tt>ratecalc</tt>,
 
@@ -3893,7 +4372,7 @@ from <tt>ratecalc</tt>,
 --><br />lim<br />
 <small>u<sup>&#8242;</sup> &#8594; 0</small>&nbsp;<br /></td><td nowrap="nowrap" align="center">
 I<sub>2,4</sub> (u<sub>p</sub><sup>&#8242;</sup> = &#8730;2 u<sub>p</sub>,u<sup>&#8242;</sup>),</td></tr></table>
-</td><td width="1%">(2.82)</td></tr></table>
+</td><td width="1%">(2.98)</td></tr></table>
 
 
 and
@@ -3920,14 +4399,14 @@ I<sub>1,2</sub> (u<sub>p</sub><sup>&#8242;</sup> = </td><td align="left" class="
 <div class="comb">&nbsp;</div>
 </td><td nowrap="nowrap" align="center">
 , u<sup>&#8242;</sup>).</td></tr></table>
-</td><td width="1%">(2.83)</td></tr></table>
+</td><td width="1%">(2.99)</td></tr></table>
 
 
 
 <div class="p"><!----></div>
 In evaluating the latter expression, we will assume that one of the
 species (e.g., molecules at the wall temperature) are much cooler
-than the other, i.e., u<sub>n</sub>  &lt;&lt; u<sub>p</sub>. Equation&nbsp;(<a href="#sv122">2.83</a>) then
+than the other, i.e., u<sub>n</sub>  &lt;&lt; u<sub>p</sub>. Equation&nbsp;(<a href="#sv122">2.99</a>) then
 becomes a function of only u<sub>p</sub>.
 
 <div class="p"><!----></div>
@@ -3962,7 +4441,7 @@ CFADC values,
 suggesting that the values used in DEGAS 2 (and EIRENE) may be too
 large. However, we will 
 demonstrate in Sec.&nbsp;<a href="#cmod1d">3.7.2</a> that the temperature dependence
-ascribed to these rates by May is inconsistent with Eq.&nbsp;(<a href="#sigvconstraint">2.71</a>).
+ascribed to these rates by May is inconsistent with Eq.&nbsp;(<a href="#sigvconstraint">2.87</a>).
 Consequently, DEGAS 2 now uses constant neutral-neutral reaction rates,
 i.e., independent of the "background"
 temperature.  Since agreement of the May expressions with the CFADC
@@ -4002,8 +4481,8 @@ Handbook[<a href="#CRC" class="tth_citeref">43</a>].</div>
 </div>
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.11"></a><h2>
-2.11&nbsp;&nbsp;Atomic Physics: Best Practices</h2>
+ <a id="tth_sEc2.12"></a><h2>
+2.12&nbsp;&nbsp;Atomic Physics: Best Practices</h2>
 <a id="bestpractices">
 </a>
 
@@ -4018,12 +4497,12 @@ other points users should consider
 in setting up their problems.
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.11.1"></a><h3>
-2.11.1&nbsp;&nbsp;Atomic Hydrogen Ionization and Recombination</h3>
+     <a id="tth_sEc2.12.1"></a><h3>
+2.12.1&nbsp;&nbsp;Atomic Hydrogen Ionization and Recombination</h3>
 
 <div class="p"><!----></div>
 <tt>hionize5</tt> should be used for essentially all applications involving 
-atomic hydrogen in a plasma; see Sec.&nbsp;<a href="#HCR">2.9.1</a> for a detailed description
+atomic hydrogen in a plasma; see Sec.&nbsp;<a href="#HCR">2.10.1</a> for a detailed description
 of earlier versions.  The <tt>hrecombine5</tt> data come
 from the same calculation as <tt>hionize5</tt> and represent the best available
 data for recombination.  Note, however, that recombination is significant
@@ -4037,21 +4516,21 @@ with the others in the problem.  If the recombination source is much
 smaller, it need not be included.
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.11.2"></a><h3>
-2.11.2&nbsp;&nbsp;Helium Ionization and Recombination</h3>
+     <a id="tth_sEc2.12.2"></a><h3>
+2.12.2&nbsp;&nbsp;Helium Ionization and Recombination</h3>
 
 <div class="p"><!----></div>
-As noted in Sec.&nbsp;<a href="#HeCR">2.9.2</a>, the simpler "formulation II" model
+As noted in Sec.&nbsp;<a href="#HeCR">2.10.2</a>, the simpler "formulation II" model
 embodied in <tt>heionizeII</tt> and <tt>herecombineII</tt> should suffice for virtually all
 applications.  The considerations noted above for hydrogen recombination
 also apply to helium. 
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.11.3"></a><h3>
-2.11.3&nbsp;&nbsp;Hydrogen Ion - Atom Charge Exchange and Elastic Scattering</h3>
+     <a id="tth_sEc2.12.3"></a><h3>
+2.12.3&nbsp;&nbsp;Hydrogen Ion - Atom Charge Exchange and Elastic Scattering</h3>
 
 <div class="p"><!----></div>
-A key point made in Sec.&nbsp;<a href="#NeutralIon">2.10.1</a> that bears repeating is that
+A key point made in Sec.&nbsp;<a href="#NeutralIon">2.11.1</a> that bears repeating is that
 <em>all</em> of the hydrogen ion-atom elastic cross section data provided with DEGAS 2
 effectively include classical charge exchange as well.  Thus, only one
 of the two processes should be included in a problem; using both 
@@ -4101,8 +4580,8 @@ the limits of the data can be exceeded, causing track length
 and collision estimator results to differ.
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.11.4"></a><h3>
-2.11.4&nbsp;&nbsp;Hydrogen Ion - Molecule Elastic Scattering</h3>
+     <a id="tth_sEc2.12.4"></a><h3>
+2.12.4&nbsp;&nbsp;Hydrogen Ion - Molecule Elastic Scattering</h3>
 
 <div class="p"><!----></div>
 This is a critical process in low temperature, high density
@@ -4121,8 +4600,8 @@ to model mixed isotope situations should contact
 the code authors (see Sec.&nbsp;<a href="#help">5.1</a>).
 
 <div class="p"><!----></div>
-     <a id="tth_sEc2.11.5"></a><h3>
-2.11.5&nbsp;&nbsp;Examples</h3>
+     <a id="tth_sEc2.12.5"></a><h3>
+2.12.5&nbsp;&nbsp;Examples</h3>
 
 <div class="p"><!----></div>
 Template problem input files for
@@ -4144,7 +4623,7 @@ in <tt>pr_boxgen_both.input</tt> and three state helium model
 in <tt>pr_boxgen_mboth.input</tt>.</dd>
 </dl>
 All of the these helium examples include light emission for 
-the lines noted in Sec.&nbsp;<a href="#HeCR">2.9.2</a> as part of the collisional
+the lines noted in Sec.&nbsp;<a href="#HeCR">2.10.2</a> as part of the collisional
 radiative model.
 
 <div class="p"><!----></div>
@@ -4155,8 +4634,8 @@ maintain consistency with previous results documented either in this manual
 or in the published literature.
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.12"></a><h2>
-2.12&nbsp;&nbsp;Impurity Atomic Physics</h2>
+ <a id="tth_sEc2.13"></a><h2>
+2.13&nbsp;&nbsp;Impurity Atomic Physics</h2>
 
 <div class="p"><!----></div>
 The ability to incorporate impurity atom (and ion) generalized
@@ -4169,8 +4648,8 @@ files, none of that capability is included in this distribution.
 Interested users should contact the code authors (Sec.&nbsp;<a href="#help">5.1</a>).
 
 <div class="p"><!----></div>
- <a id="tth_sEc2.13"></a><h2>
-2.13&nbsp;&nbsp;Recycling</h2>
+ <a id="tth_sEc2.14"></a><h2>
+2.14&nbsp;&nbsp;Recycling</h2>
 
 <div class="p"><!----></div>
 Recycling of both ions and neutral species in DEGAS 2 is controlled by
@@ -6031,7 +6510,7 @@ zeroes.
 
 <div class="p"><!----></div>
 The initial implementation of the BGK algorithm for handling neutral-neutral
-collisions (see Sec.&nbsp;<a href="#NeutralNeutral">2.10.2</a>) in EIRENE 
+collisions (see Sec.&nbsp;<a href="#NeutralNeutral">2.11.2</a>) in EIRENE 
 has been tested by comparison
 with analytic expressions for the time dependence of the relaxation of 
 a distribution function (both in self-collision and
@@ -6798,10 +7277,10 @@ elastic scattering processes. The complexity of the physics also
 makes for a good demonstration of DEGAS 2's conservation checks.
 
 <div class="p"><!----></div>
-Experiments by Pitcher et al. [<a href="#Pitc00" id="CITEPitc00" class="tth_citation">57</a>,<a href="#Pitc01" id="CITEPitc01" class="tth_citation">58</a>] on the Alcator C-Mod tokamak
+Experiments by Pitcher et al. [<a href="#Pitc00" id="CITEPitc00" class="tth_citation">59</a>,<a href="#Pitc01" id="CITEPitc01" class="tth_citation">60</a>] on the Alcator C-Mod tokamak
 indicated that the flow of neutral gas through material structures around
 the plasma was being limited by its diffusion rate through the divertor plasma.
-Pitcher [<a href="#Pitc01" class="tth_citeref">58</a>] developed a semi-analytic model that reproduced this
+Pitcher [<a href="#Pitc01" class="tth_citeref">60</a>] developed a semi-analytic model that reproduced this
 behavior. An attempt was made to precisely reproduce the
 results of that model with DEGAS 2. The overall effort consisted of several
 simulations in which the model assumptions were gradually relaxed towards those
@@ -6810,7 +7289,7 @@ having atomic and surface physics assumptions more like a normal DEGAS 2 run.
 The remaining difference from a "full physics" DEGAS 2 run (apart from the
 greatly simplified geometry) is that the neutral source is a gas puff rather
 than a recycling source. The full physics and geometry simulations are described 
-in Ref.&nbsp;[<a href="#Stot01" id="CITEStot01" class="tth_citation">59</a>].
+in Ref.&nbsp;[<a href="#Stot01" id="CITEStot01" class="tth_citation">61</a>].
 
 <div class="p"><!----></div>
 To run this example, follow these steps:
@@ -7290,7 +7769,7 @@ with <tt>definegeometry2d</tt>, and also demonstrates the 3-D
 capabilities of <tt>definegeometry2d</tt>.  
 It is based on the DEGAS 2 simulation of the NSTX
 Gas Puff Imaging (GPI) GPI shot 112811, documented in 
-[<a href="#Stot2007" id="CITEStot2007" class="tth_citation">60</a>].
+[<a href="#Stot2007" id="CITEStot2007" class="tth_citation">62</a>].
 
 <div class="p"><!----></div>
 To run the 2-D version of this example, follow
@@ -7624,7 +8103,7 @@ interpret in the 2-D case.
 <div class="p"><!----></div>
 The quantities in the other files require much more space to explain.  
 The
-interested reader can learn more in [<a href="#Stot2004" id="CITEStot2004" class="tth_citation">61</a>]
+interested reader can learn more in [<a href="#Stot2004" id="CITEStot2004" class="tth_citation">63</a>]
 <div class="p"><!----></div>
 </li>
 
@@ -7658,7 +8137,7 @@ the run time is correspondingly longer.
 </li>
 </ol>
 The resulting camera image corresponds to Fig. 4(a) in 
-[<a href="#Stot2007" class="tth_citeref">60</a>].  However,
+[<a href="#Stot2007" class="tth_citeref">62</a>].  However,
 the latter also incorporated the effects of camera vignetting, which
 are not accounted for by the <tt>postdetector</tt> routine.
 <div class="p"><!----></div>
@@ -7677,7 +8156,7 @@ to manually create <tt>definegeometry2d</tt> input files.
 This particular simulation provided
 neutral penetraton estimates used 
 in the design of plasma facing components for the
-National Compact Stellarator Experiment [<a href="#Zarn2001" id="CITEZarn2001" class="tth_citation">62</a>].  
+National Compact Stellarator Experiment [<a href="#Zarn2001" id="CITEZarn2001" class="tth_citation">64</a>].  
 Since the bulk of the recycled neutrals leave
 the surface with a cosine distribution (i.e., peaked about the normal 
 to the material surface), the
@@ -7977,7 +8456,7 @@ id="time_dependence38142"></a>
 
 <div class="p"><!----></div>
 The use of time dependence in DEGAS 2 is described above
-in Sec.&nbsp;<a href="#TimeDep">2.8</a>.  For completeness, we only note here
+in Sec.&nbsp;<a href="#TimeDep">2.9</a>.  For completeness, we only note here
 the principal controlling parameters in the
 <a href="classes.pdf#page.26">sources class</a>.  The switch
 <tt>so_time_dependent</tt> will be <tt>FALSE</tt> (0) for steady-state
@@ -8101,7 +8580,7 @@ seed (and, hence, the entire random number chain) via
 The preferred mechanism for specifying the initial seed is as a
 character string. This is transformed into the appropriate integer
 representation using routines in <tt>random.web</tt> 
-(see Sec.&nbsp;<a href="#Randomnumbers">2.5</a>). The default value is "12". Reasons
+(see Sec.&nbsp;<a href="#Randomnumbers">2.6</a>). The default value is "12". Reasons
 to use different values include
 
 <ol type="1">
@@ -8158,7 +8637,7 @@ if the number of flights were large enough.
 
 <div class="p"><!----></div>
 An equally effective alternative can be developed based on hashing
-algorithms described by Knuth[<a href="#Knuth97" id="CITEKnuth97" class="tth_citation">56</a>]. The idea is to replace the
+algorithms described by Knuth[<a href="#Knuth97" id="CITEKnuth97" class="tth_citation">58</a>]. The idea is to replace the
 pseudo-random number &#958; usually used in the source sampling process with
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
@@ -8847,7 +9326,7 @@ is again given by Eq.&nbsp;(<a href="#zonefrag">3.24</a>) in both cases.
 These zone contributions can then be used during execution of the main
 code or during post-processing to compute, say, the 
 H<sub>&#945;</sub> signal S<sub>&#945;</sub>
-in the absence of recombination  (see Sec.&nbsp;<a href="#AtomicPhysics">2.9</a>) as
+in the absence of recombination  (see Sec.&nbsp;<a href="#AtomicPhysics">2.10</a>) as
 
 <br clear="all" /><table border="0" width="100%"><tr><td>
 <table align="center" cellspacing="0"  cellpadding="2"><tr><td nowrap="nowrap" align="center">
@@ -8868,7 +9347,7 @@ f(z<sub>j</sub>),</td></tr></table>
 where N<sub>1</sub> is the number of neutral H atoms in zone j. The
 bracketed quantity is interpolated from the input data file, with E<sub>23</sub>
 being the energy of the Balmer-&#945; transition, and other quantities
-defined in Sec.&nbsp;<a href="#AtomicPhysics">2.9</a>.
+defined in Sec.&nbsp;<a href="#AtomicPhysics">2.10</a>.
 Note, however, that the code is completely general regarding wavelength 
 and origin of radiation. Other line emission rates can be scored in
 an analogous if the appropriate data are present in the input data
@@ -8970,7 +9449,7 @@ subroutine, <tt>gpi_views</tt>.
 </a>
 
 <div class="p"><!----></div>
-As was noted in Sec.&nbsp;<a href="#Geometry">2.6</a>,
+As was noted in Sec.&nbsp;<a href="#Geometry">2.7</a>,
 sectors can be defined for purely diagnostic use. The zones adjacent
 to the sector surface can be of any type. A given sector may be used to
 specify more than one diagnostic (e.g., one may track particle current,
@@ -9484,7 +9963,7 @@ These two codes have been compared several times in the past.
 The basic
 difference is that the EIRENE code, AMJUEL, 
 is based upon the Johnson-Hinnov ionization cross sections[<a href="#John73" id="CITEJohn73" class="tth_citation">19</a>].
-The data used in DEGAS 2 are described in Sec.&nbsp;<a href="#AtomicPhysics">2.9</a>.
+The data used in DEGAS 2 are described in Sec.&nbsp;<a href="#AtomicPhysics">2.10</a>.
 
 <div class="p"><!----></div>
 Figures&nbsp;<a href="#hionize">4.5</a> and <a href="#elossfig">4.6</a>
@@ -10662,27 +11141,37 @@ A Wall", <a href="http://w3.pppl.gov/degas2/Bateman_distribution.pdf">PPPL Appli
 </dd>
  <dt><a href="#CITESpan66" id="Span66">[55]</a></dt><dd> J. Spanier, <em>SIAM J. Appl. Math.</em> <b>14</b>, 702 (1966).
 </dd>
- <dt><a href="#CITEKnuth97" id="Knuth97">[56]</a></dt><dd> D. E. Knuth, <em>The Art of Computer Programming</em> 
+ <dt><a href="#CITEBran2014" id="Bran2014">[56]</a></dt><dd> S. Brandt, <em>Data Analysis: Statistical and
+Computational Methods for Scientists and Engineers</em> (Springer International
+Publishing, Switzerland, 2014), 
+<a href="https://link.springer.com/book/10.1007%2F978-3-319-03762-2">online</a>.
+</dd>
+ <dt><a href="#CITEMCNP" id="MCNP">[57]</a></dt><dd> X-5 Monte Carlo Team, "MCNP - A General Monte Carlo N-Particle Transport
+Code, Version 5, Volume I: Overview and Theory", Los Alamos National
+Laboratory Report <a href="https://laws.lanl.gov/vhosts/mcnp.lanl.gov/pdf_files/la-ur-03-1987.pdf">LA-UR-03-1987</a> 
+(2008).
+</dd>
+ <dt><a href="#CITEKnuth97" id="Knuth97">[58]</a></dt><dd> D. E. Knuth, <em>The Art of Computer Programming</em> 
 (Addison-Wesley, Reading, MA, 1997).
 </dd>
- <dt><a href="#CITEPitc00" id="Pitc00">[57]</a></dt><dd> C. S. Pitcher, C. J. Boswell, J. A. Goetz et al., <em>Phys.
+ <dt><a href="#CITEPitc00" id="Pitc00">[59]</a></dt><dd> C. S. Pitcher, C. J. Boswell, J. A. Goetz et al., <em>Phys.
 Plasmas</em> <b>7</b>, 1894 (2000).
 </dd>
- <dt><a href="#CITEPitc01" id="Pitc01">[58]</a></dt><dd> C. S. Pitcher, C. J. Boswell, T. Chung
+ <dt><a href="#CITEPitc01" id="Pitc01">[60]</a></dt><dd> C. S. Pitcher, C. J. Boswell, T. Chung
 et al., <em>J. Nucl. Mater.</em> <b>290-293</b>, 812 (2001).
 </dd>
- <dt><a href="#CITEStot01" id="Stot01">[59]</a></dt><dd> D. P. Stotler, C. S. Pitcher, C. J. Boswell et al.,
+ <dt><a href="#CITEStot01" id="Stot01">[61]</a></dt><dd> D. P. Stotler, C. S. Pitcher, C. J. Boswell et al.,
 <em>J. Nucl. Mater.</em> <b>290-293</b>, 967 (2001).
 </dd>
- <dt><a href="#CITEStot2007" id="Stot2007">[60]</a></dt><dd> D. P. Stotler,
+ <dt><a href="#CITEStot2007" id="Stot2007">[62]</a></dt><dd> D. P. Stotler,
 J. Boedo, B. LeBlanc, R. J. Maqueda, and S. J. Zweben, 
 <em>J. Nucl. Mater.</em> <b>363-365</b>, 686 (2007).
 </dd>
- <dt><a href="#CITEStot2004" id="Stot2004">[61]</a></dt><dd> D. P. Stotler, D. A. D'Ippolito, B. LeBlanc, 
+ <dt><a href="#CITEStot2004" id="Stot2004">[63]</a></dt><dd> D. P. Stotler, D. A. D'Ippolito, B. LeBlanc, 
 R. J. Maqueda, J. R. Myra, S. A. Sabbagh,
 and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
 </dd>
- <dt><a href="#CITEZarn2001" id="Zarn2001">[62]</a></dt><dd> M. C. Zarnstorff, L. A. Berry, A. Brooks et al.,
+ <dt><a href="#CITEZarn2001" id="Zarn2001">[64]</a></dt><dd> M. C. Zarnstorff, L. A. Berry, A. Brooks et al.,
 <em>Plasma Phys. Control. Fusion</em> <b>43</b>, A237 (2001).</dd>
 </dl>
 
@@ -10700,11 +11189,11 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>Allocation, memory, <a href="#Allocation__memory148">1.4</a></dd>
  <dt><b></b></dt>
-	<dd>Atomic physics, <a href="#Atomic_physics2924">2.9</a><br /><br /></dd>
+	<dd>Atomic physics, <a href="#Atomic_physics21024">2.10</a><br /><br /></dd>
  <dt><b></b></dt>
 	<dd>background species, <a href="#background_species35125">3.5</a></dd>
  <dt><b></b></dt>
-	<dd>BGK, <a href="#BGK21038">2.10</a></dd>
+	<dd>BGK, <a href="#BGK21138">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>Boltzmann equation, <a href="#Boltzmann_equation114">1.1</a></dd>
  <dt><b></b></dt>
@@ -10712,13 +11201,13 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>Carre, <a href="#Carre3493">3.4</a>, <a href="#Carre37141">3.7</a></dd>
  <dt><b></b></dt>
-	<dd>Charge exchange, <a href="#Charge_exchange21031">2.10</a></dd>
+	<dd>Charge exchange, <a href="#Charge_exchange21131">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>chargex, <a href="#chargex35103">3.5</a></dd>
  <dt><b></b></dt>
 	<dd>checkpoints, <a href="#checkpoints38143">3.8</a></dd>
  <dt><b></b></dt>
-	<dd>collisional-radiative, <a href="#collisional-radiative2925">2.9</a></dd>
+	<dd>collisional-radiative, <a href="#collisional-radiative21025">2.10</a></dd>
  <dt><b></b></dt>
 	<dd>CVS, <a href="#CVS1413">1.4</a><br /><br /></dd>
  <dt><b></b></dt>
@@ -10728,7 +11217,7 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>datasetup, <a href="#datasetup3476">3.4</a></dd>
  <dt><b></b></dt>
-	<dd>defineback, <a href="#defineback2823">2.8</a>, 
+	<dd>defineback, <a href="#defineback2923">2.9</a>, 
 		<a href="#defineback3475">3.4</a>, 
 		<a href="#defineback37139">3.7</a></dd>
  <dt><b></b></dt>
@@ -10748,12 +11237,12 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
 	<dd>DG, <a href="#DG3492">3.4</a>, <a href="#DG37140">3.7</a></dd>
  <dt><b></b></dt>
 	<dd>Differential cross section, 
-		<a href="#Differential_cross_section21037">2.10</a></dd>
+		<a href="#Differential_cross_section21137">2.11</a></dd>
  <dt><b></b></dt>
-	<dd>Diffusion, <a href="#Diffusion21040">2.10</a></dd>
+	<dd>Diffusion, <a href="#Diffusion21140">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>Diffusion cross section, 
-		<a href="#Diffusion_cross_section21033">2.10</a></dd>
+		<a href="#Diffusion_cross_section21133">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>directories, <a href="#directories3364">3.3</a></dd>
  <dt><b></b></dt>
@@ -10770,7 +11259,7 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>elastic, <a href="#elastic35104">3.5</a></dd>
  <dt><b></b></dt>
-	<dd>Elastic scattering, <a href="#Elastic_scattering21029">2.10</a></dd>
+	<dd>Elastic scattering, <a href="#Elastic_scattering21129">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>elements_infile, <a href="#elements__infile3595">3.5</a></dd>
  <dt><b></b></dt>
@@ -10811,7 +11300,7 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
 </dl></td></tr><tr><td valign="top"><hr />
 <dl>
  <dt><b></b></dt>
-	<dd>ionization, <a href="#ionization2926">2.9</a></dd>
+	<dd>ionization, <a href="#ionization21026">2.10</a></dd>
  <dt><b></b></dt>
 	<dd>ionize, <a href="#ionize35107">3.5</a></dd>
  <dt><b></b></dt>
@@ -10835,7 +11324,7 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>materialsfile, <a href="#materialsfile35114">3.5</a></dd>
  <dt><b></b></dt>
-	<dd>Maxwell molecules, <a href="#Maxwell_molecules21042">2.10</a></dd>
+	<dd>Maxwell molecules, <a href="#Maxwell_molecules21142">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>Monte Carlo, <a href="#Monte_Carlo2115">2.1</a><br /><br /></dd>
  <dt><b></b></dt>
@@ -10854,10 +11343,10 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
 	<dd>Neutral Transport, <a href="#Neutral_Transport111">1.1</a></dd>
  <dt><b></b></dt>
 	<dd>Neutral-ion scattering, 
-		<a href="#Neutral-ion_scattering21030">2.10</a></dd>
+		<a href="#Neutral-ion_scattering21130">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>Neutral-neutral scattering, 
-		<a href="#Neutral-neutral_scattering21041">2.10</a></dd>
+		<a href="#Neutral-neutral_scattering21141">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>non-generic PMI, <a href="#non-generic_PMI35118">3.5</a></dd>
  <dt><b></b></dt>
@@ -10892,7 +11381,7 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>ratecalc, <a href="#ratecalc3477">3.4</a></dd>
  <dt><b></b></dt>
-	<dd>rates, atomic physics, <a href="#rates__atomic_physics2928">2.9</a></dd>
+	<dd>rates, atomic physics, <a href="#rates__atomic_physics21028">2.10</a></dd>
  <dt><b></b></dt>
 	<dd>reaction type, <a href="#reaction_type35102">3.5</a></dd>
  <dt><b></b></dt>
@@ -10912,7 +11401,7 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>readgeometry input, <a href="#readgeometry_input35128">3.5</a></dd>
  <dt><b></b></dt>
-	<dd>recombination, <a href="#recombination2927">2.9</a>, 
+	<dd>recombination, <a href="#recombination21027">2.10</a>, 
 		<a href="#recombination35109">3.5</a></dd>
  <dt><b></b></dt>
 	<dd>reference level, <a href="#reference_level35122">3.5</a></dd>
@@ -10923,13 +11412,13 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
 </dl></td></tr><tr><td valign="top"><hr />
 <dl>
  <dt><b></b></dt>
-	<dd>Scattering angle, <a href="#Scattering_angle21036">2.10</a></dd>
+	<dd>Scattering angle, <a href="#Scattering_angle21136">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>Scoring, <a href="#Scoring2118">2.1</a></dd>
  <dt><b></b></dt>
 	<dd>Silo, <a href="#Silo3261">3.2</a></dd>
  <dt><b></b></dt>
-	<dd>snapshot, <a href="#snapshot2822">2.8</a></dd>
+	<dd>snapshot, <a href="#snapshot2922">2.9</a></dd>
  <dt><b></b></dt>
 	<dd>sourcetest, <a href="#sourcetest3485">3.4</a></dd>
  <dt><b></b></dt>
@@ -10939,7 +11428,7 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>speciesfile, <a href="#speciesfile35100">3.5</a></dd>
  <dt><b></b></dt>
-	<dd>Spin exchange, <a href="#Spin_exchange21032">2.10</a></dd>
+	<dd>Spin exchange, <a href="#Spin_exchange21132">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>subset data, <a href="#subset_data35123">3.5</a></dd>
  <dt><b></b></dt>
@@ -10964,10 +11453,10 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>Theory, transport, <a href="#Theory__transport113">1.1</a></dd>
  <dt><b></b></dt>
-	<dd>time dependence, <a href="#time_dependence2821">2.8</a>, 
+	<dd>time dependence, <a href="#time_dependence2921">2.9</a>, 
 		<a href="#time_dependence38142">3.8</a></dd>
  <dt><b></b></dt>
-	<dd>Total cross section, <a href="#Total_cross_section21034">2.10</a></dd>
+	<dd>Total cross section, <a href="#Total_cross_section21134">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>Tracking, <a href="#Tracking2116">2.1</a></dd>
  <dt><b></b></dt>
@@ -10979,10 +11468,10 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
  <dt><b></b></dt>
 	<dd>ucd_plot, <a href="#ucd__plot3473">3.4</a><br /><br /></dd>
  <dt><b></b></dt>
-	<dd>Viscosity, <a href="#Viscosity21039">2.10</a></dd>
+	<dd>Viscosity, <a href="#Viscosity21139">2.11</a></dd>
  <dt><b></b></dt>
 	<dd>Viscosity cross section, 
-		<a href="#Viscosity_cross_section21035">2.10</a></dd>
+		<a href="#Viscosity_cross_section21135">2.11</a></dd>
 </dl></td></tr></table>
 
 
@@ -11025,45 +11514,47 @@ and S. J. Zweben, <em>Contrib. Plasma Phys.</em> <b>44</b>, 294 (2004).
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.3.3"
 >2.3.3&nbsp; Specification of Tallies</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.4"
->2.4&nbsp; Tracking Procedure</a><br />
+>2.4&nbsp; Accumulation of Tallied Data</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.5"
->2.5&nbsp; Random Numbers</a><br />
+>2.5&nbsp; Tracking Procedure</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.6"
->2.6&nbsp; Geometry</a><br />
+>2.6&nbsp; Random Numbers</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.7"
->2.7&nbsp; Symmetry and Coordinate Systems</a><br />
+>2.7&nbsp; Geometry</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.8"
->2.8&nbsp; Time Dependence</a><br />
+>2.8&nbsp; Symmetry and Coordinate Systems</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.9"
->2.9&nbsp; Atomic Physics</a><br />
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.9.1"
->2.9.1&nbsp; Hydrogen Collisional Radiative Model</a><br />
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.9.2"
->2.9.2&nbsp; Helium Collisional Radiative Model</a><br />
+>2.9&nbsp; Time Dependence</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.10"
->2.10&nbsp; Elastic Scattering</a><br />
+>2.10&nbsp; Atomic Physics</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.10.1"
->2.10.1&nbsp; Neutral-Ion Elastic Scattering</a><br />
+>2.10.1&nbsp; Hydrogen Collisional Radiative Model</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.10.2"
->2.10.2&nbsp; Neutral-Neutral Elastic Scattering</a><br />
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.10.3"
->2.10.3&nbsp; Verification of BGK Model and Rates</a><br />
+>2.10.2&nbsp; Helium Collisional Radiative Model</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.11"
->2.11&nbsp; Atomic Physics: Best Practices</a><br />
+>2.11&nbsp; Elastic Scattering</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.11.1"
->2.11.1&nbsp; Atomic Hydrogen Ionization and Recombination</a><br />
+>2.11.1&nbsp; Neutral-Ion Elastic Scattering</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.11.2"
->2.11.2&nbsp; Helium Ionization and Recombination</a><br />
+>2.11.2&nbsp; Neutral-Neutral Elastic Scattering</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.11.3"
->2.11.3&nbsp; Hydrogen Ion - Atom Charge Exchange and Elastic Scattering</a><br />
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.11.4"
->2.11.4&nbsp; Hydrogen Ion - Molecule Elastic Scattering</a><br />
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.11.5"
->2.11.5&nbsp; Examples</a><br />
+>2.11.3&nbsp; Verification of BGK Model and Rates</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.12"
->2.12&nbsp; Impurity Atomic Physics</a><br />
+>2.12&nbsp; Atomic Physics: Best Practices</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.12.1"
+>2.12.1&nbsp; Atomic Hydrogen Ionization and Recombination</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.12.2"
+>2.12.2&nbsp; Helium Ionization and Recombination</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.12.3"
+>2.12.3&nbsp; Hydrogen Ion - Atom Charge Exchange and Elastic Scattering</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.12.4"
+>2.12.4&nbsp; Hydrogen Ion - Molecule Elastic Scattering</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.12.5"
+>2.12.5&nbsp; Examples</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.13"
->2.13&nbsp; Recycling</a><br />
+>2.13&nbsp; Impurity Atomic Physics</a><br />
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc2.14"
+>2.14&nbsp; Recycling</a><br />
 <a href="#tth_chAp3"
 >3&nbsp; Running DEGAS 2</a><br />
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#tth_sEc3.1"
@@ -11287,5 +11778,5 @@ D2+ totals will also stand out as apparently significant discrepancies.
 T<sub><span class="small">E</span></sub>X
 by <a href="http://hutchinson.belmont.ma.us/tth/">
 T<sub><span class="small">T</span></sub>H</a>,
-version 4.10.<br />On  4 Dec 2017, 15:52.</small>
+version 4.10.<br />On 11 Sep 2019, 09:56.</small>
 </html>
