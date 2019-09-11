@@ -78,7 +78,7 @@ flux (absolute) for use in producing final output.
       var_alloc(pfm)
 
       call read_efit(diskin4,ef_nr,ef_nz,rr,zz,psis,fg,pg,ffg,ppg,pfm,
-     &               ef_psilim)
+     &               ef_psilim,ef_rma,ef_zma)
 /*
    And arrays used in the spline fitting process.
 */
@@ -169,18 +169,19 @@ flux (absolute) for use in producing final output.
 @ Subroutine to read standard EFIT geqdsk files.      
 
 @<Functions...@>=
-      subroutine read_efit(nunit,nr,nz,rr,zz,psis,fg,pg,ffg,ppg,pfm,psilim)
+      subroutine read_efit(nunit,nr,nz,rr,zz,psis,fg,pg,ffg,ppg,pfm,
+     $                     psilim,rma,zma)
 
       implicit_none_f77
       implicit_none_f90
       
       integer nunit,nr,nz                                // Input
-      real psilim                                          // Output
+      real psilim,rma,zma                                // Output
       real rr[nr],zz[nz],psis[nr],fg[nr],pg[nr],ffg[nr],
      $     ppg[nr],pfm[nz][nr]
 
       integer i,j,ir,iz                                  // Local
-      real rdim,zdim,rcntc,redge,zmsmid,rma,zma,psimin,
+      real rdim,zdim,rcntc,redge,zmsmid,psimin,
      $     btorc,dummy
       
       read(nunit,'(5e16.9)') rdim, zdim, rcntc, redge, zmsmid

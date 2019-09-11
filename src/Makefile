@@ -568,7 +568,7 @@ adaswrite_libs = $(NETCDF)
 adaswrite: $(adaswrite) $(foreach arg,$(subst .$O,_mods,$(adaswrite)),$($(arg)))
 
 efit2dg2d.o: bspline.mod
-efit2dg2d = bspline.mod bspline90_22.o efit2dg2d.$O aux2dsetup.$O psiinterp.$O
+efit2dg2d = bspline.mod bspline90_22.o efit2dg2d.$O aux2dsetup.$O psiinterp.$O interpolate.$O
 efit2dg2d_libs =
 efit2dg2d: $(efit2dg2d) $(foreach arg,$(subst .$O,_mods,$(efit2dg2d)),$($(arg))) 
 
