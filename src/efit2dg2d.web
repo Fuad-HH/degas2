@@ -757,19 +757,19 @@ with the |ic|-th crossing of limiter segment |im|.
             end do
             if (ext_lim_wall[im] != 0) then
                iwall=ext_lim_wall[im]
-            if (ext_lim_wall[im] > 0) then
-               do ir=0,wall_segment_count[iwall]
-                  write(diskout+2,*) nodes[wall_nodes[iwall][ir]][g2_x],
-     $                 nodes[wall_nodes[iwall][ir]][g2_z]
+               if (ext_lim_wall[im] > 0) then
+                  do ir=0,wall_segment_count[iwall]
+                     write(diskout+2,*) nodes[wall_nodes[iwall][ir]][g2_x],
+     $                    nodes[wall_nodes[iwall][ir]][g2_z]
                      if (ir==0) write(diskout,'(a,i4,a)') '    wall ',iwall,' *'
-               end do
-            else
+                  end do
+               else
                   do ir=wall_segment_count[-iwall],0,-1
                      write(diskout+2,*) nodes[wall_nodes[-iwall][ir]][g2_x],
      $                    nodes[wall_nodes[-iwall][ir]][g2_z]
                      if (ir==0) write(diskout,'(a,i4,a)') '    wall ',-iwall,' * reverse'
-               end do
-            end if
+                  end do
+               end if
                wall_used[abs(iwall)]++
                num_poly_wall++
                if (num_poly_wall <= 2) then 
@@ -797,7 +797,7 @@ with the |ic|-th crossing of limiter segment |im|.
             im++
             if (im == ext_lim_m+1) im=1
          end if   // On |ext_lim_wall|
-            if (im == first_point) then
+         if (im == first_point) then
 /*
    Add this point to close polygon.
 */
@@ -832,9 +832,9 @@ with the |ic|-th crossing of limiter segment |im|.
 @#else
             poly_psi[num_poly]=poly_psi[num_poly]/ef_psilim
 @#endif
-               first_point=0
-               im=next_start
-            end if
+            first_point=0
+            im=next_start
+         end if
       end do      // Outer do-while loop
 /*
    A file to connect the polygons to the $\psi$, etc. values.

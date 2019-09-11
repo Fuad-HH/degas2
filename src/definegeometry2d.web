@@ -2977,39 +2977,39 @@ wall_break: continue
   rectangle. The polygon sent to |decompose_polygon| must be traversed
   in a clockwise direction in physical space.
 */
-           vc_set(yhat,zero,one,zero)
-           vc_set(test_vec_1,mesh_xzm(g2_x,2,1,1)-mesh_xzm(g2_x,1,1,1),zero,
-     $                       mesh_xzm(g2_z,2,1,1)-mesh_xzm(g2_z,1,1,1))
-           vc_set(test_vec_2,mesh_xzm(g2_x,3,1,1)-mesh_xzm(g2_x,2,1,1),zero,
-     $                       mesh_xzm(g2_z,3,1,1)-mesh_xzm(g2_z,2,1,1))
-           vc_cross(test_vec_1,test_vec_2,test_vec_3)
-           if (vc_product(test_vec_3,yhat) > zero) then
-              mesh_sense=1
-           else if(vc_product(test_vec_3,yhat) < zero) then
-              mesh_sense=2
-           else
-              assert('First cell of mesh degenerate' == ' ')
-           end if
-           do ix=1,nxd
-              do iz=1,nzd
-                 zone++
-                 n=0
-                 increment_g2_num_polygons
+         vc_set(yhat,zero,one,zero)
+         vc_set(test_vec_1,mesh_xzm(g2_x,2,1,1)-mesh_xzm(g2_x,1,1,1),zero,
+     $        mesh_xzm(g2_z,2,1,1)-mesh_xzm(g2_z,1,1,1))
+         vc_set(test_vec_2,mesh_xzm(g2_x,3,1,1)-mesh_xzm(g2_x,2,1,1),zero,
+     $        mesh_xzm(g2_z,3,1,1)-mesh_xzm(g2_z,2,1,1))
+         vc_cross(test_vec_1,test_vec_2,test_vec_3)
+         if (vc_product(test_vec_3,yhat) > zero) then
+            mesh_sense=1
+         else if(vc_product(test_vec_3,yhat) < zero) then
+            mesh_sense=2
+         else
+            assert('First cell of mesh degenerate' == ' ')
+         end if
+         do ix=1,nxd
+            do iz=1,nzd
+               zone++
+               n=0
+               increment_g2_num_polygons
 
-                 g2_polygon_xz[g2_num_polygons][n][g2_x]
-     $                = mesh_xzm(g2_x,1,ix,iz)
-                 g2_polygon_xz[g2_num_polygons][n][g2_z]
+               g2_polygon_xz[g2_num_polygons][n][g2_x]
+     $              = mesh_xzm(g2_x,1,ix,iz)
+               g2_polygon_xz[g2_num_polygons][n][g2_z]
      $              = mesh_xzm(g2_z,1,ix,iz)
 /*
    Regardless of the sense of the mesh, the points are
    numbered consecutively, so just need to alter the
    loop indices in transferring the points to |g2_polygon_xz|.
 */
-                 if (mesh_sense == 1) then
+               if (mesh_sense == 1) then
                   start_pt=2
                   end_pt=4
                   inc_pt=1
-                 else if (mesh_sense == 2) then
+               else if (mesh_sense == 2) then
                   start_pt=4
                   end_pt=2
                   inc_pt=-1
