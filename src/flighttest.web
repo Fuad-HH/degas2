@@ -37,6 +37,7 @@ its original purpose as a geometry test routine.
 @I problem.hweb
 @I random.hweb
 @I mpi.hweb
+@I flight_frag.hweb
 
 @ The main program.
 
@@ -90,6 +91,7 @@ its original purpose as a geometry test routine.
       pr_common
       bk_common
       so_common
+      ff_common
       mp_common
       implicit_none_f90
 
@@ -221,9 +223,6 @@ bgk_loop: continue
       end if
 
       if (mpi_master) then
-@#if 0
-         call clear_output  // Moved inside BGK loop
-@#endif
 @#if (SCALE_FLIGHTS == 1)
          if (bgk == TRUE) then
             var_free(original_nflights)
@@ -231,6 +230,15 @@ bgk_loop: continue
 @#endif
          var_free(back_pressure)
       end if
+/*
+   These were originally in subroutines |clear_output| and
+   |do_flights_slave|.  But, that needed them intact for
+   subsequent BGK iterations.
+*/
+      var_free(ff_particles_int)
+      var_free(ff_particles_float)
+      var_free(ff_ran_index)
+      var_free(ff_ran_array)
 
       return
       end

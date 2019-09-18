@@ -1305,10 +1305,15 @@ break:  continue
       var_free(estimator_factors)
       var_free(sn_particles_float)
       var_free(sn_particles_int)
+/*
+   Moved these to |bgk_flighttest|, outside BGK loop.
+*/
+@#if 0
       var_free(ff_particles_int)
       var_free(ff_particles_float)
       var_free(ff_ran_index)
       var_free(ff_ran_array)
+@#endif
 @#if MPI_slave_messages
       close(diskout+3)
 @#endif
@@ -1682,7 +1687,6 @@ or later
       tl_common
       ou_common
       sn_common
-      ff_common
       implicit_none_f90
       tl_decls
 
@@ -1699,12 +1703,16 @@ or later
 
       var_free(sn_particles_float)
       var_free(sn_particles_int)
-
+/*
+   These have been moved to |bgk_flighttest|, outside
+   the BGK loop.
+*/
+@#if 0
       var_free(ff_particles_int)
       var_free(ff_particles_float)
       var_free(ff_ran_index)
       var_free(ff_ran_array)
-
+@#endif
 
       return
       end
