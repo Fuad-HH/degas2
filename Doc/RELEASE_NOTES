@@ -1,3 +1,391 @@
+V4_9 RELEASE NOTES
+
+* The bulk of the modifications to the code since V4_8 are associated with
+  the development of the time depdent synthetic GPI diagnostic...
+
+* Set up a new operating mode to establish a set of steady state
+  snapshot particles that can be used as starting points for a time
+  varying run,
+  - Controlled by the time_initialization flag in the defineback
+    input file and the corresponding so_time_initialization
+    parameter in sources.hweb.
+
+* To speed handling of the snapshot source in time dependent simulations,
+  sampling of the sources have been moved from the slaves to the master,
+  - The flight_frag class is used for this purpose,
+  - With the assistance of new macros in flight.hweb.
+  - The primary benefit is that the large source arrays required with the
+    snapshot source do not need to be sent to the slaves,
+  - The most time consuming step in sourcing a flight, determining its location,
+    is still done on the slaves, at least for surface sources.
+
+* Set up compression of the large "de_zone_frags" array used by detectors,
+  e.g., for GPI.
+  - The resulting array should be small enough in most cases that it can
+    be conveniently kept in the geometry netCDF file.
+  - Doing so also dramatically speeds up postdetector.
+
+* Enabled usage of HDF5 / netcdf4 format for the largest netCDF files: output,
+  snapshot, and background,
+  - See associated switches in doflights.web (for output and snapshot),
+    and writeback.web (for background).
+
+* Added the acc_output.web routine to combine two output files,
+  - The motivating application was the integration over multiple
+    time steps in a time dependent run.
+
+* Modified postdetector so that its output can be sent to netCDF objects,
+  - These are now defined in postdetector.hweb.
+
+* Added a plot of the snapshot neutral density to ucd_plot when the
+  associated tally is present.
+
+* Added the corrected cross section and reaction rate fits for H2 dissociation,
+  (2.2.5) in Janev, et al., to the janev.dat data file,
+  - The h2dis.nc file contains equivalent reaction rate data that were manually
+    pasted in from the original DEGAS' atmc.dat file.
+
+* Add "special Z" values and corresponding columns for R and rho to the
+  stratum_psi output file of efit2dg2d.web,
+  - In conjunction, the R, Z of the magnetic axis were added to
+    efititp.hweb and psiinterp.web to assist in mapping plasma parameters.
+
+* Expanded the section on data accumulation in the User's Manual.
+
+V4_9 GIT LOG
+
+  4147ce2  (HEAD -> refs/heads/master) (2019-09-18 10:54:32 -0400, Daren P.
+          Stotler) 
+          
+          Updating the background netCDF file since it has a new variable;
+          updating the output netCDF file for consistency. 
+
+examples/Couette_flow/bk_bgktest.nc
+examples/Couette_flow/degas2_bgktest.nc
+
+  276c486  (2019-09-18 10:53:01 -0400, Daren P. Stotler) 
+          
+          Minor cleanup. 
+
+src/Makefile.depends
+
+  15ec802  (2019-09-18 10:52:30 -0400, Daren P. Stotler) 
+          
+          Had neglected to update this section for the compressed zone_frags. 
+
+src/readgeometry.web
+
+  830088b  (2019-09-18 10:51:29 -0400, Daren P. Stotler) 
+          
+          Move the freeing of the flight_frag arrays outside the BGK loop since
+          these are used in subsequent iterations. 
+
+src/doflights.web
+src/flighttest.web
+
+  6d8cff5  (2019-09-18 10:48:31 -0400, Daren P. Stotler) 
+          
+          Set the starting point of the chord for use in the CHORD_DATA section;
+          this is not set when the compressed zone_frags are used. 
+
+src/postdetector.web
+
+  28cc4a3  (2019-09-11 10:26:10 -0400, Daren P. Stotler) 
+          
+          Main improvement is an expanded section on data accumulation. Also
+          cleaned up some of the introductory material. 
+
+Doc/degas2_all.html
+Doc/degas2_all.pdf
+Doc/degas2_all.ps
+Doc/degas2_all.tex
+
+  69620dc  (2019-09-11 10:24:44 -0400, Daren P. Stotler) 
+          
+          Retypeset these just in case; don't think there are any actual
+          changes. 
+
+Doc/defineback.pdf
+Doc/gpicamera.pdf
+Doc/postdetector.pdf
+
+  9800f60  (2019-09-11 10:23:59 -0400, Daren P. Stotler) 
+          
+          Retypeset for the addition of the flight_frag class. 
+
+Doc/classes.pdf
+
+  3e6b2be  (2019-09-11 10:22:06 -0400, Daren P. Stotler) 
+          
+          Add R, Z of the magnetic axis to the class so they can be used for
+          interpolation. 
+
+src/Makefile
+src/efititp.hweb
+src/psiinterp.web
+
+  20da362  (2019-09-11 10:20:57 -0400, Daren P. Stotler) 
+          
+          Cleaned up indentation in these files; no other changes. 
+
+Doc/definegeometry2d.pdf
+src/acc_output.web
+src/definegeometry2d.web
+src/efit2dg2d.web
+
+  bad10bf  (2019-09-11 10:17:32 -0400, Daren P. Stotler) 
+          
+          Correction: the UEDGE file name does not have to end in .u. 
+
+Doc/uedge_degas2_coupling.pdf
+Doc/uedge_degas2_coupling.tex
+
+  9ec9756  (2019-09-11 10:16:34 -0400, Daren P. Stotler) 
+          
+          Correct the location of the input data file. 
+
+data/h2dis_n3.input
+
+  fb3a19c  (2019-09-11 10:16:03 -0400, Daren P. Stotler) 
+          
+          Add the corrected cross section and reaction rate fits for H2
+          dissociation, (2.2.5) in Janev et al.  Note that the fits in the book
+          are incorrect.  The correct fits were in the preprint and were
+          provided by Detlev Reiter. 
+
+Aladdin/data/janev.dat
+
+  90020db  (refs/remotes/gh_origin/master) (2019-05-22 10:37:39 -0400, Daren P.
+          Stotler) 
+          
+          The "Running" document updated for more recent compiler and library
+          versions.  Edited the README to note the current licensing URL and the
+          location of the Git repo. 
+
+00README
+Doc/Running_DEGAS2_at_PPPL.txt
+Doc/uedge_degas2_coupling.pdf
+Doc/uedge_degas2_coupling.tex
+
+  e881f3b  (2019-02-06 10:43:25 -0500, Daren P. Stotler) 
+          
+          Had left some things out that caused problems with larger numbers of
+          contours. 
+
+src/efit2dg2d.web
+
+  2bf5b66  (2018-11-13 15:21:27 -0500, Daren P. Stotler) 
+          
+          Add "special Z" values and corresponding columns for R and rho to the
+          stratum_psi output file.  Also set up machinery to sort these entries
+          in order of increasing psi since will not be so in general. On the
+          other hand, the get_n_t routine being used at this time did NOT
+          require the psi values be in order.  Can then justify the sort by
+          stating that the equivalent IDL routine automatically generated
+          stratum_psi files with increasing psi values. 
+
+src/efit2dg2d.web
+
+  a5e0659  (2018-11-07 10:04:13 -0500, Daren P. Stotler) 
+          
+          Modify the interpolation so that it works with the difference between
+          the local and axisymmetric values rather than just with the local by
+          itself.  Also, remove a bunch of older, commented-out code. 
+
+src/xgc1_gpi.web
+
+  8aa4b09  (2018-11-07 10:02:48 -0500, Daren P. Stotler) 
+          
+          Time dependent testing showed that the weight of snapshot flights had
+          to be scaled according to the source group weight. 
+
+src/score.web
+
+  c434e0b  (2018-11-07 10:01:01 -0500, Daren P. Stotler) 
+          
+          Modify output format to accommodate larger meshes. 
+
+src/poly_to_tri.web
+
+  9dbd661  (2018-11-07 09:59:45 -0500, Daren P. Stotler) 
+          
+          Begin adding options for the NSTX GPI application. 
+
+src/efit2dg2d.web
+
+  b53e8dd  (2018-11-07 09:58:11 -0500, Daren P. Stotler) 
+          
+          Numerous bug fixes arising during initial testing. 
+
+src/acc_output.web
+
+  d13b52b  (2018-11-07 09:50:36 -0500, Daren P. Stotler) 
+          
+          Tweak the set up of mesh polygons to better deal with triangle meshes
+          in the Sonnet format. 
+
+src/definegeometry2d.web
+
+  fd9c288  (2018-04-05 12:03:52 -0400, Daren P. Stotler) 
+          
+          Initial version of a new routine capable of combining two output
+          files.  In particular, this will be able to effectively integrate over
+          multiple time steps in a time dependent run with changing background
+          and sources. 
+
+src/Makefile
+src/Makefile.depends
+src/acc_output.web
+src/netcdf.hweb
+
+  c26f9a7  (2018-03-29 15:34:49 -0400, Daren P. Stotler) 
+          
+          Profiling showed that with sampling moved to the master, the calls to
+          locate_point were a severe bottleneck.  At least in the case of a
+          surface source, this modification moves the most time consuming part
+          of the process to the slaves. 
+
+src/flight_frag.hweb
+src/sources.web
+
+  a19f10d  (2018-03-29 15:32:42 -0400, Daren P. Stotler) 
+          
+          Bug fix: had forgotten to remove original line creating the background
+          netCDF file. 
+
+src/writeback.web
+
+  70b8051  (2018-03-29 15:31:56 -0400, Daren P. Stotler) 
+          
+          Add timing data to MPI_messages and MPI_slave_messages diagnostic
+          output. 
+
+src/doflights.web
+
+  dbe5aae  (2018-03-29 15:31:12 -0400, Daren P. Stotler) 
+          
+          Adapt other routines to use compressed zone_frags data. 
+
+src/boxgen.web
+src/btopdetector.web
+src/geomtesta.web
+src/postdetector.web
+src/readgeometry.web
+src/score.web
+src/ucd_plot.web
+
+  cf38d73  (2018-03-22 10:18:16 -0400, Daren P. Stotler) 
+          
+          Initial modifications to allow output of postdetector images via the
+          netCDF objects defined in postdetector.hweb. 
+
+src/Makefile
+src/Makefile.depends
+src/postdetector.hweb
+src/postdetector.web
+
+  3f2214b  (2018-03-20 09:16:40 -0400, Daren P. Stotler) 
+          
+          Bug fixes associated with the zone_frags compression implementation. 
+
+src/dediagsetup.web
+src/score.web
+
+  eda5b66  (2018-03-20 09:15:44 -0400, Daren P. Stotler) 
+          
+          Allocation problems identified with FORTRAN90. 
+
+src/xgc1_gpi.web
+
+  461076f  (2018-03-16 12:50:24 -0400, Daren P. Stotler) 
+          
+          Initial implementation of compression of de_zone_frags, with the
+          He_GPI example being used for testing. 
+
+src/dediagsetup.web
+src/def2ddetector.web
+src/detector.hweb
+src/geomsetup.web
+src/gpicamera.web
+src/score.web
+
+  dd8273c  (2018-03-16 12:49:01 -0400, Daren P. Stotler) 
+          
+          Changes to allow HDF5 / netcdf4 format output, snapshot, and
+          background netCDF files. 
+
+src/doflights.web
+src/netcdf.hweb
+src/writeback.web
+
+  d636fc7  (2018-03-13 13:19:02 -0400, Daren P. Stotler) 
+          
+          Minor bug fixes and documentation improvements. 
+
+src/doflights.web
+src/flight_frag.hweb
+src/sources.hweb
+src/stat.web
+
+  66d4916  (2018-02-19 16:02:47 -0500, Daren P. Stotler) 
+          
+          Multiple modifications needed to move the sampling operation to the
+          master process so that the "so" (source) data do not need to be
+          propagated to the slaves in MPI runs.  The first half of these changes
+          are associated with the move of the sampling process itself and the
+          propagation of the resulting particle data to the slaves via the
+          flight_frag package.  The second half are associated with the almost
+          complete elimination of the source common blocks from the flight
+          tracking routines.  The common blocks are retained in some routines
+          for use by the master and to allow the time dependence parameters to
+          be accessed by subroutine follow. 
+
+src/Makefile.depends
+src/classes.hweb
+src/collide.web
+src/doflights.web
+src/elementread.web
+src/flight.hweb
+src/flight.web
+src/flight_frag.hweb
+src/flighttest.web
+src/score.web
+src/sources.web
+src/sourcetest.web
+
+  333b44c  (2018-02-19 15:57:36 -0500, Daren P. Stotler) 
+          
+          Needed to add these to get the macros in flight_frag.hweb to work
+          properly. 
+
+src/random.hweb
+
+  d885102  (2018-02-19 15:56:31 -0500, Daren P. Stotler) 
+          
+          Added (and set default) so_time_initialization, a flag indicating a
+          new operating mode used to establish a set of steady state snapshot
+          particles that can be used as starting points for a time varying run. 
+          Associated changes to flight.web are in a separate commit. 
+
+src/defineback.web
+src/readbackground.web
+src/sources.hweb
+
+  852254b  (2018-02-19 15:53:44 -0500, Daren P. Stotler) 
+          
+          Added a dump of snapshot estimator of the neutral density, when
+          present, along with its relative standard deviation. 
+
+src/ucd_plot.web
+
+  ed144a7  (2018-01-05 15:27:19 -0500, Daren P. Stotler) 
+          
+          The previous version of xgc1_gpi.web appears to correspond to the
+          manually labeled "v5", not the most recent.  Copied over the latter
+          and made the same changes to the preamble. 
+
+src/xgc1_gpi.web
+
 V4_8 RELEASE NOTES
 
 * Added ehr5.dat and corresponding netCDF files.
