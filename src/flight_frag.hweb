@@ -10,10 +10,19 @@
 @ Established this entity so that in parallel runs, the master
 can sample the initial positions and velocities of all flights,
 so that the source descriptions do not have to be propagated
-to all of the slaves.  In some cases, e.g., the ``snapshot''
-source in time dependent runs, the source data can occupy
-more memory than the geometry or output, needlessly burdening
-the slaves.
+to all of the slaves.  This was introduced to address a problem
+with the ``snapshot'' source in time dependent runs, in which 
+the source data were occupying more memory than the geometry
+or output, leading to unacceptable memory requirements.  
+
+Subsequent testing showed, however, that this approach was      
+not satisfactory for other runs with puff or plate sources.
+To this end, the |MASTER_SAMPLE| switch was introduced.   Set
+to ``no'' in the Makefile.local, the source class data are 
+broadcast to the slaves and the source particles are sampled
+there.  Set to ``yes'' causes all sampling to be performed on 
+the master; the bulk of the sources arrays are kept only on the
+master.
 
 @m ff_decls integer ff_temp
 

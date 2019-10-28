@@ -234,11 +234,24 @@ bgk_loop: continue
    These were originally in subroutines |clear_output| and
    |do_flights_slave|.  But, that needed them intact for
    subsequent BGK iterations.
+
+   Note that in the |MASTER_SAMPLE| = no case, with MPI,
+   the |flight_frag| arrays are not allocated on the master
+   and, hence, cannot be freed.
 */
+@#if (MPI && !MASTER_SAMPLE)
+      if (!mpi_master) then
+         var_free(ff_particles_int)
+         var_free(ff_particles_float)
+         var_free(ff_ran_index)
+         var_free(ff_ran_array)
+      end if
+@#else
       var_free(ff_particles_int)
       var_free(ff_particles_float)
       var_free(ff_ran_index)
       var_free(ff_ran_array)
+@#endif
 
       return
       end

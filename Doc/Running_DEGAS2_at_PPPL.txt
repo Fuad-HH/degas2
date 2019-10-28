@@ -1,8 +1,8 @@
 1. Download the DEGAS 2 tarball and unpack in your home directory.
-   The most recent "stable" version is 4.8.  
+   The most recent "stable" version is 4.9.  
    One can access the code directly on
    the cluster at /u/ftp/pub/degas2 or via the URL
-   ftp://ftp.pppl.gov/pub/degas2/degas2-4.8.tar.gz
+   ftp://ftp.pppl.gov/pub/degas2/degas2-4.9.tar.gz
 
 2. Begin reading the User's Manual, degas2_all.pdf in the degas2/Doc
    subdirectory.  The most useful chapters are 2 and 3.  Note that
@@ -17,18 +17,19 @@
    you're using a different shell, put it in the appropriate place so
    that these commands get invoked automatically.
 
-module load pgf/17.3
+		module load intel/2019.u3
 # These two are for HDF5, which is in turn used by
 # netCDF (3/19/2018).
-module load szip
-module load zlib
-module load hdf5-serial
-module load netcdf-c/4.4.1
-module load netcdf-fortran/4.4.4
-module load openmpi
-module load silo
-module load totalview
-
+		module load szip       
+		module load zlib  
+                module load hdf5-serial
+		module load hdf
+		module load curl
+		module load netcdf-c
+		module load netcdf-fortran
+                module load openmpi
+		module load silo
+		module load totalview
 #
 # This was needed at some point for large parallel jobs
 #
@@ -46,24 +47,17 @@ module load totalview
    /u/dstotler/bin.
 
    The Makefile.local indicated below automatically passes to the compiler
-   the include and library directories pointed to by the modules.  It
-   also references HDF5 and Silo libraries that I have compiled, although
-   there are also modules (untested) available for these libraries.
+   the include and library directories pointed to by the modules. 
 
 4. Create a DEGAS 2 run directory as in section 3.6 of the manual.  On
    the PPPL cluster, this should be called LINUX64.
 
 5. Copy /u/dstotler/degas2/LINUX64/Makefile.local into that directory.
-   Near the bottom of this file, the environment variable $(HOME)
-   appears twice.  However, these point to libraries that I have
-   installed for use with DEGAS 2.  For these pointers to work, you
-   should replace $(HOME) with /u/dstotler.
 
-6. Similarly, in your Makefile (in the src directory), set 
+6. In your Makefile (in the src directory), set 
    TRIDIR=/u/dstotler/Triangle 
    However, Triangle is particularly easy to download and install,
-   which one
-   can do as described in Sec. 3.2.4 of the User's Manual.
+   which one can do as described in Sec. 3.2.4 of the User's Manual.
 
 7. Try running the Analytic_fluid_bench example (Sec. 3.7.1).  This 
    will check your installation and get you more familiar with the code. 
@@ -104,10 +98,13 @@ module load totalview
     To compile or debug serial code after this, you will need to reset MPI=no,
     do "gmake clean" and remake as needed.
 
-    For interactive batch jobs, use the salloc command and select dawson as the
-    target:
+    For interactive batch jobs, use the salloc command, e.g., 
 
-    salloc -n 20 -p dawson
+    salloc -n 20 -p general -t 5:00:00
+
+    With the "general" queue, the batch system will choose the
+    actual system to be used; the 5:00:00 is the time allotted
+    to the job.
 
     The user should assess the computational requirements for the run
     by timing a single processor run with about 1000 flights (via the

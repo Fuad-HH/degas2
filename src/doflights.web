@@ -168,6 +168,9 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
       else
          assert('Illegal value of so_sampling' == ' ')
       end if
+@#if MPI && !MASTER_SAMPLE
+      mpi_broadcast(so_direct_delta) 
+@#endif
 @#if 1
       stat_comp_flt=TRUE
       stat_comp_frag=TRUE // Set using |nfrag| and |nflights|?
@@ -846,6 +849,7 @@ parallel and serial cases.
       ff_decls
       @<Memory allocation interface@>
 
+@#if MASTER_SAMPLE
       if (init) then
          ff_particles_dim=nflights
          var_alloc(ff_particles_int)
@@ -861,8 +865,9 @@ parallel and serial cases.
          ff_particles_dim=nflights
       end if
       ff_number_particles=nflights
+@#endif
 /*
-   Use a local |seed| an advance one flight at a time,
+   Use a local |seed| and advance one flight at a time,
    as was done previously in subroutine |do_flights|.
 */
       rn_seed_copy(seed0,seed)
@@ -913,6 +918,7 @@ parallel and serial cases.
          call MPI_send(nflights,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
          return
       end if
+@#if MASTER_SAMPLE
 /*
    Sample the source particles and pack them into the 
    |flight_frag| object, conveyed here by |ff_common|.
@@ -941,6 +947,16 @@ parallel and serial cases.
       tag++
       call MPI_send(ff_ran_array,array_size(ff_ran_array),mpi_real,
      $              slave,tag,MPI_COMM_WORLD,mpi_err)
+@#else
+      tag=100
+      call MPI_send(nflights,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(nstart,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(isource,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      tag++
+      call MPI_send(seed,ran_s,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+@#endif
       
       return
       end
@@ -1101,6 +1117,7 @@ results back to the master.  It is only defined for MPI.
       sa_common
       ff_common
       pr_common
+      so_common
       tl_common
       sn_common
       implicit_none_f90
@@ -1130,6 +1147,9 @@ results back to the master.  It is only defined for MPI.
       sn_particles_dim=mem_inc
       var_alloc(sn_particles_float)
       var_alloc(sn_particles_int)
+@#if !MASTER_SAMPLE
+      mpi_broadcast(so_direct_delta)
+@#endif
 
 @#if MPI_slave_messages
       assert((mpi_rank > 0) && (mpi_rank < 1000000))
@@ -1170,6 +1190,7 @@ loop: continue
          var_realloc(ff_ran_array,ff_particles_dim,ff_number_particles)
          ff_particles_dim=ff_number_particles
       end if
+@#if MASTER_SAMPLE
       call MPI_recv(ff_particles_int,array_size(ff_particles_int),mpi_int,
      $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
       tag++
@@ -1181,6 +1202,19 @@ loop: continue
       tag++
       call MPI_recv(ff_ran_array,array_size(ff_ran_array),mpi_real,
      $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+@#else
+      nflights=ff_number_particles
+      call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      tag++
+      call MPI_recv(isource,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      tag++
+      call MPI_recv(seed,ran_s,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+/*
+   Sample the source particles and pack them into the 
+   |flight_frag| object, conveyed here by |ff_common|.
+*/
+      call setup_flight_frag(nstart,nflights,so_args(isource),seed)
+@#endif
 @#if MPI_slave_messages
       write(diskout+3,*) ' End of receive calls; tag = ',tag
       call date_time(time)

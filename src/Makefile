@@ -83,6 +83,7 @@ REXEC=ssh
 # GRAPH_FILE=HDF4
 # GRAPH_FILE=SILO
 GRAPH_FILE=SILO_HDF5
+MASTER_SAMPLE=no
 
 # Figure out the system type
 SYSTEM:=$(shell uname)
@@ -166,8 +167,8 @@ ifeq ($(TARGET),LINUX)
   FORTRAN90=no
 endif
 ifeq ($(TARGET),LINUX64)
-  COMPILER=PGROUP
-  FORTRAN90=no
+  COMPILER=INTEL
+  FORTRAN90=yes
 #
 # This defaults to pgcc if we don't override
 #
@@ -298,7 +299,7 @@ ifeq ($(COMPILER),INTEL)
   TANGLEFLAGS+=-mINTEL
   FCF77=ifort
   FCF90=ifort
-  FFLAGS+=-pc64
+  FFLAGS+=-pc64 -heap_arrays
 endif
 
 ifeq ($(GRAPH_FILE),HDF4)
@@ -360,6 +361,10 @@ ifdef CROSSCOMPILE
   ifeq ($(REMOTESYS),AIX)
     SYSDEPC=yes
   endif
+endif
+
+ifeq ($(MASTER_SAMPLE),yes)
+  TANGLEFLAGS+=-mMASTER_SAMPLE
 endif
 
 ifeq ($(SYSDEPC),yes)

@@ -162,19 +162,25 @@ Introduction\ldots
       cm_mpibcast
       bk_mpibcast
 /*
-   The source data are now primarily kept on the master.  Selected source
-   parameters are instead carried via the |flight| class (via |flight_frag|).  
-   The global parameters characterizing time variation are passed down
-   explicitly; these are needed only in subroutine |follow|.
+   The choice of performing the source sampling on the master or slave
+   is controlled by this switch.  In either case, the post-sampling
+   source parameters are carried via the |flight| and |flight_frag|
+   classes.
 */
-@#if 0
-      so_mpibcast                       
-@#endif
+@#if MASTER_SAMPLE
+/*
+   In the case of master sampling, the source data are primarily kept on the master.  
+   We only need to broadcast theparameters characterizing time variation;
+   these are needed only in subroutine |follow|.
+*/
 @#if MPI
       mpi_broadcast(so_time_dependent) 
       mpi_broadcast(so_time_initial)
       mpi_broadcast(so_time_final)
       mpi_broadcast(so_time_initialization)
+@#endif
+@#else
+      so_mpibcast                       
 @#endif
 
       return
