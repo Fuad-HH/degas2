@@ -1,3 +1,68 @@
+
+V4_9a RELEASE NOTES
+
+* Source sampling by the master in MPI runs ended up slowing down some
+  runs (e.g., the Couette flow example) dramatically.
+  - Remedied this by setting up a hybrid scheme controlled by the
+    MASTER_SAMPLE switch in Makefile.
+  - The default is set to "no", meaning that sampling of the source
+    takes place on the slave processors.
+
+* Following a consultation with PPPL software engineers, the default
+  compiler was changed from PGROUP to INTEL.
+  - Users can override this by inserting "COMPILER=PGROUP" in the
+    Makefile.local file.
+
+* Emission rate data for the Balmer-gamma line was added to the
+  hionize5 and hrecombine5 data files,
+  - Use the "DEPENDENT VARIABLE" "emission_rate_Balmer_gamma" in
+    the input file for tallysetup.
+
+V4_9a GIT LOG
+
+  249907a  (HEAD -> refs/heads/master) (2019-11-06 12:10:07 -0500, Daren P.
+          Stotler) 
+          
+          Add Balmer-gamma line to the hionize5 and hrecombine5 data files. 
+
+data/hionize5.nc
+data/hrecombine5.nc
+src/reactionwrite.web
+
+  01d6883  (2019-11-06 12:09:13 -0500, Daren P. Stotler) 
+          
+          Remaining bug fix from implementation of MASTER_SAMPLE option. 
+
+src/doflights.web
+
+  4ef4cf5  (2019-11-06 12:08:34 -0500, Daren P. Stotler) 
+          
+          Remove duplicate declaration in Couette flow specific code. 
+
+src/sources.web
+
+  e054c6b  (2019-10-28 13:21:35 -0400, Daren P. Stotler) 
+          
+          Following some profiling, decided that "master sampling" may slow the
+          code down in too many situations.  Implementing here a hybrid scheme
+          controlled by the MASTER_SAMPLE switch in the Makefile.  The default
+          is set to "no".  At the same time, switch the default compiler to
+          Intel, based on a discussion with PPPL software engineers.  Also
+          making FORTRAN90=yes the default.  The update of the CMod_1D netCDF
+          files should have been done in the last release; the background netCDF
+          file has one new variable.  Updated the output netCDF file for
+          consistency. 
+
+Doc/Running_DEGAS2_at_PPPL.txt
+examples/CMod_1D/bk_oned.nc
+examples/CMod_1D/degas2_oned_out.nc
+src/Makefile
+src/doflights.web
+src/elementread.web
+src/flight_frag.hweb
+src/flighttest.web
+src/sysdep.hweb
+
 V4_9 RELEASE NOTES
 
 * The bulk of the modifications to the code since V4_8 are associated with
