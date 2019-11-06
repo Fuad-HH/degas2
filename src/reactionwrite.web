@@ -44,7 +44,7 @@ format with a complete specification of the reaction.
 
       integer i,j,k,l,fileid,iline                      // Local
       real delta,density,eionize,a32,e32,a21,e21,
-     &     a42,e42
+     &     a42,e42,a52,e52
       character*FILELEN fileout
       character*LINELEN tag,description
 
@@ -57,9 +57,9 @@ format with a complete specification of the reaction.
       xs_name=name
       xsection_version=version
       if (index(name,'ionize') != 0) then
-         xs_num_dep_var=6
-      else if (index(name,'recombine') != 0) then
          xs_num_dep_var=7
+      else if (index(name,'recombine') != 0) then
+         xs_num_dep_var=8
       end if
 
       do i=1,xs_num_dep_var
@@ -138,6 +138,11 @@ format with a complete specification of the reaction.
       xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
       xs_mult[0,xs_num_dep_var]=const(1.0,-13)
 
+      xs_num_dep_var++
+      xs_var[0,xs_num_dep_var]='emission_rate_Balmer_gamma'
+      xs_units[0,xs_num_dep_var]='ergs*cm^3/s'
+      xs_mult[0,xs_num_dep_var]=const(1.0,-13)
+
       do i=xs_num_dep_var+1,xs_num_dep_var+3
          xs_units[0,i]='Angstroms'
          xs_mult[0,i]=const(1.,-10)
@@ -178,15 +183,17 @@ format with a complete specification of the reaction.
       xs_max[1,xs_num_dep_var]=const(5.15,-27)  // 5.0083e-27
 /*
   Using a single, isotope independent, wavelength
-  for Lyman-alpha and Balmer-beta for now in lieu of allowing for 
-  multiple ``generic'' lines in the ionization routines.
+  for Lyman-alpha, Balmer-beta, and Balmer-gamma for now in 
+  lieu of allowing for multiple ``generic'' lines in the ionization routines.
 */
-      do iline=1,2
+      do iline=1,3
          xs_num_dep_var++
          if (iline == 1) then
             xs_var[0,xs_num_dep_var]='wavelength_Lyman_alpha'
-         else
+         else if (iline == 2) then
             xs_var[0,xs_num_dep_var]='wavelength_Balmer_beta'
+         else 
+            xs_var[0,xs_num_dep_var]='wavelength_Balmer_gamma'
          end if
          xs_units[0,xs_num_dep_var]='Angstroms'
          xs_mult[0,xs_num_dep_var]=const(1.,-10)
@@ -315,6 +322,18 @@ format with a complete specification of the reaction.
       end do
 
       xs_num_dep_var++
+      e52=eionize*(one/two**2 - one/(const(5.)**2))
+      a52=const(2.530,6)
+      call file_read(filein,xs_num_dep_var,trim(tag)\/' n=5 / n=1')
+      do j=0,xs_tab_index[2,xs_num_dep_var]-1
+         density=xs_min[2,xs_num_dep_var]*delta**j
+         assert(density > zero)
+         do i=0,xs_tab_index[1,xs_num_dep_var]-1
+            xs_data_table(i,j,0,xs_num_dep_var)*=e52*a52/density
+         end do
+      end do
+
+      xs_num_dep_var++
       xs_data_table(0,0,0,xs_num_dep_var)=zero
       xs_data_table(1,0,0,xs_num_dep_var)=const(6.56280,3)
       xs_data_table(2,0,0,xs_num_dep_var)=const(6.56280,3)
@@ -337,6 +356,9 @@ format with a complete specification of the reaction.
 
       xs_num_dep_var++
       xs_data_table(0,0,0,xs_num_dep_var)=const(4.861,3)
+
+      xs_num_dep_var++
+      xs_data_table(0,0,0,xs_num_dep_var)=const(4.341,3)
 
       do i=xs_num_dep_var+1,xs_dep_var_max
          do j=0,xs_tab_index[3,i]-1
