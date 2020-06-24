@@ -28,7 +28,7 @@ endif
 # if needed.
 TRIDIR=../triangle
 
-FWEB_DIR=../fweb/Web
+FWEB_DIR=$(DEGASROOT)/fweb/Web
 
 # Default settings
 FCF77=f77
