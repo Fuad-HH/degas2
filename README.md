@@ -1,4 +1,4 @@
-This is (currently) a fork of dstotler's DEGAS2 repository. Here, FWEB is included as a submodule.
+This is (currently) a fork of dstotler's DEGAS2 repository. Here, FWEB is included as a dependency.
 
 To install:
 - In .bashrc or wherever you set environment variables, Set DEGASROOT to the directory you installed DEGAS (the directory in which this file is located)
