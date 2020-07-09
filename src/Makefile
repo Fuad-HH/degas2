@@ -26,7 +26,7 @@ endif
 
 # Will instruct users to put Triangle here, but allow them to put elsewhere
 # if needed.
-TRIDIR=../triangle
+TRIDIR=$(DEGASROOT)/triangle
 
 FWEB_DIR=$(DEGASROOT)/fweb/Web
 

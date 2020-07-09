@@ -7,4 +7,4 @@ To install:
 - Full configure scripts are not supported. Instead, make sure your compiler is used in src/Makefile and src/Makefile.local.
 - Create a run directory in DEGASROOT named after your system (e.g. LINUX64, MACOSX, etc.). Copy src/Makefile and src/Makefile.local to this new directory.
 - Go into that run directory and type "make randomtest" and run the associated exectutable. It should have worked.
-- Further documentation is in the Doc directory, especially degas2_all.pdf and  Running_DEGAS2_at_PPPL.txt
+- Some further configuration may be necessary. For documentation see especially degas2_all.pdf and  Running_DEGAS2_at_PPPL.txt in the Doc directory.
