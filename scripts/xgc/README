@@ -1,0 +1,21 @@
+These scripts are used to install DEGAS2 and configure it for particular runs of XGC. When first installing, run
+
+./install_d2_for_xgc.sh [SYSTEM]
+
+SYSTEM is the degas2 name of the system architecture. Defaults to LINUX64.
+
+This should install the executables in degas2/LINUX64/
+
+XGC_WORKDIR is the working directory of the xgc simulation. Input file is assumed to be there and named "input". CASENAME is the base name for the geometry files (the .node and .ele files, without the extension).
+
+A directory called degas2files will be created in XGC_WORKDIR, which will contain the input and output for the DEGAS2 executables. The actual executables exist in the degas2/$SYSTEM directory, but the input file will read and write to $XGC_WORKDIR/degas2files.
+
+At this point, configure your shell startup script (e.g. ~/.bashrc) to define the environment variable DEGASROOT to be the directory [XGC_INSTALL_DIR]/libs/degas2/$SYSTEM. This will tell XGC to look for the DEGAS2 library file. Recompile xgc. 
+
+To set up a particular run, use:
+
+# ./setup_run_for_xgc.sh XGC_WORKDIR CASENAME
+
+This will scour the xgc input file for appropriate parameters (isotope, recycling coefficient, etc.) and write the degas2 input files accordingly. This may take a while due to definegeometry2d not being parallelized, so it might be worth submitting as a job to scheduler.
+
+

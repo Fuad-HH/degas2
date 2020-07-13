@@ -15,8 +15,8 @@ else
    SYSTEM=$1
 fi
 
-cd ../
-DEGASROOT=$PWD
+cd ../../
+export DEGASROOT=$PWD/$SYSTEM
 echo $SYSTEM > this_system
 mkdir $SYSTEM
 cd $SYSTEM
@@ -28,8 +28,8 @@ make defineback
 make randomtest
 ./randomtest
 ./datasetup
-cd ../scripts
+cd ../scripts/xgc
 
 echo "*** Installation complete. ***"
-echo "Add the line export DEGASROOT=$DEGASROOT to your shell init script (e.g., ~/.bashrc)"
+echo "Add the line export DEGASROOT=$DEGASROOT to your shell init script (e.g., ~/.bashrc). Recompile XGC."
 
