@@ -162,8 +162,8 @@ if current_node != wall_nodes_ordered[0]:
 Rwall = []
 Zwall = []
 for i in range(nwall):
-    Rwall.append(Rarray[wall_nodes_ordered[i]])
-    Zwall.append(Zarray[wall_nodes_ordered[i]])
+    Rwall.append(Rarray[wall_nodes_ordered[i]-1])
+    Zwall.append(Zarray[wall_nodes_ordered[i]-1])
 
 #plt.scatter(Rarray,Zarray,c='g',marker='.')
 plt.plot(Rwall,Zwall,"-")
