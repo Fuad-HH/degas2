@@ -15,6 +15,8 @@ pltfile= arg+".pdf"
 iline =0
 nwall = 0
 file = open(nodefilename)
+Rstring = []
+Zstring = []
 for line in file:
     if iline == 0:
         nnode = int(line.split()[0])
@@ -23,6 +25,9 @@ for line in file:
     elif iline+1 <= nnode:
         Rarray[iline-1] = line.split()[1]
         Zarray[iline-1] = line.split()[2]
+        Rstring.append(line.split()[1])
+        Zstring.append(line.split()[2])
+
         wallflag = int(line.split()[3])
         if wallflag == 1:
             nwall +=1
@@ -177,7 +182,7 @@ f = open(aiffilename,"w")
 f.write("1\n")
 f.write(str(np.size(Rwall))+"\n")
 for idx in wall_nodes_ordered:
-    f.write(str(Rarray[idx])+" "+str(Zarray[idx])+"\n")
+    f.write(Rstring[idx]+" "+Zstring[idx]+"\n")
 f.close()
 
 
