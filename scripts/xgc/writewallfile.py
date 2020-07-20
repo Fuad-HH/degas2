@@ -111,7 +111,7 @@ def find_next_node(current_node,prev_node,wallnodes,walltriangles,Zvals,first):
             if (segment[1] in wallnodes) and (not (segment[1] in other_adjacent_triangle_vertices)) and (segment[1] != prev_node): 
                 if first:
                     # Ensure we start by going clockwise from the low field side
-                    if Zvals[segment[1]] > Zvals[current_node]:
+                    if Zvals[segment[1]-1] > Zvals[current_node-1]:
                         next_node=segment[1]
                         first = False
                 elif (next_node != -1):
