@@ -147,8 +147,9 @@ for line in file:
     iline+=1
 file.close()
 
-# Start at innermost (least R) node and go clockwise
-inner=np.argmin(Rwall)
+# Start at the inboard midplane
+Rmin = np.min(Rwall)
+inner = np.argmin(np.sqrt( np.square(Rwall-Rmin) + np.square(Zwall)))
 current_node = wallnodes[inner]
 prev_node = current_node
 first = True
@@ -182,7 +183,7 @@ f = open(aiffilename,"w")
 f.write("1\n")
 f.write(str(np.size(Rwall))+"\n")
 for idx in wall_nodes_ordered:
-    f.write(Rstring[idx]+" "+Zstring[idx]+"\n")
+    f.write(Rstring[idx-1]+" "+Zstring[idx-1]+"\n")
 f.close()
 
 
