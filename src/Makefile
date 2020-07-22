@@ -20,15 +20,11 @@ NETCDFV2=no
 # The "root" of the degas2 tree, by default this is $HOME, so the .f files
 # are in ~/degas2/MACHINE.
 
-ifndef DEGASROOT
-  DEGASROOT=$(HOME)/degas2
-endif
+DEGASROOT=$(HOME)/src/degas2
 
 # Will instruct users to put Triangle here, but allow them to put elsewhere
 # if needed.
 TRIDIR=$(DEGASROOT)/triangle
-
-FWEB_DIR=$(DEGASROOT)/fweb/Web
 
 # Default settings
 FCF77=f77
@@ -58,8 +54,8 @@ ifndef HDF
 endif
 MPILIBS=
 PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
-FTANGLE=$(FWEB_DIR)/ftangle
-FWEAVE=$(FWEB_DIR)/fweave
+FTANGLE=ftangle
+FWEAVE=fweave
 LATEX=latex
 PDFLATEX=pdflatex
 # These are the old tangle flags -- not needed any more since we
@@ -206,7 +202,7 @@ utils: makemodule idtof Makefile
 
 ifeq ($(STANDALONE),yes)
 ifndef SOURCEDIR
-  SOURCEDIR=$(DEGASROOT)/src
+  SOURCEDIR=$(DEGASROOT)/degas2/src
 endif
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
@@ -219,9 +215,9 @@ endif
 	chmod a+x $@
 endif
 
-ALADIR=$(DEGASROOT)/Aladdin
+ALADIR=$(DEGASROOT)/degas2/Aladdin
 
-CRAMDIR=$(DEGASROOT)/CRAMD
+CRAMDIR=$(DEGASROOT)/degas2/CRAMD
 
 BSPLINEDIR=$(SOURCEDIR)/EFIT2dg2d
 
