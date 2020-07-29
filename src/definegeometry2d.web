@@ -1552,6 +1552,8 @@ be other requirements as well.
 @m mesh_west 4
 @m mesh_num_edges 4  // I.e., should equal last of the above!
 
+@m POLYGON_NC_FILE_TYPE NC_64_BIT
+
 @<Functions...@>=
       program definegeometry2d
       implicit_none_f77
@@ -2125,7 +2127,13 @@ eof:  continue
       var_alloc(sect_zone2)
 
       if (write_poly_nc == TRUE) then
+@#if (POLYGON_NC_FILE_TYPE == NC_CLASSIC)
          fileid=nccreate(trim(polygon_nc_file),NC_CLOBBER,nc_stat)
+@#elseif (POLYGON_NC_FILE_TYPE == NC_64_BIT)
+          fileid=nccreate(trim(polygon_nc_file),or(NC_CLOBBER,NF_64BIT_OFFSET),nc_stat)
+@#else
+         fileid=nccreate(trim(polygon_nc_file),or(NC_CLOBBER,NF_NETCDF4),nc_stat)
+@#endif
          g2_ncdef(fileid)
          call ncendef(fileid,nc_stat)
          g2_ncwrite(fileid)
@@ -2990,9 +2998,10 @@ wall_break: continue
          else
             assert('First cell of mesh degenerate' == ' ')
          end if
+@?omp parallel for default(private)
          do ix=1,nxd
             do iz=1,nzd
-               zone++
+               zone = ix*(nzd-1)+iz
                n=0
                increment_g2_num_polygons
 
@@ -3108,6 +3117,7 @@ wall_break: continue
      $              y_div,y_values)
             enddo
          enddo
+@?omp end parallel
 
 @* Set up mesh elements.  Convert the edges of the Sonnet or UEDGE
 mesh into nodes and elements analogous to those read in from the DG
