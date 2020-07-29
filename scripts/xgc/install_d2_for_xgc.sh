@@ -17,7 +17,7 @@ fi
 
 cd ../
 ./install_degas2.sh $SYSTEM $COMPILER
-cd $DEGASROOT
+cd $DEGASROOT/$SYSTEM
 make degas2_xgc.a
 
 echo "*** Installation complete. ***"

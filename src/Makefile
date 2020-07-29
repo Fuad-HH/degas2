@@ -638,7 +638,7 @@ readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
 
 definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O plotgeom.$O $(DETECTORFILE).$O
-definegeometry2d_libs = $(NETCDF) $(GRAPH_LIB)
+definegeometry2d_libs = $(NETCDF) $(GRAPH_LIB) $(OPENMP)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
 defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O $(PLASMAFILE).$O

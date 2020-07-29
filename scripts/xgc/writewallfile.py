@@ -4,7 +4,7 @@
 # George Wilkie, gwilkie@pppl.gov
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 arg = sys.argv[1]
 nodefilename= arg+".node"
@@ -171,13 +171,11 @@ for i in range(nwall):
     Rwall.append(Rarray[wall_nodes_ordered[i]-1])
     Zwall.append(Zarray[wall_nodes_ordered[i]-1])
 
-#plt.scatter(Rarray,Zarray,c='g',marker='.')
-plt.plot(Rwall,Zwall,"-")
-
-plt.xlabel("R")
-plt.ylabel("Z")
-plt.savefig(pltfile)
-plt.close()
+#plt.plot(Rwall,Zwall,"-")
+#plt.xlabel("R")
+#plt.ylabel("Z")
+#plt.savefig(pltfile)
+#plt.close()
 
 f = open(aiffilename,"w")
 f.write("1\n")
