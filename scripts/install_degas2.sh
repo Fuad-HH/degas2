@@ -18,6 +18,21 @@ else
    COMPILER=$2
 fi
 
+if [-z "$SYSTEM"]
+then
+   SYSTEM=LINUX64
+fi
+
+if [-z "$COMPILER"]
+then
+   COMPILER=gfortran
+fi
+
+if [-z "$MPI_OPT"]
+then
+   MPI_OPT=no
+fi
+
 cd ..
 export DEGASROOT=$PWD/$SYSTEM
 echo $SYSTEM > this_system
@@ -25,7 +40,25 @@ mkdir $SYSTEM
 cd $SYSTEM
 cp src/Makefile $SYSTEM/
 
-sed -i "s/COMPILER_OPT/$COMPILER/g" scripts/templates/Makefile.local | sed -i 's/MPI_OPT/on/g' > $SYSTEM/Makefile.local
+if [ $?NETCDF_C_HOME ]
+then
+   NCLIB=-L$NETCDF_C_HOME -lnetcdf
+   if [ $?NETCDF_FORTRAN_HOME ]
+      NCLIB=-L$NETCDF_FORTRAN_HOME -lnetcdff
+   else
+      echo "Need to specify NETCDF_FORTRAN_HOME along with NETCDF_C_HOME"
+   fi
+elif [ $?NETCDF_HOME ]
+   NCLIB=-L$NETCDF_HOME -lnetcdf -lnetcdff 
+else [ $SYSTEM -eq 'MACOS' ]
+   if test -f "/usr/local/lib/libnetcdff.a"
+      NCLIB=-L/usr/local/lib -lnetcdf -lnetcdff
+   else
+      echo "Need to specify NETCDF_HOME"
+   fi
+fi
+
+sed "s/COMPILER_OPT/$COMPILER/g" scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s/NCLIB/$NCLIB/g" > $SYSTEM/Makefile.local
 
 mkdir refdata
 
