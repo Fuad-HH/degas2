@@ -56,6 +56,13 @@ sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | s
 
 mkdir $DEGASROOT/refdata
 
+if [ ! -f $DEGASROOT/fweb/Web/ftangle ]
+then
+   cd $DEGASROOT/fweb/Web
+   ./configure
+   make
+fi
+
 cd $DEGASROOT/$SYSTEM
 make datasetup
 make problemsetup
@@ -76,7 +83,8 @@ sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/pmi.input > $D
 sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
 
 # Create reference data
-$DEGASROOT/$SYSTEM/datasetup
+cd $DEGASROOT/$SYSTEM
+./datasetup
 
 cd $DEGASROOT/scripts
 
