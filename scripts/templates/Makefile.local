@@ -1,6 +1,7 @@
 COMPILER=COMPILER_OPT
 MPI=MPI_OPT
 # MPI=yes
+NETCDF=NCLIB
 
 DEBUG=yes
 FORTRAN90=yes
@@ -13,7 +14,6 @@ ifeq ($(COMPILER),GFORTRAN)
   FORTRAN90=yes
   FCF90=gfortran
   FCMPI90=mpif90
-  NETCDF=-lnetcdff -lnetcdf
   OPENMP=-fopenmp
 endif
 ifeq ($(compiler),INTEL)
@@ -21,11 +21,10 @@ ifeq ($(compiler),INTEL)
   COMPILER=INTEL
   FCF90=ifort
   FCMPI90=mpif90
-  NETCDF=-lnetcdff -lnetcdf
   OPENMP=-qopenmp
 endif
 
-CROSSCOMPILE=
+unexport CROSSCOMPILE
 
 # NAG - No longer available at PPPL
 # FORTRAN90 = yes
@@ -55,7 +54,6 @@ CROSSCOMPILE=
 # Somehow between 10/6/2014 and 10/21/2014, libcurl was no
 # longer needed and causes a can't be found error.
 # NETCDF=-lnetcdff -lnetcdf -lcurl
-NETCDF=-L/usr/local/lib -lnetcdff -lnetcdf 
 
 HDF=-ldf -ljpeg -lz
 
