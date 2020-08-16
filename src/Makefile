@@ -26,7 +26,6 @@ NETCDFV2=no
 # Will instruct users to put Triangle here, but allow them to put elsewhere
 # if needed.
 TRIDIR=$(DEGASROOT)/triangle
-FWEBDIR=$(DEGASROOT)/fweb/Web
 
 # Default settings
 FCF77=f77
@@ -56,8 +55,8 @@ ifndef HDF
 endif
 MPILIBS=
 PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
-FTANGLE=$(FWEBDIR)/ftangle
-FWEAVE=$(FWEBDIR)/fweave
+FTANGLE=ftangle
+FWEAVE=fweave
 LATEX=latex
 PDFLATEX=pdflatex
 # These are the old tangle flags -- not needed any more since we

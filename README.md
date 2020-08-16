@@ -2,9 +2,7 @@ This is (currently) a fork of dstotler's DEGAS2 repository. Here, FWEB is includ
 
 To install:
 - In .bashrc or wherever you set environment variables, Set DEGASROOT to the directory in which you installed DEGAS2 (the directory in which this file is located)
-- Navigate to fweb/Web.
-- Type ./configure and make. Ensure ftangle and fweave are created as executables.
-- Full configure scripts are not supported. Instead, make sure your compiler is used in src/Makefile and src/Makefile.local.
-- Create a run directory in DEGASROOT named after your system (e.g. LINUX64, MACOSX, etc.). Copy src/Makefile and src/Makefile.local to this new directory.
-- Go into that run directory and type "make randomtest" and run the associated exectutable. It should have worked.
-- Some further configuration may be necessary. For documentation see especially degas2_all.pdf and  Running_DEGAS2_at_PPPL.txt in the Doc directory.
+- Full configure scripts are not supported. Instead, make sure your compiler is supported in scripts/templates/Makefile.local
+- Navigate to the scripts directory and run (for example, using gfortran on on Mac, with MPI enabled):
+   SYSTEM=MACOSX COMPILER=GFORTRAN MPI_OPT=yes ./install_degas2.sh
+- This should 
