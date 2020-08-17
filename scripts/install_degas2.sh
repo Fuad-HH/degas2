@@ -54,8 +54,6 @@ fi
 
 sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g" > $DEGASROOT/$SYSTEM/Makefile.local
 
-mkdir $DEGASROOT/refdata
-
 if [ ! -f $DEGASROOT/fweb/Web/ftangle ]
 then
    cd $DEGASROOT/fweb/Web
@@ -75,12 +73,12 @@ make tri_to_sonnet
 cd ..
 
 # Replace DATADIR with the appropriate directory in template input files
-cp $DEGASROOT/scripts/templates/elements.input refdata/
-cp $DEGASROOT/scripts/templates/species.input refdata/
-cp $DEGASROOT/scripts/templates/materials.input refdata/
-sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/reactions.input > $DEGASROOT/refdata/reactions.input
-sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/pmi.input > $DEGASROOT/refdata/pmi.input
-sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
+cp $DEGASROOT/scripts/templates/elements.input data/
+cp $DEGASROOT/scripts/templates/species.input data/
+cp $DEGASROOT/scripts/templates/materials.input data/
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/reactions.input > $DEGASROOT/data/reactions.input
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/pmi.input > $DEGASROOT/data/pmi.input
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
 cp $DEGASROOT/scripts/templates/d2problem.input $DEGASROOT/$SYSTEM
 cp $DEGASROOT/scripts/templates/d2tally.input $DEGASROOT/$SYSTEM
 
