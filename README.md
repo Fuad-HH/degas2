@@ -5,4 +5,5 @@ To install:
 - Full configure scripts are not supported. Instead, make sure your compiler is supported in scripts/templates/Makefile.local
 - Navigate to the scripts directory and run (for example, using gfortran on on Mac, with MPI enabled):
    SYSTEM=MACOSX COMPILER=GFORTRAN MPI_OPT=yes ./install_degas2.sh
-- This should 
+- This should compile the most common executables and provide an example set of input files in the MACOSX directory (in this example; for other SYSTEMs like LINUX64 or SUN, see the manual).
+- For more details see the user manual (doc/degas2_all.pdf) and the getting started guide (doc/Running_degas2_at_PPPL.txt).

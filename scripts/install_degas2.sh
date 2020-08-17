@@ -81,6 +81,8 @@ cp $DEGASROOT/scripts/templates/materials.input refdata/
 sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/reactions.input > $DEGASROOT/refdata/reactions.input
 sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/pmi.input > $DEGASROOT/refdata/pmi.input
 sed "s#DATADIR#$DEGASROOT/refdata#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
+cp $DEGASROOT/scripts/templates/d2problem.input $DEGASROOT/$SYSTEM
+cp $DEGASROOT/scripts/templates/d2tally.input $DEGASROOT/$SYSTEM
 
 # Create reference data
 cd $DEGASROOT/$SYSTEM
@@ -90,6 +92,6 @@ cd $DEGASROOT/scripts
 
 echo "*** Installation complete. ***"
 echo "Add the line export DEGASROOT=$DEGASROOT to your shell init script (e.g., ~/.bashrc)."
-echo "Template input files (degas2.in, d2problem.input, d2tally.input), which point to semipermanent reference data created by datasetup, are in the directory $DEGASROOT/LINUX64"
+echo "Example input files (degas2.in, d2problem.input, d2tally.input), which point to semipermanent reference data created by datasetup, are in the directory $DEGASROOT/LINUX64. Replace WORKDIR in degas2.in where necessary."
 
 
