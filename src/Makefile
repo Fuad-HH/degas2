@@ -24,7 +24,7 @@ DEGASROOT=$(HOME)
 
 # Will instruct users to put Triangle here, but allow them to put elsewhere
 # if needed.
-TRIDIR=/u/dstotler/Triangle
+TRIDIR=$(HOME)/Triangle
 
 # Default settings
 FCF77=f77
@@ -54,8 +54,8 @@ ifndef HDF
 endif
 MPILIBS=
 PVM=-L$(PVM_ROOT)/pvm3/lib/$(PVMARCH) -lfpvm3 -lpvm3
-FTANGLE=/u/dstotler/bin/ftangle
-FWEAVE=/u/dstotler/bin/fweave
+FTANGLE=ftangle
+FWEAVE=fweave
 LATEX=latex
 PDFLATEX=pdflatex
 # These are the old tangle flags -- not needed any more since we
