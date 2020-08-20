@@ -122,11 +122,8 @@ so that their array indexing gets handled correctly.
       @<Memory allocation interface@>
 
       var_alloc(zone_frags)
-/*
-   This is the vertex of the B-top array.
-*/
 
-      write(stdout,*) '* Setting up MICER geometry'
+      write(stdout,*) '* Setting up MICER geometry for fscope and spec'
       if (detector_total_views > 0) then
          do view=1,micer_views
             de_view_algorithm[view]=de_algorithm_uniform
@@ -149,7 +146,16 @@ so that their array indexing gets handled correctly.
          do i=1,num
             grp_views[i]=i
          end do
-         call de_grp_init('MICER chords',num,var,tab_index,var_min,var_max,
+         call de_grp_init('MICER fscope',num,var,tab_index,var_min,var_max,
+     $        mult,spacing,grp_views)
+
+         var=de_var_wavelength
+         tab_index=200
+         var_min=const(6556.)
+         var_max=const(6566.)
+         mult=const(1.,-10)
+         spacing = de_spacing_linear
+         call de_grp_init('Halpha spectrum',num,var,tab_index,var_min,var_max,
      $        mult,spacing,grp_views)
 
       end if
