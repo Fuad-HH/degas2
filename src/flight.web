@@ -443,17 +443,6 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
    Score diagnostic sectors, including those without an associated
    PMI (|nprod| = 0). Copy test-products onto current stack.
 */
-@#if 0
-      do i=0,nprod
-         if (pt_test(prod[i]) > 0 && pt_w(prod[i]) > zero) then
-            call score_diagnostics(pt_args(prod[i]),estimator_factors)
-            if (i > 0) then
-               fl_pointer(x)++
-               pt_copy(prod[i],fl_current(x))
-            end if
-         end if
-      end do
-@#else
       call score_diagnostics(nprod,pt_args(prod[0]),estimator_factors)
       if (nprod > 0) then
          do i=1,nprod
@@ -469,7 +458,6 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
             end if
          end do
       end if
-@#endif
 
       return
       end
@@ -523,9 +511,6 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
                
       assert(mat_recyc_coef >= zero)
       assert(mat_recyc_coef <= one)
-@#if 0
-      sum=zero
-@#endif 
       yield[0]=one-mat_recyc_coef // This is the absorbed fraction
       sum=yield[0]
       sum_refl=zero
@@ -553,42 +538,7 @@ plasma-material interactions and scoring at ``diagnostic'' surfaces.
 
       if (default_pmi > 0 && sum < one) yield[default_pmi]=one-sum
 
-@#if 0
-      if (pr_pm_case_num(pt_test(prod[0])) > 1) then 
          rn_next(rnd,x)
-      else            
-         rnd=zero     
-      end if          
-@#else
-         rn_next(rnd,x)
-@#endif
-@#if 0
-/*
-   Leave |rnd| alone to get precisely a unit interval. Did we have
-   the following to allow for sputtering, with |sum| $> 1$, possibly?
-*/
-      rnd=rnd*max(sum,one)      // region from sum to ``one'' is default
-@#endif
-
-@#if 0
-      sum=zero
-      do i=0,pr_pm_case_num(pt_test(prod[0]))  // Includes abs. term
-         sum=sum+yield[i]
-         if (sum >= rnd) then
-            ts_pmi=i
-            goto break1
-         end if
-      end do
-      ts_pmi=default_pmi
-break1:     continue
-      if (ts_pmi > 0) then                            // Using a real PMI
-         call pick_pmi(pr_pmi_args(ts_pmi),independent_parameters,
-     $        nprod,pt_args(prod[0]),rn_args(x))
-      else                                           // Use absorption!
-         assert(yield[0] > zero)      // Be sure absorption is nonzero.
-         nprod=0
-      end if
-@#else
 /*
    With |WMIN_PMI| $< 1$ (e.g., 1.e-4), this code will carry out suppressed
    absorption similar to that used in EIRENE. If |WMIN_PMI| $> 1$, the code
@@ -628,7 +578,7 @@ break1:     continue
          assert(yield[0] > zero)      // Be sure absorption is nonzero.
          nprod=0
       end if
-@#endif
+
       return
       end
 
