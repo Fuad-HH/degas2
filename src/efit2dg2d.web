@@ -16,6 +16,22 @@ made input parameters or read from a file.  The equilibrium data is
 read from an EQDSK ``g'' file, such as produced by the EFIT code,
 the name of which is specified as a command line argument.
 
+The spline routines used to interpolate the equilibrium
+assumes that the separatrix flux value is greater than that
+at the magnetic axis.  This may not be the case for NSTX
+equilibria. If running |efit2dg2d| results in the 
+error message:
+\begin{verbatim}
+ subroutine dbsint:
+ xknot(ix) <= xknot(ix+1) required.
+\end{verbatim}
+the flux values may be decreasing from the axis to the 
+separatrix.  In the case of ``g'' files created with the
+IDL routine |get_mds_gfiles|, adding the
+\verb+/uncorrected+ switch may resolve the problem.
+See the documentation of the |get_mds_gfiles| routine
+for additional details.
+
 The resolution of the geometry is controlled by the hardwired
 parameters:
 \begin{description}
