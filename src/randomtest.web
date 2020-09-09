@@ -48,7 +48,7 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
       call next_seed3(23,-95,110,seed) // Should be 2902248648199272781830143864736810
       call seed_to_decimal(seed,dec)
       print *, 'Seed (2902248648199272781830143864736810) = ',dec
-      call random_init(seed,rn_args(tag))
+      call random_init_d2(seed,rn_args(tag))
 
 /* Write out the zeroth random number */
       rn_next(x,tag)            // $76050879255612.5/2^{47} \approx 0.54037399803243957308$
@@ -60,13 +60,13 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
 /* 1234th number $67313725517242.5/2^{47} \approx 0.99479659867599323775$ */
       print '(a,f17.15)', '1234th number (0.478292786832260) = ',x
          
-      call random_init(seed,rn_args(tag))
+      call random_init_d2(seed,rn_args(tag))
       call random_array(xx,1234+1,rn_args(tag))
       
       print '(a,f17.15)', 'Zeroth number (0.540373998032440) = ',xx[0]
       print '(a,f17.15)', '1234th number (0.478292786832260) = ',xx[1234]
       
-      call random_init(seed,rn_args(tag))
+      call random_init_d2(seed,rn_args(tag))
 /* Write out the zeroth random number */
       y=srandom(rn_args(tag))            // $76050879255612.5/2^{47} \approx 0.54037399803243957308$
       print '(a,f10.8)', 'Zeroth number (0.54037398) = ',y
@@ -77,7 +77,7 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
 /* 1234th number $67313725517242.5/2^{47} \approx 0.99479659867599323775$ */
       print '(a,f10.8)', '1234th number (0.47829276) = ',y
 
-      call random_init(seed,rn_args(tag))
+      call random_init_d2(seed,rn_args(tag))
       call srandom_array(yy,1234+1,rn_args(tag))
       
       print '(a,f10.8)', 'Zeroth number (0.54037398) = ',yy[0]
@@ -112,10 +112,10 @@ $259243462334031/2^{48} \approx 0.9210177947737144$.
 
       start=cpu_time()
       do i=1,10000
-         call random_init(seed,rn_args(tag))
+         call random_init_d2(seed,rn_args(tag))
       end do
       end=cpu_time()
-      print *, 'Time of random_init =',(end-start)/10000
+      print *, 'Time of random_init_d2 =',(end-start)/10000
 
       start=cpu_time()
       do k=1,100
@@ -411,7 +411,7 @@ tern (NAG f90)
  Random seed (based on time and pid) = 19990630123458587
  Time of next_seed =  0.0000000000000000E+000
  Time of 312 * next_seed =   7.9999999999999996E-06
- Time of random_init =   5.0000000000000002E-05
+ Time of random_init_d2 =   5.0000000000000002E-05
  Time of rn_fast_next =   1.1394986206069330E-07
  Time of rn_next =   1.1199999999999997E-07
  Time of random =   2.2999999999999999E-07
@@ -438,7 +438,7 @@ tern (PGI f90)
  Random seed (based on time and pid) = 19990630130230000
  Time of next_seed =  0.0000000000000000E+000
  Time of 312 * next_seed =  1.0000000000000001E-005
- Time of random_init =  4.0000000000000010E-005
+ Time of random_init_d2 =  4.0000000000000010E-005
  Time of rn_fast_next =  8.5962176642277399E-008
  Time of rn_next =  8.4999999999999980E-008
  Time of random =  1.4000000000000001E-007
@@ -465,7 +465,7 @@ cucaracha (f77)
  Random seed (based on time and pid) = 19990630123456853
  Time of next_seed =    4.8947930335999D-07
  Time of 312 * next_seed =    8.9677033945918D-06
- Time of random_init =    5.1132746040821D-05
+ Time of random_init_d2 =    5.1132746040821D-05
  Time of rn_fast_next =    6.8783227737526D-08
  Time of rn_next =    7.1553325653076D-08
  Time of random =    1.1888326406479D-07
@@ -490,7 +490,7 @@ mars (f77)
  Random seed (based on time and pid) = 19990630123537894
  Time of next_seed =  3.903999924659729E-007
  Time of 312 * next_seed =  8.393599838018417E-006
- Time of random_init =  4.001599550247192E-005
+ Time of random_init_d2 =  4.001599550247192E-005
  Time of rn_fast_next =  6.272919980363670E-008
  Time of rn_next =  7.622560262680054E-008
  Time of random =  9.730719327926635E-008
@@ -514,7 +514,7 @@ mcurie (f90)
  Random seed (based on time and pid) = 19990630093552797
  Time of next_seed = 8.19372013211250289E-7
  Time of 312 * next_seed = 1.33477754890918733E-5
- Time of random_init = 6.28394782543182409E-5
+ Time of random_init_d2 = 6.28394782543182409E-5
  Time of rn_fast_next = 8.69436254696187999E-8
  Time of rn_next = 9.04150247573852569E-8
  Time of random = 1.6621154546737671E-7
@@ -541,7 +541,7 @@ killeen (f90)
  Random seed (based on time and pid) = 19990630093527395
  Time of next_seed = 1.496593900000001E-5
  Time of 312 * next_seed = 2.587678940000007E-4
- Time of random_init = 2.049927500000015E-4
+ Time of random_init_d2 = 2.049927500000015E-4
  Time of rn_fast_next = 1.885090490184298E-7
  Time of rn_next = 7.327512470000015E-7
  Time of random = 2.371795152000011E-6
@@ -568,7 +568,7 @@ hecate
  Random seed (based on time and pid) = 19990630123529278
  Time of next_seed = 9.14699956774711637E-7
  Time of 312 * next_seed = 1.48550003767013549E-5
- Time of random_init = 4.94779944419860811E-5
+ Time of random_init_d2 = 4.94779944419860811E-5
  Time of rn_fast_next = 6.1700354785979438E-8
  Time of rn_next = 6.69866979122161847E-8
  Time of random = 1.3371320962905883E-7
@@ -609,7 +609,7 @@ Zeroth number (0.54037398) = 0.54037398
  The current time = 1999-08-09 11:05:25.199 -04:00
  Time of next_seed =    2.1943079307675D-06
  Time of 312 * next_seed =    4.0132778882980D-05
- Time of random_init =    8.0928206443787D-05
+ Time of random_init_d2 =    8.0928206443787D-05
  Time of random =    2.1702294349670D-07
  Time of random_array =    1.2327103614807D-07
 \end{verbatim}
@@ -632,7 +632,7 @@ Zeroth number (0.54037398) = 0.54037398
  The current time = 1999-08-09 11:07:47.000  -4:00
  Time of next_seed =   9.9999999999999995E-07
  Time of 312 * next_seed =   2.8000000000000000E-05
- Time of random_init =   6.4999999999999994E-05
+ Time of random_init_d2 =   6.4999999999999994E-05
  Time of random =   7.3099999999999997E-07
  Time of random_array =   8.8900000000000009E-07
  seed size for random_number = 1
@@ -657,7 +657,7 @@ Zeroth number (0.54037398) = 0.54037398
  The current time = 1999-08-09 11:06:13.450 -04:00
  Time of next_seed =  1.561599969863892E-006
  Time of 312 * next_seed =  2.488799951970577E-005
- Time of random_init =  4.411520063877106E-005
+ Time of random_init_d2 =  4.411520063877106E-005
  Time of random =  3.000224053859710E-007
  Time of random_array =  2.561023950576782E-007
  seed size for random_number =           2
@@ -683,7 +683,7 @@ Zeroth number (0.54037398) = 0.54037398
  The current time = 1999-08-09 11:05:47.378 -04:00
  Time of next_seed = 1.47429984062910076E-6
  Time of 312 * next_seed = 2.49766983091831215E-5
- Time of random_init = 9.69102054834365868E-5
+ Time of random_init_d2 = 9.69102054834365868E-5
  Time of random = 1.58172297477722176E-7
  Time of random_array = 1.14855504035949713E-7
  seed size for random_number = 64
@@ -708,7 +708,7 @@ Zeroth number (0.54037398) = 0.54037400
  The current time = 1999-08-09 08:06:11.539 -07:00
  Time of next_seed = 2.32298802584409724E-6
  Time of 312 * next_seed = 3.87930437922477748E-5
- Time of random_init = 1.01175603270530704E-4
+ Time of random_init_d2 = 1.01175603270530704E-4
  Time of random = 6.55353403091430601E-7
  Time of random_array = 5.41545057296752902E-7
  seed size for random_number = 1
@@ -733,7 +733,7 @@ Zeroth number (0.54037398) = 0.54037400
  The current time = 1999-08-09 08:06:15.738 -07:00
  Time of next_seed = 1.896271200000005E-5
  Time of 312 * next_seed = 2.901839260000017E-4
- Time of random_init = 7.203477699999974E-4
+ Time of random_init_d2 = 7.203477699999974E-4
  Time of random = 2.505549170999993E-6
  Time of random_array = 9.14024181000008E-7
  seed size for random_number = 1
