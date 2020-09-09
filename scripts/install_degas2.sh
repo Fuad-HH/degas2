@@ -42,17 +42,23 @@ then
    fi
 elif [ ! -z $NETCDF_HOME ]
 then
-   NCLIB=-L$NETCDF_HOME -lnetcdf -lnetcdff 
+   NCLIB="-L$NETCDF_HOME -lnetcdf -lnetcdff "
 else 
-   if [ -f "/usr/local/lib/libnetcdff.a" ]
+   if [ -f "/usr/local/lib/libnetcdff.a" || -f "/usr/local/lib/libnetcdff.so" ]
    then
       NCLIB="-L/usr/local/lib -lnetcdf -lnetcdff"
+   elif [ -f "/usr/lib/libnetcdff.a" || -f "/usr/lib/libnetcdff.so" ]
+   then
+      NCLIB="-L/usr/lib -lnetcdf -lnetcdff"
    else
       echo "Need to specify NETCDF_HOME"
+      exit 1
    fi
 fi
 
-sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g" > $DEGASROOT/$SYSTEM/Makefile.local
+FWEB_DIR=$DEGASROOT/fweb/Web
+
+sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#FWEB_DIR#$FWEB_DIR#g" > $DEGASROOT/$SYSTEM/Makefile.local
 
 if [ ! -f $DEGASROOT/fweb/Web/ftangle ]
 then

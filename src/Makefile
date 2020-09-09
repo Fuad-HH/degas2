@@ -12,7 +12,7 @@ DEBUG=yes
 STANDALONE=yes
 
 # Use Fortran 90?
-FORTRAN90=no
+FORTRAN90=yes
 
 # Using old (2.x) version of NETCDF?
 NETCDFV2=no
