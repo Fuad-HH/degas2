@@ -166,14 +166,47 @@ reagent (e.g., H$_{2}^{+}$) for separate treatment. In this case,
 because, charged test particles are not tracked (they effectively have
 a velocity of 0), a track-length estimator cannot be used. In fact,
 |tallysetup| will check that a collision estimator has been chosen.
+The ion conversion process is handled in exactly this same manner
+at present since the integrals required to compute the track length
+estimator are not available.  For simplicity, this process is
+lumped into the |pr_rc_test_ion| group.
 
 The estimators for reaction type tallies are specified on a single 
 line with spaces in between. In addition to \verb+T+ and \verb+C+,
 \verb+P+ is also valid. This last option refers to ``post processed
-tallies'' and is available for most cases. The results will
-be equivalent to that obtained with the track length
-estimator, however, relative standard deviations are not
-computed with the post-processing estimator.
+tallies''.  The original implementation of this relied on
+using the ``divide number'' conversion to provide an average
+neutral velocity vector in each cell.  As is noted below,
+this conversion does not work as intended in multiple source group
+runs.  Consequently, an arbitrary velocity is assumed for 
+post-processed tallies.  For quantities such as ionization or
+light emission rates, this is immaterial, and the results will
+be equivalent to those obtained with the track length estimator.
+However, this is not the case for momentum and energy source 
+rates; post-processing of those tallies will be incorrect.
+These concerns do not
+apply to post-processed tallies of the sources.
+The underlying distribution functions for these are
+known a priori so that these can be computed
+exactly.  This is especially true for the spectra
+associated with recombination, which would be
+quite noisy if computed via a collision estimator.
+Note also that post-processed tallies are
+{\em not} included in the |output_all| and
+|output_grp| arrays contained in the output netCDF 
+file; they are included in the |out_post_all|
+and |out_post_grp| arrays that represent the
+``final'' output of the code.  
+
+For processes with small reaction rates, the track length
+estimator will give a more accurate tally; as the number
+of collisions in a cell increases, the collision estimator
+becomes more accurate.  The collision estimator is also
+useful when performing conservation checks since conservation
+in reactions then becomes exact; with the track length estimator,
+quantities are conserved only to within the associated 
+relative standard deviation.
+
 The order of the characters
 corresponds to the order of the reaction types
 specified in the macro list below. For
@@ -192,7 +225,8 @@ than the collision estimator.
 for recombination (which uses an average ion velocity). For other 
 reactions, the instantaneous kinetic velocity is needed to compute
 the spectrum properly.
-  \item the snapshot estimator is not available.
+  \item the snapshot estimator is not available; it only applies
+to test tallies.
 \end{itemize}
 
 A fourth estimator, \verb+N+, corresponding to ``none'', is provided for
@@ -464,6 +498,9 @@ this ``equivalence'' is defined in the species input file.
             else if (rc_reaction_type(pr_reaction(pr_reac)) 
      $              == 'deexcitation') then
                pr_rc_type[pr_reac]=pr_rc_ionize
+            else if (rc_reaction_type(pr_reaction(pr_reac)) 
+     $              == 'ion_conv') then
+               pr_rc_type[pr_reac]=pr_rc_test_ion
             else if (rc_reaction_type(pr_reaction(pr_reac)) 
      $              == 'recombination') then
                pr_rc_type[pr_reac]=pr_rc_recombination // is a duplicate
