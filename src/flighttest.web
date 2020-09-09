@@ -282,7 +282,7 @@ out the file |density.out|.
      $     density,dens_rsd,pressure,pres_rsd,edrift,temperature,
      $     dens_scale
 @#if COUETTE
-      real xz_stress,xz_stress_rsd,tot_density,tot_volume
+      real xy_stress,xy_stress_rsd,tot_density,tot_volume
 @#endif
       character*2 iter_char
       vc_decl(vel_test)
@@ -374,11 +374,11 @@ out the file |density.out|.
                vel_test[3]=extract_output_datum(index_parameters,3,
      $              out_post_all,o_mean,'neutral flux vector')
 @#if COUETTE
-               xz_stress=extract_output_datum(index_parameters,1,
-     $              out_post_all,o_mean,'xz stress tensor')
-               xz_stress_rsd=extract_output_datum(index_parameters,1,
-     $              out_post_all,o_var,'xz stress tensor')
-               xz_stress*=dens_scale
+               xy_stress=extract_output_datum(index_parameters,1,
+     $              out_post_all,o_mean,'xy stress tensor')
+               xy_stress_rsd=extract_output_datum(index_parameters,1,
+     $              out_post_all,o_var,'xy stress tensor')
+               xy_stress*=dens_scale
 @#endif
                if (density != zero) then
                   vc_scale(one/density,vel_test,vel_test)
@@ -396,7 +396,7 @@ out the file |density.out|.
                   end if
                   if (temperature <= const(1.,-30)) temperature=const(1.,-30)
 @#if COUETTE
-                  xz_stress-=
+                  xy_stress-=
      $                 dens_scale*density*sp_m(pr_test(test))*vel_test[1]*vel_test[2]
 @#endif
                else
@@ -405,7 +405,7 @@ out the file |density.out|.
 @#if COUETTE
                write(diskout,'(2i6,1p,6e13.4)') zone_index[zone][1],
      $              zone_index[zone][2],dens_scale*density,dens_rsd,dens_scale*pressure,pres_rsd,
-     $              xz_stress,xz_stress_rsd
+     $              xy_stress,xy_stress_rsd
 @#else
                write(diskout,'(2i6,1p,6e13.4)') zone_index[zone][1],
      $              zone_index[zone][2],dens_scale*density,dens_rsd,dens_scale*pressure,pres_rsd,
