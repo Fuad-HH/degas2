@@ -1272,7 +1272,7 @@ If the |xcut| argument for the |edge| keyword has been invoked, a
 separate set of logic is required:
 \begin{enumerate}
   \item $i_{x} \neq 0$ is asserted.  The above logic already handles 
-this case.
+the $i_{x} = 0$ case.
   \item If $i_{z} = 0$,  corner 1 of the $(i_{x},1)$ zone.
   \item Otherwise, use corner 2 of the $(i_{x},i_{z})$ zone.
 \end{enumerate}
@@ -3951,7 +3951,7 @@ auxiliary strata.
             write(nunit+1,'(29x,a,e17.10,a,e17.10,a,6x,a,e17.10,a,e17.10,a)')
      $           '(',mesh_xz[iz][ix][1][g2_x],',',mesh_xz[iz][ix][1][g2_z],')','(',
      $           mesh_xz[iz][ix][4][g2_x],',',mesh_xz[iz][ix][4][g2_z],')'
-            write(nunit+1,*) '  ----------------------------------------------------------------------------------------'
+            write(nunit+1,*) '  -----------------------------------------------------------------------------'
          end do
       end do
       close(unit=nunit+1)
@@ -5195,7 +5195,7 @@ a complex zone).
       implicit_none_f90
 
       integer ind_x,ind_z,n,y_div                  // Input
-      real polygon[0:g2_num_points-1][g2_x:g2_z],y_values[0:y_div]
+      real polygon[0:*][g2_x:g2_z],y_values[0:y_div]
       integer zonearray[0:y_div-1]
       character*(*) zone_type_array[0:y_div-1]
       vc_decl(center)
