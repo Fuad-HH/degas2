@@ -202,7 +202,7 @@ from the corresponding entry in the |DATA_HISTORY| log.
 
 /* |process_reaction| needs random number thread */
       call decimal_to_seed('12345678',seed)
-      call random_init(seed,rn_args(tag))  
+      call random_init_d2(seed,rn_args(tag))  
 
 loop: continue
       write(stdout,*) 'Enter symbols for test particle, background particle, reaction'
@@ -335,6 +335,12 @@ loop1: continue
             independent_parameters[xs_var_1st_random_number+i-1]=rr
          end do
       end if
+/*
+  This parameter was added for the ion conversion process.
+  Assume that the input temperature is the electron temperature
+  in this case.
+*/
+      independent_parameters[xs_var_elec_temperature]=temperature
 
       rate=eval_data(rd_data_args(reaction_rate,[prob_react]),
      $     independent_parameters,rn_args(tag))
@@ -402,6 +408,11 @@ loop1: continue
      $        scoring_data,rn_args(tag))
       else if (rc_reaction_type(reaction) == 'deexcitation') then
          call excite(pr_test_args(test),
+     $        pr_reaction_args(ts_reac),rate,independent_parameters,
+     $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $        scoring_data,rn_args(tag))
+      else if (rc_reaction_type(reaction) == 'ion_conv') then
+         call ion_conv(pr_test_args(test),
      $        pr_reaction_args(ts_reac),rate,independent_parameters,
      $        nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $        scoring_data,rn_args(tag))

@@ -111,6 +111,11 @@
      $     rate,independent_parameters,
      $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
      $     scoring_data,rn_args(x))
+      else if (rc_reaction_type(pr_reaction(pr_reac)) == 'ion_conv') then
+         call ion_conv(pr_test_args(test),pr_reaction_args(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_args(prod),vc_args(v_prod[1]),w_prod,
+     $     scoring_data,rn_args(x))
       else
          assert('Unsupported reaction type' == ' ')
       end if
@@ -1535,7 +1540,7 @@ for |chargex|.
             vc_copy(v_prod[rc_emitter(reac)],v_emitter)
             independent_parameters[xs_var_m_emitter]=sp_m(prod[rc_emitter(reac)])
 /* 
-   Don't really recall which reagent is which. Should be able to tell
+   Do noxt really recall which reagent is which. Should be able to tell
    test from a back just with |sp_generic|.
 */
          else if (sp_generic(rc_reagent(reac,-rc_emitter(reac))) 
@@ -1639,6 +1644,164 @@ for |chargex|.
      $        half*sp_m(prod[i])*vc_abs2(v_prod[i])*rate
       end do
             
+      return
+      end
+
+@ Process an ion conversion reaction.  These reactions are effectively
+charge exchange reactions, but the model reaction rate being used is
+not built on a single underlying cross section.  Consequently, we cannot
+enforce the velocity dependence of the cross section as we would in a 
+charge exchange reaction.  Moreover, we cannot compute the higher
+moments required for processing with a track length estimator.
+
+@<Functions...@>=
+      subroutine ion_conv(pr_test_dummy(test),pr_reaction_dummy(ts_reac),
+     $     rate,independent_parameters,
+     $     nprod,sp_dummy(prod),vc_dummy(v_prod),w_prod,
+     $     scoring_data,rn_dummy(x))
+
+      implicit_none_f77
+      pr_common                                        // Common
+      rc_common
+      rd_common
+      sp_common
+      implicit_none_f90
+
+      rd_decls
+      rn_decls
+      st_decls
+      pr_test_decl(test)                               // Input
+      pr_reaction_decl(ts_reac)
+      real rate
+      real independent_parameters[xs_max_indep_params]
+
+      integer nprod                                    // Output
+      sp_decl(prod[rc_product_max])
+      vc_decl(v_prod[rc_product_max])
+      real w_prod[rc_product_max],scoring_data[scoring_data_max]
+      rn_decl(x)                                       // Input/output
+
+      pr_reaction_decl(pr_reac)                        // Local
+      pr_background_decl(back)
+      pr_background_decl(back_i)
+      pr_test_decl(test_i)
+      integer i,count,psp_i
+      vc_decl(v_test)
+      vc_decl(v_back)
+      vc_decl(vb_flow)
+      vc_decl(vt_plasma_frame)
+      vc_decl(vb_therm)
+      vc_decl(vrel)
+      vc_decl(v_i)
+      real v_thermal,m_i
+
+      external eval_data                              // External
+      real eval_data
+
+      pr_reac=pr_ts_rc(test,ts_reac)  // Index to problem-reaction list
+      nprod=rc_product_num(pr_reaction(pr_reac))
+      back=pr_ts_bk(test,ts_reac)
+      count=0
+/*
+   Transform to frame moving with the local background flow velocity
+*/
+      do i=1,3
+         v_test[i]=independent_parameters[xs_var_v_test_1+i-1]
+         vb_flow[i]=independent_parameters[xs_var_v_flow_1+i-1]
+      end do
+      vc_difference(v_test,vb_flow,vt_plasma_frame)
+
+loop: continue
+      count++
+ /* Pick a background particle */
+      v_thermal=sqrt(independent_parameters[xs_var_sp_temperature])
+      call random_gauss(vb_therm,3,rn_args(x))
+      do i=1,3
+         vb_therm[i]*=v_thermal
+      end do
+/*
+  Now evaluate velocity {\em relative} to this particular particle
+  (we need to transform to the frame moving at |vb_flow| ahead of
+  time since the average of |vb_therm| is 0.).
+*/
+      vc_difference(vt_plasma_frame,vb_therm,vrel)
+/*
+   This was previously inside the ``test'' section of the velocity
+   setting code.  But, it was not getting executed for the case 
+   in which there are no test products.  
+*/
+      vc_add(vb_therm,vb_flow,v_back)
+/*
+   Make use here of the assumptions regarding ordering of species that
+   are made in problemsetup''s |check_problem| and in |set_prod_chargex|.
+   Namely, that the first (second) reagent is a background (test) species
+   and that an electron is transferred from the second to the first.
+   In this way, the velocity of the first (second) product is just that
+   of the background (test) reagent.
+*/
+      assert(pr_num_arrangements(test,ts_reac) == 1)
+      assert(nprod == 2)   // Checked in |set_prod_chargex|
+      do i=1,2
+         prod[i]=pr_ts_prod(test,ts_reac,1,i)
+         w_prod[i]=one
+         if (i == 1) then
+            vc_copy(v_back,v_prod[i])
+         else
+            vc_copy(v_test,v_prod[i])
+         end if
+      end do
+/*
+   Collision scoring 
+*/
+      do i=1,2
+         if (i == 1) then
+            m_i=sp_m(pr_background(back))
+            psp_i=pr_problem_sp_back(back)
+            vc_copy(v_back,v_i)
+         else if (i == 2) then
+            m_i=sp_m(pr_test(test))
+            psp_i=pr_problem_sp_test(test)
+            vc_copy(v_test,v_i)
+         end if
+         scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=
+     $        -m_i*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
+     $        -m_i*v_i[1]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
+     $        -m_i*v_i[2]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_i)]+=
+     $        -m_i*v_i[3]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
+     $        -half*m_i*vc_abs2(v_i)*rate
+      end do
+/*
+   Because of the way neutral-neutral reactions are specified (with 
+   neutral species in both background and test lists), getting test
+   and background products correct in other reactions requires looking
+   for test species first.
+*/
+      do i=1,nprod
+         test_i=pr_test_lookup(prod[i])
+         if (test_i != 0) then
+            m_i=sp_m(pr_test(test_i))
+            psp_i=pr_problem_sp_test(test_i)
+         else
+            back_i=pr_background_lookup(prod[i])
+            assert(back_i != 0)
+            m_i=sp_m(pr_background(back_i))
+            psp_i=pr_problem_sp_back(back_i)
+         end if
+         scoring_data[pr_var_problem_sp_index(pr_var_mass_change,psp_i)]+=m_i*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_vector,psp_i)]+=
+     $        m_i*v_prod[i][1]*rate 
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_2,psp_i)]+=
+     $        m_i*v_prod[i][2]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_momentum_change_3,psp_i)]+=
+     $        m_i*v_prod[i][3]*rate
+         scoring_data[pr_var_problem_sp_index(pr_var_energy_change,psp_i)]+=
+     $        half*m_i*vc_abs2(v_prod[i])*rate
+      end do
+
       return
       end
 
