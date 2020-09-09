@@ -107,7 +107,7 @@
       scoring_data[pr_var_momentum_2]=sp_m(pt_sp(p))*pt_v(p)[2]
       scoring_data[pr_var_momentum_3]=sp_m(pt_sp(p))*pt_v(p)[3]
       scoring_data[pr_var_energy]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
-      scoring_data[pr_var_xz_stress]=sp_m(pt_sp(p))*pt_v(p)[1]*pt_v(p)[2]
+      scoring_data[pr_var_xy_stress]=sp_m(pt_sp(p))*pt_v(p)[1]*pt_v(p)[2]
 
       return
       end
@@ -142,8 +142,8 @@
          do i=1,tally_type_num[tl_type_sector]
             jscore=tally_type_base[tl_type_sector]+i-1
 /*
-   Moved this from below to keep nonzero entries from
-   being wiped out after they had been set.
+   This was previously in the invocations of |sc_diag_check| below,
+   but was wiping out nonzero entries after they had been set.
 */
             estimator_factors[jscore]=zero
             do i_side=1,2
@@ -176,10 +176,6 @@
      $                    then
                         estimator_factors[jscore]=pt_w(prod[j])
                         need_scores=.true.
-@#if 0
-                     else
-                        estimator_factors[jscore]=zero
-@#endif
                      end if
                   end do      // |i_sect|
                end if         // |sc_check(sector)|
@@ -195,14 +191,8 @@
             call sector_scoring_data(pt_args(prod[j]),scoring_data)
 
             pr_reac=0
-@#if 0
-// This is wrong, but doesn't appear to affect anything interesting.
-            call add_scores(tl_type_sector,pt_args(prod[0]),pr_reaction_args(pr_reac),
-     $           scoring_data,estimator_factors)
-@#else
             call add_scores(tl_type_sector,pt_args(prod[j]),pr_reaction_args(pr_reac),
      $           scoring_data,estimator_factors)
-@#endif
          end if
       end do  // Over |j|
 
@@ -234,10 +224,6 @@
 */
       scoring_data[pr_var_mass]=sp_m(pt_sp(p))
 
-@#if 0
-      cos_angle=intersection_direction(lc_face(pt_loc(p)),lc_x(pt_loc(p))[1],
-     $     pt_v(p)[1])
-@#else
       if ((sc_check(lc_sector(pt_loc(p)))) && sc_check(lc_sector_next(pt_loc(p)))) then
          cos_angle=intersection_direction(sector_surface[lc_sector(pt_loc(p))],lc_x(pt_loc(p))[1],
      $     pt_v(p)[1])
@@ -261,7 +247,6 @@
       else
          assert(' No valid sector in sector_scoring_data!' == ' ')
       end if
-@#endif
       scoring_data[pr_var_angle]=acos(cos_angle)
 
       scoring_data[pr_var_energy]=half*sp_m(pt_sp(p))*vc_abs2(pt_v(p))
@@ -682,8 +667,7 @@ more than one scoring bin. Again, the affected bins are in an array |bins|.
 /*
    Determine whether or not |jscore| has a dependence on the background
    species. Also, see if the value of the dependent variable in 
-   |scoring_data| is non-zero. {\bf Note: if we had an additive conversion,
-   this could possibly lead to improperly skipped scores!}
+   |scoring_data| is non-zero. 
 */
          check_data=zero
          if (tally_dep_var[jscore] >= pr_var_mass_change
@@ -1271,6 +1255,7 @@ bins. The treated variables thus far are energy and angle of incicidence.
       vc_decl(velocity)
       lc_decl(zone_loc)
       pt_decl(fake_prod[0:rc_product_max])
+      rn_seed_decl(seed)
       rn_decl(fake_rn)
       
       @<Memory allocation interface@>
@@ -1282,7 +1267,13 @@ bins. The treated variables thus far are energy and angle of incicidence.
 
       real find_rate                                      // External
       external find_rate
-
+/*
+   Should not need any random numbers at this point, but
+   need to initialize to ensure that the random number
+   index is reasonable.
+*/
+      call decimal_to_seed(so_seed_decimal,rn_seed_args(seed))
+      rn_init(seed,fake_rn)
 /*
    Test particle scores - The procedure here involves going through all of
    the test particle ``densities'' (more precisely, number since the 
