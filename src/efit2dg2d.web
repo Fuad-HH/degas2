@@ -675,10 +675,12 @@ with the |ic|-th crossing of limiter segment |im|.
       write(diskout,'(i5)') num_walls
       write(diskout,'(a)') '# Number of points in each wall'
 /*
-   Purposely not using a format here since this is the way this is read 
-   in by |definegeometry2d|.
+   Originally did not use a format here since this is the way this is read 
+   in by |definegeometry2d|. However, on some systems, the entire
+   output ends up on a single line, which then breaks in 
+   |definegeometry2d|.
 */
-      write(diskout,*) SP (wall_segment_count[im]+1,im=1,num_walls)
+      write(diskout,'(10(2x,i5))') SP (wall_segment_count[im]+1,im=1,num_walls)
       do im=1,num_walls
          if (im < num_walls) then
             write(diskout,'(a,i4,a,1pe14.6,a,0p,f9.6)') 
@@ -744,7 +746,7 @@ with the |ic|-th crossing of limiter segment |im|.
    need not worry about distinguishing the first and last points.
 */
             assert(ext_lim_used[im] == FALSE)
-            write(diskout+2,*) ext_lim_r[im],ext_lim_z[im]
+            write(diskout+2,'(1p,2(2x,e14.6))') ext_lim_r[im],ext_lim_z[im]
             write(diskout,'(a,3i4)') '    wall ',num_walls,im-1,im-1
             ext_lim_used[im]=TRUE
             im++ 
@@ -775,13 +777,13 @@ with the |ic|-th crossing of limiter segment |im|.
                iwall=ext_lim_wall[im]
                if (ext_lim_wall[im] > 0) then
                   do ir=0,wall_segment_count[iwall]
-                     write(diskout+2,*) nodes[wall_nodes[iwall][ir]][g2_x],
+                     write(diskout+2,'(1p,2(2x,e14.6))') nodes[wall_nodes[iwall][ir]][g2_x],
      $                    nodes[wall_nodes[iwall][ir]][g2_z]
                      if (ir==0) write(diskout,'(a,i4,a)') '    wall ',iwall,' *'
                   end do
                else
                   do ir=wall_segment_count[-iwall],0,-1
-                     write(diskout+2,*) nodes[wall_nodes[-iwall][ir]][g2_x],
+                     write(diskout+2,'(1p,2(2x,e14.6))') nodes[wall_nodes[-iwall][ir]][g2_x],
      $                    nodes[wall_nodes[-iwall][ir]][g2_z]
                      if (ir==0) write(diskout,'(a,i4,a)') '    wall ',-iwall,' * reverse'
                   end do
@@ -817,7 +819,7 @@ with the |ic|-th crossing of limiter segment |im|.
 /*
    Add this point to close polygon.
 */
-            write(diskout+2,*) ext_lim_r[im],ext_lim_z[im]  
+            write(diskout+2,'(1p,2(2x,e14.6))') ext_lim_r[im],ext_lim_z[im]  
             write(diskout,'(a,3i4)') '    wall ',num_walls,im-1,im-1
             write(diskout,'(a)') '  triangulate_to_zones'
             if (poly_wall[2] > 0) then
