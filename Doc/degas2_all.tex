@@ -1467,7 +1467,7 @@ some number of slices, but less than the whole pie!
 \index{defineback}
 
 The default and most frequently used mode of running DEGAS 2 simulates a
-steady state or time independent system.  The reason for this is physically
+steady state, time independent system.  The reason for this is physically
 obvious: unconstrained by magnetic field lines, neutral particles can
 travel through a plasma much more quickly than charged species, and
 in many cases, the neutral profile equilibrates on a time scale
@@ -1479,7 +1479,7 @@ that used in EIRENE \cite{Reit95}.
 
 Only the {\tt defineback} input preprocessor is presently set up
 to handle direct user specification of a time dependent run;
-see the corresponding \href{defineback.pdf#page.13}{source file} 
+see the corresponding \href{defineback.pdf#page.7}{documentation} 
 for details on how this is done.
 However, the user can in principle also manually
 set the controlling
@@ -1507,6 +1507,58 @@ data are written to the file indicated by the
 With this
 approach, the amount of kinetic detail in the PDF is
 maximized.
+
+If the user is truly solving an initial value problem
+and wishes to track the evolution of the neutral density
+in time from a null initial state, e.g., the
+temporal evolution of a gas puff from the start, no
+initial snapshot file is required.  A more typical 
+application, however, is to follow the common evolution
+of the neutral and plasma behavior at the same time
+from some nominal initial state.  To do that, we
+need a 
+snapshot distribution representative of that
+initial state.
+
+To generate such a distribution, the code is run in a
+special mode that is similar to a standard, steady
+state simulation in that the plasma background
+is fixed and the flights are tracked
+until they are ionized or exit the simulation volume.
+However, the path of each flight is broken up into
+a set of uniform time steps of the same size as those
+used in the actual time dependent calculation.  
+The start time of a new flight coming
+from the gas source (e.g., a gas puff) is uniformly sampled
+from the initial time interval. The flight is tracked through the
+remainder of that interval; at the end, its characteristics are
+deposited in the snapshot distribution. The flight
+is then tracked forward from that point through another time interval,
+resulting in an additional entry to the snapshot distribution. The
+process continues in this manner until the flight is effectively
+ionized or leaves the volume. The end result is a snapshot
+distribution that fills the volume and is statistically equivalent to
+a steady state calculation.  The number of snapshot particles
+generated per flight varies with the problem and is,
+actually, a measure of the average neutral density in the
+volume.  Consequently, the user should perform a few scoping runs
+with a limited number of flights to estimate this ratio
+and determine the number of flights required to yield
+the desired snapshot population.
+
+Sampling from a large snapshot distribution in a
+parallel run of {\tt flighttest} can
+slow the initial broadcast of the source information
+to the slave processes and stress memory resources on
+those cores.  The {\tt MASTER\_SAMPLE} switch in
+the {\tt Makefile.local} file can be set to
+``yes'' to allow sampling to be done instead on
+the master process so that only the flight
+data need be broadcast to the slaves.
+For additional information, see
+the documentation of the associated
+\href{classes.pdf#page.133}{flight\_frag class}.
+
 
 \section{Atomic Physics}
 \label{AtomicPhysics}
