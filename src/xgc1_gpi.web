@@ -22,11 +22,6 @@ gmake defineback
 
 For additional details, see the documentation at the top of {\tt defineback}.
 
-Note that additional objects are needed to compile {\tt defineback}; add
-to its list of dependencies in {\tt Makefile}:
-\verb+ psiinterp.$O bspline.mod bspline90_22.o+  {\tt Makefile} already
-knows about these objects through their use by {\tt efit2dg2d}.
-
 \ID{$Id$}
 
 @m FILE 'xgc1_gpi.web'
@@ -318,7 +313,8 @@ is completely necessary; retaining just in case.
       integer format_code[format_max]
 
       real this_param,delta_min,delta,exp_factor,sum,psilim,
-     $     r,z,phi_org,phi_dest,l_org,delta_phi,l_dest
+     $     r,z,phi_org,phi_dest,l_org,delta_phi,l_dest,
+     $     min_temp,min_dens
 
       real phi_iy[0:max_iy],file_index[0:max_iy]
 
@@ -474,11 +470,13 @@ eof: continue
          @<Axisymmetric Interpolation@>
       end if
 /*
-   Note that most |get_n_t| routines enforce minimum values for
-   the plasma parameters.  Intend to do that in the writing routine
-   instead to provide additional situation-dependent control.  Only
-   check made here is that the densities and temperatures are positive.
+   While the |get_n_t| routines enforce minimum values for
+   the plasma parameters, have found that the field line interpolation
+   can still yield negative values.  The minimum density and temperature
+   are the same as in the |get_n_t| routines.
 */
+      min_temp=one
+      min_dens=const(1.,15)
       do zone=1,zn_num
          if (zn_type(zone) == zn_plasma) then
             tri=triangles_xgc[zone]
@@ -571,13 +569,12 @@ eof: continue
                   sub_count++
                   back=format_code[sub_count]
                   assert(bk_check(back))
-                  bk_n(back,zone)=this_param
-                  assert(bk_n(back,zone) > zero)
+                  bk_n(back,zone)=max(this_param,min_dens)
                else if (format_code[sub_count] == form_temperature) then
                   sub_count++
                   back=format_code[sub_count]
                   assert(bk_check(back))
-                  bk_temp(back,zone)=this_param*electron_charge
+                  bk_temp(back,zone)=max(this_param,min_temp)*electron_charge
                   assert(bk_temp(back,zone) > zero)
                else if (format_code[sub_count] == form_velocity_1) then
                   sub_count++

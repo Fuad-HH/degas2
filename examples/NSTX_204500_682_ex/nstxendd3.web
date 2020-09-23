@@ -1,0 +1,419 @@
+% $Id$
+\Title{nstxendd3}
+
+% $Log: $
+
+@* Example non-default plasma setup routine.  This routine is called by 
+{\tt defineback}. The easiest way to compile it into {\tt defineback} is to
+copy it to a file named {\tt usr2dplasma.web}:
+\begin{verbatim}
+cd $HOME/degas2/src
+cp nstxendd3.web usr2dplasma.web
+touch usr2dplasma.web
+cd ../SUN
+gmake defineback
+\end{verbatim}
+
+For additional details, see the documentation at the top of {\tt defineback}.
+
+\ID{$Id$}
+
+@m FILE 'nstxendd3.web'
+
+@I macros.hweb
+@I sysdep.hweb
+@I geomint.hweb
+@I zone.hweb
+@I species.hweb
+@I geometry2d.hweb
+@I netcdf.hweb
+@I string.hweb
+@I background.hweb
+@I problem.hweb
+@I location.hweb
+
+@ The unnamed module.
+
+@a
+      @<Functions and Subroutines@>
+
+@ Compute background densities and temperatures for NSTX midplane
+GPI experiments.  This file is designed to work with the IDL based 
+geometry generation tool.  
+
+This tool provides flux surface contours
+all the way out to the gas manifold.  However, the Thomson scattering
+data will not likely be available over the outer several centimeters
+of this region.  The three options available for specifying the
+plasma parameter variation over this gap are controlled by the 
+macros below: |EXTRAPOLATE| linearly extrapolates the last two data points,
+|EXTEND| fills the volume with the last data values in the Thomson
+profile, and |CUT| does the same, but with the |min_density| and
+|min_temp| specified below.  The user needs only to set the value of
+|PROFILE| to the desired option.  The |EXTRAPOLATE| option should be
+used with care since the slope of the Thomson profile is extremely 
+uncertain (and may even be increasing with major radius).
+
+The |lamba_n| and |lambda_t| parameters control an exponential falloff
+outside of the flux surface region.  Since this is essentially behind
+the gas manifold and have little impact on the simulation result, those 
+lengths are usually left at large values, effectively disabling the
+capability.
+
+This version of the routine allows for the ion temperatures and 
+densities to be specified separately (on the same radial grid)
+in the last two columns of the file.
+
+@m open_file(aunit,aname)    open(unit=aunit,file=aname,status='old',form='formatted',iostat=open_stat);
+         assert(open_stat == 0) @;
+
+@m max_stratum 100
+@m max_rho 100
+
+@m EXTRAPOLATE 0
+@m EXTEND 1
+@m CUT 2
+
+@m PROFILE EXTEND
+
+@m min_density const(1.,17)
+@m min_temp const(1.)
+
+@m rho_loop #:0
+@m radii_done #:0
+
+@<Functions...@>=
+      subroutine get_n_t(nt_string)
+
+      define_varp(zone_stratum,INT,zone_ind)
+
+      implicit_none_f77
+      zn_common                                             // Common
+      sp_common
+      pr_common
+      bk_common
+      g2_common
+      implicit_none_f90
+
+      character*LINELEN nt_string                           // Input
+
+      integer is,ix,p,b,e,length,stratum,zone,j,num_rho,    // Local
+     $        open_stat,fileid,
+     $        zone2,back,ipoly,diskin3,close_zone,stratum2,
+     $        num_stratum
+      integer stratum_index[max_stratum],stratum_lookup[max_stratum]
+ 
+      real x_in,jx_in,delta_min,delta,lambda_n,lambda_t
+      real  stratum_psi[max_stratum],stratum_rho[max_stratum],
+     $     stratum_radius[max_stratum],rmaj[0:max_rho],ne[0:max_rho],
+     $     te[0:max_rho],ni[0:max_rho],ti[0:max_rho],
+     $     ne_interp[max_stratum],te_interp[max_stratum],
+     $     ni_interp[max_stratum],ti_interp[max_stratum]
+
+      character*LINELEN line
+      character*FILELEN radii_file,polygon_file,neTe_profile  
+
+      vc_decl(vec_delta)
+
+      external find_index,extrapolate1,interpolate1         // External
+      real find_index,extrapolate1,interpolate1
+
+      declare_varp(zone_stratum)
+
+      @<Memory allocation interface@>
+      st_decls
+      vc_decls
+      g2_ncdecl
+      nc_decls
+      zn_decls
+
+      var_alloc(zone_stratum) 
+/*
+   Could have put all of these arguments in yet another text input file,
+   but decided that there were already too many input files for this
+   routine. For clarity, the order of the arguments is:
+   |radii_file|  |neTe_profile|  |polygon_file|  |lambda_n|  |lambda_t|
+   The scale lengths are in meters.
+
+   In the absence of good ion temperature data, assuming $T_{i} = T_{e}$.
+*/
+      p=0
+      assert(next_token(nt_string,b,e,p))
+      radii_file=nt_string(b:e)
+
+      assert(next_token(nt_string,b,e,p))
+      neTe_profile=nt_string(b:e)
+
+      assert(next_token(nt_string,b,e,p))
+      polygon_file=nt_string(b:e)
+/*
+   These were added after initial testing and the first
+   production run, which used scale lengths of 1.e3 
+   for both.
+*/
+      assert(next_token(nt_string,b,e,p))
+      lambda_n=read_real(nt_string(b:e))
+      assert(lambda_n > zero)
+
+      assert(next_token(nt_string,b,e,p))
+      lambda_t=read_real(nt_string(b:e))
+      assert(lambda_t > zero)
+
+      diskin3=diskin+2
+      open_file(diskin3,radii_file)
+      assert(read_string(diskin3,line,length))  // Column header
+      do is=1,max_stratum
+         stratum_psi[is]=real_unused
+         stratum_rho[is]=real_unused
+         stratum_radius[is]=real_unused
+      end do
+/*
+   Have set up this input file with the values of poloidal flux
+   (relative to the limiter flux), rho (radius minus separatrix
+   radius at height of magnetic axis), and major radius (at a 
+   specified height) in case we get profile data in different formats.
+*/
+      do is=1,max_stratum
+         if (read_string(diskin3,line,length)) then
+            assert(length<=len(line))
+            length=parse_string(line(:length))
+            p=0
+            assert(next_token(line,b,e,p))
+            stratum_index[is]=read_integer(line(b:e))
+            stratum_lookup[stratum_index[is]]=is
+            assert(is <= max_stratum)
+            assert(stratum_psi[is] == real_unused)
+            assert(next_token(line,b,e,p))
+            stratum_psi[is]=read_real(line(b:e))
+            assert(stratum_rho[is] == real_unused)
+            assert(next_token(line,b,e,p))
+            stratum_rho[is]=read_real(line(b:e))
+            assert(stratum_radius[is] == real_unused)
+            assert(next_token(line,b,e,p))
+            stratum_radius[is]=read_real(line(b:e))
+            num_stratum=is
+         else
+            goto radii_done
+         end if
+      end do
+      assert('Stratum radius file too long' == ' ')
+radii_done: continue
+      close(unit=diskin3)
+      do is=1,max_stratum
+         te_interp[is]=real_uninit
+         ne_interp[is]=real_uninit
+         ti_interp[is]=real_uninit
+         ni_interp[is]=real_uninit
+      end do
+
+      do zone=1,zn_num
+         zone_stratum[zone]=int_unused
+      end do
+
+      assert(polygon_file != char_undef)
+      fileid=ncopen(polygon_file,NC_NOWRITE,nc_stat)
+      g2_ncread(fileid)
+
+      do ipoly=1,g2_num_polygons
+         zone=g2_polygon_zone[ipoly]
+         if (zone_stratum[zone] == int_unused) then
+            assert(g2_polygon_stratum[ipoly] >= 0)  // Do we need this?
+            zone_stratum[zone]=g2_polygon_stratum[ipoly]
+         else                                       // Or this?
+            assert(zone_stratum[zone] == g2_polygon_stratum[ipoly])
+         end if
+      end do
+      
+      diskin3=diskin+2
+      open_file(diskin3,neTe_profile)
+      num_rho=-1
+rho_loop: continue
+      if (read_string(diskin3,line,length)) then
+         num_rho++
+         assert(num_rho <= max_rho)
+         assert(length<=len(line))
+         length=parse_string(line(:length))
+         p=0
+         assert(next_token(line,b,e,p))
+/*
+   These profiles are Thomson scattering data vs. major radius.  Can 
+   alleviate some of the EFIT issues by reading them here in that way
+   and using the exact same |r_sep| to translate between them and |rho|.
+   Assume radii in m, |ne| in m$^{-3}$, and |te| in eV, similarly
+   for the ion density and temperature (last two columns).  These
+   are estimated from CHERS data with no associated error estimates.
+*/
+         rmaj[num_rho]=read_real(line(b:e))
+         assert(next_token(line,b,e,p))      // $R$ error (skip)
+         assert(next_token(line,b,e,p))  
+         te[num_rho]=read_real(line(b:e))*electron_charge
+         assert(te[num_rho] > zero)
+         assert(next_token(line,b,e,p))      // $T_{e}$ error (skip)     
+         assert(next_token(line,b,e,p))
+         ne[num_rho]=read_real(line(b:e))
+         assert(ne[num_rho] > zero)
+         assert(next_token(line,b,e,p))      // $n_{e}$ error (skip)     
+         assert(next_token(line,b,e,p))
+         ti[num_rho]=read_real(line(b:e))*electron_charge
+         assert(next_token(line,b,e,p))
+         ni[num_rho]=read_real(line(b:e))
+         go to rho_loop
+      end if
+      close(unit=diskin3)
+/*
+   Add one more so that this is the number of values and not
+   just the index (interpolation routines need the former).
+*/
+      num_rho++
+      assert(num_rho > 0)
+/*
+   Write out the |zone_stratum| array (with ``pointers'' resolved) to
+   a text file to allow data from |outputbrowser| to be sorted by flux
+   surface.
+*/
+      open(unit=diskout,file='zone_stratum.txt',status='unknown')
+      write(diskout,*) ' zone    stratum '
+      do zone=1,zn_num
+         assert(zn_check(zone))
+         if (zn_type(zone) == zn_plasma) then
+            write(diskout,'(1x,i6,2x,i3)') zone,zone_stratum[zn_index(zone,zi_ptr)]
+         else
+            write(diskout,'(1x,i6,2x,a)') zone,'0'
+         end if
+      end do
+      close(unit=diskout)
+/*
+   Done reading files. Interpolate density and temperature values from
+   the profiles onto the flux surface based zones.  Since the density
+   and temperature profiles we now have cover a limited range in
+   radius, actually trying linear extrapolation here. For this
+   reason, need to set lower bounds on the density and temperature.
+*/
+      do back=1,bk_num
+         assert(bk_check(back))
+         do zone=1,zn_num
+            assert(zn_check(zone))
+            if (zn_type(zone) == zn_plasma) then
+               stratum=zone_stratum[zn_index(zone,zi_ptr)]
+               if ((stratum_lookup[stratum] >= 1) &&
+     $              (stratum_lookup[stratum] <= num_stratum)) then
+                  x_in=stratum_radius[stratum_lookup[stratum]]
+                  jx_in=find_index(x_in,rmaj,num_rho)
+                  if (sp_sy(pr_background(back)) == 'e') then
+@#if (PROFILE == EXTRAPOLATE) 
+                     bk_n(back,zone)=max(extrapolate1(jx_in,ne,num_rho),
+     $                    min_density)
+                     bk_temp(back,zone)=max(extrapolate1(jx_in,te,num_rho),
+     $                    min_temp*electron_charge)
+                  else
+/*
+   Corresponding ion values:
+*/
+                     bk_n(back,zone)=max(extrapolate1(jx_in,ni,num_rho),
+     $                    min_density)
+                     bk_temp(back,zone)=max(extrapolate1(jx_in,ti,num_rho),
+     $                    min_temp*electron_charge)
+@#elif (PROFILE == EXTEND)
+                     bk_n(back,zone)=max(interpolate1(jx_in,ne,num_rho),
+     $                    min_density)
+                     bk_temp(back,zone)=max(interpolate1(jx_in,te,num_rho),
+     $                    min_temp*electron_charge)
+                  else
+/*
+   Corresponding ion values
+*/
+                     bk_n(back,zone)=max(interpolate1(jx_in,ni,num_rho),
+     $                    min_density)
+                     bk_temp(back,zone)=max(interpolate1(jx_in,ti,num_rho),
+     $                    min_temp*electron_charge)
+@#elif (PROFILE == CUT)
+/*
+   The idea for this option is that a limiter (or equivalent) creates a sharp
+   drop in the plasma parameters for flux surfaces outside the outermost data  
+   point.  The code below identifies points beyond the low-plasma parameter
+   end of the data range and replaces them with a constant value.  The test
+   is generalized so as to allow the plasma parameters to either increase
+   or decrease as you go down the file.  Note the use of |max| in the interpolation
+   case to ensure a smooth transition.  On the high plasma parameter side, the
+   |interpolate1| routine will operate in its usual manner, extending the
+   profile as a constant.
+*/
+                     if ((ne[num_rho-1] < ne[0]) && (jx_in <= num_rho-1) 
+     $                   || ((ne[num_rho-1] > ne[0]) && (jx_in >=  zero))) then
+                        bk_n(back,zone)=max(interpolate1(jx_in,ne,num_rho),
+     $                       min_density)
+                        bk_temp(back,zone)=max(interpolate1(jx_in,te,num_rho),
+     $                       min_temp*electron_charge)
+                     else
+                        bk_n(back,zone)=min_density
+                        bk_temp(back,zone)=min_temp*electron_charge
+                     end if
+                  else
+/*
+   Corresponding ion values:
+*/
+                    if ((ni[num_rho-1] < ni[0]) && (jx_in <= num_rho-1) 
+     $                   || ((ni[num_rho-1] > ni[0]) && (jx_in >=  zero))) then
+                        bk_n(back,zone)=max(interpolate1(jx_in,ni,num_rho),
+     $                       min_density)
+                        bk_temp(back,zone)=max(interpolate1(jx_in,ti,num_rho),
+     $                       min_temp*electron_charge)
+                     else
+                        bk_n(back,zone)=min_density
+                        bk_temp(back,zone)=min_temp*electron_charge
+                     end if
+@#endif
+                  end if
+/*
+   Store these values in a convenient form for data analysis.
+*/
+                  if ((sp_sy(pr_background(back)) == 'e')
+     $                 && (ne_interp[stratum] == real_uninit)) then
+                     assert(te_interp[stratum] == real_uninit)
+                     ne_interp[stratum]=bk_n(back,zone)
+                     te_interp[stratum]=bk_temp(back,zone)/electron_charge
+                  else if ((sp_sy(pr_background(back)) != 'e')
+     $                    && (ni_interp[stratum] == real_uninit)) then
+                     assert(ti_interp[stratum] == real_uninit)
+                     ni_interp[stratum]=bk_n(back,zone)
+                     ti_interp[stratum]=bk_temp(back,zone)/electron_charge
+                  end if
+               else
+                  delta_min=geom_infinity
+                  close_zone=int_uninit
+                  do zone2=1,zn_num
+/*
+   For zones outside the flux surface based mesh, use the exponential
+   fall-off lengths to extrapolate the density and temperature.
+   Do this from the closest zone in the flux surface based mesh.
+   Because the right boundary of that mesh is not a flux surface,
+   need the $\leq$ sign here.
+*/
+                     stratum2=zone_stratum[zn_index(zone2,zi_ptr)]
+                     if ((zn_type(zone2) == zn_plasma) &&
+     $                      (stratum_lookup[stratum2] >= 1) &&
+     $                      (stratum_lookup[stratum2] <= num_stratum)) then
+                        vc_difference(zone_center[zone],zone_center[zone2],
+     $                       vec_delta)
+                        delta=vc_abs(vec_delta)
+                        if (delta < delta_min) then
+                           delta_min=delta
+                           close_zone=zone2
+                        end if
+                     end if
+                  end do
+                  assert(delta_min > zero && delta_min < geom_infinity)
+                  assert(zn_check(close_zone))
+                  assert(bk_n(back,close_zone) > zero)
+                  assert(bk_temp(back,close_zone) > zero)
+                  bk_n(back,zone)=bk_n(back,close_zone)*exp(-delta_min/lambda_n)
+                  bk_temp(back,zone)=bk_temp(back,close_zone)*exp(-delta_min/lambda_t)
+               end if
+            end if
+         end do
+      end do
+      
+      return
+      end
+
+@* INDEX.

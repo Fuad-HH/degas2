@@ -975,7 +975,7 @@ to cylindrical coordinates when scoring.
 The estimators described in Sec.~\ref{tallies} are calculated by
 the routines in {\tt score.web}, which are invoked during tracking.
 At the end of each flight, the resulting data are accumulated into the
-global arrays described in the \href{classes.pdf#65}{statistics class} 
+global arrays described in the \href{classes.pdf#page.65}{statistics class} 
 (package abbreviation {\tt sa}) via the subroutines in {\tt stat.web}.
 
 The data accumulation process takes place over a range of scales
@@ -993,12 +993,12 @@ is sent until all have been completed.
 the global accumulation of data from all processes.  Again,
 in the simplest case, the data are actually accumulated
 directly in an array from the 
-\href{classes.pdf#61}{output class} (see also
+\href{classes.pdf#page.61}{output class} (see also
 Sec.~\ref{outputformat}).
 \end{description}
 
 This process is complicated by two additional optimizations.
-First, as is documented in the \href{classes.pdf#65}{statistics class},
+First, as is documented in the \href{classes.pdf#page.65}{statistics class},
 these arrays may be compressed, especially at the {\tt flt} level,
 to reduce the amount of data transmitted.  Second, in runs on
 larger machines
@@ -1012,12 +1012,12 @@ contained in {\tt degasinit.web}.
 The sources of neutral particles to be simulated in a given
 DEGAS 2 run are broken up into ``groups'' according to their
 physical nature, e.g., ``plate recycling'', ``gas puff'', etc., 
-as described in the \href{classes.pdf#26}{sources class}.  
+as described in the \href{classes.pdf#page.26}{sources class}.  
 Because the number of flights and total particle current
 associated with each source group are specified independently
 by the user, the data for each group are accumulated 
 separately and are available by themselves within the
-\href{classes.pdf#61}{output arrays}.
+\href{classes.pdf#page.61}{output arrays}.
 
 The fundamental expressions used in the data accumulation
 process are, thus, for a specific source group $i$.  The 
@@ -1175,7 +1175,7 @@ normalization factor Eq.~(\ref{wtnorm}) since it
 would appear in both numerator and denominator.
 The actual sampling procedure is more complex
 and offers additional flexibility; see
-the \href{classes.pdf#26}{sources class} and
+the \href{classes.pdf#page.26}{sources class} and
 \href{sourcetest.pdf}{sourcetest}.
 
 If flight $j$ in group $i$ is sampled from 
@@ -1479,7 +1479,7 @@ that used in EIRENE \cite{Reit95}.
 
 Only the {\tt defineback} input preprocessor is presently set up
 to handle direct user specification of a time dependent run;
-see the corresponding \href{defineback.pdf#page13}{source file} 
+see the corresponding \href{defineback.pdf#page.13}{source file} 
 for details on how this is done.
 However, the user can in principle also manually
 set the controlling
@@ -1525,18 +1525,18 @@ processes included in such a collisional-radiative model are:
     \item Electron collisional excitation $K_{e,mn}$ and de-excitation
 $K_{d,mn}$,
     \item Spontaneous radiative transitions $A_{mn}$,
-    \item Electron collisional ionization $K_{i,mn}$,
+    \item Electron collisional ionization $K_{i,m}$,
     \item Three-body recombination $K_{r,mn}$,
     \item Radiative recombination $\beta_{rad,m}$,
     \item Dielectronic recombination (for multi-electron atoms) 
-$\beta_{dia,m}$,
+      $\beta_{dia,m}$.
 \end{enumerate}
 where $m$ and $n$ are principal quantum numbers. For the two state
 terms, the initial state is the {\em second} number; the final is the
 {\em first}. This apparently backward notation allegedly has a mathematical
 origin.
 
-A set of $m$ equations describes the balance between these processes that
+A set of $m \geq 1$ equations describes the balance between these processes that
 determines the density of the $m$-th excited state of the atom,
 $N_{m}$,
 \begin{eqnarray}
@@ -1544,46 +1544,81 @@ $N_{m}$,
 K_{e,nm} + \sum_{n < m} K_{d,nm} \right) \right. \nonumber \\
 & & \qquad \quad \left. + \sum_{n < m} A_{nm} \right] \rule[-1ex]{0ex}{4ex} \nonumber \\
 & & \quad + n_{e} \left( \sum_{n > m} N_{n} K_{d,mn} + \sum_{n < m} N_{n} K_{e,mn} 
-\right) \rule[-2ex]{0ex}{4ex} \nonumber \\ & & \quad + \sum_{n > m} N_{n} A_{mn} + n_{e} n_{i} ( \beta_{rad,m} + \beta_{dia,m} + n_{e}
-K_{r,m} ),
+    \right) \rule[-2ex]{0ex}{4ex} \nonumber \\ & & \quad +
+  \sum_{n > m} N_{n} A_{mn} + n_{e} n_{i} ( \beta_{rad,m} + \beta_{dia,m} + n_{e}
+                                                   K_{r,m})  \nonumber \\
+  & & \quad + n_{e} n_{H_{2}} E_{H_{2},m} + n_{e} n_{H_{2}^{+}}(E_{H_{2}^+,m} + \alpha_{m}),
 \label{crmodel}
 \end{eqnarray}
 where $n_{e}$ is the electron density and $n_{i}$ is the density of ions
 corresponding to the atom under consideration ($m \rightarrow \infty$,
 effectively).
+The two terms at the end account for atoms coming from the dissociation
+of H$_{2}$ and H$_{2}^{+}$ ($E_{H_{2},m}$ and $E_{H_{2}^+,m}$) and dissociative
+recombination of H$_{2}^{+}$ ($\alpha_{m}$).
 
-The basic assumption of the collisional-radiative model\cite{Bate61,McWh65}
-is that states above ground state will decay much more rapidly than
-the ground state will change. 
-The evolution of the ground state is considered to be comparable to
-the transport time scales. This physical process is the one considered by
-the neutral transport code. In other words, the $m = 1$ equation will
-essentially be solved by DEGAS 2 and $N_{1}$ can be treated as an
-externally known quantity. The relatively rapid equilibration of the
-excited states permits the time derivatives of their densities
-to be set to zero. The set of equations for $m > 1$ can then be
-solved,
+The first step in developing a collisional radiative model involves
+breaking up Eq.~(\ref{crmodel}) into a single equation for the $m=1$ ground state
+and a set of equations for all of the excited states, $m > 1$.
+Writing the latter as a matrix
+equation for $m, n \geq 2$: 
+\begin{eqnarray}
+\frac{d N_{m}}{dt} & = & n_{e} [ Q_{mn} N_{n} + N_{1} K_{e,m1}
++ n_{i} (\beta_{m} + n_{e} K_{r,m}) \nonumber \\
+& & \quad + n_{H_{2}} E_{H_{2},m} +  n_{H_{2}^{+}}(E_{H_{2}^+,m} + \alpha_{m}) ],
+\label{crmodel2}
+\end{eqnarray}
+where the $K_{e,mn}$, $K_{d,mn}$, $A_{mn}$, and $K_{i,m}$ contributions
+have been lumped into the $Q_{mn}$ matrix.
+Its diagonal terms represent
+sinks of $N_{m}$ while the off-diagonal elements are sources
+from the other excited states.  The remaining terms in Eq.~(\ref{crmodel2})
+are sources coming from the ground state, $\propto N_{1}$; ions,
+$\propto n_{i}$; molecules, $\propto n_{H_{2}}$; and molecular ions,
+$\propto n_{H_{2}^{+}}$.
+
+The collisional radiative approximation\cite{Bate61,McWh65} consists of assuming
+that the excited states equilibrate amongst themselves much more
+quickly than the ground state evolves so that
+$\frac{d N_{m}}{dt} \rightarrow 0$; 
+transport of the excited states is thus ignored.
+In contrast, interactions of the ground state with the excited states
+occur on time scales comparable to those of transport;
+simulating these processes consistently to obtain the
+$N_{1}$ in Eq.~(\ref{crmodel2})
+is the job of the neutral transport
+code.
+The collisional radiative approximation allows the inversion of the
+$m \geq 2$ matrix equation with these various source
+terms, yielding a set of $N_{m}$ for each:  
 \begin{equation}
 N_{m} = \left( \frac{N^{(i)}_{m}}{N_{1}}\right) N_{1} + 
-\left( \frac{N^{(ii)}_{m}}{n_{i}}\right) n_{i}.
+\left( \frac{N^{(ii)}_{m}}{n_{i}}\right) n_{i}
++ \left( \frac{N^{(iii)}_{m}}{n_{H_{2}}}\right) n_{H_{2}}
++ \left( \frac{N^{(iv)}_{m}}{n_{H_{2}^{+}}}\right) n_{H_{2}^{+}},
 \label{crnm}
 \end{equation}
-In practice, the solution of these equations involves:
-\begin{enumerate}
-  \item Obtaining the various reaction rates,  $K_{e,mn}$,
+where:
+\begin{eqnarray}
+  \frac{N^{(i)}_{m}}{N_{1}} & = &  - (Q^{-1})_{mn} K_{e,n1}   \\
+  \frac{N^{(ii)}_{m}}{n_{i}} & = & - (Q^{-1})_{mn}  (\beta_{n} + n_{e} K_{r,n})    \\
+  \frac{N^{(iii)}_{m}}{n_{H_{2}}} & = & - (Q^{-1})_{mn} E_{H_{2},n}  \\
+  \frac{N^{(iv)}_{m}}{n_{H_{2}^{+}}} & = & - (Q^{-1})_{mn} E_{H_{2}^+,n}
+                                           - (Q^{-1})_{mn} \alpha_{n}.
+\end{eqnarray}
+In practice, the solution of these equations involves first
+obtaining the various reaction rates,  $K_{e,mn}$,
 $K_{d,mn}$, $A_{mn}$, $K_{i,mn}$, $K_{r,mn}$, $\beta_{rad,m}$, $\beta_{dia,m}$,
-as a function of $n_{e}$ and $T_{e}$,
-  \item Solving the $m > 1$ equations for each $n_{e}$, $T_{e}$
-pair with $N_{1} = 1$ and
-$n_{i} = 0$, providing the ``coupling to the ground state'',
-  \item Solving the equations again with $N_{1} = 0$ and
-$n_{i} = 1$, yielding the ``coupling to the continuum''.
-\end{enumerate}
-Tables of the population coefficients $N^{(i)}_{m}/N_{1}$ and
-$N^{(ii)}_{m}/n_{i}$ are thus obtained as a function of $n_{e}$ and
-$T_{e}$.
+as a function of $n_{e}$ and $T_{e}$.
+At each $n_{e}$, $T_{e}$ pair, the inverse of the $Q_{mn}$ matrix is
+computed and then used to generate each of the population
+coefficients above.  Further discussion of the molecular terms
+is deferred to the descriptions of the collisional radiative
+versions of the molecular dissociation, ionization, and
+dissociative recombination processes.
 
-With Eq.~(\ref{crnm}), the $m = 1$ equation can becomes
+Instead focusing on only the ground state and ion
+terms in Eq.~(\ref{crnm}), the $m = 1$ equation can becomes
 \begin{equation}
 \frac{d N_{1}}{d t} = - N_{1} n_{e} S_{eff} + n_{e} n_{i} R_{eff} + {\rm
 transport, etc.},
@@ -3092,7 +3127,7 @@ conjunction with {\tt definegeometry2d}, {\tt defineback} can utilize data
 produced by other codes, including UEDGE.  In particular, 
 {\tt defineback} can be run in an iterative mode with UEDGE 
 analogous to that provided by {\tt updatebackground} (see below
-and in the source \href{defineback.pdf#page13}{file}
+and in the source \href{defineback.pdf#page.13}{file}
 {\tt defineback.web}).
 \item[readbackground] Plasma data in an external file is mapped onto
 the zones of the DEGAS 2 geometry. Presently, only DEGAS and UEDGE files
@@ -5676,16 +5711,19 @@ The actual variables are defined and described in the
 The contribution from the light emitted in
 each zone to a view is usually precomputed so that the
 signal can be quickly determined
-during or after the run from the volumetric emission. However, storing
-these data can
-become impractical when a large number of chords ($ \gg 100$) are
-called for since the preprocessing yields an array of size
-(number of zones) $\times$ (number of chords).  In that case, the 
-user may want to use just a subset
-of chords during geometry setup and only generate the full array
-during postprocessing. The chord signals can be evaluated independently,
-in parallel if need be, in this case so that the aforementioned
-array is not required.  
+during or after the run from the volumetric emission.
+The array used to store these data potentially has size
+(number of zones) $\times$ (number of chords).
+However, the code only retains non-zero entries,
+resulting in an array of modest size
+since each chord
+only runs through a handful of zones.  Should the user find
+processing of the chord signals too computationally
+demanding or that even the compressed array is
+inconveniently large, a subset of the chords can be
+used during the main run of the code and the full array
+generated only in postprocessing.  The latter
+can be done in parallel, if need be.
 
 The first of the three following subsections, Sec.~\ref{frags}, describes
 the computation of these signal contributions.  The second subsection,
@@ -5810,7 +5848,7 @@ being the energy of the Balmer-$\alpha$ transition, and other quantities
 defined in Sec.~\ref{AtomicPhysics}.
 Note, however, that the code is completely general regarding wavelength 
 and origin of radiation. Other line emission rates can be scored in
-an analogous if the appropriate data are present in the input data
+an analogous way if the appropriate data are present in the input data
 files. 
 
 \subsection{The Detector Setup Subroutine}
@@ -5852,10 +5890,16 @@ emission, the requisite parameters are also passed to
 
 The {\tt postdetector} (see also its \href{postdetector.pdf#page.1}{documentation})
 code provides an example of detector signal
-computation during post-processing.  As alluded to above, only a 
-low resolution detector signal would be computed by {\tt flighttest} (e.g., 
-as a check) to avoid using large amounts of memory.  {\tt postdetector}
-would then be invoked to compute the complete signal. 
+computation during post-processing.  
+{\tt postdetector} provides additional
+data, such as the plasma parameters, along the
+same detector chords not available in the main output.
+The resulting detector based data are output directly to
+netCDF or HDF format files, simplifying subsequent
+processing.
+{\tt postdetector}
+can also be used to compute the complete signal if a low resolution
+detector signal was used with {\tt flighttest} or to 
 
 As is noted in Sec.~\ref{HeGPI}, the version of {\tt postdetector.web} 
 distributed with DEGAS 2 was developed for simulating the camera

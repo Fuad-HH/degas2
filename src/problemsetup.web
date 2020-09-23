@@ -603,7 +603,7 @@ background species). The reaction-specific entries will be set in
       pr_var0_list[pr_var_emitter_vf_Maxwell_2]='emitter_vf_Maxwell_2'
       pr_var0_list[pr_var_emitter_vf_Maxwell_3]='emitter_vf_Maxwell_3'
       pr_var0_list[pr_var_emitter_vth_Maxwell]='emitter_vth_Maxwell'
-      pr_var0_list[pr_var_xz_stress]='xz_stress'    // For Couette example
+      pr_var0_list[pr_var_xy_stress]='xy_stress'    // For Couette example
 
       pr_var0_list[pr_var_mass_change]='mass_change'     // Generic entries
       pr_var0_list[pr_var_momentum_change_vector]='momentum_change_vector'
@@ -1202,12 +1202,13 @@ routine specific for each reaction.
       integer i                 // Local
       real sum   
 
-
       if (rc_reaction_type(r)=='ionize') then
          call set_prod_ionize(pr_test_args(ts),sp_args(reagents),rc_args(r))
       else if (rc_reaction_type(r)=='ionize_suppress') then
          call set_prod_ionize(pr_test_args(ts),sp_args(reagents),rc_args(r))
       else if (rc_reaction_type(r)=='chargex') then
+         call set_prod_chargex(pr_test_args(ts),sp_args(reagents),rc_args(r))
+      else if (rc_reaction_type(r)=='ion_conv') then
          call set_prod_chargex(pr_test_args(ts),sp_args(reagents),rc_args(r))
       else if (rc_reaction_type(r)=='dissoc') then
          call set_prod_dissoc(pr_test_args(ts),sp_args(reagents),rc_args(r))
