@@ -202,7 +202,7 @@ utils: makemodule idtof Makefile
 
 ifeq ($(STANDALONE),yes)
 ifndef SOURCEDIR
-  SOURCEDIR=$(DEGASROOT)/degas2/src
+  SOURCEDIR=$(DEGASROOT)/src
 endif
   vpath %.web $(SOURCEDIR)
   vpath %.hweb $(SOURCEDIR)
@@ -215,9 +215,9 @@ endif
 	chmod a+x $@
 endif
 
-ALADIR=$(DEGASROOT)/degas2/Aladdin
+ALADIR=$(DEGASROOT)/Aladdin
 
-CRAMDIR=$(DEGASROOT)/degas2/CRAMD
+CRAMDIR=$(DEGASROOT)/CRAMD
 
 BSPLINEDIR=$(SOURCEDIR)/EFIT2dg2d
 
