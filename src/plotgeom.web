@@ -10,6 +10,8 @@ Introduction\ldots
 
 @m FILE 'plotgeom.web'
 
+@m MIDSLICE 1
+
 @I macros.hweb
 
 @I geomint.hweb
@@ -416,6 +418,10 @@ to hold the pixel-based version of the data, |pixel_data|.
       real time_slice
       integer i,rank,ret,ret2,var_opts,time_ind,dbfile_local
       integer dims[3]
+@#if MIDSLICE
+      integer j,ind    // For hack
+      real avg
+@#endif
       st_decls
       include 'silo.inc'
 /*
@@ -482,6 +488,28 @@ to hold the pixel-based version of the data, |pixel_data|.
      $     pixel_data[0],dims,rank,DB_F77NULL,0,silo_precision,
      $     DB_NODECENT,var_opts,ret2)
       assert((ret != -1) && (ret2 != -1))
+@#if MIDSLICE
+/*
+   Hack to write out 1-D data.
+*/
+      if ((trim(var_name) == 'spDden') || (trim(var_name) == 'spD2den')
+     $     || ((var_name(1:6)) == 'halpha' || (var_name(4:6) == 'flx')
+     $     || (var_name(5:7) == 'flx') || (trim(var_name) == 'bk_t2')
+     $     || (trim(var_name) == 'bk_n1')
+     $     || (trim(var_name) == 'bk_t1')
+     $     || (trim(var_name) == 'DpionizeV'))) then
+         open(unit=diskout,file=trim(var_name)\/'1D.txt',status='unknown')
+         do i=0,na-1
+            avg=zero
+            do j=0,nb-1
+               ind=j*na+i
+               avg+=pixel_data[ind]/areal(nb)
+            end do
+            write(diskout,'(2x,i3,2x,f8.5,2x,1pe13.5)') i,xa[i],avg
+         end do
+         close(unit=diskout)
+      end if
+@#endif
 @#endif
 
       return

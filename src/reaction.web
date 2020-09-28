@@ -99,8 +99,11 @@ are passed back in the |independent_parameters| array.
       vc_decl(vt_flow)
       vc_decl(vrel)
       pr_background_decl(back_test)
+      pr_background_decl(back_elec)
       integer i
       real independent_parameters[xs_max_indep_params]
+
+      st_decls
 
       v_ext_to_int(lc_x(pt_loc(p)),bk_v(back,lc_zone(pt_loc(p))),vb_flow,geometry_symmetry,background_coords)
 
@@ -138,7 +141,10 @@ are passed back in the |independent_parameters| array.
       independent_parameters[xs_var_v_flowb_1]=vt_flow[1]
       independent_parameters[xs_var_v_flowb_2]=vt_flow[2]
       independent_parameters[xs_var_v_flowb_3]=vt_flow[3]
-
+      back_elec=pr_background_lookup(sp_lookup('e'))
+      assert(bk_check(back_elec))
+      independent_parameters[xs_var_elec_temperature]=bk_temp(back_elec,lc_zone(pt_loc(p)))
+      
       return
       end
       
@@ -380,6 +386,8 @@ information into reaction data and miscellaneous arrays.
                   var[i]=xs_var_v_flowb_2
                else if (xs_var[i,jdep] == 'v_flowb_3') then
                   var[i]=xs_var_v_flowb_3
+               else if (xs_var[i,jdep] == 'elec_temperature') then
+                  var[i]=xs_var_elec_temperature
                end if
 
                if (spacing[i] == xs_spacing_linear) then

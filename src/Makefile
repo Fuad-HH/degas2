@@ -641,7 +641,8 @@ definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomu
 definegeometry2d_libs = $(NETCDF) $(GRAPH_LIB)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
-defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O $(PLASMAFILE).$O
+psiinterp.o: bspline.mod
+defineback = defineback.$O string.$O writeback.$O pmimatread.$O geometry.$O elementread.$O geomsetup.$O aux2dsetup.$O allocate.$O geomutils.$O geomfaces.$O readfilenames.$O reaction.$O interpolate.$O random.$O composite.$O $(PLASMAFILE).$O psiinterp.$O bspline.mod bspline90_22.o 
 defineback_libs = $(NETCDF)
 defineback: $(defineback) $(foreach arg,$(subst .$O,_mods,$(defineback)),$($(arg)))
 
