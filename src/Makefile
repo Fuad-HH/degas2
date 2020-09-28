@@ -12,15 +12,16 @@ DEBUG=yes
 STANDALONE=yes
 
 # Use Fortran 90?
-FORTRAN90=no
+FORTRAN90=yes
 
 # Using old (2.x) version of NETCDF?
 NETCDFV2=no
 
 # The "root" of the degas2 tree, by default this is $HOME, so the .f files
 # are in ~/degas2/MACHINE.
+#DEGASROOT=$(HOME)/src/degas2
+# Set by environment now
 
-DEGASROOT=$(HOME)/src/degas2
 
 # Will instruct users to put Triangle here, but allow them to put elsewhere
 # if needed.
@@ -638,7 +639,7 @@ readgeometry_libs = $(NETCDF)
 readgeometry: $(readgeometry) $(foreach arg,$(subst .$O,_mods,$(readgeometry)),$($(arg)))
 
 definegeometry2d = $(DG2D) string.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O aux2dsetup.$O pmimatread.$O dediagsetup.$O readfilenames.$O plotgeom.$O $(DETECTORFILE).$O
-definegeometry2d_libs = $(NETCDF) $(GRAPH_LIB)
+definegeometry2d_libs = $(NETCDF) $(GRAPH_LIB) $(OPENMP)
 definegeometry2d: $(definegeometry2d) $(foreach arg,$(subst .$O,_mods,$(definegeometry2d)),$($(arg)))
 
 psiinterp.o: bspline.mod
