@@ -4,6 +4,7 @@ MPI=MPI_OPT
 NETCDF=NCLIB
 FTANGLE=FWEB_DIR/ftangle
 FWEAVE=FWEB_DIR/fweave
+GCC10=GCC10_OPT
 
 DEBUG=yes
 FORTRAN90=yes
@@ -17,7 +18,9 @@ ifeq ($(COMPILER),GFORTRAN)
   FCF90=gfortran
   FCMPI90=mpif90
   OPENMP=-fopenmp
-  FFLAGS+=-fallow-argument-mismatch
+  ifeq ($(GCC10),"yes")
+    FFLAGS+=-fallow-argument-mismatch
+  endif
 endif
 ifeq ($(compiler),INTEL)
   FORTRAN90=yes

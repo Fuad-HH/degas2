@@ -6,6 +6,7 @@
 # where SYSTEM is the degas2-specified system (LINUX64 by default), 
 # COMPILER is the compiler to use (gfortran by default), and
 # NETCDF_HOME is where libnetcdf.a and libnetcdff.a are located
+# If GCC major version >= 10, set GCC10_OPT=yes
 
 if [ -z $SYSTEM ]
 then
@@ -21,6 +22,11 @@ fi
 if [ -z "$MPI_OPT" ]
 then
    MPI_OPT=no
+fi
+
+if [ -z "$MPI_OPT" ]
+then
+   GCC10_OPT=no
 fi
 
 cd ..
@@ -58,7 +64,7 @@ fi
 
 FWEB_DIR=$DEGASROOT/fweb/Web
 
-sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#FWEB_DIR#$FWEB_DIR#g" > $DEGASROOT/$SYSTEM/Makefile.local
+sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#FWEB_DIR#$FWEB_DIR#g" | sed "s/GCC10_OPT/$GCC10_OPT/g" > $DEGASROOT/$SYSTEM/Makefile.local
 
 if [ ! -f $DEGASROOT/fweb/Web/ftangle ]
 then
