@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+from importlib import reload
 
 # A polygon is an ordered set of vertices, connected by segments which close in on itself.
 class Polygon:
@@ -11,7 +12,7 @@ class Polygon:
             Polygon.numPolygons += 1
         self.id = Polygon.numPolygons
 
-    def addvertex(self,vertex):
+    def add_vertex(self,vertex):
         self.vertices.append(vertex)
 
     def clear_numPolygon():
@@ -21,18 +22,18 @@ class Polygon:
     # and find the point on the specified surface which is closest to said line.
     # Returns index of said point
     def get_next_vertex_extrapolated_to_wall(self,wall):
-        point1 = self.vertices[-1]
-        point2 = self.vertices[-2]
+        point1 = self.vertices[-1].coords
+        point2 = self.vertices[-2].coords
 
-        dir = [int( (point2[0]-point1[0])/abs(point2[0]-point1[0])),
-                int((point2[1]-point1[1])/abs(point2[1]-point1[1])) ]
+        dir = [np.sign(point2[0]-point1[0]),np.sign(point2[1]-point1[1])]
 
         first = True
         idx = 0
         for vertex in wall.vertices:
             # Only check points that are on the correct half-plane according to 
             # the directionality of the last two points
-            if ((dir[0]*vertex.coords[0]) > point1[0]) and ((dir[1]*vertex.coords[1]) > point1[1]):
+            if ( (dir[0]*vertex.coords[0] > point1[0]) or (dir[0] == 0)) and \
+                ( (dir[1]*vertex.coords[1] > point1[1]) or dir[1] == 0):
                 current_distance_sq = ( (point2[1]-point1[1])*vertex.coords[0] 
                     - (point2[0]-point1[0])*vertex.coords[1] 
                     + point2[0]*point1[1] - point2[1]*point1[0])**2 \
@@ -42,7 +43,7 @@ class Polygon:
                     closest_vertex=vertex
                     closest_distance_sq = current_distance_sq
                     first = False
-                elif current_distance_sq < cloest_distance_sq:
+                elif current_distance_sq < closest_distance_sq:
                         closest_vertex = vertex
                         closest_distance_sq = current_distance_sq
             idx +=1
@@ -76,13 +77,14 @@ class Polygon:
     def write_plasma_polygon_dg2d(self,f,debug=False):
         f.write("new_zone plasma\n")
         f.write("new_polygon\n")
-        f.write("  stratum "+str(self.id)+"\n")
+        f.write("  stratum "+str(self.id+1)+"\n")
         for vertex in self.vertices:
             f.write("  wall "+str(vertex.id[0])+" "+str(vertex.id[1])+" "+str(vertex.id[1])+"\n")
 
         if debug:
-            f.write("  print_polygon poly."+str(self.id)+".dat\n")
-        f.write("  triangulate_to_zones\n")
+            f.write("  print_polygon poly."+str(self.id+1)+".dat\n")
+        else:
+            f.write("  triangulate_to_zones\n")
         f.write("\n")
 
 
@@ -107,9 +109,9 @@ class Surface:
         surf_use = copy.deepcopy(self)
         closest_idxs = []
         for i in range(0,N):
-            for iv in len(self.vertices):
-                distance_sq = (self.vertices[iv].coords[0]-vertex_in[0])**2 + \
-                        (self.vertices[iv].coords[1]-vertex_in[1])**2 
+            for iv in range(0,len(self.vertices)):
+                distance_sq = (self.vertices[iv].coords[0]-vertex_in.coords[0])**2 + \
+                        (self.vertices[iv].coords[1]-vertex_in.coords[1])**2 
                 if first:
                     first=False
                     closest_distance_sq= distance_sq
@@ -120,11 +122,11 @@ class Surface:
                     closest_vertex_idx = iv
                     closest_vertex = self.vertices[iv]
             closest_idxs.append(closest_vertex_idx)
-            surf_use.vertices = surf_use.vertices.remove[closest_vertex]
+            surf_use.vertices.pop(closest_vertex_idx)
         return closest_idxs
 
 
-    def addvertex(self,vertex):
+    def add_vertex(self,vertex):
         self.vertices.append(vertex)
 
     # Take the given index, and add it the surface at the appropriate point
