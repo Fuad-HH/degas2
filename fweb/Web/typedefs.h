@@ -1353,7 +1353,7 @@ int n;
 outer_char **s;
 } BUF;
 
-BUF buf;
+/* BUF buf; */
 
 IN_STYLE outer_char HUGE *termcap; /* Name of termcap file. */
 IN_STYLE BUF sput_buf; /* For temporary color strings. */
