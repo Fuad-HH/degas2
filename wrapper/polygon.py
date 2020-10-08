@@ -54,31 +54,36 @@ class Polygon:
     # If entire[i] = True, the entire surface[i] gets added (e.g. an open or closed flux surface)
     # If entire[i] = False, only a subset that gets added. Which points to add are determined by 
     #                extrapolating from the previous and next entire surface
-    def construct_from_surfaces(self,surfaces,entire):
-        if (len(surfaces) == 2) and surfaces[0].closed and surfaces[1].closed:
-            # To deal with two closed surfaces, connect the first points of each to form polygon
-        else:
-            reverse = False
-            for isurf in range(0,len(surfaces)):
-                if entire[isurf]:
-                    for vertex in surfaces[isurf].vertices:
-                        self.add_vertex(vertex)
-                    # Reverse direction for next entire surface
-                    reverse = not reverse 
-                else:
-                    if isurf == 0:
-                        print("Error. Need to start with an entire surface in call to construct_from_surfaces. Don't know how to begin defining polygon.")
-                        sys.exit(0)
-                    idx = self.add_next_vertex_extrapolated_to_wall(surfaces[isurf])
+#    def construct_from_surfaces(self,surfaces,entire):
+#        if (len(surfaces) == 2) and surfaces[0].closed and surfaces[1].closed:
+#            # To deal with two closed surfaces, connect the first points of each to form polygon
+#        else:
+#            reverse = False
+#            for isurf in range(0,len(surfaces)):
+#                if entire[isurf]:
+#                    for vertex in surfaces[isurf].vertices:
+#                        self.add_vertex(vertex)
+#                    # Reverse direction for next entire surface
+#                    reverse = not reverse 
+#                else:
+#                    if isurf == 0:
+#                        print("Error. Need to start with an entire surface in call to construct_from_surfaces. Don't know how to begin defining polygon.")
+#                        sys.exit(0)
+#                    idx = self.add_next_vertex_extrapolated_to_wall(surfaces[isurf])
 
-                    
+    # Writes the polygon to file f
+    # If debug, include lines that output polygons to poly.X.dat files
+    def write_plasma_polygon_dg2d(self,f,debug=False):
+        f.write("new_zone plasma\n")
+        f.write("new_polygon\n")
+        f.write("  stratum "+str(self.id)+"\n")
+        for vertex in self.vertices:
+            f.write("  wall "+str(vertex.id[0])+" "+str(vertex.id[1])+" "+str(vertex.id[1])+"\n")
 
-
-
-                self.add
-                if surf.closed:
-
-        
+        if debug:
+            f.write("  print_polygon poly."+str(self.id)+".dat\n")
+        f.write("  triangulate_to_zones\n")
+        f.write("\n")
 
 
 # A surface is also an ordered set of vertices, but can be open or closed
@@ -97,7 +102,7 @@ class Surface:
         self.closed = True
 
     # Find the N vertices on surface that are closest to given vertex
-    def get_N_closest_vertices(self,N,vertex_in)
+    def get_N_closest_vertices(self,N,vertex_in):
         first = True
         surf_use = copy.deepcopy(self)
         closest_idxs = []
@@ -139,12 +144,36 @@ class Surface:
     def clear_numSurface():
         Surface.numSurfaces=0
 
+    # Creates the outer polygon from the solid wall Surface, writes it to file f
+    # If debug, include lines that output polygons to poly.X.dat files
+    def write_solid_polygon_dg2d(self,poly_idx,f,material,recyc,debug=False):
+        f.write("new_zone solid\n")
+        f.write("new_polygon\n")
+        f.write("  stratum "+str(poly_idx)+"\n")
+        f.write("  material "+material+"\n")
+        f.write("  recyc_coef "+str(recyc)+"\n")
+        for vertex in self.vertices:
+            f.write("  wall "+str(vertex.id[0])+" "+str(vertex.id[1])+" "+str(vertex.id[1])+"\n")
+        f.write("  wall "+str(self.id)+" "+str(self.vertices[0].id[1])+" "+str(self.vertices[0].id[1])+"\n")
+        f.write("  outer 0 1 2 3 4\n")
+        f.write("  wall "+str(self.id)+" "+str(self.vertices[0].id[1])+" "+str(self.vertices[0].id[1])+"\n")
+
+        if debug:
+            f.write("  print_polygon poly."+str(self.id)+".dat\n")
+            f.write("  clear_polygon\n")
+        f.write("  triangulate_to_zones\n")
+        f.write("\n")
+        
+
+
 class Vertex:
     def __init__(self,id_in,R,Z):
         self.coords = [R,Z]
         self.id = id_in 
 
-class Wall_vertex(Vertex,wallid,vertex,R,Z):
-    def __init__(self):
-        self.id = [wallid,vertex]
+# WallVertex is a special case of Vertex, where the vertex ID is an array
+# that specifies the Surface ID and vertex ID within that surface. 
+class WallVertex(Vertex):
+    def __init__(self,wallid,vertexid,R,Z):
+        self.id = [wallid,vertexid]
         super().__init__(self.id,R,Z)
