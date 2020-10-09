@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from polygon import *
 import sys
+from importlib import reload
 
 def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False):
 
@@ -62,8 +63,9 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
         # MUST go from top to bottom (high to low index, when listed counterclockwise)
         limiter_vertex_idx = [topology_params[1], topology_params[2]]
 
-        limlcfs_idx_upper = walls[1].insert_vertex_into_surface(walls[0].vertices[limiter_vertex_idx[0]])
+        # Important to do the lower one first so that indices are preserved after inserting
         limlcfs_idx_lower = walls[1].insert_vertex_into_surface(walls[0].vertices[limiter_vertex_idx[1]])
+        limlcfs_idx_upper = walls[1].insert_vertex_into_surface(walls[0].vertices[limiter_vertex_idx[0]])
 
         polys=[]
 
@@ -75,27 +77,26 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
                 polys[ipoly].add_vertex(vertex)
             polys[ipoly].add_vertex(walls[1+ipoly].vertices[0])
             if ipoly < num_closed_surfaces-1:
-                for vertex in walls[1+ipoly+1].vertices[-1::-1]:
-                    polys[ipoly].add_vertex(vertex)
                 polys[ipoly].add_vertex(walls[1+ipoly+1].vertices[0])
-                polys[ipoly].add_vertex(walls[1+ipoly].vertices[0])
-
+                if ipoly < num_closed_surfaces-1:
+                    for vertex in walls[1+ipoly+1].vertices[-1::-1]:
+                        polys[ipoly].add_vertex(vertex)
+                    polys[ipoly].add_vertex(walls[1+ipoly+1].vertices[0])
+                    polys[ipoly].add_vertex(walls[1+ipoly].vertices[0])
+    
         ############
         # Then, the limiter region beyond the LCFS
         polys.append(Polygon())
-
         # The relevant part of the solid wall
-        for vertex in walls[0].vertices[limiter_vertex_idx[0]:-1]:
+        for vertex in walls[0].vertices[limiter_vertex_idx[0]:]:
             polys[num_closed_surfaces].add_vertex(vertex)
-        for vertex in walls[0].vertices[0:limiter_vertex_idx[1]]:
+        for vertex in walls[0].vertices[0:limiter_vertex_idx[1]+1]:
             polys[num_closed_surfaces].add_vertex(vertex)
         # The relevant part of the LCFS, in reverse order
         for vertex in walls[1].vertices[limlcfs_idx_lower::-1]:
             polys[num_closed_surfaces].add_vertex(vertex)
-        for vertex in walls[1].vertices[-1:limlcfs_idx_upper:-1]:
+        for vertex in walls[1].vertices[:limlcfs_idx_upper-1:-1]:
             polys[num_closed_surfaces].add_vertex(vertex)
-        polys[num_closed_surfaces].add_vertex(walls[0].vertices[limiter_vertex_idx[0]])
-
 
         ############
         # Then, the zone between the LCFS and the first open flux surface (last in the list of walls)
@@ -110,22 +111,22 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
         dummyPoly = Polygon(increment=False)
         for vertex in walls[-1].vertices[-1::-1]:
             dummyPoly.add_vertex(vertex)
-        wallidx_intersect_lower = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
+        wallidx_intersect_upper = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
         dummyPoly = Polygon(increment=False)
         for vertex in walls[-1].vertices:
             dummyPoly.add_vertex(vertex)
-        wallidx_intersect_upper = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
+        wallidx_intersect_lower = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
 
         # Add relevant part of upper solid wall
         for vertex in walls[0].vertices[limiter_vertex_idx[0]:wallidx_intersect_upper-1:-1]:
             polys[num_closed_surfaces+1].add_vertex(vertex)
 
-        # Add first open flux surface, in reverse order
-        for vertex in walls[-1].vertices[-1::-1]:
+        # Add first open flux surface
+        for vertex in walls[-1].vertices:
             polys[num_closed_surfaces+1].add_vertex(vertex)
 
         # Add relevant part of lower solid wall
-        for vertex in walls[0].vertices[limiter_vertex_idx[1]:wallidx_intersect_lower-1:-1]:
+        for vertex in walls[0].vertices[wallidx_intersect_lower:limiter_vertex_idx[1]-1:-1]:
             polys[num_closed_surfaces+1].add_vertex(vertex)
 
         # Close the polygon
@@ -136,7 +137,7 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
         polys.append(Polygon())
 
         # Add the outermost flux surface
-        for vertex in walls[num_closed_surfaces].vertices:
+        for vertex in walls[num_closed_surfaces+1].vertices:
             polys[num_closed_surfaces+2].add_vertex(vertex)
 
         # Now, find the solid wall index corresponding to the ends of the first open flux surfaces
@@ -144,7 +145,7 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
         # First build a dummy polygon to track other surface
         dummyPoly = Polygon(increment=False)
-        for vertex in walls[0].vertices[-1::-1]:
+        for vertex in walls[num_closed_surfaces+1].vertices[-1::-1]:
             dummyPoly.add_vertex(vertex)
         wallidx_intersect_upper = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
 
@@ -153,11 +154,11 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
             polys[num_closed_surfaces+2].add_vertex(vertex)
 
         # Close the polygon
-        polys[num_closed_surfaces+2].add_vertex(walls[num_closed_surfaces].vertices[0])
+        polys[num_closed_surfaces+2].add_vertex(walls[num_closed_surfaces+1].vertices[0])
 
         ############
         # Finally, the zones between the solid wall and the open flux surfaces
-        for ipoly in range(num_closed_surfaces+2,num_closed_surfaces+2+num_open_surfaces):
+        for ipoly in range(num_closed_surfaces+3,num_closed_surfaces+3+num_open_surfaces-1):
             polys.append( Polygon() )
             opensurf_idx = ipoly-1
             for vertex in walls[opensurf_idx].vertices:
@@ -182,11 +183,18 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
                 dummyPoly.add_vertex(vertex)
             wallidx_intersect_ul = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
 
-            for vertex in walls[0].vertices[wallidx_intersect_ur:wallidx_intersect_ul-1:-1]:
+            for vertex in walls[0].vertices[wallidx_intersect_ur:wallidx_intersect_ul+1]:
                 polys[ipoly].add_vertex(vertex)
 
             polys[ipoly].add_vertex(walls[opensurf_idx].vertices[0])
 
+        #############
+        # One more task: split up the closed flux surface polygons so that dg2d won't choke on them
+        for ipoly in range(0,num_closed_surfaces-1):
+            small, big = Surface.split_closed_polygon(walls[ipoly+1],walls[ipoly+2])
+            polys[ipoly].vertices = copy.deepcopy(big.vertices)
+            polys.append(Polygon())
+            polys[-1].vertices = copy.deepcopy(small.vertices)
     else:
         print("Error: topology "+topology+" not defined.")
         sys.exit(0)
@@ -206,9 +214,9 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
     Zrange = np.amax(Zcoords) - np.amin(Zcoords)
     Zmin = np.amin(Zcoords) - 0.5*Zrange
     Zmax = np.amax(Zcoords) + 0.5*Zrange
-    Rmin = min(np.amin(Rcoords) - 0.5*Rrange, 0.5*np.amin(Rcoords))
+    Rmin = max(np.amin(Rcoords) - 0.5*Rrange, 0.5*np.amin(Rcoords))
     Rmax = np.amax(Rcoords) + 0.5*Rrange
-    dg2dfile.write("bounds     %d %d    %d %d \n" % (Rmin, Rmax, Zmin, Zmax))
+    dg2dfile.write("bounds     %f %f    %f %f \n" % (Rmin, Rmax, Zmin, Zmax))
 
     ####################################
     # Write out name of wallfile
@@ -219,9 +227,11 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
  
     for poly in polys:
-        poly.write_plasma_polygon_dg2d(dg2dfile,debug=True)
+        poly.write_plasma_polygon_dg2d(dg2dfile,debug=debug)
 
     walls[0].write_solid_polygon_dg2d(len(polys),dg2dfile,material,recyc,debug)
+    dummyPoly=Polygon()
+    dummyPoly=Polygon()
 
     dg2dfile.write("polygon_nc_file "+polygon_filename+"\n")
 
@@ -232,6 +242,10 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
     dg2dfile.close()
 
+    Polygon.clear_numPolygon()
+
+    return polys
+
 def plot_polygon_from_file(ipoly):
     polyfilename="poly."+str(ipoly)+".dat"
     polyfile = open(polyfilename,'r')
@@ -240,8 +254,11 @@ def plot_polygon_from_file(ipoly):
     Z=[]
     for line in polyfile:
         strdata=line.split()
-        R.append(float(strdata[0]))
-        Z.append(float(strdata[1]))
+        if first:
+            first = False
+        else:
+            R.append(float(strdata[0]))
+            Z.append(float(strdata[1]))
 
     # Make sure polygon is closed
     R.append(R[0])
