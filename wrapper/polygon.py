@@ -240,16 +240,16 @@ class Surface:
     def genpoly_from_rightwall_and_surface(wall,surface):
 
         poly = Polygon(increment=False)
-        poly.add_whole_surface(surf,backward=True)
+        poly.add_whole_surface(surface,backward=True)
 
         wallidx_intersect_upper = poly.get_next_vertex_extrapolated_to_wall(wall)
         dummy = Polygon(increment=False)
-        dummy.add_whole_surface(surf)
+        dummy.add_whole_surface(surface)
         wallidx_intersect_lower = dummy.get_next_vertex_extrapolated_to_wall(wall)
 
-        poly.add_wall_segment(wall,wallidx_intersect_lower,wallidx_intersect_upper,backward=True)
+        poly.add_wall_segment(wall,wallidx_intersect_upper,wallidx_intersect_lower,backward=True)
         
-        poly.add_vertex(surf.vertices[-1])
+        poly.add_vertex(surface.vertices[-1])
 
         return poly
     
@@ -263,7 +263,7 @@ class Surface:
         dummy.add_whole_surface(inner)
         wallidx_intersect_bl = dummy.get_next_vertex_extrapolated_to_wall(wall)
 
-        poly.add_wall_segment(wall,wallidx_intersect_br,wallidx_intersect_upper_bl,backward=True)
+        poly.add_wall_segment(wall,wallidx_intersect_br,wallidx_intersect_bl,backward=True)
 
         poly.add_whole_surface(inner,backward=True)
         wallidx_intersect_ul = poly.get_next_vertex_extrapolated_to_wall(wall)
@@ -271,7 +271,7 @@ class Surface:
         dummy.add_whole_surface(outer,backward=True)
         wallidx_intersect_ur = dummy.get_next_vertex_extrapolated_to_wall(wall)
 
-        poly.add_wall_segment(wall,wallidx_intersect_ul,wallidx_intersect_upper_ur,backward=True)
+        poly.add_wall_segment(wall,wallidx_intersect_ul,wallidx_intersect_ur,backward=True)
        
         poly.add_vertex(outer.vertices[0])
 
@@ -305,7 +305,7 @@ class Surface:
         f.write("  wall "+str(self.id)+" 1 * \n ")
         f.write("  wall "+str(self.id)+" 0 0 \n ")
         f.write("  outer 1 2 3 4\n")
-        f.write("  wall "+str(self.id)+" 1 0 \n ")
+        f.write("  wall "+str(self.id)+" 1 1 \n ")
         if debug:
             f.write("  print_polygon poly."+str(stratum+1)+".dat\n")
             f.write("  clear_polygon\n")
