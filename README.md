@@ -8,4 +8,5 @@ To install:
 - Navigate to the scripts directory and run (for example, using gfortran on on Mac, with MPI enabled):
    SYSTEM=MACOSX COMPILER=GFORTRAN MPI_OPT=yes ./install_degas2.sh
 - This should compile the most common executables and provide an example set of input files in the MACOSX directory. For other SYSTEMs like LINUX64 (the defualt) or SUN, see the manual).
+- If the script cannot find your NetCDF library, include the environment variable NETCDF_HOME=/path/to/netcdf/lib
 - For more details see the user manual (Doc/degas2_all.pdf) and the getting started guide (doc/Running_degas2_at_PPPL.txt).
