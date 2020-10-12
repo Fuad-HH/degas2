@@ -135,7 +135,7 @@ CCDEPMODE = depmode=gcc3
 CC_FULLPATH = /usr/bin/gcc
 CFLAGS = -fPIC -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -Wdeclaration-after-statement
 CONFIG_CMD = ./configure '--prefix=/Users/gwilkie/test/degas2/silo-4.10.2/build' 'FC=gfortran'
-CONFIG_DATE = Mon Oct 12 13:28:07 EDT 2020
+CONFIG_DATE = Mon Oct 12 13:41:11 EDT 2020
 CONFIG_USER = gwilkie@gwilkie-lt
 CPP = gcc -E
 CPPFLAGS = 

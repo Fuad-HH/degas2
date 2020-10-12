@@ -75,6 +75,17 @@ then
    ./configure --prefix=$SILO_DIR/build
    make
    make install
+fi
+
+# Replace DATADIR with the appropriate directory in template input files
+cp $DEGASROOT/scripts/templates/elements.input data/
+cp $DEGASROOT/scripts/templates/species.input data/
+cp $DEGASROOT/scripts/templates/materials.input data/
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/reactions.input > $DEGASROOT/data/reactions.input
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/pmi.input > $DEGASROOT/data/pmi.input
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
+cp $DEGASROOT/scripts/templates/d2problem.input $DEGASROOT/$SYSTEM
+cp $DEGASROOT/scripts/templates/d2tally.input $DEGASROOT/$SYSTEM
 
 cd $DEGASROOT/$SYSTEM
 make datasetup
@@ -87,15 +98,6 @@ make tri_to_sonnet
 
 cd ..
 
-# Replace DATADIR with the appropriate directory in template input files
-cp $DEGASROOT/scripts/templates/elements.input data/
-cp $DEGASROOT/scripts/templates/species.input data/
-cp $DEGASROOT/scripts/templates/materials.input data/
-sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/reactions.input > $DEGASROOT/data/reactions.input
-sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/pmi.input > $DEGASROOT/data/pmi.input
-sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
-cp $DEGASROOT/scripts/templates/d2problem.input $DEGASROOT/$SYSTEM
-cp $DEGASROOT/scripts/templates/d2tally.input $DEGASROOT/$SYSTEM
 
 # Create reference data
 cd $DEGASROOT/$SYSTEM
@@ -103,9 +105,11 @@ cd $DEGASROOT/$SYSTEM
 
 cd $DEGASROOT/scripts
 
+echo "******************************"
 echo "*** Installation complete. ***"
-echo "Add the line "
-echo "export DEGASROOT=$DEGASROOT"
+echo "******************************"
+echo "Important: add the line "
+echo "    export DEGASROOT=$DEGASROOT"
 echo "to your shell init script (e.g., ~/.bashrc)."
 echo "Example input files (degas2.in, d2problem.input, d2tally.input), which point to semipermanent reference data created by datasetup, are in the directory $DEGASROOT/LINUX64. Replace WORKDIR in degas2.in where necessary."
 
