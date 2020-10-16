@@ -123,18 +123,24 @@ def interpolate_point_between_surfaces(pt_coords,polys,surfs,polymap,surf_data):
 
     return point_data
 
-def get_zone_plasma_data(zone_coords,polys,surfs,polymap,R_data,ne_data,Te_data):
+def get_zone_plasma_data(zone_coords,polys,surfs,polymap,R_data,ne_data,Te_data,psifunc):
 
-    ne_surf, Te_surf = get_plasma_on_surfaces(R_data,ne_data,Te_data,surfs)
+    psi_data = []
+
+    for R in R_data:
+        # Get average value on psi on each surface. Nominally all points should have equal psi
+        psi_data.append(psifunc(R,0.0))
+
+    ne_func = interpolate.interp1d(psi_data,ne_data,fill_value=(ne_data[0],ne_data[-1]))
+    Te_func = interpolate.interp1d(psi_data,Te_data,fill_value=(Te_data[0],Te_data[-1]))
 
     ne_zone = []
     Te_zone = []
 
-    for coords in zone_coords:
-        ne = interpolate_point_between_surfaces(coords,polys,surfs,polymap,ne_surf)
-        Te = interpolate_point_between_surfaces(coords,polys,surfs,polymap,Te_surf)
-        ne_zone.append(ne)
-        Te_zone.append(Te)
+    for point in zone_coords:
+        psi = psifunc(point[0],point[1])
+        ne_zone.append(ne_func(psi))
+        Te_zone.append(Te_func(psi))
 
     return ne_zone, Te_zone
 
@@ -143,14 +149,20 @@ def write_plasmafile(plasmafilename,ne_zone,Te_zone):
     pfile.write("zone      T(1)         N(1)        T(2)        T(2)\n")
 
     Nzone = len(ne_zone)
-    for zone_idx in range(1,Nzone+1):
+    for idx in range(1,Nzone+1):
         pfile.write(str(idx)+"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])
                 +"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])+"\n")
     pfile.close()
 
 
-
-def generate_plasma_file(polys,surfs,polymap,R_data,ne_data,Te_data,geomfilename,plasmafilename="plasmafile"):
+# Generates a plasma file for use in defineback
+# Arguments:
+#   polys, surfs, polymap: returned from dg2d.write_dg2d_input_from_wallfile
+#   R_data: array of the R coordinates at which ne and Te are given at Z=0
+#   ne_data, Te_data: the arrays of plasma density and temperature data defined at the R_data locations. ne_data should be in units of m^-3 and Te_data in units of eV
+#   psifunc: a function passed as an argument. This function should take R,Z as arguments and return psi
+#   plasmafilename (optional): the name and/or path of the plasma file to write
+def generate_plasma_file(polys,surfs,polymap,R_data,ne_data,Te_data,psifunc,geomfilename,plasmafilename="plasmafile"):
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
@@ -159,9 +171,7 @@ def generate_plasma_file(polys,surfs,polymap,R_data,ne_data,Te_data,geomfilename
     for point in range(0,len(zone_coords_3D)):
         zone_coords.append([zone_coords_3D[0],zone_coords_3D[2]])
 
-    ne_zone, Te_zone = get_zone_plasma_data(zone_coords,polys,surfs,polymap,R_data,ne_data,Te_data)
+    ne_zone, Te_zone = get_zone_plasma_data(zone_coords,polys,surfs,polymap,R_data,ne_data,Te_data,psifunc)
 
     write_plasmafile(plasmafilename,ne_zone,Te_zone)
-
-
 
