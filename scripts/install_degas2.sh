@@ -44,10 +44,10 @@ elif [ ! -z $NETCDF_HOME ]
 then
    NCLIB="-L$NETCDF_HOME -lnetcdf -lnetcdff "
 else 
-   if [ -f "/usr/local/lib/libnetcdff.a" || -f "/usr/local/lib/libnetcdff.so" ]
+   if [ -f "/usr/local/lib/libnetcdff.a" ] || [ -f "/usr/local/lib/libnetcdff.so" ]
    then
       NCLIB="-L/usr/local/lib -lnetcdf -lnetcdff"
-   elif [ -f "/usr/lib/libnetcdff.a" || -f "/usr/lib/libnetcdff.so" ]
+   elif [ -f "/usr/lib/libnetcdff.a" ] || [ -f "/usr/lib/libnetcdff.so" ]
    then
       NCLIB="-L/usr/lib -lnetcdf -lnetcdff"
    else
@@ -57,8 +57,9 @@ else
 fi
 
 FWEB_DIR=$DEGASROOT/fweb/Web
+SILO_DIR=$DEGASROOT/silo-4.10.2
 
-sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#FWEB_DIR#$FWEB_DIR#g" > $DEGASROOT/$SYSTEM/Makefile.local
+sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#SILO_DIR#$SILO_DIR/build#g" | sed "s#FWEB_DIR#$FWEB_DIR#g" > $DEGASROOT/$SYSTEM/Makefile.local
 
 if [ ! -f $DEGASROOT/fweb/Web/ftangle ]
 then
@@ -66,6 +67,25 @@ then
    ./configure
    make
 fi
+
+if [ ! -f $DEGASROOT/silo-4.10.2/build/lib/libsilo.a ]
+then
+   cd $SILO_DIR
+   mkdir build
+   ./configure --prefix=$SILO_DIR/build
+   make
+   make install
+fi
+
+# Replace DATADIR with the appropriate directory in template input files
+cp $DEGASROOT/scripts/templates/elements.input data/
+cp $DEGASROOT/scripts/templates/species.input data/
+cp $DEGASROOT/scripts/templates/materials.input data/
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/reactions.input > $DEGASROOT/data/reactions.input
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/pmi.input > $DEGASROOT/data/pmi.input
+sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
+cp $DEGASROOT/scripts/templates/d2problem.input $DEGASROOT/$SYSTEM
+cp $DEGASROOT/scripts/templates/d2tally.input $DEGASROOT/$SYSTEM
 
 cd $DEGASROOT/$SYSTEM
 make datasetup
@@ -78,15 +98,6 @@ make tri_to_sonnet
 
 cd ..
 
-# Replace DATADIR with the appropriate directory in template input files
-cp $DEGASROOT/scripts/templates/elements.input data/
-cp $DEGASROOT/scripts/templates/species.input data/
-cp $DEGASROOT/scripts/templates/materials.input data/
-sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/reactions.input > $DEGASROOT/data/reactions.input
-sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/pmi.input > $DEGASROOT/data/pmi.input
-sed "s#DATADIR#$DEGASROOT/data#g" $DEGASROOT/scripts/templates/degas2.in > $DEGASROOT/$SYSTEM/degas2.in
-cp $DEGASROOT/scripts/templates/d2problem.input $DEGASROOT/$SYSTEM
-cp $DEGASROOT/scripts/templates/d2tally.input $DEGASROOT/$SYSTEM
 
 # Create reference data
 cd $DEGASROOT/$SYSTEM
@@ -94,8 +105,12 @@ cd $DEGASROOT/$SYSTEM
 
 cd $DEGASROOT/scripts
 
+echo "******************************"
 echo "*** Installation complete. ***"
-echo "Add the line export DEGASROOT=$DEGASROOT to your shell init script (e.g., ~/.bashrc)."
+echo "******************************"
+echo "Important: add the line "
+echo "    export DEGASROOT=$DEGASROOT"
+echo "to your shell init script (e.g., ~/.bashrc)."
 echo "Example input files (degas2.in, d2problem.input, d2tally.input), which point to semipermanent reference data created by datasetup, are in the directory $DEGASROOT/LINUX64. Replace WORKDIR in degas2.in where necessary."
 
 
