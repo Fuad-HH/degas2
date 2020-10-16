@@ -150,6 +150,33 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
             inner = walls[num_closed_surfaces + 1 + isurf + 1]
 
             polys[-1].vertices = copy.deepcopy(Surface.genpoly_from_two_open_surfs(inner,outer,walls[0]).vertices)
+
+        poly_to_surf_map = []
+        # The polygons bounded by two closed flux surfaces (two polygons each):
+        for isurf in range(1,num_closed_surfaces):
+            poly_to_surf_map.append([isurf,isurf+1])
+            poly_to_surf_map.append([isurf,isurf+1])
+
+        # The innermost closed flux surface defines a single polygon
+        poly_to_surf_map.append([num_closed_surfaces,num_closed_surfaces])
+
+        # The limiter region
+        poly_to_surf_map.append([1,nwalls-1])
+
+        # The innermost open region
+        poly_to_surf_map.append([1,nwalls-1])
+
+        # The outermost open region
+        poly_to_surf_map.append([num_closed_surfaces+1,num_closed_surfaces+1])
+
+        for isurf in range(num_closed_surfaces+2,nwalls-1):
+            poly_to_surf_map.append([isurf,isurf+1])
+
+        if len(poly_to_surf_map) != len(polys):
+            print("ERROR: poly_to_surf_map does not have the same elements as polys")
+            sys.exit(1)
+
+
     else:
         print("Error: topology "+topology+" not defined.")
         sys.exit(0)
@@ -197,9 +224,9 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
     dg2dfile.close()
 
-    Polygon.clear_numPolygon()
 
-    return polys
+    Polygon.clear_numPolygon()
+    return polys, walls, poly_to_surf_map
 
 def plot_polygon_from_file(ipoly):
     polyfilename="poly."+str(ipoly)+".dat"
@@ -225,4 +252,5 @@ def plot_allpolys_from_file(N):
     plt.clf()
     for ipoly in range(1,N+1):
         plot_polygon_from_file(ipoly)
+
 
