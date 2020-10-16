@@ -169,11 +169,12 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
         # The outermost open region
         poly_to_surf_map.append([num_closed_surfaces+1,num_closed_surfaces+1])
 
-        for isurf in range(num_closed_surfaces+2,nwalls-1):
+        for isurf in range(num_closed_surfaces+1,nwalls-1):
             poly_to_surf_map.append([isurf,isurf+1])
 
         if len(poly_to_surf_map) != len(polys):
             print("ERROR: poly_to_surf_map does not have the same elements as polys")
+            print("len(polys)="+str(len(polys))+"\nlen(poly_to_surf_map)="+str(len(poly_to_surf_map)))
             sys.exit(1)
 
 
@@ -224,6 +225,9 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
     dg2dfile.close()
 
+    # Close the closed flux surfaces
+    for wall in walls[1:num_closed_surfaces+1]:
+        wall.add_vertex( wall.vertices[0] )
 
     Polygon.clear_numPolygon()
     return polys, walls, poly_to_surf_map

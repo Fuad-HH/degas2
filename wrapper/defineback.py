@@ -6,13 +6,15 @@ import numpy as np
 import dg2d
 import polygon
 import sys
-from importlib import reload # Given midplane plasma characterization as a function of R, 
+from importlib import reload 
+
+# Given midplane plasma characterization as a function of R, 
 # interpolate to get the plasma properties on each surface.
 def get_plasma_on_surfaces(R_data,ne_data,Te_data,surfs):
 
     # Make interpolant function from data
-    ne_func = interpolation.interp1d(R_data,ne_data)
-    Te_func = interpolation.interp1d(R_data,Te_data)
+    ne_func = interpolate.interp1d(R_data,ne_data)
+    Te_func = interpolate.interp1d(R_data,Te_data)
 
     ne_surf = []
     Te_surf = []
@@ -23,14 +25,14 @@ def get_plasma_on_surfaces(R_data,ne_data,Te_data,surfs):
         # If it's one of two, is only one within the bounds of R_data?
         # If not, then use the average of the two points
         if ( surf.vertices[0].coords[0] == surf.vertices[-1].coords[0] and
-                ( surf.vertices[0].coords[1] == surf.vertices[-1].coords[1]) :
+                ( surf.vertices[0].coords[1] == surf.vertices[-1].coords[1]) ):
             # Surface is closed. There will be two such intersections
             idx_cross = [-1,-1]
             found_one = False
             inside_data = [False, False]
             for idx in range(0,len(surf.vertices)-1):
                 Zstraddle = [surf.vertices[idx].coords[1], surf.vertices[idx+1].coords[1]]
-                if min(Zstraddle) < 0.0 and max(Zstraddle) >= 0.0):
+                if min(Zstraddle) < 0.0 and max(Zstraddle) >= 0.0 :
                     Ravg = 0.5*(surf.vertices[idx].coords[0] + surf.vertices[idx+1].coords[0])
                     if found_one:
                         idx_cross[1] = idx
@@ -47,7 +49,7 @@ def get_plasma_on_surfaces(R_data,ne_data,Te_data,surfs):
                 sys.exit(1)
 
             if sum(inside_data) == 0:
-                print("ERROR: either intersection with Z=0 plane is within the data range. Don't know what to do.")
+                print("ERROR: Neither intersection with Z=0 plane is within the data range. Don't know what to do.")
                 sys.exit(1)
             elif sum(inside_data) == 1:
                 if inside_data[0]:
@@ -67,16 +69,19 @@ def get_plasma_on_surfaces(R_data,ne_data,Te_data,surfs):
             # Surface is open
             idx_cross = -1
             found_one=False
-            for idx in range(0,len(surf.indices)-1):
-                Zstraddle = [surf.indices[idx].coords[1], surf.indices[idx+1].coords[1]]
-                if min(Zstraddle) < 0.0 and max(Zstraddle) >= 0.0):
+            for idx in range(0,len(surf.vertices)-1):
+                Zstraddle = [surf.vertices[idx].coords[1], surf.vertices[idx+1].coords[1]]
+                if min(Zstraddle) < 0.0 and max(Zstraddle) >= 0.0 :
                     idx_cross = idx
                     if found_one == True:
-                        print("ERROR: Found two intersections on what should be an open flux surface.")
+                        print("ERROR: Found two intersections on what should be an open flux surface.\n")
+                        print("Vertex dump:\n")
+                        print(surf.vertices[0].coords)
+                        print(surf.vertices[-1].coords)
                         sys.exit(1)
                     found_one=True
             if idx_cross == -1:
-                print("ERROR: could not find a point on the surface that straddles Z=0 plane. 
+                print("ERROR: could not find a point on the surface that straddles Z=0 plane.  \
                         Cannot assign plasma data with current algorithm")
                 sys.exit(1)
 
@@ -133,7 +138,19 @@ def get_zone_plasma_data(zone_coords,polys,surfs,polymap,R_data,ne_data,Te_data)
 
     return ne_zone, Te_zone
 
-def generate_plasma_file(polys,surfs,polymap,R_data,ne_data,Te_data,geomfilename,plasmafilename="plasmafile")
+def write_plasmafile(plasmafilename,ne_zone,Te_zone):
+    pfile = open(plasmafilename,'w')
+    pfile.write("zone      T(1)         N(1)        T(2)        T(2)\n")
+
+    Nzone = len(ne_zone)
+    for zone_idx in range(1,Nzone+1):
+        pfile.write(str(idx)+"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])
+                +"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])+"\n")
+    pfile.close()
+
+
+
+def generate_plasma_file(polys,surfs,polymap,R_data,ne_data,Te_data,geomfilename,plasmafilename="plasmafile"):
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
@@ -143,13 +160,8 @@ def generate_plasma_file(polys,surfs,polymap,R_data,ne_data,Te_data,geomfilename
         zone_coords.append([zone_coords_3D[0],zone_coords_3D[2]])
 
     ne_zone, Te_zone = get_zone_plasma_data(zone_coords,polys,surfs,polymap,R_data,ne_data,Te_data)
-    pfile = open(plasmafilename,'w')
-    pfile.write("zone      T(1)         N(1)        T(2)        T(2)\n")
 
-    for zone_idx in range(1,len(ne_zone+1)):
-        pfile.write(str(idx)+"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])
-                +"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])+"\n")
-    pfile.close()
+    write_plasmafile(plasmafilename,ne_zone,Te_zone)
 
 
 
