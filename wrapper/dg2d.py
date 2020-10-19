@@ -225,12 +225,10 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
     dg2dfile.close()
 
-    # Close the closed flux surfaces
-    for wall in walls[1:num_closed_surfaces+1]:
-        wall.add_vertex( wall.vertices[0] )
-
     Polygon.clear_numPolygon()
-    return polys, walls, poly_to_surf_map
+
+    # No longer needs to return this stuff for defineback to work properly
+#    return polys, walls, poly_to_surf_map
 
 def plot_polygon_from_file(ipoly):
     polyfilename="poly."+str(ipoly)+".dat"
