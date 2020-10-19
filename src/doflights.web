@@ -10,6 +10,8 @@
 @m MPI_messages 0
 @m MPI_slave_messages 0
 
+@m GPI_WEIGHTING 0  // Set to 1 for synthetic GPI weighting
+
 @m send_data_no 0
 @m send_data_meta_slave 1
 @m send_data_all 2
@@ -825,6 +827,11 @@ the |Send frag| section above, but with |_frag| replaced by |_fin|.
 @ Prepare a set of flight fragment data.  This version called in both
 parallel and serial cases.
 
+@#if GPI_WEIGHTING
+@m nbins 16
+@m ntest 3
+@#endif
+
 @<Functions...@>=
       subroutine setup_flight_frag(nstart,nflights,so_dummy(isource),seed0)
       implicit_none_f77
@@ -845,7 +852,19 @@ parallel and serial cases.
       logical init
       save init
       data init/.true./
-
+@#if GPI_WEIGHTING
+/*
+   For checking sampling with relative weighting
+*/
+      integer ibin,itest
+      integer binned_number[nbins][ntest],total_number[ntest]
+      real rmin,rmax,rmaj,avg_weight,total_weight
+      real binned_weight[nbins],binned_test_weight[nbins][ntest],
+     $     total_test_weight[ntest]
+      data rmin/dconst(0.82)/,rmax/dconst(0.98)/
+      save binned_number,total_number,rmin,rmax,total_weight,
+     $     binned_weight,binned_test_weight,total_test_weight
+@#endif
       ff_decls
       @<Memory allocation interface@>
 
@@ -856,6 +875,23 @@ parallel and serial cases.
          var_alloc(ff_particles_float)
          var_alloc(ff_ran_index)
          var_alloc(ff_ran_array)
+@#if GPI_WEIGHTING
+/*
+   For sampling test
+*/
+         do ibin=1,nbins
+            binned_weight[ibin]=zero
+            do itest=1,ntest
+               binned_number[ibin][itest]=0
+               binned_test_weight[ibin][itest]=zero
+            end do
+         end do
+         total_weight=zero	
+         do itest=1,ntest
+            total_number[itest]=0
+            total_test_weight[itest]=zero
+         end do
+@#endif
          init=.false.
       else if (nflights > ff_particles_dim) then
          var_realloc(ff_particles_int,ff_particles_dim,nflights)
@@ -885,9 +921,50 @@ parallel and serial cases.
          xseg=source_segment_ptr[so_base(isource)+kseg]
          ff_copy(ipart,j,isource,kseg,xseg,so_type(isource),
      $           so_root_sp(isource),x,rand)
+@#if GPI_WEIGHTING
+         if (isource == 2) then
+            rmaj=sqrt(lc_x(pt_loc(x))[1]**2+lc_x(pt_loc(x))[2]**2)
+            assert((rmaj > rmin) && (rmaj < rmax))
+            ibin=int((rmaj-rmin)*const(1.,2))+1
+            assert((ibin >=1) && (ibin <= nbins))
+            binned_weight[ibin]+=pt_w(x)
+            total_weight+=pt_w(x)
+            itest=pt_test(x)-1
+            binned_test_weight[ibin][itest]+=pt_w(x)
+            total_test_weight[itest]+=pt_w(x)
+            binned_number[ibin][itest]++
+            total_number[itest]++
+         end if
+@#endif
          call next_seed(1,seed)
       end do
+@#if GPI_WEIGHTING
+      if ((isource == 2) 
+     $    && (nstart+nflights == so_nflights(isource))) then
+         avg_weight=total_weight/areal(nbins)      
+         do ibin=1,nbins
+            binned_weight[ibin]/=avg_weight
+         end do
+         open(unit=diskout,file='snapshot_samples',status='unknown')
+         write(diskout,*) ' Total D = ',total_number[1],
+     $        ' Total D2 = ', total_number[2],
+     $        ' Total D2+ = ',total_number[3]
+         write(diskout,'(a,1p,e12.5)') ' Total weight = ',total_weight
+         write(diskout,'(1p,3(a,e12.5,2x))') ' D:  ',total_test_weight[1],
+     $        ' D2:  ',total_test_weight[2],
+     $        ' D2+:  ',total_test_weight[3]
+         write(diskout,'(a)') ' bin  R(m)        D         D2         D2+     RelWt           D_wt          D2_wt         D2p_wt'
+         do ibin=1,nbins
+            write(diskout,'(i3,2x,f6.2,2x,3(i9,2x),4(1p,e12.5,2x))') ibin,
+     $           rmin+areal(ibin)*const(1.,-2),
+     $           (binned_number[ibin][itest],itest=1,ntest),
+     $           binned_weight[ibin],
+     $           (binned_test_weight[ibin][itest],itest=1,ntest)
+         end do
+         close(unit=diskout)
 
+      end if
+@#endif
       return
       end
 
