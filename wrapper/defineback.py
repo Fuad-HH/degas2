@@ -48,10 +48,12 @@ def generate_plasma_file(R_data,ne_data,Te_data,psifunc,geomfilename,plasmafilen
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
+    zone_type = ncdata["zone_type"]
 
     zone_coords = []
     for point in range(0,len(zone_coords_3D)):
-        zone_coords.append([zone_coords_3D[0],zone_coords_3D[2]])
+        if zone_type[point] == 2:
+            zone_coords.append([zone_coords_3D[0],zone_coords_3D[2]])
 
     ne_zone, Te_zone = get_zone_plasma_data(zone_coords,R_data,ne_data,Te_data,psifunc)
 
