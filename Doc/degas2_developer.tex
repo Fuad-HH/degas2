@@ -2301,7 +2301,7 @@ single processor, via the script
   restarts and must be deleted before starting the script.
 \item The initial call to {\tt defineback} will take longer
   than subsequent ones since the interpolation file
-  (Sec.~\ref{fieldline}) will
+  ({\tt xgc1\_int\_19.nc}; see Sec.~\ref{fieldline}) will
   be generated (the run for the
   NB was on an axisymmetric plasma).
 \item The same set of XGC files,  301 -- 313, is used.
@@ -2361,6 +2361,10 @@ The critical keyword in this input file is
 \href{classes.pdf#page.31}{sources class} and
 in the ``Time Dependence'' section of
 \href{degas2_all.pdf#page.28}{the User's Manual}.
+The number of flights needed to adequately
+populate the snapshot distribution
+has already been
+set in this input file. 
 
 Again, because this run uses the same geometry (and
 {\tt problemsetup} input file) as the FPF part of the example,
@@ -2368,10 +2372,24 @@ the {\tt tallysetup} netCDF file is the same.  No harm can
 come from rerunning {\tt tallysetup} at this point,
 however.
 
+Next, the user need only run {\tt flighttest} to create
+the snapshot distribution.  To prevent the snapshot file from
+being accidently overwritten, it has been copied to
+{\tt sn\_xgc1\_cmod\_init.nc}.  Should the user want
+to restart the time dependent run from the beginning,
+it can be copied back to the {\tt sn\_xgc1\_cmod.nc}
+pointed to by the {\tt degas2.in} file.  The output
+netCDF file from this initialization run can be used
+to check the statistics, etc., but is otherwise not
+needed for the rest of the run.
+
 \subsubsection{Improving Statistics}
 \label{statistics}
 
-The statistics of a time dependent run differ dramatically
+Before beginning the actual time dependent run,
+we need to examine
+the associated statistics,
+which differ dramatically
 from those of steady state simulations.
 First note that 
 the geometry of these runs has a substantial
@@ -2560,7 +2578,8 @@ species, even though no explicit provision for doing so has been made.
 
 Due to the large amount of memory occupied by the snapshot
 distribution and the associated source, the user should
-always run {\tt flighttest} compiled with
+always perform time dependent runs of
+{\tt flighttest} compiled with
 \verb+MASTER_SAMPLE = yes+ in the {\tt Makefile.local}
 file, even in 2-D.  This will dramatically reduce
 the time required for the initial MPI broadcast
@@ -2681,6 +2700,12 @@ argument.  E.g.,
 HOST_FILE_NAME=`gen_host_file`
 ARGS="--hostfile "$HOST_FILE_NAME
 \end{verbatim}
+
+The batch script {\tt gpi\_script\_20} illustrates
+the practical application of this tactic.  The
+user will need to adapt the details according to
+the size of the run to be performed and available
+resources.
 
 \section{Visualization and Post-Processing}
 
