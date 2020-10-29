@@ -100,83 +100,99 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
         ############
         # Then, the zone between the LCFS and the first open flux surface (last in the list of walls)
-        polys.append(Polygon())
-        ipoly= 2*(num_closed_surfaces-1)+2
+        # If there are no open flux surfaces defined in the wallfile, just one big polygon for outer SOL
+        if num_open_surfaces == 0:
+            polys.append(Polygon())
 
-        # The relevant part of the LCFS
-        for vertex in walls[1].vertices[limlcfs_idx_lower:limlcfs_idx_upper+1]:
-            polys[ipoly].add_vertex(vertex)
-        # Now, find the solid wall index corresponding to the ends of the first open flux surfaces
+            # The relevant part of the LCFS
+            for vertex in walls[1].vertices[limlcfs_idx_lower:limlcfs_idx_upper+1]:
+                polys[-1].add_vertex(vertex)
 
-        # First build a dummy polygon to track other surface
-        dummyPoly = Polygon(increment=False)
-        for vertex in walls[-1].vertices[-1::-1]:
-            dummyPoly.add_vertex(vertex)
-        wallidx_intersect_upper = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
-        dummyPoly = Polygon(increment=False)
-        for vertex in walls[-1].vertices:
-            dummyPoly.add_vertex(vertex)
-        wallidx_intersect_lower = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
-
-        # Add relevant part of upper solid wall
-        for vertex in walls[0].vertices[limiter_vertex_idx[0]:wallidx_intersect_upper-1:-1]:
-            polys[ipoly].add_vertex(vertex)
-
-        # Add first open flux surface
-        for vertex in walls[-1].vertices:
-            polys[ipoly].add_vertex(vertex)
-
-        # Add relevant part of lower solid wall
-        for vertex in walls[0].vertices[wallidx_intersect_lower:limiter_vertex_idx[1]-1:-1]:
-            polys[ipoly].add_vertex(vertex)
-
-        # Close the polygon
-        polys[ipoly].add_vertex(walls[1].vertices[limlcfs_idx_lower])
-
-        ############
-        # Then, the zone between the outermost flux surface and the solid wall. Similar to above
-        polys.append(Polygon())
-        ipoly= 2*(num_closed_surfaces-1)+3
-        polys[-1].vertices = copy.deepcopy(Surface.genpoly_from_rightwall_and_surface(walls[0],walls[num_closed_surfaces+1]).vertices)
-
-        ############
-        # Finally, the zones between the solid wall and the open flux surfaces
-
-        for isurf in range(0,num_open_surfaces-1):
-
-            polys.append( Polygon() )
-
-            outer = walls[num_closed_surfaces + 1 + isurf]
-            inner = walls[num_closed_surfaces + 1 + isurf + 1]
-
-            polys[-1].vertices = copy.deepcopy(Surface.genpoly_from_two_open_surfs(inner,outer,walls[0]).vertices)
-
-        poly_to_surf_map = []
-        # The polygons bounded by two closed flux surfaces (two polygons each):
-        for isurf in range(1,num_closed_surfaces):
-            poly_to_surf_map.append([isurf,isurf+1])
-            poly_to_surf_map.append([isurf,isurf+1])
-
-        # The innermost closed flux surface defines a single polygon
-        poly_to_surf_map.append([num_closed_surfaces,num_closed_surfaces])
-
-        # The limiter region
-        poly_to_surf_map.append([1,nwalls-1])
-
-        # The innermost open region
-        poly_to_surf_map.append([1,nwalls-1])
-
-        # The outermost open region
-        poly_to_surf_map.append([num_closed_surfaces+1,num_closed_surfaces+1])
-
-        for isurf in range(num_closed_surfaces+1,nwalls-1):
-            poly_to_surf_map.append([isurf,isurf+1])
-
-        if len(poly_to_surf_map) != len(polys):
-            print("ERROR: poly_to_surf_map does not have the same elements as polys")
-            print("len(polys)="+str(len(polys))+"\nlen(poly_to_surf_map)="+str(len(poly_to_surf_map)))
-            sys.exit(1)
-
+            # Add relevant part of solid wall
+            for vertex in walls[0].vertices[limiter_vertex_idx[0]-1:limiter_vertex_idx[1]:-1]
+                polys[-1].add_vertex(vertex)
+ 
+            polys[-1].add_vertex(walls[1].vertices[limlcfs_idx_lower])
+        else:
+            polys.append(Polygon())
+            ipoly= 2*(num_closed_surfaces-1)+2
+    
+            # The relevant part of the LCFS
+            for vertex in walls[1].vertices[limlcfs_idx_lower:limlcfs_idx_upper+1]:
+                polys[ipoly].add_vertex(vertex)
+            # Now, find the solid wall index corresponding to the ends of the first open flux surfaces
+    
+            # First build a dummy polygon to track other surface
+            dummyPoly = Polygon(increment=False)
+            for vertex in walls[-1].vertices[-1::-1]:
+                dummyPoly.add_vertex(vertex)
+            wallidx_intersect_upper = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
+            dummyPoly = Polygon(increment=False)
+            for vertex in walls[-1].vertices:
+                dummyPoly.add_vertex(vertex)
+            wallidx_intersect_lower = dummyPoly.get_next_vertex_extrapolated_to_wall(walls[0])
+    
+            # Add relevant part of upper solid wall
+            for vertex in walls[0].vertices[limiter_vertex_idx[0]:wallidx_intersect_upper-1:-1]:
+                polys[ipoly].add_vertex(vertex)
+    
+            # Add first open flux surface
+            for vertex in walls[-1].vertices:
+                polys[ipoly].add_vertex(vertex)
+    
+            # Add relevant part of lower solid wall
+            for vertex in walls[0].vertices[wallidx_intersect_lower:limiter_vertex_idx[1]-1:-1]:
+                polys[ipoly].add_vertex(vertex)
+    
+            # Close the polygon
+            polys[ipoly].add_vertex(walls[1].vertices[limlcfs_idx_lower])
+    
+            ############
+            # Then, the zone between the outermost flux surface and the solid wall. Similar to above
+            polys.append(Polygon())
+            ipoly= 2*(num_closed_surfaces-1)+3
+            polys[-1].vertices = copy.deepcopy(Surface.genpoly_from_rightwall_and_surface(walls[0],walls[num_closed_surfaces+1]).vertices)
+    
+            ############
+            # Finally, the zones between the solid wall and the open flux surfaces
+    
+            for isurf in range(0,num_open_surfaces-1):
+    
+                polys.append( Polygon() )
+    
+                outer = walls[num_closed_surfaces + 1 + isurf]
+                inner = walls[num_closed_surfaces + 1 + isurf + 1]
+    
+                polys[-1].vertices = copy.deepcopy(Surface.genpoly_from_two_open_surfs(inner,outer,walls[0]).vertices)
+    
+    # Don't think we need polygon-to-surface mapping anymore. Commenting out for now. 
+    # If this is brought back, above logic needs to respected
+#        poly_to_surf_map = []
+#        # The polygons bounded by two closed flux surfaces (two polygons each):
+#        for isurf in range(1,num_closed_surfaces):
+#            poly_to_surf_map.append([isurf,isurf+1])
+#            poly_to_surf_map.append([isurf,isurf+1])
+#
+#        # The innermost closed flux surface defines a single polygon
+#        poly_to_surf_map.append([num_closed_surfaces,num_closed_surfaces])
+#
+#        # The limiter region
+#        poly_to_surf_map.append([1,nwalls-1])
+#
+#        # The innermost open region
+#        poly_to_surf_map.append([1,nwalls-1])
+#
+#        # The outermost open region
+#        poly_to_surf_map.append([num_closed_surfaces+1,num_closed_surfaces+1])
+#
+#        for isurf in range(num_closed_surfaces+1,nwalls-1):
+#            poly_to_surf_map.append([isurf,isurf+1])
+#
+#        if len(poly_to_surf_map) != len(polys):
+#            print("ERROR: poly_to_surf_map does not have the same elements as polys")
+#            print("len(polys)="+str(len(polys))+"\nlen(poly_to_surf_map)="+str(len(poly_to_surf_map)))
+#            sys.exit(1)
+#
 
     else:
         print("Error: topology "+topology+" not defined.")
