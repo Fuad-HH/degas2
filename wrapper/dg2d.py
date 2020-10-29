@@ -109,7 +109,7 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
                 polys[-1].add_vertex(vertex)
 
             # Add relevant part of solid wall
-            for vertex in walls[0].vertices[limiter_vertex_idx[0]-1:limiter_vertex_idx[1]:-1]
+            for vertex in walls[0].vertices[limiter_vertex_idx[0]-1:limiter_vertex_idx[1]:-1]:
                 polys[-1].add_vertex(vertex)
  
             polys[-1].add_vertex(walls[1].vertices[limlcfs_idx_lower])
