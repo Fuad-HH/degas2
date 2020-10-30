@@ -204,8 +204,6 @@ class Surface:
     def insert_vertex_into_surface(self,vertex_in):
         closest_idxs = self.get_N_closest_vertices(2,vertex_in)
 
-        print(closest_idxs)
-
         if not abs(closest_idxs[1] - closest_idxs[0]) == 1:
             print("Error: could not find two adjacent indices in which to insert new point.")
             sys.exit(1)
