@@ -60,3 +60,33 @@ def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,
 
     write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio)
 
+
+# Generates an input file for defineback
+# Arguments:
+#   Nflights: array of integers specifying the total number of flights from each strata
+#   wallstrata: array of integers which identifies the strata which make up the wall
+#   source_strength: array of floating point numbers specifying the given source strength. Needs to be generalized.
+#   dbfilename: name of the defineback input file
+#   plasmafilename: name of the plasmafile written by generate_plasma_file above
+# TODO:
+# - Figure out how to have a strictly recycling source
+# - Scale Nflights with the length of the strata
+
+def generate_db_input(Nflights,wallstrata,source_strength,dbfilename="db.in",plasmafilename="plasmafile"):
+
+    f = open(dbfilename,"w")
+    f.write("plasma_file "+plasmafilename+"\n")
+
+    for i in range(0,len(wallstrata)):
+        f.write("new_source_group\n")
+        f.write("  source_type plate\n")
+        f.write("  source_geom surface\n")
+        f.write("  source_species H2\n")
+        f.write("  source_root_sp H+\n")
+        f.write("  specify_flux\n")
+        f.write("  source_nflights "+str(Nflights[i])+"\n")
+        f.write("  source_stratum "+str(wallstrata[i])+"\n")
+        f.write("  source_segment *\n")
+        f.write("  source_strength "+str(source_strength[i])+"\n")
+        f.write("end_source_group\n \n")
+
