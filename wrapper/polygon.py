@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 import sys
+import matplotlib.pyplot as plt
 
 # A polygon is an ordered set of vertices, connected by segments which close in on itself.
 class Polygon:
@@ -313,6 +314,16 @@ class Surface:
             f.write("  triangulate_to_zones\n")
         f.write("\n")
         
+    def plot_surfaces(surfs):
+        for surf in surfs:
+            R = []
+            Z = []
+            for vertex in surf.vertices:
+                R.append(vertex.coords[0])
+                Z.append(vertex.coords[1])
+            plt.plot(R,Z,"+-")
+            plt.plot(R[0],Z[0],"o")
+        plt.show()
 
 
 class Vertex:
