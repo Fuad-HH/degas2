@@ -36,6 +36,8 @@ The principal routines in this file are those used to read and interpret
 
 @m OLD_UEDATA 0    //  Set to 1 if file does not contain ghost cell data
 
+@m GPI_WEIGHTING 0  // Set to 1 for synthetic GPI weighting
+
 @m increment_params(num_params) so_params_list_size+=num_params;
          if (so_params_list_size > so_params_list_dim) then;
             var_realloc(source_parameters_list,so_params_list_dim,so_params_list_size);
@@ -1372,6 +1374,11 @@ one applied by EIRENE in the benchmark runs.
 
 @ Set up a source based on snapshot particles.
 
+@#if GPI_WEIGHTING
+@m nbins 16
+@m ntest 3
+@#endif
+
 @<Functions...@>=
       subroutine set_snapshot_source(standalone)
       implicit_none_f77
@@ -1384,6 +1391,17 @@ one applied by EIRENE in the benchmark runs.
 
       integer have_snapshot_file,new_seg_tot,ip,iparam,igrp,  // Local
      $        iseg,snapshot_reset
+@#if GPI_WEIGHTING
+/*
+   For setting relative weights
+*/
+      integer ibin,itest
+      integer binned_number[nbins][ntest],total_number[ntest]
+      real rmin,rmax,rmaj,avg_weight,total_weight
+      real binned_weight[nbins],binned_test_weight[nbins][ntest],
+     $     total_test_weight[ntest]
+      data rmin/dconst(0.82)/,rmax/dconst(0.98)/
+@#endif
 
       @<Memory allocation interface@>
 
@@ -1441,7 +1459,11 @@ one applied by EIRENE in the benchmark runs.
          so_type(so_grps)=so_snapshot
          so_t_varn(so_grps)=so_delta_fn
          so_geom(so_grps)=so_volume
+@#if GPI_WEIGHTING
+         so_nflights(so_grps)=16000000
+@#else
          so_nflights(so_grps)=100
+@#endif
          so_chkpt(so_grps)=0
          so_scale(so_grps)=one
 
@@ -1533,10 +1555,46 @@ one applied by EIRENE in the benchmark runs.
 
       so_tot_curr(so_grps)=zero
       iseg=so_base(so_grps)-1
+@#if GPI_WEIGHTING
+      do ibin=1,nbins
+         binned_weight[ibin]=zero
+         do itest=1,ntest
+            binned_number[ibin][itest]=0
+            binned_test_weight[ibin][itest]=zero
+         end do
+      end do
+      total_weight=zero	
+      do itest=1,ntest
+         total_number[itest]=0
+         total_test_weight[itest]=zero
+      end do
+@#endif
       do ip=1,sn_number_particles
          iseg++
          source_segment_ptr[iseg]=ip
          source_current[iseg]=sn_particles_float[ip][sn_float_pt_w]
+@#if GPI_WEIGHTING
+/*
+   Bin snapshot particle weights in one centimeter wide bins using major
+   radius.  This will be used subsequently to set the relative weights
+   for sampling with the objective of forcing the sampled number of particles,
+   summed over all species, to be flat with major radius.  Use the 
+   |rel_wt| entry to hold the bin number temporarily for convenience.
+*/
+         rmaj=sqrt(sn_particles_float[ip][sn_float_lc_x1]**2
+     $             + sn_particles_float[ip][sn_float_lc_x2]**2)
+         assert((rmaj > rmin) && (rmaj < rmax))
+	 ibin=int((rmaj-rmin)*const(1.,2))+1
+	 assert((ibin >=1) && (ibin <= nbins))
+	 binned_weight[ibin]+=sn_particles_float[ip][sn_float_pt_w]
+	 total_weight+=sn_particles_float[ip][sn_float_pt_w]
+         itest=sn_particles_int[ip][sn_int_pt_test]-1
+         binned_test_weight[ibin][itest]+=sn_particles_float[ip][sn_float_pt_w]
+         total_test_weight[itest]+=sn_particles_float[ip][sn_float_pt_w]
+         binned_number[ibin][itest]++
+         total_number[itest]++
+         source_segment_rel_wt[iseg]=areal(ibin)
+@#endif
          so_tot_curr(so_grps)+=sn_particles_float[ip][sn_float_pt_w]
 /*
    Write the loop like this to be sure we get them all.
@@ -1604,6 +1662,42 @@ one applied by EIRENE in the benchmark runs.
       end do
       assert(iseg == new_seg_tot)
       so_seg_tot=new_seg_tot
+@#if GPI_WEIGHTING
+/*
+   The relative weight is just the fraction in each bin.
+   The sampling probability is inversely proportional to
+   this weight, however.  So, the regions with the smallest
+   weight have their probabilities enhanced.  On the other
+   hand, the stat weight of these particles is smaller.
+*/
+      assert(total_weight == so_tot_curr(so_grps))
+      avg_weight=total_weight/areal(nbins)      
+      do ibin=1,nbins
+         binned_weight[ibin]/=avg_weight
+      end do
+      do iseg=so_base(so_grps),so_seg_tot
+         ibin=int(source_segment_rel_wt[iseg])
+	 assert((ibin >=1) && (ibin <= nbins))
+	 source_segment_rel_wt[iseg]=binned_weight[ibin]
+      end do
+      open(unit=diskout,file='snapshot_rel_wts',status='unknown')
+      write(diskout,*) ' Total D = ',total_number[1],
+     $                 ' Total D2 = ', total_number[2],
+     $                 ' Total D2+ = ',total_number[3]
+      write(diskout,'(a,1p,e12.5)') ' Total weight = ',total_weight
+      write(diskout,'(1p,3(a,e12.5,2x))') ' D:  ',total_test_weight[1],
+     $                 ' D2:  ',total_test_weight[2],
+     $                 ' D2+:  ',total_test_weight[3]
+      write(diskout,'(a)') ' bin  R(m)        D         D2         D2+     RelWt           D_wt          D2_wt         D2p_wt'
+      do ibin=1,nbins
+         write(diskout,'(i3,2x,f6.2,2x,3(i9,2x),4(1p,e12.5,2x))') ibin,
+     $          rmin+areal(ibin)*const(1.,-2),
+     $          (binned_number[ibin][itest],itest=1,ntest),
+     $          binned_weight[ibin],
+     $          (binned_test_weight[ibin][itest],itest=1,ntest)
+      end do
+      close(unit=diskout)
+@#endif
 /* 
    Reset the seed string to avoid random number overlap 
    between consecutive runs.
@@ -1772,11 +1866,20 @@ break: continue
       so_decl(grp)
 
       integer i
-      
+@#if GPI_WEIGHTING      
+/*
+   The relative weights of the snapshot source segments
+   have already been set, so bypass them here.
+*/
+      assert((so_grps == 2) && (so_type(2) == so_snapshot))
+      do i=1,so_nseg(1)
+         source_segment_rel_wt[i]=one
+      end do
+@#else
       do i=1,so_seg_tot
          source_segment_rel_wt[i]=one
       end do
-
+@#endif
       do grp=1,so_grps
          call set_prob_alias(so_nseg(grp),
      $        source_current[so_base(grp)],

@@ -1035,7 +1035,7 @@ and sinks.  The fake particle's velocity is set from
 the recombining ion's flow velocity in
 {\tt post\_process\_source\_scores}.  In
 subroutine {\tt recombination\_data}, the electron
-energy source and loss rates are evaluted, as are the
+energy source and loss rates are evaluated, as are the
 wavelength and emission rate of the diagnostic lines
 being simulated.  The ion energy lost is the thermal
 value analogous to that shown above for the volume source.
@@ -1137,7 +1137,8 @@ If flight $j$ in group $i$ is sampled from
 segment $i$, the relative weight
 is set to:
 \begin{equation}
-\rho_{j} = r_{i, \ell} \times r_{{\rm norm}, i}.
+  \rho_{j} = r_{i, \ell} \times r_{{\rm norm}, i}.
+\label{statwt}
 \end{equation}
 
 Scaling and final processing of the output arrays
@@ -1343,7 +1344,7 @@ equivalent since {\tt acc\_output} scales the
 {\tt output\_grp} array and does 
 not update the {\tt output\_2D\_coupling} array 
 (those data can be obtained directly from the 
-constiuent tallies via {\tt outputbrowser}). 
+ constituent tallies via {\tt outputbrowser}). 
 The arrays {\tt output\_num\_flights} and {\tt output\_random\_seed}
 are not utilized, either.  The total, accumulated
 weight {\em is} available in {\tt output\_weight\_grp}.
@@ -1480,7 +1481,7 @@ the product of {\tt pt\_w} and {\tt stat\_wt\_tot\_flt}.  Once
 all of the particles in a source group have been tracked,
 the weights of the newly created snapshot particles are
 scaled by the total current in the group, {\tt so\_tot\_curr}
-(and the rarely used, arbitary factor {\tt so\_scale}), and 
+(and the rarely used, arbitrary factor {\tt so\_scale}), and 
 divided by the total weight in the group, {\tt output\_weigh\_grp}.
 As noted above, in the subsequent time step, 
 subroutine {\tt set\_snapshot\_source} ({\tt writeback.web})
@@ -1596,6 +1597,7 @@ a file compatible with this assumption.
   \end{itemize}
 
 \subsection{\tt definegeometry2d}
+\label{definegeometry2d}
 
 The construction of the 2-D input file to {\tt definegeometry2d},
 {\tt xgc\_gpi\_19\_dg2d.in},
@@ -1606,7 +1608,7 @@ box for {\tt efit2dg2d}, except for outer radial boundary.
 The actual C-Mod vacuum
 vessel is at $R = 1.0616$ m.  But, we set up these simulations
 with it at $R = 0.98$ m to reduce the volume of the vacuum
-region of the problem; this will be discussed in Sec. XX
+region of the problem; this will be discussed in Sec.~\ref{statistics}
 in connection with importance sampling.
 However, still need to ensure that the camera vertex
 at $R = 1.025$ m is in the universal cell; we do
@@ -1897,6 +1899,7 @@ in a separate file, could
 in principle be developed should the need arise.
 
 \subsection{Field Line Interpolation}
+\label{fieldline}
 
 Were the DEGAS 2 and XGC toroidal discretizations identical,
 constructing the DEGAS 2 plasma background from the files
@@ -1960,7 +1963,7 @@ For this application, second order is used; this is
 specified via the {\tt rk\_order} macro in the
 preamble of {\tt xgc1\_gpi.web}.  A detailed
 convergence test was performed for all three
-orders, examing the scaling of the errors
+orders, examining the scaling of the errors
 with the step size.
 The first and second order integrations
 scaled as expected; the fourth order did not.
@@ -2024,7 +2027,16 @@ The {\tt get\_n\_t} subroutine for the synthetic GPI
 example is in {\tt xgc1\_gpi.hweb} (included with the
 DEGAS 2 distribution), which should be
 copied to {\tt usr2dplasma.web} and compiled into
-{\tt defineback}.  As with virtually all
+{\tt defineback}.
+Note that this routine relies on the ``XGC1 interpolation''
+class ({\tt xgc1interp.hweb} and {\tt xi\_common} in
+the code).  Since this is presently the only invocation
+of this class in DEGAS 2 and since the {\tt Makefile.depends}
+file generally does not contain entries for the (problem
+dependent) {\tt usr2dplasma.web} file, the user should
+execute \verb+gmake depend+ in the {\tt src} directory
+before compiling {\tt defineback}.
+As with virtually all
 custom {\tt get\_n\_t} subroutines, the argument to the
 {\tt plasma\_file} is a string.  In this case, it
 consists of the paths to three files:
@@ -2074,7 +2086,7 @@ GPI simulations.  Since the DEGAS 2 runs are all
 steady state, the {\tt time\_interval} keyword is not
 needed in the {\tt defineback} input file, so the
 same file, {\tt xgc\_gpi\_19\_db\_ss}
-({\tt xgc\_gpi\_19\_db\_3D\_SS} for 3-D)
+({\tt xgc\_gpi\_19\_db\_3D\_ss} for 3-D)
 can be used for
 each time slice.  Note that the desired number of flights
 is specified here so as to avoid having to manually
@@ -2156,7 +2168,25 @@ DEGAS 2 output netCDF file with another one from the
 same problem; see the premable to {\tt acc\_output}
 for additional details.
 
+Once the proper operation of the executables
+involved in the batch script has been established,
+the executables {\tt defineback}, {\tt outputbrowser},
+{\tt postdetector}, and {\tt acc\_output}
+can be compiled with \verb+DEBUG = no+.
+For {\tt flighttest}, parallelization should be
+turned on with \verb+MPI = yes+ and the
+\verb+MASTER_SAMPLE+ sample switch should be left with the
+default \verb+no+.  The two exceptions to these
+guidelines are that {\tt flighttest} must
+be run in scalar mode for the Fixed Neutral
+Density approach, Sec.~\ref{FND}, and that
+\verb+MASTER_SAMPLE+ should be \verb+yes+ for
+{\tt flighttest} in the time dependent
+case, Sec.~\ref{tdnd}.
+
+
 \subsection{Fixed Neutral Density (FND)}
+\label{FND}
 
 A single steady state run is performed on a representative,
 axisymmetric background plasma to obtain a 3-D neutral background
@@ -2192,14 +2222,16 @@ simply use the first step from the set that
 we will be working with:
 \begin{verbatim}
 XGC_GPI_19_ex/xgc1_gpi_plasma_v6.py XGC_GPI_19_ex/ xgc.f3d.00301.h5 
-           XGC_GPI_19_ex/gpi_poly_3d XGC_GPI_19_ex/
+XGC_GPI_19_ex/gpi_poly_3d XGC_GPI_19_ex/
 \end{verbatim}
 As described in Sec.~\ref{meshinterp}, this writes to the output
 directory ({\tt XGC\_GPI\_19\_ex} here) a
 separate text file for each XGC poloidal plane, plus one with
-the axisymmetric values.
+the axisymmetric values.  To avoid confusion between the
+``neutral background'' and the plasma background, we will
+henceforth refer to the former as ``NB''.
 
-We only need the axisymmetric file  in producing the neutral background,
+We only need the axisymmetric file  in producing the NB,
 so this initial 
 {\tt defineback} input file points to {\tt plasma\_file\_list\_2d.txt}.
 It also includes {\tt source\_segment\_iy} keyword
@@ -2212,7 +2244,7 @@ since manually editing the 3-D background netCDF file is not
 all that easy.
 
 The same input (and output) file for {\tt tallysetup} is used
-in both the initial neutral background run
+in both the initial NB run
 and the subsequent restart steps.  The most relevant difference
 between this input file and the ones used with the other synthetic
 GPI time stepping methods is that the post-processing estimator
@@ -2236,32 +2268,470 @@ the assertion (four times), or compile {\tt tallysetup} with
 
 The full, 3-D run of {\tt flighttest} with $8 \times 10^{6}$
 takes about an hour with $\sim 10^{2}$ cores.  Once complete,
-rename the output file so that it is not accidentally
+run {\tt postdetector} to generate a corresponding camera
+image; we will need this for normalizing the actual time
+dependent images.  In a typical application, as in the
+\href{https://doi.org/10.1063/5.0002876}{synthetic GPI paper},
+one would instead normalize to the
+initial, quiescent time slices from XGC.  Since these time
+slices are far from quiescent and very similar to each other,
+normalizing to the first of them would remove much of the
+structure we wish to see.
+
+Rename the output file so that it is not accidentally
 overwritten:
 \begin{verbatim}
 mv degas2_xgc1_cmod_out.nc degas2_xgc1_cmod_NB.nc
 \end{verbatim}
 
-Note that {\tt defineback} does not provide a means
-of setting the restart flag via its input file.  Here,
-we change the value of {\tt so\_restart} from its
-default value of $0$ to $1$.  
+Likewise, copy the {\tt postdetector} file to the
+output directory to be used for this run (create it
+if it does not already exist):
+\begin{verbatim}
+mv degas2_xgc1_cmod_out_post.nc 
+Camera_FND/degas2_xgc1_cmod_out_post_NB.nc
+\end{verbatim}
 
-% defineback XGC_GPI_19_ex/xgc_gpi_19_db_3D_ss
+As in the FPF run, the batch job is sufficiently quick that
+it can be run interactively, this time on a
+single processor, via the script
+{\tt gpi\_script\_fpf\_int}.  Some details:
+\begin{itemize}
+\item Again the file {\tt a\_no} is used to prevent unwanted
+  restarts and must be deleted before starting the script.
+\item The initial call to {\tt defineback} will take longer
+  than subsequent ones since the interpolation file
+  ({\tt xgc1\_int\_19.nc}; see Sec.~\ref{fieldline}) will
+  be generated (the run for the
+  NB was on an axisymmetric plasma).
+\item The same set of XGC files,  301 -- 313, is used.
+\item This same {\tt defineback} input file,
+  {\tt xgc\_gpi\_19\_db\_3D\_ss} could be used to
+  perform a 3-D version of the FPF run.
+\item All of these invocations of {\tt flighttest} are
+  ``restarts'' with the same number of flights as in
+  the NB run.  Consequently, the flag {\tt so\_restart}
+  in the background netCDF file needs to be changed from
+  its default value of $0$ to $1$.  We do this via a
+  few editing commands since {\tt defineback} offers no
+  way to do this via its input file.
+\item These editing commands could in principle be collapsed
+  into a single command via ``pipes'', but have been separated
+  to minimize the likelihood of errors.
+\item The {\tt postdetector} output files are copied to the
+  {\tt Camera\_FND} directory.
+\end{itemize}
+
+Note that the {\tt acc\_output} code is {\em not} used
+in this application to integrate over frames since the
+statistical uncertainty in each frame is exactly the same.
+We instead perform simple averages over frames in the
+visualization stage, Sec. XX.
+
+\subsection{Time Dependent Neutral Density (TDND)}
+\label{tdnd}
+
+We will initially go through this in 2-D, which allows us
+use the same input file as the FPF mode:
+\begin{verbatim}
+cp XGC_GPI_19_ex/degas2_FPF.in degas2.in
+\end{verbatim}
+
+Since we already have the geometry file, we can proceed
+to set up the snapshot distribution corresponding to the
+initial time. First, interpolate the XGC data onto
+the DEGAS 2 triangles:
+\begin{verbatim}
+XGC_GPI_19_ex/xgc1_gpi_plasma_v6.py XGC_GPI_19_ex/ 
+    xgc.f3d.00301.h5 XGC_GPI_19_ex/gpi_poly_2d XGC_GPI_19_ex/
+\end{verbatim}
+
+Then, run {\tt defineback} with the dedicated input file for
+the initialization run:
+\begin{verbatim}
+defineback XGC_GPI_19_ex/xgc_gpi_19_db_init
+\end{verbatim}
+Note that we are using the 2-D (axisymmetric) plasma
+file here.  The end of the time interval, $1.8802 \times
+10^{-7}$ s, will become $t_{0}$ in the subsequent
+time dependent run.
+The critical keyword in this input file is
+{\tt time\_initialization}; this sets the
+{\tt so\_time\_initialization} flag in the
+\href{classes.pdf#page.31}{sources class} and
+in the ``Time Dependence'' section of
+\href{degas2_all.pdf#page.28}{the User's Manual}.
+The number of flights needed to adequately
+populate the snapshot distribution
+has already been
+set in this input file. 
+
+Again, because this run uses the same geometry (and
+{\tt problemsetup} input file) as the FPF part of the example,
+the {\tt tallysetup} netCDF file is the same.  No harm can
+come from rerunning {\tt tallysetup} at this point,
+however.
+
+Next, the user need only run {\tt flighttest} to create
+the snapshot distribution.  To prevent the snapshot file from
+being accidently overwritten, it has been copied to
+{\tt sn\_xgc1\_cmod\_init.nc}.  Should the user want
+to restart the time dependent run from the beginning,
+it can be copied back to the {\tt sn\_xgc1\_cmod.nc}
+pointed to by the {\tt degas2.in} file.  The output
+netCDF file from this initialization run can be used
+to check the statistics, etc., but is otherwise not
+needed for the rest of the run.
+
+\subsubsection{Improving Statistics}
+\label{statistics}
+
+Before beginning the actual time dependent run,
+we need to examine
+the associated statistics,
+which differ dramatically
+from those of steady state simulations.
+First note that 
+the geometry of these runs has a substantial
+plasma-free
+volume behind the gas nozzle.
+This region is dominated by slow moving molecules or
+atoms that do not contribute to the GPI signal.
+The principal reason
+for including it in the simulations is to provide
+a physically realistic
+boundary condition for atoms returning from the plasma following
+a charge exchange or dissociation event.
+A first step in mitigating this problem is to 
+reduce the major radius of the vessel wall from
+$R=1.0616$ m to
+$R=0.98$ m, as was noted in Sec.~\ref{definegeometry2d};
+the remaining 5 cm of space behind the gas source is
+more than enough to provide the desired boundary condition. For
+example, a 3 eV atom (300 K D$_{2}$ molecule or He atom) needs 18
+(267) time steps to traverse it.
+
+Another confounding factor is the short mean free
+path for atoms heading into the plasma, dropping from an effectively
+infinite 25 cm near the nozzle to between 1 and 3 cm around
+the separatrix. Since the separatrix is 3.7 cm from the nozzle in this
+shot (at the vertical center of the GPI frame), the atoms
+must travel more than one mean free path to reach the confined
+plasma. But, we need even deeper penetration than this to reach the
+regions in which the plasma turbulence is most active.
+
+Two techniques are used to improve the statistics in the region
+of interest, i.e., the GPI ``target plane.'' The first, ``suppressed
+absorption,'' (also called ``survival biasing'') is commonly used in
+DEGAS 2 in connection with the atomic ionization process.
+When invoked, the atoms do not undergo discrete ionization events
+in which they are completely ionized in a single collision. Rather,
+the statistical weight ($=1$ when the particle is
+sampled) of the atom
+is exponentially reduced along its track with a
+rate equal to the ionization
+rate. To avoid the tracking of statistically insignificant particles,
+a minimum statistical weight is set.
+Once that weight is
+reached, the decision to either terminate or continue the particle’s
+track is made randomly with a $50 \%$ chance for each (``Russian
+roulette'').
+A typical steady state DEGAS 2 GPI simulation
+employs a minimum weight of $10^{-3}$.
+In the present case, however, very small
+weights will be the norm. To ensure that flights can populate the
+inner region as fully as possible, we reduce the minimum weight to
+$10^{-7}$. The impact on the run time is modest.  To effect this,
+the user needs to set the parameter {\tt WMIN} in {\tt flight.web}:
+\begin{verbatim}
+@m WMIN const(1.,-7)
+\end{verbatim}
+Be sure to return this to the default of $10^{-3}$ for use with
+more standard problems.
+
+The second technique, importance sampling, is critical for
+making the optimal use of the snapshot distribution. By default, the
+probability for sampling a particular particle from the
+snapshot distribution
+is proportional to its statistical weight. Because the cold
+molecules and atoms in the vacuum region have undergone little or
+no ionization, their statistical weight is comparable to that of newly
+sampled gas puff particles. Moreover, the neutral density there is
+two or more orders of magnitude larger than in the GPI target
+region. Consequently, a direct sample of the snapshot distribution
+would be dominated by the cold molecules and atoms in the vacuum
+region. Moreover, these particles represent a simple distribution
+(thermal molecules or atoms) that can be described adequately
+with relatively few particles. In contrast, the particles in which we
+are most interested comprise the very kinetic distribution of atoms
+resulting from the charge exchange reactions and perhaps containing
+complex spatial variations associated with the plasma
+turbulence.
+
+The weighting scheme we employ in the importance sampling
+is designed to yield a snapshot source
+consisting of a radially uniform
+number of particles. First, we bin all of the snapshot particles
+by major radius in 1 cm wide bins. The inverse of this distribution
+then provides the relative weight adjustment factors for the particles
+in each bin; these correspond to the
+$r_{i,l}$ in Sec.~\ref{final} earlier in this
+manual and are computed in
+subroutine {\tt set\_snapshot\_source}.
+For example, the less-common and lower weight particles
+well inside the separatrix will be more heavily weighted,
+increasing the likelihood that they will be sampled. The obvious
+bias that this introduces is compensated by then
+decreasing the statistical
+weight carried by these particles during their tracks,
+via Eq.~(\ref{statwt}). The
+opposite is true of snapshot particles that are sampled at larger
+major radius.
+
+To enable this, the user needs to set
+the macro flag in {\tt writeback.web}:
+\begin{verbatim}
+@m GPI_WEIGHTING 1  // Set to 1 for synthetic GPI weighting
+\end{verbatim}
+This macro also contains code that writes out this binned
+distribution to a file called {\tt snapshot\_rel\_wts}
+for monitoring after the run.
+Again, since this code is specific
+for this geometry, its use in other applications may cause
+problems; be sure to reset the macro to its default value
+of $0$.  Once {\tt defineback} is compiled with this
+enabled, the snapshot source will be assigned these
+weighting factors.
+The file {\tt doflights.web} has a corresponding macro
+that writes out the resulting distribution of sampled
+particles to {\tt snapshot\_samples}
+that can be used to illustrate the effect
+of importance sampling.  
+
+
+Figures~\ref{snapshot1} and \ref{snapshot2} reflect
+the snapshot distribution from the initialization run,
+as written to {\tt snapshot\_rel\_wts}, and the subsequent
+sampling of it, from {\tt snapshot\_samples},
+when {\tt flighttest} ran the actual
+first time step.  The notebook used to generate
+these plots, {\tt XGC\_GPI\_19\_ex\_snapshot\_samples.ipynb},
+is included with the example files.
+
+The left plot in
+Fig.~\ref{snapshot1}
+is nothing more than a pictorial representation of the
+sampling process itself; alternatively, it is a plot of the spatial
+distribution of the overall neutral probability
+distribution function.  Both curves are based on the
+total weight in each bin, regardless of species.  The conclusion here
+is that the relative weighting and sampling are both working as
+intended.
+
+The right plot shows the impact of the relative weighting on the
+number of particles (regardless of weight) in each bin; keep in mind
+that the key to reducing the variance is to increase the number
+of scores, i.e., particles, assuming all of the particles are of
+similar weight.
+The red curves depict the problematic situation that arises with
+weights fixed at 1: most of the particles are D$_{2}$, and the bulk of
+these are in an uninteresting region.  The blue curves appear to, and
+probably do, sum to roughly a constant; this was the intent of the
+relative weight distribution.  The result is a huge increase in the
+number of D in the plasma volume, with no change in total weight, and
+a reduction in the number of D$_{2}$ in the vacuum region.
+Note that we add "1" to the D$_{2}$ curves to allow plotting on a log
+scale since their number goes to zero at small $R$.
+
+
+Figure~\ref{snapshot2} is analogous to the left plot in Fig.~\ref{snapshot1},
+but broken down by species.  This demonstrates that the sampling
+procedure separately preserves the weight distribution for each
+species, even though no explicit provision for doing so has been made.
+
+
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=6in]{snapshot_pdfs_1.pdf}
+    \caption{Binned probability distribution functions based
+      on particle weight (left) and particle number (right).
+      Both plots contain lines for the snapshot distribution, as
+      contained in the snapshot netCDF file, and for the distribution
+      of particles sampled from it prior to tracking in the main code.
+      The decoupling of particle number and weight apparent in the
+    ``sampled'' plots is the objective of importance sampling.}
+    \label{snapshot1}
+  \end{center}
+\end{figure}
+
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=4in]{snapshot_pdfs_2.pdf}
+    \caption{Binned probability distribution functions based
+      on particle weight, separately for D atoms and
+      D$_{2}$ molecules.}
+    \label{snapshot2}
+  \end{center}
+\end{figure}
+
+\subsubsection{Execution}
+
+Due to the large amount of memory occupied by the snapshot
+distribution and the associated source, the user should
+always perform time dependent runs of
+{\tt flighttest} compiled with
+\verb+MASTER_SAMPLE = yes+ in the {\tt Makefile.local}
+file, even in 2-D.  This will dramatically reduce
+the time required for the initial MPI broadcast
+to the slaves, as well as the memory they consume.
+
+The batch script for this run, {\tt gpi\_script\_tdnd},
+differs from the ones for the FPF and FND methods in
+that it:
+\begin{itemize}
+\item Is intended to be run purely as a batch job,
+  i.e, not interactive.
+  \begin{itemize}
+  \item This is not all that critical for this example,
+    which requires about two hours to run.
+  \item However, 3-D runs require additional care in
+    setting up the processors; see below.
+  \item And can take days or even weeks to run the full set of
+    XGC time steps.
+  \end{itemize}
+\item Keeps track of the physical time step, needed for the
+  {\tt defineback} input file.
+  \begin{itemize}
+  \item The \verb+T_ZERO+ set at the top of the script is the
+    starting time of the run, representing the end of the
+    initialization time step.
+  \item Consequently, \verb+T_END+ is initialized to this
+    same value; at this point, this is also the time associated
+    with the snapshot particles from the initialization run.
+  \item At the beginning of a time step, \verb+T_START+ is
+    set to \verb+T_END+,
+  \item Then \verb+T_END+ is computed from \verb+T_ZERO+, the
+    time step size, \verb+DT+, and the step number, \verb+INT_STEP+,
+    which is read from the file name.
+  \item Note that in this case, we subtract 300 from the step number
+    since the first file is for step number 301.
+  \item The values of \verb+T_START+ and \verb+T_END+ are written
+    into the {\tt defineback} input file via a {\tt sed} command
+    which operates on a ``base'' version of the input file,
+    {\tt xgc\_gpi\_19\_db\_base}.
+    \end{itemize}
+\item Compiles diagnostic information on the snapshot
+  distribution and on the sampling thereof.
+  \begin{itemize}
+  \item These files are as described above in Sec.~\ref{statistics}.
+  \item But, are concatenated into a single file of the same
+    name in the {\tt Camera\_TDND} directory with the step number
+    separating each section of the output.
+  \end{itemize}
+\item The number of particles in each snapshot file is compiled
+  in the file {\tt snap\_flights.txt} in the
+  {\tt Camera\_TDND} directory.
+\item As in the FPF run, the final section of the script integrates
+  the output over 13 time steps using {\tt base\_xgc1\_cmod\_out.nc}
+  to contain the intermediate output.
+  \begin{itemize}
+  \item One difference is that we also store every thirteenth snapshot
+    file, labeled with the step number, in the {\tt Camera\_TDND}
+    directory as a checkpoint and for post-run analysis.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Restarting}
+
+When running hundreds of XGC time steps in total, one may need to
+break them up into multiple batch jobs to stay within the
+constraints of the batch system.  The best point to stop a
+job is at the end of a ``thirteenth'' step since the script
+will automatically have saved a copy of
+the last snapshot file, reducing
+the likelihood of it being deleted or overwritten.  Otherwise,
+one just needs to ensure that the snapshot and base output
+netCDF files from the end of the last time step are valid.
+The other things one needs to do:
+\begin{itemize}
+\item Set the step number.
+  \begin{itemize}
+  \item Namely, modify the list of XGC files
+    so that it begins with the next step.  E.g., do something
+    like:
+\begin{verbatim}
+XGC1filelist=`ls -1 $XGC1dir/H5_files/xgc.f3d* | tail -163`
+\end{verbatim}
+    where the ``163'' was chosen to yield the desired step.
+  \end{itemize}
+\item Set \verb+T_END+ to the time associated with the particles
+  in the snapshot netCDF file.
+\item Delete the \verb+a_no+ file, as well as the various
+  standard output and error files for the batch script and
+  the various executables.
+\end{itemize}
+
+Should the job be interrupted in the middle of a step, the user
+will need to examine the various files and make whatever
+adjustments are needed to allow the batch job to be restarted
+from the beginning of that step.
+
+
+\subsubsection{Differences in 3-D}
+
+The memory and storage requirements in 3-D are, not surprisingly,
+greater than in 2-D.  The use of the \verb+MASTER_SAMPLE+
+option minimizes the load on the slave processes.  In the
+original set of TDND runs, extra steps were taken to
+ensure that the master process had access to adequate
+memory.  First, the script \verb+gen_host_file+ (included
+in the example directory) was developed to provide
+detailed control over the cores on the master node.
+In particular, this script removes 5 cores from the allocated
+list on that node so that the memory associated with those
+cores can be utilized by the master process.  Accordingly,
+the variable \verb+NPROCS+ in the batch script needs to
+be 5 smaller than the number of cores requested by the
+\verb+SBATCH+ command at the top of the script.  The name
+of the file created by \verb+gen_host_file+ is
+passed on to {\tt mpirun} via its {\tt hostfile}
+argument.  E.g.,
+\begin{verbatim}
+HOST_FILE_NAME=`gen_host_file`
+ARGS="--hostfile "$HOST_FILE_NAME
+\end{verbatim}
+
+The batch script {\tt gpi\_script\_20} illustrates
+the practical application of this tactic.  The
+user will need to adapt the details according to
+the size of the run to be performed and available
+resources.
+
+\section{Visualization and Post-Processing}
+
+The first and simplest visualization of the camera frames
+produced by post-detector is demonstrated in the
+three Jupyter notebooks included in the example,
+one for each approach: {\tt XGC\_GPI\_19\_ex\_FPF.ipynb},
+etc.  These include overlaid surfaces representing the
+separatrix and XGC's outer boundary.  The movies
+can be written to an mp4 file by using the
+{\tt save} command of the {\tt matplotlib.animation}
+package.  Similar steps can be taken to generate
+an analogous movie from the XGC output files,
+as in the
+\href{https://doi.org/10.1063/5.0002876}{synthetic GPI paper}.
+
+The quantities used to characterize the turbulence,
+auto-correlation time, correlation lengths, etc., should
+be computed from these frames using the exact
+same methods that are applied to the experimental
+data.  Doing so ensures an ``apples-to-apples''
+comparison.
 
 
 
-\subsection{Performance Considerations}
 
-Once the proper operation of the executables
-involved in the batch script has been established,
-the executables {\tt defineback}, {\tt outputbrowser},
-{\tt postdetector}, and {\tt acc\_output}
-can be compiled with \verb+DEBUG = no+.
-For {\tt flighttest}, parallelization can be
-turned on with \verb+MPI = yes+.  Note that
-\verb+MASTER_SAMPLE+ should be left with the
-default \verb+no+, except in time dependent mode.
 
 
 
