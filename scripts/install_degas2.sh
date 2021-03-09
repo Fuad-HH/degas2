@@ -65,11 +65,7 @@ fi
 FWEB_DIR=$DEGASROOT/fweb/Web
 SILO_DIR=$DEGASROOT/silo-4.10.2
 
-<<<<<<< HEAD
-sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#FWEB_DIR#$FWEB_DIR#g" | sed "s/GCC10_OPT/$GCC10_OPT/g" > $DEGASROOT/$SYSTEM/Makefile.local
-=======
-sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#SILO_DIR#$SILO_DIR/build#g" | sed "s#FWEB_DIR#$FWEB_DIR#g" > $DEGASROOT/$SYSTEM/Makefile.local
->>>>>>> 971fd7823af36bc0d14f192db4900e58371feb79
+sed "s/COMPILER_OPT/$COMPILER/g" $DEGASROOT/scripts/templates/Makefile.local | sed "s/MPI_OPT/$MPI_OPT/g" | sed "s#NCLIB#$NCLIB#g"  | sed "s#SILO_DIR#$SILO_DIR/build#g" | sed "s#FWEB_DIR#$FWEB_DIR#g" | sed "s#GCC10_OPT#$GCC10_OPT#g" > $DEGASROOT/$SYSTEM/Makefile.local
 
 if [ ! -f $DEGASROOT/fweb/Web/ftangle ]
 then
