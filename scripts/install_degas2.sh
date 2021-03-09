@@ -24,7 +24,7 @@ then
    MPI_OPT=no
 fi
 
-if [ -z "$MPI_OPT" ]
+if [ -z "$GCC10_OPT" ]
 then
    GCC10_OPT=no
 fi
@@ -34,7 +34,7 @@ export DEGASROOT=$PWD
 echo $SYSTEM > this_system
 mkdir $SYSTEM
 cd $SYSTEM
-ln -s ../src/Makefile .
+cp ../src/Makefile .
 cd $DEGASROOT
 
 if [ ! -z $NETCDF_C_HOME ]
