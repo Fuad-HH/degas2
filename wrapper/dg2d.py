@@ -210,10 +210,11 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
     #Zcoords = walls[0].vertices[:].coords[1]
     Rrange = np.amax(Rcoords) - np.amin(Rcoords)
     Zrange = np.amax(Zcoords) - np.amin(Zcoords)
-    Zmin = np.amin(Zcoords) - 0.8*Zrange
-    Zmax = np.amax(Zcoords) + 0.8*Zrange
-    Rmin = max(np.amin(Rcoords) - 0.8*Rrange, 0.2*np.amin(Rcoords))
-    Rmax = np.amax(Rcoords) + 0.8*Rrange
+    Zmin = np.amin(Zcoords) - Zrange
+    Zmax = np.amax(Zcoords) + Zrange
+#    Rmin = max(np.amin(Rcoords) - 0.8*Rrange, 0.2*np.amin(Rcoords))
+    Rmin = 0.0001
+    Rmax = np.amax(Rcoords) + Rrange
     dg2dfile.write("bounds     %f %f    %f %f \n" % (Rmin, Rmax, Zmin, Zmax))
 
     ####################################
