@@ -171,7 +171,7 @@ def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,
 # - Figure out how to have a strictly recycling source
 # - Scale Nflights with the length of the strata
 
-def generate_db_input(Nflights,wallstrata,source_strength,dbfilename="db.in"):
+def generate_db_input(Nflights,wallstrata,dbfilename="db.in"):
 
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
