@@ -163,15 +163,12 @@ def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,
 # Generates an input file for defineback
 # Arguments:
 #   Nflights: array of integers specifying the total number of flights from each strata
-#   wallstrata: array of integers which identifies the strata which make up the wall
-#   source_strength: array of floating point numbers specifying the given source strength. Needs to be generalized.
 #   dbfilename: name of the defineback input file
-#   plasmafilename: name of the plasmafile written by generate_plasma_file above
 # TODO:
 # - Figure out how to have a strictly recycling source
 # - Scale Nflights with the length of the strata
 
-def generate_db_input(Nflights,wallstrata,dbfilename="db.in"):
+def generate_db_input(Nflights,dbfilename="db.in"):
 
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
