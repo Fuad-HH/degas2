@@ -27,16 +27,49 @@ def get_zone_plasma_data(zone_coords,R_data,ne_data,Te_data,psifunc):
 
     return ne_zone, Te_zone
 
-def write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio,vpar_zone,area_zone):
+def write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio):
     pfile = open(plasmafilename,'w')
-    pfile.write("zone      T(1)         N(1)        T(2)        N(2)        V_PAR       AREA\n")
+    pfile.write("zone      T(1)         N(1)        T(2)        N(2)\n")
 
     Nzone = len(ne_zone)
     for idx in range(1,Nzone+1):
         pfile.write(str(idx)+"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])
-                +"  "+str(TiTe_ratio*Te_zone[idx-1])+"  "+str(ne_zone[idx-1])+"  "+str(vpar_zone[idx-1])+" "+str(area_zone[idx-1])+"\n")
+                +"  "+str(TiTe_ratio*Te_zone[idx-1])+"  "+str(ne_zone[idx-1])+"\n")
     pfile.close()
 
+def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,):
+    sfile = open(sourcefilename,'w')
+
+    def write_array(label,data):
+      sfile.write("#\n"+label+"\n#\n")
+
+      N = len(data)
+      for idx in range(0,N):
+        sfile.write(str(data[idx])+"  ")
+        if (idx+1)%10 == 0 or (idx == (N-1)):
+           sfile.write("\n")
+
+    stratum = []
+    segment = []
+    dens = []
+    vpar = []
+    area = []
+
+    for iplasma in plasma_sector[1:]:
+       izone = sector_zone[iplasma]-1
+       stratum.append(strata[iplasma])
+       segment.append(sector_strata_segment[iplasma])
+       dens.append(ne_zone[izone])
+       area.append(area_zone[izone])
+       vpar.append(vpar_zone[izone])
+      
+    write_array("stratum",stratum) 
+    write_array("segment",segment) 
+    write_array("N(2)",dens) 
+    write_array("V_PAR",vpar) 
+    write_array("AREA",area) 
+
+    sfile.close()
 
 # Generates a plasma file for use in defineback
 # Arguments:
@@ -45,13 +78,18 @@ def write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio,vpar_zone,area_zo
 #   TiTe_ratio: a float value that provides Ti/Te, used to infer Ti from Te uniformly. To eventually replace with a separate array.
 #   psifunc: a function passed as an argument. This function should take R,Z as arguments and return psi
 #   plasmafilename (optional): the name and/or path of the plasma file to write
-def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,bfieldfilename="gs_fields.dat",plasmafilename="plasmafile",mass=1.66e-27):
+def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,bfieldfilename="gs_fields.dat",ionmass=1.66e-27):
+
+    plasmafilename="plasmafile"
+    sourcefilename="sourcefile"
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
     zone_type = ncdata["zone_type"]
     plasma_sector = ncdata["plasma_sector"]
     sector_zone = ncdata["sector_zone"]
+    strata = ncdata["strata"]
+    sector_strata_segment = ncdata["sector_strata_segment"]
     sector_points = ncdata["sector_points"]
 
     zone_coords = []
@@ -85,17 +123,16 @@ def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,
             Br_data.append(float(data[2]))
             Bz_data.append(float(data[4]))
         first=False
+    file.close()
 
-    print(r_data)
     # Find the zones corresponding to each plasma sector 
     for isector in range(1,len(plasma_sector)):
         psector = plasma_sector[isector]
         izone = sector_zone[psector]-1
         localidx = zone_idx.index(izone)
-        vpar_zone[localidx] = np.sqrt(1.602e-19*Te_zone[localidx]/mass)
+        vpar_zone[localidx] = np.sqrt(1.602e-19*Te_zone[localidx]/ionmass)
 
         # The two points that define the sector line segment
-        print(psector,np.shape(sector_points))
         point1 = np.array([sector_points[psector,0,0],sector_points[psector,0,2]])
         point2 = np.array([sector_points[psector,1,0],sector_points[psector,1,2]])
 
@@ -118,15 +155,9 @@ def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,
 
         area_zone[localidx] = fullarea*np.abs(np.dot(b_unit,a_unit))
 
-        #diag_r[isector-1] = zone_coords[localidx][0]
-        #diag_z[isector-1] = zone_coords[localidx][1]
+    write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio)
 
-    #plt.plot(diag_r,diag_z,'o')
-    #plt.savefig("sectorzones.png")
-    #plt.clf()
-    #plt.close()
-
-    write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio,vpar_zone,area_zone)
+    write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
 
 # Generates an input file for defineback
@@ -140,21 +171,33 @@ def generate_plasma_file(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,
 # - Figure out how to have a strictly recycling source
 # - Scale Nflights with the length of the strata
 
-def generate_db_input(Nflights,wallstrata,source_strength,dbfilename="db.in",plasmafilename="plasmafile"):
+def generate_db_input(Nflights,wallstrata,source_strength,dbfilename="db.in"):
+
+    plasmafilename="plasmafile"
+    sourcefilename="sourcefile"
 
     f = open(dbfilename,"w")
     f.write("plasma_file "+plasmafilename+"\n")
+    f.write("new_source_group\n")
+    f.write("  source_type plate\n")
+    f.write("  source_geom surface\n")
+    f.write("  source_species H2\n")
+    f.write("  source_root_sp H+\n")
+    f.write("  specify_current\n")
+    f.write("  source_nflights "+str(Nflights)+"\n")
+    f.write("  source_file "+sourcefilename+" row\n")
+    f.write("end_source_group\n \n")
 
-    for i in range(0,len(wallstrata)):
-        f.write("new_source_group\n")
-        f.write("  source_type plate\n")
-        f.write("  source_geom surface\n")
-        f.write("  source_species H2\n")
-        f.write("  source_root_sp H+\n")
-        f.write("  specify_flux\n")
-        f.write("  source_nflights "+str(Nflights[i])+"\n")
-        f.write("  source_stratum "+str(wallstrata[i])+"\n")
-        f.write("  source_segment *\n")
-        f.write("  source_strength "+str(source_strength[i])+"\n")
-        f.write("end_source_group\n \n")
+#    for i in range(0,len(wallstrata)):
+#        f.write("new_source_group\n")
+#        f.write("  source_type plate\n")
+#        f.write("  source_geom surface\n")
+#        f.write("  source_species H2\n")
+#        f.write("  source_root_sp H+\n")
+#        f.write("  specify_current\n")
+#        f.write("  source_nflights "+str(Nflights[i])+"\n")
+#        f.write("  source_stratum "+str(wallstrata[i])+"\n")
+#        f.write("  source_segment *\n")
+#        f.write("  source_strength "+str(source_strength[i])+"\n")
+#        f.write("end_source_group\n \n")
 
