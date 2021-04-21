@@ -79,7 +79,7 @@ class Polygon:
 
     # Writes the polygon to file f
     # If debug, include lines that output polygons to poly.X.dat files
-    def write_plasma_polygon_dg2d(self,f,debug=False):
+    def write_plasma_polygon_dg2d(self,f,debug=False,commonzone=False):
         f.write("new_zone plasma\n")
         f.write("new_polygon\n")
         f.write("  stratum "+str(self.id)+"\n")
@@ -89,6 +89,8 @@ class Polygon:
         if debug:
             f.write("  print_polygon poly."+str(self.id)+".dat\n")
             f.write("  clear_polygon\n")
+        else if commonzone
+            f.write("  triangulate_polygon\n")
         else:
             f.write("  triangulate_to_zones\n")
         f.write("\n")

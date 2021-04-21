@@ -4,6 +4,91 @@ from polygon import *
 import sys
 from importlib import reload
 
+def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False):
+    nodefile = open(trifile_base+".node",'r')
+    elefile = open(trifile_base+".ele",'r')
+
+    def next_noncomment_line(f):
+        found=False
+        while not found:
+            line = wallfile.readline().strip()
+            if not line[0] == '#' || line[0:2] == "//":
+                found = True
+        return line
+
+    line1 = next_noncomment_line(nodefile).split(",")
+    nnode = line1[0]
+    nattr = line1[2]
+
+    node_coords = np.zeros([nnode,2])
+    Te_node = np.zeros([nnnode])
+    Ti_node = np.zeros([nnnode])
+    ne_node = np.zeros([nnnode])
+    mach_node = np.zeros([nnnode])
+    Br_node = np.zeros([nnnode])
+    Bphi_node = np.zeros([nnnode])
+    Bz_node = np.zeros([nnnode])
+    wallflag_node = np.zeros([nnnode])
+    nnode_read=0
+    vertices = []
+    while nnode_read < nnode:
+        line = next_noncomment_line(nodefile).split(",")
+        node_coords[nnode_read,0] = float(line[1])
+        node_coords[nnode_read,1] = float(line[2])
+        Te_node[nnode_read] = 1.602e-19*float(line[3])
+        Ti_node[nnode_read] = 1.602e-19*float(line[4])
+        ne_node[nnode_read] = float(line[5])
+        mach_node[nnode_read] = float(line[6])
+        Br_node[nnode_read] = float(line[7])
+        Bphi_node[nnode_read] = float(line[8])
+        Bz_node[nnode_read] = float(line[9])
+        wallflag_node[nnode_read] = int(line[10])
+        vertices.append(Vertex(nnode_read,node_coords[nnode_read,0],node_coords[nnode_read,1]))
+        nnode_read += 1
+
+    nodefile.close()
+
+    line1 = next_noncomment_line(elefile).split(",")
+    ntri = line1[0]
+    nattr = line1[2]
+
+    trinodes = np.zeros([ntri,3])
+    Te_tri = np.zeros([ntri])
+    Ti_tri = np.zeros([ntri])
+    ne_tri = np.zeros([ntri])
+    mach_tri = np.zeros([ntri])
+    Br_tri = np.zeros([ntri])
+    Bphi_tri = np.zeros([ntri])
+    Bz_tri = np.zeros([ntri])
+    ntri_read=0
+    polys = []
+    while ntri_read < ntri:
+        line = next_noncomment_line(elefile).split(",")
+        trinodes[ntri_read,0] = float(line[1])
+        trinodes[ntri_read,1] = float(line[2])
+        trinodes[ntri_read,2] = float(line[3])
+        Te_tri[ntri_read] = 1.602e-19*float(line[4])
+        Ti_tri[ntri_read] = 1.602e-19*float(line[5])
+        ne_tri[ntri_read] = float(line[6])
+        mach_tri[ntri_read] = float(line[7])
+        Br_tri[ntri_read] = float(line[8])
+        Bphi_tri[ntri_read] = float(line[9])
+        Bz_tri[ntri_read] = float(line[10])
+
+        polys.append(Polygon)
+        
+        polys[nnode_read].add_vertex(vertices[itrinodes[ntri_read,0])
+        polys[nnode_read].add_vertex(vertices[itrinodes[ntri_read,1])
+        polys[nnode_read].add_vertex(vertices[itrinodes[ntri_read,2])
+
+        nnode_read += 1
+    elefile.close()
+
+    for poly in polys:
+        poly.write_plasma_polygon_dg2d(dg2dfile,debug=debug)
+
+    # TODO: deal with wall
+
 def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False):
 
     # Read the wallfile
