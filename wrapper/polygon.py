@@ -12,12 +12,48 @@ class Polygon:
         if increment:
             Polygon.numPolygons += 1
         self.id = Polygon.numPolygons
+        self.alongwall = False
 
     def add_vertex(self,vertex):
         self.vertices.append(vertex)
 
     def clear_numPolygon():
         Polygon.numPolygons = 0
+
+    def get_n_wallnodes(self):
+        nwallnodes = 0
+        for vertex in self.vertices:
+            if vertex.wall:
+                nwallnodes += 1
+        return nwallnodes
+
+    def get_first_wallnode(self):
+        # Expects one contiguous set of nodes that are designated as wall nodes
+        # Also expects at least one node that is not a wall node.
+        first = -1
+        nvertex = len(self.vertices)
+        wallarray = [0]*nvertex 
+        idx = 0
+        for idx in range(0,nvertex):
+            if self.vertices[idx].alongwall and \
+                    (not self.vertices[(idx-1)%nvertex].alongwall):
+                first = idx
+        if first == -1:
+            print("Error: get_first_wallnode could not find the first wall node.")
+        return first
+
+    def reorder_wallnodes_first(self):
+        nwallnodes = self.get_n_wallnodes()
+        nvertex = len(self.vertices)
+        if nwallnodes >= 1:
+            first = self.get_first_wallnode()
+            temp = copy.deepcopy(self.vertices)
+            for idx in range(0,nvertex):
+                temp = self.vertices[(idx+first)%nvertex]
+            self.vertices = temp
+
+        # use return value if expecting more than one wall segment
+        return nwallnodes 
 
     # Linearly extrapolate the last two vertices defined for this polygon
     # and find the point on the specified surface which is closest to said line.
@@ -77,6 +113,45 @@ class Polygon:
 #                        sys.exit(1)
 #                    idx = self.add_next_vertex_extrapolated_to_wall(surfaces[isurf])
 
+    # wallnodes is a collection of integer identifiers that make up the outer wall
+    # they must go *counter*-clockwise and share a common wall (wallid)
+    def close_in_universal_cell(f,wallnodes,innernode,wallid,stratum,material,recyc):
+        f.write("new_zone solid\n")
+        f.write("new_polygon\n")
+        f.write("  material "+material+"\n")
+        f.write("  recyc_coef "+str(recyc)+"\n")
+        f.write("  stratum "+str(stratum)+"\n")
+        f.write("  wall "+str(wallid+1)+" "+\
+                str(vertex.id[innernode]+1)+" "+\
+                str(vertex.id[innernode+1])+"\n")
+        f.write("  outer 0 1")
+        f.write("  wall "+str(wallid+1)+" "+\
+                str(innernode+1)+" "+\
+                str(innernode+1)+"\n")
+        if debug:
+            f.write("  print_polygon poly.out1.dat\n")
+            f.write("  clear_polygon\n")
+        else:
+            f.write("  triangulate_polygon\n")
+        f.write("\n")
+        f.write("new_zone solid\n")
+        f.write("new_polygon\n")
+        f.write("  material "+material+"\n")
+        f.write("  recyc_coef "+str(recyc)+"\n")
+        f.write("  stratum "+str(stratum+1)+"\n")
+        f.write("  outer 1 2 3 4")
+        for node in wallnodes:
+            f.write("  wall "+str(wallid)+" "+\
+                str(node.id+1)+" "+\
+                str(node.id+1)+"\n")
+        if debug:
+            f.write("  print_polygon poly.out2.dat\n")
+            f.write("  clear_polygon\n")
+        else:
+            f.write("  triangulate_polygon\n")
+        f.write("\n")
+
+
     # Writes the polygon to file f
     # If debug, include lines that output polygons to poly.X.dat files
     def write_plasma_polygon_dg2d(self,f,debug=False,commonzone=False):
@@ -84,12 +159,12 @@ class Polygon:
         f.write("new_polygon\n")
         f.write("  stratum "+str(self.id)+"\n")
         for vertex in self.vertices:
-            f.write("  wall "+str(vertex.id[0]+1)+" "+str(vertex.id[1])+" "+str(vertex.id[1])+"\n")
+            f.write("  wall "+str(self.id)+" "+str(vertex.id)+" "+str(vertex.id)+"\n")
 
         if debug:
             f.write("  print_polygon poly."+str(self.id)+".dat\n")
             f.write("  clear_polygon\n")
-        else if commonzone
+        elif commonzone:
             f.write("  triangulate_polygon\n")
         else:
             f.write("  triangulate_to_zones\n")
@@ -330,6 +405,7 @@ class Vertex:
     def __init__(self,id_in,R,Z):
         self.coords = [R,Z]
         self.id = id_in 
+        self.wall = False
 
 # WallVertex is a special case of Vertex, where the vertex ID is an array
 # that specifies the Surface ID and vertex ID within that surface. 
