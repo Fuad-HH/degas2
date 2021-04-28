@@ -9,10 +9,17 @@ class Polygon:
 
     def __init__(self,increment=True):
         self.vertices = []
+        self.id = Polygon.numPolygons
         if increment:
             Polygon.numPolygons += 1
-        self.id = Polygon.numPolygons
         self.alongwall = False
+
+    # Polygons are equal if their vertices are equal
+    def __eq__(self,other):
+        return self.vertices == other.vertices
+
+    def __ne__(self,other):
+        return self.vertices != other.vertices
 
     def add_vertex(self,vertex):
         self.vertices.append(vertex)
@@ -31,15 +38,17 @@ class Polygon:
         # Expects one contiguous set of nodes that are designated as wall nodes
         # Also expects at least one node that is not a wall node.
         first = -1
+        count = 0
         nvertex = len(self.vertices)
         wallarray = [0]*nvertex 
         idx = 0
         for idx in range(0,nvertex):
-            if self.vertices[idx].alongwall and \
-                    (not self.vertices[(idx-1)%nvertex].alongwall):
-                first = idx
-        if first == -1:
-            print("Error: get_first_wallnode could not find the first wall node.")
+            if self.vertices[idx].wall:
+                count += 1
+                if not self.vertices[idx-1].wall:
+                    first = idx
+        if first == -1 and (count < len(self.vertices)):
+            sys.exit("Error: get_first_wallnode could not find the first wall node.")
         return first
 
     def reorder_wallnodes_first(self):
@@ -49,7 +58,7 @@ class Polygon:
             first = self.get_first_wallnode()
             temp = copy.deepcopy(self.vertices)
             for idx in range(0,nvertex):
-                temp = self.vertices[(idx+first)%nvertex]
+                temp[idx] = self.vertices[(idx+first)%nvertex]
             self.vertices = temp
 
         # use return value if expecting more than one wall segment
@@ -115,6 +124,7 @@ class Polygon:
 
     # wallnodes is a collection of integer identifiers that make up the outer wall
     # they must go *counter*-clockwise and share a common wall (wallid)
+
     def close_in_universal_cell(f,wallnodes,innernode,wallid,stratum,material,recyc):
         f.write("new_zone solid\n")
         f.write("new_polygon\n")
@@ -122,28 +132,31 @@ class Polygon:
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
         f.write("  wall "+str(wallid+1)+" "+\
-                str(vertex.id[innernode]+1)+" "+\
-                str(vertex.id[innernode+1])+"\n")
+                str(wallnodes[0].id)+" "+\
+                str(wallnodes[0].id)+"\n")
+        f.write("  wall "+str(wallid+1)+" "+\
+                str(wallnodes[1].id)+" "+\
+                str(wallnodes[1].id)+"\n")
         f.write("  outer 0 1")
         f.write("  wall "+str(wallid+1)+" "+\
-                str(innernode+1)+" "+\
-                str(innernode+1)+"\n")
+                str(wallnodes[0].id)+" "+\
+                str(wallnodes[0].id)+"\n")
         if debug:
             f.write("  print_polygon poly.out1.dat\n")
             f.write("  clear_polygon\n")
         else:
             f.write("  triangulate_polygon\n")
         f.write("\n")
-        f.write("new_zone solid\n")
+        #f.write("new_zone solid\n")
         f.write("new_polygon\n")
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
-        f.write("  stratum "+str(stratum+1)+"\n")
+        f.write("  stratum "+str(stratum)+"\n")
         f.write("  outer 1 2 3 4")
-        for node in wallnodes:
-            f.write("  wall "+str(wallid)+" "+\
-                str(node.id+1)+" "+\
-                str(node.id+1)+"\n")
+        for node in wallnodes[1:]:
+            f.write("  wall "+str(wallid+1)+" "+\
+                str(node.id)+" "+\
+                str(node.id)+"\n")
         if debug:
             f.write("  print_polygon poly.out2.dat\n")
             f.write("  clear_polygon\n")
@@ -154,12 +167,17 @@ class Polygon:
 
     # Writes the polygon to file f
     # If debug, include lines that output polygons to poly.X.dat files
-    def write_plasma_polygon_dg2d(self,f,debug=False,commonzone=False):
+    def write_plasma_polygon_dg2d(self,f,stratum=None,wallid=None,commonzone=False,debug=False):
+        if not wallid:
+            wallnum = self.id+1 
+        if not stratum:
+            stratum = self.id+1
+
         f.write("new_zone plasma\n")
         f.write("new_polygon\n")
-        f.write("  stratum "+str(self.id)+"\n")
+        f.write("  stratum "+str(stratum)+"\n")
         for vertex in self.vertices:
-            f.write("  wall "+str(self.id)+" "+str(vertex.id)+" "+str(vertex.id)+"\n")
+            f.write("  wall "+str(wallid)+" "+str(vertex.id)+" "+str(vertex.id)+"\n")
 
         if debug:
             f.write("  print_polygon poly."+str(self.id)+".dat\n")
@@ -400,12 +418,82 @@ class Surface:
             plt.plot(R[0],Z[0],"o")
         plt.show()
 
-
 class Vertex:
     def __init__(self,id_in,R,Z):
         self.coords = [R,Z]
         self.id = id_in 
         self.wall = False
+
+    # Nodes are the same the coordinates are equal
+    def __eq__(self,other):
+        if not isinstance(other,Vertex):
+            return NotImplemented
+        return (self.coords[0] == other.coords[0]) and (self.coords[1] == other.coords[1])
+
+    def __ne__(self,other):
+        if not isinstance(other,Vertex):
+            return NotImplemented
+        return not ( (self.coords[0] == other.coords[0]) and (self.coords[1] == other.coords[1]) )
+
+
+def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
+
+    # Collect triangles that share current_node
+    adjacent_wall_triangles = []
+    nwalltriangles = np.shape(walltriangles)[0]
+    for tri in walltriangles:
+        if current_node in tri.vertices:
+            adjacent_wall_triangles.append(tri)
+
+    n_adjacent_triangles = len(adjacent_wall_triangles)
+
+    next_node = -1
+    # Loop through the adjacent wall triangles that share the current node
+    for tri in adjacent_wall_triangles:
+        # Create list of adjacent triangles that excludes the one under consideration
+        other_adjacent_triangles = copy.deepcopy(adjacent_wall_triangles)
+        other_adjacent_triangles.remove(tri)
+        
+#        other_adjacent_triangle_vertices = []
+#        other_adjacent_triangle_vertices = []
+#        for other_triangle in other_adjacent_triangles:
+#            other_adjacent_triangle_vertices.append(other_triangle.vertices[0])
+#            other_adjacent_triangle_vertices.append(other_triangle.vertices[1])
+#            other_adjacent_triangle_vertices.append(other_triangle.vertices[2])
+
+
+        # Which vertex of this triangle is the current_node?
+        vertex_idx = tri.vertices.index(current_node)
+
+        # Line segments of this triangle that share this vertex
+        segments = []
+        segments.append( [current_node,tri.vertices[(vertex_idx+1)%3]] )
+        segments.append( [current_node,tri.vertices[(vertex_idx+2)%3]] )
+
+        # Loop through segments that share the current node
+        for segment in segments:
+            # If there are not any other wall triangles that share this segment, we have found a candidate
+
+            segment_shared_with_another_triangle = False
+            for othertri in other_adjacent_triangles:
+                if segment[1] in othertri.vertices:
+                    segment_shared_with_another_triangle = True
+                    if not segment[0] in othertri.vertices[:]:
+                        sys.exit("Something's very wrong in find_next_wall_node.")
+            if (segment[1] in wallnodes) and (not segment_shared_with_another_triangle):
+                if first:
+                    # Ensure we start by going counterclockwise from the low field side
+                    if segment[1].coords[1] < current_node.coords[1]:
+                        next_node=segment[1]
+                elif (segment[1] != prev_node):
+                    if (next_node != -1):
+                        sys.exit("Found multiple candidates for next_node. Logic of code fails.")
+                    next_node = segment[1]
+
+    if next_node == -1:
+        sys.exit("Could not find a candidate next_node.")
+
+    return next_node
 
 # WallVertex is a special case of Vertex, where the vertex ID is an array
 # that specifies the Surface ID and vertex ID within that surface. 

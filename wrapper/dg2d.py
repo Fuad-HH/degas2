@@ -53,13 +53,13 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         vertices.append(Vertex(nnode_read,node_coords[nnode_read,0],node_coords[nnode_read,1]))
 
         if wallflag_node[nnode_read] == 1:
-            vertices[nnode_read].wallnode = True
+            vertices[-1].wall = True
             wallvertices.append(vertices[-1])
             wallvertices[-1].id = vertices[-1].id
 
         if node_coords[nnode_read,0] < Rmin or Rmin < 0.0:
             Rmin= node_coords[nnode_read,0]
-            lowestRnode = nnode_read
+            lowestRnode = vertices[-1]
         if node_coords[nnode_read,0] > Rmax:
             Rmax= node_coords[nnode_read,0]
         if node_coords[nnode_read,1] < Zmin:
@@ -89,6 +89,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     lowestRtri = -1
     ntri_read=0
     polys = []
+    wallpolys = []
     while ntri_read < ntri:
         line = next_noncomment_line(elefile).split(",")
         trinodes[ntri_read,0] = int(line[1])
@@ -104,13 +105,16 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
         polys.append(Polygon())
         
-        polys[ntri_read].add_vertex(vertices[trinodes[ntri_read,0]])
-        polys[ntri_read].add_vertex(vertices[trinodes[ntri_read,1]])
-        polys[ntri_read].add_vertex(vertices[trinodes[ntri_read,2]])
+        polys[-1].add_vertex(vertices[trinodes[ntri_read,0]])
+        polys[-1].add_vertex(vertices[trinodes[ntri_read,1]])
+        polys[-1].add_vertex(vertices[trinodes[ntri_read,2]])
 
-        nwallnodes = polys[ntri_read].reorder_wallnodes_first()
+
+        nwallnodes = polys[-1].reorder_wallnodes_first()
         if nwallnodes >= 2:
-            polys[ntri_read].alongwall = True
+            polys[-1].alongwall = True
+
+            wallpolys.append(polys[-1])
 
             # Find a triangle that contains the innermost (smallest R node)
             if (trinodes[ntri_read,0] == lowestRnode) or \
@@ -129,11 +133,25 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     dg2dfile.write("end_prep\n\n")
 
     for poly in polys:
-        poly.write_plasma_polygon_dg2d(dg2dfile,debug=debug)
+        poly.write_plasma_polygon_dg2d(dg2dfile,stratum=poly.id+1,wallid=1,debug=debug)
+
+    wallvertices_ordered = []
+    wallvertices_ordered.append(lowestRnode)
+
+    for i in range(0,len(wallvertices)-1):
+        if i==0:
+            prevnode = lowestRnode
+        else:
+            prevnode = wallvertices_ordered[i-1]
+        next_node = find_next_wall_node(wallvertices_ordered[i],prevnode,wallvertices,wallpolys,i==0)
+        wallvertices_ordered.append(next_node)
+
+    # wallvertices_ordered is now the list of wall vertices, starting at 
+    # the minimum R value, and going around counter-clockwise
 
     # Enclose in universal cell
-    # TODO: pass in ordered set of wallvertices instead of vertices
-    close_in_universal_cell(dg2dfile,wallvertices,lowestRnode,0,ntri+1,material,recyc)
+    # TODO: Fix this routine so that big polygon doesn't wrap back to its own point.
+    close_in_universal_cell(dg2dfile,wallvertices_ordered,lowestRnode,0,ntri+1,material,recyc)
 
     dg2dfile.write("polygon_nc_file polygon.nc\n")
     dg2dfile.write("end")
@@ -363,7 +381,7 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 
  
     for poly in polys:
-        poly.write_plasma_polygon_dg2d(dg2dfile,debug=debug)
+        poly.write_plasma_polygon_dg2d(dg2dfile,wallid=1,commonzone=True,debug=debug)
 
     walls[0].write_solid_polygon_dg2d(len(polys)+1,dg2dfile,material,recyc,debug)
     dummyPoly=Polygon()
