@@ -2,6 +2,8 @@
 import netCDF4 as nc
 import sys
 import numpy as np
+import random
+import copy
 
 # Some utility functions:
 
@@ -147,6 +149,7 @@ class atomicTable:
 
         return result
 
+
     # Prints to stdout various information about the table
     def printInfo(self):
         print("Dependent variable: "+self.dataName+" for process "+self.description)
@@ -173,6 +176,160 @@ class atomicTable:
                 print("    Logarithmic scale")
             else:
                 print("    Linear scale")
+
+class PMITable:
+    def __init__(self,filename,requestedData):
+        data=nc.Dataset(filename)
+        self.dataName = requestedData
+        self.description = data.getncattr("data_version")
+
+        varNames = convertStr(data["pf_var"])
+        depNames = [varNames[i][0] for i in range(0,len(varNames))]
+        
+        table_idx = depNames.index(requestedData)
+        self.rank = int(data["pf_rank"][table_idx])
+        self.indepVarNames = varNames[table_idx][1:]
+        self.dims = np.array(data["pf_tab_index"][table_idx][0:self.rank])
+
+        pf_spacing = convertStr(data["pf_spacing"][table_idx][0:self.rank+1])
+        
+        if pf_spacing[0] == "log":
+            self.depLog = True
+        else:
+            self.depLog = False
+
+        self.indepLog = [False]*self.rank
+        for i in range(0,self.rank):
+            if pf_spacing[i+1] == "log":
+                self.indepLog[i] = True
+
+        pf_units = convertStr(data["pf_units"][table_idx][0:self.rank+1])
+        self.depUnits = pf_units[0]
+        self.indepUnits = pf_units[1:self.rank+1]
+        
+        self.depMult = data["pf_mult"][table_idx][0]
+        self.indepMult = data["pf_mult"][table_idx][1:self.rank+1]
+
+        inddepTable = np.zeros(self.dims)
+
+        self.indepMin = self.indepMult[:] * data["pf_min"][table_idx][0:self.rank]
+        self.indepMax = self.indepMult[:] * data["pf_max"][table_idx][0:self.rank]
+
+        self.delta = np.zeros(self.rank)
+        for i in range(0,self.rank):
+            if self.indepLog[i] == True:
+                self.indepMin[i] = np.log(self.indepMin[i])
+                self.indepMax[i] = np.log(self.indepMax[i])
+            self.delta[i] = (self.indepMax[i]-self.indepMin[i])/(self.dims[i]-1)
+
+        base_idx = data["pf_data_base"][table_idx] 
+        ndata = data["pf_data_inc"][table_idx] 
+        self.depTable = np.array(self.depMult * data["pf_data_tab"][base_idx:(base_idx + ndata)]).reshape(self.dims[-1::-1])
+        self.depTable = np.transpose(self.depTable)
+
+        if self.depLog == True:
+            self.depTable = np.log(self.depTable)
+
+    # Queries a table already created with an array for independent variables. 
+    # Linearly interpolates on table up to rank 3.
+    def getData(self,indepVals_in):
+
+        indepVals = np.array(indepVals_in)
+
+        # Get the lower index for interpolation
+        idx = []
+        weights = []
+        for i in range(0,self.rank):
+            if self.indepLog[i]:
+                indepVals[i] = np.log(indepVals[i])
+
+            if indepVals[i] < self.indepMin[i]:
+                idx.append(0)
+                weights.append([1.0,0.0])
+            elif indepVals[i] > self.indepMax[i]:
+                idx.append(self.dims[i]-2)
+                weights.append([0.0,1.0])
+            else:
+                idx.append( min( self.dims[i], \
+                        int( (indepVals[i] - self.indepMin[i]) //self.delta[i] ) ) )
+
+                weights.append( [ \
+                    self.indepMin[i] + self.delta[i]*(idx[i]+1) - indepVals[i]  , \
+                    indepVals[i] - (self.indepMin[i] + self.delta[i]*(idx[i]) ) ] )
+                weights[i][:] = weights[i][:]/self.delta[i]
+
+        if self.rank == 0:
+            result = self.depTable[0]
+        elif self.rank == 1:
+            result = weights[0][0]*self.depTable[idx[0]] + \
+                    weights[0][1]*self.depTable[idx[0]+1]
+        elif self.rank == 2:
+            result = 0.0
+            for i in range(0,2):
+                for j in range(0,2):
+                    result += weights[0][i]*weights[1][j]*self.depTable[idx[0]+i,idx[1]+j]
+        elif self.rank == 3:
+            result = 0.0
+            for i in range(0,2):
+                for j in range(0,2):
+                    for k in range(0,2):
+                        result += weights[0][i]*weights[1][j]*weights[2][k]*self.depTable[idx[0]+i,idx[1]+j,idx[2]+k]
+        else:
+            sys.exit("Routine only handles up to rank 3 interpolation. Update the code.")
+
+
+        if self.depLog:
+            result = np.exp(result)
+
+        return result
+
+    def getStatisticalData(self,indepVals_in,Nsample=10000):
+        # Count number of random axes in table
+        Nrandom = 0
+        for ivar in range(0,self.rank):
+            if "random_number" in self.indepVarNames[ivar]:
+                Nrandom += 1
+            
+        if Nrandom + len(indepVals_in) != self.rank:
+            sys.exit("Incorrect rank for getStatisticalData. Be sure to leave out random dimensions.")
+
+        sumdata=0.0
+        for i in range(0,Nsample):
+            indepVals = copy.deepcopy(indepVals_in)
+            for j in range(0,Nrandom):
+                indepVals = np.insert(indepVals,0,random.random())
+            sumdata+=self.getData(indepVals)
+
+        return sumdata/Nsample
+
+    # Prints to stdout various information about the table
+    def printInfo(self):
+        print("Dependent variable: "+self.dataName+" for process "+self.description)
+        print("All input and output units are SI, with temperature as energy.")
+        print("Extrapolations beyond table bounds are nearest-neighbor.")
+        if self.indepLog:
+            print("Logarithmic scale")
+        else:
+            print("Linear scale")
+        print("Rank = %d " % self.rank)
+        print("Independent variables:")
+        for i in range(0,self.rank):
+            print("  "+self.indepVarNames[i]+":")
+            if self.indepLog[i]:
+                minval = np.exp(self.indepMin[i])/self.indepMult[i]
+                maxval = np.exp(self.indepMax[i])/self.indepMult[i]
+            else:
+                minval = self.indepMin[i]/self.indepMult[i]
+                maxval = self.indepMax[i]/self.indepMult[i]
+            print("    Number of datapoints: %d " % self.dims[i] )
+            print("    Table minimum: %e %s" % (minval,  self.indepUnits[i]) )
+            print("    Table maximum: %e %s" % (maxval,  self.indepUnits[i]) )
+            if self.indepLog[i]:
+                print("    Logarithmic scale")
+            else:
+                print("    Linear scale")
+
+
 
 def availableData(filename):
 
