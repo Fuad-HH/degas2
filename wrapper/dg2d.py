@@ -93,6 +93,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     iline = 0
     while iline < ntri:
         line = next_noncomment_line(elefile).split(",")
+        itri = int(line[0])
         if not (int(line[-1]) == 0):
             trinodes[ntri_read,0] = int(line[1])
             trinodes[ntri_read,1] = int(line[2])
@@ -106,6 +107,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
             Bz_tri[ntri_read] = float(line[10])
     
             polys.append(Polygon())
+            polys[-1].id = itri
             
             polys[-1].add_vertex(vertices[trinodes[ntri_read,0]])
             polys[-1].add_vertex(vertices[trinodes[ntri_read,1]])
@@ -119,10 +121,10 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
                 wallpolys.append(polys[-1])
     
                 # Find a triangle that contains the innermost (smallest R node)
-                if (trinodes[ntri_read,0] == lowestRnode) or \
-                   (trinodes[ntri_read,1] == lowestRnode) or \
-                   (trinodes[ntri_read,2] == lowestRnode):
-                    lowestRtri = ntri_read
+                #if (trinodes[ntri_read,0] == lowestRnode) or \
+                #   (trinodes[ntri_read,1] == lowestRnode) or \
+                #   (trinodes[ntri_read,2] == lowestRnode):
+                #    lowestRtri = ntri_read
     
             ntri_read += 1
         iline += 1
