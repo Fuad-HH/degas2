@@ -90,40 +90,44 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     ntri_read=0
     polys = []
     wallpolys = []
-    while ntri_read < ntri:
+    iline = 0
+    while iline < ntri:
         line = next_noncomment_line(elefile).split(",")
-        trinodes[ntri_read,0] = int(line[1])
-        trinodes[ntri_read,1] = int(line[2])
-        trinodes[ntri_read,2] = int(line[3])
-        Te_tri[ntri_read] = 1.602e-19*float(line[4])
-        Ti_tri[ntri_read] = 1.602e-19*float(line[5])
-        ne_tri[ntri_read] = float(line[6])
-        mach_tri[ntri_read] = float(line[7])
-        Br_tri[ntri_read] = float(line[8])
-        Bphi_tri[ntri_read] = float(line[9])
-        Bz_tri[ntri_read] = float(line[10])
-
-        polys.append(Polygon())
-        
-        polys[-1].add_vertex(vertices[trinodes[ntri_read,0]])
-        polys[-1].add_vertex(vertices[trinodes[ntri_read,1]])
-        polys[-1].add_vertex(vertices[trinodes[ntri_read,2]])
-
-
-        nwallnodes = polys[-1].reorder_wallnodes_first()
-        if nwallnodes >= 2:
-            polys[-1].alongwall = True
-
-            wallpolys.append(polys[-1])
-
-            # Find a triangle that contains the innermost (smallest R node)
-            if (trinodes[ntri_read,0] == lowestRnode) or \
-               (trinodes[ntri_read,1] == lowestRnode) or \
-               (trinodes[ntri_read,2] == lowestRnode):
-                lowestRtri = ntri_read
-
-        ntri_read += 1
+        if not (int(line[-1]) == 0):
+            trinodes[ntri_read,0] = int(line[1])
+            trinodes[ntri_read,1] = int(line[2])
+            trinodes[ntri_read,2] = int(line[3])
+            Te_tri[ntri_read] = 1.602e-19*float(line[4])
+            Ti_tri[ntri_read] = 1.602e-19*float(line[5])
+            ne_tri[ntri_read] = float(line[6])
+            mach_tri[ntri_read] = float(line[7])
+            Br_tri[ntri_read] = float(line[8])
+            Bphi_tri[ntri_read] = float(line[9])
+            Bz_tri[ntri_read] = float(line[10])
+    
+            polys.append(Polygon())
+            
+            polys[-1].add_vertex(vertices[trinodes[ntri_read,0]])
+            polys[-1].add_vertex(vertices[trinodes[ntri_read,1]])
+            polys[-1].add_vertex(vertices[trinodes[ntri_read,2]])
+    
+    
+            nwallnodes = polys[-1].reorder_wallnodes_first()
+            if nwallnodes >= 2:
+                polys[-1].alongwall = True
+    
+                wallpolys.append(polys[-1])
+    
+                # Find a triangle that contains the innermost (smallest R node)
+                if (trinodes[ntri_read,0] == lowestRnode) or \
+                   (trinodes[ntri_read,1] == lowestRnode) or \
+                   (trinodes[ntri_read,2] == lowestRnode):
+                    lowestRtri = ntri_read
+    
+            ntri_read += 1
+        iline += 1
     elefile.close()
+    ntri = ntri_read
 
     dg2dfile = open(dg2dfile_name,'w')
     dg2dfile.write("symmtry cylindrical\n")
