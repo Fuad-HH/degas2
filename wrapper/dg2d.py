@@ -4,9 +4,7 @@ from polygon import *
 import sys
 from importlib import reload
 
-def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False):
-    nodefile = open(trifile_base+".node",'r')
-    elefile = open(trifile_base+".ele",'r')
+def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True):
 
     def next_noncomment_line(f):
         found=False
@@ -16,6 +14,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
                 found = True
         return line
 
+    nodefile = open(trifile_base+".node",'r')
     line1 = next_noncomment_line(nodefile).split(",")
     nnode = int(line1[0])
     nattr = int(line1[2])
@@ -39,41 +38,31 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     wallvertices = []
     while nnode_read < nnode:
         line = next_noncomment_line(nodefile).split(",")
-        node_coords[nnode_read,0] = float(line[1])
-        node_coords[nnode_read,1] = float(line[2])
-        Te_node[nnode_read] = 1.602e-19*float(line[3])
-        Ti_node[nnode_read] = 1.602e-19*float(line[4])
-        ne_node[nnode_read] = float(line[5])
-        mach_node[nnode_read] = float(line[6])
-        Br_node[nnode_read] = float(line[7])
-        Bphi_node[nnode_read] = float(line[8])
-        Bz_node[nnode_read] = float(line[9])
-        wallflag_node[nnode_read] = int(line[10])
+        inode = int(line[0])
+        node_coords[inode,0] = float(line[1])
+        node_coords[inode,1] = float(line[2])
+        Te_node[inode] = 1.602e-19*float(line[3])
+        Ti_node[inode] = 1.602e-19*float(line[4])
+        ne_node[inode] = float(line[5])
+        mach_node[inode] = float(line[6])
+        Br_node[inode] = float(line[7])
+        Bphi_node[inode] = float(line[8])
+        Bz_node[inode] = float(line[9])
+        wallflag_node[inode] = int(line[10])
 
-        vertices.append(Vertex(nnode_read,node_coords[nnode_read,0],node_coords[nnode_read,1]))
+        vertices.append(Vertex(inode,node_coords[inode,0],node_coords[inode,1]))
 
-        if wallflag_node[nnode_read] == 1:
+        if not trust_wallflags:
+            vertices[-1].wall = False  # Using invalid triangles later to add wall nodes
+        elif wallflag_node[inode] == 1:
             vertices[-1].wall = True
             wallvertices.append(vertices[-1])
             wallvertices[-1].id = vertices[-1].id
-
-        if node_coords[nnode_read,0] < Rmin or Rmin < 0.0:
-            Rmin= node_coords[nnode_read,0]
-            lowestRnode = vertices[-1]
-        if node_coords[nnode_read,0] > Rmax:
-            Rmax= node_coords[nnode_read,0]
-        if node_coords[nnode_read,1] < Zmin:
-            Zmin= node_coords[nnode_read,1]
-        if node_coords[nnode_read,1] > Zmax:
-            Zmax= node_coords[nnode_read,1]
         nnode_read += 1
+
     nodefile.close()
 
-    Zmin_tot = Zmin - (Zmax-Zmin)
-    Zmax_tot = Zmax + (Zmax-Zmin)
-    Rmax_tot = 1.5*Rmax
-    Rmin_tot = max(0.0001,0.5*Rmin)
-
+    elefile = open(trifile_base+".ele",'r')
     line1 = next_noncomment_line(elefile).split(",")
     ntri = int(line1[0])
     nattr = int(line1[2])
@@ -86,50 +75,78 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     Br_tri = np.zeros([ntri])
     Bphi_tri = np.zeros([ntri])
     Bz_tri = np.zeros([ntri])
+    validflag = np.zeros([ntri],dtype=int)
     lowestRtri = -1
     ntri_read=0
     polys = []
     wallpolys = []
+    invalidpolys = []
     iline = 0
     while iline < ntri:
         line = next_noncomment_line(elefile).split(",")
         itri = int(line[0])
-        if not (int(line[-1]) == 0):
-            trinodes[ntri_read,0] = int(line[1])
-            trinodes[ntri_read,1] = int(line[2])
-            trinodes[ntri_read,2] = int(line[3])
-            Te_tri[ntri_read] = 1.602e-19*float(line[4])
-            Ti_tri[ntri_read] = 1.602e-19*float(line[5])
-            ne_tri[ntri_read] = float(line[6])
-            mach_tri[ntri_read] = float(line[7])
-            Br_tri[ntri_read] = float(line[8])
-            Bphi_tri[ntri_read] = float(line[9])
-            Bz_tri[ntri_read] = float(line[10])
+        trinodes[itri,0] = int(line[1])
+        trinodes[itri,1] = int(line[2])
+        trinodes[itri,2] = int(line[3])
+        Te_tri[itri] = 1.602e-19*float(line[4])
+        Ti_tri[itri] = 1.602e-19*float(line[5])
+        ne_tri[itri] = float(line[6])
+        mach_tri[itri] = float(line[7])
+        Br_tri[itri] = float(line[8])
+        Bphi_tri[itri] = float(line[9])
+        Bz_tri[itri] = float(line[10])
+        validflag[itri] = int(line[11])
     
+        if (validflag[itri] == 0):
+            invalidpolys.append(Polygon())
+            invalidpolys[-1].id = itri
+            invalidpolys[-1].add_vertex(vertices[trinodes[itri,0]])
+            invalidpolys[-1].add_vertex(vertices[trinodes[itri,1]])
+            invalidpolys[-1].add_vertex(vertices[trinodes[itri,2]])
+        else:
             polys.append(Polygon())
             polys[-1].id = itri
-            
-            polys[-1].add_vertex(vertices[trinodes[ntri_read,0]])
-            polys[-1].add_vertex(vertices[trinodes[ntri_read,1]])
-            polys[-1].add_vertex(vertices[trinodes[ntri_read,2]])
-    
-    
-            nwallnodes = polys[-1].reorder_wallnodes_first()
-            if nwallnodes >= 2:
-                polys[-1].alongwall = True
-    
-                wallpolys.append(polys[-1])
-    
-                # Find a triangle that contains the innermost (smallest R node)
-                #if (trinodes[ntri_read,0] == lowestRnode) or \
-                #   (trinodes[ntri_read,1] == lowestRnode) or \
-                #   (trinodes[ntri_read,2] == lowestRnode):
-                #    lowestRtri = ntri_read
-    
-            ntri_read += 1
+            polys[-1].add_vertex(vertices[trinodes[itri,0]])
+            polys[-1].add_vertex(vertices[trinodes[itri,1]])
+            polys[-1].add_vertex(vertices[trinodes[itri,2]])
+   
         iline += 1
     elefile.close()
-    ntri = ntri_read
+    ntri = len(polys)
+
+    if not trust_wallflags:
+        wallvertices = infer_wall_nodes(polys,invalidpolys)
+#        print("Number of wall nodes = %d"%len(wallvertices))
+    #for node in wallvertices:
+#        print("%d "%node.id)
+
+    # Now that we know the wall vertices for sure, 
+    # go back and calculate some needed things:
+    for node in vertices:
+        if node in wallvertices:
+            node.wall = True
+
+        if node.coords[0] < Rmin or Rmin < 0.0:
+            Rmin= node.coords[0]
+            lowestRnode = copy.deepcopy(node)
+        if node.coords[0] > Rmax:
+            Rmax= node.coords[0]
+        if node.coords[1] < Zmin:
+            Zmin= node.coords[1]
+        if node.coords[1] > Zmax:
+            Zmax= node.coords[1]
+
+    Zmin_tot = Zmin - (Zmax-Zmin)
+    Zmax_tot = Zmax + (Zmax-Zmin)
+    Rmax_tot = 1.5*Rmax
+    Rmin_tot = max(0.0001,0.5*Rmin)
+
+    for tri in polys:
+        nwallnodes = tri.reorder_wallnodes_first()
+        if nwallnodes >= 2:
+            tri.alongwall = True
+            wallpolys.append(tri)
+    print("Number of wall triangles= %d"%len(wallpolys))
 
     dg2dfile = open(dg2dfile_name,'w')
     dg2dfile.write("symmtry cylindrical\n")
@@ -149,6 +166,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
             prevnode = lowestRnode
         else:
             prevnode = wallvertices_ordered[i-1]
+
         next_node = find_next_wall_node(wallvertices_ordered[i],prevnode,wallvertices,wallpolys,i==0)
         wallvertices_ordered.append(next_node)
 

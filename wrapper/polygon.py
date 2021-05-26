@@ -435,6 +435,19 @@ class Vertex:
             return NotImplemented
         return not ( (self.coords[0] == other.coords[0]) and (self.coords[1] == other.coords[1]) )
 
+def infer_wall_nodes(internal_triangles, external_triangles):
+    wallnodes = []
+
+    for tri_ext in external_triangles:
+        for ext_node in tri_ext.vertices:
+                for tri_int in internal_triangles:
+                    if ext_node in tri_int.vertices and not ext_node in wallnodes:
+                        wallnodes.append(ext_node)
+                        wallnodes[-1].id = ext_node.id
+                        ext_node.wall = True
+
+    return wallnodes
+
 
 def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
 
@@ -447,7 +460,7 @@ def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
 
     n_adjacent_triangles = len(adjacent_wall_triangles)
 
-    #print("current_node = %d"%current_node.id)
+    print("current_node = %d"%current_node.id)
 
     next_node = -1
     # Loop through the adjacent wall triangles that share the current node
