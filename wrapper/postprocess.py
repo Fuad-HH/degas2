@@ -104,7 +104,7 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
         plt.savefig("emission.pdf",bbox_inches="tight")
         plt.close()
 
-    return x,z,density,emission,signal
+    return x,z,density,error,emission,signal
 
 
 
