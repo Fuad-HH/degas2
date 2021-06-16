@@ -59,7 +59,7 @@ class Polygon:
             temp = copy.deepcopy(self.vertices)
             for idx in range(0,nvertex):
                 temp[idx] = self.vertices[(idx+first)%nvertex]
-            self.vertices = temp
+            self.vertices = copy.deepcopy(temp)
 
         # use return value if expecting more than one wall segment
         return nwallnodes 
@@ -167,7 +167,7 @@ class Polygon:
 
     # Writes the polygon to file f
     # If debug, include lines that output polygons to poly.X.dat files
-    def write_plasma_polygon_dg2d(self,f,stratum=None,wallid=None,commonzone=False,debug=False):
+    def write_plasma_polygon_dg2d(self,f,stratum=None,wallid=None,commonzone=False,minarea=-1.0,debug=False):
         if not wallid:
             wallnum = self.id+1 
         if not stratum:
@@ -186,6 +186,9 @@ class Polygon:
             f.write("  triangulate_polygon\n")
         else:
             f.write("  triangulate_to_zones\n")
+        if minarea > 0.0:
+            f.write("  triangle_area "+str(minarea)+"\n")
+
         f.write("\n")
 
     def plotpolygon(self,hold=False):
@@ -388,7 +391,7 @@ class Surface:
             f.write("  print_polygon poly."+str(stratum)+".dat\n")
             f.write("  clear_polygon\n")
         else:
-            f.write("  triangulate_to_zones\n")
+            f.write("  triangulate_polygon\n")
         f.write("\n")
  
         f.write("new_zone solid\n")
@@ -404,7 +407,7 @@ class Surface:
             f.write("  print_polygon poly."+str(stratum+1)+".dat\n")
             f.write("  clear_polygon\n")
         else:
-            f.write("  triangulate_to_zones\n")
+            f.write("  triangulate_polygon\n")
         f.write("\n")
         
     def plot_surfaces(surfs):
@@ -448,6 +451,16 @@ def infer_wall_nodes(internal_triangles, external_triangles):
 
     return wallnodes
 
+def purge_invalid_nodes(allnodes,valid_tris):
+    valid_nodes = []
+    for node in allnodes:
+        valid = False
+        for tri in valid_tris:
+            if node in tri.vertices:
+                valid = True
+        if valid:
+            valid_nodes.append(node)
+    return valid_nodes
 
 def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
 

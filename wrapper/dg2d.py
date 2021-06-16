@@ -115,26 +115,34 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     ntri = len(polys)
 
     if not trust_wallflags:
+#        wallvertices = infer_wall_nodes(polys,invalidpolys)
+        vertices = purge_invalid_nodes(vertices,polys)
         wallvertices = infer_wall_nodes(polys,invalidpolys)
-#        print("Number of wall nodes = %d"%len(wallvertices))
-    #for node in wallvertices:
-#        print("%d "%node.id)
 
     # Now that we know the wall vertices for sure, 
     # go back and calculate some needed things:
+    rtemp = []
+    ztemp = []
     for node in vertices:
         if node in wallvertices:
             node.wall = True
 
-        if node.coords[0] < Rmin or Rmin < 0.0:
-            Rmin= node.coords[0]
-            lowestRnode = copy.deepcopy(node)
-        if node.coords[0] > Rmax:
-            Rmax= node.coords[0]
-        if node.coords[1] < Zmin:
-            Zmin= node.coords[1]
-        if node.coords[1] > Zmax:
-            Zmax= node.coords[1]
+#            print("wallnode id = %d"%node.id)
+
+            if node.coords[0] < Rmin or Rmin < 0.0:
+                Rmin= node.coords[0]
+                lowestRnode = node
+            if node.coords[0] > Rmax:
+                Rmax= node.coords[0]
+            if node.coords[1] < Zmin:
+                Zmin= node.coords[1]
+            if node.coords[1] > Zmax:
+                Zmax= node.coords[1]
+
+    #plt.plot(rtemp,ztemp,".")
+    #plt.plot(lowestRnode.coords[0],lowestRnode.coords[1],"o")
+    #plt.savefig("test.png")
+    #plt.close()
 
     Zmin_tot = Zmin - (Zmax-Zmin)
     Zmax_tot = Zmax + (Zmax-Zmin)
@@ -146,6 +154,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         if nwallnodes >= 2:
             tri.alongwall = True
             wallpolys.append(tri)
+#            print("wallpoly.id = %d"%wallpolys[-1].id)
     print("Number of wall triangles= %d"%len(wallpolys))
 
     dg2dfile = open(dg2dfile_name,'w')
@@ -167,7 +176,27 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         else:
             prevnode = wallvertices_ordered[i-1]
 
-        next_node = find_next_wall_node(wallvertices_ordered[i],prevnode,wallvertices,wallpolys,i==0)
+#        next_node = find_next_wall_node(wallvertices_ordered[i],prevnode,wallvertices,wallpolys,i==0)
+#        if i == 85:
+        if False:
+            rtemp = []
+            ztemp = []
+            for node in wallvertices_ordered:
+                rtemp.append(node.coords[0])
+                ztemp.append(node.coords[1])
+            plt.plot(rtemp,ztemp,"-")
+            plt.plot(rtemp,ztemp,"-")
+            rtemp = []
+            ztemp = []
+            for node in vertices:
+                rtemp.append(node.coords[0])
+                ztemp.append(node.coords[1])
+            plt.plot(rtemp,ztemp,".")
+            plt.xlim([1.3,1.5])
+            plt.ylim([-1.2,-0.5])
+            plt.savefig("test.png")
+            plt.close()
+        next_node = find_next_wall_node(wallvertices_ordered[i],prevnode,vertices,polys,i==0)
         wallvertices_ordered.append(next_node)
 
     # wallvertices_ordered is now the list of wall vertices, starting at 
@@ -175,13 +204,119 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
     # Enclose in universal cell
     # TODO: Fix this routine so that big polygon doesn't wrap back to its own point.
-    close_in_universal_cell(dg2dfile,wallvertices_ordered,lowestRnode,0,ntri+1,material,recyc)
+    Polygon.close_in_universal_cell(dg2dfile,wallvertices_ordered,lowestRnode,0,ntri+1,material,recyc)
 
     dg2dfile.write("polygon_nc_file polygon.nc\n")
     dg2dfile.write("end")
     dg2dfile.close()
 
     return polys
+
+def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False):
+
+    # Read the wallfile
+    wallfile = open(wallfile_name,'r')
+
+    def next_noncomment_line(f):
+        found=False
+        while not found:
+            line = wallfile.readline().strip()
+            if not line[0] == '#':
+                found = True
+        return line
+
+    # This function only cares about the first wall
+    nwalls = int(next_noncomment_line(wallfile))
+    line = next_noncomment_line(wallfile).split()
+
+    npoints = int(line[0])
+    npoints_sep = int(line[1])
+
+    nlines = npoints
+    iwall = 0
+    ipoint = 0
+    Rcoords = []
+    Zcoords = []
+    wall = Surface(0)
+    for ipoint in range(0,npoints):
+        line = next_noncomment_line(wallfile)
+        line_floats = [float(n) for n in line.split()]
+        Rcoord = line_floats[0]
+        Zcoord = line_floats[1]
+        Rcoords.append(Rcoord)
+        Zcoords.append(Zcoord)
+        wall.add_vertex(Vertex(ipoint,Rcoord,Zcoord))
+
+    sep = Surface(1)
+    Rcoords_sep = []
+    Zcoords_sep = []
+    for ipoint in range(0,npoints_sep):
+        line = next_noncomment_line(wallfile)
+        line_floats = [float(n) for n in line.split()]
+        Rcoord = line_floats[0]
+        Zcoord = line_floats[1]
+        Rcoords_sep.append(Rcoord)
+        Zcoords_sep.append(Zcoord)
+     
+    # Now we have read the wallfile. We know how many points are in each wall and the R/Z coordinates for each point defining these walls. We can close the wallfile now.
+    wallfile.close()
+
+    clockwise = False
+
+    polys=[]
+
+    # There will be only three polygons:
+    # 1: the vacuum vessel interior
+    # 2: Small solid polygon whose purpose is to ensure the solid region made of well-defined polygons
+    # 3: Most of the wall to the edge of the universal cell. Shares zone with #2. 
+
+    # Polygon 1
+    poly = Polygon()
+    poly.add_whole_surface(wall,backward=True)
+    
+    # Now we build the wall specification in the dg2d input file
+    dg2dfile = open(dg2dfile_name,'w')
+
+    ####################################
+    # First, set the header
+    dg2dfile.write("symmetry cylindrical\n")
+
+    ####################################
+    # Find and write appropriate bounds
+    #Rcoords = walls[0].vertices[:].coords[0]
+    #Zcoords = walls[0].vertices[:].coords[1]
+    Rrange = np.amax(Rcoords) - np.amin(Rcoords)
+    Zrange = np.amax(Zcoords) - np.amin(Zcoords)
+    Zmin = np.amin(Zcoords) - Zrange
+    Zmax = np.amax(Zcoords) + Zrange
+#    Rmin = max(np.amin(Rcoords) - 0.8*Rrange, 0.2*np.amin(Rcoords))
+    Rmin = 0.0001
+    Rmax = np.amax(Rcoords) + Rrange
+    dg2dfile.write("bounds     %f %f    %f %f \n" % (Rmin, Rmax, Zmin, Zmax))
+
+    ####################################
+    # Write out name of wallfile
+    dg2dfile.write("wallfile "+wallfile_name.strip()+"\n")
+
+    dg2dfile.write("end_prep\n")
+    dg2dfile.write("\n")
+
+    poly.write_plasma_polygon_dg2d(dg2dfile,minarea=minarea,wallid=1,debug=debug)
+
+    wall.write_solid_polygon_dg2d(2,dg2dfile,material,recyc,debug=debug)
+
+    dg2dfile.write("polygon_nc_file "+polygon_filename+"\n")
+
+    if debug:
+        dg2dfile.write("quit\n")
+
+    dg2dfile.write("end\n")
+
+    dg2dfile.close()
+
+    Polygon.clear_numPolygon()
+
+    return polys,wall, Rcoords_sep, Zcoords_sep
 
 def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False):
 
@@ -371,7 +506,6 @@ def write_dg2d_input_from_wallfile(wallfile_name,topology,topology_params,materi
 #            print("len(polys)="+str(len(polys))+"\nlen(poly_to_surf_map)="+str(len(poly_to_surf_map)))
 #            sys.exit(1)
 #
-
     else:
         print("Error: topology "+topology+" not defined.")
         sys.exit(0)
