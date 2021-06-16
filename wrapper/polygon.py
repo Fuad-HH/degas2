@@ -378,12 +378,13 @@ class Surface:
 
     # Creates the outer polygon from the solid wall Surface, writes it to file f
     # If debug, include lines that output polygons to poly.X.dat files
-    def write_solid_polygon_dg2d(self,stratum,f,material,recyc,debug=False):
+    def write_solid_polygon_dg2d(self,stratum,f,material,recyc,walltemp=300.0,debug=False):
         f.write("new_zone solid\n")
         f.write("new_polygon\n")
         f.write("  stratum "+str(stratum)+"\n")
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
+        f.write("  temperature "+str(walltemp)+"\n")
         f.write("  wall "+str(self.id)+" 0 1 \n ")
         f.write("  outer 0 1 \n")
         f.write("  wall "+str(self.id)+" 0 0 \n ")
@@ -399,6 +400,7 @@ class Surface:
         f.write("  stratum "+str(stratum+1)+"\n")
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
+        f.write("  temperature "+str(walltemp)+"\n")
         f.write("  wall "+str(self.id)+" 1 * \n ")
         f.write("  wall "+str(self.id)+" 0 0 \n ")
         f.write("  outer 1 2 3 4\n")

@@ -32,11 +32,8 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
         # Get average value on psi on each surface. Nominally all points should have equal psi
         psi_data.append(psifunc(R,0.0))
 
-    ne_func_inside = interpolate.interp1d(psi_data,ne_inside,fill_value="extrapolate")
-    Te_func_inside = interpolate.interp1d(psi_data,Te_inside,fill_value="extrapolate")
-
-#    ne_func_outside = interpolate.interp2d(R_outside,Z_outside,ne_outside)
-#    Te_func_outside = interpolate.interp2d(R_outside,Z_outside,Te_outside)
+    ne_func_inside = interpolate.interp1d(psi_data,ne_inside,fill_value=(ne_inside[0],ne_inside[-1]))
+    Te_func_inside = interpolate.interp1d(psi_data,Te_inside,fill_value=(Te_inside[0],Te_inside[-1]))
 
     ne_zone = []
     Te_zone = []
