@@ -57,12 +57,14 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
     x = []
     z = []
     density = []
+    density_err = []
     emission = []
     for izone in range(0,tally_indices[dens_idx,0]):
         if zone_type[izone] == 2:
            x.append(geomdata["zone_center"][izone,0])
            z.append(geomdata["zone_center"][izone,2])
            density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
+           density_err.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,1])
            emission.append(outputdata["out_post_all"][emission_base+izone,0])
 
     signal = []
@@ -72,15 +74,12 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
     x = np.array(x)
     z = np.array(z)
     density = np.array(density)
+    density_err = np.array(density_err)
     emission = np.array(emission)
     signal = np.array(signal)
 
-#    xflow = xflux/density 
-#    zflow = zflux/density 
-
     if plot:
         triang = tri.Triangulation(x,z)
-#        plt.tricontourf(triang,energy/1.602e-19)
         plt.title("Neutral density (m^-3)")
         plt.xlabel("x (m)")
         plt.ylabel("z (m)")
@@ -89,7 +88,14 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
         plt.savefig("density.pdf",bbox_inches="tight")
         plt.close()
 
-#        plt.tricontourf(triang,energy/1.602e-19)
+        plt.title("Relative error of neutral density")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+        plt.tricontourf(triang,density_err)
+        plt.colorbar()
+        plt.savefig("error.pdf",bbox_inches="tight")
+        plt.close()
+
         plt.title("Lyman-alpha emission")
         plt.xlabel("x (m)")
         plt.ylabel("z (m)")
