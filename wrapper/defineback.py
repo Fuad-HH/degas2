@@ -32,8 +32,8 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
         # Get average value on psi on each surface. Nominally all points should have equal psi
         psi_data.append(psifunc(R,0.0))
 
-    ne_func_inside = interpolate.interp1d(psi_data,ne_inside,fill_value=(ne_inside[0],ne_inside[-1]))
-    Te_func_inside = interpolate.interp1d(psi_data,Te_inside,fill_value=(Te_inside[0],Te_inside[-1]))
+    ne_func_inside = interpolate.interp1d(psi_data,ne_inside,fill_value=(ne_inside[0],ne_inside[-1]),bounds_error=False)
+    Te_func_inside = interpolate.interp1d(psi_data,Te_inside,fill_value=(Te_inside[0],Te_inside[-1]),bounds_error=False)
 
     ne_zone = []
     Te_zone = []
@@ -128,7 +128,7 @@ def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,se
 # Generates a plasma file for use in defineback from two data sources: n(psi), with psi(r,z) inside separatrix
 # and as a general function n(r,z) for outside separatrix.
 # Separatrix given as a polygon of points: arrays r_sep, z_sep
-def generate_plasma_file_with_psi_and_rz(R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.66e-27):
+def generate_plasma_file_with_psi_and_rz(R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27):
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
 
