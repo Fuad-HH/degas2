@@ -128,7 +128,7 @@ def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,se
 # Generates a plasma file for use in defineback from two data sources: n(psi), with psi(r,z) inside separatrix
 # and as a general function n(r,z) for outside separatrix.
 # Separatrix given as a polygon of points: arrays r_sep, z_sep
-def generate_plasma_file_with_psi_and_rz(R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27):
+def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27):
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
 
@@ -151,7 +151,29 @@ def generate_plasma_file_with_psi_and_rz(R_outside,Z_outside,ne_outside,Te_outsi
 
     area_zone = np.zeros(np.size(zone_idx))
     vpar_zone = np.zeros(np.size(zone_idx))
- 
+
+
+    with open(solfile_name,"rb") as f:
+        lines = f.readlines()
+
+    R_outside = []
+    Z_outside = []
+    ne_outside = []
+    Te_outside = []
+
+    first = True
+    for line in lines:
+        if not first:
+            R_outside.append(float(line.split()[0]))
+            Z_outside.append(float(line.split()[1]))
+            ne_outside.append(float(line.split()[2]))
+            Te_outside.append(float(line.split()[3]))
+        first = False
+    R_outside = np.array(R_outside)
+    Z_outside = np.array(Z_outside)
+    ne_outside = np.array(ne_outside)
+    Te_outside = np.array(Te_outside)
+        
     ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep)
 
     file = open(bfieldfilename,"r")
