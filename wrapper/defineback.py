@@ -7,6 +7,7 @@ import sys
 from shapely.geometry import Point as sPoint
 from shapely.geometry.polygon import Polygon as sPolygon
 from importlib import reload 
+import matplotlib.tri as tri
 
 def get_zone_plasma_data(zone_coords,R_data,Z_data,ne_data,Te_data):
 
@@ -44,6 +45,11 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
 
     sep_poly = sPolygon(sep)
 
+    R_out = []
+    Z_out = []
+    ne_out = []
+    Te_out = []
+
     for point in zone_coords:
         point_temp = sPoint(point[0],point[1])
 
@@ -56,6 +62,42 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
             Te = interpolate.griddata(np.vstack((R_outside,Z_outside)).transpose(),Te_outside,(point[0],point[1]),method="nearest")
             ne_zone.append(ne)
             Te_zone.append(Te)
+
+        R_out.append(point[0])
+        Z_out.append(point[1])
+        ne_out.append(ne_zone[-1])
+        Te_out.append(Te_zone[-1])
+    R_out = np.array(R_out)
+    Z_out = np.array(Z_out)
+    ne_out = np.array(ne_out)
+    Te_out = np.array(Te_out)
+
+    triang = tri.Triangulation(R_out,Z_out)
+    plt.title("Electron density")
+    plt.xlabel("x (m)")
+    plt.ylabel("z (m)")
+    plt.tricontourf(triang,ne_out)
+    plt.colorbar()
+    plt.savefig("ne.pdf",bbox_inches="tight")
+    plt.close()
+
+    plt.title("Electron temperature")
+    plt.xlabel("x (m)")
+    plt.ylabel("z (m)")
+    plt.tricontourf(triang,Te_out)
+    plt.colorbar()
+    plt.savefig("Te.pdf",bbox_inches="tight")
+    plt.close()
+
+    plt.title("Zone centers")
+    plt.xlabel("x (m)")
+    plt.ylabel("z (m)")
+    plt.plot(R_out,Z_out,"+")
+    plt.savefig("zones.pdf",bbox_inches="tight")
+    plt.close()
+
+
+
 
     return ne_zone, Te_zone
 
@@ -125,10 +167,17 @@ def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,se
 
     sfile.close()
 
+    source=np.array(dens)*np.array(vpar)*np.array(area)
+
+    plt.plot(np.array(segment),source,"o")
+    plt.savefig("source.pdf",bbox_inches="tight")
+    plt.close()
+
+
 # Generates a plasma file for use in defineback from two data sources: n(psi), with psi(r,z) inside separatrix
 # and as a general function n(r,z) for outside separatrix.
 # Separatrix given as a polygon of points: arrays r_sep, z_sep
-def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27):
+def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27):
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
 
@@ -152,27 +201,43 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,R_inside,ne_inside
     area_zone = np.zeros(np.size(zone_idx))
     vpar_zone = np.zeros(np.size(zone_idx))
 
-
     with open(solfile_name,"rb") as f:
         lines = f.readlines()
+    f.close()
 
     R_outside = []
     Z_outside = []
     ne_outside = []
     Te_outside = []
 
-    first = True
     for line in lines:
-        if not first:
-            R_outside.append(float(line.split()[0]))
-            Z_outside.append(float(line.split()[1]))
-            ne_outside.append(float(line.split()[2]))
-            Te_outside.append(float(line.split()[3]))
-        first = False
+        R_outside.append(float(line.split()[0]))
+        Z_outside.append(float(line.split()[1]))
+        ne_outside.append(float(line.split()[2]))
+        Te_outside.append(float(line.split()[3]))
     R_outside = np.array(R_outside)
     Z_outside = np.array(Z_outside)
     ne_outside = np.array(ne_outside)
     Te_outside = np.array(Te_outside)
+
+    with open(tsfile_name,"rb") as f:
+        lines = f.readlines()
+    f.close()
+
+    R_inside = []
+    ne_inside = []
+    Te_inside = []
+
+    first = True
+    for line in lines:
+        if not first:
+            R_inside.append(0.01*float(line.split()[0]))
+            ne_inside.append(float(line.split()[2]))
+            Te_inside.append(float(line.split()[3]))
+        first = False
+    R_inside = np.array(R_inside)
+    ne_inside = np.array(ne_inside)
+    Te_inside = np.array(Te_inside)
         
     ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep)
 
@@ -182,6 +247,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,R_inside,ne_inside
     z_data = []
     Br_data = []
     Bz_data = []
+    Bt_data = []
     for line in file:
         if not first:
             first=False
@@ -189,6 +255,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,R_inside,ne_inside
             r_data.append(float(data[0]))
             z_data.append(float(data[1]))
             Br_data.append(float(data[2]))
+            Bt_data.append(float(data[3]))
             Bz_data.append(float(data[4]))
         first=False
     file.close()
@@ -208,7 +275,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,R_inside,ne_inside
 
         # Get the unit vector normal to this surface, a_unit
         diff = point2-point1
-        normal = [-diff[1],diff[0]]
+        normal = [-diff[1],0.0,diff[0]]
         a_unit = normal/np.linalg.norm(normal)
         fullarea = 2.0*np.pi*center[0]*np.linalg.norm(diff)
 
@@ -218,8 +285,9 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,R_inside,ne_inside
 
         Br=Br_data[data_idx]
         Bz=Bz_data[data_idx]
+        Bt=Bt_data[data_idx]
 
-        b_unit = [Br,Bz]/np.linalg.norm([Br,Bz])
+        b_unit = [Br,Bt,Bz]/np.linalg.norm([Br,Bt,Bz])
 
         area_zone[localidx] = fullarea*np.abs(np.dot(b_unit,a_unit))
 

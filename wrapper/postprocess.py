@@ -68,8 +68,10 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
            emission.append(outputdata["out_post_all"][emission_base+izone,0])
 
     signal = []
+    signal_err = []
     for idet in range(0,Ndetector):
         signal.append(outputdata["out_post_all"][signal_base+idet,0])
+        signal_err.append(outputdata["out_post_all"][signal_base+idet,1])
 
     x = np.array(x)
     z = np.array(z)
@@ -77,6 +79,7 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
     density_err = np.array(density_err)
     emission = np.array(emission)
     signal = np.array(signal)
+    signal_err = np.array(signal_err)
 
     if plot:
         triang = tri.Triangulation(x,z)
@@ -104,7 +107,13 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
         plt.savefig("emission.pdf",bbox_inches="tight")
         plt.close()
 
-    return x,z,density,error,emission,signal
+        plt.errorbar(range(1,len(signal)+1),signal,yerr=signal*signal_err,fmt="-o",capsize=3)
+        plt.xlabel("Detector number")
+        plt.ylabel("Predicted signal")
+        plt.savefig("signals.pdf",bbox_inches="tight")
+        plt.close()
+
+    return x,z,density,density_err,emission,signal,signal_err
 
 
 
