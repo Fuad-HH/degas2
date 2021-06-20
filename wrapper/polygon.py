@@ -411,6 +411,36 @@ class Surface:
         else:
             f.write("  triangulate_polygon\n")
         f.write("\n")
+
+    def write_solid_polygon_with_exit(self,stratum,f,exitnodes,material,recyc,walltemp=300.0,debug=False):
+        f.write("new_zone exit\n")
+        f.write("new_polygon\n")
+        f.write("  stratum "+str(stratum)+"\n")
+        f.write("  wall "+str(self.id)+" "+str(exitnodes[0])+" "+str(exitnodes[1])+"\n")
+        f.write("  outer 2 3 \n")
+        if debug:
+            f.write("  print_polygon poly."+str(stratum)+".dat\n")
+            f.write("  clear_polygon\n")
+        else:
+            f.write("  triangulate_polygon\n")
+        f.write("\n")
+ 
+        f.write("new_zone solid\n")
+        f.write("new_polygon\n")
+        f.write("  stratum "+str(stratum+1)+"\n")
+        f.write("  material "+material+"\n")
+        f.write("  recyc_coef "+str(recyc)+"\n")
+        f.write("  temperature "+str(walltemp)+"\n")
+        f.write("  wall "+str(self.id)+" "+str(exitnodes[1])+" * \n")
+        f.write("  wall "+str(self.id)+" 0 "+str(exitnodes[0])+"\n ")
+        f.write("  outer 3\n")
+        f.write("  outer 0 1 2\n")
+        if debug:
+            f.write("  print_polygon poly."+str(stratum+1)+".dat\n")
+            f.write("  clear_polygon\n")
+        else:
+            f.write("  triangulate_polygon\n")
+        f.write("\n")
         
     def plot_surfaces(surfs):
         for surf in surfs:

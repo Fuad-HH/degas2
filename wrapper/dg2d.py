@@ -212,7 +212,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
     return polys
 
-def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False):
+def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,exitnodes=[]):
 
     # Read the wallfile
     wallfile = open(wallfile_name,'r')
@@ -267,7 +267,7 @@ def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.
 
     # There will be only three polygons:
     # 1: the vacuum vessel interior
-    # 2: Small solid polygon whose purpose is to ensure the solid region made of well-defined polygons
+    # 2: Small polygon representing exit on LFS, connects to right side of universal cell
     # 3: Most of the wall to the edge of the universal cell. Shares zone with #2. 
 
     # Polygon 1
@@ -303,7 +303,8 @@ def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.
 
     poly.write_plasma_polygon_dg2d(dg2dfile,minarea=minarea,wallid=1,debug=debug)
 
-    wall.write_solid_polygon_dg2d(2,dg2dfile,material,recyc,walltemp,debug=debug)
+#    wall.write_solid_polygon_dg2d(2,dg2dfile,material,recyc,walltemp,debug=debug)
+    wall.write_solid_polygon_with_exit(2,dg2dfile,exitnodes,material,recyc,walltemp,debug=debug)
 
     dg2dfile.write("polygon_nc_file "+polygon_filename+"\n")
 

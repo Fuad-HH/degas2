@@ -133,7 +133,7 @@ def write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio):
                 +"  "+str(TiTe_ratio*Te_zone[idx-1])+"  "+str(ne_zone[idx-1])+"\n")
     pfile.close()
 
-def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,):
+def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,exitstratum):
     sfile = open(sourcefilename,'w')
 
     def write_array(label,data):
@@ -152,12 +152,13 @@ def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,se
     area = []
 
     for iplasma in plasma_sector[1:]:
-       izone = sector_zone[iplasma]-1
-       stratum.append(strata[iplasma])
-       segment.append(sector_strata_segment[iplasma])
-       dens.append(ne_zone[izone])
-       area.append(area_zone[izone])
-       vpar.append(vpar_zone[izone])
+        if not strata[iplasma] == exitstratum:
+          izone = sector_zone[iplasma]-1
+          stratum.append(strata[iplasma])
+          segment.append(sector_strata_segment[iplasma])
+          dens.append(ne_zone[izone])
+          area.append(area_zone[izone])
+          vpar.append(vpar_zone[izone])
       
     write_array("stratum",stratum) 
     write_array("segment",segment) 
@@ -293,7 +294,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,
 
     write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio)
 
-    write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
+    write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,2)
 
 # Generates a plasma file for use in defineback
 # Arguments:
