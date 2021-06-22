@@ -97,8 +97,6 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
     plt.close()
 
 
-
-
     return ne_zone, Te_zone
 
 

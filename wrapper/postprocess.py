@@ -99,7 +99,7 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
         plt.savefig("error.pdf",bbox_inches="tight")
         plt.close()
 
-        plt.title("Lyman-alpha emission")
+        plt.title("Lyman-alpha emission (W / m^2)")
         plt.xlabel("x (m)")
         plt.ylabel("z (m)")
         plt.tricontourf(triang,emission)
@@ -107,9 +107,11 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
         plt.savefig("emission.pdf",bbox_inches="tight")
         plt.close()
 
-        plt.errorbar(range(1,len(signal)+1),signal,yerr=signal*signal_err,fmt="-o",capsize=3)
+        xint = range(1,len(signal)+1)
+        plt.errorbar(xint,signal,yerr=signal*signal_err,fmt="-o",capsize=3)
+        plt.xticks(xint)
         plt.xlabel("Detector number")
-        plt.ylabel("Predicted signal")
+        plt.ylabel("Predicted signal (W / m^2-sr)") 
         plt.savefig("signals.pdf",bbox_inches="tight")
         plt.close()
 
