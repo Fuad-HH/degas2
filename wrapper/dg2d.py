@@ -303,8 +303,10 @@ def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.
 
     poly.write_plasma_polygon_dg2d(dg2dfile,minarea=minarea,wallid=1,debug=debug)
 
-#    wall.write_solid_polygon_dg2d(2,dg2dfile,material,recyc,walltemp,debug=debug)
-    wall.write_solid_polygon_with_exit(2,dg2dfile,exitnodes,material,recyc,walltemp,debug=debug)
+    if exitnodes == []:
+        wall.write_solid_polygon_dg2d(2,dg2dfile,material,recyc,walltemp,debug=debug)
+    else:
+        wall.write_solid_polygon_with_exit(2,dg2dfile,exitnodes,material,recyc,walltemp,debug=debug)
 
     dg2dfile.write("polygon_nc_file "+polygon_filename+"\n")
 
