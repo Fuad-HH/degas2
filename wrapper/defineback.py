@@ -25,7 +25,7 @@ def get_zone_plasma_data(zone_coords,R_data,Z_data,ne_data,Te_data):
 
 # Populates plasma density and temperature by zone. Depending on if the point (zone center) is inside the separatrix,
 # this will either interpolate based on psi, or interpolate on a 2D table based on more general R and Z data
-def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep):
+def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim=-1):
 
     psi_data = []
 
@@ -55,6 +55,11 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
 
         if sep_poly.contains(point_temp):
             psi = psifunc(point[0],point[1])
+            ne_zone.append(ne_func_inside(psi))
+            Te_zone.append(Te_func_inside(psi))
+        elif hfs_R_lim > 0.0 and point[0] < hfs_R_lim:
+            R_lcfs = np.min(R_sep)
+            psi = psifunc(R_lcfs,0.0)
             ne_zone.append(ne_func_inside(psi))
             Te_zone.append(Te_func_inside(psi))
         else:
