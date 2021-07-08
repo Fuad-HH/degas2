@@ -22,6 +22,9 @@ NETCDFV2=no
 #DEGASROOT=$(HOME)/src/degas2
 # Set by environment now
 
+ifndef DEGASROOT
+  DEGASROOT=..
+endif
 
 # Will instruct users to put Triangle here, but allow them to put elsewhere
 # if needed.
