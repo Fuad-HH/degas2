@@ -181,7 +181,7 @@ def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,se
 # Generates a plasma file for use in defineback from two data sources: n(psi), with psi(r,z) inside separatrix
 # and as a general function n(r,z) for outside separatrix.
 # Separatrix given as a polygon of points: arrays r_sep, z_sep
-def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27):
+def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27,hfs_R_lim=-1.0):
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
 
@@ -243,7 +243,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,
     ne_inside = np.array(ne_inside)
     Te_inside = np.array(Te_inside)
         
-    ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep)
+    ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim)
 
     file = open(bfieldfilename,"r")
     first = True
