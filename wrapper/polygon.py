@@ -123,9 +123,9 @@ class Polygon:
 #                    idx = self.add_next_vertex_extrapolated_to_wall(surfaces[isurf])
 
     # wallnodes is a collection of integer identifiers that make up the outer wall
-    # they must go *counter*-clockwise and share a common wall (wallid)
+    # they must go *counter*-clockwise, start with the innermost, share a common wall (wallid)
 
-    def close_in_universal_cell(f,wallnodes,innernode,wallid,stratum,material,recyc):
+    def close_in_universal_cell(f,wallnodes,wallid,stratum,material,recyc):
         f.write("new_zone solid\n")
         f.write("new_polygon\n")
         f.write("  material "+material+"\n")
@@ -562,3 +562,6 @@ class WallVertex(Vertex):
     def __init__(self,wallid,vertexid,R,Z):
         self.id = [wallid,vertexid]
         super().__init__(self.id,R,Z)
+
+
+

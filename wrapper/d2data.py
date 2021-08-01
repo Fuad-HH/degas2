@@ -330,13 +330,26 @@ class PMITable:
                 print("    Linear scale")
 
 
-
 def availableData(filename):
 
     data=nc.Dataset(filename)
     description = data.getncattr("data_version")
 
     varNames = convertStr(data["xs_var"])
+    depNames = [varNames[i][0] for i in range(0,len(varNames))]
+        
+    print("Data contained in file %s:" % filename)
+    print(description)
+    for i in range(0,len(varNames)):
+        if depNames[i] != "unknown":
+            print("  %s" % depNames[i])
+
+def availablePMIData(filename):
+
+    data=nc.Dataset(filename)
+    description = data.getncattr("data_version")
+
+    varNames = convertStr(data["pf_var"])
     depNames = [varNames[i][0] for i in range(0,len(varNames))]
         
     print("Data contained in file %s:" % filename)

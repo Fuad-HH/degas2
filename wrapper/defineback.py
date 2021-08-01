@@ -25,7 +25,7 @@ def get_zone_plasma_data(zone_coords,R_data,Z_data,ne_data,Te_data):
 
 # Populates plasma density and temperature by zone. Depending on if the point (zone center) is inside the separatrix,
 # this will either interpolate based on psi, or interpolate on a 2D table based on more general R and Z data
-def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim=-1):
+def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim=-1,hfs_fac=1.0,lfs_R_lim=-1):
 
     psi_data = []
 
@@ -60,7 +60,12 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
         elif hfs_R_lim > 0.0 and point[0] < hfs_R_lim:
             R_lcfs = np.min(R_sep)
             psi = psifunc(R_lcfs,0.0)
-            ne_zone.append(ne_func_inside(psi))
+            ne_zone.append(hfs_fac*ne_func_inside(psi))
+            Te_zone.append(Te_func_inside(psi))
+        elif lfs_R_lim > 0.0 and point[0] > lfs_R_lim:
+            R_lcfs = np.max(R_sep)
+            psi = psifunc(R_lcfs,0.0)
+            ne_zone.append(hfs_fac*ne_func_inside(psi))
             Te_zone.append(Te_func_inside(psi))
         else:
             ne = interpolate.griddata(np.vstack((R_outside,Z_outside)).transpose(),ne_outside,(point[0],point[1]),method="nearest")
@@ -181,7 +186,7 @@ def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,se
 # Generates a plasma file for use in defineback from two data sources: n(psi), with psi(r,z) inside separatrix
 # and as a general function n(r,z) for outside separatrix.
 # Separatrix given as a polygon of points: arrays r_sep, z_sep
-def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27,hfs_R_lim=-1.0):
+def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27,hfs_R_lim=-1.0,hfs_fac=1.0,lfs_R_lim=-1.0,trapped_fraction=0.0):
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
 
@@ -243,7 +248,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,
     ne_inside = np.array(ne_inside)
     Te_inside = np.array(Te_inside)
         
-    ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim)
+    ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim,hfs_fac,lfs_R_lim)
 
     file = open(bfieldfilename,"r")
     first = True
@@ -297,7 +302,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,
 
     write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio)
 
-    write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,2)
+    write_sourcefile(sourcefilename,(1.0-trapped_fraction)*np.array(ne_zone),vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,2)
 
 # Generates a plasma file for use in defineback
 # Arguments:
@@ -342,6 +347,7 @@ def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfi
     r_data = []
     z_data = []
     Br_data = []
+    Bt_data = []
     Bz_data = []
     for line in file:
         if not first:
@@ -350,6 +356,7 @@ def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfi
             r_data.append(float(data[0]))
             z_data.append(float(data[1]))
             Br_data.append(float(data[2]))
+            Bt_data.append(float(data[3]))
             Bz_data.append(float(data[4]))
         first=False
     file.close()
@@ -369,7 +376,7 @@ def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfi
 
         # Get the unit vector normal to this surface, a_unit
         diff = point2-point1
-        normal = [-diff[1],diff[0]]
+        normal = [-diff[1],0.0,diff[0]]
         a_unit = normal/np.linalg.norm(normal)
         fullarea = 2.0*np.pi*center[0]*np.linalg.norm(diff)
 
@@ -378,9 +385,10 @@ def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfi
         data_idx = np.argmin(np.sqrt( np.square(center[0]-r_data) + np.square(center[1]-z_data)) )
 
         Br=Br_data[data_idx]
+        Bt=Bt_data[data_idx]
         Bz=Bz_data[data_idx]
 
-        b_unit = [Br,Bz]/np.linalg.norm([Br,Bz])
+        b_unit = [Br,Bt,Bz]/np.linalg.norm([Br,Bt,Bz])
 
         area_zone[localidx] = fullarea*np.abs(np.dot(b_unit,a_unit))
 
