@@ -134,8 +134,6 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
 
     wallnodes = surfs[-1].vertices
 
-    def close_in_universal_cell(f,wallnodes,wallid,stratum,material,recyc):
-
     # Syntax is a little confusing right now. "wallid" in this routine actually assumes 
     # they're counted from zero and corrects to write dg2d input file
     Polygon.close_in_universal_cell(dg2dfile,wallnodes,NR-1,NR-1,2*NR,material,recyc):
