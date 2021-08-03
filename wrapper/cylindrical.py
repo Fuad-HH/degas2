@@ -57,7 +57,6 @@ def process_output(NR,outputfilename="output.nc",tallyfilename="tally.nc",geomet
     pressure = []
     molec_density = []
     molec_pressure = []
-#    for izone in range(0,tally_indices[dens_idx,0]):
     for izone in range(0,NR):
         density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
         pressure.append(outputdata["out_post_all"][pres_base+1*Nzone+izone,0])

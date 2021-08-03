@@ -178,13 +178,14 @@ class Polygon:
 
     # Writes the polygon to file f
     # If debug, include lines that output polygons to poly.X.dat files
-    def write_plasma_polygon_dg2d(self,f,stratum=None,wallid=None,commonzone=False,minarea=-1.0,debug=False):
+    def write_plasma_polygon_dg2d(self,f,stratum=None,wallid=None,commonzone=False,minarea=-1.0,debug=False,newzone=True):
         if not wallid:
             wallnum = self.id+1 
         if not stratum:
             stratum = self.id+1
 
-        f.write("new_zone plasma\n")
+        if newzone:
+            f.write("new_zone plasma\n")
         f.write("new_polygon\n")
         f.write("  stratum "+str(stratum)+"\n")
         for vertex in self.vertices:

@@ -31,7 +31,9 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
     # Finally, (2*NR:2*NR+1) are the wall polygons
 
     # ith polygon has Ntheta_min*(r_grid[i]+0.5*delta_r)/(0.5*delta_r) nodes sides
-    Ntheta = ( Ntheta_min*(r_grid+0.5*delta_r/(0.5*delta_r)) ).astype(int)
+    Ntheta = ( Ntheta_min*(r_grid+0.5*delta_r)/(0.5*delta_r)).astype(int)
+    Ntheta = np.minimum(Ntheta,Ntheta_max)
+
 
     # Gets the wall id (counting from 1) of a node based on its global index (counting from 0)
     def get_node_wall_id(node_id):
@@ -108,8 +110,8 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
     # Build polygons from wallfile nodes
     polys = []
      
-    # First polygon is straightforward
-    # Next (NR-1) polygons are the "main" cresent-shaped ones that exclude a small quadrilateral on the left side
+    # First zone is straightforward
+    # Next (NR-1) zones consist of two polygons: the "main" cresent-shaped ones, and the small quadrliateral that closes it to an annulus.
     for isurf in range(0,NR):
         polys.append(Polygon())
         for j in range(0,Ntheta[isurf]):
@@ -118,16 +120,15 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
         if isurf > 0:
             for j in range(Ntheta[isurf-1]-1,-1,-1):  # Too many "-1"s!
                 polys[-1].add_vertex(surfs[isurf-1].vertices[j])
-        # Just to make sure everything is ok, add the first point again. dg2d is fine with this.
-        polys[-1].add_vertex(surfs[isurf].vertices[0])
+            # Just as a sanity check, add the first point again. dg2d is fine with this.
+            polys[-1].add_vertex(surfs[isurf].vertices[0])
 
-    # Now make the little quadrilaterals to close the surface
-    for isurf in range(1,NR):
-        polys.append(Polygon())
-        polys[-1].add_vertex(surfs[isurf].vertices[0])
-        polys[-1].add_vertex(surfs[isurf].vertices[-1])
-        polys[-1].add_vertex(surfs[isurf-1].vertices[-1])
-        polys[-1].add_vertex(surfs[isurf-1].vertices[0])
+            # Now make the little quadrilaterals that close the "flux surface"
+            polys.append(Polygon())
+            polys[-1].add_vertex(surfs[isurf].vertices[0])
+            polys[-1].add_vertex(surfs[isurf].vertices[-1])
+            polys[-1].add_vertex(surfs[isurf-1].vertices[-1])
+            polys[-1].add_vertex(surfs[isurf-1].vertices[0])
 
     ####################################################
     # Write dg2d input file
@@ -140,7 +141,13 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
             wallid = ipoly+1
         else:
             wallid = ipoly - NR + 2
-        polys[ipoly].write_plasma_polygon_dg2d(dg2dfile,stratum=ipoly+1,wallid=wallid,commonzone=True)
+
+        if (ipoly == 0) or ( (ipoly+1)%2 == 0):
+            newzone = True
+        else:
+            newzone = False
+
+        polys[ipoly].write_plasma_polygon_dg2d(dg2dfile,stratum=ipoly+1,wallid=wallid,commonzone=True,newzone=newzone)
 
     wallnodes = surfs[-1].vertices
 
