@@ -71,8 +71,9 @@ def process_output(NR,outputfilename="output.nc",tallyfilename="tally.nc",geomet
     return density,molec_density,pressure,molec_pressure
 
 
-def write_cylinder_input(R_tot,NR,source,ne,Te,material,TiTe_ratio=1.0,Nflights=10000,Ntheta_min=12,Ntheta_max=200):
-    rgrid = dg2d.write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=Ntheta_min,Ntheta_max=Ntheta_max)
+def write_cylinder_input(R_tot,NR,source,ne,Te,material,TiTe_ratio=1.0,Nflights=10000,Ntheta_min=12,Ntheta_max=200,walltemp=300.0):
+    rgrid = dg2d.write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=Ntheta_min,Ntheta_max=Ntheta_max,walltemp=walltemp)
 
     defineback.write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,source,R_tot,NR,Nflights)
+    return rgrid
 

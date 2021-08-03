@@ -11,7 +11,7 @@ def write_dg2d_header(f,symmetry,Xmin,Xmax,Zmin,Zmax,wallfile_name="wallfile.txt
     f.write("end_prep\n")
     f.write("\n")
 
-def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wallfile_name="wallfile.txt",dg2dfile_name="dg2d.in",recyc=1.0):
+def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wallfile_name="wallfile.txt",dg2dfile_name="dg2d.in",recyc=1.0,walltemp=300.0):
     Xmin = -1.5*R_tot
     Xmax = 1.5*R_tot
     Zmin = -1.5*R_tot
@@ -153,7 +153,7 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
 
     # Syntax is a little confusing right now. "wallid" in this routine actually assumes 
     # they're counted from zero and corrects to write dg2d input file
-    Polygon.close_in_universal_cell(dg2dfile,wallnodes,NR-1,2*NR,material,recyc,clockwise=True)
+    Polygon.close_in_universal_cell(dg2dfile,wallnodes,NR-1,2*NR,material,recyc,clockwise=True,walltemp=walltemp)
     dg2dfile.write("polygon polygon.nc\n")
     dg2dfile.write("end\n")
 

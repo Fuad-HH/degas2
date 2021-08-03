@@ -125,11 +125,12 @@ class Polygon:
     # wallnodes is a collection of integer identifiers that make up the outer wall
     # they must go *counter*-clockwise, start with the innermost, share a common wall (wallid)
 
-    def close_in_universal_cell(f,wallnodes,wallid,stratum,material,recyc,debug=False,clockwise=False):
+    def close_in_universal_cell(f,wallnodes,wallid,stratum,material,recyc,debug=False,clockwise=False,walltemp=300.0):
         f.write("new_zone solid\n")
         f.write("new_polygon\n")
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
+        f.write("  temperature "+str(walltemp)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
         f.write("  outer 0 1\n")
         if clockwise:
@@ -156,6 +157,7 @@ class Polygon:
         f.write("new_polygon\n")
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
+        f.write("  temperature "+str(walltemp)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
         f.write("  outer 1 2 3 4\n")
         if clockwise:
