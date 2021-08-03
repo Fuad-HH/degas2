@@ -1,9 +1,11 @@
 import dg2d
 import defineback
+import netCDF4 as nc
+import numpy as np
 
 # Outputs neutral density and temperature from netcdf output
 # Assumes first len(rgrid) zones are the ones of interest
-def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="tally.nc",plot=False):
+def process_output(NR,outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="tally.nc",plot=False):
     outputdata=nc.Dataset(outputfilename)
     tallydata=nc.Dataset(tallyfilename)
 
@@ -47,20 +49,20 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
 
     max_tally_rank = len(tally_indices[0,:])
 
-    Nzone = len(rgrid)
+    Nzone = NR
+
+    Nzone = tally_indices[dens_idx,0]
 
     density = []
     pressure = []
     molec_density = []
     molec_pressure = []
-    for izone in range(0,tally_indices[dens_idx,0]):
-        if zone_type[izone] == 2:
-           x.append(geomdata["zone_center"][izone,0])
-           z.append(geomdata["zone_center"][izone,2])
-           density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
-           pressure.append(outputdata["out_post_all"][pres_base+1*Nzone+izone,0])
-           molec_density.append(outputdata["out_post_all"][dens_base+2*Nzone+izone,0])
-           molec_pressure.append(outputdata["out_post_all"][pres_base+2*Nzone+izone,0])
+#    for izone in range(0,tally_indices[dens_idx,0]):
+    for izone in range(0,NR):
+        density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
+        pressure.append(outputdata["out_post_all"][pres_base+1*Nzone+izone,0])
+        molec_density.append(outputdata["out_post_all"][dens_base+2*Nzone+izone,0])
+        molec_pressure.append(outputdata["out_post_all"][pres_base+2*Nzone+izone,0])
 
     density = np.array(density)
     pressure = np.array(pressure)
@@ -70,8 +72,8 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
     return density,molec_density,pressure,molec_pressure
 
 
-def write_cylinder_input(R_tot,NR,source,ne,Te,material,TiTe_ratio=1.0,Nflights=10000,Ntheta_min=12,Ntheta_max=200
-    rgrid = dg2d.write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200)
+def write_cylinder_input(R_tot,NR,source,ne,Te,material,TiTe_ratio=1.0,Nflights=10000,Ntheta_min=12,Ntheta_max=200):
+    rgrid = dg2d.write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=Ntheta_min,Ntheta_max=Ntheta_max)
 
-    defineback.write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR)
+    defineback.write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,source,R_tot,NR,Nflights)
 

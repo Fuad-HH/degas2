@@ -485,12 +485,12 @@ def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,g
 
     write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
-def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR):
+def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights):
 
     # Write the plasmafile
     pfile = open("plasmafile","w")
     pfile.write("zone   T(1)   N(1)   T(2)   N(2)\n")
-    for i in 0:NR:
+    for i in range(0,NR):
         r = rgrid[i]
         pfile.write("%d %f %e %f %e\n"%(i+1,Te(r),ne(r),Te(r)*TiTe_ratio,ne(r)))
     pfile.close()
@@ -507,7 +507,8 @@ def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="d
     f.write("new_source_group\n")
     f.write("  source_type plate\n")
     f.write("  source_geom surface\n")
-    f.write("  source_species H\n")
+    f.write("  source_species H2\n")
+    f.write("  source_root_sp H2\n")
     f.write("  specify_flux\n")
     f.write("  source_nflights "+str(Nflights)+"\n")
     f.write("  source_strength %e \n"%(source_strength))

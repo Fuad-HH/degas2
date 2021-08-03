@@ -125,22 +125,27 @@ class Polygon:
     # wallnodes is a collection of integer identifiers that make up the outer wall
     # they must go *counter*-clockwise, start with the innermost, share a common wall (wallid)
 
-    def close_in_universal_cell(f,wallnodes,wallid,stratum,material,recyc):
+    def close_in_universal_cell(f,wallnodes,wallid,stratum,material,recyc,debug=False,clockwise=False):
         f.write("new_zone solid\n")
         f.write("new_polygon\n")
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
-        f.write("  wall "+str(wallid+1)+" "+\
+        f.write("  outer 0 1\n")
+        if clockwise:
+            f.write("  wall "+str(wallid+1)+" "+\
                 str(wallnodes[0].id)+" "+\
                 str(wallnodes[0].id)+"\n")
-        f.write("  wall "+str(wallid+1)+" "+\
+            f.write("  wall "+str(wallid+1)+" "+\
+                str(wallnodes[-1].id)+" "+\
+                str(wallnodes[-1].id)+"\n")
+        else:
+            f.write("  wall "+str(wallid+1)+" "+\
+                str(wallnodes[0].id)+" "+\
+                str(wallnodes[0].id)+"\n")
+            f.write("  wall "+str(wallid+1)+" "+\
                 str(wallnodes[1].id)+" "+\
                 str(wallnodes[1].id)+"\n")
-        f.write("  outer 0 1")
-        f.write("  wall "+str(wallid+1)+" "+\
-                str(wallnodes[0].id)+" "+\
-                str(wallnodes[0].id)+"\n")
         if debug:
             f.write("  print_polygon poly.out1.dat\n")
             f.write("  clear_polygon\n")
@@ -152,11 +157,17 @@ class Polygon:
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
-        f.write("  outer 1 2 3 4")
-        for node in wallnodes[1:]:
-            f.write("  wall "+str(wallid+1)+" "+\
-                str(node.id)+" "+\
-                str(node.id)+"\n")
+        f.write("  outer 1 2 3 4\n")
+        if clockwise:
+            for node in wallnodes[::-1]:
+                f.write("  wall "+str(wallid+1)+" "+\
+                    str(node.id)+" "+\
+                    str(node.id)+"\n")
+        else:
+            for node in wallnodes[1:]:
+                f.write("  wall "+str(wallid+1)+" "+\
+                    str(node.id)+" "+\
+                    str(node.id)+"\n")
         if debug:
             f.write("  print_polygon poly.out2.dat\n")
             f.write("  clear_polygon\n")
@@ -177,7 +188,10 @@ class Polygon:
         f.write("new_polygon\n")
         f.write("  stratum "+str(stratum)+"\n")
         for vertex in self.vertices:
-            f.write("  wall "+str(wallid)+" "+str(vertex.id)+" "+str(vertex.id)+"\n")
+            if not vertex.wall_id:
+                f.write("  wall "+str(wallid)+" "+str(vertex.id)+" "+str(vertex.id)+"\n")
+            else:
+                f.write("  wall "+str(vertex.wall_id)+" "+str(vertex.id)+" "+str(vertex.id)+"\n")
 
         if debug:
             f.write("  print_polygon poly."+str(self.id)+".dat\n")
@@ -378,7 +392,7 @@ class Surface:
 
     # Creates the outer polygon from the solid wall Surface, writes it to file f
     # If debug, include lines that output polygons to poly.X.dat files
-    def write_solid_polygon_dg2d(self,stratum,f,material,recyc,walltemp=300.0,debug=False):
+    def write_solid_polygon_dg2d(self,stratum,f,material,recyc,walltemp=300.0,debug=False,clockwise=False):
         f.write("new_zone solid\n")
         f.write("new_polygon\n")
         f.write("  stratum "+str(stratum)+"\n")
@@ -386,6 +400,7 @@ class Surface:
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  temperature "+str(walltemp)+"\n")
         f.write("  wall "+str(self.id)+" 0 1 \n ")
+        f.write("  outer 1 0 \n")
         f.write("  outer 0 1 \n")
         f.write("  wall "+str(self.id)+" 0 0 \n ")
         if debug:
@@ -458,6 +473,7 @@ class Vertex:
         self.coords = [R,Z]
         self.id = id_in 
         self.wall = False
+        self.wall_id = None
 
     # Nodes are the same the coordinates are equal
     def __eq__(self,other):
