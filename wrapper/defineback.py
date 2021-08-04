@@ -509,7 +509,7 @@ def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="d
     f.write("  source_geom surface\n")
     f.write("  source_species H2\n")
     f.write("  source_root_sp H2\n")
-    f.write("  source_puff_temp +"str(walltemp)+"\n")
+    f.write("  source_puff_temp "+str(walltemp)+"\n")
     f.write("  specify_flux\n")
     f.write("  source_nflights "+str(Nflights)+"\n")
     f.write("  source_strength %e \n"%(source_strength))
