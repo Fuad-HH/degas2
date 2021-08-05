@@ -82,7 +82,7 @@ def process_output(rgrid,outputfilename="output.nc",tallyfilename="tally.nc",geo
     if asciioutfilename:
         f = open(asciioutfilename,"w")
         f.write("#%14s %15s %15s %15s %15s %15s %15s %15s %15s %15s \n"%\
-                ("izone","radius (m)","n_H (m^-3)", "rel. err.","n_H2", "rel. err.", "p_H","rel. err.","p_H2","rel. err.") )
+                ("izone","radius (m)","n_H (m^-3)", "rel. err.","n_H2", "rel. err.", "p_H (Pa)","rel. err.","p_H2","rel. err.") )
         for i in range(0,NR):
             f.write("%15d %15e %15e %15e %15e %15e %15e %15e %15e %15e \n"%\
                     (i,rgrid[i],density[i],density_err[i], \
