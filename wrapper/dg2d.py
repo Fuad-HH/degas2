@@ -17,7 +17,7 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
     Zmin = -1.5*R_tot
     Zmax = 1.5*R_tot
 
-    delta_r = 2*R_tot/(1.0+2*NR)
+    delta_r = 2*R_tot/(2*NR-1.0)
     r_grid = np.linspace(0.0,R_tot-0.5*delta_r,num=NR)
 
     plasma_polys = []
