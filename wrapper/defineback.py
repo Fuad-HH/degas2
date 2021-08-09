@@ -485,7 +485,7 @@ def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,g
 
     write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
-def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp=300.0):
+def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp=300.0,source_sp="H2"):
 
     # Write the plasmafile
     pfile = open("plasmafile","w")
@@ -495,10 +495,10 @@ def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp
         pfile.write("%d %f %e %f %e\n"%(i+1,Te(r),ne(r),Te(r)*TiTe_ratio,ne(r)))
     pfile.close()
 
-    generate_db_input_nosourcefile(S0,Nflights,[2*NR],dbfilename="db.in",walltemp=walltemp)
+    generate_db_input_nosourcefile(S0,Nflights,[2*NR],dbfilename="db.in",walltemp=walltemp,source_sp=source_sp)
 
 
-def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="db.in",walltemp=300.0):
+def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="db.in",walltemp=300.0,source_sp="H2"):
 
     plasmafilename="plasmafile"
 
@@ -507,8 +507,8 @@ def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="d
     f.write("new_source_group\n")
     f.write("  source_type puff\n")
     f.write("  source_geom surface\n")
-    f.write("  source_species H2\n")
-    f.write("  source_root_sp H2\n")
+    f.write("  source_species "+source_sp+"\n")
+    f.write("  source_root_sp "+source_sp+"\n")
     f.write("  source_puff_temp "+str(walltemp)+"\n")
     f.write("  specify_flux\n")
     f.write("  source_nflights "+str(Nflights)+"\n")

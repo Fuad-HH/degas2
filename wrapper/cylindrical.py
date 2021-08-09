@@ -51,53 +51,44 @@ def process_output(rgrid,outputfilename="output.nc",tallyfilename="tally.nc",geo
 
     Nzone = tally_indices[dens_idx,0]
     NR=len(rgrid)
+    Nspec = tally_indices[dens_idx,1]
 
-    density = []
-    pressure = []
-    molec_density = []
-    molec_pressure = []
-    density_err = []
-    pressure_err = []
-    molec_density_err = []
-    molec_pressure_err = []
+    density = np.zeros((NR,Nspec-1))
+    density_err = np.zeros((NR,Nspec-1))
+
+    pressure = np.zeros((NR,Nspec-1))
+    pressure_err = np.zeros((NR,Nspec-1))
+
     for izone in range(0,NR):
-        density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
-        pressure.append(outputdata["out_post_all"][pres_base+1*Nzone+izone,0])
-        molec_density.append(outputdata["out_post_all"][dens_base+2*Nzone+izone,0])
-        molec_pressure.append(outputdata["out_post_all"][pres_base+2*Nzone+izone,0])
-        density_err.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,1])
-        pressure_err.append(outputdata["out_post_all"][pres_base+1*Nzone+izone,1])
-        molec_density_err.append(outputdata["out_post_all"][dens_base+2*Nzone+izone,1])
-        molec_pressure_err.append(outputdata["out_post_all"][pres_base+2*Nzone+izone,1])
-
-    density = np.array(density)
-    pressure = np.array(pressure)
-    molec_density = np.array(molec_density)
-    molec_pressure = np.array(molec_pressure)
-    density_err = np.array(density_err)
-    pressure_err = np.array(pressure_err)
-    molec_density_err = np.array(molec_density_err)
-    molec_pressure_err = np.array(molec_pressure_err)
+        for ispec in range(1,Nspec):
+            density[izone,ispec-1] = outputdata["out_post_all"][dens_base+ispec*Nzone+izone,0]
+            density_err[izone,ispec-1] = outputdata["out_post_all"][dens_base+ispec*Nzone+izone,1]
+            pressure[izone,ispec-1] = outputdata["out_post_all"][pres_base+ispec*Nzone+izone,0]
+            pressure_err[izone,ispec-1] = outputdata["out_post_all"][pres_base+ispec*Nzone+izone,1]
 
     if asciioutfilename:
         f = open(asciioutfilename,"w")
-        f.write("#%14s %15s %15s %15s %15s %15s %15s %15s %15s %15s \n"%\
-                ("izone","radius (m)","n_H (m^-3)", "rel. err.","n_H2", "rel. err.", "p_H (Pa)","rel. err.","p_H2","rel. err.") )
+        f.write("#%14s %15s "%("izone","radius (m)"))
+        for j in range(0,Nspec-1):
+            f.write("%15s %15s "%("Density("+str(j+1)+")","rel. err."))
+        for j in range(0,Nspec-1):
+            f.write("%15s %15s "%("Pressure("+str(j+1)+")","rel. err."))
+        f.write("\n")
         for i in range(0,NR):
-            f.write("%15d %15e %15e %15e %15e %15e %15e %15e %15e %15e \n"%\
-                    (i,rgrid[i],density[i],density_err[i], \
-                    molec_density[i],molec_density_err[i], \
-                    pressure[i],pressure_err[i],\
-                    molec_pressure[i],molec_pressure_err[i]))
+            f.write("%15d %15e "%(i,rgrid[i]))
+            for j in range(0,Nspec-1):
+                f.write("%15e %15e "%(density[i,j],density_err[i,j]))
+            for j in range(0,Nspec-1):
+                f.write("%15e %15e "%(pressure[i,j],pressure_err[i,j]))
+            f.write("\n")
         f.close()
 
+    return density,pressure
 
-    return density,molec_density,pressure,molec_pressure
 
-
-def write_cylinder_input(R_tot,NR,eource,ne,Te,material,TiTe_ratio=1.0,Nflights=10000,Ntheta_min=12,Ntheta_max=200,walltemp=300.0):
+def write_cylinder_input(R_tot,NR,eource,ne,Te,material,TiTe_ratio=1.0,Nflights=10000,Ntheta_min=12,Ntheta_max=200,walltemp=300.0,source_sp="H2"):
     rgrid = dg2d.write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=Ntheta_min,Ntheta_max=Ntheta_max,walltemp=walltemp)
 
-    defineback.write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,eource,R_tot,NR,Nflights,walltemp=walltemp)
+    defineback.write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,eource,R_tot,NR,Nflights,walltemp=walltemp,source_sp=source_sp)
     return rgrid
 
