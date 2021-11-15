@@ -546,11 +546,11 @@ int len;
       implicit_none_f77
       address mem_alloc         // Function
       integer size              // Input
-      integer sizea             // Local
+      integer*8 sizea             // Local
       real data
       pointer (ptr,data(*))
 @#if DEBUG
-      integer i
+      integer*8 i
 @#endif
 @#if !CRAY
       address malloc           // External
@@ -606,11 +606,11 @@ int len;
       address mem_realloc       // Function
       address oldptr            // Input
       integer oldsize,newsize
-      integer newsizea,oldsizea // Local
+      integer*8 newsizea,oldsizea // Local
       real odata,ndata
       pointer (optr,odata(*)),(nptr,ndata(*))
 @#if DEBUG || !CRAY
-      integer i
+      integer*8 i
 @#endif
 @#if !CRAY
       address malloc            // External
@@ -649,6 +649,9 @@ int len;
 @#else
       nptr=malloc(mem_unit*newsizea)
 @#endif
+      if (nptr == 0) then
+         print*,"memrealloc failed:",mem_unit*oldsizea,mem_unit*newsizea
+      end if
       assert(nptr != 0)
 
       do i=1,min(newsizea,oldsizea)
@@ -683,7 +686,7 @@ int len;
       implicit_none_f77
       address oldptr       // Input
       integer size
-      integer sizea             // Local
+      integer*8 sizea             // Local
       real data
       pointer (optr,data(*))
 @#if CRAY

@@ -118,25 +118,34 @@ routines are called by both |readgeometry| and |definegeometry2d|.
    Revise this test to ensure that |sect_zone1| is associated with the input polygon.
    Note that this step is required since we ignore the sign of |face1| above.
 */
-      if ((poly_zone != zn_undefined) 
-     $  && (zn_index(sect_zone1[1],zi_ptr) != zn_index(poly_zone,zi_ptr))) then
+      if (poly_zone != zn_undefined) then
+         if (zn_index(sect_zone1[1],zi_ptr) != zn_index(poly_zone,zi_ptr)) then
 @#endif
-         assert(zn_type(zn_index(sect_zone2[1],zi_ptr)) == type)
-         face1=-face1
-         i_max=max(num_zone1,num_zone2)
-         do i=1,i_max
-            temp_zone=sect_zone1[i]
-            sect_zone1[i]=sect_zone2[i]
-            sect_zone2[i]=temp_zone
-         end do
-         temp_zone=num_zone1
-         num_zone1=num_zone2
-         num_zone2=temp_zone
-      else
+            assert(zn_type(zn_index(sect_zone2[1],zi_ptr)) == type)
+            face1=-face1
+            i_max=max(num_zone1,num_zone2)
+            do i=1,i_max
+               temp_zone=sect_zone1[i]
+               sect_zone1[i]=sect_zone2[i]
+               sect_zone2[i]=temp_zone
+            end do
+            temp_zone=num_zone1
+            num_zone1=num_zone2
+            num_zone2=temp_zone
 /*
    Verify that the zone pointer and type are as expected.
 */
-         assert((poly_zone == zn_undefined) || (zn_index(sect_zone1[1],zi_ptr) == zn_index(poly_zone,zi_ptr)))
+@#if 0
+/*
+   blank
+*/
+@#else
+         else
+            assert(zn_index(sect_zone1[1],zi_ptr) == zn_index(poly_zone,zi_ptr))
+            assert((type == zn_undefined) || (zn_type(zn_index(sect_zone1[1],zi_ptr)) == type))
+         end if
+@#endif
+      else
          assert((type == zn_undefined) || (zn_type(zn_index(sect_zone1[1],zi_ptr)) == type))
       end if
 
