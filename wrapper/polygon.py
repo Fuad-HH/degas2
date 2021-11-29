@@ -524,12 +524,12 @@ def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
 
     n_adjacent_triangles = len(adjacent_wall_triangles)
 
-    print("current_node = %d"%current_node.id)
+#    print("current_node = %d"%current_node.id)
 
     next_node = -1
     # Loop through the adjacent wall triangles that share the current node
     for tri in adjacent_wall_triangles:
-        print(tri.id)
+#        print(tri.id)
         # Create list of adjacent triangles that excludes the one under consideration
         other_adjacent_triangles = copy.deepcopy(adjacent_wall_triangles)
         other_adjacent_triangles.remove(tri)

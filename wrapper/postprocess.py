@@ -6,7 +6,7 @@ import matplotlib.tri as tri
 from importlib import reload
 
 # Returns neutral density and detector signals 
-def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc",plot=False):
+def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc",plot=False,lymandatafile=None):
     outputdata=nc.Dataset(outputfilename)
     tallydata=nc.Dataset(tallyfilename)
 
@@ -91,14 +91,14 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
         plt.savefig("density.pdf",bbox_inches="tight")
         plt.close()
 
-        triang = tri.Triangulation(x,z)
-        plt.title("Neutral density (m^-3)")
-        plt.xlabel("x (m)")
-        plt.ylabel("z (m)")
-        plt.tricontourf(triang,np.log(density))
-        plt.colorbar()
-        plt.savefig("logdensity.pdf",bbox_inches="tight")
-        plt.close()
+#        triang = tri.Triangulation(x,z)
+#        plt.title("Neutral density (m^-3)")
+#        plt.xlabel("x (m)")
+#        plt.ylabel("z (m)")
+#        plt.tricontourf(triang,np.log(density))
+#        plt.colorbar()
+#        plt.savefig("logdensity.pdf",bbox_inches="tight")
+#        plt.close()
 
 
         plt.title("Relative error of neutral density")
@@ -117,22 +117,36 @@ def process_output(outputfilename="output.nc",tallyfilename="tally.nc",geometryf
         plt.savefig("emission.pdf",bbox_inches="tight")
         plt.close()
 
-        
-        xint_raw = [1,2,3,4,6,8,9,10,11,12,13,14,15,16,17,18,20]
-        signal_raw = [2.43e19,3.614e19,3.30e19,4.091e19,4.6281e19,4.6554e19, \
-                3.9925e19,4.3516e19,5.57e19,4.593e19,4.233e19,4.0835e19, \
-                3.797e19,4.101e19,3.649e19,4.109e19,4.068e19]
-        E_per_photon = 6.626e-34*3.0e8/1216.0e-10
-        signal_raw = np.array(signal_raw) * E_per_photon
-        xint = range(1,len(signal)+1)
-        plt.plot(xint_raw,signal_raw,"-o")
-        plt.errorbar(xint,signal,yerr=signal*signal_err,fmt="-o",capsize=3)
-        plt.xticks(xint)
-        plt.xlabel("Detector number")
-        plt.ylabel("Predicted signal (W / m^2-sr)") 
-        plt.legend(["Observation","DEGAS2"])
-        plt.savefig("signals.pdf",bbox_inches="tight")
-        plt.close()
+        if lymandatafile:
+            xint_raw = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+            f = open(lymandatafile,"rb")
+            first = True
+            signal_raw = []
+            i=0
+            for line in f:
+                if not first:
+                    data = line.split()
+                    if data[1] == "nan":
+                        xinit_raw.pop(i)
+                    else:
+                        signal_raw.append(float(data[1]))
+                    i+=1
+                first=False
+            f.close()
+
+            xint_raw = np.array(xint_raw)
+
+            E_per_photon = 6.626e-34*3.0e8/1216.0e-10
+            signal_raw = np.array(signal_raw) * E_per_photon
+            xint = range(1,len(signal)+1)
+            plt.plot(xint_raw,signal_raw,"-o")
+            plt.errorbar(xint,signal,yerr=signal*signal_err,fmt="-o",capsize=3)
+            plt.xticks(xint)
+            plt.xlabel("Detector number")
+            plt.ylabel("Predicted signal (W / m^2-sr)") 
+            plt.legend(["Observation","DEGAS2"])
+            plt.savefig("signals.pdf",bbox_inches="tight")
+            plt.close()
 
     return x,z,density,density_err,emission,signal,signal_err
 

@@ -161,7 +161,7 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
 
     return r_grid
 
-def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True):
+def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True,ionmass=1.67e-27):
 
     def next_noncomment_line(f):
         found=False
@@ -182,7 +182,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     ne_node = np.zeros([nnode])
     mach_node = np.zeros([nnode])
     Br_node = np.zeros([nnode])
-    Bphi_node = np.zeros([nnode])
+    Bt_node = np.zeros([nnode])
     Bz_node = np.zeros([nnode])
     wallflag_node = np.zeros([nnode],dtype=int)
     lowestRnode = 0
@@ -203,7 +203,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         ne_node[inode] = float(line[5])
         mach_node[inode] = float(line[6])
         Br_node[inode] = float(line[7])
-        Bphi_node[inode] = float(line[8])
+        Bt_node[inode] = float(line[8])
         Bz_node[inode] = float(line[9])
         wallflag_node[inode] = int(line[10])
 
@@ -230,7 +230,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     ne_tri = np.zeros([ntri])
     mach_tri = np.zeros([ntri])
     Br_tri = np.zeros([ntri])
-    Bphi_tri = np.zeros([ntri])
+    Bt_tri = np.zeros([ntri])
     Bz_tri = np.zeros([ntri])
     validflag = np.zeros([ntri],dtype=int)
     lowestRtri = -1
@@ -238,6 +238,10 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     polys = []
     wallpolys = []
     invalidpolys = []
+    ne_zone = []
+    Te_zone = []
+    Ti_zone = []
+    mach_zone = []
     iline = 0
     while iline < ntri:
         line = next_noncomment_line(elefile).split(",")
@@ -250,9 +254,14 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         ne_tri[itri] = float(line[6])
         mach_tri[itri] = float(line[7])
         Br_tri[itri] = float(line[8])
-        Bphi_tri[itri] = float(line[9])
+        Bt_tri[itri] = float(line[9])
         Bz_tri[itri] = float(line[10])
         validflag[itri] = int(line[11])
+
+        ne_zone.append(ne_tri[itri])
+        Te_zone.append(Te_tri[itri])
+        Ti_zone.append(Ti_tri[itri])
+        mach_zone.append(mach_tri[itri])
     
         if (validflag[itri] == 0):
             invalidpolys.append(Polygon())
@@ -271,6 +280,10 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     elefile.close()
     ntri = len(polys)
 
+    ne_zone = np.array(ne_zone)
+    Te_zone = np.array(Te_zone)
+    Ti_zone = np.array(Ti_zone)
+
     if not trust_wallflags:
 #        wallvertices = infer_wall_nodes(polys,invalidpolys)
         vertices = purge_invalid_nodes(vertices,polys)
@@ -286,16 +299,15 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
 #            print("wallnode id = %d"%node.id)
 
-            if node.coords[0] < Rmin or Rmin < 0.0:
+            if (node.coords[0] < Rmin or Rmin < 0.0) :
                 Rmin= node.coords[0]
-                lowestRnode = node
             if node.coords[0] > Rmax:
                 Rmax= node.coords[0]
             if node.coords[1] < Zmin:
                 Zmin= node.coords[1]
             if node.coords[1] > Zmax:
                 Zmax= node.coords[1]
-
+    
     #plt.plot(rtemp,ztemp,".")
     #plt.plot(lowestRnode.coords[0],lowestRnode.coords[1],"o")
     #plt.savefig("test.png")
@@ -306,23 +318,82 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     Rmax_tot = 1.5*Rmax
     Rmin_tot = max(0.0001,0.5*Rmin)
 
+    mindist = 1.0e20
+    innerSplitGuidePt = np.array([Rmin_tot,0.5*(Zmax_tot+Zmin_tot)])
+    for node in vertices:
+        for node in wallvertices:
+            dist = (innerSplitGuidePt[0]-node.coords[0])**2 + (innerSplitGuidePt[1]-node.coords[1])**2
+            if dist < mindist:
+                lowestRnode = node
+                mindist = dist
+
     for tri in polys:
         nwallnodes = tri.reorder_wallnodes_first()
         if nwallnodes >= 2:
             tri.alongwall = True
             wallpolys.append(tri)
 #            print("wallpoly.id = %d"%wallpolys[-1].id)
-    print("Number of wall triangles= %d"%len(wallpolys))
+            ntest = wallpolys[-1].reorder_wallnodes_first()
+            if not nwallnodes == ntest:
+                print(nwallnodes)
+                print(ntest)
+                sys.exit("Wrong number of wall nodes. Something wrong with the logic.")
+
+#    print("Number of wall triangles= %d"%len(wallpolys))
+
+    # wallpolys contains all polygons that have a segment along the wall
+    # and the wall segment is first
+    wall_strata = []
+    source_strength = []
+    for tri in wallpolys:
+        point1 = np.array(tri.vertices[0].coords)
+        point2 = np.array(tri.vertices[1].coords)
+        diff = point2 - point1
+        area = 2.0*np.pi*0.5*(point1[0]+point2[0])*np.linalg.norm(diff)
+        normal = [-diff[1],0.0,diff[0]]
+        a_unit = normal/np.linalg.norm(normal)
+
+        # TODO: pressure sure this logic is wrong if the nodes are not listed in order
+        Br = 0.5*(Br_node[tri.vertices[0].id] + Br_node[tri.vertices[1].id])
+        Bt = 0.5*(Bt_node[tri.vertices[0].id] + Bt_node[tri.vertices[1].id])
+        Bz = 0.5*(Bz_node[tri.vertices[0].id] + Bz_node[tri.vertices[1].id])
+        b_unit = [Br,Bt,Bz]/np.linalg.norm([Br,Bt,Bz])
+
+        wetarea = area*np.abs(np.dot(b_unit,a_unit))
+
+        cs = 0.5*(np.sqrt(Te_node[[tri.vertices[0].id]]/ionmass) + \
+                np.sqrt(Te_node[[tri.vertices[1].id]]/ionmass))
+
+        ne = 0.5*(ne_node[[tri.vertices[0].id]] + ne_node[[tri.vertices[1].id]])
+
+        source_strength.append(ne*cs*wetarea)
+        wall_strata.append(tri.id+1)
 
     dg2dfile = open(dg2dfile_name,'w')
-    dg2dfile.write("symmtry cylindrical\n")
+    dg2dfile.write("symmetry cylindrical\n")
     dg2dfile.write("bounds "+str(Rmin_tot)+" "+str(Rmax_tot)+" "+\
             str(Zmin_tot)+" "+str(Zmax_tot)+"\n")
     dg2dfile.write("wallfile wallfile.txt\n")
     dg2dfile.write("end_prep\n\n")
 
+    def isclockwise(tri):
+        if not len(tri.vertices) == 3:
+            sys.exit("Not a triangle isclockwise logic not valid.")
+        s = 0.0
+        s += (tri.vertices[1].coords[0] - tri.vertices[0].coords[0])*(tri.vertices[1].coords[1] + tri.vertices[0].coords[1])
+        s += (tri.vertices[2].coords[0] - tri.vertices[1].coords[0])*(tri.vertices[2].coords[1] + tri.vertices[1].coords[1])
+        s += (tri.vertices[0].coords[0] - tri.vertices[2].coords[0])*(tri.vertices[0].coords[1] + tri.vertices[2].coords[1])
+        if s >= 0.0:
+            return True
+        else:
+            return False
+
+    stratum = 0
     for poly in polys:
-        poly.write_plasma_polygon_dg2d(dg2dfile,stratum=poly.id+1,wallid=1,debug=debug)
+        stratum += 1
+        if not isclockwise(poly):
+            print("Polygon %d is counter-clockwise!"%(poly.id))
+        poly.write_plasma_polygon_dg2d(dg2dfile,stratum=stratum,wallid=1,debug=debug)
 
     wallvertices_ordered = []
     wallvertices_ordered.append(lowestRnode)
@@ -358,16 +429,36 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
     # wallvertices_ordered is now the list of wall vertices, starting at 
     # the minimum R value, and going around counter-clockwise
+#    print("wallvertices:")
+#    for node in wallvertices:
+#        print(node.coords,node.id)
+#    print("wallvertices_ordered:")
+#    for node in wallvertices_ordered:
+#        print(node.coords,node.id)
 
     # Enclose in universal cell
-    # TODO: Fix this routine so that big polygon doesn't wrap back to its own point.
-    Polygon.close_in_universal_cell(dg2dfile,wallvertices_ordered,lowestRnode,0,ntri+1,material,recyc)
+
+    Polygon.close_in_universal_cell(dg2dfile,wallvertices_ordered,0,stratum+1,material,recyc,clockwise=True,walltemp=300.0)
 
     dg2dfile.write("polygon_nc_file polygon.nc\n")
     dg2dfile.write("end")
     dg2dfile.close()
 
-    return polys
+    ####################################################
+    # Write wallfile
+    wallfile = open("wallfile.txt","w")
+    wallfile.write("# Wallfile automatically generated by script\n")
+    wallfile.write("1\n")
+    wallfile.write("#\n")
+    wallfile.write("%d\n"%(nnode))
+    wallfile.write("#\n")
+    for i in range(0,nnode):
+        x = node_coords[i,0]
+        z = node_coords[i,1]
+        wallfile.write("%f %f\n"%(x,z))
+    wallfile.close()
+
+    return ne_zone, Te_zone, Ti_zone, wall_strata, source_strength
 
 def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,exitnodes=[]):
 
