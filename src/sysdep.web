@@ -28,7 +28,7 @@ System dependent routines for degas.
 
 @a
       @<Functions and Subroutines@>
-@#if IBM || LINUX || LINUX64
+@#if IBM || LINUX || LINUX64 || MACOSX
 @c
 #include <stdio.h>
 #include <strings.h>
@@ -60,7 +60,7 @@ This is from \verb&f77/f77_floatingpoint.h&.
 @#if !IBM
       function get_env(var,val)
       implicit_none_f77
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
@@ -117,7 +117,7 @@ day, minutes east of Greenwich, hour, minute, second, milliseconds.
 @#if HP
 @?nostandard system
 @#endif
-@#if FORTRAN90 || SUN || ALPHA  || ( (LINUX || LINUX64) && INTEL )
+@#if FORTRAN90 || SUN || ALPHA  || ( (LINUX || LINUX64 || MACOSX) && INTEL )
       subroutine date_time(date_array)
       implicit_none_f77
       implicit_none_f90
@@ -165,7 +165,7 @@ day, minutes east of Greenwich, hour, minute, second, milliseconds.
       call time(temp)
       read(temp,'(i2,1x,i2,1x,i2)')
      $     date_array[5],date_array[6],date_array[7]
-@#elif SGI || ( (LINUX || LINUX64) && PGROUP )
+@#elif SGI || ( (LINUX || LINUX64 ||MACOSX) && PGROUP )
       call idate(date_array[2],date_array[3],date_array[1])
       if (date_array[1]>90) then
          date_array[1]=date_array[1]+1900
@@ -276,9 +276,9 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
       call system_clock(count,rate)
       cpu_time=real(count)/real(max(1,rate))
 @#else
-@#if HP || IBM || ( (LINUX || LINUX64) && NAGWARE )
+@#if HP || IBM || ( (LINUX || LINUX64 || MACOSX) && NAGWARE )
       integer clock             // External
-@#elif (LINUX || LINUX64) && PGROUP
+@#elif (LINUX || LINUX64 || MACOSX) && PGROUP
       integer mclock            // External
 @#elif CRAY
       real second               // External
@@ -287,9 +287,9 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
       single_precision etime    // External
 @#endif
 
-@#if HP || IBM || ( (LINUX || LINUX64) && NAGWARE)
+@#if HP || IBM || ( (LINUX || LINUX64 || MACOSX) && NAGWARE)
       cpu_time=const(1.0,-6)*areal(clock())
-@#elif (LINUX || LINUX64) && PGROUP
+@#elif (LINUX || LINUX64 || MACOSX) && PGROUP
       cpu_time=const(1.0,-2)*areal(mclock())
 @#elif CRAY
       cpu_time=second()
@@ -303,7 +303,7 @@ YYYY-MM-DD hh-mm-ss.sss +ZZ:ZZ
 @ Interface for |clock| for Linux.
 
 @<C Functions@>=
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
 int FORTRANNAME(clock)()
 {
       return clock();
@@ -315,12 +315,12 @@ int FORTRANNAME(clock)()
 @<Functions...@>=
       function get_pid()
       implicit_none_f77
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
       integer get_pid           // Function
-@#if !( (LINUX || LINUX64) && NAGWARE )
+@#if !( (LINUX || LINUX64 || MACOSX) && NAGWARE )
       integer getpid           // External
 @#endif
 
@@ -356,7 +356,7 @@ int FORTRANNAME(clock)()
 
 @ Linux interface to getcwd
 @<C Functions@>=
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
 int FORTRANNAME(getcwd)(name,len)
 char * name;
 int len;
@@ -393,7 +393,7 @@ int len;
 
 @ Linux interface to chdir
 @<C Functions@>=
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
 int FORTRANNAME(chdir)(name,len)
 char *name;
 int len;
@@ -467,7 +467,7 @@ int len;
 
 @ Linux interface to gethostname.
 @<C Functions@>=
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
 int FORTRANNAME(hostnm)(name,len)
 char * name;
 int len;
@@ -482,7 +482,7 @@ int len;
 @<Functions...@>=
       function arg_count()
       implicit_none_f77
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
@@ -491,7 +491,7 @@ int len;
       external ipxfargc
       integer ipxfargc
 @#else
-@#if !( (LINUX || LINUX64) && NAGWARE )
+@#if !( (LINUX || LINUX64 || MACOSX) && NAGWARE )
       integer iargc             // External
 @#endif
 @#endif
@@ -509,7 +509,7 @@ int len;
 @<Functions...@>=
       subroutine command_arg(i,arg)
       implicit_none_f77
-@#if (LINUX || LINUX64) && NAGWARE
+@#if (LINUX || LINUX64 || MACOSX) && NAGWARE
       use f90_unix
 @#endif
       implicit_none_f90
