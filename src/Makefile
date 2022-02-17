@@ -68,7 +68,7 @@ PDFLATEX=pdflatex
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn6000 -- it's a little stressed
 # Code has evolved enough that we are stressing some more
 # TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn7000 -yb100000
-TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn8000 -yb200000 -ybs15000
+TANGLEFLAGS=-mINLINE -W[ -n/ -n')' -Tv -j -yn15000 -yb200000 -ybs15000
 WEAVEFLAGS=-f -i! -W[ -ybs15000 -ykw800 -ytw40000 -j -n/  # Added the '!', OK? (DPS)
 F90MODS=-I.
 F90FLAGS=
@@ -543,10 +543,6 @@ randomtest = randomtest.$O random.$O
 randomtest_libs =
 randomtest: $(randomtest) $(foreach arg,$(subst .$O,_mods,$(randomtest)),$($(arg)))
 
-nrandomtest = nrandomtest.$O nrandom.$O
-nrandomtest_libs =
-nrandomtest: $(nrandomtest) $(foreach arg,$(subst .$O,_mods,$(randomtest)),$($(arg)))
-
 pvmmaster = pvmmaster.$O random.$O stat.$O geometry.$O readfilenames.$O
 pvmmaster_libs = $(NETCDF) $(PVM)
 pvmmaster: $(pvmmaster) $(foreach arg,$(subst .$O,_mods,$(pvmmaster)),$($(arg)))
@@ -617,25 +613,9 @@ problemsetup = problemsetup.$O elementread.$O pmimatread.$O reaction.$O interpol
 problemsetup_libs = $(NETCDF) 
 problemsetup: $(problemsetup) $(foreach arg,$(subst .$O,_mods,$(problemsetup)),$($(arg)))
 
-geomread = geomread.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O elementread.$O pmimatread.$O
-geomread_libs = $(NETCDF)
-geomread: $(geomread) $(foreach arg,$(subst .$O,_mods,$(geomread)),$($(arg)))
-
-cramdtest = cramdtest.$O cramdadd.$O readfilenames.$O elementread.$O pmimatread.$O geometry.$O degasinit.$O
-cramdtest_libs = $(CRAMD) $(NETCDF)
-cramdtest: $(cramdtest) $(foreach arg,$(subst .$O,_mods,$(cramdtest)),$($(arg)))
-
 cramdtesta = cramdtesta.$O cramdadd.$O sysdep.$O string.$O pmimatread.$O
 cramdtesta_libs = $(CRAMD) $(NETCDF)  
 cramdtesta: $(cramdtesta) $(foreach arg,$(subst .$O,_mods,$(cramdtesta)),$($(arg)))
-
-degasgeom = degasgeom.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O random.$O
-degasgeom_libs = $(NETCDF)
-degasgeom: $(degasgeom) $(foreach arg,$(subst .$O,_mods,$(degasgeom)),$($(arg)))
-
-test = test.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O
-test_libs = $(NETCDF)
-test: $(test) $(foreach arg,$(subst .$O,_mods,$(test)),$($(arg)))
 
 readgeometry = readgeometry.$O geomsetup.$O allocate.$O geomutils.$O geomfaces.$O geometry.$O composite.$O string.$O readdegas.$O readfilenames.$O elementread.$O pmimatread.$O dediagsetup.$O aux2dsetup.$O $(DETECTORFILE).$O
 readgeometry_libs = $(NETCDF)
@@ -653,11 +633,6 @@ defineback: $(defineback) $(foreach arg,$(subst .$O,_mods,$(defineback)),$($(arg
 boxgen = boxgen.$O readfilenames.$O geomsetup.$O allocate.$O composite.$O geomutils.$O geomfaces.$O geometry.$O pmimatread.$O elementread.$O writeback.$O cramdadd.$O dediagsetup.$O reaction.$O interpolate.$O random.$O aux2dsetup.$O
 boxgen_libs = $(CRAMD) $(NETCDF)
 boxgen: $(boxgen) $(foreach arg,$(subst .$O,_mods,$(boxgen)),$($(arg)))
-
-plotflight = plotflight.$O string.$O
-plotflight_libs =
-plotflight: $(plotflight) $(foreach arg,$(subst .$O,_mods,$(plotflight)),$($(arg)))
-
 
 cramdproblem = cramdproblem.$O pmimatread.$O cramdadd.$O readfilenames.$O elementread.$O geometry.$O
 cramdproblem_libs = $(CRAMD) $(NETCDF)
@@ -768,3 +743,4 @@ clean:
 	rm -f *.o *.f *.cft *.dvi *.tex *.dvi *.ind *.mod *.con *.ps *.aux *.log *.l *.c.c *.view *.print *.tcov *.d *.trace *.blg *.aux0 *.dum *.M *.mweb *.T *.c *.h *.g90 *.ts
 
 
+# DO NOT DELETE
