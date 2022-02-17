@@ -119,7 +119,7 @@ the entire resulting derived work is distributed under the terms of a
 permission notice identical to this one.
 Permission is granted to copy and distribute translations of this manual
 into another language, under the above conditions for modified versions.}}
-\author{\vspace*{-0.5in} \\ Daren Stotler and Charles Karney \\ {\em Princeton Plasma Physics 
+\author{\vspace*{-0.5in} \\ Daren Stotler, Charles Karney, and George Wilkie \\ {\em Princeton Plasma Physics 
 Laboratory} \\ Randall Kanzleiter \\ {\em Rensselaer Polytechnic Institute} \\
 Jaishankar S. \\ {\em Institute for Plasma Research, India}}
 \begin{abstract}
@@ -3702,6 +3702,51 @@ PDF version of the manual, here's a
 
 \section{Compiling DEGAS 2}
 
+DEGAS 2 is compiled with \href{http://www.cmake.org}{CMake}, a widely used standard for building portable software and managing dependencies.
+To configure: 
+\begin{verbatim}
+cd ~/[your-path-to]/degas2
+mkdir build
+cd build
+cmake ..
+\end{verbatim}
+Components are built as before from the build directory:
+\begin{verbatim}
+make randomtest
+../bin/randomtest
+\end{verbatim}
+The resulting executables are output to the bin directory. 
+For flexible use of these tools, it is recommended to add the bin directory 
+to your shell's \$PATH environment variable.
+
+At CMake configure time, several things happen beyond generating the Makefile. 
+Most importantly, FWEB is compiled from the source distributed with DEGAS 2. 
+That way, {\tt ftangle} is available to CMake to build the fortran source files.
+Silo and Triangle are likewise also distributed with DEGAS 2, but CMake will instead use an existing implementation of Silo on the system if it is found.
+Template input files for the data directory are also generated with the correct global path to the degas2/data directory.
+
+%By default, executables are compiled in ``Debug'' mode. To gain more performance, they can be compiled as ``Release''s as follows:
+%\begin{verbatim}
+%cd [your-path-to]/degas2/build
+%cmake -DCMAKE_BUILD_TYPE=Release ..
+%make flighttest
+%\end{verbatim}
+MPI is enabled by default if CMake can find the MPI library.
+
+Some cautionary remarks:
+\begin{itemize}
+   \item If the use-defined source files \verb+usr2ddetector.web+ or \verb+usr2dplasma.web+ are being used, the CMake configure step needs to be rerun so that these files get recognized as part of the compilation.
+   \item Currently, CMake does not track changes to .hweb files. If these are edited and changes pulled from the repository, CMake will not recognize this. It is therefore recommended practice to {\tt make clean} when pulling updates.
+   \item The file CMakeLists.txt contains a section (clearly labelled) which is automatically generated to track dependencies. If you make changes to the code such that dependencies change, be sure to include these dependencies in {\tt src/Makefile} as before, run {\tt make depend} and copy the contents of {\tt cmakecommands.txt} to the relevant section of CMakeLists.txt. This extra step is temporary until the legacy build system is no longer supported.
+   \item The CMake implementation is intended to reproduce all useful functionality of the legacy build system. Please reach out the developers \ref{help} if it does not suit your needs.
+\end{itemize}
+
+\subsection{Legacy build instructions}
+
+This subsection describes how to compile DEGAS 2 with the included Makefile.
+This method is still supported, but will likely be phased out. 
+If compiling this way, replace the {\tt build} subdirectory with your {\tt SYSTEM} name in the examples \ref{examples}.
+
 The Makefile has been designed to compile on  a variety of architectures
 and operating systems. It uses the shell command {\tt uname} to
 determine the operating system upon which {\tt gmake} is being run.  The root
@@ -3750,7 +3795,7 @@ in some other location, you'll need to tell the Makefile where to look
 Blindly change directory names is not recommended.
 Some flexibility is again provided; see below for details.
 
-\subsection{Basics}
+\subsubsection{Basics}
 \label{basics}
 
 Let's start by compiling the {\tt randomtest} utility (see 
@@ -3866,7 +3911,8 @@ the Makefile working there (you can set up symbolic links to common
 directories such as {\tt data}).
 \end{itemize}
 
-\subsection{Cross-Compiling}
+
+\subsubsection{Cross-Compiling}
 \label{cross}
 
 {\bf The mechanism for cross-compilation has been updated to use
@@ -3932,7 +3978,7 @@ is a likely possibility, one could consider also linking the
 \verb+data+ directory on the local workstation to the one in the
 AFS directory, making the latter the only real copy.
 
-\subsection{Miscellaneous Targets}
+\subsubsection{Miscellaneous Targets}
 
 The Makefile provides some other occasionally useful targets. Please
 see the Makefile for more details.
@@ -3979,6 +4025,7 @@ variables. This is useful for debugging Makefile problems.
 % (see Sec.~\ref{help}).
 
 \section{Examples}
+\label{examples}
 
 The {\tt examples} directory contains several documented DEGAS 2 examples,
 with input output, and auxiliary files. They are included not only
@@ -4019,10 +4066,11 @@ directory sits within your home directory:
 cd ~/degas2/examples/Analytic_fluid_bench
 \end{verbatim}
   \item {\bf Copy the} {\tt degas2.in} {\bf file into your working
-directory.} E.g., if you are working on a Sun, 
+directory.}
 \begin{verbatim}
-cp degas2_boxgen.in ../../SUN/degas2.in
-cd ../../SUN
+mkdir ../../workdir
+cp degas2_boxgen.in ../../workdir/degas2.in
+cd ../../build
 \end{verbatim}
 (overwriting any {\tt degas2.in} file you may have had there already!).
   \item {\bf Prepare reference data.} This example uses the standard
@@ -4030,22 +4078,27 @@ reference data files in the {\tt data} directory. Hence, this step can
 be skipped if
 those files have not been altered since you downloaded the code.
 \begin{verbatim}
-gmake datasetup
-./datasetup
+make datasetup
+cd ../workdir
+../bin/datasetup
 \end{verbatim}
   \item {\bf Prepare problem data.} This and subsequent steps are 
 {\em not} optional! Note that the {\tt degas2.in} file points back to
 the {\tt examples} directory for the problem input file (see
 Sec.~\ref{probleminfile}).
 \begin{verbatim}
-gmake problemsetup
-./problemsetup
+cd ../build
+make problemsetup
+cd ../workdir
+../bin/problemsetup
 \end{verbatim}
   \item {\bf Generate geometry and background files.} The {\tt boxgen}
 program takes care of both of these:
 \begin{verbatim}
-gmake boxgen
-./boxgen
+cd ../build
+make boxgen
+cd ../workdir
+../bin/boxgen
 \end{verbatim}
   \item {\bf Set the number of flights.} The background file {\tt bk\_boxgen.nc}
 contains the specification of the number of flights to be run. Open this
@@ -4057,13 +4110,17 @@ Change the ``100'' to either ``1600'' or ``6400''. The example contains the
 output for both cases. Save the file and exit the editor.
   \item {\bf Set up the tallies.} 
 \begin{verbatim}
-gmake tallysetup
-./tallysetup
+cd ../build
+make tallysetup
+cd ../workdir
+../bin/tallysetup
 \end{verbatim}
   \item {\bf Run the code.}
 \begin{verbatim}
-gmake flighttest
-./flighttest
+cd ../build
+make flighttest
+cd ../workdir
+../bin/flighttest
 \end{verbatim}
   \item {\bf Check the text output.} The file {\tt density.out} can be directly
 compared with either {\tt density\_1600.out} or {\tt density\_6400.out},
@@ -4311,10 +4368,10 @@ directory sits within your home directory:
 cd ~/degas2/examples/Couette_flow
 \end{verbatim}
   \item {\bf Copy the} {\tt degas2.in} {\bf file into your working
-directory.} E.g., if you are working on a Sun, 
+directory.}
 \begin{verbatim}
-cp degas2.in ../../SUN/degas2.in
-cd ../../SUN
+cp degas2.in ../../workdir/degas2.in
+cd ../../build
 \end{verbatim}
 (overwriting any {\tt degas2.in} file you may have had there already!).
   \item {\bf Prepare reference data.} This example uses some nonstandard
@@ -4323,13 +4380,16 @@ must be run. Note that the {\tt degas2.in} file points back to
 the {\tt examples} directory for the input files needed here and in 
 subsequent steps.
 \begin{verbatim}
-gmake datasetup
-./datasetup
+make datasetup
+cd ../workdir
+../bin/datasetup
 \end{verbatim}
   \item {\bf Prepare problem data.}
 \begin{verbatim}
-gmake problemsetup
-./problemsetup
+cd ../build
+make problemsetup
+cd ../workdir
+../bin/problemsetup
 \end{verbatim}
 If you look at the problem input file, you will see that there is only
 one reaction, that for the neutral-neutral collisions. Note also that
@@ -4340,8 +4400,10 @@ the test species \verb+D2+ also appears in the list of background species
 program takes care of both of these (be sure that the \verb+BOXRUN+ macro
 has been set to 41):
 \begin{verbatim}
-gmake boxgen
-./boxgen
+cd ../build
+make boxgen
+cd ../workdir
+../bin/boxgen
 \end{verbatim}
   \item {\bf Set the number of flights.} The background file {\tt bk\_bgktest.nc}
 contains the specification of the number of flights to be run. Open this
@@ -4358,13 +4420,17 @@ number of flights (say, 100,000) and still get reasonable results.
 Save the file and exit the editor.
   \item {\bf Set up the tallies.} 
 \begin{verbatim}
-gmake tallysetup
-./tallysetup
+cd ../build
+make tallysetup
+cd ../workdir
+../bin/tallysetup
 \end{verbatim}
   \item {\bf Run the code.}
 \begin{verbatim}
-gmake flighttest
-./flighttest
+cd ../build
+make flighttest
+cd ../workdir
+../bin/flighttest
 \end{verbatim}
 The number of BGK iterations is controlled by the value of the 
 \verb+bgk_max+ macro in flighttest.web. The value used here is 10. If you just
@@ -7136,11 +7202,14 @@ appropriate for this input file, the size of the code was reduced from
 \section{Help!}
 \label{help}
 
-Daren Stotler \\
-Princeton Plasma Physics Laboratory, MS 27 \\
+George Wilkie \\
+Princeton Plasma Physics Laboratory \\
 P. O. Box 451 \\
-Princeton NJ 08543-0451 \\ 
-(609) 243-2063 \\
+Princeton NJ 08543-0451\\
+(609) 243-2629 \\
+\href{mailto:gwilkie@pppl.gov}{E-Mail: gwilkie@pppl.gov}
+
+Daren Stotler \\
 \href{mailto:dstotler@pppl.gov}{E-mail: dstotler@pppl.gov}
 
 \begin{thebibliography}{99}

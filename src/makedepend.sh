@@ -82,7 +82,6 @@ for file do
     esac
 done
 
-
 (
 echo 'ifeq ($(FORTRAN90),yes)'
 cat $temp.e
@@ -93,3 +92,35 @@ echo 'endif'
 ) > Makefile.depends
 
 rm -rf $temp.*
+
+###########################################
+
+
+# Interprets Makefile.depends to assign the relevant _mod.f files to variables named xx_MOD
+cat Makefile.depends |grep "MOD:="|sed 's/^\(..\)_MOD:=\(.*\)\.\$O/set(\1_MOD \2.f)/g' > cmakecommands
+
+# Interprets Makefile.depends to get module dependencies of each .f source file listed.
+cat Makefile.depends |grep "_mods:=" | sed 's/(/{/g' | sed 's/)/}/g' |sed 's/\(.*\)_mods:=\(.*\)$/list(APPEND \1_mods \2)/g' >>cmakecommands
+
+# Interprets *Makefile* to create variables xxx_deps for .f files manually specified in Makefile
+grep "^.* = " Makefile|grep "\.\$O" | sed 's/\$(DG2D)//g' | sed 's/\$(DETECTORFILE)/${DETECTORFILE}/g' | sed 's/\$(PLASMAFILE)/${PLASMAFILE}/g' | sed 's/aladdin_subr\.o\ //g' |sed 's/^\(.*\)\ =\ \(.*\)$/list(APPEND \1_deps \2)/g' |sed 's/\.\$O/\.f/g' | sed 's/bspline.mod\ //g' |sed 's/bspline90_22\.o\ //g'  >> cmakecommands
+
+# Generates list of targets from Makefile
+grep "^.* = " Makefile|grep "\.\$O" | sed 's/\(.*\)\ \=\ .*$/\1/g' > targets
+
+# Now take these targets and generate corresponding commands in CMakeLists.txt
+for target in `cat targets`
+do
+   echo "foreach(str \${${target}_deps})"  >> cmakecommands
+   echo "  string(REPLACE .f _mods modstr \"\${str}\")" >> cmakecommands
+   echo "  list(APPEND ${target}_mods \"\${\${modstr}}\")" >> cmakecommands
+   echo "endforeach()" >> cmakecommands
+   echo "add_executable($target $target.f string.f sysdep.f \${${target}_mods} \${${target}_deps})" >> cmakecommands
+   echo "target_link_libraries($target \${NETCDF_LIBRARIES})" >> cmakecommands
+   echo " " >> cmakecommands
+done
+
+rm targets
+
+#cat cmakecommands >> ../CMakeLists.txt
+
