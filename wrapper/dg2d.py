@@ -258,10 +258,6 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Bz_tri[itri] = float(line[10])
         validflag[itri] = int(line[11])
 
-        ne_zone.append(ne_tri[itri])
-        Te_zone.append(Te_tri[itri])
-        Ti_zone.append(Ti_tri[itri])
-        mach_zone.append(mach_tri[itri])
     
         if (validflag[itri] == 0):
             invalidpolys.append(Polygon())
@@ -276,6 +272,10 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
             polys[-1].add_vertex(vertices[trinodes[itri,1]])
             polys[-1].add_vertex(vertices[trinodes[itri,2]])
    
+            ne_zone.append(ne_tri[itri])
+            Te_zone.append(Te_tri[itri])
+            Ti_zone.append(Ti_tri[itri])
+            mach_zone.append(mach_tri[itri])
         iline += 1
     elefile.close()
     ntri = len(polys)
@@ -341,33 +341,33 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
 #    print("Number of wall triangles= %d"%len(wallpolys))
 
-    # wallpolys contains all polygons that have a segment along the wall
-    # and the wall segment is first
-    wall_strata = []
-    source_strength = []
-    for tri in wallpolys:
-        point1 = np.array(tri.vertices[0].coords)
-        point2 = np.array(tri.vertices[1].coords)
-        diff = point2 - point1
-        area = 2.0*np.pi*0.5*(point1[0]+point2[0])*np.linalg.norm(diff)
-        normal = [-diff[1],0.0,diff[0]]
-        a_unit = normal/np.linalg.norm(normal)
-
-        # TODO: pressure sure this logic is wrong if the nodes are not listed in order
-        Br = 0.5*(Br_node[tri.vertices[0].id] + Br_node[tri.vertices[1].id])
-        Bt = 0.5*(Bt_node[tri.vertices[0].id] + Bt_node[tri.vertices[1].id])
-        Bz = 0.5*(Bz_node[tri.vertices[0].id] + Bz_node[tri.vertices[1].id])
-        b_unit = [Br,Bt,Bz]/np.linalg.norm([Br,Bt,Bz])
-
-        wetarea = area*np.abs(np.dot(b_unit,a_unit))
-
-        cs = 0.5*(np.sqrt(Te_node[[tri.vertices[0].id]]/ionmass) + \
-                np.sqrt(Te_node[[tri.vertices[1].id]]/ionmass))
-
-        ne = 0.5*(ne_node[[tri.vertices[0].id]] + ne_node[[tri.vertices[1].id]])
-
-        source_strength.append(ne*cs*wetarea)
-        wall_strata.append(tri.id+1)
+#    # wallpolys contains all polygons that have a segment along the wall
+#    # and the wall segment is first
+#    wall_strata = []
+#    source_strength = []
+#    for tri in wallpolys:
+#        point1 = np.array(tri.vertices[0].coords)
+#        point2 = np.array(tri.vertices[1].coords)
+#        diff = point2 - point1
+#        area = 2.0*np.pi*0.5*(point1[0]+point2[0])*np.linalg.norm(diff)
+#        normal = [-diff[1],0.0,diff[0]]
+#        a_unit = normal/np.linalg.norm(normal)
+#
+#        # TODO: pretty sure this logic is wrong if the nodes are not listed in order
+#        Br = 0.5*(Br_node[tri.vertices[0].id] + Br_node[tri.vertices[1].id])
+#        Bt = 0.5*(Bt_node[tri.vertices[0].id] + Bt_node[tri.vertices[1].id])
+#        Bz = 0.5*(Bz_node[tri.vertices[0].id] + Bz_node[tri.vertices[1].id])
+#        b_unit = [Br,Bt,Bz]/np.linalg.norm([Br,Bt,Bz])
+#
+#        wetarea = area*np.abs(np.dot(b_unit,a_unit))
+#
+#        cs = 0.5*(np.sqrt(Te_node[[tri.vertices[0].id]]/ionmass) + \
+#                np.sqrt(Te_node[[tri.vertices[1].id]]/ionmass))
+#
+#        ne = 0.5*(ne_node[[tri.vertices[0].id]] + ne_node[[tri.vertices[1].id]])
+#
+#        source_strength.append(ne*cs*wetarea)
+#        wall_strata.append(tri.id+1)
 
     dg2dfile = open(dg2dfile_name,'w')
     dg2dfile.write("symmetry cylindrical\n")
@@ -436,9 +436,48 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 #    for node in wallvertices_ordered:
 #        print(node.coords,node.id)
 
+    nwall = len(wallvertices_ordered)
+    segments=np.array(range(0,nwall),dtype=int)
+    rwall = np.zeros(nwall)
+    zwall = np.zeros(nwall)
+    source_strength = []
+    for iseg in range(0,nwall):
+        vertex1 = wallvertices_ordered[iseg]
+        point1 = np.array( vertex1.coords )
+        iseg2 = (iseg+1)%nwall
+        vertex2 = wallvertices_ordered[iseg2]
+        rwall[iseg] = vertex1.coords[0]
+        zwall[iseg] = vertex1.coords[1]
+        point2 = np.array( vertex2.coords )
+        diff = point2 - point1
+        area = 2.0*np.pi*0.5*(point1[0]+point2[0])*np.linalg.norm(diff)
+        normal = [-diff[1],0.0,diff[0]]
+        a_unit = normal/np.linalg.norm(normal)
+
+        Br = 0.5*(Br_node[vertex1.id] + Br_node[vertex2.id])
+        Bt = 0.5*(Bt_node[vertex1.id] + Bt_node[vertex2.id])
+        Bz = 0.5*(Bz_node[vertex1.id] + Bz_node[vertex2.id])
+        b_unit = [Br,Bt,Bz]/np.linalg.norm([Br,Bt,Bz])
+
+        wetarea = area*np.abs(np.dot(b_unit,a_unit))
+
+        vpar = 0.5*(np.sqrt(Te_node[vertex1.id]/ionmass)*mach_node[vertex1.id] + \
+                np.sqrt(Te_node[vertex2.id]*mach_node[vertex2.id]/ionmass))
+
+        ne = 0.5*(ne_node[[vertex1.id]] + ne_node[[vertex2.id]])
+
+        source_strength.append(ne*vpar*wetarea)
+
+    source_strength = np.array(source_strength).flatten()
+
+    plt.plot(rwall,zwall)
+    plt.tight_layout()
+    plt.savefig("wallpoly.pdf")
+    plt.close()
+
     # Enclose in universal cell
 
-    Polygon.close_in_universal_cell(dg2dfile,wallvertices_ordered,0,stratum+1,material,recyc,clockwise=True,walltemp=300.0)
+    Polygon.close_in_universal_cell(dg2dfile,wallvertices_ordered,0,stratum+1,material,recyc,clockwise=False,walltemp=300.0)
 
     dg2dfile.write("polygon_nc_file polygon.nc\n")
     dg2dfile.write("end")
@@ -458,7 +497,11 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         wallfile.write("%f %f\n"%(x,z))
     wallfile.close()
 
-    return ne_zone, Te_zone, Ti_zone, wall_strata, source_strength
+    segments=np.array(range(0,len(source_strength)),dtype=int)
+
+    strata = np.array([wall_stratum]*len(segments))
+
+    return ne_zone, Te_zone/1.602e-19, Ti_zone/1.602e-19, strata, segments, source_strength
 
 def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,exitnodes=[]):
 

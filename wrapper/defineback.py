@@ -72,6 +72,8 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
     Z_out = np.array(Z_out)
     ne_out = np.array(ne_out)
     Te_out = np.array(Te_out)
+    Te_zone = np.array(Te_zone)
+    ne_zone = np.array(ne_zone)
 
     triang = tri.Triangulation(R_out,Z_out)
     plt.title("Electron density")
@@ -135,14 +137,23 @@ def get_zone_plasma_data_through_psi(zone_coords,R_data,ne_data,Te_data,psifunc)
 
     return ne_zone, Te_zone
 
-def write_plasmafile(plasmafilename,ne_zone,Te_zone,Ti_zone,TiTe_ratio=1):
+def write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=None,b=None,plasmafilename="plasmafile"):
     pfile = open(plasmafilename,'w')
-    pfile.write("zone      T(1)         N(1)        T(2)        N(2)\n")
+    pfile.write("zone      T(1)         N(1)        T(2)        N(2)")
+    if not ui_zone is None:
+        pfile.write("      V1(2)        V2(2)       V3(2)       ") 
+    pfile.write("\n")
 
     Nzone = len(ne_zone)
-    for idx in range(1,Nzone+1):
-        pfile.write(str(idx)+"  "+str(Te_zone[idx-1])+"  "+str(ne_zone[idx-1])
-                +"  "+str(Ti_zone[idx-1])+"  "+str(ne_zone[idx-1])+"\n")
+    for idx in range(0,Nzone):
+        pfile.write(str(idx+1)+"  "+str(Te_zone[idx])+"  "+str(ne_zone[idx])
+                +"  "+str(Ti_zone[idx])+"  "+str(ne_zone[idx]))
+        if not ui_zone is None:
+            ux = ui_zone[idx]*b[idx,0]
+            uy = ui_zone[idx]*b[idx,1]
+            uz = ui_zone[idx]*b[idx,2]
+            pfile.write("  "+str(ux)+"  "+str(uy)+"  "+str(uz))
+        pfile.write("\n")
     pfile.close()
 
 def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,exitstratum=-1):
@@ -422,7 +433,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,
 
         area_zone[localidx] = fullarea*np.abs(np.dot(b_unit,a_unit))
 
-    write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio*Te_zone)
+    write_plasmafile(ne_zone,Te_zone,TiTe_ratio*Te_zone)
 
     plt.plot(wallzonecenter_r,wallzonecenter_z,'.')
     plt.savefig("wallzonecenter.pdf")
@@ -624,7 +635,7 @@ def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,g
 
         area_zone[localidx] = fullarea*np.abs(np.dot(b_unit,a_unit))
 
-    write_plasmafile(plasmafilename,ne_zone,Te_zone,TiTe_ratio*Te_zone)
+    write_plasmafile(ne_zone,Te_zone,TiTe_ratio*Te_zone,plasmafilename=plasmafilename)
 
     write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
@@ -685,7 +696,7 @@ def generate_db_input(Nflights,dbfilename="db.in",sourcesp="H",specify_flux=Fals
     f.write("  source_type plate\n")
     f.write("  source_geom surface\n")
     f.write("  source_species "+sourcesp+"\n")
-    f.write("  source_root_sp H+\n")
+    f.write("  source_root_sp "+sourcesp+"+"+"\n")
     if specify_flux:
         f.write("  specify_flux\n")
     else:

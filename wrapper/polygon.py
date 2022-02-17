@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 
 # A polygon is an ordered set of vertices, connected by segments which close in on itself.
 class Polygon:
-    numPolygons = 0 # Polygons start counting from 1
+    numPolygons = 0 
 
-    def __init__(self,increment=True):
+    def __init__(self,increment=True,id=None):
         self.vertices = []
-        self.id = Polygon.numPolygons
+        if id:
+            self.id = id
+        else:
+            self.id = Polygon.numPolygons
         if increment:
             Polygon.numPolygons += 1
         self.alongwall = False
@@ -135,11 +138,11 @@ class Polygon:
         f.write("  outer 0 1\n")
         if clockwise:
             f.write("  wall "+str(wallid+1)+" "+\
+                str(wallnodes[1].id)+" "+\
+                str(wallnodes[1].id)+"\n")
+            f.write("  wall "+str(wallid+1)+" "+\
                 str(wallnodes[0].id)+" "+\
                 str(wallnodes[0].id)+"\n")
-            f.write("  wall "+str(wallid+1)+" "+\
-                str(wallnodes[-1].id)+" "+\
-                str(wallnodes[-1].id)+"\n")
         else:
             f.write("  wall "+str(wallid+1)+" "+\
                 str(wallnodes[0].id)+" "+\
@@ -159,9 +162,8 @@ class Polygon:
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  temperature "+str(walltemp)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
-        f.write("  outer 1 2 3 4\n")
         if clockwise:
-            for node in wallnodes[::-1]:
+            for node in wallnodes[-1:0:-1]:
                 f.write("  wall "+str(wallid+1)+" "+\
                     str(node.id)+" "+\
                     str(node.id)+"\n")
@@ -170,6 +172,10 @@ class Polygon:
                 f.write("  wall "+str(wallid+1)+" "+\
                     str(node.id)+" "+\
                     str(node.id)+"\n")
+            f.write("  wall "+str(wallid+1)+" "+\
+                str(wallnodes[0].id)+" "+\
+                str(wallnodes[0].id)+"\n")
+        f.write("  outer 1 2 3 4\n")
         if debug:
             f.write("  print_polygon poly.out2.dat\n")
             f.write("  clear_polygon\n")
@@ -517,7 +523,6 @@ def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
 
     # Collect triangles that share current_node
     adjacent_wall_triangles = []
-    nwalltriangles = np.shape(walltriangles)[0]
     for tri in walltriangles:
         if current_node in tri.vertices:
             adjacent_wall_triangles.append(tri)
