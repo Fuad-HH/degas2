@@ -11,7 +11,7 @@ import matplotlib.tri as tri
 
 # Populates plasma density and temperature by zone. Depending on if the point (zone center) is inside the separatrix,
 # this will either interpolate based on psi, or interpolate on a 2D table based on more general R and Z data
-def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim=-1,hfs_fac=1.0,lfs_R_lim=-1,hfs_ne=None,hfs_Te=None):
+def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim=-1,hfs_fac=1.0,lfs_R_lim=-1,hfs_ne=None,hfs_Te=None,plot=False):
 
     psi_data = []
 
@@ -75,42 +75,43 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
     Te_zone = np.array(Te_zone)
     ne_zone = np.array(ne_zone)
 
-    triang = tri.Triangulation(R_out,Z_out)
-    plt.title("Electron density")
-    plt.xlabel("x (m)")
-    plt.ylabel("z (m)")
-#    plt.tricontourf(triang,ne_out,levels=np.linspace(0,4.0e18,8))
-    plt.tricontourf(triang,ne_out)
-    plt.colorbar()
-    plt.savefig("ne.pdf",bbox_inches="tight")
-    plt.close()
-
-
-    ax = plt.axes(projection='3d')
-    ax.scatter3D(R_out,Z_out,ne_out,c=ne_out,cmap="Blues")
-    ax.view_init(azim=255,elev=10)
-#    ax.scatter3D(R_outside,Z_outside,ne_outside,c=ne_outside,cmap="Greens")
-#    ax.set_xlim([0.1,0.2])
-#    ax.set_ylim([-0.3,0.3])
-    plt.savefig("ne3d.pdf",bbox_inches="tight")
-    plt.cla()
-    plt.clf()
-    plt.close()
-
-    plt.title("Electron temperature")
-    plt.xlabel("x (m)")
-    plt.ylabel("z (m)")
-    plt.tricontourf(triang,Te_out)
-    plt.colorbar()
-    plt.savefig("Te.pdf",bbox_inches="tight")
-    plt.close()
-#
-    plt.title("Zone centers")
-    plt.xlabel("x (m)")
-    plt.ylabel("z (m)")
-    plt.plot(R_out,Z_out,"+")
-    plt.savefig("zones.pdf",bbox_inches="tight")
-    plt.close()
+    if plot:
+        triang = tri.Triangulation(R_out,Z_out)
+        plt.title("Electron density")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+    #    plt.tricontourf(triang,ne_out,levels=np.linspace(0,4.0e18,8))
+        plt.tricontourf(triang,ne_out)
+        plt.colorbar()
+        plt.savefig("ne.pdf",bbox_inches="tight")
+        plt.close()
+    
+    
+        ax = plt.axes(projection='3d')
+        ax.scatter3D(R_out,Z_out,ne_out,c=ne_out,cmap="Blues")
+        ax.view_init(azim=255,elev=10)
+    #    ax.scatter3D(R_outside,Z_outside,ne_outside,c=ne_outside,cmap="Greens")
+    #    ax.set_xlim([0.1,0.2])
+    #    ax.set_ylim([-0.3,0.3])
+        plt.savefig("ne3d.pdf",bbox_inches="tight")
+        plt.cla()
+        plt.clf()
+        plt.close()
+    
+        plt.title("Electron temperature")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+        plt.tricontourf(triang,Te_out)
+        plt.colorbar()
+        plt.savefig("Te.pdf",bbox_inches="tight")
+        plt.close()
+    #
+        plt.title("Zone centers")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+        plt.plot(R_out,Z_out,"+")
+        plt.savefig("zones.pdf",bbox_inches="tight")
+        plt.close()
 
 
     return ne_zone, Te_zone
@@ -313,7 +314,7 @@ def generate_plasma_files_from_zone_data(ne_zone,Te_zone,Ti_zone,vpar_zone,geomf
 # Generates a plasma file for use in defineback from two data sources: n(psi), with psi(r,z) inside separatrix
 # and as a general function n(r,z) for outside separatrix.
 # Separatrix given as a polygon of points: arrays r_sep, z_sep
-def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27,hfs_R_lim=-1.0,hfs_fac=1.0,lfs_R_lim=-1.0,trapped_fraction=0.0,hfs_ne=None,hfs_Te=None):
+def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27,hfs_R_lim=-1.0,hfs_fac=1.0,lfs_R_lim=-1.0,trapped_fraction=0.0,hfs_ne=None,hfs_Te=None,plot=False):
     plasmafilename="plasmafile"
     sourcefilename="sourcefile"
 
@@ -378,7 +379,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,
     ne_inside = np.array(ne_inside)
     Te_inside = np.array(Te_inside)
         
-    ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim,hfs_fac,lfs_R_lim,hfs_ne,hfs_Te)
+    ne_zone, Te_zone = get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,ne_outside,Te_outside,psifunc,R_inside,ne_inside,Te_inside,R_sep,Z_sep,hfs_R_lim,hfs_fac,lfs_R_lim,hfs_ne,hfs_Te,plot=plot)
 
     file = open(bfieldfilename,"r")
     first = True
