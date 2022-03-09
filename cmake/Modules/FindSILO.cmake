@@ -6,7 +6,7 @@
 
 FIND_PATH(WITH_SILO_PREFIX
     NAMES include/silo.h
-    HINTS /usr/gapps/silo/current/$ENV{SYS_TYPE}/
+    HINTS /usr/gapps/silo/current/$ENV{SYS_TYPE}/ ENV SILO_HOME ENV SILO_DIR
 )
 
 FIND_LIBRARY(SILO_LIBRARIES
