@@ -21,6 +21,7 @@
 import dg2d
 import defineback
 import subprocess
+import problem
 import numpy as np
 
 # Overall parameters
@@ -29,6 +30,7 @@ Nflights=100000
 triangle_file = "gNSTU.geqdsk_backup_triag"
 recyc_coeff = 0.9
 
+problem.genStdProblem("C")
 # Initializes the "problem": neutral and plasma species, reactions, and PMI
 # Rarely needed, but it runs quickly, so one might as well.
 subprocess.run("problemsetup",shell=True)

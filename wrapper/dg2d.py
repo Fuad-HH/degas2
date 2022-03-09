@@ -499,7 +499,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
     segments=np.array(range(0,len(source_strength)),dtype=int)
 
-    strata = np.array([wall_stratum]*len(segments))
+    strata = np.array([stratum+1]*len(segments))
 
     return ne_zone, Te_zone/1.602e-19, Ti_zone/1.602e-19, strata, segments, source_strength
 
