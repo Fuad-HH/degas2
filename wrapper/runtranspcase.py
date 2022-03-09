@@ -10,13 +10,13 @@
 # $ make flighttest
 # Add: export PATH=[degas2_parent_dir]/degas2/bin:$PATH 
 # and: export PYTHONPATH=[degas2_parent_dir]/degas2/pyscripts:$PYTHONPATH
-# to ~/.bashrc and "source ~/.bashrc"
+# to ~/.bashrc and run "source ~/.bashrc"
 # In working directory (where this script is run), copy the files degas2.in, problem.in, and tally.in, and run:
 # $ datasetup
 
 # Required libraries/modules: netcdf, cmake, openmpi
 # On PPPL cluster:
-# module load gcc openmpi szip hdf5-parallel netcdf-c netcdf-fortran cmake
+# module load gcc openmpi szip hdf5-parallel netcdf-c netcdf-fortran silo cmake
 # Required python packages: numpy, matplotlib, netCDF4, scipy, shapely
 import dg2d
 import defineback
@@ -30,9 +30,9 @@ Nflights=100000
 triangle_file = "gNSTU.geqdsk_backup_triag"
 recyc_coeff = 0.9
 
-problem.genStdProblem("C")
 # Initializes the "problem": neutral and plasma species, reactions, and PMI
 # Rarely needed, but it runs quickly, so one might as well.
+problem.genStdProblem("C")
 subprocess.run("problemsetup",shell=True)
 
 # Writes out geometry data
@@ -81,7 +81,7 @@ subprocess.run("defineback db.in",shell=True)
 # Defines which moments/sources are calculated 
 subprocess.run("tallysetup",shell=True)
 
-# Run the actual Monte Carlo calculation. This also takes a while and is mpi-parallelized.
+# Run the actual Monte Carlo calculation. This also takes a while and is mpi-parallelized. Ensure you are on a compute node.
 subprocess.run("mpirun -np 4 flighttest",shell=True)
 
 # Post-process Degas2 results from NetCDF file to .ele file.
