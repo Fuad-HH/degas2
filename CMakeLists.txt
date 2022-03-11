@@ -1,8 +1,9 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-project(DEGAS2)
-enable_language (Fortran C)
+project(DEGAS2 Fortran C)
+#enable_language (Fortran C)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+#cmake_policy(SET CMP0074 NEW)
 
 option(GRAPH_FILE "One of: SILO (default), HDF, or SILO_HDF5" SILO)
 
@@ -31,9 +32,12 @@ endif (MPI_FOUND)
 
 message(STATUS ${CMAKE_Fortran_COMPILER_ID})
 if("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
+
+   if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER 10.0)
    #if (CMAKE_COMPILER_ID STREQUAL "GNU")
    #   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fallow-argument-mismatch")
-   list(APPEND CMAKE_Fortran_FLAGS -fallow-argument-mismatch)
+      list(APPEND CMAKE_Fortran_FLAGS -fallow-argument-mismatch)
+   endif()
 endif()
 
 ########################################
@@ -63,10 +67,11 @@ list(APPEND TANGLEFLAGS -W\[)
 #
 if (SILO_FOUND)
    message(STATUS "SILO found: ${SILO_LIBRARIES}")
+   message(STATUS "SILO include: ${SILO_INCLUDE_DIRS}")
 else()
    if(EXISTS "${PROJECT_SOURCE_DIR}/silo/lib/libsilo.a")
       set(SILO_LIBRARIES ${PROJECT_SOURCE_DIR}/silo/lib/libsilo.a)
-      set(SILO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/silo/include)
+      set(SILO_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/silo/include)
       message(STATUS "SILO found: ${SILO_LIBRARIES}")
    else()
       message(STATUS "SILO not found. Building from source.")
@@ -83,7 +88,7 @@ else()
          COMMAND make install
       )
       set(SILO_LIBRARIES ${PROJECT_SOURCE_DIR}/silo/lib/libsilo.a)
-      set(SILO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/silo/include)
+      set(SILO_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/silo/include)
    endif()
 endif (SILO_FOUND)
 
@@ -218,7 +223,7 @@ foreach(module ${MODULES})
   set(ffile "${module}_mod.f" )
   add_custom_command(
     OUTPUT ${mfile}
-    COMMAND ${PROJECT_SOURCE_DIR}/src/makemodule ${hfile} ${mfile}
+    COMMAND ${PROJECT_SOURCE_DIR}/src/makemodule.sh ${hfile} ${mfile}
     DEPENDS ${hfile}
   )
   add_custom_command(
@@ -674,13 +679,13 @@ target_link_libraries(allocate ${NETCDF_LIBRARIES})
 #################################################
 
 target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES} ${SILO_LIBRARIES})
-target_include_directories(definegeometry2d PUBLIC ${SILO_INCLUDE_DIR} ${PROJECT_SOURCE_DIR}/triangle)
+target_include_directories(definegeometry2d PUBLIC ${SILO_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/triangle)
 target_link_libraries(flighttest ${MPI_Fortran_LIBRARIES})
 target_include_directories(flighttest PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
 target_compile_options(flighttest PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
 
 target_link_libraries(ucd_plot ${NETCDF_LIBRARIES} ${SILO_LIBRARIES})
-target_include_directories(ucd_plot PUBLIC ${SILO_INCLUDE_DIR})
+target_include_directories(ucd_plot PUBLIC ${SILO_INCLUDE_DIRS})
 
 add_library(degas2_xgc.a STATIC degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods} ${degas2_xgc_deps})
 add_library(degas2_xgc.so SHARED degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods} ${degas2_xgc_deps})

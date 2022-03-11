@@ -73,8 +73,10 @@ def generateProblemInput(testSps,backSps,reactions,mats,pmis):
     p.generate_input_file("problem.input")
 
 def genStdProblem(label):
+    if label == "C-H":
+        generateProblemInput(["0","H"],["e","H+"],["hionize5","hh_chargex"],["C"],["hdesorbc_xgc","hreflc"])
     if label == "C":
-        generateProblemInput(["0","H"],["e","H+"],["hionize5","hh_chargex"],["C"],["hdesorbc","hreflc"])
+        generateProblemInput(["0","H","H2","H2+"],["e","H+"],["hionize5","hh_chargex","h2dis","h2ion","h2dision","h2pdision","h2pdis","h2pdisrec"],["C"],["hdesorbc","h2desorbc","hreflc"])
     if label == "Li":
         generateProblemInput(["0","H"],["e","H+"],["hionize5","hh_chargex"],["Li"],["H_refl_svftrim_Li","hdesorbLi"])
     if label == "Li_reflOnly":
