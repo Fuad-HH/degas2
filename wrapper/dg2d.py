@@ -242,6 +242,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     Te_zone = []
     Ti_zone = []
     mach_zone = []
+    zone_map = []
     iline = 0
     while iline < ntri:
         line = next_noncomment_line(elefile).split(",")
@@ -258,19 +259,21 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Bz_tri[itri] = float(line[10])
         validflag[itri] = int(line[11])
 
-    
         if (validflag[itri] == 0):
+            zone_map.append(-1)
             invalidpolys.append(Polygon())
             invalidpolys[-1].id = itri
             invalidpolys[-1].add_vertex(vertices[trinodes[itri,0]])
             invalidpolys[-1].add_vertex(vertices[trinodes[itri,1]])
             invalidpolys[-1].add_vertex(vertices[trinodes[itri,2]])
         else:
+            zone_map.append(len(polys))
             polys.append(Polygon())
             polys[-1].id = itri
             polys[-1].add_vertex(vertices[trinodes[itri,0]])
             polys[-1].add_vertex(vertices[trinodes[itri,1]])
             polys[-1].add_vertex(vertices[trinodes[itri,2]])
+
    
             ne_zone.append(ne_tri[itri])
             Te_zone.append(Te_tri[itri])
@@ -501,7 +504,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
     strata = np.array([stratum+1]*len(segments))
 
-    return ne_zone, Te_zone/1.602e-19, Ti_zone/1.602e-19, strata, segments, source_strength
+    return ne_zone, Te_zone/1.602e-19, Ti_zone/1.602e-19, strata, segments, source_strength, zone_map
 
 def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,exitnodes=[]):
 

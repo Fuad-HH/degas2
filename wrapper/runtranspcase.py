@@ -22,12 +22,13 @@ import dg2d
 import defineback
 import subprocess
 import problem
+import postprocess
 import numpy as np
 
 # Overall parameters
 # Options you may want to play with
 Nflights=100000
-triangle_file = "gNSTU.geqdsk_backup_triag"
+triangle_file_base = "gNSTU.geqdsk_backup_triag"
 recyc_coeff = 0.9
 
 # Initializes the "problem": neutral and plasma species, reactions, and PMI
@@ -38,12 +39,12 @@ subprocess.run("problemsetup",shell=True)
 # Writes out geometry data
 # Also obtains background properties from triangle file.
 # Arguments:
-# - triangle_file: the base name of the .node and .ele files to read data from
+# - triangle_file_base: the base name of the .node and .ele files to read data from
 # - wall_material: string representing the wall material
 # - recyc_coeff: float specifying recycling coefficient
-# - ionmass (OPTIONAL keyword, default 1.67e-27): main ion mass (used to calculate cs for Bohm critereon with the source)
-ne_zone, Te_zone, Ti_zone, wall_stratum, strata, source_strength =\
-        dg2d.write_dg2d_input_from_triangle_file(triangle_file,"C",0.9)
+# - ionmass (OPTIONAL keyword, default 1.67e-27): main ion mass in kg (used to calculate cs for Bohm critereon with the source)
+ne_zone, Te_zone, Ti_zone, strata, segments, source_strength, zone_map =\
+        dg2d.write_dg2d_input_from_triangle_file(triangle_file_base,"C",recyc_coeff,ionmass=1.67e-27)
 
 # This is not parallelized and takes a while to run.
 # Run this only when the mesh changes.
@@ -85,4 +86,11 @@ subprocess.run("tallysetup",shell=True)
 subprocess.run("mpirun -np 4 flighttest",shell=True)
 
 # Post-process Degas2 results from NetCDF file to .ele file.
-# Optionally make other plots
+# Optionally make other plots?
+# Momentum source not implemented yet
+# This is total source by zone number 
+ndensity, ndensity_err, psource, msource, esource_i, esource_e, zonevols \
+        = postprocess.get_density_and_sources()
+
+postprocess.append_tri_file(triangle_file_base+".ele",zone_map,ndensity,psource,esource_i,esource_e,zonevols)
+

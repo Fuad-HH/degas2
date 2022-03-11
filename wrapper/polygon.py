@@ -162,16 +162,21 @@ class Polygon:
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  temperature "+str(walltemp)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
+        written_ids = []
         if clockwise:
             for node in wallnodes[-1:0:-1]:
-                f.write("  wall "+str(wallid+1)+" "+\
-                    str(node.id)+" "+\
-                    str(node.id)+"\n")
+                if not node.id in written_ids:
+                    f.write("  wall "+str(wallid+1)+" "+\
+                        str(node.id)+" "+\
+                        str(node.id)+"\n")
+                    written_ids.append(node.id)
         else:
             for node in wallnodes[1:]:
-                f.write("  wall "+str(wallid+1)+" "+\
-                    str(node.id)+" "+\
-                    str(node.id)+"\n")
+                if not node.id in written_ids:
+                    f.write("  wall "+str(wallid+1)+" "+\
+                        str(node.id)+" "+\
+                        str(node.id)+"\n")
+                    written_ids.append(node.id)
             f.write("  wall "+str(wallid+1)+" "+\
                 str(wallnodes[0].id)+" "+\
                 str(wallnodes[0].id)+"\n")
@@ -506,6 +511,19 @@ def infer_wall_nodes(internal_triangles, external_triangles):
                         wallnodes[-1].id = ext_node.id
                         ext_node.wall = True
 
+#    # Remove duplicates
+#    new_wallnodes = []
+#    new_wallnodes.append(wallnodes[0])
+#    for node in wallnodes:
+#        duplicate = False
+#        for newnode in new_wallnodes:
+#            if node.id != newnode.id:
+#                duplicate = True
+#        if not duplicate:
+#            new_wallnodes.append(node)
+#            new_wallnodes[-1].id = node.id
+#
+#    return new_wallnodes
     return wallnodes
 
 def purge_invalid_nodes(allnodes,valid_tris):

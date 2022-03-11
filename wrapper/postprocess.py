@@ -295,8 +295,240 @@ def process_output(wallnodes_ordered,outputfilename="output.nc",tallyfilename="t
 
     return x,z,density,emission
 
+def get_emission_rates(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc"):
+    outputdata=nc.Dataset(outputfilename)
+    tallydata=nc.Dataset(tallyfilename)
+    geomdata = nc.Dataset(geometryfilename)
+
+    zone_volumes = geomdata["zone_volume"]
+
+    x_zone = zone_coords_3D[:][0]
+    z_zone = zone_coords_3D[:][2]
+
+    # Find the tally indices to use
+    tallynames = tallydata["tally_name"]
+    Ntally=len(tallynames)
+    dens_idx = -1
+    emission_idx = -1
+    signal_idx = -1
+    for itally in range(0,Ntally):
+        if "neutral density" in str(nc.chartostring(tallynames[itally])):
+            dens_idx = itally
+        elif "Lyman emission rate" in str(nc.chartostring(tallynames[itally])):
+            emission_idx = itally
+
+    # Find the indices of the independent variables
+    zone_idx = -1
+    det_idx = -1
+    varnames = tallydata["tally_var_list"]
+    Nvar = len(varnames)
+    for ivar in range(0,Nvar):
+        if "zone " in str(nc.chartostring(varnames[itally])):
+            zone_idx = ivar
+
+    dens_base = tallydata["tally_base"][dens_idx]
+    emission_base = tallydata["tally_base"][emission_idx]
+
+    # tally_tab_index holds the dimensionality of each tally (Ntally x tally_rank_ind)
+    tally_indices = tallydata["tally_tab_index"]
+
+    max_tally_rank = len(tally_indices[0,:])
+
+    Nzone = tally_indices[dens_idx,0]
+
+    x = []
+    z = []
+    density = []
+    density_err = []
+    emission = []
+    for izone in range(0,tally_indices[dens_idx,0]):
+        if zone_type[izone] == 2:
+           x.append(geomdata["zone_center"][izone,0])
+           z.append(geomdata["zone_center"][izone,2])
+           density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
+           density_err.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,1])
+           emission.append(outputdata["out_post_all"][emission_base+izone,0])
+
+    x = np.array(x)
+    z = np.array(z)
+    density = np.array(density)
+    density_err = np.array(density_err)
+
+    Nwall = len(wallnodes_ordered)
+    xwall = np.array(wallnodes_ordered)
+    zwall = np.array(wallnodes_ordered)
+    for i in range(0,Nwall):
+        xwall[i] = wallnodes_ordered[i].coords[0]
+        zwall[i] = wallnodes_ordered[i].coords[1]
+
+    triang = tri.Triangulation(x,z)
+    if plot:
+
+        #TODO: Try tripcolor
+
+        plt.title("Neutral density (m^-3)")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+        plt.plot(x,z,".")
+        plt.plot(xwall,zwall,"-")
+        plt.savefig("zones.pdf",bbox_inches="tight")
+        plt.close()
 
 
+        plt.title("Log10(Neutral density (m^-3))")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+#        plt.tricontourf(triang,np.maximum(density,1.0e10),20,locator=ticker.LogLocator(),cmap="Oranges")
+        plt.tricontourf(triang,np.log10(np.maximum(density,1.0e10)),20)
+        ax = plt.gca()
+        ax.set_aspect("equal")
+#        plt.tricontourf(triang,density)
+        plt.plot(xwall,zwall,"-c")
+        plt.colorbar()
+        plt.savefig("density.pdf",bbox_inches="tight")
+        plt.close()
 
+#        triang = tri.Triangulation(x,z)
+#        plt.title("Neutral density (m^-3)")
+#        plt.xlabel("x (m)")
+#        plt.ylabel("z (m)")
+#        plt.tricontourf(triang,np.log(density))
+#        plt.plot(xwall,zwall,"-")
+#        plt.colorbar()
+#        plt.savefig("logdensity.pdf",bbox_inches="tight")
+#        plt.close()
+
+
+        plt.title("Relative error of neutral density")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+        plt.tricontourf(triang,density_err)
+        plt.colorbar()
+        plt.savefig("error.pdf",bbox_inches="tight")
+        plt.close()
+
+        plt.title("Lyman-alpha emission (W / m^2)")
+        plt.xlabel("x (m)")
+        plt.ylabel("z (m)")
+        plt.tricontourf(triang,np.maximum(emission,1.0),locator=ticker.LogLocator())
+        plt.plot(xwall,zwall,"-")
+        plt.colorbar()
+        plt.savefig("emission.pdf",bbox_inches="tight")
+        plt.close()
+
+    return x,z,density,emission
+
+def get_density_and_sources(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc"):
+    outputdata=nc.Dataset(outputfilename)
+    tallydata=nc.Dataset(tallyfilename)
+    geomdata = nc.Dataset(geometryfilename)
+
+    zone_volumes = geomdata["zone_volume"]
+    zone_type = geomdata["zone_type"]
+
+    # Find the tally indices to use
+    tallynames = tallydata["tally_name"]
+    Ntally=len(tallynames)
+    dens_idx = -1
+    pres_idx = -1
+    psource_idx = -1
+    msource_idx = -1
+    esource_idx = -1
+    for itally in range(0,Ntally):
+        if "neutral density" in str(nc.chartostring(tallynames[itally])):
+            dens_idx = itally
+        elif "neutral pressure" in str(nc.chartostring(tallynames[itally])):
+            pres_idx = itally
+        elif "ion source rate" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
+            psource_idx = itally
+        elif "ion momentum source vector" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
+            msource_idx = itally
+        elif "ion energy source" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
+            esource_idx = itally
+
+    # Find the indices of the independent variables
+    zone_idx = -1
+    det_idx = -1
+    varnames = tallydata["tally_var_list"]
+    Nvar = len(varnames)
+    for ivar in range(0,Nvar):
+        if "zone " in str(nc.chartostring(varnames[itally])):
+            zone_idx = ivar
+
+    dens_base = tallydata["tally_base"][dens_idx]
+    pres_base = tallydata["tally_base"][pres_idx]
+    psource_base = tallydata["tally_base"][psource_idx]
+    msource_base = tallydata["tally_base"][msource_idx]
+    esource_base = tallydata["tally_base"][esource_idx]
+
+    # tally_tab_index holds the dimensionality of each tally (Ntally x tally_rank_ind)
+    tally_indices = tallydata["tally_tab_index"]
+
+    max_tally_rank = len(tally_indices[0,:])
+
+    Nzone = tally_indices[dens_idx,0]
+
+    density = []
+    density_err = []
+    psource = []
+    msource = []
+    esource_i = []
+    esource_e = []
+    vols = []
+    # The following implicitly assumes ions are the second background
+    # and the relevant neutrals are the second test species.
+    for izone in range(0,tally_indices[dens_idx,0]):
+        if zone_type[izone] == 2:
+           density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
+           density_err.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,1])
+           psource.append(outputdata["out_post_all"][psource_base+1*Nzone+izone,0])
+           esource_e.append(outputdata["out_post_all"][esource_base+0*Nzone+izone,0])
+           esource_i.append(outputdata["out_post_all"][esource_base+1*Nzone+izone,0])
+           vols.append(zone_volumes[izone])
+    density = np.array(density)
+    density_err = np.array(density_err)
+    psource = np.array(psource)
+    esource_i = np.array(esource_i)
+    esource_e = np.array(esource_e)
+
+    return density,density_err, psource, msource, esource_i, esource_e, vols
+
+
+def append_tri_file(origfilename,zone_map,ndensity,psource,esource_i,esource_e,vols):
+    newfilename = origfilename+".new"
+    origfile = open(origfilename,'r')
+    newfile = open(newfilename,'w')
+
+    # Read original file line by line. 
+    # Repeat line appended by neutral properties in additional columns
+    done = False
+    izone = 0
+    iele = 0
+    start = False
+    nele = 9999999
+    while not done:
+        origline = origfile.readline()
+        if start:
+            validflag = int(origline.strip().split(",")[11])
+            iele = int(origline.strip().split(",")[0])
+            izone = zone_map[iele]
+            if izone == -1:
+                newline = origline.strip()+",nan,nan"
+            else:
+                newline = origline.strip()+","+str(ndensity[izone])+","+str(psource[izone]/vols[izone])+","+str(esource_i[izone]/vols[izone])+","+str(esource_e[izone]/vols[izone])
+        else:
+            newline = origline
+
+        newfile.write(newline+"\n")
+        if origline[0:2] != "//" and not start:
+            nele = int(origline.strip().split(",")[0])
+            start = True
+        if iele >= nele-1:
+            done = True
+
+    newfile.close()
+    origfile.close()
+
+    
 
 
