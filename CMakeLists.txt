@@ -53,6 +53,10 @@ list(APPEND TANGLEFLAGS -mSILO)
 list(APPEND TANGLEFLAGS -n/)
 list(APPEND TANGLEFLAGS -Tv)
 list(APPEND TANGLEFLAGS -j)
+# If you want line information output as comments to .f files, remove the following flag
+# Without this flag, be mindful that the absolute file path can't be too long or
+# fweb will try continuing a comment to the next line, which is not allowed.
+list(APPEND TANGLEFLAGS "-#")
 list(APPEND TANGLEFLAGS -yn8000)
 list(APPEND TANGLEFLAGS -yb200000)
 list(APPEND TANGLEFLAGS -ybs15000)
