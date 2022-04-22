@@ -1621,8 +1621,8 @@ be other requirements as well.
       define_varp(dg_poly_meshcon,INT,dg_poly_meshcon_elem_ind,dg_poly_meshcon_ind,dg_poly_ind)
       define_varp(dg_poly_meshcon_hv,INT,dg_poly_meshcon_elem_ind,dg_poly_meshcon_ind,dg_poly_ind)
 
-      define_varp(wall_nodes,INT,g2_points_ind0,wall2d_ind)
-      define_varp(wall_elements,INT,g2_points_ind,wall2d_ind)
+      define_varp(wall_nodes,INT,g2_points_tot_ind0,wall2d_ind)
+      define_varp(wall_elements,INT,g2_points_tot_ind,wall2d_ind)
       define_varp(wall_segment_count,INT,wall2d_ind)
 
       define_varp(y_values,FLOAT,y_ind)
@@ -2816,7 +2816,7 @@ wall_loop: continue
          wall_nodes[iwall][iseg]=inode
          if (node_type[inode] == node_regular) then
             iseg++
-            assert(iseg <= g2_num_points)
+            assert(iseg <= g2_tot_points)
             wall_elements[iwall][iseg]=0
             do ielement=1,num_elements
                if ((dg_elements_list[ielement][element_start] == inode) 
@@ -2858,7 +2858,7 @@ wall_loop2: continue
                if ((dg_elements_list[ielement2][element_start] == inode) 
      $              && (element_assigned[ielement2] == FALSE)) then
                   iseg++
-                  assert(iseg <= g2_num_points)
+                  assert(iseg <= g2_tot_points)
                   wall_elements[num_walls][iseg]=ielement2
                   element_assigned[ielement2]=TRUE
                   go to wall_loop2
@@ -4037,7 +4037,7 @@ the data are written to stdout.
 
       integer nunit,num_walls                             // Input         
       integer wall_segment_count[*], 
-     $     wall_nodes[*][0:g2_num_points-1]
+     $     wall_nodes[*][0:g2_tot_points-1]
       real nodes[*][g2_x:g2_z]
       character*LINELEN file_format
       character*FILELEN walloutfile
@@ -4251,7 +4251,7 @@ scratch space for the |iedge| command.
 
       integer nunit,num_walls,num_dg_poly,nxd,nzd            // Input  
       integer wall_segment_count[*], 
-     $     wall_nodes[*][0:g2_num_points-1],
+     $     wall_nodes[*][0:g2_tot_points-1],
      $     dg_elements_list[*][element_start:element_end],
      $     dg_poly_num_elements[*],dg_polygons[*][1:g2_num_points],
      $     dg_poly_num_meshcon[*],
@@ -6564,8 +6564,8 @@ int (*markers)[4];
   struct triangulateio in, mid, out;    // Local
   struct triangulateio *final;
   int i, j, n, nh, pt, jt, k, idup, nunq, ip, munq;
-  int pointmap[g2_num_points], pointinvmap[g2_num_points];
-  int segmap[g2_num_points][2];
+  int pointmap[g2_tot_points], pointinvmap[g2_tot_points];
+  int segmap[g2_tot_points][2];
 
   n=*npoints;
 /*
