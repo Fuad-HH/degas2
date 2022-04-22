@@ -898,19 +898,25 @@ directory.
 @I geometry2d.hweb
 @I location.hweb
 @I random.hweb
+@I mpi.hweb
 
 @* The Main Program.
 
 @a
       program defineback
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
 
       integer nargs,geom_modified
       character*FILELEN inputfile
 
       sy_decls
 
+@#if MPI
+      mpi_init
+@#endif
       nargs=arg_count()
       if (nargs != 1) then
          assert(' Command line must specify an input file' == ' ')
@@ -942,6 +948,9 @@ directory.
       call mem_check
 @#endif
 
+@#if MPI
+      mpi_end
+@#endif
       stop 
       end
 

@@ -96,17 +96,25 @@ corresponds to the symbolic name |problemfile| in \verb+degas2.in+.
 @I pmidata.hweb
 @I element.hweb
 @I pmiformat.hweb
+@I mpi.hweb
 
 @ The unnamed module.
 
 @a
       program problemsetup
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
       
 @#if SUN && FORTRAN77
       call float_abort
 @#endif
+
+@#if MPI
+      mpi_init
+@#endif
+
       call readfilenames
       call read_problem
 
@@ -118,6 +126,10 @@ corresponds to the symbolic name |problemfile| in \verb+degas2.in+.
       call finish_var0_list
 
       call nc_write_problem
+
+@#if MPI
+      mpi_end
+@#endif
 
       stop
       end
@@ -214,7 +226,7 @@ eof:  continue
       do i=1,sp_num
          generics[i]=0
       end do
-      
+
       return
       end
 

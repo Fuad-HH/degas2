@@ -110,6 +110,7 @@ following integer in naming the SILO file.
 @I problem.hweb
 @I output.hweb
 @I detector.hweb
+@I mpi.hweb
 
 @ The Main Program.
 
@@ -117,7 +118,9 @@ following integer in naming the SILO file.
       program ucd_plot
 
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
 
       integer nargs,poly_nc_fileid,ext_file_unit
       character*FILELEN polygon_nc_file,ext_file_list
@@ -127,6 +130,9 @@ following integer in naming the SILO file.
       st_decls
       nc_decls
 
+@#if MPI
+      mpi_init
+@#endif
       call readfilenames
       call degas_init
       call nc_read_output
@@ -153,6 +159,9 @@ following integer in naming the SILO file.
 
       call make_plots(poly_nc_fileid,ext_file_unit)
 
+@#if MPI
+      mpi_end
+@#endif
       stop
       end
 

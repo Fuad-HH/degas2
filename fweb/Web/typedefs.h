@@ -1353,6 +1353,8 @@ int n;
 outer_char **s;
 } BUF;
 
+/* GJW: removed this becuase it causes multiply defined symbols
+ * in some systems. Other options are define this as extern or static */
 /* BUF buf; */
 
 IN_STYLE outer_char HUGE *termcap; /* Name of termcap file. */

@@ -179,11 +179,16 @@ in this file is needed to relate the stratum labels in the
       bk_common
       so_common
       gi_common
+      mp_common
       implicit_none_f90
+      mp_decls
       character*FILELEN datafilename,degasfilename,uedgefilename
       integer uedge,degas,update,geom_modified
 @#if 0
       integer i,ii
+@#endif
+@#if MPI
+      mpi_init
 @#endif
       @<Memory allocation interface@>
 
@@ -305,6 +310,9 @@ in this file is needed to relate the stratum labels in the
 */
       if (geom_modified == TRUE) call write_geometry    
 
+@#if MPI
+      mpi_end
+@#endif
       return
       end
 

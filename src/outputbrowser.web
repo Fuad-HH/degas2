@@ -344,19 +344,25 @@ as the last tally.
 @I tally.hweb
 @I output.hweb
 @I geomint.hweb
+@I mpi.hweb
 
 @ The main program.
 
 @a
       program output_browser
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
 
       integer nargs
       character*FILELEN scriptfile
 
       sy_decls
 
+@#if MPI
+      mpi_init
+@#endif
       nargs=arg_count()
       if (nargs > 0) then
          call command_arg(1,scriptfile)
@@ -371,6 +377,9 @@ as the last tally.
 
       call browse(scriptfile)
 
+@#if MPI
+      mpi_end
+@#endif
       stop
       end
 

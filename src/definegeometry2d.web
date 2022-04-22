@@ -1391,6 +1391,7 @@ be other requirements as well.
 @I materials.hweb
 @I sector.hweb
 @I detector.hweb
+@I mpi.hweb
 
 @ The unnamed module.
 
@@ -1556,14 +1557,23 @@ be other requirements as well.
 @<Functions...@>=
       program definegeometry2d
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
       character*FILELEN filename
-
+   
+@#if MPI
+      mpi_init
+@#endif
       call readfilenames
       
       call command_arg(1,filename)
       call nc_read_materials
       call def_geom_2d_main(filename)
+
+@#if MPI
+      mpi_end
+@#endif
 
       stop
       end

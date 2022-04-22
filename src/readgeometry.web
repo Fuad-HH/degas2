@@ -287,6 +287,7 @@ See the Examples section in the manual for additional examples of
 @I zone.hweb
 @I materials.hweb
 @I detector.hweb
+@I mpi.hweb
 
 @ The unnamed module.
 
@@ -329,15 +330,23 @@ See the Examples section in the manual for additional examples of
 @<Functions...@>=
       program readgeometry
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
       character*FILELEN filename
       
+@#if MPI
+      mpi_init
+@#endif
       call readfilenames
 
       call command_arg(1,filename)
       call nc_read_materials
       call readgeomfile(filename)
 
+@#if MPI
+      mpi_end
+@#endif
       stop
       end
 

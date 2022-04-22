@@ -29,16 +29,22 @@ extraneous material should be stripped out.
 @I species.hweb
 @I detector.hweb
 @I random.hweb
+@I mpi.hweb
 
 @ The main program.
 
 @a
       program boxgen
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
 
       integer geom_modified
 
+@#if MPI
+      mpi_init
+@#endif
       call readfilenames
       call nc_read_species
       call nc_read_reactions
@@ -69,6 +75,9 @@ extraneous material should be stripped out.
       call erase_geometry
       call mem_check
 
+@#if MPI
+      mpi_end
+@#endif
       stop 
       end
 
