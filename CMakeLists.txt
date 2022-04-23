@@ -101,8 +101,8 @@ endif (SILO_FOUND)
 ########################################
 # Build FWEB at configure time and set flags for ftangle
 #
-if(EXISTS "${PROJECT_SOURCE_DIR}/fweb/Web/ftangle")
-   set(FTANGLE ${PROJECT_SOURCE_DIR}/fweb/Web/ftangle)
+if(EXISTS "${PROJECT_SOURCE_DIR}/deps/fweb/Web/ftangle")
+   set(FTANGLE ${PROJECT_SOURCE_DIR}/deps/fweb/Web/ftangle)
    message(STATUS "FWEB found: ${FTANGLE}")
 else()
    message(STATUS "FWEB not found. Building from source.")
@@ -110,14 +110,14 @@ else()
       message(FATAL_ERROR "Building FWEB requires GNU compiler. When configuring with CMake for the first time, specify path with -DCMAKE_C_COMPILER=[path to gcc]")
    endif()
    execute_process(
-      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/fweb/Web
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/deps/fweb/Web
       COMMAND ./configure
    )
    execute_process(
-      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/fweb/Web
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/deps/fweb/Web
       COMMAND make
    )
-   set(FTANGLE ${PROJECT_SOURCE_DIR}/fweb/Web/ftangle)
+   set(FTANGLE ${PROJECT_SOURCE_DIR}/deps/fweb/Web/ftangle)
 endif()
 
 
