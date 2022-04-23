@@ -178,17 +178,17 @@ endif()
 # Replace D2ROOT in those files with this
 # source directory.
 #
-file(READ ${CMAKE_SOURCE_DIR}/cmake/templates/pmi.input.in filedata)
+file(READ ${CMAKE_SOURCE_DIR}/data/templates/pmi.input filedata)
 string(REPLACE D2ROOT ${CMAKE_SOURCE_DIR} filedata ${filedata})
 file(WRITE ${CMAKE_SOURCE_DIR}/data/pmi.input ${filedata})
 
-file(READ ${CMAKE_SOURCE_DIR}/cmake/templates/reactions.input.in filedata)
+file(READ ${CMAKE_SOURCE_DIR}/data/templates/reactions.input filedata)
 string(REPLACE D2ROOT ${CMAKE_SOURCE_DIR} filedata ${filedata})
 file(WRITE ${CMAKE_SOURCE_DIR}/data/reactions.input ${filedata})
 
-file(READ ${CMAKE_SOURCE_DIR}/cmake/templates/degas2.in.in filedata)
+file(READ ${CMAKE_SOURCE_DIR}/data/templates/degas2.in filedata)
 string(REPLACE D2ROOT ${CMAKE_SOURCE_DIR} filedata ${filedata})
-file(WRITE ${CMAKE_SOURCE_DIR}/data/degas2.in ${filedata})
+file(WRITE degas2.in ${filedata})
 
 ########################################
 # Specify "modules"
