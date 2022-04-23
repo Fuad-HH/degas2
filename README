@@ -1,15 +1,20 @@
 This is a fork of DEGAS 2 with some installation and running scripts (which as of now are incomplete). 
 
 To compile the datasetup component, for example:
-```
-mkdir build
-cd build
-cmake ..
-make datasetup
-```
+
+   mkdir build
+   cd build
+   cmake ..
+   make datasetup
+
 Executables are created in the bin directory and can be run from an arbitrary working directory if this directory is in your PATH environment variable.
 
+If building on MacOS, FWEB won't compile with the default "gcc" (clang wrapper). Install the GNU version of gcc from macports or homebrew and replace the above cmake command with:
+   cmake -DCMAKE_C_COMPILER=gcc-11 ..
+(or whichever executable and its path is GNU-gcc). This additional option only needs to be run the first time you configure on MacOS.
+
 On the PPPL cluster, ensure the following modules are loaded: gcc, openmpi, szip, hdf5-parallel, netcdf-c, netcdf-fortran, silo, cmake. And define the environment variable "export NetCDF_ROOT=$NETCDF_C_HOME:$NETCDF_FORTRAN_HOME".
+
 
 All relevant documentation on compiling and running DEGAS 2 is 
 contained in the manual (Doc/degas2_all.pdf). See the section there entitled "Compiling DEGAS 2".
