@@ -122,5 +122,4 @@ done
 
 rm targets
 
-#cat cmakecommands >> ../CMakeLists.txt
 
