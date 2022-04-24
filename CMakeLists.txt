@@ -60,15 +60,16 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
 endif()
 
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/triangle/CMakeLists.txt")
+add_subdirectory(deps/silo)
+add_subdirectory(deps/Triangle/src)
+
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/Triangle/src/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/silo/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
-add_subdirectory(deps/silo)
-add_subdirectory(deps/triangle)
 
 ########################################
 # FWEB Flags
@@ -99,32 +100,12 @@ list(APPEND TANGLEFLAGS -W\[)
 ########################################
 # Build Silo at configure time if not found
 #
-if (SILO_FOUND)
-   message(STATUS "SILO found: ${SILO_LIBRARIES}")
-   message(STATUS "SILO include: ${SILO_INCLUDE_DIRS}")
-else()
-   if(EXISTS "${PROJECT_SOURCE_DIR}/silo/lib/libsilo.a")
-      set(SILO_LIBRARIES ${PROJECT_SOURCE_DIR}/silo/lib/libsilo.a)
-      set(SILO_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/silo/include)
-      message(STATUS "SILO found: ${SILO_LIBRARIES}")
-   else()
-      message(STATUS "SILO not found. Building from source.")
-      execute_process(
-         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/silo
-         COMMAND ./configure
-      )
-      execute_process(
-         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/silo
-         COMMAND make
-      )
-      execute_process(
-         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/silo
-         COMMAND make install
-      )
-      set(SILO_LIBRARIES ${PROJECT_SOURCE_DIR}/silo/lib/libsilo.a)
-      set(SILO_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/silo/include)
-   endif()
-endif (SILO_FOUND)
+#if (SILO_FOUND)
+#   message(STATUS "SILO found: ${SILO_LIBRARIES}")
+#   message(STATUS "SILO include: ${SILO_INCLUDE_DIRS}")
+#else()
+#   message(FATAL_ERROR "SILO not found.")
+#endif (SILO_FOUND)
 
 ########################################
 # Build FWEB at configure time and set flags for ftangle
@@ -183,7 +164,7 @@ add_custom_command(
 )
 add_custom_target(dg2d_c DEPENDS ${dg2d_web})
 add_library(dg2dc OBJECT ${dg2d_c})
-target_include_directories(dg2dc PRIVATE ${PROJECT_SOURCE_DIR}/triangle)
+target_include_directories(dg2dc PRIVATE ${PROJECT_SOURCE_DIR}/deps/Triangle/src)
 
 ###################################
 # Look for "usr" files that specify 
@@ -277,16 +258,18 @@ endforeach()
 # 
 add_library(bspline90_22 OBJECT ${PROJECT_SOURCE_DIR}/src/EFIT2dg2d/bspline90_22.f90)
 
-add_library(triangle OBJECT ${PROJECT_SOURCE_DIR}/triangle/triangle.c)
-target_compile_options(triangle PRIVATE -DTRILIBRARY -O)
+#add_library(triangle OBJECT ${PROJECT_SOURCE_DIR}/triangle/triangle.c)
+#add_library(triangle OBJECT deps/triangle/triangle.c)
+#target_compile_options(triangle PRIVATE -DTRILIBRARY -O)
 #add_executable(randomtest randomtest.f random.f sysdep.f string.f)
 
-add_library(aladdin OBJECT ${PROJECT_SOURCE_DIR}/Aladdin/aladdin_subr.f)
+add_library(aladdin OBJECT ${PROJECT_SOURCE_DIR}/data/Aladdin/aladdin_subr.f)
 target_compile_options(aladdin PRIVATE -ffixed-form)
 
 list(APPEND efit2dg2d_deps $<TARGET_OBJECTS:bspline90_22>)
 list(APPEND defineback_deps $<TARGET_OBJECTS:bspline90_22>)
-list(APPEND definegeometry2d_deps $<TARGET_OBJECTS:triangle> $<TARGET_OBJECTS:dg2dc>)
+#list(APPEND definegeometry2d_deps $<TARGET_OBJECTS:triangle> $<TARGET_OBJECTS:dg2dc>)
+list(APPEND definegeometry2d_deps triangle $<TARGET_OBJECTS:dg2dc>)
 list(APPEND ratecalc_deps $<TARGET_OBJECTS:aladdin>)
 
 ########################################
@@ -598,7 +581,7 @@ foreach(str ${definegeometry2d_deps})
   list(APPEND definegeometry2d_mods "${${modstr}}")
 endforeach()
 add_executable(definegeometry2d definegeometry2d.f string.f sysdep.f ${definegeometry2d_mods} ${definegeometry2d_deps})
-target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES})
+target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES} deps/Triangle/src)
  
 foreach(str ${defineback_deps})
   string(REPLACE .f _mods modstr "${str}")
@@ -724,8 +707,8 @@ target_link_libraries(allocate ${NETCDF_LIBRARIES})
 # End automatically generated dependencies
 #################################################
 
-target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES} ${SILO_LIBRARIES})
-target_include_directories(definegeometry2d PUBLIC ${SILO_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/triangle)
+target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES} silo)
+target_include_directories(definegeometry2d PUBLIC deps/silo/include PUBLIC deps/Triangle/src)
 target_link_libraries(flighttest ${MPI_Fortran_LIBRARIES})
 target_include_directories(flighttest PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
 target_compile_options(flighttest PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
@@ -763,8 +746,8 @@ target_link_libraries(readgeometry ${MPI_Fortran_LIBRARIES})
 target_include_directories(readgeometry PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
 target_compile_options(readgeometry PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
 
-target_link_libraries(ucd_plot ${NETCDF_LIBRARIES} ${SILO_LIBRARIES})
-target_include_directories(ucd_plot PUBLIC ${SILO_INCLUDE_DIRS})
+target_link_libraries(ucd_plot ${NETCDF_LIBRARIES} silo)
+target_include_directories(ucd_plot PUBLIC deps/silo/include)
 
 add_library(degas2_xgc.a STATIC degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods} ${degas2_xgc_deps})
 add_library(degas2_xgc.so SHARED degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods} ${degas2_xgc_deps})
