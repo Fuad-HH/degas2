@@ -41,7 +41,6 @@ if("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
    endif()
 endif()
 
-<<<<<<< HEAD
 ########################################
 # git submodules
 #
@@ -62,16 +61,11 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif()
 
 add_subdirectory(deps/silo)
-add_subdirectory(deps/triangle)
+#add_subdirectory(deps/triangle)
 
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/Triangle/src/CMakeLists.txt")
-    message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
-endif()
 if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/silo/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
-=======
->>>>>>> parent of 7b2f3d9 (Added triangle and silo as submodules to build with cmake.)
 
 ########################################
 # FWEB Flags
@@ -166,7 +160,7 @@ add_custom_command(
 )
 add_custom_target(dg2d_c DEPENDS ${dg2d_web})
 add_library(dg2dc OBJECT ${dg2d_c})
-target_include_directories(dg2dc PRIVATE ${PROJECT_SOURCE_DIR}/deps/Triangle/src)
+target_include_directories(dg2dc PRIVATE ${PROJECT_SOURCE_DIR}/deps/triangle)
 
 ###################################
 # Look for "usr" files that specify 
@@ -199,7 +193,7 @@ file(WRITE ${CMAKE_SOURCE_DIR}/data/reactions.input ${filedata})
 
 file(READ ${CMAKE_SOURCE_DIR}/data/templates/degas2.in filedata)
 string(REPLACE D2ROOT ${CMAKE_SOURCE_DIR} filedata ${filedata})
-file(WRITE degas2.in ${filedata})
+file(WRITE data/degas2.in ${filedata})
 
 ########################################
 # Specify "modules"
@@ -260,9 +254,8 @@ endforeach()
 # 
 add_library(bspline90_22 OBJECT ${PROJECT_SOURCE_DIR}/src/EFIT2dg2d/bspline90_22.f90)
 
-#add_library(triangle OBJECT ${PROJECT_SOURCE_DIR}/triangle/triangle.c)
-#add_library(triangle OBJECT deps/triangle/triangle.c)
-#target_compile_options(triangle PRIVATE -DTRILIBRARY -O)
+add_library(triangle OBJECT ${PROJECT_SOURCE_DIR}/deps/triangle/triangle.c)
+target_compile_options(triangle PRIVATE -DTRILIBRARY -O)
 #add_executable(randomtest randomtest.f random.f sysdep.f string.f)
 
 add_library(aladdin OBJECT ${PROJECT_SOURCE_DIR}/data/Aladdin/aladdin_subr.f)
@@ -270,8 +263,7 @@ target_compile_options(aladdin PRIVATE -ffixed-form)
 
 list(APPEND efit2dg2d_deps $<TARGET_OBJECTS:bspline90_22>)
 list(APPEND defineback_deps $<TARGET_OBJECTS:bspline90_22>)
-#list(APPEND definegeometry2d_deps $<TARGET_OBJECTS:triangle> $<TARGET_OBJECTS:dg2dc>)
-list(APPEND definegeometry2d_deps triangle $<TARGET_OBJECTS:dg2dc>)
+list(APPEND definegeometry2d_deps $<TARGET_OBJECTS:triangle> $<TARGET_OBJECTS:dg2dc>)
 list(APPEND ratecalc_deps $<TARGET_OBJECTS:aladdin>)
 
 ########################################
@@ -583,7 +575,7 @@ foreach(str ${definegeometry2d_deps})
   list(APPEND definegeometry2d_mods "${${modstr}}")
 endforeach()
 add_executable(definegeometry2d definegeometry2d.f string.f sysdep.f ${definegeometry2d_mods} ${definegeometry2d_deps})
-target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES} deps/Triangle/src)
+target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES})
  
 foreach(str ${defineback_deps})
   string(REPLACE .f _mods modstr "${str}")
@@ -710,10 +702,15 @@ target_link_libraries(allocate ${NETCDF_LIBRARIES})
 #################################################
 
 target_link_libraries(definegeometry2d ${NETCDF_LIBRARIES} silo)
-target_include_directories(definegeometry2d PUBLIC deps/silo/include PUBLIC deps/Triangle/src)
+target_include_directories(definegeometry2d PUBLIC deps/silo/src/silo PUBLIC deps/triangle)
+
 target_link_libraries(flighttest ${MPI_Fortran_LIBRARIES})
 target_include_directories(flighttest PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
 target_compile_options(flighttest PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
+
+target_link_libraries(ucd_plot ${NETCDF_LIBRARIES} silo)
+target_include_directories(ucd_plot PUBLIC deps/silo/src/silo)
+
 target_link_libraries(datasetup ${MPI_Fortran_LIBRARIES})
 target_include_directories(datasetup PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
 target_compile_options(datasetup PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
@@ -747,9 +744,6 @@ target_compile_options(readbackground PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
 target_link_libraries(readgeometry ${MPI_Fortran_LIBRARIES})
 target_include_directories(readgeometry PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
 target_compile_options(readgeometry PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
-
-target_link_libraries(ucd_plot ${NETCDF_LIBRARIES} silo)
-target_include_directories(ucd_plot PUBLIC deps/silo/include)
 
 add_library(degas2_xgc.a STATIC degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods} ${degas2_xgc_deps})
 add_library(degas2_xgc.so SHARED degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods} ${degas2_xgc_deps})
