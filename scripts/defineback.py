@@ -719,3 +719,72 @@ def generate_db_input(Nflights,dbfilename="db.in",sourcesp="H",specify_flux=Fals
 #        f.write("  source_strength "+str(source_strength[i])+"\n")
 #        f.write("end_source_group\n \n")
 
+def generatePlasmaFileFromFunctions(psi_func,ne_func,Te_func,Ti_func,gfile_name="geometry.nc",pfile_name="plasmafile.txt"):
+    ncdata = nc.Dataset(gfile_name)
+    zone_coords_3D = ncdata["zone_center"]
+    zone_type = ncdata["zone_type"]
+
+    r_zone = []
+    z_zone = []
+    ne_zone = []
+    Te_zone = []
+    Ti_zone = []
+
+    for i in range(0,len(zone_coords_3D)):
+        if zone_type[point] == 2:
+            r_zone.append(zone_coords_3D[i,0])
+            z_zone.append(zone_coords_3D[i,2])
+            zone_idx.append(i)
+            psi = psi_func(r_zone[i],z_zone[i])
+            ne_zone.append(ne_func(psi))
+            Te_zone.append(Te_func(psi))
+            Ti_zone.append(Ti_func(psi))
+    r_zone = np.array(r_zone)
+    z_zone = np.array(z_zone)
+    ne_zone = np.array(ne_zone)
+    Te_zone = np.array(Te_zone)
+    Ti_zone = np.array(Ti_zone)
+    zone_idx = np.array(zone_idx,dtype=int)
+
+    write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename="plasmafile.txt")
+
+def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",strata=None):
+    s_eps = 1.0
+
+    f = open(filename,"w")
+    sfile = open(sourcefilename,"w") 
+    def write_array(label,data):
+        sfile.write("#\n"+label+"\n#\n")
+ 
+        N = len(data)
+        for idx in range(0,N):
+            sfile.write(str(data[idx])+"  ")
+            if (idx+1)%10 == 0 or (idx == (N-1)):
+                sfile.write("\n")
+
+    Nwall = len(wallnodes)
+    segments = []
+    source_strength = []
+    for i in range(0,Ndwall):
+        rmid = 0.5*(wallnodes[(i+1)%Ndat].coords[0] + wallnodes[i].coords[0])
+        zmid = 0.5*(wallnodes[(i+1)%Ndat].coords[1] + wallnodes[i].coords[1])
+        theta = np.atan2(zmid,rmid-R0)
+        if sfunc(theta) > s_eps:
+            segments.append(i)
+            source_strength.append(sfunc(theta))
+    if not strata:
+        strata = [2]*len(segments)
+    strata = np.array(strata,dtype=int)
+    segments = np.array(strata,dtype=int)
+    source_strength = np.array(source_strength,dtype=int)
+
+    write_array("stratum",strata) 
+    write_array("segment",segments)
+    write_array("F",source_strength) 
+    sfile.close()
+
+
+
+     
+
+    

@@ -425,6 +425,68 @@ def get_density_and_sources(outputfilename="output.nc",tallyfilename="tally.nc",
 
     zone_volumes = geomdata["zone_volume"]
     zone_type = geomdata["zone_type"]
+    zone_coords = geomdata["zone_center"]
+
+    # Find the tally indices to use
+    tallynames = tallydata["tally_name"]
+    Ntally=len(tallynames)
+    dens_idx = -1
+    pres_idx = -1
+    psource_idx = -1
+    msource_idx = -1
+    esource_idx = -1
+    for itally in range(0,Ntally):
+        if "neutral density" in str(nc.chartostring(tallynames[itally])):
+            dens_idx = itally
+
+    # Find the indices of the independent variables
+    zone_idx = -1
+    det_idx = -1
+    varnames = tallydata["tally_var_list"]
+    Nvar = len(varnames)
+    for ivar in range(0,Nvar):
+        if "zone " in str(nc.chartostring(varnames[itally])):
+            zone_idx = ivar
+
+    dens_base = tallydata["tally_base"][dens_idx]
+
+    # tally_tab_index holds the dimensionality of each tally (Ntally x tally_rank_ind)
+    tally_indices = tallydata["tally_tab_index"]
+
+    max_tally_rank = len(tally_indices[0,:])
+
+    Nzone = tally_indices[dens_idx,0]
+
+    density = []
+    density_err = []
+    r = []
+    z = []
+    vols = []
+    # The following implicitly assumes ions are the second background
+    # and the relevant neutrals are the second test species.
+    for izone in range(0,tally_indices[dens_idx,0]):
+        if zone_type[izone] == 2:
+           density.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,0])
+           density_err.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,1])
+           vols.append(zone_volumes[izone])
+           r.append(zone_coords[izone,0])
+           z.append(zone_coords[izone,2])
+    density = np.array(density)
+    density_err = np.array(density_err)
+    r = np.array(r)
+    z = np.array(z)
+    vols = np.array(vols)
+
+    return r,z,density,density_err, vols
+
+
+def get_density_and_sources(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc"):
+    outputdata=nc.Dataset(outputfilename)
+    tallydata=nc.Dataset(tallyfilename)
+    geomdata = nc.Dataset(geometryfilename)
+
+    zone_volumes = geomdata["zone_volume"]
+    zone_type = geomdata["zone_type"]
 
     # Find the tally indices to use
     tallynames = tallydata["tally_name"]
