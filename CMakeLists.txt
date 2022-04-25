@@ -41,6 +41,7 @@ if("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
    endif()
 endif()
 
+<<<<<<< HEAD
 ########################################
 # git submodules
 #
@@ -69,6 +70,8 @@ endif()
 if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/silo/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
+=======
+>>>>>>> parent of 7b2f3d9 (Added triangle and silo as submodules to build with cmake.)
 
 ########################################
 # FWEB Flags
