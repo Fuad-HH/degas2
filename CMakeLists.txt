@@ -61,7 +61,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif()
 
 add_subdirectory(deps/silo)
-add_subdirectory(deps/Triangle/src)
+add_subdirectory(deps/triangle)
 
 if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/Triangle/src/CMakeLists.txt")
     message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
