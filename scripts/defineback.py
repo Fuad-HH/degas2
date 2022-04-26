@@ -769,8 +769,11 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
         rmid = 0.5*(wallnodes[(i+1)%Nwall].coords[0] + wallnodes[i].coords[0])
         zmid = 0.5*(wallnodes[(i+1)%Nwall].coords[1] + wallnodes[i].coords[1])
         theta = np.arctan2(zmid,rmid-R0)
+
         if sfunc(theta) > s_eps:
-            segments.append(i)
+            # Segments are actually in reverse order from the wallfile. So some convoluted index algebra is needed
+            iseg = np.abs(i-Nwall-1)%Nwall
+            segments.append(iseg)
             source_strength.append(sfunc(theta))
     if not strata:
         strata = [2]*len(segments)
