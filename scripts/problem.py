@@ -70,7 +70,8 @@ def defineProblem(testSps,backSps,reactions,mats,pmis):
 
 def generateProblemInput(testSps,backSps,reactions,mats,pmis):
     p = defineProblem(testSps,backSps,reactions,mats,pmis)
-    p.generate_input_file("problem.input")
+    p.generate_input_file("problem.in")
+    return p
 
 def genStdProblem(label):
     if label == "C-H":

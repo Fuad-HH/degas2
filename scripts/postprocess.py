@@ -418,7 +418,7 @@ def get_emission_rates(outputfilename="output.nc",tallyfilename="tally.nc",geome
 
     return x,z,density,emission
 
-def get_density_and_sources(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc"):
+def get_density(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc"):
     outputdata=nc.Dataset(outputfilename)
     tallydata=nc.Dataset(tallyfilename)
     geomdata = nc.Dataset(geometryfilename)

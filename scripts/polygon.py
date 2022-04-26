@@ -164,6 +164,10 @@ class Polygon:
         f.write("  stratum "+str(stratum)+"\n")
         written_ids = []
         if clockwise:
+            f.write("  wall "+str(wallid+1)+" "+
+                "0 0 "+"\n")
+            written_ids.append(0)
+
             for node in wallnodes[-1:0:-1]:
                 if not node.id in written_ids:
                     f.write("  wall "+str(wallid+1)+" "+\
@@ -415,7 +419,7 @@ class Surface:
         f.write("  temperature "+str(walltemp)+"\n")
         f.write("  wall "+str(self.id)+" 0 1 \n ")
         f.write("  outer 1 0 \n")
-        f.write("  outer 0 1 \n")
+        #f.write("  outer 0 1 \n")
         f.write("  wall "+str(self.id)+" 0 0 \n ")
         if debug:
             f.write("  print_polygon poly."+str(stratum)+".dat\n")

@@ -729,9 +729,10 @@ def generatePlasmaFileFromFunctions(psi_func,ne_func,Te_func,Ti_func,gfile_name=
     ne_zone = []
     Te_zone = []
     Ti_zone = []
+    zone_idx = []
 
     for i in range(0,len(zone_coords_3D)):
-        if zone_type[point] == 2:
+        if zone_type[i] == 2:
             r_zone.append(zone_coords_3D[i,0])
             z_zone.append(zone_coords_3D[i,2])
             zone_idx.append(i)
@@ -746,13 +747,12 @@ def generatePlasmaFileFromFunctions(psi_func,ne_func,Te_func,Ti_func,gfile_name=
     Ti_zone = np.array(Ti_zone)
     zone_idx = np.array(zone_idx,dtype=int)
 
-    write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename="plasmafile.txt")
+    write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename="plasmafile")
 
 def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",strata=None):
     s_eps = 1.0
 
-    f = open(filename,"w")
-    sfile = open(sourcefilename,"w") 
+    sfile = open(filename,"w") 
     def write_array(label,data):
         sfile.write("#\n"+label+"\n#\n")
  
@@ -765,18 +765,18 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
     Nwall = len(wallnodes)
     segments = []
     source_strength = []
-    for i in range(0,Ndwall):
-        rmid = 0.5*(wallnodes[(i+1)%Ndat].coords[0] + wallnodes[i].coords[0])
-        zmid = 0.5*(wallnodes[(i+1)%Ndat].coords[1] + wallnodes[i].coords[1])
-        theta = np.atan2(zmid,rmid-R0)
+    for i in range(0,Nwall):
+        rmid = 0.5*(wallnodes[(i+1)%Nwall].coords[0] + wallnodes[i].coords[0])
+        zmid = 0.5*(wallnodes[(i+1)%Nwall].coords[1] + wallnodes[i].coords[1])
+        theta = np.arctan2(zmid,rmid-R0)
         if sfunc(theta) > s_eps:
             segments.append(i)
             source_strength.append(sfunc(theta))
     if not strata:
         strata = [2]*len(segments)
     strata = np.array(strata,dtype=int)
-    segments = np.array(strata,dtype=int)
-    source_strength = np.array(source_strength,dtype=int)
+    segments = np.array(segments,dtype=int)
+    source_strength = np.array(source_strength)
 
     write_array("stratum",strata) 
     write_array("segment",segments)
