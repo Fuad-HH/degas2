@@ -889,13 +889,45 @@ def plot_allpolys_from_file(N):
     for ipoly in range(1,N+1):
         plot_polygon_from_file(ipoly)
 
-def generateGeometryFromEFITfile(efitfile,mat,recyc_coef=1.0,Twall=300.0,wfilename="wallfile.txt",clockwise=False):
+def refine_limiter(r,z,maxdist):
+    N = len(r)
+    rnew = []
+    znew = []
+    for i in range(0,N):
+        if i == 0:
+            rnew.append(r[i])
+            znew.append(z[i])
+        else:
+            # Original r[i],z[i] are candidates for next wall node
+            # 
+            dist = np.sqrt( (r[i]-rnew[-1])**2 + (z[i]-znew[-1])**2)
+            if dist <= maxdist:
+                rnew.append(r[i])
+                znew.append(z[i])
+            else:
+                ndiv = 0 
+                while dist > maxdist:
+                    dist = 0.5*dist
+                    ndiv += 1
+                # Had to divide the segment ndiv times. So each segment has a length dist/2**ndiv
+                # and we have to insert (2**ndiv-1) points before moving on
+                unit = np.array([r[i]-rnew[-1],z[i]-znew[-1]])
+                unit = unit/np.linalg.norm(unit)
+                for j in range(0,2**ndiv-1):
+                    rnew.append(rnew[-1]+dist*unit[0])
+                    znew.append(znew[-1]+dist*unit[1])
+    return rnew, znew
+
+
+def generateGeometryFromEFITfile(efitfile,mat,recyc_coef=1.0,Twall=300.0,wfilename="wallfile.txt",clockwise=False,dlim_max=0.05):
     g = geomutils.read_geqdsk(efitfile)
     rlim = g.lim[:,0]
     zlim = g.lim[:,1]
     rgrid = g.rgrid
     zgrid = g.zgrid
     psi_rz = (g.psirz-g.ssimag)/(g.ssibry-g.ssimag)
+
+    rlim,zlim = refine_limiter(rlim,zlim,dlim_max)
 
     # R = list of R points, Z list of Z point
     def psi_func(R,Z):
