@@ -1,7 +1,7 @@
 from polygon import *
 
 class Source:
-    def __init__(self,nflights,stype,species,rootspecies=None,specify_flux=True,sourcefile="sourcefile",puffparams=[]):
+    def __init__(self,nflights,stype,species,rootspecies=None,specify_flux=True,sourcefile="sourcefile",pufftemp=None,strength=None,stratum=None,segment=None):
         self.nflights = nflights
         self.type = stype
         self.species = species
@@ -13,9 +13,20 @@ class Source:
             self.specify_units = "specify_flux"
         else:
             self.specify_units = "specify_current"
-        if stype == "puff":
-            self.pufftemp = puffparams[0]
-        self.sourcefile = sourcefile
+#        if stype == "puff":
+        if pufftemp:
+            self.pufftemp = pufftemp
+        else:
+            self.pufftemp=None
+        if strength:
+            self.strength=strength
+            self.stratum=stratum
+            self.segment=segment
+            self.sourcefile=None
+        else:
+            self.sourcefile = sourcefile
+            self.strength=None
+            
 
 def write_db_input(source_groups,plasmafile="plasmafile",filename="db.in"):
     Nsource=len(source_groups)
@@ -28,8 +39,14 @@ def write_db_input(source_groups,plasmafile="plasmafile",filename="db.in"):
         f.write("  source_species "+source_groups[i].species+"\n")
         f.write("  source_root_sp "+source_groups[i].rootspecies+"\n")
         f.write("  "+source_groups[i].specify_units+"\n")
-        f.write("  source_file "+source_groups[i].sourcefile+" row\n")
-        if source_groups[i].type == "puff":
+        if not source_groups[i].strength:
+            f.write("  source_file "+source_groups[i].sourcefile+" row\n")
+        else:
+            f.write("  source_stratum "+str(source_groups[i].stratum)+"\n")
+            f.write("  source_segment "+str(source_groups[i].segment)+"\n")
+            f.write("  source_strength "+str(source_groups[i].strength)+"\n")
+
+        if source_groups[i].pufftemp:
             f.write("  source_puff_temp "+str(source_groups[i].pufftemp)+"\n")
         f.write("  source_nflights "+str(source_groups[i].nflights)+"\n")
         f.write("end_source_group\n")

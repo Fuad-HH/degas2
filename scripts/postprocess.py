@@ -418,6 +418,78 @@ def get_emission_rates(outputfilename="output.nc",tallyfilename="tally.nc",geome
 
     return x,z,density,emission
 
+def get_nup(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc"):
+    outputdata=nc.Dataset(outputfilename)
+    tallydata=nc.Dataset(tallyfilename)
+    geomdata = nc.Dataset(geometryfilename)
+
+    zone_volumes = geomdata["zone_volume"]
+    zone_type = geomdata["zone_type"]
+    zone_coords = geomdata["zone_center"]
+
+    # Find the tally indices to use
+    tallynames = tallydata["tally_name"]
+    Ntally=len(tallynames)
+    dens_idx = -1
+    flux_idx = -1
+    pres_idx = -1
+    for itally in range(0,Ntally):
+        if "neutral density" in str(nc.chartostring(tallynames[itally])):
+            dens_idx = itally
+        if "neutral flux vector" in str(nc.chartostring(tallynames[itally])):
+            flux_idx = itally
+        if "neutral pressure" in str(nc.chartostring(tallynames[itally])):
+            pres_idx = itally
+
+    # Find the indices of the independent variables
+    zone_idx = -1
+    det_idx = -1
+    varnames = tallydata["tally_var_list"]
+    Nvar = len(varnames)
+    for ivar in range(0,Nvar):
+        if "zone " in str(nc.chartostring(varnames[itally])):
+            zone_idx = ivar
+
+    dens_base = tallydata["tally_base"][dens_idx]
+    flux_base = tallydata["tally_base"][flux_idx]
+    pres_base = tallydata["tally_base"][pres_idx]
+
+    # tally_tab_index holds the dimensionality of each tally (Ntally x tally_rank_ind)
+    tally_indices = tallydata["tally_tab_index"]
+
+    max_tally_rank = len(tally_indices[0,:])
+
+    Nzone = tally_indices[dens_idx,0]
+
+    Nzone_p = 0
+    for izone in range(0,tally_indices[dens_idx,0]):
+        if zone_type[izone] == 2:
+            Nzone_p += 1
+    
+    Nsp = tally_indices[dens_idx,1]
+
+    density = np.zeros([Nzone_p,Nsp-1])
+    density_err = np.zeros([Nzone_p,Nsp-1])
+    flux = np.zeros([3,Nzone_p,Nsp-1])
+    pressure = np.zeros([Nzone_p,Nsp-1])
+    r = np.zeros([Nzone_p])
+    z = np.zeros([Nzone_p])
+    vols = np.zeros([Nzone_p,Nsp])
+    for izone in range(0,tally_indices[dens_idx,0]):
+        if zone_type[izone] == 2:
+            for isp in range(0,Nsp-1):
+                density[izone,isp] = outputdata["out_post_all"][dens_base+(1+isp)*Nzone+izone,0]
+                density_err[izone,isp] = outputdata["out_post_all"][dens_base+(1+isp)*Nzone+izone,1]
+                pressure[izone,isp] = outputdata["out_post_all"][pres_base+(1+isp)*Nzone+izone,0]
+                for j in range(0,3):
+                    flux[j,izone,isp] = outputdata["out_post_all"][flux_base+3*Nzone*(1+isp)+3*izone+j,0]
+                vols[izone] = zone_volumes[izone]
+                r[izone] = zone_coords[izone,0]
+                z[izone] = zone_coords[izone,2]
+
+    return density,density_err,flux,pressure,vols
+
+
 def get_density(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc"):
     outputdata=nc.Dataset(outputfilename)
     tallydata=nc.Dataset(tallyfilename)

@@ -747,7 +747,7 @@ def generatePlasmaFileFromFunctions(psi_func,ne_func,Te_func,Ti_func,gfile_name=
     Ti_zone = np.array(Ti_zone)
     zone_idx = np.array(zone_idx,dtype=int)
 
-    write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename="plasmafile")
+    write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename=pfile_name)
 
 def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",strata=None):
     s_eps = 1.0
