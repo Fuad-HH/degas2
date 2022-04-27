@@ -7,6 +7,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 option(GRAPH_FILE "One of: SILO (default), HDF, or SILO_HDF5" SILO)
 option(USE_MPI "Whether to use MPI when compiling" OFF)
+option(SILO_ENABLE_HDF5 "Whether SILO is compiled with HDF5. Off by default because multiple versions on cluster can conflict" OFF)
 
 ########################################
 # Dependencies
