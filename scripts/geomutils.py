@@ -127,5 +127,6 @@ def read_geqdsk(gfilename):
     g.B0 = B0
     g.R0 = R0
     g.lim = lim
+    g.sep = sep
 
     return g
