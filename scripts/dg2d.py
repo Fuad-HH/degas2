@@ -5,6 +5,8 @@ import sys
 from importlib import reload
 import geomutils
 import scipy.interpolate as interpolate
+import netCDF4 as nc
+import matplotlib.tri.triangulation as mtri
 
 def write_dg2d_header(f,symmetry,Xmin,Xmax,Zmin,Zmax,wallfile_name="wallfile.txt"):
     f.write("symmetry "+symmetry+"\n")
@@ -12,6 +14,70 @@ def write_dg2d_header(f,symmetry,Xmin,Xmax,Zmin,Zmax,wallfile_name="wallfile.txt
     f.write("wallfile "+wallfile_name+"\n")
     f.write("end_prep\n")
     f.write("\n")
+
+def get_triangulation(tris,nodes):
+    Nnode = len(nodes)
+    r = np.zeros(Nnode)
+    z = np.zeros(Nnode)
+    for i in range(0,Nnode):
+        r[i] = nodes[i].coords[0]
+        z[i] = nodes[i].coords[1]
+    Ntri = len(tris)
+    conn = np.zeros((Ntri,3),dtype=int)
+    for i in range(0,Ntri):
+        if isclockwise(tris[i]):
+            conn[i,0] = tris[i].vertices[2].id
+            conn[i,1] = tris[i].vertices[1].id
+            conn[i,2] = tris[i].vertices[0].id
+        else:
+            conn[i,0] = tris[i].vertices[0].id
+            conn[i,1] = tris[i].vertices[1].id
+            conn[i,2] = tris[i].vertices[2].id
+    return mtri.Triangulation(r,z,triangles=conn)
+
+def get_triangulation_from_polygons(polyfile,geomfile="geometry.nc"):
+    ncdata = nc.Dataset(polyfile)
+    coords = ncdata["g2_polygon_xz"]
+    coords = np.array(coords)
+
+    ncdata = nc.Dataset(geomfile)
+    zone_type = ncdata["zone_type"]
+    Nzone = 0
+    # Count number of plasma zones
+    for i in range(0,len(zone_type)):
+        if zone_type[i] == 2:
+            Nzone+=1
+    # Assumes all non-plasma zones are the end
+
+    # Searches through array of vertices,looks for matching coordinates,
+    # and returns index. If not found, returns -1
+    def find_vertex(coords,vertices):
+        eps = 1.0e-8
+        idx = -1
+        for i in range(0,len(vertices[:,0])):
+            if (np.abs(coords[0] - vertices[i,0]) < eps) and (np.abs(coords[1] - vertices[i,1]) < eps):
+                idx = i
+        return idx
+
+
+    # Initially populate array of vertices
+    allvertices=coords[0,0:3,0:2]
+    allconn = []
+    # Go through polygons and record vertices
+    for i in range(0,Nzone):
+        vertices=coords[i,0:3,0:2]
+        conn = np.zeros(3,dtype=int)
+        for j in range(0,3):
+            idx = find_vertex(vertices[j,:], allvertices)
+            if idx == -1:
+                allvertices = np.append(allvertices,[vertices[j,:]],axis=0)
+                idx = len(allvertices[:,0]) - 1
+            conn[j] = idx
+        allconn.append(conn)
+    allconn = np.array(allconn,dtype=int)
+
+    return mtri.Triangulation(allvertices[:,0],allvertices[:,1],triangles=allconn), len(allconn[:,0])
+
 
 def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wallfile_name="wallfile.txt",dg2dfile_name="dg2d.in",recyc=1.0,walltemp=300.0):
     Xmin = -1.5*R_tot
@@ -586,7 +652,7 @@ def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.
     Zmin = np.amin(Zcoords) - Zrange
     Zmax = np.amax(Zcoords) + Zrange
 #    Rmin = max(np.amin(Rcoords) - 0.8*Rrange, 0.2*np.amin(Rcoords))
-    Rmin = 0.0001
+    Rmin = max(0.0001,0.5*np.amin(Rcoords))
     Rmax = np.amax(Rcoords) + Rrange
     dg2dfile.write("bounds     %f %f    %f %f \n" % (Rmin, Rmax, Zmin, Zmax))
 

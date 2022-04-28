@@ -138,7 +138,7 @@ def get_zone_plasma_data_through_psi(zone_coords,R_data,ne_data,Te_data,psifunc)
 
     return ne_zone, Te_zone
 
-def write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=None,b=None,plasmafilename="plasmafile"):
+def write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=None,b=None,plasmafilename="plasmafile.txt"):
     pfile = open(plasmafilename,'w')
     pfile.write("zone      T(1)         N(1)        T(2)        N(2)")
     if not ui_zone is None:
@@ -226,9 +226,7 @@ def write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,se
     plt.close()
 
 
-def generate_plasma_files_from_zone_data(ne_zone,Te_zone,Ti_zone,vpar_zone,geomfilename="geometry.nc",ionmass=1.67e-27,trapped_fraction=0.0):
-    plasmafilename="plasmafile"
-    sourcefilename="sourcefile"
+def generate_plasma_files_from_zone_data(ne_zone,Te_zone,Ti_zone,vpar_zone,geomfilename="geometry.nc",ionmass=1.67e-27,trapped_fraction=0.0,plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
@@ -314,9 +312,7 @@ def generate_plasma_files_from_zone_data(ne_zone,Te_zone,Ti_zone,vpar_zone,geomf
 # Generates a plasma file for use in defineback from two data sources: n(psi), with psi(r,z) inside separatrix
 # and as a general function n(r,z) for outside separatrix.
 # Separatrix given as a polygon of points: arrays r_sep, z_sep
-def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27,hfs_R_lim=-1.0,hfs_fac=1.0,lfs_R_lim=-1.0,trapped_fraction=0.0,hfs_ne=None,hfs_Te=None,plot=False):
-    plasmafilename="plasmafile"
-    sourcefilename="sourcefile"
+def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,Z_sep,TiTe_ratio=1.0,geomfilename="geometry.nc",bfieldfilename="gs_fields.dat",ionmass=1.67e-27,hfs_R_lim=-1.0,hfs_fac=1.0,lfs_R_lim=-1.0,trapped_fraction=0.0,hfs_ne=None,hfs_Te=None,plot=False,plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
@@ -442,7 +438,7 @@ def generate_plasma_file_with_psi_and_rz(solfile_name,psifunc,tsfile_name,R_sep,
 
     write_sourcefile(sourcefilename,(1.0-trapped_fraction)*np.array(ne_zone),vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata,2)
 
-def generate_sourcefile(strata,segments,source_strength,sourcefilename="sourcefile"):
+def generate_sourcefile(strata,segments,source_strength,sourcefilename="sourcefile.txt"):
    sfile = open(sourcefilename,"w") 
    def write_array(label,data):
        sfile.write("#\n"+label+"\n#\n")
@@ -467,10 +463,7 @@ def generate_sourcefile(strata,segments,source_strength,sourcefilename="sourcefi
 #   TiTe_ratio: a float value that provides Ti/Te, used to infer Ti from Te uniformly. To eventually replace with a separate array.
 #   geomfilename: the name of the geometry .nc file that contains the zone data
 #   plasmafilename (optional): the name and/or path of the plasma file to write
-def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,bfieldfilename="gs_fields.dat",ionmass=1.66e-27):
-
-    plasmafilename="plasmafile"
-    sourcefilename="sourcefile"
+def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,bfieldfilename="gs_fields.dat",ionmass=1.66e-27,plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
@@ -559,10 +552,7 @@ def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfi
 #   TiTe_ratio: a float value that provides Ti/Te, used to infer Ti from Te uniformly. To eventually replace with a separate array.
 #   psifunc: a function passed as an argument. This function should take R,Z as arguments and return psi
 #   plasmafilename (optional): the name and/or path of the plasma file to write
-def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,bfieldfilename="gs_fields.dat",ionmass=1.66e-27):
-
-    plasmafilename="plasmafile"
-    sourcefilename="sourcefile"
+def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,bfieldfilename="gs_fields.dat",ionmass=1.66e-27,plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
@@ -640,10 +630,10 @@ def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,g
 
     write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
-def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp=300.0,source_sp="H2"):
+def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp=300.0,source_sp="H2",plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 
     # Write the plasmafile
-    pfile = open("plasmafile","w")
+    pfile = open(plasmafilename,"w")
     pfile.write("zone   T(1)   N(1)   T(2)   N(2)\n")
     for i in range(0,NR):
         r = rgrid[i]
@@ -652,9 +642,7 @@ def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp
 
     generate_db_input_nosourcefile(S0,Nflights,[2*NR],dbfilename="db.in",walltemp=walltemp,source_sp=source_sp)
 
-def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="db.in",walltemp=300.0,source_sp="H2"):
-
-    plasmafilename="plasmafile"
+def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="db.in",walltemp=300.0,source_sp="H2",plasmafilename="plasmafile.txt"):
 
     f = open(dbfilename,"w")
     f.write("plasma_file "+plasmafilename+"\n")
@@ -686,10 +674,7 @@ def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="d
 # - Figure out how to have a strictly recycling source
 # - Scale Nflights with the length of the strata
 
-def generate_db_input(Nflights,dbfilename="db.in",sourcesp="H",specify_flux=False):
-
-    plasmafilename="plasmafile"
-    sourcefilename="sourcefile"
+def generate_db_input(Nflights,dbfilename="db.in",sourcesp="H",specify_flux=False,plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 
     f = open(dbfilename,"w")
     f.write("plasma_file "+plasmafilename+"\n")

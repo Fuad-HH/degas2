@@ -28,7 +28,7 @@ class Source:
             self.strength=None
             
 
-def write_db_input(source_groups,plasmafile="plasmafile",filename="db.in"):
+def write_db_input(source_groups,plasmafile="plasmafile.txt",filename="db.in"):
     Nsource=len(source_groups)
     f = open(filename,"w") 
     f.write("plasma_file "+plasmafile+"\n")

@@ -36,7 +36,7 @@ def isclockwise(tri):
     else:
         return False
 
-def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True):
+def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,polygonfilename="none"):
 
     coords,connections,wallnode_ids = get_bp_mesh()
 
@@ -155,7 +155,7 @@ def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True)
     else:
         Polygon.close_in_universal_cell(dg2dfile,wallnodes_ordered,0,Ntri+1,material,recyc,debug=False,clockwise=False,walltemp=walltemp)
 
-    dg2dfile.write("polygon_nc_file polygon.nc\n")
+    dg2dfile.write("polygon_nc_file "+polygonfilename+"\n")
     dg2dfile.write("end")
     dg2dfile.close()
 
@@ -257,7 +257,7 @@ def write_background_files(dt,tstep,tstep_neut,wallnodes_ordered,wall_triangles,
 
         area_norm[i] = area_tot[i]*np.abs(np.dot(a_unit,b_zone[tri_id,:]))
 
-    defineback.write_plasmafile("plasmafile.txt",ne_zone,Te_zone,Ti_zone,ui_zone=ui_zone,b=b_zone)
+    defineback.write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=ui_zone,b=b_zone,plasmafilename="plasmafile.txt")
 
     # Enforce Bohm criterion?
     #cs = np.sqrt(1.602e-19*Te_zone/ionmass)
@@ -441,7 +441,7 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
     # Write the plasma zone data
     # Here, ui is the scalar parallel flow velocity, so b unit vector is needed to
     # construct flow velocity in DEGAS2 coordinates.
-    defineback.write_plasmafile("plasmafile.txt",ne_zone,Te_zone,Ti_zone,ui_zone=ui_zone,b=b_zone)
+    defineback.write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=ui_zone,b=b_zone)
 
     ui_zone = np.abs(ui_zone)
 
@@ -465,6 +465,8 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
             source_strength[i] = raw_source[wallnode_order[i]]/dt
     else:
         source_strength_xgc = np.zeros(Nwall)
+        source_flux = np.zeros(Nwall)
+        source_totflux = np.zeros(Nwall)
         ne_wall = np.zeros(Nwall)
         upar_wall = np.zeros(Nwall)
         upar_wall_raw = np.zeros(Nwall)
@@ -479,6 +481,7 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
             upar_wall_raw[iwall] = np.abs(ui_zone[itri])
             upar_wall[iwall] = np.abs(ui_zone_use[itri])
             source_strength[iwall] = area_norm[iwall]*ne_zone[itri]*np.abs(ui_zone_use[itri])
+            source_flux[iwall] = (area_norm[iwall]/area_tot[iwall])*ne_zone[itri]*np.abs(ui_zone_use[itri])
 #            source_strength_xgc[iwall] = raw_source[wallnode_order[iwall]]/dt
 
         plt.plot(theta*180.0/np.pi,ne_wall)
@@ -536,11 +539,18 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
     #source_strength = wall_source / (dt*area_tot)
     
 
-
-    plt.plot(theta*180.0/np.pi,source_strength)
+    plt.plot(theta*180.0/np.pi,source_strength,"o")
     plt.xlabel("Theta (deg.)")
+    plt.ylabel("Neutral source (particles / second)")
     plt.tight_layout()
     plt.savefig("sourceVStheta.pdf")
+    plt.clf()
+
+    plt.plot(theta*180.0/np.pi,source_flux)
+    plt.xlabel("Theta (deg.)")
+    plt.ylabel("Neutral source (particles / m^2 / second)")
+    plt.tight_layout()
+    plt.savefig("fluxVStheta.pdf")
     plt.clf()
     
     # Write the file while specifies the source for DEGAS2
@@ -552,7 +562,9 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
     source_strength=source_strength[idx]
     segments=segments[idx]
     strata=strata[idx]
-    defineback.generate_sourcefile(strata,segments,source_strength)
+#    defineback.generate_sourcefile(strata,segments,source_strength)
+    defineback.generate_sourcefile(strata,segments,source_flux)
 
-    return source_strength
+#    return source_strength
+    return source_flux
 
