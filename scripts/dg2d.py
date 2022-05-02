@@ -229,7 +229,7 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
 
     return r_grid
 
-def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True,ionmass=1.67e-27):
+def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True,ionmass=1.67e-27,newformat=False):
 
     def next_noncomment_line(f):
         found=False
@@ -273,7 +273,10 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Br_node[inode] = float(line[7])
         Bt_node[inode] = float(line[8])
         Bz_node[inode] = float(line[9])
-        wallflag_node[inode] = int(line[10])
+        if newformat:
+            wallflag_node[inode] = int(line[11])
+        else:
+            wallflag_node[inode] = int(line[10])
 
         vertices.append(Vertex(inode,node_coords[inode,0],node_coords[inode,1]))
 
@@ -325,7 +328,10 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Br_tri[itri] = float(line[8])
         Bt_tri[itri] = float(line[9])
         Bz_tri[itri] = float(line[10])
-        validflag[itri] = int(line[11])
+        if newformat:
+            validflag[itri] = int(line[12])
+        else:
+            validflag[itri] = int(line[11])
 
         if (validflag[itri] == 0):
             zone_map.append(-1)
@@ -459,11 +465,28 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         else:
             return False
 
+    validpolys = []
+    ipoly = 0
+    area_threshold = 1.0e-7
+    for poly in polys:
+
+        if not isclockwise(poly):
+            poly.vertices[:] = poly.vertices[-1::-1]
+
+        # Reject colinear triangles
+
+        area = poly.vertices[0].coords[0]*(poly.vertices[1].coords[1]-poly.vertices[2].coords[1])
+        area+= poly.vertices[1].coords[0]*(poly.vertices[2].coords[1]-poly.vertices[0].coords[1])
+        area+= poly.vertices[2].coords[0]*(poly.vertices[0].coords[1]-poly.vertices[1].coords[1])
+        area = 0.5*abs(area)
+        if area >= area_threshold:
+            validpolys.append(poly)
+
+    polys = validpolys
+
     stratum = 0
     for poly in polys:
         stratum += 1
-        if not isclockwise(poly):
-            print("Polygon %d is counter-clockwise!"%(poly.id))
         poly.write_plasma_polygon_dg2d(dg2dfile,stratum=stratum,wallid=1,debug=debug)
 
     wallvertices_ordered = []
@@ -574,7 +597,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
     return ne_zone, Te_zone/1.602e-19, Ti_zone/1.602e-19, strata, segments, source_strength, zone_map
 
-def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,exitnodes=[],def_separatrix=True,clockwise=False):
+def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,def_separatrix=True,clockwise=False,exitnodes=[]):
 
     # Read the wallfile
     wallfile = open(wallfile_name,'r')
