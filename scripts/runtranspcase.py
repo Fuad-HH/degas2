@@ -30,11 +30,11 @@ import source
 # Options you may want to play with
 Nflights=100000
 
-#triangle_file_base = "gNSTU.geqdsk_backup_triag"
-#newformat=False
+triangle_file_base = "gNSTU.geqdsk_backup_triag"
+newformat=False
 
-triangle_file_base = "solfi_triag"
-newformat=True
+#triangle_file_base = "solfi_triag"
+#newformat=True
 
 recyc_coeff = 0.99
 

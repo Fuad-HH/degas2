@@ -465,24 +465,24 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         else:
             return False
 
-    validpolys = []
-    ipoly = 0
-    area_threshold = 1.0e-7
+#    validpolys = []
+#    ipoly = 0
+#    area_threshold = 1.0e-7
     for poly in polys:
 
         if not isclockwise(poly):
             poly.vertices[:] = poly.vertices[-1::-1]
 
-        # Reject colinear triangles
-
-        area = poly.vertices[0].coords[0]*(poly.vertices[1].coords[1]-poly.vertices[2].coords[1])
-        area+= poly.vertices[1].coords[0]*(poly.vertices[2].coords[1]-poly.vertices[0].coords[1])
-        area+= poly.vertices[2].coords[0]*(poly.vertices[0].coords[1]-poly.vertices[1].coords[1])
-        area = 0.5*abs(area)
-        if area >= area_threshold:
-            validpolys.append(poly)
-
-    polys = validpolys
+#        # Reject colinear triangles
+#
+#        area = poly.vertices[0].coords[0]*(poly.vertices[1].coords[1]-poly.vertices[2].coords[1])
+#        area+= poly.vertices[1].coords[0]*(poly.vertices[2].coords[1]-poly.vertices[0].coords[1])
+#        area+= poly.vertices[2].coords[0]*(poly.vertices[0].coords[1]-poly.vertices[1].coords[1])
+#        area = 0.5*abs(area)
+#        if area >= area_threshold:
+#            validpolys.append(poly)
+#
+#    polys = validpolys
 
     stratum = 0
     for poly in polys:
