@@ -39,8 +39,8 @@ newformat=False
 recyc_coeff = 0.99
 
 # Initializes the "problem": neutral and plasma species, reactions, and PMI
-# Rarely needed, but it runs quickly, so one might as well.
-problem.genStdProblem("C")
+# Rarely needed after initializing, but it runs quickly, so one might as well.
+pr = problem.generateProblemInput(["0","D","D2","D2+"],["e","D+"],["hionize5","dd_chargex","h2dis","h2ion","h2dision","h2pdision","h2pdis","h2pdisrec"],["C"],["hdesorbc","h2desorbc","dreflc"])
 subprocess.run("problemsetup",shell=True)
 
 # Writes out geometry data
@@ -51,11 +51,11 @@ subprocess.run("problemsetup",shell=True)
 # - recyc_coeff: float specifying recycling coefficient
 # - ionmass (OPTIONAL keyword, default 1.67e-27): main ion mass in kg (used to calculate cs for Bohm critereon with the source)
 ne_zone, Te_zone, Ti_zone, strata, segments, source_strength, zone_map =\
-        dg2d.write_dg2d_input_from_triangle_file(triangle_file_base,"C",recyc_coeff,ionmass=1.67e-27,newformat=newformat)
+        dg2d.write_dg2d_input_from_triangle_file(triangle_file_base,"C",recyc_coeff,ionmass=2*1.67e-27,newformat=newformat)
 
 # This is not parallelized and takes a while to run.
 # Run this only when the mesh changes.
-subprocess.run("~/src/d2test/bin/definegeometry2d dg2d.in",shell=True)
+subprocess.run("definegeometry2d dg2d.in",shell=True)
 
 # Overwrites NaN values that are read from triangle file.
 # More straightforward to give these a very low density rather than make it a pure vacuum
@@ -83,28 +83,28 @@ defineback.write_plasmafile(ne_zone,Te_zone,Ti_zone)
 defineback.generate_sourcefile(strata,segments,source_strength)
 sgroups = []
 # Recycling source:
-sgroups.append( source.Source(Nflights,"plate","H",rootspecies="H+",sourcefile="sourcefile.txt"))
+sgroups.append( source.Source(Nflights,"plate","D",rootspecies="D+",sourcefile="sourcefile.txt"))
 
 # HFS gas puff on original mesh:
-sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=129,strength=3.6e20,specify_flux=False,pufftemp=300.0))
+sgroups.append( source.Source(Nflights,"puff","D2",stratum=10986,segment=129,strength=3.6e20,specify_flux=False,pufftemp=300.0))
 # on new mesh:
-#sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=160,strength=3.6e20,specify_flux=False,pufftemp=300.0))
+#sgroups.append( source.Source(Nflights,"puff","D2",stratum=15593,segment=160,strength=3.6e20,specify_flux=False,pufftemp=300.0))
 
 # LFS gas puff on original mesh:
-sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=70,strength=4.8e20,specify_flux=False,pufftemp=300.0))
+sgroups.append( source.Source(Nflights,"puff","D2",stratum=10986,segment=70,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 # on new mesh:
-#sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=94,strength=4.8e20,specify_flux=False,pufftemp=300.0))
+#sgroups.append( source.Source(Nflights,"puff","D2",stratum=15593,segment=94,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 
 source.write_db_input(sgroups)
 
 # Processes background and sources into degas2-readable data files
-subprocess.run("~/src/d2test/bin/defineback db.in",shell=True)
+subprocess.run("defineback db.in",shell=True)
 
 # Defines which moments/sources are calculated 
-subprocess.run("~/src/d2test/bin/tallysetup",shell=True)
+subprocess.run("tallysetup",shell=True)
 
 # Run the actual Monte Carlo calculation. This also takes a while and is mpi-parallelized. Ensure you are on a compute node.
-subprocess.run("mpirun -np 4 ~/src/d2test/bin/flighttest",shell=True)
+subprocess.run("mpirun -np 4 flighttest",shell=True)
 
 # Post-process Degas2 results from NetCDF file to .ele file.
 # Optionally make other plots?
