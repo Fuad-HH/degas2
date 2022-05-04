@@ -468,7 +468,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 #    validpolys = []
 #    ipoly = 0
 #    area_threshold = 1.0e-7
-    for poly in polys:
+#    for poly in polys:
 
         if not isclockwise(poly):
             poly.vertices[:] = poly.vertices[-1::-1]

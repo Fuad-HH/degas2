@@ -25,6 +25,8 @@ import problem
 import postprocess
 import numpy as np
 import source
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 # Overall parameters
 # Options you may want to play with
@@ -113,5 +115,24 @@ subprocess.run("mpirun -np 4 flighttest",shell=True)
 ndensity, ndensity_err, psource, msource, esource_i, esource_e, zonevols \
         = postprocess.get_density_and_sources()
 
-postprocess.append_tri_file(triangle_file_base+".ele",zone_map,ndensity,psource,esource_i,esource_e,zonevols,newformat=newformat)
+subprocess.run("ucd_plot polygon.nc",shell=True)
+
+triang,Ntri = dg2d.get_triangulation_from_polygons("polygon.nc")
+
+
+nmin = min(np.abs(ndensity)+1.0)
+density = np.maximum(ndensity,nmin)
+plt.figure(figsize=(4,3))
+plt.tripcolor(triang,ndensity, norm=LogNorm(),cmap="cividis")
+plt.gca().set_aspect("equal")
+plt.xlabel(r"$R$ (m)")
+plt.ylabel(r"$Z$ (m)")
+plt.title(r"Neutral density $(\mathrm{m}^{-3})$")
+plt.colorbar()
+plt.tight_layout()
+plt.savefig("n_2d.pdf")
+plt.clf()
+
+
+#postprocess.append_tri_file(triangle_file_base+".ele",zone_map,ndensity,psource,esource_i,esource_e,zonevols,newformat=newformat)
 
