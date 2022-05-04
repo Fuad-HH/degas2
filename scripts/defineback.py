@@ -747,7 +747,6 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
             if (idx+1)%10 == 0 or (idx == (N-1)):
                 sfile.write("\n")
 
-    for i in range(0,Nwall):
     Nwall = len(wallnodes)
     segments = []
     source_strength = []
