@@ -734,7 +734,7 @@ def generatePlasmaFileFromFunctions(psi_func,ne_func,Te_func,Ti_func,gfile_name=
 
     write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename=pfile_name)
 
-def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",strata=None,totalsource=-1.0):
+def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",strata=None,integrated_source=-1.0):
     s_eps = 1.0
 
     sfile = open(filename,"w") 
@@ -768,7 +768,7 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
             sumsource+=sfunc(theta)*l*2.0*np.pi*rmid
 
     if totalsource > 0.0:
-        source_strength = source_strength*totalsource/sumsource
+        source_strength = source_strength*integrated_source/sumsource
 
     if not strata:
         strata = [2]*len(segments)
