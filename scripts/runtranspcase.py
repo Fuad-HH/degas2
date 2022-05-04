@@ -79,20 +79,21 @@ segments=np.delete(segments,idx)
 # - specify_flux (OPTIONAL keyword, default False): whether the specified source is in units of flux. Need to override default here.
 
 # Writes out plasma and source specification files. Passing as arguments quantities calculated upstream.
+defineback.write_plasmafile(ne_zone,Te_zone,Ti_zone)
 defineback.generate_sourcefile(strata,segments,source_strength)
 sgroups = []
 # Recycling source:
 sgroups.append( source.Source(Nflights,"plate","H",rootspecies="H+",sourcefile="sourcefile.txt"))
 
 # HFS gas puff on original mesh:
-#sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=129,strength=3.6e20,specify_flux=False,pufftemp=300.0))
+sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=129,strength=3.6e20,specify_flux=False,pufftemp=300.0))
 # on new mesh:
-sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=160,strength=3.6e20,specify_flux=False,pufftemp=300.0))
+#sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=160,strength=3.6e20,specify_flux=False,pufftemp=300.0))
 
 # LFS gas puff on original mesh:
-#sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=119,strength=4.8e20,specify_flux=False,pufftemp=300.0))
+sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=119,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 # on new mesh:
-sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=94,strength=4.8e20,specify_flux=False,pufftemp=300.0))
+#sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=94,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 
 source.write_db_input(sgroups)
 
