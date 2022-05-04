@@ -91,7 +91,7 @@ sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=129,str
 #sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=160,strength=3.6e20,specify_flux=False,pufftemp=300.0))
 
 # LFS gas puff on original mesh:
-sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=119,strength=4.8e20,specify_flux=False,pufftemp=300.0))
+sgroups.append( source.Source(Nflights,"puff","H2",stratum=10986,segment=70,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 # on new mesh:
 #sgroups.append( source.Source(Nflights,"puff","H2",stratum=15593,segment=94,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 
