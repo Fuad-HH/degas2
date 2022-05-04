@@ -68,9 +68,9 @@ def defineProblem(testSps,backSps,reactions,mats,pmis):
         p.add_PMI(m)
     return p
 
-def generateProblemInput(testSps,backSps,reactions,mats,pmis):
+def generateProblemInput(testSps,backSps,reactions,mats,pmis,filename="problem.in"):
     p = defineProblem(testSps,backSps,reactions,mats,pmis)
-    p.generate_input_file("problem.in")
+    p.generate_input_file(filename)
     return p
 
 def genStdProblem(label):

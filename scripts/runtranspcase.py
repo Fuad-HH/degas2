@@ -40,7 +40,7 @@ recyc_coeff = 0.99
 
 # Initializes the "problem": neutral and plasma species, reactions, and PMI
 # Rarely needed after initializing, but it runs quickly, so one might as well.
-pr = problem.generateProblemInput(["0","D","D2","D2+"],["e","D+"],["hionize5","dd_chargex","h2dis","h2ion","h2dision","h2pdision","h2pdis","h2pdisrec"],["C"],["hdesorbc","h2desorbc","dreflc"])
+pr = problem.generateProblemInput(["0","D","D2","D2+"],["e","D+"],["hionize5","dd_chargex","h2dis","h2ion","h2dision","h2pdision","h2pdis","h2pdisrec"],["C"],["hdesorbc","h2desorbc","dreflc"],filename="problem.input")
 subprocess.run("problemsetup",shell=True)
 
 # Writes out geometry data
