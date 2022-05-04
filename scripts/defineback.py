@@ -767,7 +767,7 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
             source_strength.append(sfunc(theta))
             sumsource+=sfunc(theta)*l*2.0*np.pi*rmid
 
-    if totalsource > 0.0:
+    if integrated_source > 0.0:
         source_strength = source_strength*integrated_source/sumsource
 
     if not strata:
