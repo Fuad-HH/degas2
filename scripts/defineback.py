@@ -764,8 +764,11 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
             # Segments are actually in reverse order from the wallfile. So some convoluted index algebra is needed
             iseg = np.abs(i-Nwall-1)%Nwall
             segments.append(iseg)
-            source_strength.append(sfunc(theta))
-            sumsource+=sfunc(theta)*l*2.0*np.pi*rmid
+            tempsource = sfunc(theta)
+            tempsource = max(tempsource,sfunc(theta+2.0*np.pi))
+            tempsource = max(tempsource,sfunc(theta-2.0*np.pi))
+            source_strength.append(tempsource)
+            sumsource+=tempsource*l*2.0*np.pi*rmid
 
     if integrated_source > 0.0:
         source_strength = source_strength*integrated_source/sumsource
