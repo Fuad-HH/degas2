@@ -734,7 +734,7 @@ def generatePlasmaFileFromFunctions(psi_func,ne_func,Te_func,Ti_func,gfile_name=
 
     write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename=pfile_name)
 
-def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",strata=None):
+def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",strata=None,totalsource=-1.0):
     s_eps = 1.0
 
     sfile = open(filename,"w") 
@@ -747,10 +747,15 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
             if (idx+1)%10 == 0 or (idx == (N-1)):
                 sfile.write("\n")
 
+    for i in range(0,Nwall):
     Nwall = len(wallnodes)
     segments = []
     source_strength = []
+    sumsource = 0.0
     for i in range(0,Nwall):
+
+        l = np.sqrt((wallnodes[(i+1)%Nwall].coords[0]-wallnodes[i].coords[0])**2 + (wallnodes[(i+1)%Nwall].coords[1]-wallnodes[i].coords[1])**2)
+
         rmid = 0.5*(wallnodes[(i+1)%Nwall].coords[0] + wallnodes[i].coords[0])
         zmid = 0.5*(wallnodes[(i+1)%Nwall].coords[1] + wallnodes[i].coords[1])
         theta = np.arctan2(zmid,rmid-R0)
@@ -760,6 +765,11 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
             iseg = np.abs(i-Nwall-1)%Nwall
             segments.append(iseg)
             source_strength.append(sfunc(theta))
+            sumsource+=sfunc(theta)*l*2.0*np.pi*rmid
+
+    if totalsource > 0.0:
+        source_strength = source_strength*totalsource/sumsource
+
     if not strata:
         strata = [2]*len(segments)
     strata = np.array(strata,dtype=int)
