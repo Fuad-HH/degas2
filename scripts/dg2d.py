@@ -229,7 +229,7 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
 
     return r_grid
 
-def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True,ionmass=1.67e-27,newformat=False):
+def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True,ionmass=1.67e-27,newformat=False,minarea=1.0e-7):
 
     def next_noncomment_line(f):
         found=False
@@ -334,7 +334,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
             area += node_coords[trinodes[itri,1],0]*(node_coords[trinodes[itri,2],1]-node_coords[trinodes[itri,0],1])
             area += node_coords[trinodes[itri,2],0]*(node_coords[trinodes[itri,0],1]-node_coords[trinodes[itri,1],1])
             area = 0.5*abs(area)
-            if area < 1.0e-7:
+            if area < minarea:
                 validflag[itri] = 0
 
         else:
