@@ -53,7 +53,7 @@ subprocess.run("problemsetup",shell=True)
 # - recyc_coeff: float specifying recycling coefficient
 # - ionmass (OPTIONAL keyword, default 1.67e-27): main ion mass in kg (used to calculate cs for Bohm critereon with the source)
 ne_zone, Te_zone, Ti_zone, strata, segments, source_strength, zone_map =\
-        dg2d.write_dg2d_input_from_triangle_file(triangle_file_base,"C",recyc_coeff,ionmass=2*1.67e-27,newformat=newformat)
+        dg2d.write_dg2d_input_from_triangle_file(triangle_file_base,"C",recyc_coeff,ionmass=2*1.67e-27,newformat=newformat,minarea=1.0e-7)
 
 # This is not parallelized and takes a while to run.
 # Run this only when the mesh changes.
