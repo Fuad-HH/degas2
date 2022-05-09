@@ -546,14 +546,14 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Bz = 0.5*(Bz_node[vertex1.id] + Bz_node[vertex2.id])
         b_unit = [Br,Bt,Bz]/np.linalg.norm([Br,Bt,Bz])
 
-        wetarea = area*np.abs(np.dot(b_unit,a_unit))
+        wetarea_fraction = wetarea_fraction*np.abs(np.dot(b_unit,a_unit))
 
         vpar = 0.5*(np.sqrt(Te_node[vertex1.id]/ionmass)*mach_node[vertex1.id] + \
                 np.sqrt(Te_node[vertex2.id]*mach_node[vertex2.id]/ionmass))
 
         ne = 0.5*(ne_node[[vertex1.id]] + ne_node[[vertex2.id]])
 
-        source_strength.append(ne*vpar*wetarea)
+        source_strength.append(ne*vpar*wetarea_fraction)
 
     source_strength = np.array(source_strength).flatten()
 
