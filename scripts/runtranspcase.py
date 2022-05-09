@@ -64,6 +64,9 @@ subprocess.run("definegeometry2d dg2d.in",shell=True)
 ne_zone=np.where(np.isnan(ne_zone),1.0e10,ne_zone)  # density in m^-3
 Te_zone=np.where(np.isnan(Te_zone),1.0,Te_zone)     # temperature in eV 
 Ti_zone=np.where(np.isnan(Ti_zone),1.0,Ti_zone)
+ne_zone=np.where(Te_zone < 0.0,1.0e10,ne_zone)
+Ti_zone=np.where(Te_zone < 0.0,1.0,Ti_zone) 
+Te_zone=np.where(Te_zone < 0.0,1.0,Te_zone)  
 
 # NaN values adjacent to wall are problematic for the source
 # Currently zeroing out by removing those segments from the source
