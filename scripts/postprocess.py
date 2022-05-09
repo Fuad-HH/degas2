@@ -832,13 +832,13 @@ def append_tri_file(origfilename,zone_map,ndensity,psource,esource_i,esource_e,v
             iele = int(origline.strip().split(",")[0])
             izone = zone_map[iele]
             if izone == -1:
-                newline = origline.strip()+",nan,nan"
+                newline = origline.strip()+",nan,nan,nan,nan"+"\n"
             else:
-                newline = origline.strip()+","+str(ndensity[izone])+","+str(psource[izone]/vols[izone])+","+str(esource_i[izone]/vols[izone])+","+str(esource_e[izone]/vols[izone])
+                newline = origline.strip()+","+str(ndensity[izone])+","+str(psource[izone]/vols[izone])+","+str(esource_i[izone]/vols[izone])+","+str(esource_e[izone]/vols[izone])+"\n"
         else:
             newline = origline
 
-        newfile.write(newline+"\n")
+        newfile.write(newline)
         if origline[0:2] != "//" and not start:
             nele = int(origline.strip().split(",")[0])
             start = True
