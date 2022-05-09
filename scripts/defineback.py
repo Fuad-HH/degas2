@@ -769,6 +769,8 @@ def generateSourceFileFromFunction(sfunc,wallnodes,R0,filename="sourcefile.txt",
             source_strength.append(tempsource)
             sumsource+=tempsource*l*2.0*np.pi*rmid
 
+    source_strength = np.array(source_strength)
+
     if integrated_source > 0.0:
         source_strength = source_strength*integrated_source/sumsource
 

@@ -330,6 +330,13 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Bz_tri[itri] = float(line[10])
         if newformat:
             validflag[itri] = int(line[12])
+            area = node_coords[trinodes[itri,0],0]*(node_coords[trinodes[itri,1],1]-node_coords[trinodes[itri,2],1])
+            area += node_coords[trinodes[itri,1],0]*(node_coords[trinodes[itri,2],1]-node_coords[trinodes[itri,0],1])
+            area += node_coords[trinodes[itri,2],0]*(node_coords[trinodes[itri,0],1]-node_coords[trinodes[itri,1],1])
+            area = 0.5*abs(area)
+            if area < 1.0e-7:
+                validflag[itri] = 0
+
         else:
             validflag[itri] = int(line[11])
 
@@ -347,7 +354,6 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
             polys[-1].add_vertex(vertices[trinodes[itri,0]])
             polys[-1].add_vertex(vertices[trinodes[itri,1]])
             polys[-1].add_vertex(vertices[trinodes[itri,2]])
-
    
             ne_zone.append(ne_tri[itri])
             Te_zone.append(Te_tri[itri])
@@ -360,6 +366,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
     ne_zone = np.array(ne_zone)
     Te_zone = np.array(Te_zone)
     Ti_zone = np.array(Ti_zone)
+    mach_zone = np.array(mach_zone)
 
     if not trust_wallflags:
 #        wallvertices = infer_wall_nodes(polys,invalidpolys)
@@ -465,29 +472,15 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         else:
             return False
 
-#    validpolys = []
-#    ipoly = 0
-#    area_threshold = 1.0e-7
     for poly in polys:
 
         if not isclockwise(poly):
             poly.vertices[:] = poly.vertices[-1::-1]
 
-#        # Reject colinear triangles
-#
-#        area = poly.vertices[0].coords[0]*(poly.vertices[1].coords[1]-poly.vertices[2].coords[1])
-#        area+= poly.vertices[1].coords[0]*(poly.vertices[2].coords[1]-poly.vertices[0].coords[1])
-#        area+= poly.vertices[2].coords[0]*(poly.vertices[0].coords[1]-poly.vertices[1].coords[1])
-#        area = 0.5*abs(area)
-#        if area >= area_threshold:
-#            validpolys.append(poly)
-#
-#    polys = validpolys
-
     stratum = 0
     for poly in polys:
         stratum += 1
-        poly.write_plasma_polygon_dg2d(dg2dfile,stratum=stratum,wallid=1,debug=debug)
+        poly.write_plasma_polygon_dg2d(dg2dfile,stratum=stratum,wallid=1,debug=debug,commonzone=True)
 
     wallvertices_ordered = []
     wallvertices_ordered.append(lowestRnode)

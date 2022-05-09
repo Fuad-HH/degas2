@@ -15,7 +15,7 @@ def get_bp_mesh():
     meshfile = adios2.open("xgc.mesh.bp","r")
     connections = meshfile.read("/cell_set[0]/node_connect_list")
     coords = meshfile.read("/coordinates/values")
-    wallnodes = meshfile.read("wall_nodes")
+    wallnodes = meshfile.read("grid_wall_nodes")
     # wall_nodes refers to list of nodes by starting count from 1,
     # which is confusingly inconsistent with node_connect_list.
     # Make them consistent here.
@@ -99,7 +99,7 @@ def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,
                 polys[-1].add_vertex(vertices[idx])
         nwallnodes = polys[-1].reorder_wallnodes_first()
         if use_xgc_mesh:
-            polys[-1].write_plasma_polygon_dg2d(dg2dfile,stratum=itri+1,wallid=1)
+            polys[-1].write_plasma_polygon_dg2d(dg2dfile,stratum=itri+1,wallid=1,commonzone=True)
 
 #        print(polys[-1].id,polys[-1].vertices[0].id,polys[-1].vertices[1].id,polys[-1].vertices[2].id)
         if nwallnodes >= 2:
@@ -150,9 +150,11 @@ def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,
         wallpoly_clockwise.add_vertex(node)
 
     if not use_xgc_mesh:
-        wallpoly_clockwise.write_plasma_polygon_dg2d(dg2dfile,stratum=1,wallid=1)
+        wallpoly_clockwise.write_plasma_polygon_dg2d(dg2dfile,stratum=1,wallid=1,commonzone=True)
         Polygon.close_in_universal_cell(dg2dfile,wallnodes_ordered,0,2,material,recyc,debug=False,clockwise=False,walltemp=walltemp)
     else:
+        print(wallnodes_ordered)
+        print(Ntri+1)
         Polygon.close_in_universal_cell(dg2dfile,wallnodes_ordered,0,Ntri+1,material,recyc,debug=False,clockwise=False,walltemp=walltemp)
 
     dg2dfile.write("polygon_nc_file "+polygonfilename+"\n")
@@ -161,7 +163,7 @@ def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,
 
     return wallnodes_ordered, wall_triangles, idx_ordered
 
-def write_background_files(dt,tstep,tstep_neut,wallnodes_ordered,wall_triangles,ionmass=3.34e-27):
+def write_background_files(dt,tstep,tstep_neut,wallnodes_ordered,wall_triangles,ionmass=3.34e-27,xgc1=False):
     coords,connections,wallnode_ids = get_bp_mesh()
     Ntri_xgc = len(connections[:,0])
     Nnode_xgc = len(coords[:,0])
@@ -171,13 +173,22 @@ def write_background_files(dt,tstep,tstep_neut,wallnodes_ordered,wall_triangles,
         sys.exit("Size of wallnodes_ordered passed to write_background_files not consistent with XGC data.")
 
     # Get plasma node data
-    f=adios2.open("xgc.f2d.%05d.bp"%tstep,"r")
-    ne=f.read("e_den")
-    Te_para=f.read("e_T_para")
-    Te_perp=f.read("e_T_perp")
-    Ti_para=f.read("i_T_para")
-    Ti_perp=f.read("i_T_perp")
-    ui_para=f.read("i_u_para")
+    if xgc1:
+        f=adios2.open("xgc.f3d.%05d.bp"%tstep,"r")
+        ne=np.average(f.read("e_den"),axis=1)
+        Te_para=np.average(f.read("e_T_para"),axis=1)
+        Te_perp=np.average(f.read("e_T_perp"),axis=1)
+        Ti_para=np.average(f.read("i_T_para"),axis=1)
+        Ti_perp=np.average(f.read("i_T_perp",axis=1))
+        ui_para=np.average(f.read("i_u_para"),axis=1)
+    else:
+        f=adios2.open("xgc.f2d.%05d.bp"%tstep,"r")
+        ne=f.read("e_den")
+        Te_para=f.read("e_T_para")
+        Te_perp=f.read("e_T_perp")
+        Ti_para=f.read("i_T_para")
+        Ti_perp=f.read("i_T_perp")
+        ui_para=f.read("i_u_para")
     f.close()
     f=adios2.open("xgc.bfield.bp","r")
     Bfield = f.read("bfield")
@@ -296,7 +307,7 @@ def write_background_files(dt,tstep,tstep_neut,wallnodes_ordered,wall_triangles,
 # - use_xgc_source: whether the neutral source is used directly from 
 #   neu_weight_wall_lost (now output to xgc.neutrals.*.bp as "wall_source"
 # - ion_mass: used in previous iterations where the Bohm criterion was used.
-def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wallnode_order,use_xgc_source=True,ionmass=3.34e-27):
+def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wallnode_order,use_xgc_source=True,ionmass=3.34e-27,xgc1=False):
     coords,connections,wallnode_ids = get_bp_mesh()
     Ntri = len(connections[:,0])
     Nnode = len(coords[:,0])
@@ -306,17 +317,30 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
         sys.exit("Size of wallnodes_ordered passed to write_background_files not consistent with XGC data.")
 
     # Get plasma node data
-    f=adios2.open("xgc.f2d.%05d.bp"%tstep,"r")
-    ne=f.read("e_den")
-    Te_para=f.read("e_T_para")
-    Te_perp=f.read("e_T_perp")
-    Ti_para=f.read("i_T_para")
-    Ti_perp=f.read("i_T_perp")
-    ui_para=f.read("i_u_para")
-    f.close()
-    f=adios2.open("xgc.bfield.bp","r")
-    Bfield = f.read("bfield")
-    f.close()
+    if xgc1:
+        f=adios2.open("xgc.f3d.%05d.bp"%tstep,"r")
+        ne=np.average(f.read("e_den"),axis=1)
+        Te_para=np.average(f.read("e_T_para"),axis=1)
+        Te_perp=np.average(f.read("e_T_perp"),axis=1)
+        Ti_para=np.average(f.read("i_T_para"),axis=1)
+        Ti_perp=np.average(f.read("i_T_perp"),axis=1)
+        ui_para=np.average(f.read("i_u_para"),axis=1)
+        f.close()
+        f=adios2.open("xgc.bfield.bp","r")
+        Bfield = f.read("/node_data[0]/values")
+        f.close()
+    else:
+        f=adios2.open("xgc.f3d.%05d.bp"%tstep,"r")
+        ne=f.read("e_den")
+        Te_para=f.read("e_T_para")
+        Te_perp=f.read("e_T_perp")
+        Ti_para=f.read("i_T_para")
+        Ti_perp=f.read("i_T_perp")
+        ui_para=f.read("i_u_para")
+        f.close()
+        f=adios2.open("xgc.bfield.bp","r")
+        Bfield = f.read("bfield")
+        f.close()
 
     f=adios2.open("xgc.neutrals.%05d.bp"%tstep_neut,"r")
     raw_source = f.read("wall_source")
@@ -546,12 +570,12 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
     plt.savefig("sourceVStheta.pdf")
     plt.clf()
 
-    plt.plot(theta*180.0/np.pi,source_flux)
-    plt.xlabel("Theta (deg.)")
-    plt.ylabel("Neutral source (particles / m^2 / second)")
-    plt.tight_layout()
-    plt.savefig("fluxVStheta.pdf")
-    plt.clf()
+#    plt.plot(theta*180.0/np.pi,source_flux)
+#    plt.xlabel("Theta (deg.)")
+#    plt.ylabel("Neutral source (particles / m^2 / second)")
+#    plt.tight_layout()
+#    plt.savefig("fluxVStheta.pdf")
+#    plt.clf()
     
     # Write the file while specifies the source for DEGAS2
     strata = np.array([2]*Nwall)
@@ -562,9 +586,9 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
     source_strength=source_strength[idx]
     segments=segments[idx]
     strata=strata[idx]
-#    defineback.generate_sourcefile(strata,segments,source_strength)
-    defineback.generate_sourcefile(strata,segments,source_flux)
+    defineback.generate_sourcefile(strata,segments,source_strength)
+#    defineback.generate_sourcefile(strata,segments,source_flux)
 
-#    return source_strength
-    return source_flux
+    return source_strength
+#    return source_flux
 
