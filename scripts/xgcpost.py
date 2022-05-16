@@ -150,7 +150,7 @@ def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,
         wallpoly_clockwise.add_vertex(node)
 
     if not use_xgc_mesh:
-        wallpoly_clockwise.write_plasma_polygon_dg2d(dg2dfile,stratum=1,wallid=1,commonzone=True)
+        wallpoly_clockwise.write_plasma_polygon_dg2d(dg2dfile,stratum=1,wallid=1,commonzone=False)
         Polygon.close_in_universal_cell(dg2dfile,wallnodes_ordered,0,2,material,recyc,debug=False,clockwise=False,walltemp=walltemp)
     else:
         print(wallnodes_ordered)
@@ -346,8 +346,22 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
     raw_source = f.read("wall_source")
     f.close()
 
+    # Altnernative raw source:
+    f=adios2.open("xgc.sheathdiag.bp","r")
+    for step in f:
+        if step.current_step() == tstep/2:
+            print("Using sheathdiag source...")
+            raw_source = step.read("sheath_ilost")[0,:]/1.602e-19
+            print(np.shape(raw_source))
+    f.close()
+
+
     Te = (2.0*Te_perp + Te_para)/3.0
     Ti = (2.0*Ti_perp + Ti_para)/3.0
+
+    Te = Te-np.amin(Te)+3.0
+#    Ti = Ti-np.amin(Ti)+1.0
+#    ne = ne-np.amin(ne)+3.0e18
 
     # Get interpolant function in order to 
     r_xgc = coords[:,0]

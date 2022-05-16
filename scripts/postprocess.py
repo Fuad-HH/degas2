@@ -826,7 +826,8 @@ def append_tri_file(origfilename,zone_map,ndensity,psource,esource_i,esource_e,v
         origline = origfile.readline()
         if start:
             if newformat:
-                validflag = int(origline.strip().split(",")[12])
+#                validflag = int(origline.strip().split(",")[12])
+                validflag = int(origline.strip().split(",")[14])
             else:
                 validflag = int(origline.strip().split(",")[11])
             iele = int(origline.strip().split(",")[0])

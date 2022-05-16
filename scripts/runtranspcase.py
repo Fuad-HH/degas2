@@ -35,7 +35,7 @@ Nflights=100000
 triangle_file_base = "gNSTU.geqdsk_backup_triag"
 newformat=False
 
-#triangle_file_base = "solfi_triag"
+#triangle_file_base = "nstu_triag"
 #newformat=True
 
 recyc_coeff = 0.99
@@ -53,7 +53,7 @@ subprocess.run("problemsetup",shell=True)
 # - recyc_coeff: float specifying recycling coefficient
 # - ionmass (OPTIONAL keyword, default 1.67e-27): main ion mass in kg (used to calculate cs for Bohm critereon with the source)
 ne_zone, Te_zone, Ti_zone, strata, segments, source_strength, zone_map =\
-        dg2d.write_dg2d_input_from_triangle_file(triangle_file_base,"C",recyc_coeff,ionmass=2*1.67e-27,newformat=newformat,minarea=1.0e-7)
+        dg2d.write_dg2d_input_from_triangle_file(triangle_file_base,"C",recyc_coeff,ionmass=2*1.67e-27,newformat=newformat,minarea=0.0)
 
 # This is not parallelized and takes a while to run.
 # Run this only when the mesh changes.
@@ -91,12 +91,12 @@ sgroups = []
 sgroups.append( source.Source(Nflights,"plate","D",rootspecies="D+",sourcefile="sourcefile.txt"))
 
 # HFS gas puff on original mesh:
-sgroups.append( source.Source(Nflights,"puff","D2",stratum=10986,segment=129,strength=3.6e20,specify_flux=False,pufftemp=300.0))
+#sgroups.append( source.Source(Nflights,"puff","D2",stratum=10986,segment=129,strength=3.6e20,specify_flux=False,pufftemp=300.0))
 # on new mesh:
 #sgroups.append( source.Source(Nflights,"puff","D2",stratum=15593,segment=160,strength=3.6e20,specify_flux=False,pufftemp=300.0))
 
 # LFS gas puff on original mesh:
-sgroups.append( source.Source(Nflights,"puff","D2",stratum=10986,segment=70,strength=4.8e20,specify_flux=False,pufftemp=300.0))
+#sgroups.append( source.Source(Nflights,"puff","D2",stratum=10986,segment=70,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 # on new mesh:
 #sgroups.append( source.Source(Nflights,"puff","D2",stratum=15593,segment=94,strength=4.8e20,specify_flux=False,pufftemp=300.0))
 
@@ -136,6 +136,5 @@ plt.tight_layout()
 plt.savefig("n_2d.pdf")
 plt.clf()
 
-
-#postprocess.append_tri_file(triangle_file_base+".ele",zone_map,ndensity,psource,esource_i,esource_e,zonevols,newformat=newformat)
+postprocess.append_tri_file(triangle_file_base+".ele",zone_map,ndensity,psource,esource_i,esource_e,zonevols,newformat=newformat)
 

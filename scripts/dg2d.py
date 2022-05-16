@@ -229,7 +229,7 @@ def write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=12,Ntheta_max=200,wal
 
     return r_grid
 
-def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True,ionmass=1.67e-27,newformat=False,minarea=1.0e-7):
+def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,trust_wallflags=True,ionmass=1.67e-27,newformat=False,minarea=0.0):
 
     def next_noncomment_line(f):
         found=False
@@ -274,7 +274,8 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Bt_node[inode] = float(line[8])
         Bz_node[inode] = float(line[9])
         if newformat:
-            wallflag_node[inode] = int(line[11])
+#            wallflag_node[inode] = int(line[11])
+            wallflag_node[inode] = int(line[13])
         else:
             wallflag_node[inode] = int(line[10])
 
@@ -329,7 +330,8 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
         Bt_tri[itri] = float(line[9])
         Bz_tri[itri] = float(line[10])
         if newformat:
-            validflag[itri] = int(line[12])
+#            validflag[itri] = int(line[12])
+            validflag[itri] = int(line[14])
             area = node_coords[trinodes[itri,0],0]*(node_coords[trinodes[itri,1],1]-node_coords[trinodes[itri,2],1])
             area += node_coords[trinodes[itri,1],0]*(node_coords[trinodes[itri,2],1]-node_coords[trinodes[itri,0],1])
             area += node_coords[trinodes[itri,2],0]*(node_coords[trinodes[itri,0],1]-node_coords[trinodes[itri,1],1])
