@@ -342,26 +342,38 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
         Bfield = f.read("bfield")
         f.close()
 
-    f=adios2.open("xgc.neutrals.%05d.bp"%tstep_neut,"r")
-    raw_source = f.read("wall_source")
-    f.close()
+#    f=adios2.open("xgc.neutrals.%05d.bp"%tstep_neut,"r")
+#    raw_source = f.read("wall_source")
+#    f.close()
 
     # Altnernative raw source:
+    f=adios2.open("xgc.oneddiag.bp","r")
+    nstep =int(f.available_variables()["step"]['AvailableStepsCount'])
+    tstep_map = f.read("step",start=[],count=[],step_start=0,step_count=nstep)
+    f.close()
+
     f=adios2.open("xgc.sheathdiag.bp","r")
+    i = 0
+    found = False
     for step in f:
-        if step.current_step() == tstep/2:
+        if tstep_map[i] == tstep:
             print("Using sheathdiag source...")
             raw_source = step.read("sheath_ilost")[0,:]/1.602e-19
             print(np.shape(raw_source))
+            found = True
+        i+=1
     f.close()
+
+    if not found:
+        print("Could not find the right timestep")
 
 
     Te = (2.0*Te_perp + Te_para)/3.0
     Ti = (2.0*Ti_perp + Ti_para)/3.0
 
-    Te = Te-np.amin(Te)+3.0
-#    Ti = Ti-np.amin(Ti)+1.0
-#    ne = ne-np.amin(ne)+3.0e18
+#    Te = Te-np.amin(Te)+1.0
+#    Ti = Ti-np.amin(Ti)+10.0
+#    ne = ne-np.amin(ne)+1.0e18
 
     # Get interpolant function in order to 
     r_xgc = coords[:,0]

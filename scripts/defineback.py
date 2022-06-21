@@ -8,6 +8,7 @@ from shapely.geometry import Point as sPoint
 from shapely.geometry.polygon import Polygon as sPolygon
 from importlib import reload 
 import matplotlib.tri as tri
+import source
 
 # Populates plasma density and temperature by zone. Depending on if the point (zone center) is inside the separatrix,
 # this will either interpolate based on psi, or interpolate on a 2D table based on more general R and Z data
@@ -630,7 +631,7 @@ def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,g
 
     write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
-def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp=300.0,source_sp="H2",plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
+def write_cylindrical_polygon_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp=300.0,source_sp="H2",plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 
     # Write the plasmafile
     pfile = open(plasmafilename,"w")
@@ -641,6 +642,24 @@ def write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp
     pfile.close()
 
     generate_db_input_nosourcefile(S0,Nflights,[2*NR],dbfilename="db.in",walltemp=walltemp,source_sp=source_sp)
+
+
+def write_cylinder_db_input(rgrid,ne,Te,Ti,S0,Nflights,source_stratum,walltemp=300.0,source_sp="H2",plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
+
+    NR=len(rgrid)
+
+    # Write the plasmafile
+    pfile = open(plasmafilename,"w")
+    pfile.write("zone   T(1)   N(1)   T(2)   N(2)\n")
+    for i in range(0,NR):
+        r = rgrid[i]
+        pfile.write("%d %f %e %f %e\n"%(i+1,Te(r),ne(r),Ti(r),ne(r)))
+    pfile.close()
+
+    sourcegroup = source.Source(Nflights,"puff",source_sp,pufftemp=walltemp,strength=S0,stratum=source_stratum,segment=0)
+    
+    source.write_db_input([sourcegroup])
+
 
 def generate_db_input_nosourcefile(source_strength,Nflights,strata,dbfilename="db.in",walltemp=300.0,source_sp="H2",plasmafilename="plasmafile.txt"):
 

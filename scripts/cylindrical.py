@@ -86,9 +86,9 @@ def process_output(rgrid,outputfilename="output.nc",tallyfilename="tally.nc",geo
     return density,pressure
 
 
-def write_cylinder_input(R_tot,NR,eource,ne,Te,material,TiTe_ratio=1.0,Nflights=10000,Ntheta_min=12,Ntheta_max=200,walltemp=300.0,source_sp="H2"):
-    rgrid = dg2d.write_cylinder_dg2d_input(R_tot,NR,material,Ntheta_min=Ntheta_min,Ntheta_max=Ntheta_max,walltemp=walltemp)
+def write_cylinder_input(R_tot,NR,source,ne,Te,Ti,material,Nflights=10000,walltemp=300.0,source_sp="H2",Rmin=1.0e-3,Zfac=10.0):
+    rgrid, source_stratum = dg2d.write_cylinder_dg2d_input(R_tot,NR,material=material,walltemp=walltemp,Rmin=Rmin,Zfac=Zfac)
 
-    defineback.write_cylinder_db_input(rgrid,ne,Te,TiTe_ratio,eource,R_tot,NR,Nflights,walltemp=walltemp,source_sp=source_sp)
+    defineback.write_cylinder_db_input(rgrid,ne,Te,Ti,source,Nflights,source_stratum,walltemp=walltemp,source_sp=source_sp)
     return rgrid
 
