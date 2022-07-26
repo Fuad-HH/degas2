@@ -270,18 +270,28 @@ the variance).
 @I reaction.hweb
 @I materials.hweb
 @I tally.hweb
+@I mpi.hweb
 
 @ The main program.
 
 @a
       program sourcetest
       implicit_none_f77
+      mp_common
       implicit_none_f90
+      mp_decls
+
+@#if MPI
+      mpi_init
+@#endif
 
       call readfilenames
       call init_sourcetest
       call do_src_tests
 
+@#if MPI
+      mpi_end
+@#endif
       stop
       end
 

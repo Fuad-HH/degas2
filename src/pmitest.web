@@ -111,12 +111,14 @@ of data points that can be comfortably loaded into the PC application
 @I reaction.hweb
 @I species.hweb
 @I pmiformat.hweb
+@I mpi.hweb
 
 @ The main program.
 @m GET_DIST 1
 
 @a
       program pmitest
+      
       implicit_none_f77
       sp_common
       rc_common
@@ -124,8 +126,10 @@ of data points that can be comfortably loaded into the PC application
       pm_common
       ma_common
       pd_common
+      mp_common
 
       implicit_none_f90
+      mp_decls
       character*LINELEN line                          // Local
       integer length,p,b,e
       rn_seed_decl(seed)
@@ -155,6 +159,9 @@ of data points that can be comfortably loaded into the PC application
       st_decls
       rn_decls
 
+@#if MPI
+      mpi_init
+@#endif
       call readfilenames
       call init_pmitest
 
@@ -361,6 +368,10 @@ loop1: continue
 
 
 eof:  continue
+
+@#if MPI
+      mpi_end
+@#endif
       stop
       end
       @<Functions and Subroutines@>
