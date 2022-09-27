@@ -770,3 +770,5 @@ add_library(degas2_xgc.a STATIC degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods
 add_library(degas2_xgc.so SHARED degas2_xgc.f string.f sysdep.f ${degas2_xgc_mods} ${degas2_xgc_deps})
 target_link_libraries(degas2_xgc.so ${NETCDF_LIBRARIES} ${MPI_Fortran_LIBRARIES})
 target_link_libraries(degas2_xgc.a ${NETCDF_LIBRARIES} ${MPI_Fortran_LIBRARIES})
+target_include_directories(degas2_xgc.a PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
+target_include_directories(degas2_xgc.so PUBLIC ${MPI_Fortran_INCLUDE_DIRS})
