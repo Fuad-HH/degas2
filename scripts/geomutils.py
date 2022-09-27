@@ -24,7 +24,7 @@ def get_next_data(f,ndat,ndat_per_line=5,ncol_per_dat=16):
 # - ssibry
 # - rmid
 # - B0, R0
-def read_geqdsk(gfilename):
+def read_geqdsk(gfilename,plot=False):
     g = Geometry()
 
     f = open(gfilename,"r")
@@ -94,15 +94,16 @@ def read_geqdsk(gfilename):
     rgrid=rmin+np.array(range(0,mw))*dr
     zgrid=zmin+np.array(range(0,mh))*dz
 
-    plt.contour(rgrid,zgrid,psirz.transpose(),levels=150,linewidths=0.4) 
-    plt.plot(lim[:,0],lim[:,1])
-    plt.plot(sep[:,0],sep[:,1])
-    plt.gca().set_aspect("equal")
-    plt.xlabel("R")
-    plt.ylabel("Z")
-    plt.tight_layout()
-    plt.savefig("psicontour.pdf")
-    plt.clf()
+    if plot:
+        plt.contour(rgrid,zgrid,psirz.transpose(),levels=150,linewidths=0.4) 
+        plt.plot(lim[:,0],lim[:,1])
+        plt.plot(sep[:,0],sep[:,1])
+        plt.gca().set_aspect("equal")
+        plt.xlabel("R")
+        plt.ylabel("Z")
+        plt.tight_layout()
+        plt.savefig("psicontour.pdf")
+        plt.clf()
 
     nrmid = 1000
     rmid_max = max(lim[:,0])

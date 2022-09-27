@@ -153,8 +153,6 @@ def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,
         wallpoly_clockwise.write_plasma_polygon_dg2d(dg2dfile,stratum=1,wallid=1,commonzone=False)
         Polygon.close_in_universal_cell(dg2dfile,wallnodes_ordered,0,2,material,recyc,debug=False,clockwise=False,walltemp=walltemp)
     else:
-        print(wallnodes_ordered)
-        print(Ntri+1)
         Polygon.close_in_universal_cell(dg2dfile,wallnodes_ordered,0,Ntri+1,material,recyc,debug=False,clockwise=False,walltemp=walltemp)
 
     dg2dfile.write("polygon_nc_file "+polygonfilename+"\n")

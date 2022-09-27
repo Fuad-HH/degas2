@@ -135,7 +135,6 @@ class Polygon:
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  temperature "+str(walltemp)+"\n")
         f.write("  stratum "+str(stratum)+"\n")
-        f.write("  outer 0 1\n")
         if clockwise:
             f.write("  wall "+str(wallid+1)+" "+\
                 str(wallnodes[1].id)+" "+\
@@ -150,6 +149,7 @@ class Polygon:
             f.write("  wall "+str(wallid+1)+" "+\
                 str(wallnodes[1].id)+" "+\
                 str(wallnodes[1].id)+"\n")
+        f.write("  outer 0 1\n")
         if debug:
             f.write("  print_polygon poly.out1.dat\n")
             f.write("  clear_polygon\n")
@@ -161,7 +161,7 @@ class Polygon:
         f.write("  material "+material+"\n")
         f.write("  recyc_coef "+str(recyc)+"\n")
         f.write("  temperature "+str(walltemp)+"\n")
-        f.write("  stratum "+str(stratum)+"\n")
+        f.write("  stratum "+str(stratum+1)+"\n")
         written_ids = []
         if clockwise:
             f.write("  wall "+str(wallid+1)+" "+
