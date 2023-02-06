@@ -15,8 +15,8 @@ option(NETCDF_DIR "Directory in which to look for NetCDF C and Fortran libraries
 #
 set (NETCDF_F90 "YES")
 find_package (NetCDF REQUIRED)
-if(NOT USE_MPI)
-   find_package (MPI)
+if(USE_MPI)
+   find_package (MPI REQUIRED)
 endif()
 find_package (HDF4)
 #find_package (HDF5)
