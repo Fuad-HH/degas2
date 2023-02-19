@@ -229,7 +229,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 @m max_change 5
 
 @<Functions...@>=
-      subroutine xgc_flighttest(ntriangle,get_source,num_source_sp,
+      subroutine xgc_flighttest(nflights,ntriangle,get_source,num_source_sp,
      $                          test_num,min_xgc_sp,max_xgc_sp,
      $                          d2_bk_species,neu_np,neu_vp,neu_tp,
      $                          neu_hload_weight,neu_hload_en_bins,
@@ -249,7 +249,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       dx_common
       implicit_none_f90
 
-      integer ntriangle,get_source,num_source_sp,          // Input
+      integer nflights,ntriangle,get_source,num_source_sp,          // Input
      $        test_num,min_xgc_sp,max_xgc_sp
       integer d2_bk_species[min_xgc_sp:max_xgc_sp]
 
@@ -344,21 +344,21 @@ there is a fair bit of hardwired code here, e.g., regarding species.
    this section to do so.
 */
             assert(so_type(igrp) == so_snapshot)
+            so_time_initial=t_init
+            so_time_final=t_final
+            assert(so_time_dependent == TRUE)
+            standalone=FALSE
+            call set_snapshot_source(standalone)
          end if
       end do
 
-      so_time_initial=t_init
-      so_time_final=t_final
-      assert(so_time_dependent == TRUE)
-
-      standalone=FALSE
-      call set_snapshot_source(standalone)
 /*
    Should do an intelligent setting of all |so_nflights| here.
    In the absence of that, do the simplest thing to override the
    default setting for the number of snapshot flights.
 */
       do igrp=1,so_grps
+         so_nflights(igrp)=nflights
          if (so_type(igrp) == so_snapshot) then
             assert(igrp != 1)
             so_nflights(igrp)=so_nflights(1)
