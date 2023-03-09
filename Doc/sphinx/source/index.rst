@@ -15,6 +15,7 @@ DEGAS2 is a comprehensive Monte Carlo solver for neutral transport, especially i
    :caption: Contents:
 
    installation
+   problem
 
 
 Indices and tables
