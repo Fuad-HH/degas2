@@ -28,6 +28,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
     emission_idx = -1
     signal_idx = -1
     ioniz_idx = -1
+    esource_idx = -1
     for itally in range(0,Ntally):
         if "neutral density" in str(nc.chartostring(tallynames[itally])):
             dens_idx = itally
@@ -38,6 +39,8 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
             emission_idx = itally
         elif "ion source rate" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
             ioniz_idx = itally
+        elif "ion energy source" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
+            esource_idx = itally
 
     # Find the indices of the independent variables
     zone_idx = -1
@@ -60,6 +63,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
     signal_base = tallydata["tally_base"][signal_idx]
     emission_base = tallydata["tally_base"][emission_idx]
     ioniz_base = tallydata["tally_base"][ioniz_idx]
+    esource_base = tallydata["tally_base"][esource_idx]
 
     # tally_tab_index holds the dimensionality of each tally (Ntally x tally_rank_ind)
     tally_indices = tallydata["tally_tab_index"]
@@ -76,6 +80,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
     density_err = []
     emission = []
     ioniz = []
+    esource = []
     vols = []
     for izone in range(0,tally_indices[dens_idx,0]):
         if zone_type[izone] == 2:
@@ -85,6 +90,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
            density_err.append(outputdata["out_post_all"][dens_base+1*Nzone+izone,1])
            emission.append(outputdata["out_post_all"][emission_base+izone,0])
            ioniz.append(outputdata["out_post_all"][ioniz_base+izone,0])
+           esource.append(outputdata["out_post_all"][esource_base+3*Nzone+izone,0])
            vols.append(geomdata["zone_volume"][izone])
 
     signal = []
@@ -101,6 +107,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
     signal = np.array(signal)
     signal_err = np.array(signal_err)
     ioniz = np.array(ioniz)
+    esource = np.array(esource)
 
     if plot:
         triang = tri.Triangulation(x,z)
@@ -188,7 +195,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
             plt.ylabel(r"Predicted brightness (ph.$/s m^2-\mathrm{sr}$)") 
             plt.savefig("photonsignal.png",bbox_inches="tight")
             plt.close()
-    return x,z,density,density_err,emission,signal,signal_err, vols, ioniz
+    return x,z,density,density_err,emission,signal,signal_err, vols, ioniz, esource
 
 
 # Returns neutral density and detector signals 
