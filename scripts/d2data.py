@@ -9,6 +9,7 @@ import copy
 
 # Accepts a raw netcdf variable representing an array of strings.
 # Returns an array of stripped strings as native python strings.
+
 def convertStr(ncvar):
     ndims=len(ncvar.shape)
     if ndims == 1:
@@ -44,6 +45,22 @@ def convertStr(ncvar):
 #   filename: a string for the path and file name of the netcdf file to query
 #   requestedData: a string representing the data to read (usually "cross_section" or "reaction_rate")
 class atomicTable:
+    """
+    A python interface to DEGAS2 atomic data. Constructed from two strings: path to DEGAS2 data file 
+    and the dependent variable name (e.g. "reaction_rate")
+
+    Attributes:
+        dataName: String tag for the data sought, corresponding to "xs_var" in NetCDF file
+        description: String describing the data file, pulled from NetCDF file
+        rank: Integer dimensionality of the table
+        indepVarNames: List of strings (of length "rank"). The names of the independent variables
+        dims: List of integers (of length "rank"). The length of the table in each dimension
+        depLog: Boolean. If true, dependent variable is to be expressed on a logarithmic scale
+        indepLog: List of bool (of length "rank"). If true for a given dimension, table is logarithmic along that axis
+        depUnits: List of strings (of length "rank"). Names of the units of the dependent variable.
+        WIP...
+    """
+
     def __init__(self,filename,requestedData):
         data=nc.Dataset(filename)
         self.dataName = requestedData

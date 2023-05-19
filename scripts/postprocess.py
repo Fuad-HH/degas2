@@ -807,10 +807,12 @@ def get_density_and_sources(outputfilename="output.nc",tallyfilename="tally.nc",
            psource.append(outputdata["out_post_all"][psource_base+1*Nzone+izone,0])
            esource_e.append(outputdata["out_post_all"][esource_base+0*Nzone+izone,0])
            esource_i.append(outputdata["out_post_all"][esource_base+1*Nzone+izone,0])
+           msource.append(outputdata["out_post_all"][msource_base+3*Nzone+3*izone+1,0])
            vols.append(zone_volumes[izone])
     density = np.array(density)
     density_err = np.array(density_err)
     psource = np.array(psource)
+    msource = np.array(msource)
     esource_i = np.array(esource_i)
     esource_e = np.array(esource_e)
 
@@ -856,6 +858,5 @@ def append_tri_file(origfilename,zone_map,ndensity,psource,esource_i,esource_e,v
     newfile.close()
     origfile.close()
 
-    
-
+ 
 

@@ -7,8 +7,17 @@
 # For now, the structure of degas2 will not change. You should be able to use the degas2 installation normally, as long as your path is set to $DEGASROOT/LINUX64
 
 # The degas2 class is associated with the whole run, including setting it up and post-processing. It's job is to communicate among the classes and manage the "degas2.in" input file.
-import os
-import degas2_data
+
+
+class Degas2:
+    """
+    A python representation of a DEGAS2 input file.
+
+    Attributes:
+        description: String representing the simulation (optional)
+        basedir: A string representing the directory containing data files. If not provided, will look for appropriate files in $HOME/degas2/data, $HOME/src/degas2/data, $DEGAS2ROOT/degas2/data.
+    """
+
 
 try: 
     root = os.getenv('DEGASROOT')

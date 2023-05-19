@@ -13,7 +13,18 @@ def parse_file_with_headers(filename,mandatory_headers):
 
     d = {}
 
+    utils.write_file_with_headers(filename,d,"$ $")
+
 def write_file_with_headers(filename,d,info=None):
+    """
+    Writes a simple degas2 input file using an input dictionary.
+    Currently only works for problemsetup input files
+
+    Args:
+        filename: the name of the file to write
+        d: dictionary of data where the key is a header for the group. Individual objects within each key are strings which are written line-by-line.
+    """
+
     f = open(filename,"w")
     if info:
         f.write(info+"\n")
