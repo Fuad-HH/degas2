@@ -11,12 +11,12 @@ class Problem:
     to generate a problem_infile.
 
     Attributes:
-        description: an aribtrary string representing the problem name.
-        test_species: list of strings specifying test particle species. Starts with '0' for 'ghost' geometry species
-        background_species: list of strings specifying background plasma species. By convention, first element is 'e' for electrons.
-        reactions: list of strings specifying each reaction in the problem. See data/reactions.input
-        materials: list of strings specifying each material handled in the problem. See data/materials.input
-        pmi: list of strings specifying each PMI handled in the problem. See data/pmi.input
+        description: Arbitrary string representing the problem name. (optional)
+        test_species: List of strings specifying test particle species. Starts with '0' for 'ghost' geometry species
+        background_species: List of strings specifying background plasma species. By convention, first element is 'e' for electrons.
+        reactions: List of strings specifying each reaction in the problem. See data/reactions.input
+        materials: List of strings specifying each material handled in the problem. See data/materials.input
+        pmi: List of strings specifying each PMI handled in the problem. See data/pmi.input
     """
     def __init__(self):
         """
@@ -34,7 +34,7 @@ class Problem:
         Appends a string to the problem's test_species attribute
 
         Args:
-            test: a species string
+            test: Species string
         """
         self.test_species.append(sp)
 
@@ -43,7 +43,7 @@ class Problem:
         Appends a string to the problem's background_species attribute
 
         Args:
-            sp: a species string
+            sp: Species string
         """
         self.background_species.append(sp)
 
@@ -52,7 +52,7 @@ class Problem:
         Appends a string to the problem's reactions attribute
 
         Args:
-            reaction: a string for the reaction label in data/reactions.input
+            reaction: String for the reaction label in data/reactions.input
         """
         self.reactions.append(reaction)
 
@@ -61,7 +61,7 @@ class Problem:
         Appends a string to the problem's pmi attribute
 
         Args:
-            pmi: a string for the PMI label in data/pmi.input
+            pmi: String for the PMI label in data/pmi.input
         """
         self.pmi.append(pmi)
 
@@ -70,7 +70,7 @@ class Problem:
         Appends a string to the problem's materials attribute
 
         Args:
-            material: a string for the PMI label in data/materials.input
+            material: String for the PMI label in data/materials.input
         """
         self.materials.append(material)
 
@@ -79,7 +79,7 @@ class Problem:
         Reads a degas2 problem_infile and stores its contents to class instance self.
 
         Args:
-            filename: string for the relative path to the file from which to read in problem.
+            filename: String for the relative path to the file from which to read in problem.
         """
         headers = ["TEST","BACKGROUND","REACTION","MATERIALS","PMI"]
         d = utils.parse_file_with_headers(filename,headers)
@@ -99,7 +99,7 @@ class Problem:
         Generates a degas2 problem_infile from class instance
 
         Args:
-            filename: string for the relative path to the file to write out the problem data
+            filename: String for the relative path to the file to write out the problem data
         """
         d={}
         d["TEST"] = self.test_species
@@ -114,11 +114,11 @@ def defineProblem(testSps,backSps,reactions,mats,pmis):
     Generates a degas2 problem with one command.
 
     Args:
-        testSps: array of strings for test species. First element must be '0'
-        backSps: array of strings for background species. First element is 'e' by convention if present.
-        reactions: array of strings for reactions to include.
-        mats: array of strings for materials to include.
-        pmis: array of strings for PMI to include.
+        testSps: Array of strings for test species. First element must be '0'
+        backSps: Array of strings for background species. First element is 'e' by convention if present.
+        reactions: Array of strings for reactions to include.
+        mats: Array of strings for materials to include.
+        pmis: Array of strings for PMI to include.
 
     Returns:
         A Problem with the specified properities.
@@ -142,12 +142,12 @@ def generateProblemInput(testSps,backSps,reactions,mats,pmis,filename="problem.i
     Generates a degas2 problem with one command and writes the input file
 
     Args:
-        testSps: array of strings for test species. First element must be '0'
-        backSps: array of strings for background species. First element is 'e' by convention if present.
-        reactions: array of strings for reactions to include.
-        mats: array of strings for materials to include.
-        pmis: array of strings for PMI to include.
-        filename: string for the relative path of the input filename (optional)
+        testSps: Array of strings for test species. First element must be '0'
+        backSps: Array of strings for background species. First element is 'e' by convention if present.
+        reactions: Array of strings for reactions to include.
+        mats: Array of strings for materials to include.
+        pmis: Array of strings for PMI to include.
+        filename: String for the relative path of the input filename (optional)
 
     Returns:
         A Problem with the specified properities.
@@ -161,13 +161,15 @@ def genStdProblem(label):
     Generates a degas2 problem input using a single string for a select 'standard' configurations.
 
     Args:
-        label: a string. One of: "C-H" (hydrogen against carbon walls - no molecules), "C" (hydrogen against carbon walls including molecules), "Li" (hydrogen against lithium walls), "Li_reflOnly" (hydrogen on lithium with no desorptioon), "LiOH" (lithium against LiOH including molecules).
+        label: String. One of: "C-H" (hydrogen against carbon walls - no molecules), "C" (hydrogen against carbon walls including molecules), "Li" (hydrogen against lithium walls), "Li_reflOnly" (hydrogen on lithium with no desorptioon), "LiOH" (lithium against LiOH including molecules), "Fe_and_mirror" (iron and mirror including molecules).
 
     Returns:
         A Problem of the specified standard type.
     """
     if label == "C-H":
         p=generateProblemInput(["0","H"],["e","H+"],["hionize5","hh_chargex"],["C"],["hdesorbc_xgc","hreflc"])
+    if label == "C-D-xgc":
+        p=generateProblemInput(["0","D","D2","D2+"],["e","D+"],["hionize5","dchex_const","h2dis","h2ion","h2dision","h2pdision","h2pdis","h2pdisrec","hrecombine5"],["C"],["hdesorbc","h2desorbc","dreflc"])
     if label == "C":
         p=generateProblemInput(["0","H","H2","H2+"],["e","H+"],["hionize5","hh_chargex","h2dis","h2ion","h2dision","h2pdision","h2pdis","h2pdisrec"],["C"],["hdesorbc","h2desorbc","hreflc"])
     if label == "Li":
@@ -178,5 +180,7 @@ def genStdProblem(label):
         p=generateProblemInput(["0","H","H2","H2+"],["e","H+"],["hionize5","hh_chargex",\
                 "h2dis","h2dis_n3","h2ion","h2dision","h2pdision","h2pdis"],["LiOH"],\
                 ["H_refl_vftrim_LiOH","h_des_maxw_LiOH","h2_des_maxw_LiOH"])
+    if label == "Fe_and_mirror":
+        p=generateProblemInput(["0","H","H2","H2+"],["e","H+"],["hionize5","hh_chargex","h2dis","h2ion","h2dision","h2pdision","h2pdis","h2pdisrec"],["Fe","mirror"],["h_des_maxw_fe","h2_des_maxw_fe","hreflfe","hmirror","h2mirror"])
     return p
 

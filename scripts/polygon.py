@@ -530,6 +530,35 @@ def infer_wall_nodes(internal_triangles, external_triangles):
 #    return new_wallnodes
     return wallnodes
 
+# x_corners and z_corners are 2D arrays of the same shape
+def get_polys_from_corners(x_corners,z_corners):
+    Nx=len(x_corners[:,0])
+    Nz=len(x_corners[0,:])
+    nodes = []
+    for ix in range(0,Nx):
+        for iz in range(0,Nz):
+            nodes.append(Vertex(ix*Nz+iz,x_corners[ix,iz],z_corners[ix,iz]))
+            if (ix == 0) or (ix == Nx) or (iz == 0) or (iz == Nz):
+                nodes[-1].wall = True
+
+    polys=[]
+    centers = np.zeros(((Nx-1)*(Nz-1),2))
+    for ix in range(0,Nx-1):
+        for iz in range(0,Nz-1):
+            poly=Polygon()
+            if nodes[ix*Nz+iz].id != ix*Nz+iz:
+                exit("Node index not what was expected")
+            poly.add_vertex(nodes[ix*Nz+iz])
+            poly.add_vertex(nodes[ix*Nz+iz+1])
+            poly.add_vertex(nodes[(ix+1)*Nz+iz+1])
+            poly.add_vertex(nodes[(ix+1)*Nz+iz])
+            polys.append(poly)
+            centers[ix*(Nz-1)+iz,0] = 0.25*(x_corners[ix,iz]+x_corners[ix+1,iz]+x_corners[ix+1,iz+1]+x_corners[ix,iz+1])
+            centers[ix*(Nz-1)+iz,1] = 0.25*(z_corners[ix,iz]+z_corners[ix+1,iz]+z_corners[ix+1,iz+1]+z_corners[ix,iz+1])
+    
+    return nodes,polys, centers
+
+
 def purge_invalid_nodes(allnodes,valid_tris):
     valid_nodes = []
     for node in allnodes:
@@ -608,6 +637,7 @@ class WallVertex(Vertex):
     def __init__(self,wallid,vertexid,R,Z):
         self.id = [wallid,vertexid]
         super().__init__(self.id,R,Z)
+
 
 
 

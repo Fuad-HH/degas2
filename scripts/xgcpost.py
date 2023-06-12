@@ -616,3 +616,35 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
     return source_strength
 #    return source_flux
 
+def write_dummy_bg_files(nzone,nwallsegs):
+    nperline = 10
+    stratum=nzone+2
+    
+    f=open("plasmafile.txt","w")
+    f.write("%10s %10s %10s %10s %10s\n"%("zone","T(1)","N(1)","T(2)","N(2)"))
+    for i in range(0,nzone):
+        f.write("%i %e %e %e %e\n"%(i+1,100.0,1e19,100.0,1e19))
+    f.close()
+    
+    f=open("sourcefile.txt","w")
+    f.write("#\nstratum\n#\n")
+    for i in range(0,nwallsegs):
+        f.write("%d "%(stratum))
+        if ((i+1)%nperline == 0) and i != nwallsegs-1:
+            f.write("\n")
+    f.write("\n")
+    f.write("#\nsegment\n#\n")
+    for i in range(0,nwallsegs):
+        f.write("%d "%(i))
+        if ((i+1)%nperline == 0) and i != nwallsegs-1:
+            f.write("\n")
+    f.write("\n")
+    f.write("#\nF\n#\n")
+    for i in range(0,nwallsegs):
+        f.write("%e "%(1e20))
+        if ((i+1)%nperline == 0) and i != nwallsegs-1:
+            f.write("\n")
+
+
+
+

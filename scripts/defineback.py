@@ -139,10 +139,10 @@ def get_zone_plasma_data_through_psi(zone_coords,R_data,ne_data,Te_data,psifunc)
 
     return ne_zone, Te_zone
 
-def write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=None,b=None,plasmafilename="plasmafile.txt"):
+def write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=None,b=None,plasmafilename="plasmafile.txt",ux_zone=None,uy_zone=None,uz_zone=None):
     pfile = open(plasmafilename,'w')
     pfile.write("zone      T(1)         N(1)        T(2)        N(2)")
-    if not ui_zone is None:
+    if (not ui_zone is None) or (not ux_zone is None):
         pfile.write("      V1(2)        V2(2)       V3(2)       ") 
     pfile.write("\n")
 
@@ -150,7 +150,12 @@ def write_plasmafile(ne_zone,Te_zone,Ti_zone,ui_zone=None,b=None,plasmafilename=
     for idx in range(0,Nzone):
         pfile.write(str(idx+1)+"  "+str(Te_zone[idx])+"  "+str(ne_zone[idx])
                 +"  "+str(Ti_zone[idx])+"  "+str(ne_zone[idx]))
-        if not ui_zone is None:
+        if not ux_zone is None:
+            ux = ux_zone[idx]
+            uy = uy_zone[idx]
+            uz = uz_zone[idx]
+            pfile.write("  "+str(ux)+"  "+str(uy)+"  "+str(uz))
+        elif not ui_zone is None:
             ux = ui_zone[idx]*b[idx,0]
             uy = ui_zone[idx]*b[idx,1]
             uz = ui_zone[idx]*b[idx,2]
