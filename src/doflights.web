@@ -305,6 +305,9 @@ smaller chunks (of size |nfrag|) to be handled by the slave processors
          end do
          
 @#if MPI
+@#if MPI_messages
+               write(stderr,*) 'Got to checkpoint before data send'
+@#endif
          do j=0,min(nparcel,nslaves)-1 // Now just tell all slaves to send data.
             call slave_receive_flag(slave)
             if (nslaves < nparcel) then
@@ -721,44 +724,52 @@ but for |stat_fin|.
       write(diskout+3,*) ' Before final data send calls; tag = ',tag
       call flush(diskout+3)
 @#endif
-      call MPI_send(stat_comp_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_comp_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_wt_tot_frag,1,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_size_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_size_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+
+@#if MPI_slave_messages
+      write(diskout+3,*) ' During final data send calls (1a); tag = ',tag
+      call flush(diskout+3)
+@#endif
+      tag++
+      call MPI_send(stat_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+      tag++
+      call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 
       tag++
-      call MPI_send(stat_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+
+@#if MPI_slave_messages
+      write(diskout+3,*) ' During final data send calls (2a); tag = ',tag
+      call flush(diskout+3)
+@#endif
+      tag++
+      call MPI_send(stat_ps_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 
       tag++
-      call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-
-      tag++
-      call MPI_send(stat_ps_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-      tag++
-      call MPI_send(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-
-      tag++
-      call MPI_send(stat_wt_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-      tag++
-      call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_wt_frag,array_size(stat_wt_frag),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' After final data send calls; tag = ',tag
       call flush(diskout+3)
 @#endif
       tag++
-      call MPI_send(sn_number_particles,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(sn_number_particles,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 
       if (sn_number_particles > 0) then
          tag++
-         call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
          
          tag++
-         call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       end if
 /*
    Reinitialize the arrays just sent.  This is otherwise done within |stat_acc|, but
@@ -778,44 +789,52 @@ the |Send frag| section above, but with |_frag| replaced by |_fin|.
       write(diskout+3,*) ' Before final data send calls; tag = ',tag
       call flush(diskout+3)
 @#endif
-      call MPI_send(stat_comp_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_comp_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_wt_tot_fin,1,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_wt_tot_fin,1,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_size_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_size_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+
+@#if MPI_slave_messages
+      write(diskout+3,*) ' During final data send calls (1); tag = ',tag
+      call flush(diskout+3)
+@#endif
+      tag++
+      call MPI_send(stat_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+      tag++
+      call MPI_send(stat_fin,array_size(stat_fin),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 
       tag++
-      call MPI_send(stat_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_pf_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_fin,array_size(stat_fin),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_ptr2full_fin,array_size(stat_ptr2full_fin),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+
+@#if MPI_slave_messages
+      write(diskout+3,*) ' During final data send calls (2); tag = ',tag
+      call flush(diskout+3)
+@#endif
+      tag++
+      call MPI_send(stat_ps_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+      tag++
+      call MPI_send(stat_ptr2short_fin,array_size(stat_ptr2short_fin),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 
       tag++
-      call MPI_send(stat_pf_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_wt_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(stat_ptr2full_fin,array_size(stat_ptr2full_fin),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-
-      tag++
-      call MPI_send(stat_ps_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-      tag++
-      call MPI_send(stat_ptr2short_fin,array_size(stat_ptr2short_fin),mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-
-      tag++
-      call MPI_send(stat_wt_dim_fin,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
-      tag++
-      call MPI_send(stat_wt_fin,array_size(stat_wt_fin),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(stat_wt_fin,array_size(stat_wt_fin),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' After final data send calls; tag = ',tag
       call flush(diskout+3)
 @#endif
       tag++
-      call MPI_send(sn_number_particles,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(sn_number_particles,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
 
       if (sn_number_particles > 0) then
          tag++
-         call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(sn_particles_float,array_unit(sn_particles_float)*sn_number_particles,mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
          
          tag++
-         call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(sn_particles_int,array_unit(sn_particles_int)*sn_number_particles,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       end if
 /*
    Reinitialize the arrays just sent.  This is otherwise done within |stat_acc|, but
@@ -992,7 +1011,7 @@ parallel and serial cases.
 
       if (nflights == 0) then
          tag=100
-         call MPI_send(nflights,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(nflights,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
          return
       end if
 @#if MASTER_SAMPLE
@@ -1011,28 +1030,28 @@ parallel and serial cases.
   MPI_send ff objects to slave.
 */
       tag=100
-      call MPI_send(ff_number_particles,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(ff_number_particles,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
       tag++
       call MPI_send(ff_particles_int,array_size(ff_particles_int),mpi_int,
-     $              slave,tag,MPI_COMM_WORLD,mpi_err)
+     $              slave,tag,comm_world_dup,mpi_err)
       tag++
       call MPI_send(ff_particles_float,array_size(ff_particles_float),mpi_real,
-     $              slave,tag,MPI_COMM_WORLD,mpi_err)
+     $              slave,tag,comm_world_dup,mpi_err)
       tag++
       call MPI_send(ff_ran_index,array_size(ff_ran_index),mpi_int,slave,
-     $              tag,MPI_COMM_WORLD,mpi_err)
+     $              tag,comm_world_dup,mpi_err)
       tag++
       call MPI_send(ff_ran_array,array_size(ff_ran_array),mpi_real,
-     $              slave,tag,MPI_COMM_WORLD,mpi_err)
+     $              slave,tag,comm_world_dup,mpi_err)
 @#else
       tag=100
-      call MPI_send(nflights,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(nflights,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(nstart,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(nstart,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(isource,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(isource,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
       tag++
-      call MPI_send(seed,ran_s,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(seed,ran_s,mpi_int,slave,tag,comm_world_dup,mpi_err)
 @#endif
       
       return
@@ -1053,7 +1072,7 @@ parallel and serial cases.
       @<Memory allocation interface@>
 
       tag=200
-      call MPI_recv(done_flag,1,mpi_int,MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(done_flag,1,mpi_int,MPI_ANY_SOURCE,tag,comm_world_dup,mpi_status,mpi_err)
       slave=mpi_status(MPI_SOURCE)
       assert(done_flag == TRUE)
       return
@@ -1074,7 +1093,7 @@ parallel and serial cases.
       @<Memory allocation interface@>
 
       tag=300
-      call MPI_send(send_data,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(send_data,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
 
       return
       end
@@ -1096,52 +1115,52 @@ parallel and serial cases.
       @<Memory allocation interface@>
 
       tag=400
-      call MPI_recv(stat_comp_frag,1,mpi_int,MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(stat_comp_frag,1,mpi_int,MPI_ANY_SOURCE,tag,comm_world_dup,mpi_status,mpi_err)
       slave=mpi_status(MPI_SOURCE);
       tag++
-      call MPI_recv(stat_wt_tot_frag,1,mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(stat_wt_tot_frag,1,mpi_real,slave,tag,comm_world_dup,mpi_status,mpi_err)
       tag++
-      call MPI_recv(stat_size_frag,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(stat_size_frag,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
       tag++
-      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
       if (new_dim>stat_dim_frag) then
          var_realloc(stat_frag,stat_dim_frag-1,new_dim-1)
          stat_dim_frag=new_dim
       end if
       tag++
-      call MPI_recv(stat_frag,array_size(stat_frag),mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(stat_frag,array_size(stat_frag),mpi_real,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
       tag++
-      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
       if (new_dim>stat_pf_dim_frag) then
          var_realloc(stat_ptr2full_frag,stat_pf_dim_frag-1,new_dim-1)
          stat_pf_dim_frag=new_dim
       end if
       tag++
-      call MPI_recv(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(stat_ptr2full_frag,array_size(stat_ptr2full_frag),mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
       tag++
-      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
       if (new_dim>stat_ps_dim_frag) then
          var_realloc(stat_ptr2short_frag,stat_ps_dim_frag-1,new_dim-1)
          stat_ps_dim_frag=new_dim
       end if
       tag++
-      call MPI_recv(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(stat_ptr2short_frag,array_size(stat_ptr2short_frag),mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
       tag++
-      call MPI_recv(new_dim,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(new_dim,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
       if (new_dim>stat_wt_dim_frag) then
          var_realloc(stat_wt_frag,stat_wt_dim_frag-1,new_dim-1)
          stat_wt_dim_frag=new_dim
       end if
 
       tag++
-      call MPI_recv(stat_wt_frag,array_size(stat_wt_frag),mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(stat_wt_frag,array_size(stat_wt_frag),mpi_real,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
       tag++
-      call MPI_recv(new_sn_num_particles,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(new_sn_num_particles,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
       if (new_sn_num_particles > 0) then
 /*
@@ -1168,12 +1187,12 @@ parallel and serial cases.
          tag++
          call MPI_recv(sn_particles_float[sn_number_particles+1][1],
      $                 array_unit(sn_particles_float)*new_sn_num_particles,
-     $                 mpi_real,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $                 mpi_real,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
          tag++
          call  MPI_recv(sn_particles_int[sn_number_particles+1][1],
      $                 array_unit(sn_particles_int)*new_sn_num_particles,
-     $                 mpi_int,slave,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $                 mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
          sn_number_particles+=new_sn_num_particles
       end if
@@ -1232,7 +1251,7 @@ results back to the master.  It is only defined for MPI.
       assert((mpi_rank > 0) && (mpi_rank < 1000000))
       write(cslave,'(i6.6)') mpi_rank
       open(unit=diskout+3,
-     $     file='/local/dps_slave_' \/ cslave,status='unknown')
+     $     file='dps_slave_' \/ cslave,status='unknown')
 @#endif
 
       stat_comp_flt=TRUE
@@ -1250,7 +1269,7 @@ loop: continue
       write(diskout+3,*) 'Time = ',date_str
 @#endif
       call MPI_recv(ff_number_particles,1,mpi_int,mpi_degas2_root,tag,
-     $              MPI_COMM_WORLD,mpi_status,mpi_err)
+     $              comm_world_dup,mpi_status,mpi_err)
       if (ff_number_particles == 0) goto break
       tag++
       if (init) then
@@ -1269,23 +1288,23 @@ loop: continue
       end if
 @#if MASTER_SAMPLE
       call MPI_recv(ff_particles_int,array_size(ff_particles_int),mpi_int,
-     $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $              mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
       tag++
       call MPI_recv(ff_particles_float,array_size(ff_particles_float),mpi_real,
-     $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $              mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
       tag++
       call MPI_recv(ff_ran_index,array_size(ff_ran_index),mpi_int,
-     $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $              mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
       tag++
       call MPI_recv(ff_ran_array,array_size(ff_ran_array),mpi_real,
-     $              mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $              mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
 @#else
       nflights=ff_number_particles
-      call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
       tag++
-      call MPI_recv(isource,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(isource,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
       tag++
-      call MPI_recv(seed,ran_s,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(seed,ran_s,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
 /*
    Sample the source particles and pack them into the 
    |flight_frag| object, conveyed here by |ff_common|.
@@ -1309,7 +1328,7 @@ loop: continue
       write(diskout+3,*) 'Time = ',date_str
       call flush(diskout+3)
 @#endif
-      call MPI_send(done_flag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(done_flag,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' Sent done_flag; tag = ',tag
       call date_time(time)
@@ -1326,7 +1345,7 @@ loop: continue
       write(diskout+3,*) 'Time = ',date_str
       call flush(diskout+3)
 @#endif
-      call MPI_recv(send_data,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(send_data,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
 @#if MPI_slave_messages
       write(diskout+3,*) ' After receipt of send_data; tag = ',tag
       call date_time(time)
@@ -1403,7 +1422,17 @@ loop: continue
    Make sure all meta-slaves are done with this level before 
    going to the next one.
 */
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Before MPI_barrier'
+      call flush(diskout+3)
+@#endif
          call MPI_barrier(mpi_meta_slave_comms[ilevel],mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' mpi_err from MPI_barrier = ', mpi_err
+      call flush(diskout+3)
+@#endif
+
+
          end do       // Loop over aggregation levels
       else
          assert('Illegal value of send_data' == ' ')

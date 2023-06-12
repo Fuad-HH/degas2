@@ -108,9 +108,12 @@ tuned for a particular number of processors and network.
       @<Memory allocation interface@>
 
       declare_varp(meta_slave_ranks)
+      mpi_err=-1
 
       if (standalone == TRUE) then
          mpi_init
+      else
+         mpi_copy_comm
       end if
 
       mpi_nslaves=mpi_size-1
@@ -203,7 +206,7 @@ tuned for a particular number of processors and network.
    This call gives us a reference for the entire group
    of processors.
 */
-      call mpi_comm_group(MPI_COMM_WORLD,world_group,mpi_err)
+      call mpi_comm_group(comm_world_dup,world_group,mpi_err)
       if (mpi_nlevels > 1) then
          do ilevel=1,mpi_nlevels-1
             n_meta_slaves=0
@@ -225,7 +228,7 @@ tuned for a particular number of processors and network.
    one of these communicators.  However, the result will be
    |MPI_COMM_NULL| on those that are not.
 */
-            call mpi_comm_create(MPI_COMM_WORLD,mpi_meta_slave_groups[ilevel],
+            call mpi_comm_create(comm_world_dup,mpi_meta_slave_groups[ilevel],
      $           mpi_meta_slave_comms[ilevel],mpi_err)
          end do
       end if

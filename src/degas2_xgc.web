@@ -338,7 +338,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
                end if
             end do
             assert(ibin >= dx_e_bin_num)
-         else
+         else if (so_type(igrp) != so_recomb) then
 /*
    May eventually allow for other source types.  Would need to modify
    this section to do so.
@@ -476,17 +476,18 @@ there is a fair bit of hardwired code here, e.g., regarding species.
          end do                                          // |prob_sp|
       end if                                             // |mpi_master|
 @#if MPI
+	write(*,*) "Before MPI broacast"
       call MPI_bcast(neu_n0,ntriangle*test_num,mpi_real,mpi_degas2_root,
-     $               MPI_COMM_WORLD,mpi_err)
+     $               comm_world_dup,mpi_err)
       call MPI_bcast(neu_v0,3*ntriangle*test_num,mpi_real,mpi_degas2_root,
-     $               MPI_COMM_WORLD,mpi_err)
+     $               comm_world_dup,mpi_err)
       call MPI_bcast(neu_t0,ntriangle*test_num,mpi_real,mpi_degas2_root,
-     $               MPI_COMM_WORLD,mpi_err)
+     $               comm_world_dup,mpi_err)
       call MPI_bcast(neu_total_source,(num_source_sp)*max_change,mpi_real,
-     $               mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
+     $               mpi_degas2_root,comm_world_dup,mpi_err)
       if (get_source == 1)
      $     call MPI_bcast(neu_source,ntriangle*(num_source_sp)*max_change,mpi_real,
-     $                    mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
+     $                    mpi_degas2_root,comm_world_dup,mpi_err)
 @#endif
 /*
    The output and snapshot arrays are reallocated on every call

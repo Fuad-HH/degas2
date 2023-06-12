@@ -373,10 +373,10 @@ the sum over all groups (default).
          end if
       end do
 @#if MPI
-      call MPI_bcast(em_data,zn_num,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(em_sp_data,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(test_density,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(ns,1,mpi_int,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(em_data,zn_num,mpi_real,mpi_degas2_root,comm_world_dup,mpi_err)
+      call MPI_bcast(em_sp_data,zn_num*nsd,mpi_real,mpi_degas2_root,comm_world_dup,mpi_err)
+      call MPI_bcast(test_density,zn_num*nsd,mpi_real,mpi_degas2_root,comm_world_dup,mpi_err)
+      call MPI_bcast(ns,1,mpi_int,mpi_degas2_root,comm_world_dup,mpi_err)
 @#endif
       if (em_temp > zero) then
          nviews=nx*ny
@@ -941,10 +941,10 @@ routines.
       var_alloc(test_density)
       var_alloc(zone_frags)
 
-      call MPI_bcast(em_data,zn_num,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(em_sp_data,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(test_density,zn_num*nsd,mpi_real,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
-      call MPI_bcast(ns,1,mpi_int,mpi_degas2_root,MPI_COMM_WORLD,mpi_err)
+      call MPI_bcast(em_data,zn_num,mpi_real,mpi_degas2_root,comm_world_dup,mpi_err)
+      call MPI_bcast(em_sp_data,zn_num*nsd,mpi_real,mpi_degas2_root,comm_world_dup,mpi_err)
+      call MPI_bcast(test_density,zn_num*nsd,mpi_real,mpi_degas2_root,comm_world_dup,mpi_err)
+      call MPI_bcast(ns,1,mpi_int,mpi_degas2_root,comm_world_dup,mpi_err)
 
       do iy=1,ny
          do ix=1,nx
@@ -961,10 +961,10 @@ routines.
 
 loop: continue
       tag=100
-      call MPI_recv(num,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(num,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
       if (num == 0) goto break
       tag++
-      call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(nstart,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
 /*
    See comment in master routine.
 */
@@ -973,27 +973,27 @@ loop: continue
 
       done_flag=TRUE
       tag=200
-      call MPI_send(done_flag,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(done_flag,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_err)
 
       tag=300
-      call MPI_recv(send_data,1,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(send_data,1,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_status,mpi_err)
       if (send_data == FALSE) then
          goto loop
       else if (send_data == TRUE) then
          
          tag=400
 
-         call MPI_send(signal_array,nx*ny,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(signal_array,nx*ny,mpi_real,mpi_degas2_root,tag,comm_world_dup,mpi_err)
          tag=401
-         call MPI_send(target_map,nx*ny,mpi_int,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(target_map,nx*ny,mpi_int,mpi_degas2_root,tag,comm_world_dup,mpi_err)
          tag=402
-         call MPI_send(fwpa_avg,nx*ny,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(fwpa_avg,nx*ny,mpi_real,mpi_degas2_root,tag,comm_world_dup,mpi_err)
          tag=403
-         call MPI_send(n_eff2,nx*ny*nsd,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(n_eff2,nx*ny*nsd,mpi_real,mpi_degas2_root,tag,comm_world_dup,mpi_err)
          tag=404
-         call MPI_send(signal_sp_array,nx*ny*nsd,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(signal_sp_array,nx*ny*nsd,mpi_real,mpi_degas2_root,tag,comm_world_dup,mpi_err)
          tag=405
-         call MPI_send(fwpa_sp_avg,nx*ny*nsd,mpi_real,mpi_degas2_root,tag,MPI_COMM_WORLD,mpi_err)
+         call MPI_send(fwpa_sp_avg,nx*ny*nsd,mpi_real,mpi_degas2_root,tag,comm_world_dup,mpi_err)
          do iy=1,ny
             do ix=1,nx
                signal_array[ix][iy]=real_unused
@@ -1041,10 +1041,10 @@ break: continue
       @<Memory allocation interface@>
 
       tag=100
-      call MPI_send(num,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(num,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
       if (num == 0) goto break
       tag++
-      call MPI_send(nstart,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(nstart,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
 
 break: continue
       return
@@ -1065,7 +1065,7 @@ break: continue
       @<Memory allocation interface@>
 
       tag=200
-      call MPI_recv(done_flag,1,mpi_int,MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+      call MPI_recv(done_flag,1,mpi_int,MPI_ANY_SOURCE,tag,comm_world_dup,mpi_status,mpi_err)
       slave=mpi_status(MPI_SOURCE)
       assert(done_flag == TRUE)
       return
@@ -1086,7 +1086,7 @@ break: continue
       @<Memory allocation interface@>
 
       tag=300
-      call MPI_send(send_data,1,mpi_int,slave,tag,MPI_COMM_WORLD,mpi_err)
+      call MPI_send(send_data,1,mpi_int,slave,tag,comm_world_dup,mpi_err)
 
       return
       end
@@ -1111,22 +1111,22 @@ break: continue
 
       tag=400
       call MPI_recv(signal_array,nx*ny,mpi_real,MPI_ANY_SOURCE,tag,
-     $     MPI_COMM_WORLD,mpi_status,mpi_err)
+     $     comm_world_dup,mpi_status,mpi_err)
       tag=401
       call MPI_recv(target_map,nx*ny,mpi_int,MPI_ANY_SOURCE,tag,
-     $     MPI_COMM_WORLD,mpi_status,mpi_err)
+     $     comm_world_dup,mpi_status,mpi_err)
       tag=402
       call MPI_recv(fwpa_avg,nx*ny,mpi_real,MPI_ANY_SOURCE,tag,
-     $     MPI_COMM_WORLD,mpi_status,mpi_err)
+     $     comm_world_dup,mpi_status,mpi_err)
       tag=403
       call MPI_recv(n_eff2,nx*ny*nsd,mpi_real,MPI_ANY_SOURCE,tag,
-     $     MPI_COMM_WORLD,mpi_status,mpi_err)
+     $     comm_world_dup,mpi_status,mpi_err)
       tag=404
       call MPI_recv(signal_sp_array,nx*ny*nsd,mpi_real,MPI_ANY_SOURCE,
-     $     tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $     tag,comm_world_dup,mpi_status,mpi_err)
       tag=405
       call MPI_recv(fwpa_sp_avg,nx*ny*nsd,mpi_real,MPI_ANY_SOURCE,
-     $     tag,MPI_COMM_WORLD,mpi_status,mpi_err)
+     $     tag,comm_world_dup,mpi_status,mpi_err)
 
       return
       end
