@@ -737,7 +737,15 @@ but for |stat_fin|.
       tag++
       call MPI_send(stat_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
       tag++
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Before sending stat_frag array. Size = ',array_size(stat_frag),'; dest = ',mpi_slave_map_m(ilevel,mpi_rank),'; tag = ',tag,'; mpi_err = ',mpi_err 
+      call flush(diskout+3)
+@#endif
       call MPI_send(stat_frag,array_size(stat_frag),mpi_real,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' After sending stat_frag array...'
+      call flush(diskout+3)
+@#endif
 
       tag++
       call MPI_send(stat_pf_dim_frag,1,mpi_int,mpi_slave_map_m(ilevel,mpi_rank),tag,comm_world_dup,mpi_err)
@@ -1117,6 +1125,10 @@ parallel and serial cases.
       tag=400
       call MPI_recv(stat_comp_frag,1,mpi_int,MPI_ANY_SOURCE,tag,comm_world_dup,mpi_status,mpi_err)
       slave=mpi_status(MPI_SOURCE);
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Recieving data from rank ', slave
+      call flush(diskout+3)
+@#endif
       tag++
       call MPI_recv(stat_wt_tot_frag,1,mpi_real,slave,tag,comm_world_dup,mpi_status,mpi_err)
       tag++
@@ -1129,7 +1141,15 @@ parallel and serial cases.
          stat_dim_frag=new_dim
       end if
       tag++
+@#if MPI_slave_messages
+      write(diskout+3,*) ' Before recieving stat_frag array. Size = ',array_size(stat_frag),'; origin = ',slave,'; tag = ',tag,'; mpi_status = ',mpi_status,'; mpi_err = ',mpi_err 
+      call flush(diskout+3)
+@#endif
       call MPI_recv(stat_frag,array_size(stat_frag),mpi_real,slave,tag,comm_world_dup,mpi_status,mpi_err)
+@#if MPI_slave_messages
+      write(diskout+3,*) ' After recieving stat_frag array.'
+      call flush(diskout+3)
+@#endif
 
       tag++
       call MPI_recv(new_dim,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
@@ -1162,6 +1182,10 @@ parallel and serial cases.
       tag++
       call MPI_recv(new_sn_num_particles,1,mpi_int,slave,tag,comm_world_dup,mpi_status,mpi_err)
 
+@#if MPI_slave_messages
+      write(diskout+3,*) ' After data recieve'
+      call flush(diskout+3)
+@#endif
       if (new_sn_num_particles > 0) then
 /*
    The reallocations of these arrays roughly parallel that of some in

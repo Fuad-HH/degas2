@@ -92,7 +92,7 @@ tuned for a particular number of processors and network.
 
 @<Functions...@>=
 @#if MPI
-      subroutine degas2_mpi_init(standalone)
+      subroutine degas2_mpi_init(standalone,comm_world)	
 
       define_dimen(slave_ind,mpi_nslaves)
       define_varp(meta_slave_ranks,INT,slave_ind)
@@ -101,7 +101,7 @@ tuned for a particular number of processors and network.
       mp_common
       implicit_none_f90
 
-      integer standalone                                 // Input
+      integer standalone,comm_world                      // Input
       integer n_meta_slaves,ilevel,islave,world_group,   // Local
      $        last_meta_slave
       mp_decls
@@ -113,7 +113,10 @@ tuned for a particular number of processors and network.
       if (standalone == TRUE) then
          mpi_init
       else
-         mpi_copy_comm
+         mpi_degas2_root=0;
+         call MPI_Comm_dup(comm_world,comm_world_dup,mpi_err) ;
+         call MPI_comm_rank(comm_world_dup, mpi_rank, mpi_err);
+         call MPI_comm_size(comm_world_dup, mpi_size, mpi_err) @;
       end if
 
       mpi_nslaves=mpi_size-1

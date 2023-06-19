@@ -16,12 +16,15 @@
 @m mpi_init
       call MPI_init(mpi_err);
       mpi_degas2_root=0;
-      call MPI_Comm_dup(MPI_COMM_WORLD,comm_world_dup) ;
+      call MPI_Comm_dup(MPI_COMM_WORLD,comm_world_dup,mpi_err) ;
       call MPI_comm_rank(comm_world_dup, mpi_rank, mpi_err);
       call MPI_comm_size(comm_world_dup, mpi_size, mpi_err) @;
 
 @m mpi_copy_comm
-      call MPI_Comm_dup(MPI_COMM_WORLD,comm_world_dup) @;
+      mpi_degas2_root=0;
+      call MPI_Comm_dup(MPI_COMM_WORLD,comm_world_dup,mpi_err) ;
+      call MPI_comm_rank(comm_world_dup, mpi_rank, mpi_err);
+      call MPI_comm_size(comm_world_dup, mpi_size, mpi_err) @;
 
 @m mpi_end
       call MPI_barrier(comm_world_dup, mpi_err);

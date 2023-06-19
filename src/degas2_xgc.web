@@ -36,7 +36,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
 @* Initialization routine
 
 @<Functions...@>=
-      subroutine degas2_xgc_init(root,sml_totalpe,sml_mype,
+      subroutine degas2_xgc_init(comm_world,root,sml_totalpe,sml_mype,
      $                           num_xgc_segs,xgc_bdy_r,xgc_bdy_z,
      $                           xgc_e_bin_num,xgc_e_bin_spacing,
      $                           xgc_e_bin_min,xgc_e_bin_delta,
@@ -51,7 +51,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       implicit_none_f90
      
       integer root,sml_totalpe,sml_mype,num_xgc_segs,         // Input
-     $        xgc_e_bin_num,xgc_e_bin_spacing
+     $        xgc_e_bin_num,xgc_e_bin_spacing, comm_world
       real xgc_e_bin_min,xgc_e_bin_delta
       real xgc_bdy_r[num_xgc_segs],xgc_bdy_z[num_xgc_segs]
 
@@ -78,7 +78,7 @@ there is a fair bit of hardwired code here, e.g., regarding species.
       mpi_size=sml_totalpe
       mpi_rank=sml_mype
       standalone=FALSE
-      call degas2_mpi_init(standalone)
+      call degas2_mpi_init(standalone,comm_world)
 @#else
 /* 
    Want something stronger than the usual |assert| since the novice user
