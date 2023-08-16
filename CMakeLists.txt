@@ -47,8 +47,9 @@ if("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
 
    if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER 10.0)
    #if (CMAKE_COMPILER_ID STREQUAL "GNU")
-   #   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fallow-argument-mismatch")
-      list(APPEND CMAKE_Fortran_FLAGS -fallow-argument-mismatch)
+   #      set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fallow-argument-mismatch")
+      list(APPEND CMAKE_Fortran_FLAGS "-fallow-argument-mismatch")
+   #      add_compile_options(-fallow-argument-mismatch)
    endif()
 endif()
 
@@ -719,6 +720,8 @@ target_include_directories(definegeometry2d PUBLIC deps/silo/src/silo PUBLIC dep
 
 target_link_libraries(ucd_plot ${NETCDF_LIBRARIES} silo)
 target_include_directories(ucd_plot PUBLIC deps/silo/src/silo)
+
+separate_arguments(MPI_Fortran_COMPILE_FLAGS)
 
 if (USE_MPI)
    target_link_libraries(flighttest ${MPI_Fortran_LIBRARIES})
