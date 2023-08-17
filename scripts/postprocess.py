@@ -37,7 +37,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
             signal_idx = itally
         elif "Lyman emission rate" in str(nc.chartostring(tallynames[itally])):
             emission_idx = itally
-        elif "ion source rate" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
+        elif "ion source rate" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally]) ) and not "total" in str(nc.chartostring(tallynames[itally])):
             ioniz_idx = itally
         elif "ion energy source" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
             esource_idx = itally
