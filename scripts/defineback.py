@@ -118,13 +118,17 @@ def get_zone_plasma_data_through_psi_inside_sep(zone_coords,R_outside,Z_outside,
     return ne_zone, Te_zone
 
 
-def get_zone_plasma_data_through_psi(zone_coords,R_data,ne_data,Te_data,psifunc):
+def get_zone_plasma_data_through_psi(zone_coords,ne_data,Te_data,psifunc,psi_data=None,R_data=None):
 
-    psi_data = []
+    if R_data != None:
+        psi_data = []
+        for R in R_data:
+            # Get average value on psi on each surface. Nominally all points should have equal psi
+            psi_data.append(psifunc(R,0.0))
+    else:
+        if psi_data == None:
+            print("ERROR: Must specify either R_data or psi_data in get_zone_plasma_data_through_psi")
 
-    for R in R_data:
-        # Get average value on psi on each surface. Nominally all points should have equal psi
-        psi_data.append(psifunc(R,0.0))
 
     ne_func = interpolate.interp1d(psi_data,ne_data,fill_value=(ne_data[0],ne_data[-1]))
     Te_func = interpolate.interp1d(psi_data,Te_data,fill_value=(Te_data[0],Te_data[-1]))
@@ -558,7 +562,7 @@ def generate_plasma_file(R_data,Z_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfi
 #   TiTe_ratio: a float value that provides Ti/Te, used to infer Ti from Te uniformly. To eventually replace with a separate array.
 #   psifunc: a function passed as an argument. This function should take R,Z as arguments and return psi
 #   plasmafilename (optional): the name and/or path of the plasma file to write
-def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,geomfilename,bfieldfilename="gs_fields.dat",ionmass=1.66e-27,plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
+def generate_plasma_file_through_psi(ne_data,Te_data,Ti_data,psifunc,geomfilename="geometry.nc",bfieldfilename=None,ionmass=1.66e-27,plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt",R_data=None,psi_data=None):
 
     ncdata = nc.Dataset(geomfilename)
     zone_coords_3D = ncdata["zone_center"]
@@ -580,61 +584,68 @@ def generate_plasma_file_through_psi(R_data,ne_data,Te_data,TiTe_ratio,psifunc,g
     area_zone = np.zeros(np.size(zone_idx))
     vpar_zone = np.zeros(np.size(zone_idx))
    
-    ne_zone, Te_zone = get_zone_plasma_data_through_psi(zone_coords,R_data,ne_data,Te_data,psifunc)
+    if R_data == None:
+        ne_zone, Te_zone = get_zone_plasma_data_through_psi(zone_coords,ne_data,Te_data,psifunc,psi_data=psi_data)
+        ni_zone, Ti_zone = get_zone_plasma_data_through_psi(zone_coords,ne_data,Ti_data,psifunc,psi_data=psi_data)
+    else:
+        ne_zone, Te_zone = get_zone_plasma_data_through_psi(zone_coords,R_data,ne_data,Te_data,psifunc,R_data=R_data)
+        ne_zone, Ti_zone = get_zone_plasma_data_through_psi(zone_coords,R_data,ne_data,Ti_data,psifunc,R_data=R_data)
 
     #diag_r = np.zeros(len(plasma_sector))
     #diag_z = np.zeros(len(plasma_sector))
 
-    file = open(bfieldfilename,"r")
-    first = True
-    r_data = []
-    z_data = []
-    Br_data = []
-    Bz_data = []
-    for line in file:
-        if not first:
+    if bfieldfilename != None:
+        file = open(bfieldfilename,"r")
+        first = True
+        r_data = []
+        z_data = []
+        Br_data = []
+        Bz_data = []
+        for line in file:
+            if not first:
+                first=False
+                data = line.split()
+                r_data.append(float(data[0]))
+                z_data.append(float(data[1]))
+                Br_data.append(float(data[2]))
+                Bz_data.append(float(data[4]))
             first=False
-            data = line.split()
-            r_data.append(float(data[0]))
-            z_data.append(float(data[1]))
-            Br_data.append(float(data[2]))
-            Bz_data.append(float(data[4]))
-        first=False
-    file.close()
+        file.close()
 
-    # Find the zones corresponding to each plasma sector 
-    for isector in range(1,len(plasma_sector)):
-        psector = plasma_sector[isector]
-        izone = sector_zone[psector]-1
-        localidx = zone_idx.index(izone)
-        vpar_zone[localidx] = np.sqrt(1.602e-19*Te_zone[localidx]/ionmass)
+        # Find the zones corresponding to each plasma sector 
+        for isector in range(1,len(plasma_sector)):
+            psector = plasma_sector[isector]
+            izone = sector_zone[psector]-1
+            localidx = zone_idx.index(izone)
+            vpar_zone[localidx] = np.sqrt(1.602e-19*Te_zone[localidx]/ionmass)
+    
+            # The two points that define the sector line segment
+            point1 = np.array([sector_points[psector,0,0],sector_points[psector,0,2]])
+            point2 = np.array([sector_points[psector,1,0],sector_points[psector,1,2]])
+    
+            center = 0.5*(point1+point2)
+    
+            # Get the unit vector normal to this surface, a_unit
+            diff = point2-point1
+            normal = [-diff[1],diff[0]]
+            a_unit = normal/np.linalg.norm(normal)
+            fullarea = 2.0*np.pi*center[0]*np.linalg.norm(diff)
+    
+            # Get the magnetic field unit vector in the poloidal plane, b_unit
+            # Use nearest data point:
+            data_idx = np.argmin(np.sqrt( np.square(center[0]-r_data) + np.square(center[1]-z_data)) )
+    
+            Br=Br_data[data_idx]
+            Bz=Bz_data[data_idx]
+    
+            b_unit = [Br,Bz]/np.linalg.norm([Br,Bz])
+    
+            area_zone[localidx] = fullarea*np.abs(np.dot(b_unit,a_unit))
 
-        # The two points that define the sector line segment
-        point1 = np.array([sector_points[psector,0,0],sector_points[psector,0,2]])
-        point2 = np.array([sector_points[psector,1,0],sector_points[psector,1,2]])
+        write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
-        center = 0.5*(point1+point2)
+    write_plasmafile(ne_zone,Te_zone,Ti_zone,plasmafilename=plasmafilename)
 
-        # Get the unit vector normal to this surface, a_unit
-        diff = point2-point1
-        normal = [-diff[1],diff[0]]
-        a_unit = normal/np.linalg.norm(normal)
-        fullarea = 2.0*np.pi*center[0]*np.linalg.norm(diff)
-
-        # Get the magnetic field unit vector in the poloidal plane, b_unit
-        # Use nearest data point:
-        data_idx = np.argmin(np.sqrt( np.square(center[0]-r_data) + np.square(center[1]-z_data)) )
-
-        Br=Br_data[data_idx]
-        Bz=Bz_data[data_idx]
-
-        b_unit = [Br,Bz]/np.linalg.norm([Br,Bz])
-
-        area_zone[localidx] = fullarea*np.abs(np.dot(b_unit,a_unit))
-
-    write_plasmafile(ne_zone,Te_zone,TiTe_ratio*Te_zone,plasmafilename=plasmafilename)
-
-    write_sourcefile(sourcefilename,ne_zone,vpar_zone,area_zone,plasma_sector,sector_strata_segment,sector_zone,strata)
 
 def write_cylindrical_polygon_input(rgrid,ne,Te,TiTe_ratio,S0,R_tot,NR,Nflights,walltemp=300.0,source_sp="H2",plasmafilename="plasmafile.txt",sourcefilename="sourcefile.txt"):
 

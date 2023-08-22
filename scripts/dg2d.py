@@ -665,7 +665,7 @@ def write_dg2d_input_from_triangle_file(trifile_base,material,recyc,dg2dfile_nam
 
     return ne_zone, Te_zone/1.602e-19, Ti_zone/1.602e-19, strata, segments, source_strength, zone_map
 
-def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,def_separatrix=True,clockwise=False,exitnodes=[]):
+def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.0,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,def_separatrix=False,clockwise=False,exitnodes=[]):
 
     # Read the wallfile
     wallfile = open(wallfile_name,'r')
@@ -1118,7 +1118,8 @@ def generateGeometryFromEFITfile(efitfile,mat,recyc_coef=1.0,Twall=300.0,wfilena
 
     polys,wall=write_dg2d_input_from_single_wall(wfilename,mat,recyc_coef,walltemp=Twall,minarea=-1.0,dg2dfile_name="dg2d.in",polygon_filename="polygons.nc",debug=False,exitnodes=[],def_separatrix=False,clockwise=clockwise)
 
-    return psi_func, nodes, g.R0
+#    return psi_func, nodes, g.R0
+    return psi_func, nodes
 
 def generateSimpleCylinderGeometry(rgrid,material,Twall,recyc,Lz=None,wallfile_name="wallfile.txt",dg2dfile_name="dg2d.in"):
     if not Lz:
