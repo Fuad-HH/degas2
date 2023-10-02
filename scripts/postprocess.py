@@ -9,6 +9,58 @@ from matplotlib import ticker
 from scipy.spatial import Delaunay
 from scipy.interpolate import LinearNDInterpolator
 
+
+def get_output(tallyname,sgroup=None,outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc",debug=False,with_err=False):
+    Nvar_max = 5
+
+    outputdata=nc.Dataset(outputfilename)
+    tallydata=nc.Dataset(tallyfilename)
+    geomdata = nc.Dataset(geometryfilename)
+
+    tallynames = tallydata["tally_name"]
+    Ntally=len(tallynames)
+
+    tally_idx = -1
+    found=False
+    for itally in range(0,Ntally):
+        if debug:
+            print(str(nc.chartostring(tallynames[itally])).strip())
+        if tallyname.strip() == str(nc.chartostring(tallynames[itally])).strip():
+            found = True
+            tally_idx = itally
+    if not found:
+        print("ERROR: Could not find tally named "+tallyname+"\n")
+
+    varnames = tallydata["tally_var_list"]
+    Nvar = len(varnames)
+
+    base_idx = tallydata["tally_base"][tally_idx]
+
+    tally_indices = np.array(tallydata["tally_tab_index"][tally_idx][:])
+
+    Ndat_tally = np.prod(tally_indices)
+
+    Ngroup = 1
+    if (sgroup == None):
+        outdata_raw = np.array(outputdata["out_post_all"][base_idx:base_idx+Ndat_tally,0])
+        error_raw = np.array(outputdata["out_post_all"][base_idx:base_idx+Ndat_tally,1])
+    elif (sgroup == "all" or sgroup == "ALL" or sgroup == "All"):
+        outdata_raw = np.array(outputdata["out_post_grp"][:,base_idx:base_idx+Ndat_tally,0])
+        error_raw = np.array(outputdata["out_post_grp"][:,base_idx:base_idx+Ndat_tally,1])
+        Ngroup = len(outdata_raw[:,0])
+    else:
+        outdata_raw = np.array(outputdata["out_post_grp"][sgroup,base_idx:base_idx+Ndat_tally,0])
+        error_raw = np.array(outputdata["out_post_grp"][sgroup,base_idx:base_idx+Ndat_tally,1])
+    outdata = np.squeeze(np.reshape(outdata_raw,np.append(Ngroup,tally_indices),order='F'))
+    error = np.squeeze(np.reshape(error_raw,np.append(Ngroup,tally_indices),order='F'))
+
+    if with_err:
+        return outdata, error
+    else:
+        return outdata
+
+    
+
 # Returns neutral density and detector signals 
 def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc",plot=False,lymandatafile=None):
     outputdata=nc.Dataset(outputfilename)
@@ -37,7 +89,7 @@ def process_output_with_llama(outputfilename="output.nc",tallyfilename="tally.nc
             signal_idx = itally
         elif "Lyman emission rate" in str(nc.chartostring(tallynames[itally])):
             emission_idx = itally
-        elif "ion source rate" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
+        elif "ion source rate" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally]) ) and not "total" in str(nc.chartostring(tallynames[itally])):
             ioniz_idx = itally
         elif "ion energy source" in str(nc.chartostring(tallynames[itally])) and not "by reaction" in str(nc.chartostring(tallynames[itally])):
             esource_idx = itally
