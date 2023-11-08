@@ -169,7 +169,7 @@ def run_case(run_geo=True,run_flighttest=True,n_mpi=1,dir=""):
     subprocess.run(dir+"tallysetup",shell=True)
     if (run_flighttest):
         if (n_mpi > 1):
-            subprocess.run("mpirun -np 4 "+dir+"flighttest",shell=True)
+            subprocess.run("mpirun -np %d "%Nflights+dir+"flighttest",shell=True)
         else:
             subprocess.run(dir+"flighttest",shell=True)
     subprocess.run(dir+"ucd_plot polygon.nc",shell=True)
