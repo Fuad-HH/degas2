@@ -7,10 +7,20 @@ To compile the datasetup component, for example:
     cmake ..
     make datasetup
 
-Executables are created in the build/bin directory and can be run from an arbitrary working directory if this directory is in your PATH environment variable.
-
-If you wish to enable MPI (which currently requires flighttest to be run with mpirun), use the following CMake option:
+If you wish to enable MPI (which currently requires flighttest to be run with mpirun), use the following CMake option instead of the third command above:
     cmake -DUSE_MPI=ON ..
+
+From the build directory, the following is required and is also a test of functionality:
+
+    cp ../data/degas2.in .
+    bin/datasetup
+
+To build the most commonly required components:
+    make boxgen problemsetup definegeometry2d defineback tallysetup flighttest ucd_plot outputbrowser
+
+The degas2.in and tally.in files in degas2/data/ should be copied to each of your working directories. 
+
+Executables are created in the build/bin and can be run from an arbitrary working directory if this directory is in your PATH environment variable. You may also find it handy to include degas2/scripts in your PYTHONPATH environment variable.
 
 If building on MacOS, FWEB won't compile with the default "gcc" (clang wrapper). Install the GNU version of gcc from macports or homebrew and replace the above cmake command with:
    cmake -DCMAKE_C_COMPILER=gcc-11 ..
