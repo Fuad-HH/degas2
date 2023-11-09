@@ -5,9 +5,26 @@ import matplotlib.pyplot as plt
 
 # A polygon is an ordered set of vertices, connected by segments which close in on itself.
 class Polygon:
+    """
+    A helper class to build polygons for definegeometry2d input. Not the most concise class it could be.
+
+    Attributes:
+        num_polygons: Global integer to keep track of the total number of polygons defined
+        vertices: A list of points representing a closed polygon. Accessed through add_vertex method.
+        id: Integer identification for the polygon. Usually corresponds to "stratum.
+        alongwall: Boolean for whether this is an external (wall) point. Incomplete feature.
+    """
+
     numPolygons = 0 
 
     def __init__(self,increment=True,id=None):
+        """
+        Constructor for an instance of Polygon
+    
+        Args:
+            increment: If true (default), increments numPolygons.
+            id: If specified, will set this to be the id of the polygon. Otherwise, will use numPolygons to increment. Inconsistent implementation.
+        """
         self.vertices = []
         if id:
             self.id = id
@@ -31,6 +48,11 @@ class Polygon:
         Polygon.numPolygons = 0
 
     def get_n_wallnodes(self):
+        """
+        Method to count the number of Vertices along Polygon where wall=True
+        Returns:
+            nwallnodes: number of wall nodes in this polygon
+        """
         nwallnodes = 0
         for vertex in self.vertices:
             if vertex.wall:
@@ -38,6 +60,12 @@ class Polygon:
         return nwallnodes
 
     def get_first_wallnode(self):
+        """
+        Method to get the first vertex along the Polygon with the wall flag True.
+        Returns:
+            first: index of the first wall vertex
+        """
+
         # Expects one contiguous set of nodes that are designated as wall nodes
         # Also expects at least one node that is not a wall node.
         first = -1
@@ -55,6 +83,13 @@ class Polygon:
         return first
 
     def reorder_wallnodes_first(self):
+        """
+        Method that reorders the nodes in the polygon so that those adjacent to the wall are listed first. Usually used for triangles.
+
+        Returns:
+            nwallnodes: integer for the number of wall nodes in this polygon
+        """
+
         nwallnodes = self.get_n_wallnodes()
         nvertex = len(self.vertices)
         if nwallnodes >= 1:
@@ -67,10 +102,19 @@ class Polygon:
         # use return value if expecting more than one wall segment
         return nwallnodes 
 
-    # Linearly extrapolate the last two vertices defined for this polygon
-    # and find the point on the specified surface which is closest to said line.
-    # Returns index of said point
     def get_next_vertex_extrapolated_to_wall(self,wall):
+        """
+        Used for niche cases.
+        Linearly extrapolate the last two vertices defined for this polygon
+        and find the point on the specified surface which is closest to said line.
+        Returns index of said point
+        Method that reorders the nodes in the polygon so that those adjacent to the wall are listed first. Usually used for triangles.
+
+        Returns:
+            closest_idx: index of the wall vertex 
+        """
+
+
         # These last two points defined thus far for the polygon define
         # the line to which we are seeking the closest point on wall
         point1 = self.vertices[-2].coords
@@ -129,6 +173,20 @@ class Polygon:
     # they must go *counter*-clockwise, start with the innermost, share a common wall (wallid)
 
     def close_in_universal_cell(f,wallnodes,wallid,stratum,material,recyc,debug=False,clockwise=False,walltemp=300.0):
+        """
+        A widely used method to envelop the plasma/vacuum domain within the universal cell; otherwise closed by a solid surface with specified properties
+
+        Args:
+            f: opened dg2d.in file ready to write the solid zones.
+            wallnodes: list of Vertices that enclose the plasma zones.
+            stratum: integer or string; first unused stratum to write
+            material: string for the wall material to use
+            recyc: recycling coefficient for the wall
+            debug: (optional) If true, intends for definegeometry2d to write out the polygon for debugging instead of generating the geometry.
+            clockwise: (optional) If true, wallnodes are specified in clockwise order.
+            walltemp: (optional) float for the wall temperature in Kelvin
+        """
+
         f.write("new_zone solid\n")
         f.write("new_polygon\n")
         f.write("  material "+material+"\n")
@@ -196,6 +254,18 @@ class Polygon:
     # Writes the polygon to file f
     # If debug, include lines that output polygons to poly.X.dat files
     def write_plasma_polygon_dg2d(self,f,stratum=None,wallid=None,commonzone=False,minarea=-1.0,debug=False,newzone=True):
+        """
+        Writes a plasma Polygon to the dg2d.in file
+
+        Args:
+            f: opened dg2d.in file ready to write the plasma polygon
+            stratum: (optional) Integer stratum to label this polygon. If not specified, uses the polygon's id plus one.
+            wallid: (optional) Integer id of the wall label in wallfile. Usually 1 or the polygon id. If not specified, uses the polygon id.
+            commonzone: (optional) Boolean flag. If true, entire polygon is a common zone. Otherwise, instructs definegeometry2d to break up polygons into triangles, with each a unique zone. Default False.
+            minarea: (optional) Float for the minimum triangle area to pass to definegeometry2d. Does not appear to work. 
+            newzone: (optional) Boolean flag. If false, dose not create a new zone but appends polygon to the existing zone. Default True.
+            debug: (optional) Boolean flag for whether to instruct definegeometry2d to print out polygon instead of generating geometry for this zone. Default False.
+        """
         if not wallid:
             wallnum = self.id+1 
         if not stratum:
@@ -248,21 +318,6 @@ class Polygon:
             plt.plot(R,Z,"+-")
         plt.show()
 
-
-
-    def plot_polygons(polys):
-        import matplotlib.pyplot as plt
-
-        plt.clf()
-        for poly in polys:
-            R = []
-            Z = []
-            for vertex in poly.vertices:
-                R.append(vertex.coords[0])
-                Z.append(vertex.coords[1])
-            plt.plot(R,Z,"+-")
-        plt.show()
-    
     def add_wall_segment(self,wall,begin_idx,end_idx,backward=False):
         if backward:
             begin=begin_idx
@@ -286,7 +341,90 @@ class Polygon:
             step=1
         for vertex in surf.vertices[begin:end:step]:
             self.add_vertex(vertex)
+
+    def is_clockwise(self,force=False):
+        Nvertex = len(self.vertices)
+        sumarea = 0.0
+        result = True
+        for i in range(0,Nvertex):
+            r1 = self.vertices[i].coords[0]
+            z1 = self.vertices[i].coords[1]
+            r2 = self.vertices[np.mod(i+1,Nvertex)].coords[0]
+            z2 = self.vertices[np.mod(i+1,Nvertex)].coords[1]
+            sumarea += (r2-r1)*(z1+z2)
+
+        if sumarea < 0.0:
+            result = False
+            if force:
+                newpoly = Polygon(increment=False,id=self.id)
+                for i in range(0,Nvertex):
+                    newpoly.add_vertex(self.vertices[Nvertex-i-1])
+                self = newpoly
+
+        return result
+
             
+    def build_aux_wall_polygons(self,firstid,thickness=0.005):
+        """
+        Uses a wall-defining polygon to build many individual zones adjacent to the segments that make up the limiter. 
+        Allows more flexibility in defining the behavior of each individual segment. 
+        Use with caution when limiter features are sub-10mm scale.
+        
+        Args:
+            firstid: integer for the first id start building sequentially new vertices.
+            thickness: (optional) float for the thickness of each auxiliary polygon in meters. Defaults to 5mm, but not universally consistent for small features.
+        Returns:
+            aux_polys: list of auxiliary Polygons representing independent wall behavior.
+            outpoly: Polygon representing the outer points of the auxiliary polygons
+            newvertices: Vertices added to create auxiliary wall polygons. To be appended to dg2d wallfile.
+        """
+    
+        aux_polys = []
+        newvertices = []
+        outpoly = Polygon()
+
+        self.is_clockwise(force=True)
+        Nvertex = len(self.vertices)
+
+        # Start with vertex closest to origin
+        startidx = -1
+        dist = 9.0e30
+        for i in range(0,Nvertex):
+            if np.norm(self.vertices[i].coords) < dist:
+                dist = np.norm(self.vertices[i].coords)
+                startidx = i
+
+        v1 = self.vertices[startidx]
+        v2 = self.vertices[np.mod(startidx+1,Nvertex)]
+        normal = np.zeros(2)
+        normal[0] = v1.coords[1]-v2.coords[1]
+        normal[1] = v2.coords[0]-v1.coords[0]
+        normal = normal / np.norm(normal)
+        newvertices.append(Vertex(firstid,v1[0]+thickness*normal[0],v1[1]+thickness*normal[1]))
+        outpoly.add_vertex(newvertices[-1])
+            
+        # Go around plasma polygon and accumulate new vertices offset outward by thickness
+        for i in range(1,Nvertex):
+            v1 = self.vertices[i]
+            v2 = self.vertices[np.mod(i+1,Nvertex)]
+            normal = np.zeros(2)
+            normal[0] = v1.coords[1]-v2.coords[1]
+            normal[1] = v2.coords[0]-v1.coords[0]
+            normal = normal / np.norm(normal)
+
+            newvertices.append(Vertex(firstid+i,v1[0]+thickness*normal[0],v1[1]+thickness*normal[1]))
+            outpoly.add_vertex(newvertices[-1])
+
+        # Build new polygons
+        for i in range(0,Nvertex):
+            newpoly = Polygon()
+            newpoly.add_vertex(self.vertices[np.mod(i+1,Nvertex)])
+            newpoly.add_vertex(self.vertices[i])
+            newpoly.add_vertex(newvertices[i])
+            newpoly.add_vertex(newvertices[np.mod(i+1,Nvertex)])
+            aux_polys.append(newpoly)
+
+        return aux_polys, outpoly, newvertices
 
 # A surface is also an ordered set of vertices, but can be open or closed
 # The vertices that make up various surfaces are combined to make a polygon
@@ -487,7 +625,25 @@ class Surface:
         plt.show()
 
 class Vertex:
+    """
+    A helper class to build polygons for definegeometry2d.
+
+    Attributes:
+        coords: 2-element array representing R,Z coordinates for the vertex.
+        id: Integer identification number for the vertex. Must be passed to constructor.
+        wall: Boolean flag for whether this vertex is "outer"; along the wall.
+        wall_id: Id for the vertex in the context of the "wallfile". Inconsistent implementation?
+    """
     def __init__(self,id_in,R,Z):
+        """
+        Constructor for Vertex class instance.
+
+        Args:
+            id_in: Mandatory integer identifier.
+            R: Float R coordinate
+            Z: Float Z coordinate
+        """
+
         self.coords = [R,Z]
         self.id = id_in 
         self.wall = False
