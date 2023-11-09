@@ -10,12 +10,15 @@ import matplotlib.tri.triangulation as mtri
 
 class DG2D:
     """ 
-    Class representing all input for definegeometry2d
+    Class representing all input for definegeometry2d.
+    Conventions: First N=len(polys) zones are the internal plasma and vacuum zones, bounded by Nwall=len(wallpoly.vertices). 
+    Strata are labelled sequentially starting from 1. Next Nwall zones (and strata) are the embedded auxiliary zones.
 
     Attributes:
         nodes: list of Vertices, each representing an entry in the wall file from which to build the geometry
         polys: list of Polygons, each representing a plasma or vacuum zone, densely covering a single polygon (see wallnodes)
         wallpoly: Polygon representing the boundary wall, vertices ordered and enforced to be clockwise.
+        outerpoly: Polygon representing the outermost polygon embedded in the wall.
         symmetry: string for the type of symmetry in problem
         Rbounds: two-element array for minimum and maximum R in the universal cell
         Zbounds: two-element array for minimum and maximum Z in the universal cell
@@ -28,7 +31,11 @@ class DG2D:
     def __init__(self):
         self.polys = []
         self.wallpoly = None
+        self.outerpoly = None
         self.symmetry = "cylindrical"
+        self.default_material = None
+        self.default_walltemp = None
+        self.default_Rcoeff = None
         self.Rbounds = [0.01,10.0]
         self.Zbounds = [-10.0,10.0]
         self.vertex_list = []
@@ -39,6 +46,18 @@ class DG2D:
     def increment_stratum(self):
         self.current_stratum += 1
         return self.current_stratum
+    
+    def set_wallprops(self,walltemp=300.0,Rcoeff=1.0,material="mirror",wallidx=None):
+        # Apply to all segments as a default
+        if wallidx == None:
+            for i in range(len(polys),len(polys)+len(wallpoly.vertices)):
+                #TODO fill in appropriate arrays
+        else:
+
+        self.default_walltemp= walltemp
+        self.default_Rcoeff= Rcoeff
+        self.default_material= material
+
 
     def set_bounds(self):
         Nvertex = len(vertex_list)
@@ -138,6 +157,7 @@ class DG2D:
             self.write_internal_polygon(poly)
         
         aux_polys, outpoly, newvertices = self.wallpoly.build_aux_wall_polygons(self.nodes[-1].id+1,thickness=0.005)
+        self.outerpoly = outpoly
 
         Nnew = len(newvertices)
         for i in range(0,Nnew):
