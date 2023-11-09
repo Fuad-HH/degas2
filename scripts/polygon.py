@@ -13,6 +13,8 @@ class Polygon:
         vertices: A list of points representing a closed polygon. Accessed through add_vertex method.
         id: Integer identification for the polygon. Usually corresponds to "stratum.
         alongwall: Boolean for whether this is an external (wall) point. Incomplete feature.
+        vacuum: Boolean for whether this polygon represents a vacuum zone
+        split: Flag for whether this polygon is intended to split into multiple zones
     """
 
     numPolygons = 0 
@@ -33,6 +35,8 @@ class Polygon:
         if increment:
             Polygon.numPolygons += 1
         self.alongwall = False
+        self.vacuum = False
+        self.split = False
 
     # Polygons are equal if their vertices are equal
     def __eq__(self,other):
@@ -43,6 +47,9 @@ class Polygon:
 
     def add_vertex(self,vertex):
         self.vertices.append(vertex)
+
+    def split_into_zones(self):
+        self.split = True
 
     def clear_numPolygon():
         Polygon.numPolygons = 0
