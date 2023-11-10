@@ -11,8 +11,8 @@ import scipy.special as sp
 import netCDF4 as nc
 import sys
 
-def get_bp_mesh():
-    meshfile = adios2.open("xgc.mesh.bp","r")
+def get_bp_mesh(filename="xgc.mesh.bp"):
+    meshfile = adios2.open(filename,"r")
     connections = meshfile.read("/cell_set[0]/node_connect_list")
     coords = meshfile.read("/coordinates/values")
     wallnodes = meshfile.read("grid_wall_nodes")

@@ -219,6 +219,30 @@ class DG2D:
         self.wallpoly= limpoly
         self.polys.append(limpoly)
 
+    def calculate(self,material,Rcoeff,Rlim=None,Zlim=None,gfile=None,bpfile=None,walltemp=300.0,bindir=""):
+        if not Rlim == None:
+            self.define_limiter(Rlim,Zlim)
+        elif not gfile == None:
+            g = read_geqdsk(gfile)
+            Rlim = g.lim[:,0]
+            Zlim = g.lim[:,1]
+            self.define_limiter(Rlim,Zlim)
+        elif bpfile == None:
+            coords,conn,wallnodes = get_bp_mesh(bpfile) 
+            self.define_mesh(coords,conn,wallnodes=wallnodes)
+        else:
+            print("ERROR: calculate method requires some geometry data")
+
+        if (material == None) or (Rcoeff == None):
+            print("ERROR: calculate method requires material and recycling coefficient")
+
+        self.set_wallprops(walltemp=walltemp,material=material,Rcoeff=Rcoeff)
+        self.write_files()
+        if bindir != "" and bindir[-1] != '/':
+            bindir = bindir+"/"
+
+        subprocess.run(bindir+"definegeometry2d dg2d.in")
+
     def write_files(self):
         """
         Writes definegeometry2d input files from data in DG2D object.
