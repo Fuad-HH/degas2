@@ -366,16 +366,28 @@ class Polygon:
                 newpoly = Polygon(increment=False,id=self.id)
                 for i in range(0,Nvertex):
                     newpoly.add_vertex(self.vertices[Nvertex-i-1])
-                self = newpoly
+                self.vertices = newpoly.vertices
 
         return result
+
+    def get_first_idx(self):
+        # Start with vertex closest to origin
+        startidx = -1
+        Nvertex = len(self.vertices)
+        dist = 9.0e30
+        for i in range(0,Nvertex):
+            if np.linalg.norm(self.vertices[i].coords) < dist:
+                dist = np.linalg.norm(self.vertices[i].coords)
+                startidx = i
+        return startidx
 
             
     def build_aux_wall_polygons(self,firstid,thickness=0.005):
         """
         Uses a wall-defining polygon to build many individual zones adjacent to the segments that make up the limiter. 
         Allows more flexibility in defining the behavior of each individual segment. 
-        Use with caution when limiter features are sub-10mm scale.
+        Use with caution when limiter features are sub-10mm scale and sharp corners. Any corner with acute angle is
+        liable to fail in current implementation. Should instead extend from angle bisection (TODO).
         
         Args:
             firstid: integer for the first id start building sequentially new vertices.
@@ -393,35 +405,35 @@ class Polygon:
         self.is_clockwise(force=True)
         Nvertex = len(self.vertices)
 
-        # Start with vertex closest to origin
-        startidx = -1
-        dist = 9.0e30
-        for i in range(0,Nvertex):
-            if np.norm(self.vertices[i].coords) < dist:
-                dist = np.norm(self.vertices[i].coords)
-                startidx = i
+        startidx = self.get_first_idx()
 
+        v0 = self.vertices[np.mod(startidx-1,Nvertex)]
         v1 = self.vertices[startidx]
         v2 = self.vertices[np.mod(startidx+1,Nvertex)]
-        normal = np.zeros(2)
-        normal[0] = v1.coords[1]-v2.coords[1]
-        normal[1] = v2.coords[0]-v1.coords[0]
-        normal = normal / np.norm(normal)
-        newvertices.append(Vertex(firstid,v1[0]+thickness*normal[0],v1[1]+thickness*normal[1]))
+
+        diff1 = np.array(v0.coords) - np.array(v1.coords)
+        diff2 = np.array(v2.coords) - np.array(v1.coords)
+
+        alpha = np.arctan2(diff2[1],diff2[0]) - 0.5*np.arccos( np.dot(diff1,diff2)/(np.linalg.norm(diff1)*np.linalg.norm(diff2))) - np.pi
+
+        newvertices.append(Vertex(firstid,v1.coords[0]+thickness*np.cos(alpha),v1.coords[1]+thickness*np.sin(alpha)))
         outpoly.add_vertex(newvertices[-1])
             
         # Go around plasma polygon and accumulate new vertices offset outward by thickness
         for i in range(1,Nvertex):
+
+            v0 = self.vertices[np.mod(i-1,Nvertex)]
             v1 = self.vertices[i]
             v2 = self.vertices[np.mod(i+1,Nvertex)]
-            normal = np.zeros(2)
-            normal[0] = v1.coords[1]-v2.coords[1]
-            normal[1] = v2.coords[0]-v1.coords[0]
-            normal = normal / np.norm(normal)
-
-            newvertices.append(Vertex(firstid+i,v1[0]+thickness*normal[0],v1[1]+thickness*normal[1]))
+    
+            diff1 = np.array(v0.coords) - np.array(v1.coords)
+            diff2 = np.array(v2.coords) - np.array(v1.coords)
+    
+            alpha = np.arctan2(diff2[1],diff2[0]) - 0.5*np.arccos( np.dot(diff1,diff2)/(np.linalg.norm(diff1)*np.linalg.norm(diff2))) - np.pi
+    
+            newvertices.append(Vertex(firstid+i,v1.coords[0]+thickness*np.cos(alpha),v1.coords[1]+thickness*np.sin(alpha)))
             outpoly.add_vertex(newvertices[-1])
-
+ 
         # Build new polygons
         for i in range(0,Nvertex):
             newpoly = Polygon()
