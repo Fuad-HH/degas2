@@ -15,13 +15,13 @@ class DG2D:
     Conventions: First N=len(polys) zones are the internal plasma and vacuum zones, bounded by Nwall=len(wallpoly.vertices). 
     Strata are labelled sequentially starting from 1. Next Nwall zones (and strata) are the embedded auxiliary zones.
     Segments around closed wall polygon are indexed corresponding to the first vertex of the segment when traversing clockwise.
-    These lists of segments and wallnodes start with the one closest to the origin.
 
     Steps to building the appropriate data:
     1a. Define the limiter polygon. Triangulation will be done automatically. Option to specify minimum wall triangle size.
     OR
     1b. Import triangular mesh. Limiter shape will be inferred.
     2. Specify wall properties: material, temperature, recycling coefficient. Can be specified by segment.
+    3. Write files
 
     Attributes:
         nodes: list of Vertices, each representing an entry in the wall file from which to build the geometry
@@ -130,8 +130,12 @@ class DG2D:
 
         f.write("new_polygon\n")
         f.write("  stratum "+str(self.increment_stratum())+"\n")
-        for vertex in poly.vertices:
-            f.write("  wall 1 "+str(vertex.id)+" "+str(vertex.id)+"\n")
+        if poly.is_clockwise():
+            for vertex in poly.vertices:
+                f.write("  wall 1 "+str(vertex.id)+" "+str(vertex.id)+"\n")
+        else:
+            for vertex in reversed(poly.vertices):
+                f.write("  wall 1 "+str(vertex.id)+" "+str(vertex.id)+"\n")
 
         if poly.split:
             f.write("  triangulate_to_zones\n")
@@ -202,8 +206,6 @@ class DG2D:
             for i in range(0,Nwall):
                 self.wallpoly.add_vertex(self.vertex_list[wallnodes[np.mod(startidx+i,Nwall)]])
 
-        self.wallpoly.is_clockwise(force=True)
-
     def define_limiter(self,Rlim,Zlim):
         limpoly = Polygon()
         if len(Rlim) != len(Zlim):
@@ -212,7 +214,7 @@ class DG2D:
         for i in range(0,Nlim):
             self.vertex_list.append(Vertex(i,Rlim[i],Zlim[i]))
             limpoly.add_vertex(self.vertex_list[-1])
-        limpoly.is_clockwise(force=True)
+        #limpoly.is_clockwise(force=True)
         limpoly.split = True
         self.wallpoly= limpoly
         self.polys.append(limpoly)
@@ -225,7 +227,6 @@ class DG2D:
 
         self.write_header() 
         for poly in self.polys:
-            poly.is_clockwise(force=True)
             self.write_internal_polygon(poly)
         
         aux_polys, outpoly, newvertices = self.wallpoly.build_aux_wall_polygons(self.vertex_list[-1].id+1,thickness=0.005)
@@ -238,8 +239,10 @@ class DG2D:
         for i in range(0,len(aux_polys)):
             self.write_aux_polygon(aux_polys[i],material=self.materials[i],walltemp=self.walltemps[i],Rcoeff=self.Rcoeffs[i],exitzone=self.exits[i])
 
+        for i in range(0,len(outpoly.vertices)):
+            print(outpoly.vertices[i].id)
         f = open(self.infile_name,"a") 
-        Polygon.close_in_universal_cell(f,outpoly.vertices,1,self.current_stratum+1,self.materials[-1],self.Rcoeffs[-1],walltemp=self.walltemps[-1],clockwise=True)
+        Polygon.close_in_universal_cell(f,outpoly.vertices,0,self.current_stratum+1,self.materials[-1],self.Rcoeffs[-1],walltemp=self.walltemps[-1],clockwise=outpoly.is_clockwise())
 
         if self.write_polygonfile:
             f.write("polygon_nc_file "+self.polygonfile_name+"\n")

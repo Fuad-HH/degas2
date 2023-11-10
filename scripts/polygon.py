@@ -230,8 +230,8 @@ class Polygon:
         written_ids = []
         if clockwise:
             f.write("  wall "+str(wallid+1)+" "+
-                "0 0 "+"\n")
-            written_ids.append(0)
+                str(wallnodes[0].id)+" "+str(wallnodes[0].id)+"\n")
+            written_ids.append(wallnodes[0].id)
 
             for node in wallnodes[-1:0:-1]:
                 if not node.id in written_ids:
@@ -386,8 +386,7 @@ class Polygon:
         """
         Uses a wall-defining polygon to build many individual zones adjacent to the segments that make up the limiter. 
         Allows more flexibility in defining the behavior of each individual segment. 
-        Use with caution when limiter features are sub-10mm scale and sharp corners. Any corner with acute angle is
-        liable to fail in current implementation. Should instead extend from angle bisection (TODO).
+        Use with caution when limiter features are sub-10mm scale.
         
         Args:
             firstid: integer for the first id start building sequentially new vertices.
@@ -402,17 +401,24 @@ class Polygon:
         newvertices = []
         outpoly = Polygon()
 
-        self.is_clockwise(force=True)
         Nvertex = len(self.vertices)
 
-        startidx = self.get_first_idx()
+#        startidx = self.get_first_idx()
+        startidx = 0
 
-        v0 = self.vertices[np.mod(startidx-1,Nvertex)]
         v1 = self.vertices[startidx]
-        v2 = self.vertices[np.mod(startidx+1,Nvertex)]
+        if self.is_clockwise():
+            v0 = self.vertices[np.mod(startidx-1,Nvertex)]
+            v2 = self.vertices[np.mod(startidx+1,Nvertex)]
+        else:
+            v2 = self.vertices[np.mod(startidx-1,Nvertex)]
+            v0 = self.vertices[np.mod(startidx+1,Nvertex)]
 
         diff1 = np.array(v0.coords) - np.array(v1.coords)
         diff2 = np.array(v2.coords) - np.array(v1.coords)
+
+#        if not self.is_clockwise():
+#            thickness = -thickness 
 
         alpha = np.arctan2(diff2[1],diff2[0]) - 0.5*np.arccos( np.dot(diff1,diff2)/(np.linalg.norm(diff1)*np.linalg.norm(diff2))) - np.pi
 
@@ -422,9 +428,13 @@ class Polygon:
         # Go around plasma polygon and accumulate new vertices offset outward by thickness
         for i in range(1,Nvertex):
 
-            v0 = self.vertices[np.mod(i-1,Nvertex)]
             v1 = self.vertices[i]
-            v2 = self.vertices[np.mod(i+1,Nvertex)]
+            if self.is_clockwise():
+                v0 = self.vertices[np.mod(i-1,Nvertex)]
+                v2 = self.vertices[np.mod(i+1,Nvertex)]
+            else:
+                v2 = self.vertices[np.mod(i-1,Nvertex)]
+                v0 = self.vertices[np.mod(i+1,Nvertex)]
     
             diff1 = np.array(v0.coords) - np.array(v1.coords)
             diff2 = np.array(v2.coords) - np.array(v1.coords)
@@ -433,17 +443,39 @@ class Polygon:
     
             newvertices.append(Vertex(firstid+i,v1.coords[0]+thickness*np.cos(alpha),v1.coords[1]+thickness*np.sin(alpha)))
             outpoly.add_vertex(newvertices[-1])
+
+        # Reorder outpoly so that it starts with the appropriate segment
+        
+        lmin = 9e30
+        idxmin=-1
+        for i in range(0,Nvertex):
+            rmid = 0.5* (outpoly.vertices[i].coords[0] + outpoly.vertices[np.mod(i+1,Nvertex)].coords[0])
+            zmid = 0.5* (outpoly.vertices[i].coords[1] + outpoly.vertices[np.mod(i+1,Nvertex)].coords[1])
+            length= np.sqrt(rmid**2+zmid**2)
+            if length < lmin:
+                lmin = length
+                idxmin = i
+
+        newoutpoly = Polygon(increment=False)
+        for i in range(0,Nvertex):
+            newoutpoly.add_vertex( outpoly.vertices[np.mod(idxmin+i,Nvertex)] )
  
         # Build new polygons
         for i in range(0,Nvertex):
             newpoly = Polygon()
-            newpoly.add_vertex(self.vertices[np.mod(i+1,Nvertex)])
-            newpoly.add_vertex(self.vertices[i])
-            newpoly.add_vertex(newvertices[i])
-            newpoly.add_vertex(newvertices[np.mod(i+1,Nvertex)])
+            if self.is_clockwise():
+                newpoly.add_vertex(self.vertices[np.mod(i+1,Nvertex)])
+                newpoly.add_vertex(self.vertices[i])
+                newpoly.add_vertex(newvertices[i])
+                newpoly.add_vertex(newvertices[np.mod(i+1,Nvertex)])
+            else:
+                newpoly.add_vertex(self.vertices[i])
+                newpoly.add_vertex(self.vertices[np.mod(i+1,Nvertex)])
+                newpoly.add_vertex(newvertices[np.mod(i+1,Nvertex)])
+                newpoly.add_vertex(newvertices[i])
             aux_polys.append(newpoly)
 
-        return aux_polys, outpoly, newvertices
+        return aux_polys, newoutpoly, newvertices
 
 # A surface is also an ordered set of vertices, but can be open or closed
 # The vertices that make up various surfaces are combined to make a polygon
