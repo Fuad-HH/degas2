@@ -133,6 +133,7 @@ class DG2D:
                     prevnode = wallnodes[-1]
                     wallnodes.append(next_node)
                     self.wallpoly.add_vertex(wallnodes[-1])
+            self.wallpoly.is_clockwise(force=True)
         else:
             Nwall = len(wallnodes)
             for i in range(0,Nwall):
