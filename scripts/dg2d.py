@@ -124,7 +124,7 @@ class DG2D:
             prevnode=wallnodes[-1]
             first = True
             while not closed:
-                next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,first)
+                next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,first,check_clockwise=False)
                 first = False
                 print(next_node.id)
                 if next_node == wallnodes[0]:

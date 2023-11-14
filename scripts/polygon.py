@@ -777,7 +777,7 @@ def purge_invalid_nodes(allnodes,valid_tris):
             valid_nodes.append(node)
     return valid_nodes
 
-def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
+def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first,check_clockwise=True):
 
     # Collect triangles that share current_node
     adjacent_wall_triangles = []
@@ -838,12 +838,14 @@ def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
             if (segment[1] in wallnodes) and (not segment_shared_with_another_triangle):
                 if first:
                     # Ensure we start by going counterclockwise from the low field side
-                    if segment[1].coords[1] < current_node.coords[1]:
+                    if (segment[1].coords[1] < current_node.coords[1]) or not check_clockwise:
                         next_node=segment[1]
                 elif (segment[1] != prev_node):
-                    if (next_node != -1):
+                    if (next_node != -1) and check_clockwise:
                         sys.exit("Found multiple candidates for next_node. Logic of code fails.")
                     next_node = segment[1]
+
+
 
     if next_node == -1:
         sys.exit("Could not find a candidate next_node.")
