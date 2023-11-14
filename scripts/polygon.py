@@ -788,6 +788,7 @@ def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
     n_adjacent_triangles = len(adjacent_wall_triangles)
 
 #    print("current_node = %d"%current_node.id)
+#    print("n_adjacent_trianges = %d"%n_adjacent_triangles)
 
     next_node = -1
     # Loop through the adjacent wall triangles that share the current node
@@ -796,6 +797,11 @@ def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
         # Create list of adjacent triangles that excludes the one under consideration
         other_adjacent_triangles = copy.deepcopy(adjacent_wall_triangles)
         other_adjacent_triangles.remove(tri)
+
+#        print("len(other_adjacent_trianges = %d"%len(other_adjacent_triangles))
+#        print(other_adjacent_triangles[0].vertices[0].id)
+#        print(other_adjacent_triangles[0].vertices[1].id)
+#        print(other_adjacent_triangles[0].vertices[2].id)
         
 #        other_adjacent_triangle_vertices = []
 #        other_adjacent_triangle_vertices = []
@@ -819,10 +825,16 @@ def find_next_wall_node(current_node,prev_node,wallnodes,walltriangles,first):
 
             segment_shared_with_another_triangle = False
             for othertri in other_adjacent_triangles:
+                #print("segment[1] = %d"%segment[1].id)
+                #print("othertri.vertices = [%d,%d,%d]"%(othertri.vertices[0].id,othertri.vertices[1].id,othertri.vertices[2].id))
                 if segment[1] in othertri.vertices:
                     segment_shared_with_another_triangle = True
                     if not segment[0] in othertri.vertices[:]:
                         sys.exit("Something's very wrong in find_next_wall_node.")
+                #print("point %d-%d shared with another triangle %d"%(segment[0].id,segment[1].id,int(segment_shared_with_another_triangle)))
+            #print("point %d in wallnodes? %d"%(segment[1].id,int(segment[1] in wallnodes)))
+            #print("not shared_with_another_triangle? %d"%(not segment_shared_with_another_triangle))
+            #TODO: fix clockwise check logic
             if (segment[1] in wallnodes) and (not segment_shared_with_another_triangle):
                 if first:
                     # Ensure we start by going counterclockwise from the low field side

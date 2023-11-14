@@ -8,6 +8,7 @@ import scipy.interpolate as interpolate
 import netCDF4 as nc
 import matplotlib.tri.triangulation as mtri
 import collections
+import subprocess
 
 class DG2D:
     """ 
@@ -104,30 +105,34 @@ class DG2D:
         for i in range(0,Npoly):
             poly = Polygon()
             for j in range(0,Nseg):
-                if conn[i,j] > 0:
+                if conn[i,j] >= 0:
                     poly.add_vertex(self.vertex_list[conn[i,j]])
             self.polys.append(poly)
 
 
         self.wallpoly = Polygon(increment=False)
         startidx = get_first_idx(self.vertex_list) 
+        print("startidx = %d"%startidx)        
         if wallnodes == None:
             if (Nseg > 3):
                 print("ERROR: for quadrilateral or higher basic polygons in call to define_mesh, wallnodes must be specified")
                 
             wallnodes=[]
             wallnodes.append(self.vertex_list[startidx])
-            wallpoly.add_vertex(wallnodes[-1])
+            self.wallpoly.add_vertex(wallnodes[-1])
             closed = False
             prevnode=wallnodes[-1]
+            first = True
             while not closed:
-                next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,i==0)
+                next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,first)
+                first = False
+                print(next_node.id)
                 if next_node == wallnodes[0]:
                     closed = True
                 else:
                     prevnode = wallnodes[-1]
                     wallnodes.append(next_node)
-                    wallpoly.add_vertex(wallnodes[-1])
+                    self.wallpoly.add_vertex(wallnodes[-1])
         else:
             Nwall = len(wallnodes)
             for i in range(0,Nwall):
@@ -159,7 +164,7 @@ class DG2D:
         All data must be specified except for auxilliary polygons.
         """
 
-        def write_internal_polygon(self,poly,newzone=True):
+        def write_internal_polygon(poly,newzone=True):
             f = open(self.infile_name,"a")
     
             if newzone:
@@ -186,7 +191,7 @@ class DG2D:
             f.write("\n")
             f.close()
     
-        def write_aux_polygon(self,poly,material=None,walltemp=300.0,Rcoeff=1.0,exitzone=False):
+        def write_aux_polygon(poly,material=None,walltemp=300.0,Rcoeff=1.0,exitzone=False):
             f = open(self.infile_name,"a")
     
             if exitzone:
@@ -241,7 +246,7 @@ class DG2D:
         f.close()
 
         for poly in self.polys:
-            self.write_internal_polygon(poly)
+            write_internal_polygon(poly)
         
         aux_polys, outpoly, newvertices = self.wallpoly.build_aux_wall_polygons(self.vertex_list[-1].id+1,thickness=0.005)
         self.outerpoly = outpoly
@@ -251,7 +256,7 @@ class DG2D:
             self.vertex_list.append(newvertices[i])
 
         for i in range(0,len(aux_polys)):
-            self.write_aux_polygon(aux_polys[i],material=self.materials[i],walltemp=self.walltemps[i],Rcoeff=self.Rcoeffs[i],exitzone=self.exits[i])
+            write_aux_polygon(aux_polys[i],material=self.materials[i],walltemp=self.walltemps[i],Rcoeff=self.Rcoeffs[i],exitzone=self.exits[i])
 
         for i in range(0,len(outpoly.vertices)):
             print(outpoly.vertices[i].id)
@@ -278,7 +283,7 @@ class DG2D:
 
 
 
-def setup(self,material,Rcoeff,Rlim=None,Zlim=None,gfile=None,bpfile=None,triang=None,walltemp=300.0,bindir="",run_dg2d=True,polygon_filename="polygon.nc"):
+def setup(material,Rcoeff,Rlim=None,Zlim=None,gfile=None,bpfile=None,triang=None,walltemp=300.0,bindir="",run_dg2d=True,polygonfile_name="polygon.nc"):
     """
     Consolidated workflow routine to generate geometry for typical cases and run definegeometry2d. Generates in one of several ways depending on the keyword arguments provided.
 
@@ -291,8 +296,10 @@ def setup(self,material,Rcoeff,Rlim=None,Zlim=None,gfile=None,bpfile=None,triang
         bpfile: (optional) string for path and name to an ADIOS2 file that contains a mesh which will be mimiced in the definegeometry2d input files with each triangle being a unique zone.
         triang: (optional) a matlotlib.tri.Triangulation object whose triangulation will be imported and each triangle will be its own zone in the same order defined.
         run_dg2d: (optional) boolean for whether definegeometry2d is to be run again. Default True. 
-        polygon_filename: (optional) string for the polygon filename. Defaults to "polygon.nc". Set to "none" for particularly large (>10k node) meshes.
+        polygonfile_name: (optional) string for the polygon filename. Defaults to "polygon.nc". Set to "none" for particularly large (>10k node) meshes.
     """
+
+    self = DG2D()
 
     coords = [0]
     if Rlim != None:
@@ -309,7 +316,9 @@ def setup(self,material,Rcoeff,Rlim=None,Zlim=None,gfile=None,bpfile=None,triang
         r = triang.x
         z = triang.y
         nnode = len(r)
-        coords = np.zeros(nnode,2)
+        coords = np.zeros((nnode,2))
+        coords[:,0] = r
+        coords[:,1] = z
         conn = triang.triangles
         self.define_mesh(coords,conn)
     else:
@@ -321,25 +330,26 @@ def setup(self,material,Rcoeff,Rlim=None,Zlim=None,gfile=None,bpfile=None,triang
     self.set_wallprops(walltemp=walltemp,material=material,Rcoeff=Rcoeff)
     if polygonfile_name == "polygon.nc" and np.shape(coords)[0] > 10000:
         print("WARNING: definegeometry2d is instructed to write polygon_nc_file even though mesh is very large. May take too long.\n")
-    self.polygonfile_name = polygon_file
+    self.polygonfile_name = polygonfile_name
 
     self.write_files()
     if bindir != "" and bindir[-1] != '/':
         bindir = bindir+"/"
 
     if run_dg2d:
-        subprocess.run(bindir+"definegeometry2d dg2d.in")
+        subprocess.run(bindir+"definegeometry2d dg2d.in",shell=True)
 
 
 
 def get_first_idx(vertex_list):
-    # Start with vertex closest to origin
+    # Start with vertex whose corresponding segment is closest to origin
     startidx = -1
     Nvertex = len(vertex_list)
-    dist = 9.0e30
+    mindist = 9.0e30
     for i in range(0,Nvertex):
-        if np.linalg.norm(vertex_list[i].coords) < dist:
-            dist = np.linalg.norm(vertex_list[i].coords)
+        segdist = np.linalg.norm(0.5*np.array(vertex_list[i].coords + vertex_list[np.mod(i+1,Nvertex)].coords))
+        if segdist < mindist:
+            mindist = segdist 
             startidx = i
     return startidx
 
