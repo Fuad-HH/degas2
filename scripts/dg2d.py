@@ -85,7 +85,7 @@ class DG2D:
             self.materials[wallidx]= material
             self.exits[wallidx]= exitzone
 
-    def define_mesh(self,coords,conn,wallnodes=None):
+    def define_mesh(self,coords,conn,wallnodes=[-1]):
         """
         Imports a set of coordinates and connectivity to generate a mesh for definegeometry2d.
 
@@ -112,8 +112,7 @@ class DG2D:
 
         self.wallpoly = Polygon(increment=False)
         startidx = get_first_idx(self.vertex_list) 
-        print("startidx = %d"%startidx)        
-        if wallnodes == None:
+        if wallnodes == [-1]:
             if (Nseg > 3):
                 print("ERROR: for quadrilateral or higher basic polygons in call to define_mesh, wallnodes must be specified")
                 
@@ -126,7 +125,6 @@ class DG2D:
             while not closed:
                 next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,first,check_clockwise=False)
                 first = False
-                print(next_node.id)
                 if next_node == wallnodes[0]:
                     closed = True
                 else:
