@@ -208,6 +208,9 @@ file(READ ${CMAKE_SOURCE_DIR}/data/templates/degas2.in filedata)
 string(REPLACE D2ROOT ${CMAKE_SOURCE_DIR} filedata ${filedata})
 file(WRITE data/degas2.in ${filedata})
 
+file(READ ${CMAKE_SOURCE_DIR}/data/templates/tally.in filedata)
+file(WRITE data/tally.in ${filedata})
+
 ########################################
 # Specify "modules"
 #

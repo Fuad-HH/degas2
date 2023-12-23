@@ -10,7 +10,7 @@ from scipy.spatial import Delaunay
 from scipy.interpolate import LinearNDInterpolator
 
 
-def get_output(tallyname,sgroup=None,outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc",debug=False,with_err=False):
+def get_output(tallyname,sgroup=None,outputfilename="output.nc",tallyfilename="tally.nc",geometryfilename="geometry.nc",debug=False,with_err=False,Nzone=None):
     Nvar_max = 5
 
     outputdata=nc.Dataset(outputfilename)
@@ -38,6 +38,18 @@ def get_output(tallyname,sgroup=None,outputfilename="output.nc",tallyfilename="t
 
     tally_indices = np.array(tallydata["tally_tab_index"][tally_idx][:])
 
+    if not Nzone == None:
+        tally_indep_var = tallydata["tally_indep_var"][tally_idx][:]
+        if tally_indep_var[0] == 1:
+            tally_indices[0]=Nzone
+        if tally_indep_var[1] == 1:
+            tally_indices[1]=Nzone
+        if tally_indep_var[2] == 1:
+            tally_indices[2]=Nzone
+        if tally_indep_var[3] == 1:
+            tally_indices[3]=Nzone
+        if tally_indep_var[4] == 1:
+            tally_indices[4]=Nzone
     Ndat_tally = np.prod(tally_indices)
 
     Ngroup = 1
