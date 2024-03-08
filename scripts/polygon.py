@@ -404,30 +404,47 @@ class Polygon:
         Nvertex = len(self.vertices)
 
 #        startidx = self.get_first_idx()
-        startidx = 0
+#        startidx = 0
 
-        v1 = self.vertices[startidx]
-        if self.is_clockwise():
-            v0 = self.vertices[np.mod(startidx-1,Nvertex)]
-            v2 = self.vertices[np.mod(startidx+1,Nvertex)]
-        else:
-            v2 = self.vertices[np.mod(startidx-1,Nvertex)]
-            v0 = self.vertices[np.mod(startidx+1,Nvertex)]
-
-        diff1 = np.array(v0.coords) - np.array(v1.coords)
-        diff2 = np.array(v2.coords) - np.array(v1.coords)
-
-#        if not self.is_clockwise():
-#            thickness = -thickness 
-
-        alpha = np.arctan2(diff2[1],diff2[0]) - 0.5*np.arccos( np.dot(diff1,diff2)/(np.linalg.norm(diff1)*np.linalg.norm(diff2))) - np.pi
-
-        newvertices.append(Vertex(firstid,v1.coords[0]+thickness*np.cos(alpha),v1.coords[1]+thickness*np.sin(alpha)))
-        outpoly.add_vertex(newvertices[-1])
+#        v1 = self.vertices[startidx]
+#        if self.is_clockwise():
+#            v0 = self.vertices[np.mod(startidx-1,Nvertex)]
+#            v2 = self.vertices[np.mod(startidx+1,Nvertex)]
+#        else:
+#            v2 = self.vertices[np.mod(startidx-1,Nvertex)]
+#            v0 = self.vertices[np.mod(startidx+1,Nvertex)]
+#
+#        diff1 = np.array(v0.coords) - np.array(v1.coords)
+#        diff2 = np.array(v2.coords) - np.array(v1.coords)
+#
+#        diff1 = diff1/np.linalg.norm(diff1)
+#        diff2 = diff2/np.linalg.norm(diff2)
+#
+#        diff3 = diff1 + diff2
+#        if np.linalg.norm(diff3) < 1.0e-3:
+#            d1_3d = np.array([diff1[0],diff1[1],0.0])
+#            phiunit = np.array([0.0,0.0,1.0])
+#            diff3 = np.cross(d1_3d,phiunit)[0:2]
+#        else:
+#            diff3 = -diff3/np.linalg.norm(diff3)
+#
+        if not self.is_clockwise():
+            thickness = -thickness 
+#
+##        alpha = np.arctan2(diff2[1],diff2[0]) - 0.5*np.arccos( np.dot(diff1,diff2)/(np.linalg.norm(diff1)*np.linalg.norm(diff2))) - np.pi
+##        alpha = np.arccos(diff3
+#
+##        newvertices.append(Vertex(firstid,v1.coords[0]+thickness*np.cos(alpha),v1.coords[1]+thickness*np.sin(alpha)))
+#        newvertices.append(Vertex(firstid,v1.coords[0]+thickness*diff3[0],v1.coords[1]+thickness*diff3[1]))
+#        outpoly.add_vertex(newvertices[-1])
             
-        # Go around plasma polygon and accumulate new vertices offset outward by thickness
-        for i in range(1,Nvertex):
+        # Go around plasma polygon and accumulate new vertices 
+        # offset outward by thickness. "Outward" is defined in a vector sense:
+        # find the bisecting vector between adjacent segments and negate it.
+        for i in range(0,Nvertex):
 
+            # v0, v1, and v2 are in order around the wall polygon.
+            # Parity is accounted for by the sign on thickness.
             v1 = self.vertices[i]
             if self.is_clockwise():
                 v0 = self.vertices[np.mod(i-1,Nvertex)]
@@ -435,13 +452,44 @@ class Polygon:
             else:
                 v2 = self.vertices[np.mod(i-1,Nvertex)]
                 v0 = self.vertices[np.mod(i+1,Nvertex)]
-    
+
+            # diff1 and diff2 are unit vectors pointing away form v1
             diff1 = np.array(v0.coords) - np.array(v1.coords)
             diff2 = np.array(v2.coords) - np.array(v1.coords)
+            diff1 = diff1/np.linalg.norm(diff1)
+            diff2 = diff2/np.linalg.norm(diff2)
+
+            # Sum of two unit vectors bisects the angle between them
+            bisect = diff1 + diff2
+
+            # Now, determine if the bisection points "inward" or "outward"
+            # For clockwise (default), "inward" is "to the right" of diff2.
+            convex = np.sign(np.cross(diff1,diff2))
+            
+
+            if np.linalg.norm(bisect) < 1.0e-6:
+                # For colinear or nearly colinear points,
+                # the outward unit vector is the cross product between diff1
+                # and phi=(r cross z). 
+#                d1_3d = np.array([diff1[0],diff1[1],0.0])
+#                phiunit = np.array([0.0,0.0,1.0])
+#                outward = convex*np.cross(d1_3d,phiunit)[0:2]
+                outward = [diff1[1],-diff1[0]]
+            else:
+                # Otherwise, outward is the negation of the bisecting vector.
+                outward = -convex*bisect/np.linalg.norm(bisect)
+
+#            print("v1 = ",v1.coords)
+#            print("  v0 = ",v0.coords)
+#            print("  v2 = ",v2.coords)
+#            print("  diff1 = ",diff1)
+#            print("  diff2 = ",diff2)
+#            print("    outward = ",outward)
+   
+#            alpha = np.arctan2(diff2[1],diff2[0]) - 0.5*np.arccos( np.dot(diff1,diff2)/(np.linalg.norm(diff1)*np.linalg.norm(diff2))) - np.pi
     
-            alpha = np.arctan2(diff2[1],diff2[0]) - 0.5*np.arccos( np.dot(diff1,diff2)/(np.linalg.norm(diff1)*np.linalg.norm(diff2))) - np.pi
-    
-            newvertices.append(Vertex(firstid+i,v1.coords[0]+thickness*np.cos(alpha),v1.coords[1]+thickness*np.sin(alpha)))
+#            newvertices.append(Vertex(firstid+i,v1.coords[0]+thickness*np.cos(alpha),v1.coords[1]+thickness*np.sin(alpha)))
+            newvertices.append(Vertex(firstid+i,v1.coords[0]+thickness*outward[0],v1.coords[1]+thickness*outward[1]))
             outpoly.add_vertex(newvertices[-1])
 
         # Reorder outpoly so that it starts with the appropriate segment

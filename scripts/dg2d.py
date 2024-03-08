@@ -61,6 +61,8 @@ class DG2D:
         self.wallfile_name = "wallfile.txt"
         self.polygonfile_name = "polygon.nc"
 
+    def set_symmetry(self,sym):
+        self.symmetry = sym
    
     def set_wallprops(self,walltemp=300.0,Rcoeff=1.0,material="mirror",exitzone=False,wallidx=None):
         """
@@ -96,8 +98,8 @@ class DG2D:
         """
         self.polys=[]
         Nnode = len(coords[:,0])
-        Npoly = len(conn[:,0])
         Nseg = len(conn[0,:])
+        Npoly = len(conn[:,0])
 
         for i in range(0,Nnode):
             self.vertex_list.append(Vertex(i,coords[i,0],coords[i,1])) 
@@ -112,7 +114,7 @@ class DG2D:
 
         self.wallpoly = Polygon(increment=False)
         startidx = get_first_idx(self.vertex_list) 
-        if wallnodes == [-1]:
+        if wallnodes[0] == -1:
             if (Nseg > 3):
                 print("ERROR: for quadrilateral or higher basic polygons in call to define_mesh, wallnodes must be specified")
                 
@@ -123,7 +125,7 @@ class DG2D:
             prevnode=wallnodes[-1]
             first = True
             while not closed:
-                next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,first,check_clockwise=False)
+                next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,first,check_clockwise=True)
                 first = False
                 if next_node == wallnodes[0]:
                     closed = True
@@ -157,7 +159,7 @@ class DG2D:
         self.wallpoly= limpoly
         self.polys.append(limpoly)
 
-    def write_files(self):
+    def write_files(self,aux_thickness=0.005):
         """
         Writes definegeometry2d input files from data in DG2D object.
         All data must be specified except for auxilliary polygons.
@@ -205,8 +207,12 @@ class DG2D:
                 f.write("  material "+material+"\n")
                 f.write("  temperature "+str(walltemp)+"\n")
                 f.write("  recyc_coef "+str(Rcoeff)+"\n")
-            for vertex in poly.vertices:
-                f.write("  wall 1 "+str(vertex.id)+" "+str(vertex.id)+"\n")
+            if poly.is_clockwise():
+                for vertex in poly.vertices:
+                    f.write("  wall 1 "+str(vertex.id)+" "+str(vertex.id)+"\n")
+            else:
+                for vertex in reversed(poly.vertices):
+                    f.write("  wall 1 "+str(vertex.id)+" "+str(vertex.id)+"\n")
     
             f.write("  triangulate_polygon\n")
             f.write("\n")
@@ -232,8 +238,13 @@ class DG2D:
     
         dR = Rmax-Rmin
         dZ = Zmax-Zmin
-        self.Rbounds = [max(0.005,0.5*Rmin),Rmax+0.5*dR]
-        self.Zbounds = [Zmin - 0.5*dZ, Zmax + 0.5*dZ]
+        if self.symmetry == "cylindrical":
+            self.Rbounds = [max(0.005,0.5*Rmin),Rmax+0.5*dR]
+            self.Zbounds = [Zmin - 0.5*dZ, Zmax + 0.5*dZ]
+        else:
+            self.Rbounds = [Rmin-0.5*dR,Rmax+0.5*dR]
+            self.Zbounds = [Zmin - 0.5*dZ, Zmax + 0.5*dZ]
+
 
         # Write header
         f = open(self.infile_name,"w")
@@ -247,18 +258,20 @@ class DG2D:
         for poly in self.polys:
             write_internal_polygon(poly)
         
-        aux_polys, outpoly, newvertices = self.wallpoly.build_aux_wall_polygons(self.vertex_list[-1].id+1,thickness=0.005)
-        self.outerpoly = outpoly
+        if True:
+            aux_polys, outpoly, newvertices = self.wallpoly.build_aux_wall_polygons(self.vertex_list[-1].id+1,aux_thickness)
+            self.outerpoly = outpoly
 
-        Nnew = len(newvertices)
-        for i in range(0,Nnew):
-            self.vertex_list.append(newvertices[i])
+            Nnew = len(newvertices)
+            for i in range(0,Nnew):
+                self.vertex_list.append(newvertices[i])
 
-        for i in range(0,len(aux_polys)):
-            write_aux_polygon(aux_polys[i],material=self.materials[i],walltemp=self.walltemps[i],Rcoeff=self.Rcoeffs[i],exitzone=self.exits[i])
+            for i in range(0,len(aux_polys)):
+                write_aux_polygon(aux_polys[i],material=self.materials[i],walltemp=self.walltemps[i],Rcoeff=self.Rcoeffs[i],exitzone=self.exits[i])
+        else:
+            outpoly = self.wallpoly
+            self.outerpoly = self.wallpoly
 
-        for i in range(0,len(outpoly.vertices)):
-            print(outpoly.vertices[i].id)
         f = open(self.infile_name,"a") 
         Polygon.close_in_universal_cell(f,outpoly.vertices,0,self.current_stratum+1,self.materials[-1],self.Rcoeffs[-1],walltemp=self.walltemps[-1],clockwise=outpoly.is_clockwise())
 

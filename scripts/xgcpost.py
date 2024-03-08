@@ -11,10 +11,14 @@ import scipy.special as sp
 import netCDF4 as nc
 import sys
 
-def get_bp_mesh(filename="xgc.mesh.bp"):
+def get_bp_mesh(filename="xgc.mesh.bp",oldfile=False):
     meshfile = adios2.open(filename,"r")
-    connections = meshfile.read("/cell_set[0]/node_connect_list")
-    coords = meshfile.read("/coordinates/values")
+    if oldfile:
+        coords = meshfile.read("/coordinates/values")
+        connections = meshfile.read("/cell_set[0]/node_connect_list")
+    else:
+        coords = meshfile.read("rz")
+        connections = meshfile.read("nd_connect_list")
     wallnodes = meshfile.read("grid_wall_nodes")
     # wall_nodes refers to list of nodes by starting count from 1,
     # which is confusingly inconsistent with node_connect_list.
