@@ -3,7 +3,7 @@ import dg2d
 import defineback
 from polygon import *
 import numpy as np
-import matplotlib.tri.triangulation as mtri
+import matplotlib.tri as mtri
 import matplotlib.pyplot as plt
 from scipy.interpolate import LinearNDInterpolator
 from scipy.spatial import Delaunay
@@ -40,9 +40,48 @@ def isclockwise(tri):
     else:
         return False
 
-def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,polygonfilename="none"):
+def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,polygonfilename="none",trifile_base=None):
 
-    coords,connections,wallnode_ids = get_bp_mesh()
+    if trifile_base==None:
+        coords,connections,wallnode_ids = get_bp_mesh()
+    else:
+        nodefile=trifile_base+".node"
+        f=open(nodefile,"r")
+        Nnode = int(f.readline().split()[0])
+        coords = np.zeros([Nnode,2])
+        wallnode_ids = []
+        rwall = []
+        zwall = []
+        for i in range(0,Nnode):
+            line = f.readline().split()
+            coords[i,0] = float(line[1])
+            coords[i,1] = float(line[2])
+            if int(line[3]) == 1:
+                wallnode_ids.append(i)
+                rwall.append(coords[i,0])
+                zwall.append(coords[i,1])
+        rwall.append(rwall[0])
+        zwall.append(zwall[0])
+        rwall = np.array(rwall)
+        zwall = np.array(zwall)
+        f.close()
+        elefile=trifile_base+".ele"
+        f=open(elefile,"r")
+        Ntri = int(f.readline().split()[0])
+        connections = np.zeros([Ntri,3],dtype=int)
+        for i in range(0,Ntri):
+            line = f.readline().split()
+            connections[i,0] = int(line[1])-1
+            connections[i,1] = int(line[2])-1
+            connections[i,2] = int(line[3])-1
+        f.close()       
+    
+
+    triang = mtri.Triangulation(coords[:,0],coords[:,1],connections)
+    plt.triplot(triang)
+    plt.plot(rwall,zwall)
+    plt.savefig("mesh.png")
+    plt.close()
 
     Nnode = len(coords[:,0])
     Ntri = len(connections[:,0])
@@ -57,7 +96,6 @@ def write_geometry_files(material="C",recyc=0.99,walltemp=300,use_xgc_mesh=True,
         if np.isin(inode,wallnode_ids):
             vertices[-1].wall = True
             wallnodes.append(vertices[-1])
-#            print(wallnodes[-1].id)
     if not len(wallnodes) == Nwall:
         sys.exit("Found %d wall nodes, but XGC had %d"%(len(wallnodes),Nwall))
 

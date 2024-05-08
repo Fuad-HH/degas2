@@ -68,7 +68,8 @@ def read_geqdsk(gfilename,plot=False):
     pprime=-workk
 
     psirz=get_next_data(f,mw*mh)
-    psirz=psirz.reshape([mw,mh]).transpose()
+#    psirz=psirz.reshape([mw,mh]).transpose()
+    psirz=psirz.reshape([mh,mw])
 
     q=get_next_data(f,mw)
     
@@ -117,9 +118,11 @@ def read_geqdsk(gfilename,plot=False):
     R0=rmaxis
     B0=fpol[0]/R0
 
+
     g.rgrid = np.array(rgrid)
     g.zgrid = np.array(zgrid)
-    g.psirz = np.array(psirz)
+    g.psirz = np.maximum(psirz,ssimag)
+#    g.psirz = np.array(psirz)
     g.ssimag = ssimag
     g.ssibry = ssibry
     g.rmid = np.array(rmid)
@@ -129,5 +132,6 @@ def read_geqdsk(gfilename,plot=False):
     g.R0 = R0
     g.lim = lim
     g.sep = sep
+    g.qpsi = q
 
     return g
