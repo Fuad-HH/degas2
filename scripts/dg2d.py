@@ -9,6 +9,7 @@ import netCDF4 as nc
 import matplotlib.tri.triangulation as mtri
 import collections
 import subprocess
+from tqdm import tqdm
 
 class DG2D:
     """ 
@@ -87,7 +88,7 @@ class DG2D:
             self.materials[wallidx]= material
             self.exits[wallidx]= exitzone
 
-    def define_mesh(self,coords,conn,wallnodes=[-1]):
+    def define_mesh(self,coords,conn,wallnodes=[-1],trust_wallnodes=True,wallpolys=[-1],progress=False):
         """
         Imports a set of coordinates and connectivity to generate a mesh for definegeometry2d.
 
@@ -104,35 +105,44 @@ class DG2D:
         for i in range(0,Nnode):
             self.vertex_list.append(Vertex(i,coords[i,0],coords[i,1])) 
         
-        for i in range(0,Npoly):
+        iterator = range(0,Npoly)
+        if progress:
+            iterator = tqdm(iterator)
+        for i in iterator:
             poly = Polygon()
             for j in range(0,Nseg):
                 if conn[i,j] >= 0:
                     poly.add_vertex(self.vertex_list[conn[i,j]])
             self.polys.append(poly)
 
+        print("Done defining mesh. Now finding wall nodes...")
 
         self.wallpoly = Polygon(increment=False)
         startidx = get_first_idx(self.vertex_list) 
-        if wallnodes[0] == -1:
+        if (wallnodes[0] == -1 or not trust_wallnodes):
             if (Nseg > 3):
                 print("ERROR: for quadrilateral or higher basic polygons in call to define_mesh, wallnodes must be specified")
                 
-            wallnodes=[]
-            wallnodes.append(self.vertex_list[startidx])
-            self.wallpoly.add_vertex(wallnodes[-1])
+            wallnodes_out=[]
+            wallnodes_out.append(self.vertex_list[startidx])
+            self.wallpoly.add_vertex(wallnodes_out[-1])
             closed = False
-            prevnode=wallnodes[-1]
+            prevnode=wallnodes_out[-1]
             first = True
             while not closed:
-                next_node = find_next_wall_node(wallnodes[-1],prevnode,self.vertex_list,self.polys,first,check_clockwise=True)
+                if progress:
+                    print(len(wallnodes_out))
+                if wallpolys == [-1]:
+                    next_node = find_next_wall_node(wallnodes_out[-1],prevnode,self.vertex_list,self.polys,first,check_clockwise=True)
+                else:
+                    next_node = find_next_wall_node(wallnodes_out[-1],prevnode,wallnodes,wallpolys,first,check_clockwise=True)
                 first = False
-                if next_node == wallnodes[0]:
+                if next_node == wallnodes_out[0]:
                     closed = True
                 else:
-                    prevnode = wallnodes[-1]
-                    wallnodes.append(next_node)
-                    self.wallpoly.add_vertex(wallnodes[-1])
+                    prevnode = wallnodes_out[-1]
+                    wallnodes_out.append(next_node)
+                    self.wallpoly.add_vertex(wallnodes_out[-1])
             self.wallpoly.is_clockwise(force=True)
         else:
             Nwall = len(wallnodes)
