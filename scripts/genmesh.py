@@ -30,12 +30,14 @@ def get_triangulation(trifile_base):
     triang = mtri.Triangulation(rz[:,0],rz[:,1],conn)
     return triang, rz, conn
 
+def extend_mesh_into_wall(rz_in,conn_in):
+    # Create small quadrlitaerals just outside wall for each outer segment. 
+    
+
+
+
 # Generate an equation for a cone for every pair of points x1 and x2 (size [Nsurfs,2]).
 # Returns [Nsurfs,10]  coefficients
-# Generate boundaries array
-# Generate boundaries array
-# Vectorized
-# x
 def gen_cones(x0,x1):
    Nsurfs = np.shape(x1)[0] 
    coeffs = np.zeros([Nsurfs,10])
@@ -83,6 +85,7 @@ if (len(sys.argv) > 1):
     Ntri = len(conn[:,0])
 #    edgemap = np.zeros([Ntri,3],dtype=int)
 
+# First try: loop over triangles. Not as performant
 #    def populate_edge_map(itri):
 #        for iedge in range(0,3):
 #            idx1 = iedge
@@ -100,6 +103,8 @@ if (len(sys.argv) > 1):
 #    for itri in tqdm(pool.imap(populate_edge_map,range(0,Ntri))):
 #        populate_edge_map(itri)
 
+# This way (looping over edges and assigning them to triangles rather than vice versa)
+# is more efficient even though there are more edges. We can make better use of numpy this way.
     def populate_edge_map(iedge):
         candidates = np.argwhere(conn == edges[iedge,0])[:,0]
         new_candidates = np.argwhere(conn[candidates,:] == edges[iedge,1])[:,0]
@@ -117,7 +122,8 @@ if (len(sys.argv) > 1):
             elif (edgemap[itri,2] < 0):
                 edgemap[itri,2] = iedge
 
-#    edgemap = -1.0*np.ones([Nedge,3],dtype=int)
+# Uncomment is not using saved edgemap:
+#    edgemap = -1*np.ones([Nedge,3],dtype=int)
 #    pool = Pool()
 #    pool.imap(populate_edge_map,tqdm(range(0,Nedge)))
 
@@ -129,26 +135,54 @@ if (len(sys.argv) > 1):
 
     coeffs_all = np.zeros([Nedge+4+2*Ntri,10])
     coeffs_all[4:Nedge+4,:] = coeffs
+
+    # Create universal cell coefficients
+    # Original order: rmin, zmin, rmax, zmax
+    rmin = 0.5*np.min(rz[:,0])
+    dr = (np.max(rz[:,0]) - np.min(rz[:,0]))
+    rmax = 2*rmin+dr
+    zmax = np.max(rz[:,1])+dr
+    zmin = np.min(rz[:,1])-dr
+    # Surface directions don't make sense for universal cell, but I'm not sure they need to
+    coeffs_all[0,:] = [-rmin**2,0,0,0,1,1,0,0,0,0]
+    coeffs_all[1,:] = [1,0,0,-(1.0/zmax),0,0,0,0,0,0]
+    coeffs_all[2,:] = [1,0,0,0,-(1.0/rmax**2),-(1.0/rmax**2),0,0,0,0]
+    coeffs_all[3,:] = [1,0,0,-(1.0/zmin),0,0,0,0,0,0]
     
     # Universal cell is first 4 surfaces
     # Next Nedge surfaces are the triangle edges
     # Next 2*NTri surfaces are cut surfaces
 
-    # Every cell gets two cut surfaces: at minimum and maximum z
-    boundaries = np.zeros(4+Nedge+2*Ntri,dtype=int)
-    cells = np.zeros([Ntri,4],dtype=int)
+    # Every triangular cell gets two cut surfaces: planes at minimum and maximum z
+    # Doesn't work yet, but is fast enough.
+    boundaries = np.zeros(4+5*Ntri,dtype=int)
+    cells = np.zeros([Ntri+1,4],dtype=int)
+    cells[0,0:4] = [1,4,4,0]
+
+    cells[1:Ntri+1,0] = 1+4*np.array(range(1,Ntri+1),dtype=int)
+    cells[1:Ntri+1,1] = 3
+    cells[1:Ntri+1,2] = 5
+    cells[1:Ntri+1,3] = -1
+
+    boundaries[0:4] = range(0,4)
+
     print("Building surface linking...")
-    for i in tqdm(range(0,Ntri)):
+    for i in tqdm(range(1,Ntri+1)):
+        bdy_start = 4+(i-1)*5
+        cut_start = 4+Nedge+2*(i-1)
+        boundaries[bdy_start:bdy_start+3] = edgemap[i,:] + 1
+        boundaries[bdy_start+3:bdy_start+5] = [cut_start+1,cut_start+2]
+
         zmin=np.min(rz[edgemap[i,:],1])
         zmax=np.max(rz[edgemap[i,:],1])
-        cells[i,0] = 4+i*5
-        cells[i,1] = 5
-        cells[i,2] = 3
-        cells[i,3] = -1
-        coeffs_all[2*i+4+Nedge,:] = [zmin,0,0,1.0,0,0,0,0,0,0]
-        coeffs_all[2*i+1+4+Nedge,:] = [zmax,0,0,1.0,0,0,0,0,0,0]
-        # TODO: fix sign on first three elements here:
-        boundaries[4+i*5:4+(i+1)*5] = [4+edgemap[i,0],4+edgemap[i,1],4+edgemap[i,2],2*i+4+Nedge,-(2*i+1+4+Nedge) ]
+
+        coeffs_all[cut_start,:] = [zmin,0,0,1.0,0,0,0,0,0,0]
+        coeffs_all[cut_start+1,:] = [zmax,0,0,-1.0,0,0,0,0,0,0]
+
+    # TODO: 
+    # - create universal cell surfaces
+
+    
 
 
 
