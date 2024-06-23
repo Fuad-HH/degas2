@@ -11,15 +11,21 @@ import scipy.special as sp
 import netCDF4 as nc
 import sys
 
-def get_bp_mesh(filename="xgc.mesh.bp",oldfile=False):
-    meshfile = adios2.open(filename,"r")
-    if oldfile:
-        coords = meshfile.read("/coordinates/values")
-        connections = meshfile.read("/cell_set[0]/node_connect_list")
+def get_bp_mesh(filename="xgc.mesh.bp",oldfile=False,newapi=False):
+    if not newapi:
+        meshfile = adios2.open(filename,"r")
+        if oldfile:
+            coords = meshfile.read("/coordinates/values")
+            connections = meshfile.read("/cell_set[0]/node_connect_list")
+        else:
+            coords = meshfile.read("rz")
+            connections = meshfile.read("nd_connect_list")
+            wallnodes = meshfile.read("grid_wall_nodes")
     else:
-        coords = meshfile.read("rz")
-        connections = meshfile.read("nd_connect_list")
-    wallnodes = meshfile.read("grid_wall_nodes")
+        meshfile = adios2.Stream(filename,"r")
+        for _ in meshfile.steps():
+            coords = meshfile.read("/coordinates/values")
+            wallnodes = meshfile.read("grid_wall_nodes")
     # wall_nodes refers to list of nodes by starting count from 1,
     # which is confusingly inconsistent with node_connect_list.
     # Make them consistent here.
