@@ -95,22 +95,44 @@ def gen_cones(x0,x1):
    cylcond = (np.abs(x1[:,0]-x0[:,0]) < eps_angle*np.abs(x1[:,1]-x0[:,1])) 
    cylcond = np.logical_or(cylcond, (np.abs(x1[:,0]-x0[:,0]) < eps))
 
-   if any (np.where(cylcond, 1.0, np.abs(x1[:,0]-x0[:,0])) < eps):
-       print("ERROR: unexpected zero denominator")
-   m = np.divide((x1[:,1]-x0[:,1]),(x1[:,0]-x0[:,0]),out=np.ones_like(x1[:,0]),where=np.logical_not(cylcond))
-   m2 = m*m
-   b = np.where(cylcond, 0.0, x1[:,1] - m*x1[:,0])
+   planecond = (np.abs(x1[:,1]-x0[:,1]) < eps_angle*np.abs(x1[:,0]-x0[:,0])) 
+   planecond = np.logical_or(planecond, (np.abs(x1[:,1]-x0[:,1]) < eps))
 
+   m = np.divide((x1[:,1]-x0[:,1]),(x1[:,0]-x0[:,0]),out=np.ones_like(x1[:,0]),where=np.logical_not(cylcond))
+   # m=1 for cylinder, slope for a cone, and 0 for a plane
+   m2 = np.where(planecond, np.zeros_like(m), m*m)
+   m2 = np.where(cylcond, np.ones_like(m), m2)
+   # b = 0 for a cylinder, 1/2 for a plane, and intercept for a cone
+   b = np.where(cylcond, np.zeros_like(m), x1[:,1] - m*x1[:,0])
+   b = np.where(planecond, 0.5*np.ones_like(m), b)
+
+   # c0 is -b^2 for a cone, -R^2 for a cylinder, -Z0 for a plane
    c0 = np.where( cylcond , -x0[:,0]**2, -b**2)
-    
+   c0 = np.where( planecond, -x0[:,1], c0)
 
    coeffs[:,0] = c0
    coeffs[:,3] = 2.0*b
    coeffs[:,4] = m2
    coeffs[:,5] = m2
-   coeffs[:,6] = np.where(cylcond,np.zeros(Nsurfs),np.ones(Nsurfs))
+   coeffs[:,6] = np.where(np.logical_or(planecond,cylcond),np.zeros(Nsurfs),-np.ones(Nsurfs))
 
    return coeffs
+
+def orient_surfaces(coeffs, points):
+    eps = 1.0e-10
+
+    planecond = np.abs(coeffs[:,4]) < eps
+    b = 0.5*coeffs[:,3]
+
+    cone_r = np.where(points[:,1] > b, (points[:,1] - 0.5*coeffs[:,3])/np.sqrt(coeffs[:,4]),-(points[:,1] - 0.5*coeffs[:,3])/np.sqrt(coeffs[:,4]) )
+    surfpoint = np.where(planecond,-coeffs[:,0],cone_r)
+
+    if np.any( np.logical_or(np.isnan(surfpoint), np.isinf(surfpoint))):
+        print("ERROR: surface points to be compared is populated with divide-by-zero, which should have been ruled out by plane condition.")
+
+    sign_cond = np.where(planecond,points[:,1]>surfpoint,points[:,0] > cone_r)
+
+    return np.where(sign_cond, 1, -1)
 
 # First try: loop over triangles. Not as performant
 #    def populate_edge_map(itri):

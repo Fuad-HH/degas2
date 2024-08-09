@@ -112,7 +112,8 @@ def read_geqdsk(gfilename,plot=False):
     rmid = np.array(rmaxis + drmid*range(0,nrmid))
     zmid = np.array([zmaxis]*nrmid)
 
-    psi_interp = interp.interp2d(rgrid,zgrid,psirz.flatten(),kind="cubic")
+    psi_interp = interp.interp2d(rgrid,zgrid,np.transpose(psirz).flatten(),kind="cubic")
+#    psi_interp = interp.LinearNDInterpolator(list(zip(rgrid,zgrid)),psirz)
     psimid = psi_interp(rmid,zmaxis)
 
     R0=rmaxis
@@ -133,5 +134,6 @@ def read_geqdsk(gfilename,plot=False):
     g.lim = lim
     g.sep = sep
     g.qpsi = q
+    g.psimid = psimid
 
     return g
