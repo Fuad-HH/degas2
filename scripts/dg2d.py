@@ -94,7 +94,7 @@ class DG2D:
 
         Args:
             coords: float array of size (Nnode, 2), where the first and second columns are the R and Z coordinates of the nodes, respectively.
-            conn: integer array of size (Npoly, 3), where each row are the node indices (in coords) that connect to form a polygon (usually a triangle). Must densely cover a domain.
+            conn: integer array of size (Npoly, Nseg), where each row are the node indices (in coords) that connect to form a polygon (usually a triangle). Must densely cover a domain.
             wallnodes: (optional) integer array that specifies which indices of the nodes (in coords) form the boundary. Optional for triangular meshes; mandatory for higher-order polygons.
         """
         self.polys=[]
