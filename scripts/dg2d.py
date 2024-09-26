@@ -6,7 +6,7 @@ from importlib import reload
 import geomutils
 import scipy.interpolate as interpolate
 import netCDF4 as nc
-import matplotlib.tri.triangulation as mtri
+import matplotlib.tri as mtri
 import collections
 import subprocess
 from tqdm import tqdm
@@ -1147,7 +1147,7 @@ def write_dg2d_input_from_single_wall(wallfile_name,material,recyc,walltemp=300.
     else:
         return polys,wall
 
-def refine_limiter(r,z,maxdist):
+def refine_limiter(r_in,z_in,maxdist):
     """
     Method that refines a polygon to have more points. Useful for increasing resolution at the wall. Currently the only way to refine a triangulation.
 
@@ -1156,6 +1156,13 @@ def refine_limiter(r,z,maxdist):
         z: List of floats for the Z coordinate of the polygon to refine.
         maxdist: Float; maximum allowed distance between vertices. Method halves distance until this condition is specified.
     """
+
+    r = np.copy(r_in)
+    z = np.copy(z_in)
+    if not (np.abs(r[0]-r[-1]) < 1.0e-4 and np.abs(z[0] - z[-1]) < 1.0e-4):
+        r = np.append(r,r[0])
+        z = np.append(z,z[0])
+
     N = len(r)
     rnew = []
     znew = []
