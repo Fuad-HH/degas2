@@ -6,7 +6,7 @@ from importlib import reload
 import geomutils
 import scipy.interpolate as interpolate
 import netCDF4 as nc
-import matplotlib.tri.triangulation as mtri
+import matplotlib.tri as mtri
 
 def write_dg2d_header(f,symmetry,Xmin,Xmax,Zmin,Zmax,wallfile_name="wallfile.txt"):
     f.write("symmetry "+symmetry+"\n")
