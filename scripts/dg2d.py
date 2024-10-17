@@ -62,6 +62,9 @@ class DG2D:
         self.wallfile_name = "wallfile.txt"
         self.polygonfile_name = "polygon.nc"
 
+    def finalize(self):
+        subprocess.run("definegeometry2d "+self.infile_name,shell=True)
+
     def set_symmetry(self,sym):
         self.symmetry = sym
    
@@ -149,7 +152,7 @@ class DG2D:
             for i in range(0,Nwall):
                 self.wallpoly.add_vertex(self.vertex_list[wallnodes[np.mod(startidx+i,Nwall)]])
 
-    def define_limiter(self,Rlim,Zlim):
+    def define_limiter(self,Rlim_in,Zlim_in,maxdist=-1):
         """
         Defines the boundary of a domain to be triangulated by definegeometry2d.
 
@@ -157,14 +160,29 @@ class DG2D:
             Rlim: array of floats specifying R coordinates of boundary nodes.
             Zlim: array of floats specifying Z coordinates of boundary nodes.
         """
+
         limpoly = Polygon()
-        if len(Rlim) != len(Zlim):
+        if len(Rlim_in) != len(Zlim_in):
             print("ERROR: Rlim and Zlim must have the same dimensions in call to define_limiter")
-        Nlim = len(Rlim)
+        Nlim = len(Rlim_in)
+
+        mindist = 999999
+        minidx = -1
+        for i in range(0,len(Rlim_in)):
+            dist = np.linalg.norm([Rlim_in[i],Zlim_in[i]])
+            if dist < mindist:
+                minidx = i
+        
+        print(type(np.mod( np.array(range(minidx,minidx+Nlim),dtype=int),Nlim)))
+        Rlim = Rlim_in[np.mod( np.array(range(minidx,minidx+Nlim),dtype=int),Nlim)]
+        Zlim = Zlim_in[np.mod( np.array(range(minidx,minidx+Nlim),dtype=int),Nlim)]
+        if maxdist > 0:
+            Rlim, Zlim = refine_limiter(Rlim,Zlim,maxdist)
+
         for i in range(0,Nlim):
             self.vertex_list.append(Vertex(i,Rlim[i],Zlim[i]))
             limpoly.add_vertex(self.vertex_list[-1])
-        #limpoly.is_clockwise(force=True)
+        limpoly.is_clockwise(force=True)
         limpoly.split = True
         self.wallpoly= limpoly
         self.polys.append(limpoly)
