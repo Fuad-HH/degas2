@@ -86,6 +86,13 @@ def read_geqdsk(gfilename,plot=False):
 
     f.close()
 
+    if ssibry < ssimag:
+        psirz = -psirz
+        temp = ssibry
+        ssibry = ssimag
+        ssimag = temp
+
+
     psi1 = np.array(range(0,mw))/(mw-1)
 
     dr=rdim/(mw-1)
@@ -122,11 +129,13 @@ def read_geqdsk(gfilename,plot=False):
 
     g.rgrid = np.array(rgrid)
     g.zgrid = np.array(zgrid)
-    g.psirz = np.maximum(psirz,ssimag)
+    g.psirz = np.array(psirz)
+#    g.psirz = np.maximum(psirz,ssimag)
 #    g.psirz = np.array(psirz)
     g.ssimag = ssimag
     g.ssibry = ssibry
     g.rmid = np.array(rmid)
+    g.psimid = np.array(psimid)
     g.rmaxis = rmaxis
     g.zmaxis = zmaxis
     g.B0 = B0
