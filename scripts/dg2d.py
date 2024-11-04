@@ -173,7 +173,6 @@ class DG2D:
             if dist < mindist:
                 minidx = i
         
-        print(type(np.mod( np.array(range(minidx,minidx+Nlim),dtype=int),Nlim)))
         Rlim = Rlim_in[np.mod( np.array(range(minidx,minidx+Nlim),dtype=int),Nlim)]
         Zlim = Zlim_in[np.mod( np.array(range(minidx,minidx+Nlim),dtype=int),Nlim)]
         if maxdist > 0:
