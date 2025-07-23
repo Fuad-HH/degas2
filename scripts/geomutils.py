@@ -56,7 +56,7 @@ def read_geqdsk(gfilename,plot=False):
     dummy=f.read(1)
 
     zmaxis=float(f.read(16))
-    rummy=float(f.read(16))
+    dummy=float(f.read(16))
     sibry=float(f.read(16))
     while dummy != '\n':
         dummy=f.read(1)

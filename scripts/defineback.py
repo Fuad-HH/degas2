@@ -24,9 +24,13 @@ class DB:
         Constructor for defineback object. Generates for minimal defaults.
         """
         self.sgroups = []
-
-#    def write_file(self):
-
+        self.ne_zone = []
+        self.Te_zone = []
+        self.Ti_zone = []
+        self.ui_zone = None
+    
+    def write_files(self):
+        write_plasmafile(self.ne_zone,self.Te_zone,self.Ti_zone,self.ui_zone)
 
 
 # Populates plasma density and temperature by zone. Depending on if the point (zone center) is inside the separatrix,

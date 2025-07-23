@@ -1,7 +1,7 @@
 from polygon import *
 
 class Source:
-    def __init__(self,nflights,stype,species,rootspecies=None,specify_flux=True,sourcefile="sourcefile",pufftemp=None,strength=None,stratum=None,segment=None):
+    def __init__(self,nflights,stype,species,rootspecies=None,specify_flux=True,sourcefile="sourcefile",pufftemp=None,strength=None,stratum=None,segment=None,puffexp=None):
         self.nflights = nflights
         self.type = stype
         self.species = species
@@ -18,6 +18,11 @@ class Source:
             self.pufftemp = pufftemp
         else:
             self.pufftemp=None
+        if puffexp != None:
+            self.puffexp = puffexp
+        else:
+            self.puffexp = None
+
         if strength:
             self.strength=strength
             self.stratum=stratum
@@ -46,8 +51,10 @@ def write_db_input(source_groups,plasmafile="plasmafile.txt",filename="db.in"):
             f.write("  source_segment "+str(source_groups[i].segment)+"\n")
             f.write("  source_strength "+str(source_groups[i].strength)+"\n")
 
-        if source_groups[i].pufftemp:
+        if source_groups[i].pufftemp != None:
             f.write("  source_puff_temp "+str(source_groups[i].pufftemp)+"\n")
+        if source_groups[i].puffexp != None:
+            f.write("  source_puff_exponent "+str(source_groups[i].puffexp)+"\n")
         f.write("  source_nflights "+str(source_groups[i].nflights)+"\n")
         f.write("end_source_group\n")
     f.close()

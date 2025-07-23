@@ -87,7 +87,7 @@ class DG2D:
             self.exits= [exitzone]*len(self.wallpoly.vertices)
         else:
             self.walltemps[wallidx]= walltemp
-            self.Rcoeffs[wallidx]= Rcoeffs
+            self.Rcoeffs[wallidx]= Rcoeff
             self.materials[wallidx]= material
             self.exits[wallidx]= exitzone
 
@@ -401,6 +401,7 @@ def write_dg2d_header(f,symmetry,Xmin,Xmax,Zmin,Zmax,wallfile_name="wallfile.txt
     f.write("end_prep\n")
     f.write("\n")
 
+# Not sure this works. Use poly_to_try executable instead.
 def get_triangulation(tris,nodes):
     Nnode = len(nodes)
     r = np.zeros(Nnode)
@@ -1360,4 +1361,41 @@ def write_wallfile(nodes,wallfile_name="wallfile.txt"):
         wallfile.write("%f   %f \n"%(nodes[i].coords[0],nodes[i].coords[1]))
     wallfile.close()
  
+def get_triangulation(Nzone,polygonfile="polygon.nc"):
+    p = nc.Dataset(polygonfile,"r")
+    poly_zone = p["g2_polygon_zone"][:]
+    poly_rz = p["g2_polygon_xz"][:,0:3,:]
+    p.close()
 
+    conn = -np.ones([Nzone,3],dtype=int)
+    r = []
+    z = []
+    k=0
+    eps = 1.0e-5
+
+    for i in range(0,Nzone):
+        izone = poly_zone[i]-1
+        for j in range(0,3):
+            idx_r = np.argwhere( np.abs(r[:]-poly_rz[i,j,0])<eps)
+            if idx_r.size == 0:
+                idx_z = np.array([])
+            else:
+                idx_z = np.argwhere( np.abs(z[idx_r]-poly_rz[i,j,1])<eps)
+
+            if idx_z.size == 0:
+                np.append(r, poly_rz[i,j,0])
+                np.append(z, poly_rz[i,j,1])
+                conn[izone,j] = len(r)-1
+            elif idx_z.size != 1:
+                print("ERROR: found more than one point already stored")
+            else:
+                conn[izone,j] = idx_r[idx_z[0]] 
+        
+    if np.any(conn == -1):
+        print("ERROR: did not fill in conn array in get_triangulation")
+
+    rz = np.zeros([len(r),2])
+    rz[:,0] = r
+    rz[:,1] = z
+        
+    return rz, conn
