@@ -86,6 +86,13 @@ def read_geqdsk(gfilename,plot=False):
 
     f.close()
 
+    if ssibry < ssimag:
+        psirz = -psirz
+        temp = ssibry
+        ssibry = ssimag
+        ssimag = temp
+
+
     psi1 = np.array(range(0,mw))/(mw-1)
 
     dr=rdim/(mw-1)
@@ -112,9 +119,7 @@ def read_geqdsk(gfilename,plot=False):
     rmid = np.array(rmaxis + drmid*range(0,nrmid))
     zmid = np.array([zmaxis]*nrmid)
 
-#    psi_interp = interp.interp2d(rgrid,zgrid,np.transpose(psirz).flatten(),kind="cubic")
     psi_interp = interp.RectBivariateSpline(rgrid,zgrid,np.transpose(psirz))
-#    psi_interp = interp.LinearNDInterpolator(list(zip(rgrid,zgrid)),psirz)
     psimid = psi_interp(rmid,zmaxis)
 
     R0=rmaxis
@@ -123,11 +128,11 @@ def read_geqdsk(gfilename,plot=False):
 
     g.rgrid = np.array(rgrid)
     g.zgrid = np.array(zgrid)
-    g.psirz = np.maximum(psirz,ssimag)
-#    g.psirz = np.array(psirz)
+    g.psirz = np.array(psirz)
     g.ssimag = ssimag
     g.ssibry = ssibry
     g.rmid = np.array(rmid)
+    g.psimid = np.array(psimid)
     g.rmaxis = rmaxis
     g.zmaxis = zmaxis
     g.B0 = B0
@@ -135,6 +140,6 @@ def read_geqdsk(gfilename,plot=False):
     g.lim = lim
     g.sep = sep
     g.qpsi = q
-    g.psimid = psimid
+    g.current = float(current)
 
     return g
