@@ -51,6 +51,14 @@ if("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
       list(APPEND CMAKE_Fortran_FLAGS "-fallow-argument-mismatch")
    #      add_compile_options(-fallow-argument-mismatch)
    endif()
+   
+   if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER 15.0)
+   #if (CMAKE_COMPILER_ID STREQUAL "GNU")
+   #      set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fallow-argument-mismatch")
+      list(APPEND CMAKE_C_FLAGS "-std=gnu17")
+   #      add_compile_options(-fallow-argument-mismatch)
+   endif()
+
 endif()
 
 ########################################
@@ -173,6 +181,7 @@ add_custom_command(
 add_custom_target(dg2d_c DEPENDS ${dg2d_web})
 add_library(dg2dc OBJECT ${dg2d_c})
 target_include_directories(dg2dc PRIVATE ${PROJECT_SOURCE_DIR}/deps/triangle)
+#target_compile_options(dg2dc PRIVATE -std=gnu17)
 
 ###################################
 # Look for "usr" files that specify 
@@ -272,6 +281,7 @@ add_library(bspline90_22 OBJECT ${PROJECT_SOURCE_DIR}/src/EFIT2dg2d/bspline90_22
 
 add_library(triangle OBJECT ${PROJECT_SOURCE_DIR}/deps/triangle/triangle.c)
 target_compile_options(triangle PRIVATE -DTRILIBRARY -O)
+#target_compile_options(triangle PRIVATE -DTRILIBRARY -O -std=gnu17)
 #add_executable(randomtest randomtest.f random.f sysdep.f string.f)
 
 add_library(aladdin OBJECT ${PROJECT_SOURCE_DIR}/data/Aladdin/aladdin_subr.f)
