@@ -16,12 +16,12 @@ import problem
 import source
 import subprocess
 
-def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=300.0):
+def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=300.0,runtest=False,skipgeo=False,aux_thickness=0.005):
     """
     Given XGC inputs, constructs DEGAS2 datafiles in working directory.
     Requires the executables: problemsetup, definegeometry2d, defineback, tallysetup
     Args:
-        meshbase (partially required): string for the basename of the geometry files in input_dir, shared by .ele and .node triangulation files. If not provided, will look for xgc.mesh.bp locally.
+        meshbase (partially required): string for the basename of the geometry files, shared by .ele and .node triangulation files. Include full relative path (e.g. "input_dir"). If not provided, will look for xgc.mesh.bp locally. 
         d2_dir (partially required): string for the absolute path of the degas2 installation. Assumes the build directory is populated with appropriate executables equipped with the required synthetic diagnostics. If this is not given, the user is assumed to have copied degas2.in and tally.in from the degas2/data/templates directory to the local working directory AND have degas2/scripts in their PYTHONPATH.
         wall_material (optional): string for the wall material, as specified in degas2 problem inputs. Defaults to "C" for graphite.
         wall_temperature (optional): float for the wall temperature in Kelvin; determines the energy of desorbed products. Defaults to 300.
@@ -33,7 +33,7 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
     elif meshbase == None:
         sys.error("If xgc.mesh.bp is not present, meshbase must be specified to find the triangulation files in input_dir.")
     else:
-        rz, conn, wallnodes = get_tri_mesh("input_dir/"+meshbase)
+        rz, conn, wallnodes = get_tri_mesh(meshbase)
 
     Nwall = len(wallnodes)
     Ntri = len(conn[:,0])
@@ -45,16 +45,21 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
 
     spec = gen_problem_for_xgc(wall_material,ionmass)
 
-    print("Generating geometry input...")
-    g = dg2d.DG2D()
-    g.define_mesh(rz,conn,progress=True)
-    g.set_wallprops(walltemp=wall_temperature,Rcoeff=Rcoeff,material=wall_material)
-    g.write_files()
-    print("Running definegeometry2d...")
-    subprocess.run("definegeometry2d dg2d.in",shell=True)
+    if not skipgeo:
+        print("Generating geometry input...")
+        g = dg2d.DG2D()
+        g.define_mesh(rz,conn,progress=True)
+        g.set_wallprops(walltemp=wall_temperature,Rcoeff=Rcoeff,material=wall_material)
+        g.write_files(aux_thickness=aux_thickness)
+        print("Running definegeometry2d...")
+        subprocess.run("definegeometry2d dg2d.in",shell=True)
 
     write_dummy_bg_files_aux(Ntri,Nwall,Ntri+1)
-    sgroup = source.Source(10000,"plate",spec,spec+"+",specify_flux=False,sourcefile="sourcefile.txt")
+    if runtest:
+        sgroup = source.Source(10000,"plate",spec,spec+"+",specify_flux=False,sourcefile="sourcefile.txt")
+    else:
+        sgroup = source.Source(10000,"plt_e_bins",spec,spec+"+",specify_flux=False,sourcefile="sourcefile.txt")
+
     source.write_db_input([sgroup])
     print("Running defineback...")
     subprocess.run("defineback db.in",shell=True)
@@ -62,7 +67,6 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
     subprocess.run("tallysetup")
 
     print("Done.")
-
 
 def gen_problem_for_xgc(wall_material,ionmass):
 

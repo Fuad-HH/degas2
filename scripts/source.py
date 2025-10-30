@@ -1,7 +1,7 @@
 from polygon import *
 
 class Source:
-    def __init__(self,nflights,stype,species,rootspecies=None,specify_flux=True,sourcefile="sourcefile",pufftemp=None,strength=None,stratum=None,segment=None,puffexp=None):
+    def __init__(self,nflights,stype,species,rootspecies=None,specify_flux=True,sourcefile="sourcefile",pufftemp=None,strength=None,stratum=None,segment=None,puffexp=None,e_bin_num=10,e_bin_min=0.1,e_bin_max=1000.0,e_bin_log=True):
         self.nflights = nflights
         self.type = stype
         self.species = species
@@ -32,6 +32,15 @@ class Source:
             self.sourcefile = sourcefile
             self.strength=None
             
+        if stype=="plt_e_bins":
+            self.type = "plt_e_bins"
+            self.e_bin_num = e_bin_num
+            self.e_bin_min = e_bin_min
+            self.e_bin_max = e_bin_max
+            if e_bin_log:
+                self.e_bin_spacing = "log"
+            else:
+                self.e_bin_spacing = "linear"
 
 def write_db_input(source_groups,plasmafile="plasmafile.txt",filename="db.in"):
     Nsource=len(source_groups)
@@ -56,6 +65,13 @@ def write_db_input(source_groups,plasmafile="plasmafile.txt",filename="db.in"):
         if source_groups[i].puffexp != None:
             f.write("  source_puff_exponent "+str(source_groups[i].puffexp)+"\n")
         f.write("  source_nflights "+str(source_groups[i].nflights)+"\n")
+
+        if source_groups[i].type == "plt_e_bins":
+            f.write("  source_e_bin_min "+str(source_groups[i].e_bin_min)+"\n")
+            f.write("  source_e_bin_max "+str(source_groups[i].e_bin_max)+"\n")
+            f.write("  source_e_bin_num "+str(source_groups[i].e_bin_num)+"\n")
+            f.write("  source_e_bin_spacing "+source_groups[i].e_bin_spacing+"\n")
+
         f.write("end_source_group\n")
     f.close()
 
