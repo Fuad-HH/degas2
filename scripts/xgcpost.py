@@ -214,7 +214,7 @@ def write_background_files(dt,tstep,tstep_neut,wallnodes_ordered,wall_triangles,
 
     # Get plasma node data
     if xgc1:
-        f=adios2.open("xgc.f3d.%05d.bp"%tstep,"r")
+        f=adios2.Stream("xgc.f3d.%05d.bp"%tstep,"rra")
         ne=np.average(f.read("e_den"),axis=1)
         Te_para=np.average(f.read("e_T_para"),axis=1)
         Te_perp=np.average(f.read("e_T_perp"),axis=1)
@@ -358,7 +358,7 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
 
     # Get plasma node data
     if xgc1:
-        f=adios2.open("xgc.f3d.%05d.bp"%tstep,"r")
+        f=adios2.Stream("xgc.f3d.%05d.bp"%tstep,"rra")
         ne=np.average(f.read("e_den"),axis=1)
         Te_para=np.average(f.read("e_T_para"),axis=1)
         Te_perp=np.average(f.read("e_T_perp"),axis=1)
@@ -366,8 +366,8 @@ def write_background_files_for_own_mesh(dt,tstep,tstep_neut,wallnodes_ordered,wa
         Ti_perp=np.average(f.read("i_T_perp"),axis=1)
         ui_para=np.average(f.read("i_u_para"),axis=1)
         f.close()
-        f=adios2.open("xgc.bfield.bp","r")
-        Bfield = f.read("/node_data[0]/values")
+        f=adios2.Stream("xgc.bfield.bp","rra")
+        Bfield = f.read("bfield")
         f.close()
     else:
         f=adios2.Stream("xgc.f2d.%05d.bp"%tstep,"rra")
