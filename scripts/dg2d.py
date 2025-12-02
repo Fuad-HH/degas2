@@ -7,7 +7,6 @@ import geomutils
 import scipy.interpolate as interpolate
 import netCDF4 as nc
 import matplotlib.tri as mtri
-import collections
 import subprocess
 from tqdm import tqdm
 

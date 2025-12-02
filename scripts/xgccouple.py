@@ -31,7 +31,7 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
     if os.path.isdir(adios2meshfile):
         rz, conn,wallnodes = get_bp_mesh(filename=adios2meshfile)
     elif meshbase == None:
-        sys.error("If xgc.mesh.bp is not present, meshbase must be specified to find the triangulation files in input_dir.")
+        raise Exception("If xgc.mesh.bp is not present, meshbase must be specified to find the triangulation files in input_dir.")
     else:
         rz, conn, wallnodes = get_tri_mesh(meshbase)
 
@@ -42,6 +42,22 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
     nml = f90nml.read('input')
     ionmass = nml["ptl_param"]["ptl_mass_au"][1]
     Rcoeff = nml["neu_param"]["neu_recycle_rate"]
+    try:
+        ebin_min = nml["neu_param"]["neu_ebin_min"]
+    except:
+        ebin_min = 0.1
+    try:
+        ebin_max = nml["neu_param"]["neu_ebin_max"]
+    except:
+        ebin_max = 100.0
+    try: 
+        ebin_num = nml["neu_param"]["neu_ebin_num"]
+    except:
+        raise Exception("neu_ebin_num is a required input to override default of 1.")
+    try: 
+        ebin_log = nml["neu_param"]["neu_ebin_log"]
+    except:
+        ebin_log = True
 
     spec = gen_problem_for_xgc(wall_material,ionmass)
 
@@ -58,7 +74,7 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
     if runtest:
         sgroup = source.Source(10000,"plate",spec,spec+"+",specify_flux=False,sourcefile="sourcefile.txt")
     else:
-        sgroup = source.Source(10000,"plt_e_bins",spec,spec+"+",specify_flux=False,sourcefile="sourcefile.txt")
+        sgroup = source.Source(10000,"plt_e_bins",spec,spec+"+",specify_flux=False,sourcefile="sourcefile.txt",e_bin_num=ebin_num,e_bin_max=ebin_max,e_bin_min=ebin_min,e_bin_log=ebin_log)
 
     source.write_db_input([sgroup])
     print("Running defineback...")
@@ -76,7 +92,7 @@ def gen_problem_for_xgc(wall_material,ionmass):
     elif np.abs(ionmass-2.0) < eps:
         spec = "D"
     else:
-        sys.error("ionmass = %f. Currently can only handle H or D main ions."%ionmass)
+        raise Exception("ionmass = %f. Currently can only handle H or D main ions."%ionmass)
 
     testSps = ["0",spec,spec+"2",spec+"2+"]
     backSps = ["e",spec+"+"]
@@ -95,7 +111,7 @@ def gen_problem_for_xgc(wall_material,ionmass):
         elif spec == "H":
             pmis = ["hdesorbLi","H_refl_svftrim_Li"]
     else:
-        sys.error("wall_material = %s. Currently can only handle mirror, C, or mo"%wall_material)
+        raise Exception("wall_material = %s. Currently can only handle mirror, C, or mo"%wall_material)
 
     problem.generateProblemInput(testSps,backSps,reactions,[wall_material],pmis)
     subprocess.run("problemsetup",shell=True)
