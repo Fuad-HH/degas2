@@ -16,7 +16,7 @@ import problem
 import source
 import subprocess
 
-def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=300.0,runtest=False,skipgeo=False,aux_thickness=0.005):
+def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=300.0,runtest=False,skipgeo=False,aux_thickness=0.002):
     """
     Given XGC inputs, constructs DEGAS2 datafiles in working directory.
     Requires the executables: problemsetup, definegeometry2d, defineback, tallysetup
