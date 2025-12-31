@@ -42,9 +42,13 @@ class Source:
             else:
                 self.e_bin_spacing = "linear"
 
-def write_db_input(source_groups,plasmafile="plasmafile.txt",filename="db.in"):
+def write_db_input(source_groups,plasmafile="plasmafile.txt",filename="db.in",init=False,t0=-1.0,tf=-1.0):
     Nsource=len(source_groups)
     f = open(filename,"w") 
+    if tf > 0:
+        if init:
+            f.write("time_initialization\n")
+        f.write("time_interval %8.3e %8.3e\n"%(t0,tf))
     f.write("plasma_file "+plasmafile+"\n")
     for i in range(0,Nsource):
         f.write("new_source_group\n")
