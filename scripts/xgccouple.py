@@ -66,6 +66,7 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
         g = dg2d.DG2D()
         g.define_mesh(rz,conn,progress=True)
         g.set_wallprops(walltemp=wall_temperature,Rcoeff=Rcoeff,material=wall_material)
+        g.write_polygonfile = False
         g.write_files(aux_thickness=aux_thickness)
         print("Running definegeometry2d...")
         subprocess.run("definegeometry2d dg2d.in",shell=True)
