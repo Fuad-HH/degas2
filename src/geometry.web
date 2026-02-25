@@ -201,6 +201,7 @@ universal cell.
      $     coeff[cy])+x[1]*(coeff[cxx]*x[1]+coeff[cx])+
      $     coeff[c0])
 @#endif
+
       return
       end
 @#endif
@@ -1064,7 +1065,6 @@ loop: continue
    Check for outgoing sector.
    This used to be inside the check on |type| below.
 */
-      
       count=surface_sectors[s_sign(k),s_count,abs(k)]
       if (count > 0) then
          start=surface_sectors[s_sign(k),s_start,abs(k)]
@@ -1083,7 +1083,7 @@ break1:  continue
          k1=surfaces_tx_ind[s_sign(k),t_surf,abs(k)]
          if (k1 != 0) then
             tx=surfaces_tx_ind[s_sign(k),t_mx,abs(k)]
-@#if 1
+@#if 0
             write(stderr,*) 'Surface tx: ',k,k1
             write(stderr,*) 'Old x,v: ',(x[i],i=1,3),(v1[i],i=1,3)
 @#endif
@@ -1095,7 +1095,7 @@ break1:  continue
             if (type != pt_ion) then
                vc_copy(v1,v)
             end if
-@#if 1
+@#if 0
             write(stderr,*) 'New x,v: ',(x[i],i=1,3),(v1[i],i=1,3)
 @#endif
             assert(in_surface(surface_info(k),x,.false.,zero))
@@ -1178,9 +1178,7 @@ the surface and return as |enter_face|.
                end if
             end if
          end do
-         if ( ns > 0 ) then
-          enter_face=ns
-         end if
+         if ( ns > 0 ) enter_face=ns
       end if
 
       return
