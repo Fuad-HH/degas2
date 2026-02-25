@@ -201,7 +201,6 @@ universal cell.
      $     coeff[cy])+x[1]*(coeff[cxx]*x[1]+coeff[cx])+
      $     coeff[c0])
 @#endif
-      write(*, *) 'surface_eval = ', surface_eval
       return
       end
 @#endif
@@ -358,7 +357,6 @@ on the surface.
       inside_cell=.false.
 
       dosurfaces(n)
-         write(*,*) 'checking face ', surf_list[n]
          if ( surface_eval_a(cell_surface_info_a(n),x) < zero )
      $        return
       end do
@@ -460,7 +458,6 @@ $$ \sigma_k f_k(\vect x) \ge 0 $$ is done on all the other surfaces.
                      cycle // even though it is inside the ghost cone, it is still outside the surface
                   end if
                end if
-               write(*,*) 'out of face ', surf_list[n]
                return
             end if
          end if
@@ -649,14 +646,10 @@ intersect the first face in its direction.
       real surface_intersection_direction
       logical in_surface
 @#endif
-      write(*,*) 'Find Intersection to face ', surface_args
-      write(*,*) 'Find Intersection at x0 and v ', x0[1],x0[3], v[1], v[3]
-      write(*,*) 'x0, v ', x0, v
 
 @#if PLANE_SURFACES
       a=zero
 @#else
-      write(*,*) 'coefficients = ', coeff
       a=sigma*
      $    (v[3]*(coeff[czz]*v[3]+coeff[cyz]*v[2]+
      $    coeff[cxz]*v[1])+v[2]*(coeff[cyy]*v[2]+
@@ -665,7 +658,6 @@ intersect the first face in its direction.
       call surface_gradient(surface_args,x0,temp)
       h=half*vc_product(temp,v)
       c=surface_eval_a(surface_args,x0)
-      write(*,*) 'a c h = ', a,c,h
 
 // the following check is not needed for one sided cones
 // because even if the point is inside the ghost cone, we still consider it outside
@@ -693,7 +685,6 @@ end if
 
       if ( a != zero ) then // Quadratic equation
          disc=h^2-a*c
-         write(*,*) 'discriminant = ', disc
          if ( disc <= zero ) then // No roots
             if ( a < zero ) then // but if on wrong side, return maximum
                surface_intersect = -h/a
@@ -709,8 +700,6 @@ end if
       else if ( h != zero ) then // Linear equation
          if ( h < zero ) surface_intersect = -c/(two*h)
       end if                    // else the equation is a constant
-
-      write(*,*) 'before cone checking, surface_intersect = ', surface_intersect
 
       // resolve for one sided cones
       if (surface_intersect < geom_infinity) then // got a potential intersection
@@ -924,10 +913,8 @@ $< 0$, it is taken as 0.
       cell_intersect=geom_infinity
 
       dofaces(n)
-         write(*,*) 'surface intersect ', surf_list[n], x0[1],x0[3], v[1],v[3]
          t=surface_intersect(cell_surface_info(n),x0,v)
          if ( t < cell_intersect ) then
-            write(*,*) 'intersected face ', surf_list[n], 't ', t, 'cell int ', cell_intersect
             cell_intersect = t
             ns = n
          end if
@@ -937,7 +924,6 @@ $< 0$, it is taken as 0.
       assert(cell_intersect < geom_infinity)
 
       exit_face = surf_list[ns]
-      write(*,*) 'cell_intersect found exitface ', exit_face
 
       return
       end
@@ -967,13 +953,11 @@ it does. Otherwise, a relaxed check is done for the same.
 
       n=surfaces[s_sign(face),s_count,abs(face)] // Number of cells
       s=surfaces[s_sign(face),s_start,abs(face)] // Starting index
-      write(*,*) 'n, s, s_sign, face ',n,s,s_sign(face),face
 
       if (n == 0) return        // Outermost surface
 
       do i=s,s+n-1              // Try with the strict conditions
          j=neighbors[i]         // Get cell number
-         write(*,*) 'cell j', j
          if ( j > 0 ) then      // Skip if it's the universe
             if (inside_cell_a(cell_info(j),face,x)) then
                new_cell = j
@@ -1058,25 +1042,17 @@ is exiting is given in |exit_face| and the new cell is given in |cell2|.
       sector2=0
 
 loop: continue
-      write(*,*) '=='
-      write(*,*) 'Track loop: cell = ', j, ' tmax = ', tmax, ' t1 = ', t1
       cell1 = j                 // Update cell
       tleft = tmax-t1
 /* Some things in |cell_intersect| and so forth choke on $|v1| \equiv 0$ */
       if (vc_abs(v1) > zero) then 
-         write(*,*) 'k, x, tleft', k, x, tleft
          dt = min(tleft,cell_intersect(cell_info(cell1),x,v1,k))
-         write(*,*) 'int k x dt ', k, x, dt
       else
          dt = tleft
       end if
       t1 = t1+dt
-      write(*,*), 'current x', x
       vc_xvt(x,v1,dt,x)       // Update position
-      write(*,*)  'new x', x
-      write(*,*), 'dt ', dt, ' tleft ', tleft
       if ( dt == tleft ) then  // We're done
-         write(*,*) 'Reached tmax'
          t = tmax               // Set |t| exactly to |tmax|
          exit_face = 0
          cell2 = j
@@ -1090,28 +1066,21 @@ loop: continue
 */
       
       count=surface_sectors[s_sign(k),s_count,abs(k)]
-      write(*,*) 'sector: surface, count , sign, ', k, count, s_sign(k)
       if (count > 0) then
          start=surface_sectors[s_sign(k),s_start,abs(k)]
-         write(*,*) 'surface_sectors start', start
          do i=0,count-1
-            write(*,*) 'cell zone, sector zone ', cells[c_zone,cell1], sector_zone[sectors[start+i]]
             if (cells[c_zone,cell1] == sector_zone[sectors[start+i]]) then
                sector1=sectors[start+i]
-               write(*,*) 'sector_surface[sector1], sector1, k', sector_surface[sector1], sector1, k
                assert(sector_surface[sector1] == k)
                goto break1
             end if
          end do
 break1:  continue
-      write(*,*) 'at break1'
       end if
       if (type != pt_geometry) then
-      write(*,*) 'not pt_geometry'
 
 /* Process the transformation */
          k1=surfaces_tx_ind[s_sign(k),t_surf,abs(k)]
-         write(*,*) 'k1 ', k1
          if (k1 != 0) then
             tx=surfaces_tx_ind[s_sign(k),t_mx,abs(k)]
 @#if 1
@@ -1134,7 +1103,6 @@ break1:  continue
 
       end if
 
-      write(*,*), 'getting next cell ', k, x
       j = new_cell(k,x) // Find next cell
       
 /* Check for incoming sector */
@@ -1195,12 +1163,10 @@ the surface and return as |enter_face|.
       cell_enter=geom_infinity
       ns=0
       if (inside_cell(cell_info(cell),x0)) then // Already inside the cell
-         write(*,*) 'already inside cell ', cell
          vc_scale(-one,v,v1)    // Reverse $\vect v$
          cell_enter = -cell_intersect(cell_info(cell),x0,v1,enter_face) // and call |cell_intersect|
       else                      // On boundary or outside cell
          do n=cells[c_start,cell],cells[c_start,cell]+cells[c_faces,cell]-1
-            write(*,*) 'checking entering cell ', cell
             if (inside_surface(surface_info(-boundaries[n]),x0)) then
                t=surface_intersect(surface_info(-boundaries[n]),x0,v)
                vc_xvt(x0,v,t,x)
@@ -1214,7 +1180,6 @@ the surface and return as |enter_face|.
          end do
          if ( ns > 0 ) then
           enter_face=ns
-          write(*,*) 'entering from face ', enter_face, ' from cell ', cell
          end if
       end if
 
@@ -1347,15 +1312,11 @@ cells, it checks that the cells are neighbors.
       logical sloppy_inside,face_in_cell,in_surface
       
       check_location=.false.
-      write(*,*) 'check_location: ', lc_x(x)
-      write(*,*) 'lc_cell, lc_zone, lc_face, lc_cell_next, lc_zone_next ', lc_cell(x), lc_zone(x), lc_face(x), lc_cell_next(x), lc_zone_next(x)
       
       if (lc_cell(x) <= 0 || lc_cell(x) > ncells) return
       if (lc_zone(x) <= 0) return
       if (lc_zone(x) != cells[c_zone,lc_cell(x)]) return
-      write(*,*) 'passed cell and zone checks'
       if (! sloppy_inside(cell_info(lc_cell(x)),lc_x(x)) ) return
-      write(*,*) 'passed sloppy_inside check'
       if (lc_face(x) != 0) then
          if (abs(lc_face(x)) > nsurfaces) return
          if (lc_cell_next(x) <= 0 || lc_cell(x) > ncells) return
