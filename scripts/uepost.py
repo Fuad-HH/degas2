@@ -119,14 +119,14 @@ def setup_case(c,casename,Ip):
 
     os.chdir("..")
 
-def loop_through(Ip):
+def loop_through(Ip,Nflight):
     os.chdir("Ip%3d"%int(Ip))
     dirs = glob("ML2d_*")
     Ndir = len(dirs)
-    common=CommonData(500,dirs[0][5:],Nflight=10000,Mx=14,My=12,Lx=18)
+    common=CommonData(Ip,dirs[0][5:],Nflight=Nflight,Mx=14,My=12,Lx=18)
 
 
     for i in tqdm(range(0,Ndir)):
-        setup_case(common,dirs[i][5:],500)
+        setup_case(common,dirs[i][5:],Ip)
         
     os.chdir("..")
