@@ -9,6 +9,7 @@ option(GRAPH_FILE "One of: SILO (default), HDF, or SILO_HDF5" SILO)
 option(USE_MPI "Whether to use MPI when compiling" ON)
 option(SILO_ENABLE_HDF5 "Whether SILO is compiled with HDF5. Off by default because multiple versions on cluster can conflict" OFF)
 option(NETCDF_DIR "Directory in which to look for NetCDF C and Fortran libraries")
+option(DEGAS2_ONE_SIDED_CONE "Enable support for one sided cones" OFF) 
 
 ########################################
 # Dependencies
@@ -93,6 +94,10 @@ endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
    list(APPEND TANGLEFLAGS -mDEBUG)
+endif()
+
+if (DEGAS2_ONE_SIDED_CONE)
+   list(APPEND TANGLEFLAGS -mONE_SIDED_CONE)
 endif()
 
 list(APPEND TANGLEFLAGS -mINLINE)
