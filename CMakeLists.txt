@@ -867,14 +867,15 @@ target_include_directories(defineback PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 # artifacts and are skipped since they cannot be installed on their own;
 # targets marked EXCLUDE_FROM_ALL (e.g. postdetector, allocate) are
 # skipped too, since "make install" would otherwise fail trying to
-# install a binary that was never built.
+# install a binary that was never built. degas2_xgc is installed
+# separately below, as part of the find_package(degas2) export set.
 get_property(DEGAS2_ALL_TARGETS DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
 set(DEGAS2_INSTALL_TARGETS)
 foreach(target ${DEGAS2_ALL_TARGETS})
    get_target_property(target_type ${target} TYPE)
    get_target_property(target_excluded ${target} EXCLUDE_FROM_ALL)
    if((target_type STREQUAL "EXECUTABLE" OR target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "STATIC_LIBRARY")
-         AND NOT target_excluded)
+         AND NOT target_excluded AND NOT target STREQUAL "degas2_xgc")
       list(APPEND DEGAS2_INSTALL_TARGETS ${target})
    endif()
 endforeach()
@@ -890,6 +891,45 @@ install(TARGETS ${DEGAS2_INSTALL_TARGETS}
 # so it is installed alongside the executables and libraries.
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/
    DESTINATION ${CMAKE_INSTALL_DATADIR}/degas2/data
+)
+
+########################################
+# find_package(degas2) support
+#
+# degas2_xgc is the piece downstream projects actually link against, so
+# it (alone, not the executables above) is installed as part of a CMake
+# export set. It is kept out of the bulk install(TARGETS) call above
+# because some of the other executables (geomtesta, definegeometry2d,
+# ucd_plot) have PUBLIC include directories pointing inside this source
+# tree (deps/silo/src/silo), which install(EXPORT) rejects as invalid
+# for an installed package; degas2_xgc's own PUBLIC include directories
+# only reference the external MPI installation, so it is safe to export.
+install(TARGETS degas2_xgc
+   EXPORT degas2Targets
+   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(EXPORT degas2Targets
+   FILE degas2Targets.cmake
+   NAMESPACE degas2::
+   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/degas2
+)
+
+# DEGAS2_DATA_DIR is exposed to downstream find_package(degas2) callers so
+# they can locate the installed data/ directory without hardcoding a path
+# relative to the degas2_xgc library or executables.
+include(CMakePackageConfigHelpers)
+set(DEGAS2_DATA_DIR ${CMAKE_INSTALL_DATADIR}/degas2/data)
+configure_package_config_file(
+   ${CMAKE_SOURCE_DIR}/cmake/degas2Config.cmake.in
+   ${CMAKE_CURRENT_BINARY_DIR}/degas2Config.cmake
+   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/degas2
+   PATH_VARS DEGAS2_DATA_DIR
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/degas2Config.cmake
+   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/degas2
 )
 
 # The Python helper modules are not a pip-installable package (no
