@@ -15,6 +15,7 @@ import f90nml
 import problem
 import source
 import subprocess
+import postprocess
 
 def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=300.0,runtest=False,skipgeo=False,aux_thickness=0.002):
     """
@@ -69,7 +70,7 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
         g.write_polygonfile = False
         g.write_files(aux_thickness=aux_thickness)
         print("Running definegeometry2d...")
-        subprocess.run("definegeometry2d dg2d.in",shell=True)
+        subprocess.run(d2_dir+"definegeometry2d dg2d.in",shell=True)
 
     write_dummy_bg_files_aux(Ntri,Nwall,Ntri+1)
     if runtest:
@@ -79,9 +80,9 @@ def setup_xgc_case(meshbase=None,d2_dir=None,wall_material="C",wall_temperature=
 
     source.write_db_input([sgroup])
     print("Running defineback...")
-    subprocess.run("defineback db.in",shell=True)
+    subprocess.run(d2_dir+"defineback db.in",shell=True)
 
-    subprocess.run("tallysetup")
+    subprocess.run(d2_dir+"tallysetup")
 
     print("Done.")
 
@@ -866,6 +867,23 @@ def write_dummy_bg_files_aux(nzone,nwall_input,stratum_start):
         f.write("%e "%(1e20))
         if ((i+1)%nperline == 0) and i != nwallsegs-1:
             f.write("\n")
+
+def get_xgc_energy_change():
+    # To define:
+    bk_nc = nc.Dataset("background.nc","r")
+    ne_zone = np.array(bk_nc["background_n"][:,0])
+    Te_zone_ev = np.array(bk_nc["background_temp"][:,0])/1.602e-19
+    Nzone = len(ne_zone)
+
+    nn = postprocess.get_output("neutral density")[0:Nzone,1]
+
+    E_iz = 30.0*1.602e-19
+
+    xgc_izrate = 0.8e-8*ne_zone*np.sqrt(Te_zone_ev)*(np.exp(-np.minimum(13.56/Te_zone_ev, 1.0e6))/(1.0 + 0.01*Te_zone_ev))*1.0e-6
+
+    return xgc_izrate*E_iz*nn
+
+
 
 
 
